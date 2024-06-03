@@ -64,6 +64,7 @@ type OnRamp struct {
 	// Static config can be cached, because it's never expected to change.
 	// The only way to change that is through the contract's constructor (redeployment)
 	cachedStaticConfig cache.OnceCtxFunction[evm_2_evm_onramp.EVM2EVMOnRampStaticConfig]
+	cachedRmnContract  cache.OnceCtxFunction[*arm_contract.ARMContract]
 }
 
 func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client) (*OnRamp, error) {
@@ -71,6 +72,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	if err != nil {
 		return nil, err
 	}
+
 	// Subscribe to the relevant logs
 	// Note we can keep the same prefix across 1.0/1.1 and 1.2 because the onramp addresses will be different
 	filters := []logpoller.Filter{
@@ -90,6 +92,15 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	cachedStaticConfig := cache.OnceCtxFunction[evm_2_evm_onramp.EVM2EVMOnRampStaticConfig](func(ctx context.Context) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error) {
 		return onRamp.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	})
+	cachedRmnContract := cache.OnceCtxFunction[*arm_contract.ARMContract](func(ctx context.Context) (*arm_contract.ARMContract, error) {
+		staticConfig, err := cachedStaticConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return arm_contract.NewARMContract(staticConfig.RmnProxy, source)
+	})
+
 	return &OnRamp{
 		lggr:                       lggr,
 		client:                     source,
@@ -106,7 +117,8 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 			[]common.Hash{ConfigSetEventSig},
 			onRampAddress,
 		),
-		cachedStaticConfig: cachedStaticConfig,
+		cachedStaticConfig: cache.CallOnceOnNoError(cachedStaticConfig),
+		cachedRmnContract:  cache.CallOnceOnNoError(cachedRmnContract),
 	}, nil
 }
 
@@ -191,14 +203,9 @@ func (o *OnRamp) IsSourceChainHealthy(context.Context) (bool, error) {
 }
 
 func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
-	staticConfig, err := o.cachedStaticConfig(ctx)
+	arm, err := o.cachedRmnContract(ctx)
 	if err != nil {
-		return false, err
-	}
-
-	arm, err := arm_contract.NewARMContract(staticConfig.RmnProxy, o.client)
-	if err != nil {
-		return false, fmt.Errorf("intializing RMN contract through the RmnProxy: %w", err)
+		return false, fmt.Errorf("initializing RMN contract through the RmnProxy: %w", err)
 	}
 
 	cursed, err := arm.IsCursed0(&bind.CallOpts{Context: ctx}, o.destChainSelectorBytes)
