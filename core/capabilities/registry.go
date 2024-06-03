@@ -147,7 +147,7 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 
 		// If the DON is nil this is a local capability and requires wrapping in a local target transmission capability
 		if capInfo.DON == nil {
-			c = transmission.NewLocalTargetCapability(r.peerID, r.don, c.(capabilities.TargetCapability))
+			c = transmission.NewLocalTargetCapability(r.lggr, r.peerID, r.don, c.(capabilities.TargetCapability))
 		}
 
 	default:
