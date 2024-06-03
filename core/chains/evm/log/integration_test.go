@@ -23,6 +23,7 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -81,7 +82,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
@@ -147,7 +148,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		FilterLogs:          2,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), nil)
 	helper.mockEth = mockEth
@@ -204,7 +205,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		blocks.LogOnBlockNum(7, contract.Address()),
 	}
 
-	mockEth := newMockEthClient(t, make(chan evmtest.RawSub[types.Log], 4), blockHeight, mockEthClientExpectedCalls{
+	mockEth := newMockEthClient(t, make(chan evmtestutils.RawSub[types.Log], 4), blockHeight, mockEthClientExpectedCalls{
 		FilterLogs:       4,
 		FilterLogsResult: sentLogs,
 	})
@@ -409,7 +410,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		FilterLogs:          backfillTimes,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].BlockBackfillSkip = ptr(true)
@@ -459,7 +460,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 		FilterLogs:          expectedBatches,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].LogBackfillBatchSize = ptr(uint32(batchSize))
@@ -532,7 +533,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		FilterLogsResult: backfilledLogs,
 	}
 
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, cltest.Head(lastStoredBlockHeight), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].LogBackfillBatchSize = ptr(batchSize)
@@ -1012,8 +1013,8 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		contract1 = newMockContract(t)
 		contract2 = newMockContract(t)
 	)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
-	chchRawLogs := make(chan evmtest.RawSub[types.Log], backfillTimes)
+	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
+	chchRawLogs := make(chan evmtestutils.RawSub[types.Log], backfillTimes)
 	chStarted := make(chan struct{})
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -1021,7 +1022,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				defer close(chStarted)
 				sub := mockEth.NewSub(t)
-				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				chchRawLogs <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
@@ -1034,7 +1035,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchRawLogs <- evmtest.NewRawSub(ch, sub.Err())
+				chchRawLogs <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
@@ -1530,14 +1531,14 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewWithT(t)
 
 	ethClient := evmclimocks.NewClient(t)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
-	logsChCh := make(chan evmtest.RawSub[types.Log])
+	logsChCh := make(chan evmtestutils.RawSub[types.Log])
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				logsChCh <- evmtest.NewRawSub(ch, sub.Err())
+				logsChCh <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) error {
