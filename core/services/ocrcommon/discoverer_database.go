@@ -55,7 +55,7 @@ updated_at = EXCLUDED.updated_at
 ;`, d.tableName)
 
 	_, err := d.ds.ExecContext(ctx,
-		q, d.tableName, d.peerID, peerID, ann)
+		q, d.peerID, peerID, ann)
 	return errors.Wrap(err, "DiscovererDatabase failed to StoreAnnouncement")
 }
 

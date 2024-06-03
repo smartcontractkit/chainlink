@@ -3,6 +3,7 @@ package ocrcommon_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"fmt"
 	"testing"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -21,66 +22,87 @@ func Test_DiscovererDatabase(t *testing.T) {
 	localPeerID1 := mustRandomP2PPeerID(t)
 	localPeerID2 := mustRandomP2PPeerID(t)
 
-	dd1 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
-	dd2 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID2.Raw())
+	type test struct {
+		name string
+		dd1  *ocrcommon.DiscovererDatabase
+		dd2  *ocrcommon.DiscovererDatabase
+	}
 
-	ctx := testutils.Context(t)
+	tests := []test{
+		{
+			name: "ocr discoverer database",
+			dd1:  ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw()),
+			dd2:  ocrcommon.NewOCRDiscovererDatabase(db, localPeerID2.Raw()),
+		},
+		{
+			name: "don2don discoverer database",
+			dd1:  ocrcommon.NewDON2DONDiscovererDatabase(db, localPeerID1.Raw()),
+			dd2:  ocrcommon.NewDON2DONDiscovererDatabase(db, localPeerID2.Raw()),
+		},
+	}
 
-	t.Run("StoreAnnouncement writes a value", func(t *testing.T) {
-		ann := []byte{1, 2, 3}
-		err := dd1.StoreAnnouncement(ctx, "remote1", ann)
-		assert.NoError(t, err)
+	for _, tt := range tests {
+		dd1 := tt.dd1
+		dd2 := tt.dd2
 
-		// test upsert
-		ann = []byte{4, 5, 6}
-		err = dd1.StoreAnnouncement(ctx, "remote1", ann)
-		assert.NoError(t, err)
+		ctx := testutils.Context(t)
 
-		// write a different value
-		ann = []byte{7, 8, 9}
-		err = dd1.StoreAnnouncement(ctx, "remote2", ann)
-		assert.NoError(t, err)
-	})
+		t.Run(fmt.Sprintf("%s StoreAnnouncement writes a value", tt.name), func(t *testing.T) {
+			ann := []byte{1, 2, 3}
+			err := dd1.StoreAnnouncement(ctx, "remote1", ann)
+			assert.NoError(t, err)
 
-	t.Run("ReadAnnouncements reads values filtered by given peerIDs", func(t *testing.T) {
-		announcements, err := dd1.ReadAnnouncements(ctx, []string{"remote1", "remote2"})
-		require.NoError(t, err)
+			// test upsert
+			ann = []byte{4, 5, 6}
+			err = dd1.StoreAnnouncement(ctx, "remote1", ann)
+			assert.NoError(t, err)
 
-		assert.Len(t, announcements, 2)
-		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
-		assert.Equal(t, []byte{7, 8, 9}, announcements["remote2"])
+			// write a different value
+			ann = []byte{7, 8, 9}
+			err = dd1.StoreAnnouncement(ctx, "remote2", ann)
+			assert.NoError(t, err)
+		})
 
-		announcements, err = dd1.ReadAnnouncements(ctx, []string{"remote1"})
-		require.NoError(t, err)
+		t.Run(fmt.Sprintf("%s ReadAnnouncements reads values filtered by given peerIDs", tt.name), func(t *testing.T) {
+			announcements, err := dd1.ReadAnnouncements(ctx, []string{"remote1", "remote2"})
+			require.NoError(t, err)
 
-		assert.Len(t, announcements, 1)
-		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
-	})
+			assert.Len(t, announcements, 2)
+			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
+			assert.Equal(t, []byte{7, 8, 9}, announcements["remote2"])
 
-	t.Run("is scoped to local peer ID", func(t *testing.T) {
-		ann := []byte{10, 11, 12}
-		err := dd2.StoreAnnouncement(ctx, "remote1", ann)
-		assert.NoError(t, err)
+			announcements, err = dd1.ReadAnnouncements(ctx, []string{"remote1"})
+			require.NoError(t, err)
 
-		announcements, err := dd2.ReadAnnouncements(ctx, []string{"remote1"})
-		require.NoError(t, err)
-		assert.Len(t, announcements, 1)
-		assert.Equal(t, []byte{10, 11, 12}, announcements["remote1"])
+			assert.Len(t, announcements, 1)
+			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
+		})
 
-		announcements, err = dd1.ReadAnnouncements(ctx, []string{"remote1"})
-		require.NoError(t, err)
-		assert.Len(t, announcements, 1)
-		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
-	})
+		t.Run(fmt.Sprintf("%s is scoped to local peer ID", tt.name), func(t *testing.T) {
+			ann := []byte{10, 11, 12}
+			err := dd2.StoreAnnouncement(ctx, "remote1", ann)
+			assert.NoError(t, err)
 
-	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
+			announcements, err := dd2.ReadAnnouncements(ctx, []string{"remote1"})
+			require.NoError(t, err)
+			assert.Len(t, announcements, 1)
+			assert.Equal(t, []byte{10, 11, 12}, announcements["remote1"])
 
-		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
-		require.NoError(t, err)
-		assert.Len(t, announcements, 1)
-		assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
-	})
+			announcements, err = dd1.ReadAnnouncements(ctx, []string{"remote1"})
+			require.NoError(t, err)
+			assert.Len(t, announcements, 1)
+			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
+		})
+
+		t.Run(fmt.Sprintf("%s persists data across restarts", tt.name), func(t *testing.T) {
+			dd3 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
+
+			announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
+			require.NoError(t, err)
+			assert.Len(t, announcements, 1)
+			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
+		})
+	}
 }
 
 func mustRandomP2PPeerID(t *testing.T) p2pkey.PeerID {
