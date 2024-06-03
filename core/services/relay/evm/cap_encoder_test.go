@@ -38,9 +38,8 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -77,10 +76,9 @@ func TestEVMEncoder_TwoFields(t *testing.T) {
 
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	input := map[string]any{
-		"Prices":                            []any{big.NewInt(234), big.NewInt(456)},
-		"Timestamps":                        []any{int64(111), int64(222)},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Prices":                         []any{big.NewInt(234), big.NewInt(456)},
+		"Timestamps":                     []any{int64(111), int64(222)},
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -121,8 +119,7 @@ func TestEVMEncoder_Tuple(t *testing.T) {
 			"Prices":     []any{big.NewInt(234), big.NewInt(456)},
 			"Timestamps": []any{int64(111), int64(222)},
 		},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -170,8 +167,7 @@ func TestEVMEncoder_ListOfTuples(t *testing.T) {
 				"Timestamp": int64(222),
 			},
 		},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -207,9 +203,8 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	// using an invalid ID
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  invalidID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(invalidID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -218,12 +213,20 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 
 	// using valid hex string of wrong length
 	input = map[string]any{
-		"full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  wrongLength,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(wrongLength),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
 	_, err = enc.Encode(testutils.Context(t), *wrapped)
 	assert.ErrorContains(t, err, "incorrect length for id")
+}
+
+func getMetadata(cid string) consensustypes.Metadata {
+	return consensustypes.Metadata{
+		WorkflowID:    cid,
+		DONID:         donID,
+		ExecutionID:   executionID,
+		WorkflowOwner: workflowOwnerID,
+	}
 }

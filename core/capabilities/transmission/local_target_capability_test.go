@@ -1,6 +1,7 @@
-package workflows
+package transmission
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"testing"
@@ -25,6 +26,8 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	var gotTime time.Time
 	var called bool
 
+	log := logger.TestLogger(t)
+
 	// Our capability has DONInfo == nil, so we'll treat it as a local
 	// capability and use the local DON Info to determine the transmission
 	// schedule.
@@ -34,7 +37,6 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			gotTime = time.Now()
@@ -42,8 +44,6 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			return capabilities.CapabilityResponse{}, nil
 		},
 	)
-
-	l := logger.TestLogger(t)
 
 	// The combination of this key and the metadata above
 	// will yield the permutation [3, 2, 0, 1]
@@ -139,19 +139,17 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 				randKey(),
 				randKey(),
 			}
-			don := &capabilities.DON{
+			don := capabilities.DON{
 				Members: ids,
 				Config: capabilities.DONConfig{
 					SharedSecret: [16]byte(key),
 				},
 			}
 			peerID := ids[tc.position]
-			de := scheduledExecution{
-				DON:      don,
-				PeerID:   &peerID,
-				Position: tc.position,
-			}
-			_, err = de.Apply(tests.Context(t), l, mt, req)
+			localTargetCapability := NewLocalTargetCapability(log, peerID, don, mt)
+
+			_, err = localTargetCapability.Execute(tests.Context(t), req)
+
 			require.NoError(t, err)
 			require.True(t, called)
 
@@ -167,4 +165,41 @@ func randKey() [32]byte {
 		panic(err)
 	}
 	return [32]byte(key)
+}
+
+type mockCapability struct {
+	capabilities.CapabilityInfo
+	capabilities.CallbackExecutable
+	response  chan capabilities.CapabilityResponse
+	transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)
+}
+
+func newMockCapability(info capabilities.CapabilityInfo, transform func(capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error)) *mockCapability {
+	return &mockCapability{
+		transform:      transform,
+		CapabilityInfo: info,
+		response:       make(chan capabilities.CapabilityResponse, 10),
+	}
+}
+
+func (m *mockCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	cr, err := m.transform(req)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(chan capabilities.CapabilityResponse, 10)
+
+	m.response <- cr
+	ch <- cr
+	close(ch)
+	return ch, nil
+}
+
+func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return nil
+}
+
+func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return nil
 }

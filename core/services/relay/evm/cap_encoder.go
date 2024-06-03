@@ -68,48 +68,57 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	// prepend workflowID and workflowExecutionID to the encoded user data
-	workflowIDbytes, donIDBytes, executionIDBytes, workflowOwnerBytes, err := extractIDs(unwrappedMap)
+
+	metaMap, ok := input.Underlying[consensustypes.MetadataFieldName]
+	if !ok {
+		return nil, fmt.Errorf("expected metadata field to be present: %s", consensustypes.MetadataFieldName)
+	}
+
+	var meta consensustypes.Metadata
+	err = metaMap.UnwrapTo(&meta)
 	if err != nil {
 		return nil, err
 	}
-	return append(append(append(append(workflowIDbytes, donIDBytes...), executionIDBytes...), workflowOwnerBytes...), userPayload...), nil
+
+	return prependMetadataFields(meta, userPayload)
 }
 
-func decodeID(input map[string]any, key string, idLen int) ([]byte, error) {
-	id, ok := input[key].(string)
-	if !ok {
-		return nil, fmt.Errorf("expected %s to be a string", key)
+func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
+	// TODO: use all 7 fields from Metadata struct
+	result := []byte{}
+	workflowID, err := decodeID(meta.WorkflowID, idLen)
+	if err != nil {
+		return nil, err
 	}
+	result = append(result, workflowID...)
 
+	donID, err := decodeID(meta.DONID, 4)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, donID...)
+
+	executionID, err := decodeID(meta.ExecutionID, idLen)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, executionID...)
+
+	workflowOwner, err := decodeID(meta.WorkflowOwner, 20)
+	if err != nil {
+		return nil, err
+	}
+	result = append(result, workflowOwner...)
+	return append(result, userPayload...), nil
+}
+
+func decodeID(id string, expectedLen int) ([]byte, error) {
 	b, err := hex.DecodeString(id)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(b) != idLen {
-		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, idLen, len(b))
+	if len(b) != expectedLen {
+		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, expectedLen, len(b))
 	}
-
 	return b, nil
-}
-
-// extract workflowID and executionID from the input map, validate and align to 32 bytes
-// NOTE: consider requiring them to be exactly 32 bytes to avoid issues with padding
-func extractIDs(input map[string]any) ([]byte, []byte, []byte, []byte, error) {
-	workflowID, err := decodeID(input, consensustypes.WorkflowIDFieldName, idLen)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	// TODO: source donID and workflowOwner from somewhere
-	donID := []byte{0, 1, 2, 3}
-	workflowOwner := make([]byte, 20)
-
-	executionID, err := decodeID(input, consensustypes.ExecutionIDFieldName, idLen)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	return workflowID, donID, executionID, workflowOwner, nil
 }

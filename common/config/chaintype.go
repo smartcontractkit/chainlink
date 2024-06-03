@@ -47,7 +47,7 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainArbitrum
 	case "celo":
 		return ChainCelo
-	case "gnosis", "xdai":
+	case "gnosis":
 		return ChainGnosis
 	case "kroma":
 		return ChainKroma
