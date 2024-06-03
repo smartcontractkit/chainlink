@@ -12,6 +12,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commoncapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -296,7 +298,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
 			DS:                   db,
 			CSAETHKeystore:       keyStore,
-			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr, p2ptypes.PeerID{}, commoncapabilities.DON{}),
 		})
 		assert.NoError(t, err)
 
@@ -314,7 +316,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
+			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr, p2ptypes.PeerID{}, commoncapabilities.DON{}))
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{

@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -71,7 +72,7 @@ func TestEvmWrite(t *testing.T) {
 	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
 		CSAETHKeystore:       keyStore,
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr),
+		CapabilitiesRegistry: evmcapabilities.NewRegistry(lggr, p2ptypes.PeerID{}, capabilities.DON{}),
 	})
 	require.NoError(t, err)
 
