@@ -181,11 +181,11 @@ type JobPipelineConfig interface {
 	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
-	jrm := job.NewORM(db, prm, btORM, keyStore, lggr, dbCfg)
+	jrm := job.NewORM(db, prm, btORM, keyStore, lggr)
 	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
@@ -323,6 +323,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
+	ds := sqlutil.WrapDataSource(db, lggr, sqlutil.TimeoutHook(cfg.Database().DefaultQueryTimeout))
+
 	var ethClient evmclient.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
@@ -337,13 +339,12 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg.Database())
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(ds, clhttptest.NewTestLocalOnlyHTTPClient())
 			}
-
 		}
 	}
 
-	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
+	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
 	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
@@ -365,10 +366,10 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ChainOpts: legacyevm.ChainOpts{
 			AppConfig: cfg,
 			MailMon:   mailMon,
-			SqlxDB:    db,
-			DB:        db,
+			DS:        ds,
 		},
-		CSAETHKeystore: keyStore,
+		CSAETHKeystore:     keyStore,
+		MercuryTransmitter: cfg.Mercury().Transmitter(),
 	}
 
 	if cfg.EVMEnabled() {
@@ -392,8 +393,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		cosmosCfg := chainlink.CosmosFactoryConfig{
 			Keystore:    keyStore.Cosmos(),
 			TOMLConfigs: cfg.CosmosConfigs(),
-			DB:          db,
-			QConfig:     cfg.Database(),
+			DS:          ds,
 		}
 		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
@@ -410,7 +410,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
-
 	}
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -420,8 +419,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                     cfg,
 		MailMon:                    mailMon,
-		SqlxDB:                     db,
-		DB:                         db,
+		DS:                         ds,
 		KeyStore:                   keyStore,
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,
@@ -569,9 +567,10 @@ func (ta *TestApplication) Stop() error {
 }
 
 func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
+	ctx := testutils.Context(ta.t)
 	session := NewSession()
 	ta.Logger.Infof("TestApplication creating session (id: %s, email: %s, last used: %s)", session.ID, email, session.LastUsed.String())
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, email, session.LastUsed)
+	err := ta.GetDB().GetContext(ctx, &id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, email, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }
@@ -903,13 +902,14 @@ const (
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job.SpecError {
+func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count int) []job.SpecError {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	g := gomega.NewWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
-		err := db.Select(&jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
+		err := ds.SelectContext(ctx, &jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
 	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
@@ -930,7 +930,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 	var pr []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
+		prs, _, err := jo.PipelineRuns(testutils.Context(t), &jobID, 0, 1000)
 		require.NoError(t, err)
 
 		var matched []pipeline.Run
@@ -964,13 +964,14 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 }
 
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
-func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, want int) []pipeline.Run {
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db sqlutil.DataSource, want int) []pipeline.Run {
 	t.Helper()
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
-		err := db.Select(&prs, `SELECT * FROM pipeline_runs WHERE pipeline_spec_id = $1`, pipelineSpecID)
+		err := db.SelectContext(ctx, &prs, `SELECT * FROM pipeline_runs WHERE pipeline_spec_id = $1`, pipelineSpecID)
 		assert.NoError(t, err)
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -990,7 +991,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 	return txaIds
 }
 
-// Head given the value convert it into an Head
+// Head given the value convert it into a Head
 func Head(val interface{}) *evmtypes.Head {
 	var h evmtypes.Head
 	time := uint64(0)
@@ -1014,7 +1015,6 @@ func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	time := uint64(0)
 	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
 	return &h
-
 }
 
 // LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
@@ -1026,20 +1026,6 @@ func LegacyTransactionsFromGasPricesTxType(code evmtypes.TxType, gasPrices ...in
 	txs := make([]evmtypes.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
 		txs[i] = evmtypes.Transaction{Type: code, GasPrice: assets.NewWeiI(gasPrice), GasLimit: 42}
-	}
-	return txs
-}
-
-// DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
-// given TipCaps (FeeCap is arbitrary)
-func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []evmtypes.Transaction {
-	return DynamicFeeTransactionsFromTipCapsTxType(0x02, tipCaps...)
-}
-
-func DynamicFeeTransactionsFromTipCapsTxType(code evmtypes.TxType, tipCaps ...int64) []evmtypes.Transaction {
-	txs := make([]evmtypes.Transaction, len(tipCaps))
-	for i, tipCap := range tipCaps {
-		txs[i] = evmtypes.Transaction{Type: code, MaxPriorityFeePerGas: assets.NewWeiI(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }
@@ -1161,11 +1147,12 @@ func NewSession(optionalSessionID ...string) clsessions.Session {
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, db *sqlx.DB) []bridges.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, ds sqlutil.DataSource) []bridges.ExternalInitiator {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	var all []bridges.ExternalInitiator
-	err := db.Select(&all, `SELECT * FROM external_initiators`)
+	err := ds.SelectContext(ctx, &all, `SELECT * FROM external_initiators`)
 	require.NoError(t, err)
 	return all
 }
@@ -1202,27 +1189,6 @@ func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	case <-a:
 	case <-time.After(duration):
 		t.Fatal("Timed out waiting for Awaiter to get ItHappened")
-	}
-}
-
-func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
-	t.Helper()
-
-	duration := 100 * time.Millisecond
-	if len(durationParams) > 0 {
-		duration = durationParams[0]
-	}
-
-	done := make(chan struct{})
-	go func() {
-		callback()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(duration):
-		t.Fatalf("CallbackOrTimeout: %s timed out", msg)
 	}
 }
 
@@ -1493,35 +1459,38 @@ func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected
 	testutils.AssertCount(t, ds, tableName, expected)
 }
 
-func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
+func WaitForCount(t *testing.T, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
-		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
+func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
+		err = ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt string, check func() bool) {
+func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model interface{}, stmt string, check func() bool) {
 	t.Helper()
+	ctx := testutils.Context(t)
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
-		err := db.Get(model, stmt)
+		err := ds.GetContext(ctx, model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, testutils.WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())

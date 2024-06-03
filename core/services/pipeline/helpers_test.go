@@ -1,11 +1,11 @@
 package pipeline
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 )
@@ -65,4 +65,4 @@ func (t *ETHTxTask) HelperSetDependencies(legacyChains legacyevm.LegacyChainCont
 	t.jobType = jobType
 }
 
-func (o *orm) Prune(ds sqlutil.DataSource, pipelineSpecID int32) { o.prune(ds, pipelineSpecID) }
+func (o *orm) Prune(ctx context.Context, pipelineSpecID int32) { o.prune(ctx, o.ds, pipelineSpecID) }

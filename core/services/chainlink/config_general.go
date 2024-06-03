@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -135,7 +135,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := utils.MultiErrorList(o.Config.warnings())
+	_, warning := commonconfig.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -201,7 +201,7 @@ func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
+func (g *generalConfig) SolanaConfigs() solcfg.TOMLConfigs {
 	return g.c.Solana
 }
 
@@ -220,7 +220,7 @@ func (g *generalConfig) validate(secretsValidationFn func() error) error {
 		secretsValidationFn(),
 	)
 
-	_, errList := utils.MultiErrorList(err)
+	_, errList := commonconfig.MultiErrorList(err)
 	return errList
 }
 
@@ -235,7 +235,7 @@ var emptyStringsEnv string
 func validateEnv() (err error) {
 	defer func() {
 		if err != nil {
-			_, err = utils.MultiErrorList(err)
+			_, err = commonconfig.MultiErrorList(err)
 			err = fmt.Errorf("invalid environment: %w", err)
 		}
 	}()

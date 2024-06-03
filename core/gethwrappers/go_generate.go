@@ -48,6 +48,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistry2_3/AutomationRegistry2_3.bin AutomationRegistry automation_registry_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicA2_3/AutomationRegistryLogicA2_3.bin AutomationRegistryLogicA automation_registry_logic_a_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicB2_3/AutomationRegistryLogicB2_3.bin AutomationRegistryLogicB automation_registry_logic_b_wrapper_2_3
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationRegistryLogicC2_3/AutomationRegistryLogicC2_3.abi ../../contracts/solc/v0.8.19/AutomationRegistryLogicC2_3/AutomationRegistryLogicC2_3.bin AutomationRegistryLogicC automation_registry_logic_c_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster2_3.abi ../../contracts/solc/v0.8.19/IAutomationRegistryMaster2_3/IAutomationRegistryMaster2_3.bin IAutomationRegistryMaster2_3 i_automation_registry_master_wrapper_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.abi ../../contracts/solc/v0.8.19/AutomationUtils2_3/AutomationUtils2_3.bin AutomationUtils automation_utils_2_3
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin ArbitrumModule arbitrum_module
@@ -144,7 +145,7 @@ package gethwrappers
 // Log tester
 
 // ChainReader test contract
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.abi ../../contracts/solc/v0.8.19/ChainReaderTestContract/LatestValueHolder.bin LatestValueHolder chain_reader_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.abi ../../contracts/solc/v0.8.19/ChainReaderTester/ChainReaderTester.bin ChainReaderTester chain_reader_tester
 
 // Chainlink Functions
 //go:generate go generate ./functions
@@ -154,6 +155,9 @@ package gethwrappers
 
 // Mercury
 //go:generate go generate ./llo-feeds
+
+// Operator Forwarder
+//go:generate go generate ./operatorforwarder
 
 // Shared
 //go:generate go generate ./shared

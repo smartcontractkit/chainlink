@@ -12,10 +12,10 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -38,8 +38,9 @@ type chainClient struct {
 		RPCClient,
 		rpc.BatchElem,
 	]
-	logger    logger.SugaredLogger
-	chainType config.ChainType
+	logger       logger.SugaredLogger
+	chainType    config.ChainType
+	clientErrors evmconfig.ClientErrors
 }
 
 func NewChainClient(
@@ -51,6 +52,7 @@ func NewChainClient(
 	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
+	clientErrors evmconfig.ClientErrors,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -63,13 +65,14 @@ func NewChainClient(
 		chainType,
 		"EVM",
 		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-			return ClassifySendError(err, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
+			return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
 	)
 	return &chainClient{
-		multiNode: multiNode,
-		logger:    logger.Sugared(lggr),
+		multiNode:    multiNode,
+		logger:       logger.Sugared(lggr),
+		clientErrors: clientErrors,
 	}
 }
 
@@ -208,7 +211,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	returnCode := ClassifySendError(err, c.logger, tx, fromAddress, c.IsL2())
+	returnCode := ClassifySendError(err, c.clientErrors, c.logger, tx, fromAddress, c.IsL2())
 	return returnCode, err
 }
 

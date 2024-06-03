@@ -80,7 +80,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore := mocks.KVStore{}
 		mockKVStore.On("Store", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(nil, nil)
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Second * 2)})
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Second * 2)})
 		require.NoError(t, err)
 		servicetest.Run(t, dsCache)
 
@@ -114,7 +114,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(result, nil)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 		servicetest.Run(t, dsCache)
@@ -133,7 +133,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockKVStore.On("Get", mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 		// set updater to a long time so that it doesn't log errors after the test is done
-		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
+		dsCache, err := ocrcommon.NewInMemoryDataSourceCache(ds, &mockKVStore, &config.JuelsPerFeeCoinCache{UpdateInterval: models.Interval(time.Hour * 100)})
 		require.NoError(t, err)
 		changeResultValue(runner, "-1", true, false)
 		servicetest.Run(t, dsCache)
@@ -190,7 +190,6 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	assert.Equal(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues))
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJsonParseValues))
-
 }
 
 type mockSaver struct {

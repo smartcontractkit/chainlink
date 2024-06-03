@@ -1,12 +1,11 @@
 name: CI Scripts
 
 on:
-  push:
+  merge_group:
   pull_request:
 
 jobs:
   lint-scripts:
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -23,7 +22,6 @@ jobs:
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
 
   test-scripts:
-    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -39,7 +37,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ci-test-scripts
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

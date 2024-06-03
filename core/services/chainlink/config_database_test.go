@@ -14,6 +14,8 @@ import (
 func TestDatabaseConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
 		ConfigStrings: []string{fullTOML},
+		SecretsStrings: []string{`[Database]
+URL = "postgresql://doesnotexist:justtopassvalidationtests@localhost:5432/chainlink_na_test"`},
 	}
 	cfg, err := opts.New()
 	require.NoError(t, err)

@@ -4,6 +4,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,19 +14,23 @@ import (
 )
 
 // The PluginConfig struct contains the custom arguments needed for the Median plugin.
+// To avoid a catastrophic libocr codec error, you must make sure that either all nodes in the same DON
+// (1) have no GasPriceSubunitsPipeline or all nodes in the same DON (2) have a GasPriceSubunitsPipeline
 type PluginConfig struct {
-	JuelsPerFeeCoinPipeline string `json:"juelsPerFeeCoinSource"`
+	GasPriceSubunitsPipeline string `json:"gasPriceSubunitsSource"`
+	JuelsPerFeeCoinPipeline  string `json:"juelsPerFeeCoinSource"`
 	// JuelsPerFeeCoinCache is disabled when nil
 	JuelsPerFeeCoinCache *JuelsPerFeeCoinCache `json:"juelsPerFeeCoinCache"`
 }
 
 type JuelsPerFeeCoinCache struct {
+	Disable                 bool            `json:"disable"`
 	UpdateInterval          models.Interval `json:"updateInterval"`
 	StalenessAlertThreshold models.Interval `json:"stalenessAlertThreshold"`
 }
 
 // ValidatePluginConfig validates the arguments for the Median plugin.
-func ValidatePluginConfig(config PluginConfig) error {
+func (config *PluginConfig) ValidatePluginConfig() error {
 	if _, err := pipeline.Parse(config.JuelsPerFeeCoinPipeline); err != nil {
 		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
@@ -40,5 +45,16 @@ func ValidatePluginConfig(config PluginConfig) error {
 		}
 	}
 
+	// Gas price pipeline is optional
+	if !config.HasGasPriceSubunitsPipeline() {
+		return nil
+	} else if _, err := pipeline.Parse(config.GasPriceSubunitsPipeline); err != nil {
+		return errors.Wrap(err, "invalid gasPriceSubunitsSource pipeline")
+	}
+
 	return nil
+}
+
+func (config *PluginConfig) HasGasPriceSubunitsPipeline() bool {
+	return strings.TrimSpace(config.GasPriceSubunitsPipeline) != ""
 }

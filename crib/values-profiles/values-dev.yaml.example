@@ -1,0 +1,95 @@
+# Disable geth if using existing testnets.
+geth:
+  enabled: false
+chainlink:
+  global:
+    toml: |-
+      RootDir = './clroot'
+      [Log]
+      JSONConsole = true
+      Level = 'debug'
+      [WebServer]
+      AllowOrigins = '*'
+      SecureCookies = false
+      SessionTimeout = '999h0m0s'
+      [Feature]
+      FeedsManager = true
+      LogPoller = true
+      UICSAKeys = true
+      [OCR]
+      Enabled = true
+      DefaultTransactionQueueDepth = 0
+      [P2P]
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:6690']
+      AnnounceAddresses = ['0.0.0.0:6690']
+      DeltaDial = '500ms'
+      DeltaReconcile = '5s'
+      [[EVM]]
+      # Avax Fuji Testnet
+      ChainID = "43113"
+      MinContractPayment = '0'
+      AutoCreateKey = true
+      FinalityDepth = 1
+      [[EVM.Nodes]]
+      Name = 'avax-fuji-testnet-official'
+      WSURL = 'wss://api.avax-test.network/ext/bc/C/ws'
+      HTTPURL = 'https://api.avax-test.network/ext/bc/C/rpc'
+      [[EVM]]
+      # BSC Testnet
+      ChainID = "97"
+      MinContractPayment = '0'
+      AutoCreateKey = true
+      FinalityDepth = 1
+      [[EVM.Nodes]]
+      Name = 'bsc-testnet-official'
+      HTTPURL = 'https://data-seed-prebsc-1-s.bnbchain.org:8545'
+      WSURL = 'wss://data-seed-prebsc-1-s1.binance.org:8545/'
+      [WebServer.TLS]
+      HTTPSPort = 0
+
+    overridesToml: |-
+      [Feature]
+      LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+      [Log.File]
+      MaxSize = '0b'
+
+      [WebServer]
+      AllowOrigins = '*'
+      HTTPPort = 6688
+      SecureCookies = false
+      HTTPWriteTimeout = '1m'
+
+      [WebServer.RateLimit]
+      Authenticated = 2000
+      Unauthenticated = 1000
+
+      [WebServer.TLS]
+      HTTPSPort = 0
+
+      [Database]
+      MaxIdleConns = 50
+      MaxOpenConns = 50
+      MigrateOnStartup = true
+
+      [OCR2]
+      Enabled = true
+      DefaultTransactionQueueDepth = 0
+
+      [OCR]
+      Enabled = false
+      DefaultTransactionQueueDepth = 0
+
+      [P2P]
+      [P2P.V2]
+      Enabled = true
+      ListenAddresses = ['0.0.0.0:6690']
+      AnnounceAddresses = ['0.0.0.0:6690']
+      DeltaDial = '500ms'
+      DeltaReconcile = '5s'

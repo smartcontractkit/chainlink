@@ -128,7 +128,7 @@ func (e *EVMConfig) ChainType() commonconfig.ChainType {
 	if e.C.ChainType == nil {
 		return ""
 	}
-	return commonconfig.ChainType(*e.C.ChainType)
+	return e.C.ChainType.ChainType()
 }
 
 func (e *EVMConfig) ChainID() *big.Int {
@@ -141,6 +141,10 @@ func (e *EVMConfig) MinIncomingConfirmations() uint32 {
 
 func (e *EVMConfig) NodePool() NodePool {
 	return &NodePoolConfig{C: e.C.NodePool}
+}
+
+func (e *EVMConfig) ClientErrors() ClientErrors {
+	return &clientErrorsConfig{c: e.C.NodePool.Errors}
 }
 
 func (e *EVMConfig) NodeNoNewHeadsThreshold() time.Duration {

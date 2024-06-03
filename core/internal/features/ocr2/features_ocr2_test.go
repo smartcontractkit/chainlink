@@ -309,8 +309,9 @@ fromBlock = %d
 				}))
 				t.Cleanup(servers[s].Close)
 				u, _ := url.Parse(servers[i].URL)
+				bridgeName := fmt.Sprintf("bridge%d", i)
 				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
-					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
+					Name: bridges.BridgeName(bridgeName),
 					URL:  models.WebURL(*u),
 				}))
 
@@ -488,9 +489,15 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+gasPriceSource = """
+		// data source
+		dsp          [type=bridge name="%s"];
+		dsp_parse    [type=jsonparse path="data"];
+		dsp -> dsp_parse;
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i), nil)
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], bridgeName, i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, bridgeName, i, slowServers[i].URL, i, bridgeName), nil)
 				require.NoError(t, err)
 				err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 				require.NoError(t, err)
@@ -519,6 +526,7 @@ updateInterval = "1m"
 				}
 			}()
 
+			ctx := testutils.Context(t)
 			for trial := 0; trial < 2; trial++ {
 				var retVal int
 
@@ -537,7 +545,7 @@ updateInterval = "1m"
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
-						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(jids[ic], 0, 1000)
+						completedRuns, err2 := apps[ic].JobORM().FindPipelineRunIDsByJobID(ctx, jids[ic], 0, 1000)
 						require.NoError(t, err2)
 						// Want at least 2 runs so we see all the metadata.
 						pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], len(completedRuns)+2, 7, apps[ic].JobORM(), 2*time.Minute, 5*time.Second)
@@ -558,7 +566,7 @@ updateInterval = "1m"
 				}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal(fmt.Sprintf("%d", 2*retVal)))
 
 				for _, app := range apps {
-					jobs, _, err2 := app.JobORM().FindJobs(0, 1000)
+					jobs, _, err2 := app.JobORM().FindJobs(ctx, 0, 1000)
 					require.NoError(t, err2)
 					// No spec errors
 					for _, j := range jobs {
@@ -758,6 +766,7 @@ chainID 			= 1337
 	expectedMeta := map[string]struct{}{
 		"0": {}, "10": {}, "20": {}, "30": {},
 	}
+	ctx := testutils.Context(t)
 	for i := 0; i < 4; i++ {
 		s := i
 		require.NoError(t, apps[i].Start(testutils.Context(t)))
@@ -790,7 +799,7 @@ chainID 			= 1337
 			servers[s].Close()
 		})
 		u, _ := url.Parse(servers[i].URL)
-		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
+		require.NoError(t, apps[i].BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		}))
@@ -882,7 +891,7 @@ updateInterval = "1m"
 	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
-		jobs, _, err := app.JobORM().FindJobs(0, 1000)
+		jobs, _, err := app.JobORM().FindJobs(ctx, 0, 1000)
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {

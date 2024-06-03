@@ -103,10 +103,7 @@ type node[
 	stateLatestTotalDifficulty      *big.Int
 	stateLatestFinalizedBlockNumber int64
 
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -145,7 +142,7 @@ func NewNode[
 	if httpuri != nil {
 		n.http = httpuri
 	}
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(services.StopChan)
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
@@ -202,7 +199,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	n.cancelNodeCtx()
+	close(n.stopCh)
 	n.state = nodeStateClosed
 	return nil
 }

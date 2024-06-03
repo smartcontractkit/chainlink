@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 )
 
 func TestNewEvmClient(t *testing.T) {
@@ -36,6 +36,6 @@ func TestNewEvmClient(t *testing.T) {
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth, finalityTagEnabled)
 	require.NoError(t, err)
 
-	client := client.NewEvmClient(nodePool, chainCfg, logger.Test(t), testutils.FixtureChainID, nodes)
+	client := client.NewEvmClient(nodePool, chainCfg, nil, logger.Test(t), testutils.FixtureChainID, nodes)
 	require.NotNil(t, client)
 }

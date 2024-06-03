@@ -240,6 +240,10 @@ LatestReportDeadline = '1m42s'
 [Mercury.TLS]
 CertFile = ''
 
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 123
+TransmitTimeout = '3m54s'
+
 [Capabilities]
 [Capabilities.Peering]
 IncomingMessageBufferSize = 13
@@ -287,6 +291,9 @@ ReaperInterval = '1m0s'
 ReaperThreshold = '1m0s'
 ResendAfterThreshold = '1h0m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -327,6 +334,8 @@ TransactionPercentile = 15
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -342,6 +351,22 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+
+[EVM.NodePool.Errors]
+NonceTooLow = '(: |^)nonce too low'
+NonceTooHigh = '(: |^)nonce too high'
+ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced'
+LimitReached = '(: |^)limit reached'
+TransactionAlreadyInMempool = '(: |^)transaction already in mempool'
+TerminallyUnderpriced = '(: |^)terminally underpriced'
+InsufficientEth = '(: |^)infufficient Eth'
+TxFeeExceedsCap = '(: |^)tx fee exceeds cap'
+L2FeeTooLow = '(: |^)l2 fee too low'
+L2FeeTooHigh = '(: |^)l2 fee too high'
+L2Full = '(: |^)l2 full'
+TransactionAlreadyMined = '(: |^)transaction already mined'
+Fatal = '(: |^)fatal'
+ServiceUnavailable = '(: |^)service unavailable'
 
 [EVM.OCR]
 ContractConfirmations = 11

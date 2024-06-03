@@ -24,7 +24,6 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .dbenv
-!charts/chainlink-cluster/.env.example
 !crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
@@ -51,6 +50,7 @@ output.txt
 race.*
 golangci-lint-output.txt
 /golangci-lint/
+.covdata
 
 # DB state
 ./db/
@@ -67,6 +67,11 @@ tmp-manifest-*.yaml
 ztarrepo.tar.gz
 **/test-ledger/*
 __debug_bin*
+.test_summary/
+.run.id
+integration-tests/**/traces/
+benchmark_report.csv
+benchmark_summary.json
 
 # goreleaser builds
 cosign.*
@@ -86,10 +91,6 @@ go.work*
 
 # This sometimes shows up for some reason
 tools/flakeytests/coverage.txt
-
-# Integration tests create these files
-.test_summary/
-.run.id
 
 # Fuzz tests can create these files
 **/testdata/fuzz/*

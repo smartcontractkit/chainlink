@@ -165,7 +165,6 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlB, err := chainB.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlB, chains[0].Config)
-
 }
 
 type TestCosmosChainsController struct {

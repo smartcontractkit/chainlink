@@ -98,19 +98,18 @@ type estimatorGasEstimatorConfig interface {
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
-	chainID   big.Int
+	chainID   *big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
 	bhConfig  BlockHistoryConfig
 	// NOTE: it is assumed that blocks will be kept sorted by
 	// block number ascending
-	blocks    []evmtypes.Block
-	blocksMu  sync.RWMutex
-	size      int64
-	mb        *mailbox.Mailbox[*evmtypes.Head]
-	wg        *sync.WaitGroup
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	blocks   []evmtypes.Block
+	blocksMu sync.RWMutex
+	size     int64
+	mb       *mailbox.Mailbox[*evmtypes.Head]
+	wg       *sync.WaitGroup
+	stopCh   services.StopChan
 
 	gasPrice     *assets.Wei
 	tipCap       *assets.Wei
@@ -127,10 +126,8 @@ type BlockHistoryEstimator struct {
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	b := &BlockHistoryEstimator{
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
+	return &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
@@ -138,16 +135,13 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, 
 		bhConfig:  bhCfg,
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
-		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
-		mb:        mailbox.NewSingle[*evmtypes.Head](),
-		wg:        new(sync.WaitGroup),
-		ctx:       ctx,
-		ctxCancel: cancel,
-		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
-		l1Oracle:  l1Oracle,
+		size:     int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
+		mb:       mailbox.NewSingle[*evmtypes.Head](),
+		wg:       new(sync.WaitGroup),
+		stopCh:   make(chan struct{}),
+		logger:   logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
+		l1Oracle: l1Oracle,
 	}
-
-	return b
 }
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
@@ -240,7 +234,7 @@ func (b *BlockHistoryEstimator) L1Oracle() rollups.L1Oracle {
 
 func (b *BlockHistoryEstimator) Close() error {
 	return b.StopOnce("BlockHistoryEstimator", func() error {
-		b.ctxCancel()
+		close(b.stopCh)
 		b.wg.Wait()
 		return nil
 	})
@@ -482,9 +476,12 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 
 func (b *BlockHistoryEstimator) runLoop() {
 	defer b.wg.Done()
+	ctx, cancel := b.stopCh.NewCtx()
+	defer cancel()
+
 	for {
 		select {
-		case <-b.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-b.mb.Notify():
 			head, exists := b.mb.Retrieve()
@@ -492,7 +489,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Debug("No head to retrieve")
 				continue
 			}
-			b.FetchBlocksAndRecalculate(b.ctx, head)
+			b.FetchBlocksAndRecalculate(ctx, head)
 		}
 	}
 }
@@ -721,7 +718,7 @@ func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.Batch
 		err := b.ethClient.BatchCallContext(ctx, reqs[i:j])
 		if pkgerrors.Is(err, context.DeadlineExceeded) {
 			// We ran out of time, return what we have
-			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results", i, len(reqs))
+			b.logger.Warnf("Batch fetching timed out; loaded %d/%d results: %v", i, len(reqs), err)
 			for k := i; k < len(reqs); k++ {
 				if k < j {
 					reqs[k].Error = pkgerrors.Wrap(err, "request failed")

@@ -24,14 +24,14 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
-              - 'contracts/foundry-lib'
+              - 'contracts/foundry-lib/**/*'
               - '.gitmodules'
 
   tests:
     strategy:
       fail-fast: false
       matrix:
-        product: [vrf, automation, llo-feeds, l2ep, functions, keystone, shared]
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
     needs: [changes]
     name: Foundry Tests ${{ matrix.product }}
     # See https://github.com/foundry-rs/foundry/issues/3827
@@ -90,7 +90,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: solidity-foundry
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

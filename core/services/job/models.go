@@ -362,6 +362,7 @@ type OCR2OracleSpec struct {
 	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
 	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
+	OnchainSigningStrategy            JSONConfig           `toml:"onchainSigningStrategy"`
 	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
 	PluginType                        types.OCR2PluginType `toml:"pluginType"`
 	CreatedAt                         time.Time            `toml:"-"`
@@ -403,7 +404,6 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 }
 
 func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
-
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
 		return "", fmt.Errorf("chainID does not exist")
@@ -845,6 +845,7 @@ type WorkflowSpec struct {
 	WorkflowID    string    `toml:"workflowId"`
 	Workflow      string    `toml:"workflow"`
 	WorkflowOwner string    `toml:"workflowOwner"`
+	WorkflowName  string    `toml:"workflowName"`
 	CreatedAt     time.Time `toml:"-"`
 	UpdatedAt     time.Time `toml:"-"`
 }
@@ -861,6 +862,10 @@ func (w *WorkflowSpec) Validate() error {
 
 	if len(w.WorkflowOwner) != workflowOwnerLen {
 		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
+	}
+
+	if w.WorkflowName == "" {
+		return fmt.Errorf("workflow name is required")
 	}
 
 	return nil

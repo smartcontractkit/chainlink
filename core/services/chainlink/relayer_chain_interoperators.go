@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	relay "github.com/smartcontractkit/chainlink-common/pkg/loop/adapters/relay"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var ErrNoSuchRelayer = errors.New("relayer does not exist")
@@ -183,6 +183,17 @@ func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, e
 	return lr, nil
 }
 
+func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	result := make(map[types.RelayID]loop.Relayer)
+	for id, relayer := range rs.loopRelayers {
+		result[id] = relayer
+	}
+
+	return result, nil
+}
+
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
@@ -201,7 +212,6 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() LegacyCosmosConta
 
 // ChainStatus gets [types.ChainStatus]
 func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error) {
-
 	lr, err := rs.Get(id)
 	if err != nil {
 		return types.ChainStatus{}, fmt.Errorf("%w: error getting chain status: %w", chains.ErrNotFound, err)
@@ -211,7 +221,6 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id ty
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-
 	var (
 		stats    []types.ChainStatus
 		totalErr error
@@ -321,7 +330,6 @@ func FilterRelayersByType(network string) func(id types.RelayID) bool {
 // A typical usage pattern to use [List] with [FilterByType] to obtain a set of [RelayerChainInteroperators]
 // for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
-
 	matches := make(map[types.RelayID]loop.Relayer)
 	rs.mu.Lock()
 	for id, relayer := range rs.loopRelayers {

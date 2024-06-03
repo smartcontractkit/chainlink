@@ -3,6 +3,7 @@ package medianpoc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
@@ -30,6 +31,14 @@ type Plugin struct {
 	reportingplugins.MedianProviderServer
 }
 
+type PipelineNotFoundError struct {
+	Key string
+}
+
+func (e *PipelineNotFoundError) Error() string {
+	return fmt.Sprintf("no pipeline found for %s", e.Key)
+}
+
 func (p *Plugin) NewValidationService(ctx context.Context) (core.ValidationService, error) {
 	s := &reportingPluginValidationService{lggr: p.Logger}
 	p.SubService(s)
@@ -55,7 +64,7 @@ func (j jsonConfig) getPipeline(key string) (string, error) {
 			return v.Spec, nil
 		}
 	}
-	return "", fmt.Errorf("no pipeline found for %s", key)
+	return "", &PipelineNotFoundError{key}
 }
 
 func (p *Plugin) NewReportingPluginFactory(
@@ -66,6 +75,7 @@ func (p *Plugin) NewReportingPluginFactory(
 	telemetry core.TelemetryClient,
 	errorLog core.ErrorLog,
 	keyValueStore core.KeyValueStore,
+	relayerSet core.RelayerSet,
 ) (types.ReportingPluginFactory, error) {
 	f, err := p.newFactory(ctx, config, provider, pipelineRunner, telemetry, errorLog)
 	if err != nil {
@@ -102,12 +112,39 @@ func (p *Plugin) newFactory(ctx context.Context, config core.ReportingPluginServ
 		spec:           jfp,
 		lggr:           p.Logger,
 	}
+
+	var gds median.DataSource
+	gp, err := jc.getPipeline("gasPriceSubunitsPipeline")
+
+	var pnf *PipelineNotFoundError
+	pipelineNotFound := errors.As(err, &pnf)
+	if !pipelineNotFound && err != nil {
+		return nil, err
+	}
+
+	// We omit gas price in observation to maintain backwards compatibility in libocr (with older nodes).
+	// Once all chainlink nodes have updated to libocr version >= fd3cab206b2c
+	// the IncludeGasPriceSubunitsInObservation field can be removed
+
+	var includeGasPriceSubunitsInObservation bool
+	if pipelineNotFound {
+		gds = &ZeroDataSource{}
+		includeGasPriceSubunitsInObservation = false
+	} else {
+		gds = &DataSource{
+			pipelineRunner: pipelineRunner,
+			spec:           gp,
+			lggr:           p.Logger,
+		}
+		includeGasPriceSubunitsInObservation = true
+	}
+
 	factory := &median.NumericalMedianFactory{
 		ContractTransmitter:                  provider.MedianContract(),
 		DataSource:                           ds,
 		JuelsPerFeeCoinDataSource:            jds,
-		GasPriceSubunitsDataSource:           &ZeroDataSource{},
-		IncludeGasPriceSubunitsInObservation: false,
+		GasPriceSubunitsDataSource:           gds,
+		IncludeGasPriceSubunitsInObservation: includeGasPriceSubunitsInObservation,
 		Logger: logger.NewOCRWrapper(
 			p.Logger,
 			true,

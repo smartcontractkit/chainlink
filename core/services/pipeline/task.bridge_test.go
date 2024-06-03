@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/internal/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -217,7 +217,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -259,7 +259,7 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t),
@@ -300,18 +300,19 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(30 * time.Second)
 	})
-	queryer := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
+
 	s1 := httptest.NewServer(fakeIntermittentlyFailingPriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
+	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 
@@ -322,12 +323,12 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-1*time.Minute))
 	require.NoError(t, err)
@@ -348,7 +349,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Nil(t, result2.Value)
 
 	// Insert entry 10s in the past, under 30 seconds and should be used in case of failure.
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 		DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-10*time.Second))
 	require.NoError(t, err)
@@ -398,7 +399,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	task2.HelperSetDependencies(cfg2.JobPipeline(), cfg2.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 32m in the past, under cacheTTL of 35m but more than stalenessCap of 30m.
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-32*time.Minute))
 	require.NoError(t, err)
@@ -420,7 +421,7 @@ func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	require.Nil(t, result2.Value)
 
 	// Insert entry 25m in the past, under stalenessCap
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 		VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 		DO UPDATE SET value = $3, finished_at = $4;`, task2.DotID(), specID, big.NewInt(9700).Bytes(), time.Now().Add(-25*time.Minute))
 	require.NoError(t, err)
@@ -464,7 +465,6 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]interface{}{"pending": true}
 		require.NoError(t, json.NewEncoder(w).Encode(response))
-
 	})
 
 	server := httptest.NewServer(handler)
@@ -482,7 +482,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, id, c)
 
@@ -660,7 +660,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -672,7 +672,6 @@ func TestBridgeTask_Variables(t *testing.T) {
 				if test.expectedErrorContains != "" {
 					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
-
 			} else {
 				require.NoError(t, result.Error)
 				require.NotNil(t, result.Value)
@@ -729,7 +728,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -783,7 +782,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			}
 			c := clhttptest.NewTestLocalOnlyHTTPClient()
 			trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-			specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+			specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 			require.NoError(t, err)
 			task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -839,7 +838,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -878,7 +877,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -903,7 +902,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	orm := bridges.NewORM(db)
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -942,7 +941,6 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Headers(t *testing.T) {
-
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 
@@ -983,7 +981,6 @@ func TestBridgeTask_Headers(t *testing.T) {
 	standardHeaders := []string{"Content-Length", "38", "Content-Type", "application/json", "User-Agent", "Go-http-client/1.1"}
 
 	t.Run("sends headers", func(t *testing.T) {
-
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -993,7 +990,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1015,7 +1012,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1027,7 +1024,6 @@ func TestBridgeTask_Headers(t *testing.T) {
 	})
 
 	t.Run("allows to override content-type", func(t *testing.T) {
-
 		task := pipeline.BridgeTask{
 			BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 			Name:        bridge.Name.String(),
@@ -1037,7 +1033,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		c := clhttptest.NewTestLocalOnlyHTTPClient()
 		trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-		specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+		specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 		require.NoError(t, err)
 		task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
@@ -1052,6 +1048,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1062,7 +1059,6 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 		Data: adapterResponseData{Result: &decimal.Zero},
 	}
 
-	queryer := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
 	s1 := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := json.NewEncoder(w).Encode(testAdapterResponse)
@@ -1083,12 +1079,12 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), nil, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
 	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
 
 	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
-	err = queryer.ExecQ(`INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now())
 	require.NoError(t, err)
@@ -1105,7 +1101,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 
 	// expect all external adapter response status failures to be served from the cache
 	testAdapterResponse.SetStatusCode(http.StatusBadRequest)
-	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
 
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
@@ -1114,7 +1110,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 
 	testAdapterResponse.SetStatusCode(http.StatusOK)
 	testAdapterResponse.SetProviderStatusCode(http.StatusBadRequest)
-	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(ctx, logger.TestLogger(t), vars, nil)
 
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
@@ -1124,7 +1120,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	testAdapterResponse.SetStatusCode(http.StatusOK)
 	testAdapterResponse.SetProviderStatusCode(http.StatusOK)
 	testAdapterResponse.SetError("some error")
-	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(ctx, logger.TestLogger(t), vars, nil)
 
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
@@ -1132,10 +1128,81 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	require.False(t, runInfo.IsPending)
 
 	testAdapterResponse.SetStatusCode(http.StatusInternalServerError)
-	result, runInfo = task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+	result, runInfo = task.Run(ctx, logger.TestLogger(t), vars, nil)
 
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	require.False(t, runInfo.IsRetryable)
 	require.False(t, runInfo.IsPending)
+}
+
+func TestBridgeTask_AdapterTimeout(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.WebServer.BridgeCacheTTL = commonconfig.MustNewDuration(1 * time.Minute)
+	})
+
+	s1 := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(time.Second) // delay enough to time-out
+		}))
+	defer s1.Close()
+
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+	}
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *models.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	// Insert entry 1m in the past, stale value, should not be used in case of EA failure.
+	_, err = db.ExecContext(ctx, `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+	VALUES($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+	DO UPDATE SET value = $3, finished_at = $4;`, task.DotID(), specID, big.NewInt(9700).Bytes(), time.Now())
+	require.NoError(t, err)
+
+	vars := pipeline.NewVarsFrom(
+		map[string]interface{}{
+			"jobRun": map[string]interface{}{
+				"meta": map[string]interface{}{
+					"shouldFail": true,
+				},
+			},
+		},
+	)
+
+	t.Run("pre-cancelled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		cancel() // pre-cancelled
+		result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
+
+		require.NoError(t, result.Error)
+		require.NotNil(t, result.Value)
+		require.False(t, runInfo.IsRetryable)
+		require.False(t, runInfo.IsPending)
+	})
+
+	t.Run("short", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(testutils.Context(t), time.Millisecond)
+		t.Cleanup(cancel)
+		result, runInfo := task.Run(ctx, logger.TestLogger(t), vars, nil)
+
+		require.NoError(t, result.Error)
+		require.NotNil(t, result.Value)
+		require.False(t, runInfo.IsRetryable)
+		require.False(t, runInfo.IsPending)
+	})
 }

@@ -26,16 +26,17 @@ Configure the cluster, see `deployments.app.helm.values` and [values.yaml](../ch
 
 Set up your K8s access
 
-```
-export DEVSPACE_IMAGE="..."
-./setup.sh ${my-personal-namespace-name-crib}
-```
-
-Create a .env file based on the .env.sample file
+Copy the `.env.example` file to `.env` and fill in the required values
 
 ```sh
-cp .env.sample .env
-# Fill in the required values in .env
+cp crib/.env.example crib/.env
+```
+
+```sh
+cd crib/
+nix develop
+# Pro tip: use `crib-` as a prefix for your namespace.
+cribbit.sh <your crib namespace>
 ```
 
 Build and deploy the current state of your repository

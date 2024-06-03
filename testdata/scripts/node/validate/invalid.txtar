@@ -276,6 +276,10 @@ LatestReportDeadline = '5s'
 [Mercury.TLS]
 CertFile = ''
 
+[Mercury.Transmitter]
+TransmitQueueMaxSize = 10000
+TransmitTimeout = '5s'
+
 [Capabilities]
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10
@@ -320,6 +324,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -351,6 +358,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5

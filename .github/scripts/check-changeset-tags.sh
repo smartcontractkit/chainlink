@@ -23,15 +23,25 @@ fi
 CHANGESET_FILE_PATH=$1
 tags_list=( "#nops" "#added" "#changed" "#removed" "#updated" "#deprecation_notice" "#breaking_change" "#db_update" "#wip" "#bugfix" "#internal" )
 has_tags=false
+found_tags=()
 
 if [[ ! -f "$CHANGESET_FILE_PATH" ]]; then
   echo "Error: File '$CHANGESET_FILE_PATH' does not exist."
   exit 1
 fi
 
+changeset_content=$(sed -n '/^---$/,/^---$/{ /^---$/!p; }' $CHANGESET_FILE_PATH)
+semvar_value=$(echo "$changeset_content" | awk -F": " '/"chainlink"/ {print $2}')
+
+if [[ "$semvar_value" != "major" && "$semvar_value" != "minor" && "$semvar_value" != "patch" ]]; then
+  echo "Invalid changeset semvar value for 'chainlink'. Must be 'major', 'minor', or 'patch'."
+  exit 1
+fi
+
 while IFS= read -r line; do
   for tag in "${tags_list[@]}"; do
     if [[ "$line" == *"$tag"* ]]; then
+      found_tags+=("$tag")
       echo "Found tag: $tag in $CHANGESET_FILE_PATH"
       has_tags=true
     fi
@@ -43,3 +53,4 @@ if [[ "$has_tags" == false ]]; then
 fi
 
 echo "has_tags=$has_tags" >> $GITHUB_OUTPUT
+echo "found_tags=$(jq -jR 'split(" ") | join(",")' <<< "${found_tags[*]}")" >> $GITHUB_OUTPUT

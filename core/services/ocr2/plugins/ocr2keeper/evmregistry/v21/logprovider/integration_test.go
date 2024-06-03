@@ -239,7 +239,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	for _, tc := range tests {
 		bufferVersion, limitLow := tc.bufferVersion, tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
-
 			ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 			defer cancel()
 

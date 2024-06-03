@@ -154,10 +154,8 @@ func TestHeads_MarkFinalized(t *testing.T) {
 			require.True(t, heads.HeadByHash(head.Hash).IsFinalized, "expected h3 and all ancestors to be finalized", head.BlockNumber())
 		}
 		require.False(t, heads.HeadByHash(h2Uncle.Hash).IsFinalized, "expected uncle block not to be marked as finalized")
-
 	}
 	t.Run("blocks were correctly marked as finalized", ensureProperFinalization)
 	heads.AddHeads(h0, h1, h2, h2Uncle, h3, h4, h5)
 	t.Run("blocks remain finalized after re adding them to the Heads", ensureProperFinalization)
-
 }

@@ -232,6 +232,17 @@ func init() {
 	}
 }
 
+// overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
+// results, even after context cancellation.
+func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if d, ok := ctx.Deadline(); ok {
+		// extend deadline
+		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
+	}
+	// remove cancellation
+	return context.WithoutCancel(ctx), func() {}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
@@ -457,18 +468,14 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 			"run.Inputs", run.Inputs,
 		)
 	}
-	if run.HasFatalErrors() {
-		l = l.With("run.FatalErrors", run.FatalErrors)
-	}
-	if run.HasErrors() {
-		l = l.With("run.AllErrors", run.AllErrors)
-	}
 	l = l.With("run.State", run.State, "fatal", run.HasFatalErrors(), "runTime", runTime)
 	if run.HasFatalErrors() {
 		// This will also log at error level in OCR if it fails Observe so the
 		// level is appropriate
-		l.Errorw("Completed pipeline run with fatal errors")
+		l = l.With("run.FatalErrors", run.FatalErrors)
+		l.Debugw("Completed pipeline run with fatal errors")
 	} else if run.HasErrors() {
+		l = l.With("run.AllErrors", run.AllErrors)
 		l.Debugw("Completed pipeline run with errors")
 	} else {
 		l.Debugw("Completed pipeline run successfully")
@@ -575,7 +582,6 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", run.PipelineSpecID)
 	}
 	return run.ID, trrs, nil
-
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx sqlutil.DataSource) error) (incomplete bool, err error) {
@@ -661,7 +667,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			}
 
 			if err = r.orm.InsertFinishedRun(ctx, run, saveSuccessfulTaskRuns); err != nil {
-				return false, pkgerrors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
+				return false, pkgerrors.Wrapf(err, "error inserting finished run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
 

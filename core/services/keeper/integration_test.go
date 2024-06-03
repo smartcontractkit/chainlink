@@ -284,7 +284,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			backend.Commit()
 
-			cltest.WaitForCount(t, app.GetSqlxDB(), "upkeep_registrations", 0)
+			cltest.WaitForCount(t, app.GetDB(), "upkeep_registrations", 0)
 
 			// add new upkeep (same target contract)
 			registrationTx, err = registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
@@ -308,8 +308,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 
 			var registry keeper.Registry
-			require.NoError(t, app.GetSqlxDB().Get(&registry, `SELECT * FROM keeper_registries`))
-			cltest.AssertRecordEventually(t, app.GetSqlxDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
+			require.NoError(t, app.GetDB().GetContext(ctx, &registry, `SELECT * FROM keeper_registries`))
+			cltest.AssertRecordEventually(t, app.GetDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
 				return registry.KeeperIndex == -1
 			})
 			runs, err := app.PipelineORM().GetAllRuns(ctx)
@@ -417,7 +417,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(ctx, nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 
@@ -435,7 +435,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			SchemaVersion:     1,
 			ForwardingAllowed: true,
 		}
-		err = app.JobORM().CreateJob(&jb)
+		err = app.JobORM().CreateJob(testutils.Context(t), &jb)
 		require.NoError(t, err)
 
 		registry := keeper.Registry{

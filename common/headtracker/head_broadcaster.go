@@ -35,6 +35,8 @@ type HeadTrackable[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interfac
 }
 
 // HeadBroadcaster relays new Heads to all subscribers.
+//
+//go:generate mockery --quiet --name HeadBroadcaster --output ./mocks/ --case=underscore
 type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	services.Service
 	BroadcastNewLongestChain(H)

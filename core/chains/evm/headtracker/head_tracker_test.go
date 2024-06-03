@@ -31,6 +31,8 @@ import (
 
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -201,11 +203,27 @@ func TestHeadTracker_Start(t *testing.T) {
 	t.Parallel()
 
 	const historyDepth = 100
-	newHeadTracker := func(t *testing.T) *headTrackerUniverse {
+	const finalityDepth = 50
+	type opts struct {
+		FinalityTagEnable       *bool
+		MaxAllowedFinalityDepth *uint32
+		FinalityTagBypass       *bool
+	}
+	newHeadTracker := func(t *testing.T, opts opts) *headTrackerUniverse {
 		db := pgtest.NewSqlxDB(t)
 		config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
-			c.FinalityTagEnabled = ptr[bool](true)
+			if opts.FinalityTagEnable != nil {
+				c.FinalityTagEnabled = opts.FinalityTagEnable
+			}
 			c.HeadTracker.HistoryDepth = ptr[uint32](historyDepth)
+			c.FinalityDepth = ptr[uint32](finalityDepth)
+			if opts.MaxAllowedFinalityDepth != nil {
+				c.HeadTracker.MaxAllowedFinalityDepth = opts.MaxAllowedFinalityDepth
+			}
+
+			if opts.FinalityTagBypass != nil {
+				c.HeadTracker.FinalityTagBypass = opts.FinalityTagBypass
+			}
 		})
 		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
@@ -214,7 +232,7 @@ func TestHeadTracker_Start(t *testing.T) {
 
 	t.Run("Fail start if context was canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(tests.Context(t))
-		ht := newHeadTracker(t)
+		ht := newHeadTracker(t, opts{})
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Run(func(args mock.Arguments) {
 			cancel()
 		}).Return(testutils.Head(0), context.Canceled)
@@ -222,19 +240,19 @@ func TestHeadTracker_Start(t *testing.T) {
 		require.ErrorIs(t, err, context.Canceled)
 	})
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
-		ht := newHeadTracker(t)
+		ht := newHeadTracker(t, opts{})
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), errors.New("failed to get init head"))
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Starts even if received invalid head", func(t *testing.T) {
-		ht := newHeadTracker(t)
+		ht := newHeadTracker(t, opts{})
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Got nil initial head")
 	})
 	t.Run("Starts even if fails to get finalizedHead", func(t *testing.T) {
-		ht := newHeadTracker(t)
+		ht := newHeadTracker(t, opts{})
 		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to load latest finalized")).Once()
@@ -242,16 +260,31 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Starts even if latest finalizedHead is nil", func(t *testing.T) {
-		ht := newHeadTracker(t)
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
-	t.Run("Happy path", func(t *testing.T) {
+	t.Run("Logs error if finality gap is too big", func(t *testing.T) {
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false), MaxAllowedFinalityDepth: ptr(uint32(10))})
 		head := testutils.Head(1000)
-		ht := newHeadTracker(t)
+		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
+		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(testutils.Head(989), nil).Once()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
+		ht.Start(t)
+		tests.AssertEventually(t, func() bool {
+			// must exactly match the error passed to logger
+			field := zap.String("err", "failed to calculate latest finalized head: gap between latest finalized block (989) and current head (1000) is too large (> 10)")
+			filtered := ht.observer.FilterMessage("Error handling initial head").FilterField(field)
+			return filtered.Len() > 0
+		})
+	})
+	t.Run("Happy path (finality tag)", func(t *testing.T) {
+		head := testutils.Head(1000)
+		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
 		ctx := tests.Context(t)
 		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(799)))
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
@@ -260,9 +293,46 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalizedHead, nil).Once()
 		// on backfill
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
 	})
+	happyPathFD := func(t *testing.T, opts opts) {
+		head := testutils.Head(1000)
+		ht := newHeadTracker(t, opts)
+		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
+		finalizedHead := testutils.Head(head.Number - finalityDepth)
+		ht.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(finalizedHead.Number)).Return(finalizedHead, nil).Once()
+		ctx := tests.Context(t)
+		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(finalizedHead.Number-1)))
+		// on backfill
+		ht.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
+		ht.Start(t)
+		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
+	}
+	testCases := []struct {
+		Name string
+		Opts opts
+	}{
+		{
+			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is disabled)",
+			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(true)},
+		},
+		{
+			Name: "Happy path (Chain FT is disabled & HeadTracker's FT is enabled, but ignored)",
+			Opts: opts{FinalityTagEnable: ptr(false), FinalityTagBypass: ptr(false)},
+		},
+		{
+			Name: "Happy path (Chain FT is enabled & HeadTracker's FT is disabled)",
+			Opts: opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(true)},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			happyPathFD(t, tc.Opts)
+		})
+	}
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
@@ -975,7 +1045,44 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 }
 
-func createHeadTracker(t *testing.T, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
+// BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
+// backfill on start up
+func BenchmarkHeadTracker_Backfill(b *testing.B) {
+	evmcfg := testutils.NewTestChainScopedConfig(b, nil)
+	db := pgtest.NewSqlxDB(b)
+	chainID := big.NewInt(evmclient.NullClientChainID)
+	orm := headtracker.NewORM(*chainID, db)
+	ethClient := evmclimocks.NewClient(b)
+	ethClient.On("ConfiguredChainID").Return(chainID)
+	ht := createHeadTracker(b, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
+	ctx := tests.Context(b)
+	makeHash := func(n int64) common.Hash {
+		return common.BigToHash(big.NewInt(n))
+	}
+	const finalityDepth = 12000 // observed value on Arbitrum
+	makeBlock := func(n int64) *evmtypes.Head {
+		return &evmtypes.Head{Number: n, Hash: makeHash(n), ParentHash: makeHash(n - 1)}
+	}
+	latest := makeBlock(finalityDepth)
+	finalized := makeBlock(1)
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash common.Hash) (*evmtypes.Head, error) {
+		number := hash.Big().Int64()
+		return makeBlock(number), nil
+	})
+	// run initial backfill to populate the database
+	err := ht.headTracker.Backfill(ctx, latest, finalized)
+	require.NoError(b, err)
+	b.ResetTimer()
+	// focus benchmark on processing of a new latest block
+	for i := 0; i < b.N; i++ {
+		latest = makeBlock(int64(finalityDepth + i))
+		finalized = makeBlock(int64(i + 1))
+		err := ht.headTracker.Backfill(ctx, latest, finalized)
+		require.NoError(b, err)
+	}
+}
+
+func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
