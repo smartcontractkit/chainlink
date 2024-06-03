@@ -740,9 +740,11 @@ func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
 }
 
 type HeadTracker struct {
-	HistoryDepth     *uint32
-	MaxBufferSize    *uint32
-	SamplingInterval *commonconfig.Duration
+	HistoryDepth            *uint32
+	MaxBufferSize           *uint32
+	SamplingInterval        *commonconfig.Duration
+	MaxAllowedFinalityDepth *uint32
+	FinalityTagBypass       *bool
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -755,6 +757,21 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.SamplingInterval; v != nil {
 		t.SamplingInterval = v
 	}
+	if v := f.MaxAllowedFinalityDepth; v != nil {
+		t.MaxAllowedFinalityDepth = v
+	}
+	if v := f.FinalityTagBypass; v != nil {
+		t.FinalityTagBypass = v
+	}
+}
+
+func (t *HeadTracker) ValidateConfig() (err error) {
+	if *t.MaxAllowedFinalityDepth < 1 {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MaxAllowedFinalityDepth", Value: *t.MaxAllowedFinalityDepth,
+			Msg: "must be greater than or equal to 1"})
+	}
+
+	return
 }
 
 type ClientErrors struct {

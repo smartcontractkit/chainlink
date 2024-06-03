@@ -1611,6 +1611,43 @@ contract BillingOverrides is SetUp {
 }
 
 contract Transmit is SetUp {
+  function test_transmitRevertWithExtraBytes() external {
+    bytes32[3] memory exampleReportContext = [
+      bytes32(0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef),
+      bytes32(0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890),
+      bytes32(0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456)
+    ];
+
+    bytes memory exampleRawReport = hex"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+    bytes32[] memory exampleRs = new bytes32[](3);
+    exampleRs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[2] = bytes32(0x7890789078907890789078907890789078907890789078907890789078907890);
+
+    bytes32[] memory exampleSs = new bytes32[](3);
+    exampleSs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[2] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes32 exampleRawVs = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes memory transmitData = abi.encodeWithSelector(
+      registry.transmit.selector,
+      exampleReportContext,
+      exampleRawReport,
+      exampleRs,
+      exampleSs,
+      exampleRawVs
+    );
+    bytes memory badTransmitData = bytes.concat(transmitData, bytes1(0x00)); // add extra data
+    vm.startPrank(TRANSMITTERS[0]);
+    (bool success, bytes memory returnData) = address(registry).call(badTransmitData); // send the bogus transmit
+    assertFalse(success, "Call did not revert as expected");
+    assertEq(returnData, abi.encodePacked(Registry.InvalidDataLength.selector));
+    vm.stopPrank();
+  }
+
   function test_handlesMixedBatchOfBillingTokens() external {
     uint256[] memory prevUpkeepBalances = new uint256[](3);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);

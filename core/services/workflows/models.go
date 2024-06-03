@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dominikbraun/graph"
@@ -16,7 +17,9 @@ import (
 // treated differently due to their nature of being the starting
 // point of a workflow.
 type workflow struct {
-	id string
+	id    string
+	owner string
+	name  string
 	graph.Graph[string, *step]
 
 	triggers []*triggerCapability
@@ -142,7 +145,9 @@ func createWorkflow(wf2 *workflows.DependencyGraph) (*workflow, error) {
 	for vertexRef, edgeRefs := range adjMap {
 		for edgeRef := range edgeRefs {
 			innerErr := g.AddEdge(vertexRef, edgeRef)
-			if innerErr != nil {
+			// If we fail to add the edge, we'll bail out unless we encountered an ErrEdgeAlreadyExists, in which case
+			// we'll continue. This is because inputs can contain multiple references to the parent node.
+			if innerErr != nil && !errors.Is(innerErr, graph.ErrEdgeAlreadyExists) {
 				return nil, fmt.Errorf("failed to add edge from '%s' to '%s': %w", vertexRef, edgeRef, innerErr)
 			}
 		}

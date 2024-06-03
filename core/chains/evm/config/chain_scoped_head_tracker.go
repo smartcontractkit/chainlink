@@ -21,3 +21,11 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 func (h *headTrackerConfig) SamplingInterval() time.Duration {
 	return h.c.SamplingInterval.Duration()
 }
+
+func (h *headTrackerConfig) FinalityTagBypass() bool {
+	return *h.c.FinalityTagBypass
+}
+
+func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
+	return *h.c.MaxAllowedFinalityDepth
+}
