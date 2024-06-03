@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	commoncapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -200,10 +201,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	if opts.CapabilitiesRegistry == nil {
-		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
-	}
-
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
@@ -212,10 +209,31 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
+		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup(externalPeerWrapper)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
+		}
+
+		if opts.CapabilitiesRegistry == nil {
+			peerID := externalPeerWrapper.GetPeer().ID()
+			if networkSetup.IsWorkflowDon(peerID) {
+				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.WorkflowsDonInfo)
+			} else if networkSetup.IsTriggerDon(peerID) {
+				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.TriggerCapabilityDonInfo)
+			} else {
+				return nil, fmt.Errorf("peer %s is not a member of any known DON", peerID)
+			}
+		}
+
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
+
 		srvcs = append(srvcs, dispatcher, registrySyncer)
+	} else {
+		if opts.CapabilitiesRegistry == nil {
+			opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, p2ptypes.PeerID{}, commoncapabilities.DON{})
+		}
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or

@@ -77,7 +77,7 @@ func (_m *ChainWriter) GetTransactionStatus(ctx context.Context, transactionID u
 }
 
 // SubmitTransaction provides a mock function with given fields: ctx, contractName, method, args, transactionID, toAddress, meta, value
-func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName string, method string, args []interface{}, transactionID uuid.UUID, toAddress string, meta *types.TxMeta, value big.Int) error {
+func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName string, method string, args interface{}, transactionID uuid.UUID, toAddress string, meta *types.TxMeta, value big.Int) error {
 	ret := _m.Called(ctx, contractName, method, args, transactionID, toAddress, meta, value)
 
 	if len(ret) == 0 {
@@ -85,7 +85,7 @@ func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName strin
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, []interface{}, uuid.UUID, string, *types.TxMeta, big.Int) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, interface{}, uuid.UUID, string, *types.TxMeta, big.Int) error); ok {
 		r0 = rf(ctx, contractName, method, args, transactionID, toAddress, meta, value)
 	} else {
 		r0 = ret.Error(0)

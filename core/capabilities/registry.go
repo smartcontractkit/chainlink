@@ -6,15 +6,20 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	m    map[string]capabilities.BaseCapability
-	mu   sync.RWMutex
-	lggr logger.Logger
+	lggr   logger.Logger
+	peerID p2ptypes.PeerID
+	don    capabilities.DON
+
+	m  map[string]capabilities.BaseCapability
+	mu sync.RWMutex
 }
 
 // Get gets a capability from the registry.
@@ -134,6 +139,17 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 		if !ok {
 			return fmt.Errorf("target capability does not satisfy TargetCapability interface")
 		}
+
+		capInfo, err := c.Info(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get info of target capability: %w", err)
+		}
+
+		// If the DON is nil this is a local capability and requires wrapping in a local target transmission capability
+		if capInfo.DON == nil {
+			c = transmission.NewLocalTargetCapability(r.lggr, r.peerID, r.don, c.(capabilities.TargetCapability))
+		}
+
 	default:
 		return fmt.Errorf("unknown capability type: %s", info.CapabilityType)
 	}
@@ -150,9 +166,11 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 }
 
 // NewRegistry returns a new Registry.
-func NewRegistry(lggr logger.Logger) *Registry {
+func NewRegistry(lggr logger.Logger, peerID p2ptypes.PeerID, don capabilities.DON) *Registry {
 	return &Registry{
-		m:    map[string]capabilities.BaseCapability{},
-		lggr: lggr.Named("CapabilityRegistry"),
+		m:      map[string]capabilities.BaseCapability{},
+		lggr:   lggr.Named("CapabilityRegistry"),
+		peerID: peerID,
+		don:    don,
 	}
 }
