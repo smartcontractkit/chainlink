@@ -103,5 +103,6 @@ compileContract automation/dev/v2_3/AutomationRegistrar2_3.sol
 compileContract automation/dev/v2_3/AutomationRegistry2_3.sol
 compileContract automation/dev/v2_3/AutomationRegistryLogicA2_3.sol
 compileContract automation/dev/v2_3/AutomationRegistryLogicB2_3.sol
+compileContract automation/dev/v2_3/AutomationRegistryLogicC2_3.sol
 compileContract automation/dev/v2_3/AutomationUtils2_3.sol
 compileContract automation/dev/interfaces/v2_3/IAutomationRegistryMaster2_3.sol

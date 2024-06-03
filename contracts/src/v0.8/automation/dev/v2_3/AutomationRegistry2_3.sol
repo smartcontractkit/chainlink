@@ -90,6 +90,11 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
     bytes32 rawVs
   ) external override {
     uint256 gasOverhead = gasleft();
+    // use this msg.data length check to ensure no extra data is included in the call
+    // 4 is first 4 bytes of the keccak-256 hash of the function signature. ss.length == rs.length so use one of them
+    // 4 + (32 * 3) + (rawReport.length + 32 + 32) + (32 * rs.length + 32 + 32) + (32 * ss.length + 32 + 32) + 32
+    uint256 requiredLength = 324 + rawReport.length + 64 * rs.length;
+    if (msg.data.length != requiredLength) revert InvalidDataLength();
     HotVars memory hotVars = s_hotVars;
 
     if (hotVars.paused) revert RegistryPaused();
@@ -220,7 +225,7 @@ contract AutomationRegistry2_3 is AutomationRegistryBase2_3, OCR2Abstract, Chain
         }
       }
     }
-    // record payments
+    // record payments to NOPs, all in LINK
     s_transmitters[msg.sender].balance += transmitVars.totalReimbursement;
     s_hotVars.totalPremium += transmitVars.totalPremium;
     s_reserveAmounts[IERC20(address(i_link))] += transmitVars.totalReimbursement + transmitVars.totalPremium;

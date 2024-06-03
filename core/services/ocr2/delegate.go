@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
@@ -381,7 +382,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
 		}
-		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
@@ -469,7 +470,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 }
 
-func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
@@ -495,14 +496,22 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logge
 		if chain == nil {
 			return "", fmt.Errorf("job forwarding requires non-nil chain")
 		}
-		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
+
+		var err error
+		var effectiveTransmitterID common.Address
+		// Median forwarders need special handling because of OCR2Aggregator transmitters whitelist.
+		if spec.PluginType == types.Median {
+			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID))
+		} else {
+			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String))
+		}
+
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if !spec.TransmitterID.Valid {
 			return "", errors.New("failed to get forwarder address and transmitterID is not set")
 		}
 		lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
-		// this shouldn't happen unless behaviour above was changed
 	}
 
 	return spec.TransmitterID.String, nil
@@ -682,9 +691,29 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	case 3:
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
-		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog,
-			capabilitiesRegistry, keyValueStore, relayerSet)
-		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
+		plugin := ocr3.NewLOOPPService(
+			pluginLggr,
+			grpcOpts,
+			cmdFn,
+			pluginConfig,
+			providerClientConn,
+			pr,
+			ta,
+			errorLog,
+			capabilitiesRegistry,
+			keyValueStore,
+			relayerSet,
+		)
+
+		// Adapt the provider's contract transmitter for OCR3, unless
+		// the provider exposes an OCR3ContractTransmitter interface, in which case
+		// we'll use that instead.
+		contractTransmitter := ocr3types.ContractTransmitter[[]byte](
+			ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter()),
+		)
+		if ocr3Provider, ok := provider.(types.OCR3ContractTransmitter); ok {
+			contractTransmitter = ocr3Provider.OCR3ContractTransmitter()
+		}
 		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,

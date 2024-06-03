@@ -14,11 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -33,7 +34,8 @@ type RelayerFactory struct {
 	logger.Logger
 	*plugins.LoopRegistry
 	loop.GRPCOpts
-	MercuryPool wsrpc.Pool
+	MercuryPool          wsrpc.Pool
+	CapabilitiesRegistry *capabilities.Registry
 }
 
 type EVMFactoryConfig struct {
@@ -69,10 +71,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		}
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DS:                ccOpts.DS,
-			CSAETHKeystore:    config.CSAETHKeystore,
-			MercuryPool:       r.MercuryPool,
-			TransmitterConfig: config.MercuryTransmitter,
+			DS:                   ccOpts.DS,
+			CSAETHKeystore:       config.CSAETHKeystore,
+			MercuryPool:          r.MercuryPool,
+			TransmitterConfig:    config.MercuryTransmitter,
+			CapabilitiesRegistry: r.CapabilitiesRegistry,
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
@@ -89,10 +92,10 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 type SolanaFactoryConfig struct {
 	Keystore keystore.Solana
-	solana.TOMLConfigs
+	solcfg.TOMLConfigs
 }
 
-func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConfigs) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solcfg.TOMLConfigs) (map[types.RelayID]loop.Relayer, error) {
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var (
 		solLggr = r.Logger.Named("Solana")
@@ -120,7 +123,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 		if cmdName := env.SolanaPlugin.Cmd.Get(); cmdName != "" {
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
-				Solana solana.TOMLConfig
+				Solana solcfg.TOMLConfig
 			}{Solana: *chainCfg})
 
 			if err != nil {
@@ -151,7 +154,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 			if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayID] = relay.NewServerAdapter(pkgsolana.NewRelayer(lggr, chain), chain)
+			solanaRelayers[relayID] = relay.NewServerAdapter(solana.NewRelayer(lggr, chain), chain)
 		}
 	}
 	return solanaRelayers, nil

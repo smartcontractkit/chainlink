@@ -163,7 +163,7 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Install gotestloghelper
         if: ${{ needs.filter.outputs.changes == 'true' }}
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.3
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.1.1
       - name: Run tests
         if: ${{ needs.filter.outputs.changes == 'true' }}
         id: run-tests
@@ -210,17 +210,28 @@ jobs:
         with:
           channel-id: "#topic-data-races"
           slack-message: "Race tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+      - name: Collect Path Output
+        id: collect-path-output
+        env:
+          MATRIX_ID: ${{ matrix.type.id }}
+        run: |
+          # only push the test result file for the unit tests
+          if [[ "$MATRIX_ID" == "core_unit" ]]; then
+            resultsFile='{"testType":"go","filePath":"./output.txt"}'
+            echo "path_output=${resultsFile}" >> $GITHUB_OUTPUT
+          fi
       - name: Collect Metrics
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@2954caaadb1b194740b24fde41daf3f4e6d1eba7
         with:
           id: ${{ matrix.type.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Core Tests (${{ matrix.type.cmd }})
-          test-results-file: '{"testType":"go","filePath":"./output.txt"}'
+          test-results-file: ${{ steps.collect-path-output.outputs.path_output }}
+          test-results-batch-split-size: "524288" # 512KB
         continue-on-error: true
 
   detect-flakey-tests:
@@ -332,7 +343,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ci-core-sonarqube
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -374,7 +385,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ci-core-generate
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
