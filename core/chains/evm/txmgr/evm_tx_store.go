@@ -1065,9 +1065,6 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 		var dbEtx DbEthTx
 		err = o.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
 		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil
-			}
 			return pkgerrors.Wrap(err, "FindTxWithIdempotencyKey failed to load evm.txes")
 		}
 		etx = new(Tx)
