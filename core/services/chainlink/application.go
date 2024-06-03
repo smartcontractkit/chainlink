@@ -203,7 +203,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
 		externalPeerWrapper = externalPeer
 

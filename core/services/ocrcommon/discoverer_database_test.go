@@ -21,8 +21,8 @@ func Test_DiscovererDatabase(t *testing.T) {
 	localPeerID1 := mustRandomP2PPeerID(t)
 	localPeerID2 := mustRandomP2PPeerID(t)
 
-	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
-	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2.Raw())
+	dd1 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
+	dd2 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID2.Raw())
 
 	ctx := testutils.Context(t)
 
@@ -74,7 +74,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 
 	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1.Raw())
+		dd3 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
 
 		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
 		require.NoError(t, err)
