@@ -880,7 +880,6 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		Heads []evmtypes.Head
 	}
 	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
-
 		evmcfg := testutils.NewTestChainScopedConfig(t, nil)
 		db := pgtest.NewSqlxDB(t)
 		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
