@@ -27,28 +27,25 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	testconfig, err := tc.GetConfig("Chaos", tc.OCR2VRF)
+	testConfig, err := tc.GetConfig("Chaos", tc.OCR2VRF)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	loadedNetwork := networks.MustGetSelectedNetworkConfig(testconfig.Network)[0]
+	loadedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
+
+	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&testConfig, loadedNetwork)
+	require.NoError(t, err, "Error building TOML config")
 
 	defaultOCR2VRFSettings := map[string]interface{}{
 		"replicas": 6,
-		"toml": networks.AddNetworkDetailedConfig(
-			config.BaseOCR2Config,
-			testconfig.Pyroscope,
-			config.DefaultOCR2VRFNetworkDetailTomlConfig,
-			loadedNetwork,
-		),
+		"toml":     tomlConfig,
 	}
 
 	defaultOCR2VRFEthereumSettings := &ethereum.Props{
@@ -58,11 +55,11 @@ func TestOCR2VRFChaos(t *testing.T) {
 	}
 
 	var overrideFn = func(_ interface{}, target interface{}) {
-		ctf_config.MustConfigOverrideChainlinkVersion(testconfig.GetChainlinkImageConfig(), target)
-		ctf_config.MightConfigOverridePyroscopeKey(testconfig.GetPyroscopeConfig(), target)
+		ctf_config.MustConfigOverrideChainlinkVersion(testConfig.GetChainlinkImageConfig(), target)
+		ctf_config.MightConfigOverridePyroscopeKey(testConfig.GetPyroscopeConfig(), target)
 	}
 
-	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCR2VRFSettings, testconfig.ChainlinkImage, overrideFn)
+	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCR2VRFSettings, testConfig.ChainlinkImage, overrideFn)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
@@ -135,7 +132,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 		testCase := tc
 		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.MustGetSelectedNetworkConfig(testconfig.Network)[0] // Need a new copy of the network for each test
+			testNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0] // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(
@@ -157,7 +154,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-			chainClient, err := actions_seth.GetChainClientWithConfigFunction(testconfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+			chainClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -166,7 +163,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig)
+				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testConfig)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

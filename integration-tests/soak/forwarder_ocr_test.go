@@ -12,22 +12,26 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-func TestForwarderOCRSoak(t *testing.T) {
-	l := logging.GetTestLogger(t)
-	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := `[EVM.Transactions]
-ForwardersEnabled = true`
-	// Uncomment below for debugging TOML issues on the node
-	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
-	// fmt.Println("---------------------")
-
-	config, err := tc.GetConfig("Soak", tc.OCR)
+func TestForwarderOCRv1Soak(t *testing.T) {
+	config, err := tc.GetConfig("Soak", tc.ForwarderOcr)
 	require.NoError(t, err, "Error getting config")
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, true)
+	executeForwarderOCRSoakTest(t, &config)
+}
+
+func TestForwarderOCRv2Soak(t *testing.T) {
+	config, err := tc.GetConfig("Soak", tc.ForwarderOcr2)
+	require.NoError(t, err, "Error getting config")
+
+	executeForwarderOCRSoakTest(t, &config)
+}
+
+func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
+	l := logging.GetTestLogger(t)
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, config, true)
 	require.NoError(t, err, "Error creating soak test")
-	ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
+	ocrSoakTest.DeployEnvironment(config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -36,6 +40,6 @@ ForwardersEnabled = true`
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
-	ocrSoakTest.Setup(&config)
+	ocrSoakTest.Setup(config)
 	ocrSoakTest.Run()
 }

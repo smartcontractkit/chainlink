@@ -81,6 +81,7 @@ type TestConfig struct {
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
 	OCR2       *ocr2_config.Config      `toml:"OCR2"`
+	OCR2VRF    *ocr2_config.Config      `toml:"OCRR2VRF"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
@@ -533,6 +534,18 @@ func (c *TestConfig) Validate() error {
 	if c.OCR != nil {
 		if err := c.OCR.Validate(); err != nil {
 			return errors.Wrapf(err, "OCR config validation failed")
+		}
+	}
+
+	if c.OCR2 != nil {
+		if err := c.OCR2.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR2 config validation failed")
+		}
+	}
+
+	if c.OCR2VRF != nil {
+		if err := c.OCR2VRF.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR2VRF config validation failed")
 		}
 	}
 

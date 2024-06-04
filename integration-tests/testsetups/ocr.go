@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -105,7 +104,7 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
-func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
+func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 	network := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
 	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
 	if o.OperatorForwarderFlow {
@@ -120,21 +119,17 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		PreventPodEviction: true,
 	}
 
-	var conf string
-	if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
-		conf = config.BaseOCR1Config
-	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
-		conf = config.BaseOCR2Config
-	}
-
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(ocrTestConfig.GetChainlinkImageConfig(), target)
 		ctf_config.MightConfigOverridePyroscopeKey(ocrTestConfig.GetPyroscopeConfig(), target)
 	}
 
+	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(ocrTestConfig, network)
+	require.NoError(o.t, err, "Error building TOML config for Chainlink nodes")
+
 	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, network),
+		"toml":     tomlConfig,
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
@@ -149,7 +144,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 			WsURLs:      network.URLs,
 		})).
 		AddHelm(cd)
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 	require.NoError(o.t, err, "Error launching test environment")
 	o.testEnvironment = testEnvironment
 	o.namespace = testEnvironment.Cfg.Namespace
@@ -167,10 +162,10 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	)
 
 	network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	seth, err := actions_seth.GetChainClient(o.Config, network)
-	require.NoError(o.t, err, "Error creating seth client")
+	sethClient, err := actions_seth.GetChainClient(o.Config, network)
+	require.NoError(o.t, err, "Error creating sethClient client")
 
-	o.seth = seth
+	o.seth = sethClient
 
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -178,12 +173,12 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctfClient.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	linkContract, err := contracts.DeployLinkTokenContract(o.log, seth)
+	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
 	require.NoError(o.t, err, "Error deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions_seth.FundChainlinkNodesFromRootAddress(o.log, sethClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
@@ -218,7 +213,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		} else {
 			o.ocrV1Instances, err = actions_seth.DeployOCRv1Contracts(
 				o.log,
-				seth,
+				sethClient,
 				*o.Config.OCR.Soak.NumberOfContracts,
 				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),

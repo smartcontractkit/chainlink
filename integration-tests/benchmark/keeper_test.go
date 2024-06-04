@@ -2,8 +2,6 @@ package benchmark
 
 import (
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"math/big"
 	"strings"
 	"testing"
@@ -22,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -31,34 +30,6 @@ import (
 )
 
 var (
-	keeperBenchmarkBaseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
-[Keeper]
-TurnLookBack = 0
-[WebServer]
-HTTPWriteTimeout = '1h'`
-
-	simulatedEVMNonDevTOML = `
-Enabled = true
-FinalityDepth = 50
-LogPollInterval = '1s'
-
-[EVM.HeadTracker]
-HistoryDepth = 100
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
-
 	performanceChainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
@@ -324,8 +295,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
-	//networkDetailTOML := `MinIncomingConfirmations = 1`
-
 	numberOfNodes := *keeperTestConfig.GetKeeperConfig().Common.NumberOfNodes
 
 	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
@@ -357,7 +326,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 
 	// Test can run on simulated, simulated-non-dev, testnets
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
-		//networkDetailTOML = simulatedEVMNonDevTOML
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: testNetwork.Name,
@@ -449,30 +417,11 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 			ctf_config.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}
 
-		nodeConfigInToml := keeperTestConfig.GetNodeConfig()
-
-		nodeConfig, _, err := node.BuildChainlinkNodeConfig(
-			[]blockchain.EVMNetwork{testNetwork},
-			nodeConfigInToml.BaseConfigTOML,
-			nodeConfigInToml.CommonChainConfigTOML,
-			nodeConfigInToml.ChainConfigTOMLByChainID,
-		)
-		require.NoError(t, err, "Error building node config")
-
-		if *keeperTestConfig.GetPyroscopeConfig().Enabled {
-			nodeConfig.Pyroscope.Environment = keeperTestConfig.GetPyroscopeConfig().Environment
-			nodeConfig.Pyroscope.ServerAddress = keeperTestConfig.GetPyroscopeConfig().ServerUrl
-		}
-
-		err = nodeConfig.Validate()
-		require.NoError(t, err, "Error validating node config")
-
-		asStr, err := toml.Marshal(nodeConfig)
-		require.NoError(t, err, "Error marshalling node config")
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)
+		require.NoError(t, err, "Error building TOML config")
 
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			//"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, keeperTestConfig.GetPyroscopeConfig(), networkDetailTOML, testNetwork),
-			"toml":      asStr,
+			"toml":      tomlConfig,
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
 		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)

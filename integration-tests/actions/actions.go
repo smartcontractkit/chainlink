@@ -14,17 +14,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
-	"github.com/rs/zerolog"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 
@@ -32,14 +32,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 // ContractDeploymentInterval After how many contract actions to wait before starting any more
@@ -644,4 +647,31 @@ type JsonRPCResponse struct {
 	Id      int    `json:"id"`
 	Result  string `json:"result,omitempty"`
 	Error   string `json:"error,omitempty"`
+}
+
+func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwork blockchain.EVMNetwork) (string, error) {
+	nodeConfigInToml := testConfig.GetNodeConfig()
+
+	nodeConfig, _, err := node.BuildChainlinkNodeConfig(
+		[]blockchain.EVMNetwork{testNetwork},
+		nodeConfigInToml.BaseConfigTOML,
+		nodeConfigInToml.CommonChainConfigTOML,
+		nodeConfigInToml.ChainConfigTOMLByChainID,
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	if testConfig.GetPyroscopeConfig() != nil && *testConfig.GetPyroscopeConfig().Enabled {
+		nodeConfig.Pyroscope.Environment = testConfig.GetPyroscopeConfig().Environment
+		nodeConfig.Pyroscope.ServerAddress = testConfig.GetPyroscopeConfig().ServerUrl
+	}
+
+	asStr, err := toml.Marshal(nodeConfig)
+	if err != nil {
+		return "", err
+	}
+
+	return string(asStr), nil
 }

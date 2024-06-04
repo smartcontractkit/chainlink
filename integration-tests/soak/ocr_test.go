@@ -7,34 +7,40 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-func TestOCRSoak(t *testing.T) {
-	l := logging.GetTestLogger(t)
-	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := ``
-	// Uncomment below for debugging TOML issues on the node
-	// network := networks.MustGetSelectedNetworksFromEnv()[0]
-	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
-	// fmt.Println("---------------------")
-
+func TestOCRv1Soak(t *testing.T) {
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
-	// validate Seth config before anything else
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	_, err = actions_seth.GetChainClient(config, network)
-	require.NoError(t, err, "Error creating seth client")
+	executeOCRSoakTest(t, &config)
+}
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+func TestOCRv2Soak(t *testing.T) {
+	config, err := tc.GetConfig("Soak", tc.OCR2)
+	require.NoError(t, err, "Error getting config")
+
+	executeOCRSoakTest(t, &config)
+}
+
+func executeOCRSoakTest(t *testing.T, config *tc.TestConfig) {
+	l := logging.GetTestLogger(t)
+
+	// validate Seth config before anything else, but only for live networks (simulated will fail, since there's no chain started yet)
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	if !network.Simulated {
+		_, err := actions_seth.GetChainClient(config, network)
+		require.NoError(t, err, "Error creating seth client")
+	}
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, config, false)
 	require.NoError(t, err, "Error creating soak test")
 	if !ocrSoakTest.Interrupted() {
-		ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
+		ocrSoakTest.DeployEnvironment(config)
 	}
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
@@ -49,7 +55,7 @@ func TestOCRSoak(t *testing.T) {
 		require.NoError(t, err, "Error loading state")
 		ocrSoakTest.Resume()
 	} else {
-		ocrSoakTest.Setup(&config)
+		ocrSoakTest.Setup(config)
 		ocrSoakTest.Run()
 	}
 }

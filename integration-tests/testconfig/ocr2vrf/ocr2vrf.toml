@@ -43,6 +43,15 @@ Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 """
 
+CommonChainConfigTOML = """
+FinalityDepth = 5
+
+[GasEstimator]
+LimitDefault = 3_500_000
+PriceMax = 100000000000
+FeeCapDefault = 100000000000
+"""
+
 # load test specific configuration
 [Load.OCR]
 [Load.OCR.Common]

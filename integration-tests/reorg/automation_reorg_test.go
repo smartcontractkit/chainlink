@@ -29,27 +29,6 @@ import (
 )
 
 var (
-	baseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-	networkTOML = `Enabled = true
-FinalityDepth = 200
-LogPollInterval = '1s'
-
-[EVM.HeadTracker]
-HistoryDepth = 400
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
-
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
 		"db": map[string]interface{}{
@@ -148,8 +127,11 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
+			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
+			require.NoError(t, err, "Error building TOML config")
+
 			defaultAutomationSettings["replicas"] = numberOfNodes
-			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
+			defaultAutomationSettings["toml"] = tomlConfig
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
