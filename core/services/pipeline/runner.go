@@ -14,8 +14,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -76,6 +78,8 @@ type runner struct {
 
 	chStop services.StopChan
 	wgDone sync.WaitGroup
+
+	relayers map[types.RelayID]loop.Relayer
 }
 
 var (
@@ -108,7 +112,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client, relayers map[types.RelayID]loop.Relayer) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
@@ -123,6 +127,7 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		lggr:                   lggr.Named("PipelineRunner"),
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
+		relayers:               relayers,
 	}
 	r.runReaperWorker = commonutils.NewSleeperTask(
 		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
@@ -316,6 +321,8 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).specGasLimit = spec.GasLimit
 			task.(*ETHTxTask).jobType = spec.JobType
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
+		case TaskTypeOnchainRead:
+			task.(*OnChainRead).relayers = r.relayers
 		default:
 		}
 	}

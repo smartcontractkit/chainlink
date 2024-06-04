@@ -328,3 +328,29 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
 }
+
+func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmclient.Client, config types.ChainReaderConfig) (commontypes.ContractStateReader, error) {
+	cr := &chainReader{
+		lggr:             lggr.Named("ContractStateReader"),
+		client:           client,
+		contractBindings: contractBindings{},
+		parsed: &parsedTypes{encoderDefs: map[string]types.CodecEntry{},
+			decoderDefs: map[string]types.CodecEntry{}},
+	}
+
+	var err error
+	if err = cr.init(config.Contracts); err != nil {
+		return nil, err
+	}
+
+	if cr.codec, err = cr.parsed.toCodec(); err != nil {
+		return nil, err
+	}
+
+	err = cr.contractBindings.ForEach(ctx, func(b readBinding, c context.Context) error {
+		b.SetCodec(cr.codec)
+		return nil
+	})
+
+	return cr, err
+}
