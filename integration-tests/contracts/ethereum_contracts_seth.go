@@ -197,10 +197,6 @@ func (o *EthereumOffchainAggregator) SetConfig(
 		return err
 	}
 
-	// fails with error setting OCR config for contract '0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82': both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified
-	// but we only have gasPrice set... It also fails with the same error when we enable EIP-1559
-	// fails when we wait for it to be minted, inside the wrapper there's no error when we call it, so it must be something inside smart contract
-	// that's reverting it and maybe the error message is completely off
 	_, err = o.client.Decode(o.ocr.SetConfig(o.client.NewTXOpts(), signers, transmitters, threshold, encodedConfigVersion, encodedConfig))
 	return err
 }

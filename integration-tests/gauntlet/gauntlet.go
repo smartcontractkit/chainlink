@@ -3,12 +3,13 @@ package gauntlet
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet/configs"
 	"os"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/gauntlet"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet/configs"
 )
 
 type Gauntlet struct {
