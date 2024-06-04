@@ -116,23 +116,21 @@ type logEventProvider struct {
 
 	chainID *big.Int
 
-	currentIteration    int
-	calculateIterations bool
-	iterations          int
+	currentIteration int
+	iterations       int
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		threadCtrl:          utils.NewThreadControl(),
-		lggr:                lggr.Named("KeepersRegistry.LogEventProvider"),
-		packer:              packer,
-		buffer:              newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:            NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
-		poller:              poller,
-		opts:                opts,
-		filterStore:         filterStore,
-		chainID:             chainID,
-		calculateIterations: true,
+		threadCtrl:  utils.NewThreadControl(),
+		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		packer:      packer,
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
+		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		poller:      poller,
+		opts:        opts,
+		filterStore: filterStore,
+		chainID:     chainID,
 	}
 }
 
@@ -297,11 +295,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 
 		if p.iterations == p.currentIteration {
-			p.calculateIterations = true
-		}
-
-		if p.calculateIterations {
-			p.calculateIterations = false
 			p.currentIteration = 0
 			p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
 			if p.iterations == 0 {
