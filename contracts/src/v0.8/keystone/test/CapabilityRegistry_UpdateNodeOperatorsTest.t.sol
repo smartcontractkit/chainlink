@@ -42,6 +42,20 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 
+  function test_RevertWhen_NodeOperatorIdAndParamLengthsMismatch() public {
+     changePrank(ADMIN);
+    CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
+    nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
+
+    uint32 invalidNodeOperatorId = 10000;
+    uint32[] memory nodeOperatorIds = new uint32[](2);
+    nodeOperatorIds[0] = invalidNodeOperatorId;
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.LengthMismatch.selector, nodeOperatorIds.length, nodeOperators.length)
+    );
+    s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
+  }
+
   function test_RevertWhen_NodeOperatorDoesNotExist() public {
     changePrank(ADMIN);
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
