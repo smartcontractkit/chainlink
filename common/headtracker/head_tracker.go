@@ -349,7 +349,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 
 	finalized, err = ht.calculateLatestFinalized(ctx, latest)
 	if err != nil {
-		err = fmt.Errorf("failed to calculate latest finalized block")
+		err = fmt.Errorf("failed to calculate latest finalized block: %w", err)
 		return
 	}
 	if !finalized.IsValid() {
@@ -358,6 +358,24 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 	}
 
 	return
+}
+
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Context, chainHeadHash BLOCK_HASH, blockHeight int64) (HTH, error) {
+	chainHead := ht.headSaver.Chain(chainHeadHash)
+	if chainHead.IsValid() {
+		// check if provided chain contains a block of specified height
+		headAtHeight, err := chainHead.HeadAtHeight(blockHeight)
+		if err == nil {
+			// we are forced to reload the block due to type mismatched caused by generics
+			hthAtHeight := ht.headSaver.Chain(headAtHeight.BlockHash())
+			// ensure that the block was not removed from the chain by another goroutine
+			if hthAtHeight.IsValid() {
+				return hthAtHeight, nil
+			}
+		}
+	}
+
+	return ht.client.HeadByNumber(ctx, big.NewInt(blockHeight))
 }
 
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
@@ -371,8 +389,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 		}
 
 		finalizedBlockNumber := max(latestFinalized.BlockNumber()-int64(ht.config.FinalizedBlockOffset()), 0)
-		finalizedWithOffset, _, err := ht.fetchAncestorAtHeight(ctx, latestFinalized, finalizedBlockNumber)
-		return finalizedWithOffset, err
+		return ht.getHeadAtHeight(ctx, latestFinalized.BlockHash(), finalizedBlockNumber)
 	}
 	// no need to make an additional RPC call on chains with instant finality
 	if ht.config.FinalityDepth() == 0 && ht.config.FinalizedBlockOffset() == 0 {
@@ -382,29 +399,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 	if finalizedBlockNumber <= 0 {
 		finalizedBlockNumber = 0
 	}
-	return ht.client.HeadByNumber(ctx, big.NewInt(finalizedBlockNumber))
-}
-
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAncestorAtHeight(ctx context.Context, head HTH, baseHeight int64) (ancestor HTH, fetched int, err error) {
-	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
-		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		existingHead := ht.headSaver.Chain(head.GetParentHash())
-		if existingHead.IsValid() {
-			head = existingHead
-			continue
-		}
-		var err error
-		head, err = ht.fetchAndSaveHead(ctx, i, head.GetParentHash())
-		fetched++
-		if ctx.Err() != nil {
-			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
-			return ancestor, fetched, fmt.Errorf("fetchAndSaveHead failed: %w", ctx.Err())
-		} else if err != nil {
-			return ancestor, fetched, fmt.Errorf("fetchAndSaveHead failed: %w", err)
-		}
-	}
-
-	return head, fetched, nil
+	return ht.getHeadAtHeight(ctx, currentHead.BlockHash(), finalizedBlockNumber)
 }
 
 // backfill fetches all missing heads up until the latestFinalizedHead
@@ -429,9 +424,21 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			"err", err)
 	}()
 
-	head, fetched, err = ht.fetchAncestorAtHeight(ctx, head, baseHeight)
-	if err != nil {
-		return fmt.Errorf("failed to fetch ancestor with height %d: %w", baseHeight, err)
+	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
+		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
+		existingHead := ht.headSaver.Chain(head.GetParentHash())
+		if existingHead.IsValid() {
+			head = existingHead
+			continue
+		}
+		head, err = ht.fetchAndSaveHead(ctx, i, head.GetParentHash())
+		fetched++
+		if ctx.Err() != nil {
+			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
+			return fmt.Errorf("fetchAndSaveHead failed: %w", ctx.Err())
+		} else if err != nil {
+			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
+		}
 	}
 
 	if head.BlockHash() != latestFinalizedHead.BlockHash() {

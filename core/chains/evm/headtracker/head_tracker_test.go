@@ -3,6 +3,7 @@ package headtracker_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"slices"
 	"sync"
@@ -1012,10 +1013,11 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	t.Run("marks block as finalized according to FinalizedBlockOffset (finality tag)", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{Heads: []evmtypes.Head{h15}, FinalityTagEnabled: true, FinalizedBlockOffset: 2})
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h14, nil).Once()
-		// calculateLatestFinalizedBlock fetches blocks down to the FinalizedBlockOffset
-		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
-		htu.ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(&h12, nil).Once()
+		// calculateLatestFinalizedBlock fetches blocks at LatestFinalized - FinalizedBlockOffset
+		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(h12.Number)).Return(&h12, nil).Once()
 		// backfill from 15 to 12
+		htu.ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(&h12, nil).Once()
+		htu.ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
 		htu.ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
 		err := htu.headTracker.Backfill(ctx, &h15)
 		require.NoError(t, err)
@@ -1073,6 +1075,142 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		assert.True(t, h.IsFinalized)
 		assert.Equal(t, h13.BlockNumber(), h.BlockNumber())
 		assert.Equal(t, h13.Hash, h.Hash)
+	})
+}
+
+func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
+	t.Parallel()
+
+	ctx := testutils.Context(t)
+
+	h11 := cltest.Head(11)
+	h11.ParentHash = utils.NewHash()
+
+	h12 := cltest.Head(12)
+	h12.ParentHash = h11.Hash
+
+	h13 := cltest.Head(13)
+	h13.ParentHash = h12.Hash
+
+	type opts struct {
+		Heads                []evmtypes.Head
+		FinalityTagEnabled   bool
+		FinalizedBlockOffset uint32
+		FinalityDepth        uint32
+	}
+
+	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
+		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
+			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
+			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
+			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
+		})
+
+		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+		db := pgtest.NewSqlxDB(t)
+		orm := headtracker.NewORM(cltest.FixtureChainID, db)
+		for i := range opts.Heads {
+			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &opts.Heads[i]))
+		}
+		ethClient := evmtest.NewEthClientMock(t)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
+		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
+		_, err := ht.headSaver.Load(testutils.Context(t), 0)
+		require.NoError(t, err)
+		return ht
+	}
+	t.Run("returns error if failed to get latest block", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		const expectedError = "failed to fetch latest block"
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New(expectedError)).Once()
+
+		_, _, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.ErrorContains(t, err, expectedError)
+	})
+	t.Run("returns error if latest block is invalid", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
+
+		_, _, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.ErrorContains(t, err, "expected latest block to be valid")
+	})
+	t.Run("returns error if failed to get latest finalized (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		const expectedError = "failed to get latest finalized block"
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, fmt.Errorf(expectedError)).Once()
+
+		_, _, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.ErrorContains(t, err, expectedError)
+	})
+	t.Run("returns error if latest finalized block is not valid (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
+
+		_, _, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.ErrorContains(t, err, "expected finalized block to be valid")
+	})
+	t.Run("returns latest finalized block as is if FinalizedBlockOffset is 0 (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h11, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL, h13)
+		assert.Equal(t, actualLF, h11)
+	})
+	t.Run("returns latest finalized block with offset from cache (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true, FinalizedBlockOffset: 1, Heads: []evmtypes.Head{*h13, *h12, *h11}})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h12, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL.Number, h13.Number)
+		assert.Equal(t, actualLF.Number, h11.Number)
+	})
+	t.Run("returns latest finalized block with offset from RPC (finality tag)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true, FinalizedBlockOffset: 2, Heads: []evmtypes.Head{*h13, *h12, *h11}})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h12, nil).Once()
+		h10 := cltest.Head(10)
+		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).Return(h10, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL.Number, h13.Number)
+		assert.Equal(t, actualLF.Number, h10.Number)
+	})
+	t.Run("returns current head for both latest and finalized for FD = 0 (finality depth)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL.Number, h13.Number)
+		assert.Equal(t, actualLF.Number, h13.Number)
+	})
+	t.Run("returns latest finalized block with offset from cache (finality depth)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityDepth: 1, FinalizedBlockOffset: 1, Heads: []evmtypes.Head{*h13, *h12, *h11}})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL.Number, h13.Number)
+		assert.Equal(t, actualLF.Number, h11.Number)
+	})
+	t.Run("returns latest finalized block with offset from RPC (finality depth)", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityDepth: 1, FinalizedBlockOffset: 2, Heads: []evmtypes.Head{*h13, *h12, *h11}})
+		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
+		h10 := cltest.Head(10)
+		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).Return(h10, nil).Once()
+
+		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, actualL.Number, h13.Number)
+		assert.Equal(t, actualLF.Number, h10.Number)
 	})
 }
 
