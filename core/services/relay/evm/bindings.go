@@ -14,7 +14,7 @@ import (
 )
 
 // key is contract name
-type bindings map[string]*contractBindings
+type bindings map[string]*contractBinding
 
 type FilterRegisterer struct {
 	pollingFilter logpoller.Filter
@@ -22,58 +22,58 @@ type FilterRegisterer struct {
 	isRegistered  bool
 }
 
-type contractBindings struct {
+type contractBinding struct {
 	// FilterRegisterer is used to manage polling filter registration for the contact wide event filter.
 	FilterRegisterer
-	// key is read name
+	// key is read name method, event or event keys used for queryKey.
 	readBindings map[string]readBinding
 }
 
 func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
-	rb, rbExists := b[contractName]
-	if !rbExists {
+	cb, cbExists := b[contractName]
+	if !cbExists {
 		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
 	}
 
-	reader, readerExists := rb.readBindings[readName]
-	if !readerExists {
+	rb, rbExists := cb.readBindings[readName]
+	if !rbExists {
 		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
 	}
-	return reader, nil
+	return rb, nil
 }
 
 func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) {
-	rbs, rbsExists := b[contractName]
-	if !rbsExists {
-		rbs = &contractBindings{readBindings: make(map[string]readBinding)}
-		b[contractName] = rbs
+	cb, cbExists := b[contractName]
+	if !cbExists {
+		cb = &contractBinding{readBindings: make(map[string]readBinding)}
+		b[contractName] = cb
 	}
-	rbs.readBindings[readName] = rb
+	cb.readBindings[readName] = rb
 }
 
 func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
 	for _, bc := range boundContracts {
-		rbs, rbsExist := b[bc.Name]
-		if !rbsExist {
+		cb, cbExists := b[bc.Name]
+		if !cbExists {
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
 
-		rbs.pollingFilter.Addresses = evmtypes.AddressArray{common.HexToAddress(bc.Address)}
-		rbs.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
+		cb.pollingFilter.Addresses = evmtypes.AddressArray{common.HexToAddress(bc.Address)}
+		cb.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
 
 		// we are changing contract address reference, so we need to unregister old filters if they exist
-		if err := rbs.Unregister(ctx, logPoller); err != nil {
+		if err := cb.Unregister(ctx, logPoller); err != nil {
 			return err
 		}
 
-		for _, r := range rbs.readBindings {
-			r.Bind(bc)
+		for _, rb := range cb.readBindings {
+			rb.Bind(bc)
 		}
 
 		// if contract event filters aren't already registered then they will on startup
 		// if they are already registered then we are overriding them because contract binding (address) has changed
-		if rbs.isRegistered {
-			if err := rbs.Register(ctx, logPoller); err != nil {
+		if cb.isRegistered {
+			if err := cb.Register(ctx, logPoller); err != nil {
 				return err
 			}
 		}
@@ -81,9 +81,9 @@ func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, bound
 	return nil
 }
 
-func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contractBindings) error) error {
-	for _, rbs := range b {
-		if err := fn(ctx, rbs); err != nil {
+func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contractBinding) error) error {
+	for _, cb := range b {
+		if err := fn(ctx, cb); err != nil {
 			return err
 		}
 	}
@@ -91,22 +91,22 @@ func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contrac
 }
 
 // Register registers polling filters.
-func (rb *contractBindings) Register(ctx context.Context, logPoller logpoller.LogPoller) error {
-	rb.filterLock.Lock()
-	defer rb.filterLock.Unlock()
+func (cb *contractBinding) Register(ctx context.Context, logPoller logpoller.LogPoller) error {
+	cb.filterLock.Lock()
+	defer cb.filterLock.Unlock()
 
-	rb.isRegistered = true
+	cb.isRegistered = true
 
-	if logPoller.HasFilter(rb.pollingFilter.Name) {
+	if logPoller.HasFilter(cb.pollingFilter.Name) {
 		return nil
 	}
 
-	if err := logPoller.RegisterFilter(ctx, rb.pollingFilter); err != nil {
+	if err := logPoller.RegisterFilter(ctx, cb.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	for _, binding := range rb.readBindings {
-		if err := binding.Register(ctx); err != nil {
+	for _, rb := range cb.readBindings {
+		if err := rb.Register(ctx); err != nil {
 			return err
 		}
 	}
@@ -114,20 +114,20 @@ func (rb *contractBindings) Register(ctx context.Context, logPoller logpoller.Lo
 }
 
 // Unregister unregisters polling filters.
-func (rb *contractBindings) Unregister(ctx context.Context, logPoller logpoller.LogPoller) error {
-	rb.filterLock.Lock()
-	defer rb.filterLock.Unlock()
+func (cb *contractBinding) Unregister(ctx context.Context, logPoller logpoller.LogPoller) error {
+	cb.filterLock.Lock()
+	defer cb.filterLock.Unlock()
 
-	if !logPoller.HasFilter(rb.pollingFilter.Name) {
+	if !logPoller.HasFilter(cb.pollingFilter.Name) {
 		return nil
 	}
 
-	if err := logPoller.UnregisterFilter(ctx, rb.pollingFilter.Name); err != nil {
+	if err := logPoller.UnregisterFilter(ctx, cb.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	for _, binding := range rb.readBindings {
-		if err := binding.Unregister(ctx); err != nil {
+	for _, rb := range cb.readBindings {
+		if err := rb.Unregister(ctx); err != nil {
 			return err
 		}
 	}

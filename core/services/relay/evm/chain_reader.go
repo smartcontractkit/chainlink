@@ -64,7 +64,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+	err = cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBinding) error {
 		for _, rb := range rbs.readBindings {
 			rb.SetCodec(cr.codec)
 		}
@@ -149,7 +149,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBinding) error {
 			return rbs.Register(ctx, cr.lp)
 		})
 	})
@@ -159,7 +159,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBindings) error {
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBinding) error {
 			return rbs.Unregister(ctx, cr.lp)
 		})
 	})
