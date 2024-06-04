@@ -11,12 +11,7 @@ contract CapabilityConfigurationContract is ICapabilityConfiguration, ERC165 {
     return s_donConfiguration[donId];
   }
 
-  function beforeCapabilityConfigSet(
-    bytes32[] calldata nodes,
-    bytes calldata config,
-    uint64 configCount,
-    uint32 donId
-  ) external {
+  function beforeCapabilityConfigSet(bytes32[] calldata, bytes calldata config, uint64, uint32 donId) external {
     // In practice a real capability configuration contract will do more than just store
     // the config for a DON
     s_donConfiguration[donId] = config;

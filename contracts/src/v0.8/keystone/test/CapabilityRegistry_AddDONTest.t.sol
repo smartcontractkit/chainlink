@@ -193,12 +193,12 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     assertEq(donInfo.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
 
     (bytes memory capabilityRegistryDONConfig, bytes memory capabilityConfigContractConfig) = s_capabilityRegistry
-      .getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId);
+      .getCapabilityConfigs(DON_ID, s_basicHashedCapabilityId);
     assertEq(capabilityRegistryDONConfig, BASIC_CAPABILITY_CONFIG);
     assertEq(capabilityConfigContractConfig, bytes(""));
 
     (bytes memory capabilityRegistryDONConfigTwo, bytes memory capabilityConfigContractConfigTwo) = s_capabilityRegistry
-      .getDONCapabilityConfig(DON_ID, s_capabilityWithConfigurationContractId);
+      .getCapabilityConfigs(DON_ID, s_capabilityWithConfigurationContractId);
     assertEq(capabilityRegistryDONConfigTwo, CONFIG_CAPABILITY_CONFIG);
     assertEq(capabilityConfigContractConfigTwo, CONFIG_CAPABILITY_CONFIG);
 

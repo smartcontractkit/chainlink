@@ -43,7 +43,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
   }
 
   function test_RevertWhen_NodeOperatorIdAndParamLengthsMismatch() public {
-     changePrank(ADMIN);
+    changePrank(ADMIN);
     CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](1);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NEW_NODE_OPERATOR_ADMIN, name: NEW_NODE_OPERATOR_NAME});
 
