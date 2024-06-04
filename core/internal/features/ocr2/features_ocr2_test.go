@@ -489,7 +489,7 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
-gasPriceSource = """
+gasPriceSubunitsSource = """
 		// data source
 		dsp          [type=bridge name="%s"];
 		dsp_parse    [type=jsonparse path="data"];
