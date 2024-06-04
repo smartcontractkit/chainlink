@@ -95,6 +95,11 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		RegistrationExpiryMs:    60000,
 		MinResponsesToAggregate: uint32(s.networkSetup.TriggerCapabilityDonInfo.F) + 1,
 	}
+	err = s.peerWrapper.GetPeer().UpdateConnections(s.networkSetup.allPeers)
+	if err != nil {
+		s.lggr.Errorw("failed to update connections", "error", err)
+		return
+	}
 	if s.networkSetup.IsWorkflowDon(myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
 		codec := streams.NewCodec(s.lggr)
@@ -197,12 +202,13 @@ type HardcodedDonNetworkSetup struct {
 	workflowDonPeers  []string
 	triggerDonPeers   []string
 	triggerDonSigners []string
+	allPeers          map[ragetypes.PeerID]p2ptypes.StreamConfig
 
 	WorkflowsDonInfo         capabilities.DON
 	TriggerCapabilityDonInfo capabilities.DON
 }
 
-func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDonNetworkSetup, error) {
+func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 	result := HardcodedDonNetworkSetup{}
 
 	result.workflowDonPeers = []string{
@@ -230,7 +236,7 @@ func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDon
 		"0x91d9b0062265514f012Eb8fABA59372fD9520f56",
 	}
 
-	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
+	result.allPeers = make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
 		for _, peerID := range peers {
 			var p ragetypes.PeerID
@@ -238,7 +244,7 @@ func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDon
 			if err != nil {
 				return err
 			}
-			allPeers[p] = defaultStreamConfig
+			result.allPeers[p] = defaultStreamConfig
 			donInfo.Members = append(donInfo.Members, p)
 		}
 		return nil
@@ -250,10 +256,6 @@ func NewHardcodedDonNetworkSetup(peerWrapper p2ptypes.PeerWrapper) (HardcodedDon
 	result.TriggerCapabilityDonInfo = capabilities.DON{ID: "capabilityDon1", F: 1} // NOTE: misconfiguration - should be 2
 	if err := addPeersToDONInfo(result.triggerDonPeers, &result.TriggerCapabilityDonInfo); err != nil {
 		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to trigger DON info: %w", err)
-	}
-	err := peerWrapper.GetPeer().UpdateConnections(allPeers)
-	if err != nil {
-		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to update connections: %w", err)
 	}
 
 	return result, nil
