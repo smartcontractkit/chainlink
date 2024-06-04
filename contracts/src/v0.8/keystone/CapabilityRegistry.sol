@@ -708,10 +708,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Returns the DON specific configuration for a capability
   /// @param donId The DON's ID
   /// @param capabilityId The Capability ID
-  /// @return bytes The DON specific configuration for the capability
-  function getDONCapabilityConfig(uint32 donId, bytes32 capabilityId) external view returns (bytes memory) {
+  /// @return bytes The DON specific configuration for the capability stored on the capability registry
+  /// @return bytes The DON specific configuration stored on the capability's configuration contract
+  function getCapabilityConfigs(uint32 donId, bytes32 capabilityId) external view returns (bytes memory, bytes memory) {
     uint32 configCount = s_dons[donId].configCount;
-    return s_dons[donId].config[configCount].capabilityConfigs[capabilityId];
+
+    bytes memory donCapabilityConfig = s_dons[donId].config[configCount].capabilityConfigs[capabilityId];
+    bytes memory globalCapabilityConfig;
+
+    if (s_capabilities[capabilityId].configurationContract != address(0)) {
+      globalCapabilityConfig = ICapabilityConfiguration(s_capabilities[capabilityId].configurationContract)
+        .getCapabilityConfiguration(donId);
+    }
+
+    return (donCapabilityConfig, globalCapabilityConfig);
   }
 
   /// @notice Sets the configuration for a DON
