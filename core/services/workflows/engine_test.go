@@ -199,7 +199,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
-			reg := coreCap.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+			reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 			trigger, cr := mockTrigger(t)
 
@@ -386,7 +386,7 @@ func mockTarget() *mockCapability {
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
 
@@ -480,7 +480,7 @@ func mockAction() (*mockCapability, values.Value) {
 func TestEngine_MultiStepDependencies(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, cr := mockTrigger(t)
 
@@ -523,7 +523,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger := mockNoopTrigger(t)
 	resp, err := values.NewMap(map[string]any{
@@ -577,7 +577,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger := mockNoopTrigger(t)
 	resp, err := values.NewMap(map[string]any{
