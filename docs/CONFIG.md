@@ -7076,8 +7076,6 @@ ChainType = 'arbitrum' # Example
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
 
-`xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
-
 ### FinalityDepth
 ```toml
 FinalityDepth = 50 # Default
@@ -8002,9 +8000,9 @@ GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
-## EVM.ChainWriter
+## EVM.Workflow
 ```toml
-[EVM.ChainWriter]
+[EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
