@@ -544,7 +544,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
@@ -599,7 +599,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
