@@ -29,7 +29,7 @@ type GasPriceChain struct {
 
 func NewGasPriceChain(gasPrice *big.Int, chainSel ChainSelector) GasPriceChain {
 	return GasPriceChain{
-		GasPrice: BigInt{Int: gasPrice},
+		GasPrice: NewBigInt(gasPrice),
 		ChainSel: chainSel,
 	}
 }

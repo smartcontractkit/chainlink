@@ -4,18 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type CommitPluginConfig struct {
-	// Writer indicates that the node can contribute by sending reports to the destination chain.
-	// Being a Writer guarantees that the node can also read from the destination chain.
-	Writer bool `json:"writer"`
-
-	// Reads define the chains that the current node can read from.
-	Reads []ChainSelector `json:"reads"`
-
 	// DestChain is the ccip destination chain configured for the commit plugin DON.
 	DestChain ChainSelector `json:"destChain"`
 
@@ -40,12 +34,8 @@ func (c CommitPluginConfig) Validate() error {
 		return fmt.Errorf("destChain not set")
 	}
 
-	if len(c.FChain) == 0 {
-		return fmt.Errorf("fChain not set")
-	}
-
 	if len(c.PricedTokens) == 0 {
-		return fmt.Errorf("priced tokens not set")
+		return fmt.Errorf("priced tokens not set, at least one priced token is required")
 	}
 
 	if c.NewMsgScanBatchSize == 0 {
@@ -54,6 +44,16 @@ func (c CommitPluginConfig) Validate() error {
 
 	if _, ok := c.FChain[c.DestChain]; !ok {
 		return fmt.Errorf("fChain not set for dest chain")
+	}
+
+	allChains := mapset.NewSet[ChainSelector]()
+	for _, inf := range c.ObserverInfo {
+		allChains.Union(mapset.NewSet[ChainSelector](inf.Reads...))
+	}
+	for _, ch := range allChains.ToSlice() {
+		if _, ok := c.FChain[ch]; !ok {
+			return fmt.Errorf("fChain not set for chain %d", ch)
+		}
 	}
 
 	return nil
@@ -71,5 +71,10 @@ type ExecutePluginConfig struct {
 }
 
 type ObserverInfo struct {
-	Reads []ChainSelector
+	// Writer indicates that the node can contribute by sending reports to the destination chain.
+	// Being a Writer guarantees that the node can also read from the destination chain.
+	Writer bool `json:"writer"`
+
+	// Reads define the chains that the current node can read from.
+	Reads []ChainSelector `json:"reads"`
 }

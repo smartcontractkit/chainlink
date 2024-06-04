@@ -48,6 +48,14 @@ type BigInt struct {
 	*big.Int
 }
 
+func NewBigInt(i *big.Int) BigInt {
+	return BigInt{Int: i}
+}
+
+func NewBigIntFromInt64(i int64) BigInt {
+	return BigInt{Int: big.NewInt(i)}
+}
+
 func (b BigInt) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%s"`, b.String())), nil
 }

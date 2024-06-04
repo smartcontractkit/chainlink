@@ -4,12 +4,12 @@ import (
 	"github.com/smartcontractkit/ccipocr3/internal/model"
 )
 
-type NopMessageHasher struct{}
+type MessageHasher struct{}
 
-func NewNopMessageHasher() *NopMessageHasher {
-	return &NopMessageHasher{}
+func NewMessageHasher() *MessageHasher {
+	return &MessageHasher{}
 }
 
-func (m *NopMessageHasher) Hash(msg model.CCIPMsg) (model.Bytes32, error) {
+func (m *MessageHasher) Hash(msg model.CCIPMsg) (model.Bytes32, error) {
 	return msg.ID, nil
 }

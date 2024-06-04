@@ -1,7 +1,6 @@
 package slicelib
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/ccipocr3/internal/model"
@@ -17,22 +16,22 @@ func TestBigIntSortedMiddle(t *testing.T) {
 		{
 			name: "base case",
 			vals: []model.BigInt{
-				{Int: big.NewInt(1)},
-				{Int: big.NewInt(2)},
-				{Int: big.NewInt(4)},
-				{Int: big.NewInt(5)},
+				model.NewBigIntFromInt64(1),
+				model.NewBigIntFromInt64(2),
+				model.NewBigIntFromInt64(4),
+				model.NewBigIntFromInt64(5),
 			},
-			want: model.BigInt{Int: big.NewInt(4)},
+			want: model.NewBigIntFromInt64(4),
 		},
 		{
 			name: "not sorted",
 			vals: []model.BigInt{
-				{Int: big.NewInt(100)},
-				{Int: big.NewInt(50)},
-				{Int: big.NewInt(30)},
-				{Int: big.NewInt(110)},
+				model.NewBigIntFromInt64(100),
+				model.NewBigIntFromInt64(50),
+				model.NewBigIntFromInt64(30),
+				model.NewBigIntFromInt64(110),
 			},
-			want: model.BigInt{Int: big.NewInt(100)},
+			want: model.NewBigIntFromInt64(100),
 		},
 		{
 			name: "empty slice",
@@ -42,9 +41,9 @@ func TestBigIntSortedMiddle(t *testing.T) {
 		{
 			name: "one item",
 			vals: []model.BigInt{
-				{Int: big.NewInt(123)},
+				model.NewBigIntFromInt64(123),
 			},
-			want: model.BigInt{Int: big.NewInt(123)},
+			want: model.NewBigIntFromInt64(123),
 		},
 	}
 	for _, tt := range tests {

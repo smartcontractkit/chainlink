@@ -65,6 +65,14 @@ func (o CommitPluginOutcome) Encode() ([]byte, error) {
 	return json.Marshal(o)
 }
 
+// IsEmpty returns true if the CommitPluginOutcome is empty
+func (o CommitPluginOutcome) IsEmpty() bool {
+	return len(o.MaxSeqNums) == 0 &&
+		len(o.MerkleRoots) == 0 &&
+		len(o.TokenPrices) == 0 &&
+		len(o.GasPrices) == 0
+}
+
 func DecodeCommitPluginOutcome(b []byte) (CommitPluginOutcome, error) {
 	o := CommitPluginOutcome{}
 	err := json.Unmarshal(b, &o)
