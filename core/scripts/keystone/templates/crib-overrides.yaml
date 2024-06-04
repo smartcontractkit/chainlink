@@ -2,12 +2,12 @@ helm:
   values:
     chainlink:
       nodes:
-        node-1: 
+        node1: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
             ChainID = '11155111'
-        node-2: 
+        node2: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
@@ -15,7 +15,7 @@ helm:
             [EVM.ChainWriter]
             FromAddress = '{{ node_2_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
-        node-3: 
+        node3: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
@@ -23,7 +23,7 @@ helm:
             [EVM.ChainWriter]
             FromAddress = '{{ node_3_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
-        node-4: 
+        node4: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
@@ -31,7 +31,7 @@ helm:
             [EVM.ChainWriter]
             FromAddress = '{{ node_4_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
-        node-5: 
+        node5: 
           image: ${runtime.images.app}
           overridesToml: |-
             [[EVM]]
