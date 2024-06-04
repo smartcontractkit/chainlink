@@ -144,6 +144,10 @@ func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[in
 	b.enqueuedBlockLock.Lock()
 	defer b.enqueuedBlockLock.Unlock()
 
+	if uid == nil {
+		return
+	}
+
 	for blockNumber := range uniqueBlocks {
 		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
 			if upkeepBlockInstances, ok := blockNumbers[uid.String()]; ok {
