@@ -4,6 +4,14 @@ func NewPureConsensus[I, O any](ref string, fn func([]I) (O, error)) Consensus[I
 	return &pureConsensus[I, O]{ref: ref, fn: fn}
 }
 
+func NewIdenticalConsensus[I any]() Consensus[I, I] {
+	return NewPureConsensus[I, I]("identical", func(observations []I) (I, error) {
+		// check for the one with the most results, verify it's at least F+1
+		// We might want to expose that from the core node to make life faster/easier
+		return observations[0], nil
+	})
+}
+
 type pureConsensus[I, O any] struct {
 	ref string
 	fn  func([]I) (O, error)
