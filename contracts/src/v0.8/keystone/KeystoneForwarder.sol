@@ -224,7 +224,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   function _getMetadata(
     bytes memory rawReport
   ) internal pure returns (bytes32 workflowExecutionId, uint32 donId, uint32 donConfigVersion, bytes2 reportId) {
-    // (first 32 bytes contain length of the report)
+    // (first 32 bytes of memory contain length of the report)
     // version                  // offset  32, size  1
     // workflow_execution_id    // offset  33, size 32
     // timestamp                // offset  65, size  4
@@ -234,8 +234,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // workflow_name            // offset 109, size 10
     // workflow_owner           // offset 119, size 20
     // report_name              // offset 139, size  2
-    if (uint8(rawReport[32]) != 1) {
-      revert InvalidVersion(uint8(rawReport[32]));
+    if (uint8(rawReport[0]) != 1) {
+      revert InvalidVersion(uint8(rawReport[0]));
     }
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
@@ -243,8 +243,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       donId := shr(mul(28, 8), mload(add(rawReport, 69)))
       // shift right by 28 bytes to get the actual value
       donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
-      // shift right by 30 bytes to get the actual value
-      reportId := shr(mul(30, 8), mload(add(rawReport, 139)))
+      reportId := mload(add(rawReport, 139))
     }
   }
 
