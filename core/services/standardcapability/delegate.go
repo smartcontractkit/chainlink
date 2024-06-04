@@ -67,7 +67,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	standardCapability := NewStandardCapability(log, spec.StandardCapabilitySpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
+	standardCapability := newStandardCapability(log, spec.StandardCapabilitySpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
 		pr, relayerSet)
 
 	return []job.ServiceCtx{standardCapability}, nil
