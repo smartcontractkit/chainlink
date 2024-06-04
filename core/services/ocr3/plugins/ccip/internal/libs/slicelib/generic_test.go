@@ -64,7 +64,6 @@ func TestGroupBy(t *testing.T) {
 			for _, k := range keys {
 				assert.Equal(t, tc.expGroups[k], groups[k])
 			}
-			return
 		})
 	}
 }

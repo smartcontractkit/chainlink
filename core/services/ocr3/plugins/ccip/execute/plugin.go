@@ -77,9 +77,9 @@ func getPendingExecutedReports(ctx context.Context, ccipReader reader.CCIP, dest
 
 		var executedMessages []model.SeqNumRange
 		for _, seqRange := range ranges {
-			executedMessagesForRange, err := ccipReader.ExecutedMessageRanges(ctx, selector, dest, seqRange)
-			if err != nil {
-				return nil, time.Time{}, err
+			executedMessagesForRange, err2 := ccipReader.ExecutedMessageRanges(ctx, selector, dest, seqRange)
+			if err2 != nil {
+				return nil, time.Time{}, err2
 			}
 			executedMessages = append(executedMessages, executedMessagesForRange...)
 		}
@@ -125,6 +125,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 	// Phase 2: Gather messages from the source chains and build the execution report.
 	messages := make(model.ExecutePluginMessageObservations)
 	if len(previousOutcome.Messages) == 0 {
+		fmt.Println("TODO: No messages to execute. This is expected after a cold start.")
 		// No messages to execute.
 		// This is expected after a cold start.
 	} else {

@@ -17,20 +17,20 @@ func TestBigIntSortedMiddle(t *testing.T) {
 		{
 			name: "base case",
 			vals: []model.BigInt{
-				{big.NewInt(1)},
-				{big.NewInt(2)},
-				{big.NewInt(4)},
-				{big.NewInt(5)},
+				{Int: big.NewInt(1)},
+				{Int: big.NewInt(2)},
+				{Int: big.NewInt(4)},
+				{Int: big.NewInt(5)},
 			},
 			want: model.BigInt{Int: big.NewInt(4)},
 		},
 		{
 			name: "not sorted",
 			vals: []model.BigInt{
-				{big.NewInt(100)},
-				{big.NewInt(50)},
-				{big.NewInt(30)},
-				{big.NewInt(110)},
+				{Int: big.NewInt(100)},
+				{Int: big.NewInt(50)},
+				{Int: big.NewInt(30)},
+				{Int: big.NewInt(110)},
 			},
 			want: model.BigInt{Int: big.NewInt(100)},
 		},
@@ -42,7 +42,7 @@ func TestBigIntSortedMiddle(t *testing.T) {
 		{
 			name: "one item",
 			vals: []model.BigInt{
-				{big.NewInt(123)},
+				{Int: big.NewInt(123)},
 			},
 			want: model.BigInt{Int: big.NewInt(123)},
 		},

@@ -1,0 +1,33 @@
+name: "Build lint and test CCIP-OCR3"
+
+on:
+  pull_request:
+    paths:
+      - core/services/ocr3/plugins/ccip/**
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        go-version: ['1.21']
+    defaults:
+      run:
+        working-directory: ./core/services/ocr3/plugins/ccip
+    steps:
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Display Go version
+        run: go version
+      - name: Build
+        run: go build -v ./...
+      - name: Install linter
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.0
+      - name: Run linter
+        run: golangci-lint run
+      - name: Run tests
+        run: go test -race -fullpath -shuffle on -count 20 ./...

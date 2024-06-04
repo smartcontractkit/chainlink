@@ -92,7 +92,7 @@ type CCIPMsg struct {
 
 func (c CCIPMsg) String() string {
 	js, _ := json.Marshal(c)
-	return fmt.Sprintf("%s", js)
+	return string(js)
 }
 
 type CCIPMsgBaseDetails struct {

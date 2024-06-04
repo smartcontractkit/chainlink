@@ -8,7 +8,7 @@ import (
 
 type CommitPluginObservation struct {
 	NewMsgs      []CCIPMsgBaseDetails `json:"newMsgs"`
-	GasPrices    []GasPriceChain      `json:"gasPrices,string"`
+	GasPrices    []GasPriceChain      `json:"gasPrices"`
 	TokenPrices  []TokenPrice         `json:"tokenPrices"`
 	MaxSeqNums   []SeqNumChain        `json:"maxSeqNums"`
 	PluginConfig CommitPluginConfig   `json:"pluginConfig"`

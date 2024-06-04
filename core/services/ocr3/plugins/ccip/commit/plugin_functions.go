@@ -459,13 +459,9 @@ func gasPricesConsensus(lggr logger.Logger, observations []model.CommitPluginObs
 			continue
 		}
 
-		values := make([]model.BigInt, 0, len(gasPrices))
-		for _, gasPrice := range gasPrices {
-			values = append(values, gasPrice)
-		}
 		consensusGasPrices = append(
 			consensusGasPrices,
-			model.NewGasPriceChain(slicelib.BigIntSortedMiddle(values).Int, chain),
+			model.NewGasPriceChain(slicelib.BigIntSortedMiddle(gasPrices).Int, chain),
 		)
 	}
 
