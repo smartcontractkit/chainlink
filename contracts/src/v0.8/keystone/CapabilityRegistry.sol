@@ -533,23 +533,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Adds a new capability to the capability registry
   /// @param capabilities The capabilities being added
+  /// @dev There is no function to update capabilities as this would require
+  /// nodes to trust that the capabilities they support are not updated by the
+  /// admin
   function addCapabilities(Capability[] calldata capabilities) external onlyOwner {
     for (uint256 i; i < capabilities.length; ++i) {
       Capability memory capability = capabilities[i];
       bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
       if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
       s_hashedCapabilityIds.add(hashedCapabilityId);
-      _setCapability(hashedCapabilityId, capability);
-    }
-  }
-
-  /// @notice Updates capabilities
-  /// @param capabilities The updated capability params
-  function updateCapabilities(Capability[] calldata capabilities) external onlyOwner {
-    for (uint256 i; i < capabilities.length; ++i) {
-      Capability memory capability = capabilities[i];
-      bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
-      if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
       _setCapability(hashedCapabilityId, capability);
     }
   }
