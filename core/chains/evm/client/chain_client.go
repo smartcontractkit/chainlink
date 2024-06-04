@@ -25,8 +25,6 @@ var _ Client = (*chainClient)(nil)
 type chainClient struct {
 	multiNode commonclient.MultiNode[
 		*big.Int,
-		common.Hash,
-		*evmtypes.Head,
 		EvmRpcClient,
 	]
 	logger       logger.SugaredLogger

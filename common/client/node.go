@@ -172,8 +172,6 @@ func NewNode[
 	n.stateLatestBlockNumber = -1
 	n.rpc = rpc
 	n.chainFamily = chainFamily
-	n.aliveLoopSub = nil
-	n.finalizedBlockSub = nil
 	return n
 }
 

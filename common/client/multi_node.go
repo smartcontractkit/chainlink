@@ -37,8 +37,6 @@ var (
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT any,
 ] interface {
 	Dial(ctx context.Context) error
@@ -94,7 +92,7 @@ func NewMultiNode[
 	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
-) MultiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT] {
+) MultiNode[CHAIN_ID, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, primaryNodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
