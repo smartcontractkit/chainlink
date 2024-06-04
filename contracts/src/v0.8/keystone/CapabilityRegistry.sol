@@ -58,7 +58,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @dev This is stored as a map so that we can easily update to a set of
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
-    mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
+    mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedHashedCapabilityIds;
     /// @notice The list of DON Ids supported by the node.
     EnumerableSet.UintSet supportedDONIds;
   }
@@ -352,6 +352,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Updates a node operator
   /// @param nodeOperatorIds The ID of the node operator being updated
+  /// @param nodeOperators The updated node operator params
   function updateNodeOperators(uint32[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
     if (nodeOperatorIds.length != nodeOperators.length)
       revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
@@ -429,7 +430,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(capabilityIds[j])) revert InvalidNodeCapabilities(capabilityIds);
-        s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
+        s_nodes[node.p2pId].supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
@@ -480,15 +481,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         (s_nodes[node.p2pId].signer != node.signer && s_nodeSigners.contains(node.signer))
       ) revert InvalidNodeSigner();
 
-      bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
-      if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
+      bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
+      if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
       s_nodes[node.p2pId].configCount++;
       uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
-      for (uint256 j; j < supportedCapabilityIds.length; ++j) {
-        if (!s_hashedCapabilityIds.contains(supportedCapabilityIds[j]))
-          revert InvalidNodeCapabilities(supportedCapabilityIds);
-        s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(supportedCapabilityIds[j]);
+      for (uint256 j; j < supportedHashedCapabilityIds.length; ++j) {
+        if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
+          revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
+        s_nodes[node.p2pId].supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
       }
 
       s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
@@ -515,7 +516,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
         signer: s_nodes[p2pId].signer,
-        hashedCapabilityIds: s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
+        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values()
       }),
       s_nodes[p2pId].configCount
     );
@@ -782,7 +783,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       for (uint256 j; j < nodes.length; ++j) {
         if (
-          !s_nodes[nodes[j]].supportedCapabilityIds[s_nodes[nodes[j]].configCount].contains(configuration.capabilityId)
+          !s_nodes[nodes[j]].supportedHashedCapabilityIds[s_nodes[nodes[j]].configCount].contains(configuration.capabilityId)
         ) revert NodeDoesNotSupportCapability(nodes[j], configuration.capabilityId);
       }
 
