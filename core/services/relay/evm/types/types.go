@@ -39,7 +39,7 @@ type ChainCodecConfig struct {
 
 type ContractPollingFilter struct {
 	GenericEventNames []string `json:"genericEventNames"`
-	PollingFilter
+	PollingFilter     `json:"pollingFilter"`
 }
 
 type PollingFilter struct {
@@ -65,7 +65,7 @@ func (f *PollingFilter) ToLPFilter(eventSigs evmtypes.HashArray) logpoller.Filte
 
 type ChainContractReader struct {
 	ContractABI           string `json:"contractABI" toml:"contractABI"`
-	ContractPollingFilter `json:"pollingFilter,omitempty"`
+	ContractPollingFilter `json:"contractPollingFilter,omitempty" toml:"contractPollingFilter,omitempty"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
@@ -80,7 +80,10 @@ type EventDefinitions struct {
 	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
 	// InputFields allows you to choose which indexed fields are expected from the input
-	InputFields    []string `json:"inputFields,omitempty"`
+	InputFields []string `json:"inputFields,omitempty"`
+	// PollingFilter should be defined on a contract level in ContractPollingFilter,
+	// unless event needs to override the contract level filter arguments.
+	// This will create a separate log poller filter for this event.
 	*PollingFilter `json:"pollingFilter,omitempty"`
 }
 
@@ -94,17 +97,14 @@ type chainReaderDefinitionFields struct {
 	ReadType            ReadType              `json:"readType,omitempty"`
 	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
-	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty"`
+	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty" toml:"eventDefinitions,omitempty"`
 	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
 	// should be valid float values.
 	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
 
 func (d *ChainReaderDefinition) HasPollingFilter() bool {
-	if d.EventDefinitions == nil && d.EventDefinitions.PollingFilter == nil {
-		return false
-	}
-	return true
+	return d.EventDefinitions != nil && d.EventDefinitions.PollingFilter != nil
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {

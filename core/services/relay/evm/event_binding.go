@@ -21,19 +21,20 @@ import (
 )
 
 type eventBinding struct {
-	FilterRegisterer
-	address         common.Address
-	contractName    string
-	eventName       string
-	lp              logpoller.LogPoller
-	logPollerFilter logpoller.Filter
-	hash            common.Hash
-	codec           commontypes.RemoteCodec
-	pending         bool
-	bound           bool
-	inputInfo       types.CodecEntry
-	inputModifier   codec.Modifier
-	codecTopicInfo  types.CodecEntry
+	address      common.Address
+	contractName string
+	eventName    string
+	lp           logpoller.LogPoller
+	// FilterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
+	// If FilterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
+	*FilterRegisterer
+	hash           common.Hash
+	codec          commontypes.RemoteCodec
+	pending        bool
+	bound          bool
+	inputInfo      types.CodecEntry
+	inputModifier  codec.Modifier
+	codecTopicInfo types.CodecEntry
 	// topics maps a generic topic name (key) to topic data
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
@@ -55,6 +56,10 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 }
 
 func (e *eventBinding) Register(ctx context.Context) error {
+	if e.FilterRegisterer == nil {
+		return nil
+	}
+
 	e.filterLock.Lock()
 	defer e.filterLock.Unlock()
 
@@ -63,13 +68,17 @@ func (e *eventBinding) Register(ctx context.Context) error {
 		return nil
 	}
 
-	if err := e.lp.RegisterFilter(ctx, e.logPollerFilter); err != nil {
+	if err := e.lp.RegisterFilter(ctx, e.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 	return nil
 }
 
 func (e *eventBinding) Unregister(ctx context.Context) error {
+	if e.FilterRegisterer == nil {
+		return nil
+	}
+
 	e.filterLock.Lock()
 	defer e.filterLock.Unlock()
 
@@ -135,9 +144,11 @@ func (e *eventBinding) Bind(binding commontypes.BoundContract) {
 	e.address = common.HexToAddress(binding.Address)
 	e.pending = binding.Pending
 
-	id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
-	e.logPollerFilter.Name = logpoller.FilterName(id, e.address)
-	e.logPollerFilter.Addresses = evmtypes.AddressArray{e.address}
+	if e.FilterRegisterer != nil {
+		id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
+		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
+		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
+	}
 
 	e.bound = true
 }

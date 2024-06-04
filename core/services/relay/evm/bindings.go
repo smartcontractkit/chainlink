@@ -23,10 +23,10 @@ type FilterRegisterer struct {
 }
 
 type contractBindings struct {
-	// FilterRegisterer is used to manage polling filter registration.
+	// FilterRegisterer is used to manage polling filter registration for the contact wide event filter.
 	FilterRegisterer
 	// key is read name
-	bindings map[string]readBinding
+	readBindings map[string]readBinding
 }
 
 func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
@@ -35,7 +35,7 @@ func (b bindings) GetReadBinding(contractName, readName string) (readBinding, er
 		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
 	}
 
-	reader, readerExists := rb.bindings[readName]
+	reader, readerExists := rb.readBindings[readName]
 	if !readerExists {
 		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
 	}
@@ -45,10 +45,10 @@ func (b bindings) GetReadBinding(contractName, readName string) (readBinding, er
 func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) {
 	rbs, rbsExists := b[contractName]
 	if !rbsExists {
-		rbs = &contractBindings{}
+		rbs = &contractBindings{readBindings: make(map[string]readBinding)}
 		b[contractName] = rbs
 	}
-	rbs.bindings[readName] = rb
+	rbs.readBindings[readName] = rb
 }
 
 func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
@@ -61,12 +61,12 @@ func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, bound
 		rbs.pollingFilter.Addresses = evmtypes.AddressArray{common.HexToAddress(bc.Address)}
 		rbs.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
 
-		// we are changing contract address reference, so we need to unregister old filters
+		// we are changing contract address reference, so we need to unregister old filters if they exist
 		if err := rbs.Unregister(ctx, logPoller); err != nil {
 			return err
 		}
 
-		for _, r := range rbs.bindings {
+		for _, r := range rbs.readBindings {
 			r.Bind(bc)
 		}
 
@@ -105,7 +105,7 @@ func (rb *contractBindings) Register(ctx context.Context, logPoller logpoller.Lo
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	for _, binding := range rb.bindings {
+	for _, binding := range rb.readBindings {
 		if err := binding.Register(ctx); err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (rb *contractBindings) Unregister(ctx context.Context, logPoller logpoller.
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	for _, binding := range rb.bindings {
+	for _, binding := range rb.readBindings {
 		if err := binding.Unregister(ctx); err != nil {
 			return err
 		}
