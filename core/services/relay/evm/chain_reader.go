@@ -107,14 +107,13 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
-		contractFilterEvents := chainContractReader.ContractPollingFilter.GenericEventNames
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
 			case types.Method:
 				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
-				partOfContractFilter := slices.Contains(contractFilterEvents, typeName)
+				partOfContractFilter := slices.Contains(chainContractReader.GenericEventNames, typeName)
 				if !partOfContractFilter && !chainReaderDefinition.HasPollingFilter() {
 					return fmt.Errorf(
 						"%w: chain reader has no polling filter defined for contract: %s, event: %s",

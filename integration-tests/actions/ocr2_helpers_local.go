@@ -134,7 +134,6 @@ func CreateOCRv2JobsLocal(
 						"median": {
 							ContractPollingFilter: evmtypes.ContractPollingFilter{
 								GenericEventNames: []string{"LatestRoundRequested"},
-								PollingFilter:     evmtypes.PollingFilter{},
 							},
 							ContractABI: `[{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"requester","type":"address"},{"indexed":false,"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"indexed":false,"internalType":"uint32","name":"epoch","type":"uint32"},{"indexed":false,"internalType":"uint8","name":"round","type":"uint8"}],"name":"RoundRequested","type":"event"},{"inputs":[],"name":"latestTransmissionDetails","outputs":[{"internalType":"bytes32","name":"configDigest","type":"bytes32"},{"internalType":"uint32","name":"epoch","type":"uint32"},{"internalType":"uint8","name":"round","type":"uint8"},{"internalType":"int192","name":"latestAnswer_","type":"int192"},{"internalType":"uint64","name":"latestTimestamp_","type":"uint64"}],"stateMutability":"view","type":"function"}]`,
 							Configs: map[string]*evmtypes.ChainReaderDefinition{

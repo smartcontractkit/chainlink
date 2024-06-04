@@ -82,7 +82,7 @@ type EventDefinitions struct {
 	// InputFields allows you to choose which indexed fields are expected from the input
 	InputFields []string `json:"inputFields,omitempty"`
 	// PollingFilter should be defined on a contract level in ContractPollingFilter,
-	// unless event needs to override the contract level filter arguments.
+	// unless event needs to override the contract level filter options.
 	// This will create a separate log poller filter for this event.
 	*PollingFilter `json:"pollingFilter,omitempty"`
 }
