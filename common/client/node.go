@@ -184,18 +184,26 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return n.chainID
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return n.name
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) RPC() RPC_CLIENT {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return n.rpc
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) UnsubscribeAll() {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	n.rpc.UnsubscribeAllExcept(n.aliveLoopSub, n.finalizedBlockSub)
 }
 

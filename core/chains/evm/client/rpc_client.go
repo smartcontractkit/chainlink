@@ -162,6 +162,8 @@ func (r *RpcClient) Ping(ctx context.Context) error {
 }
 
 func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	for _, sub := range r.subs {
 		var keep bool
 		for _, s := range subs {
@@ -237,16 +239,13 @@ func (r *RpcClient) Close() {
 			r.ws.rpc.Close()
 		}
 	}()
-
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 	r.cancelInflightRequests()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
 func (r *RpcClient) cancelInflightRequests() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	close(r.chStopInFlight)
 	r.chStopInFlight = make(chan struct{})
 }
@@ -317,9 +316,9 @@ func (r *RpcClient) DisconnectAll() {
 }
 
 // unsubscribeAll unsubscribes all subscriptions
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
 func (r *RpcClient) unsubscribeAll() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	for _, sub := range r.subs {
 		sub.Unsubscribe()
 	}
@@ -328,7 +327,6 @@ func (r *RpcClient) unsubscribeAll() {
 func (r *RpcClient) SetAliveLoopSub(sub commontypes.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-
 	r.aliveLoopSub = sub
 }
 
