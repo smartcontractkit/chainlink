@@ -3,6 +3,8 @@ package evm
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"math/big"
 	"strings"
 
@@ -30,11 +32,15 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, config types.ChainWriterConfig) (ChainWriterService, error) {
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, maxGasPrice *big.Int, config types.ChainWriterConfig) (ChainWriterService, error) {
 	w := chainWriter{
 		logger: logger,
 		client: client,
 		txm:    txm,
+		ge: ExecGasEstimator{
+			estimator:   estimator,
+			maxGasPrice: maxGasPrice,
+		},
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
@@ -63,12 +69,18 @@ type chainWriter struct {
 	logger logger.Logger
 	client evmclient.Client
 	txm    evmtxmgr.TxManager
+	ge     ExecGasEstimator
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
 	parsedContracts *parsedTypes
 
 	encoder commontypes.Encoder
+}
+
+type ExecGasEstimator struct {
+	estimator   gas.EvmFeeEstimator
+	maxGasPrice *big.Int
 }
 
 // SubmitTransaction ...
@@ -156,7 +168,36 @@ func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uu
 }
 
 func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainFeeComponents, error) {
-	return nil, fmt.Errorf("not implemented")
+	if w.ge.estimator == nil {
+		return nil, fmt.Errorf("not implemented")
+	}
+
+	gasPriceWei, _, err := w.ge.estimator.GetFee(ctx, nil, 0, assets.NewWei(w.ge.maxGasPrice))
+
+	// Use legacy if no dynamic is available.
+	gasPrice := gasPriceWei.Legacy.ToInt()
+	if gasPriceWei.DynamicFeeCap != nil {
+		gasPrice = gasPriceWei.DynamicFeeCap.ToInt()
+	}
+	if gasPrice == nil {
+		return nil, fmt.Errorf("missing gas price %+v", gasPriceWei)
+	}
+	l1Oracle := w.ge.estimator.L1Oracle()
+	if l1Oracle == nil {
+		return &commontypes.ChainFeeComponents{
+			ExecutionFee:        *gasPrice,
+			DataAvailabilityFee: *big.NewInt(0),
+		}, nil
+	}
+	l1OracleFee, err := l1Oracle.GasPrice(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &commontypes.ChainFeeComponents{
+		ExecutionFee:        *gasPrice,
+		DataAvailabilityFee: *big.NewInt(l1OracleFee.Int64()),
+	}, nil
 }
 
 func (w *chainWriter) Close() error {
