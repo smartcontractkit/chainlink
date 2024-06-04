@@ -75,6 +75,8 @@ type Node[
 	String() string
 	RPC() RPC
 	SubscribersCount() int32
+	// UnsubscribeAllExceptAliveLoop - closes all subscriptions except the aliveLoop subscription and waits for all requests
+	// that might update HighestChainInfo to complete.
 	UnsubscribeAllExceptAliveLoop()
 	ConfiguredChainID() CHAIN_ID
 	Order() int32

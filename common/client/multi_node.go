@@ -33,6 +33,21 @@ var (
 		Name: "multi_node_invariant_violations",
 		Help: "The number of invariant violations",
 	}, []string{"network", "chainId", "invariant"})
+	// PromMultiNodeSelectRPCTiming - reports how long it took us to select an RPC
+	PromMultiNodeSelectRPCTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "multi_node_select_rpc_timing",
+		Help: "Defines how long it took us to pick an RPC to perform request",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
+	}, []string{"network", "chainId"})
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
@@ -110,6 +125,9 @@ type multiNode[
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
 
+	highestChainInfoMu sync.RWMutex
+	highestChainInfo   ChainInfo
+
 	chStop services.StopChan
 	wg     sync.WaitGroup
 
@@ -166,6 +184,7 @@ func NewMultiNode[
 		reportInterval:        reportInterval,
 		deathDeclarationDelay: reportInterval,
 		sendTxSoftTimeout:     sendTxSoftTimeout,
+		highestChainInfo:      ChainInfo{TotalDifficulty: big.NewInt(0)},
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -238,6 +257,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) selectNode() (node Node[CHAIN_ID, HEAD, RPC_CLIENT], err error) {
+	start := time.Now()
+	defer func() {
+		PromMultiNodeSelectRPCTiming.WithLabelValues(c.chainFamily, c.chainID.String()).Observe(float64(time.Since(start)))
+	}()
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -253,9 +276,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return // another goroutine beat us here
 	}
 
-	if c.activeNode != nil {
-		c.activeNode.UnsubscribeAllExceptAliveLoop()
-	}
+	c.finalizeActiveNodeObservationsUnsafe()
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
@@ -287,18 +308,50 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return nLiveNodes, ch
 }
 
-// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
+// HighestChainInfo - returns highest ChainInfo ever observed by any activeNode
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) HighestChainInfo() ChainInfo {
-	ch := ChainInfo{
-		TotalDifficulty: big.NewInt(0),
+	// HighestChainInfo provides the chain info observed by the application layer, which we use to invalidate lagging RPCs.
+	// The method is called in two cases: to report an RPC's state and to reevaluate the state during activeNode selection.
+	// We should try to report the HighestChainInfo directly from the currently active node.
+	// If we can't acquire read lock,  there is a goroutine that selects a new activeNode, and the HighestChainInfo was called by:
+	// 1. The same goroutine that selects a new activeNode, so the HighestChainInfo is already up-to-date, so it's OK to return the cached value.
+	// 2. Separate goroutine that tries to report the state of an RPC, so it's also OK to use cached value.
+	if c.activeMu.TryRLock() {
+		c.updateHighestChainInfoUnsafe()
+		c.activeMu.RUnlock()
 	}
-	for _, n := range c.nodes {
-		nodeChainInfo := n.HighestChainInfo()
-		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
-		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
-		ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
+
+	c.highestChainInfoMu.RLock()
+	defer c.highestChainInfoMu.RUnlock()
+	return c.highestChainInfo
+}
+
+// finalizeActiveNodeObservationsUnsafe - cancels all activeNode subscriptions and captures HighestChainInfo.
+// NOTE: UNSAFE. Must be called with activeMu lock.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) finalizeActiveNodeObservationsUnsafe() {
+	if c.activeNode == nil {
+		return
 	}
-	return ch
+
+	c.activeNode.UnsubscribeAllExceptAliveLoop()
+	c.updateHighestChainInfoUnsafe()
+}
+
+// updateHighestChainInfoUnsafe - updates HighestChainInfo. Must be called with activeMu read lock.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) updateHighestChainInfoUnsafe() {
+	if c.activeNode == nil {
+		return
+	}
+	nodeChainInfo := c.activeNode.HighestChainInfo()
+	c.highestChainInfoMu.Lock()
+	defer c.highestChainInfoMu.Unlock()
+	highestChainInfo := ChainInfo{
+		BlockNumber:          max(c.highestChainInfo.BlockNumber, nodeChainInfo.BlockNumber),
+		FinalizedBlockNumber: max(c.highestChainInfo.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber),
+		TotalDifficulty:      big.NewInt(0),
+	}
+	highestChainInfo.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
+	c.highestChainInfo = highestChainInfo
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLease() {
@@ -314,12 +367,22 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 	c.activeMu.Lock()
 	defer c.activeMu.Unlock()
-	if bestNode != c.activeNode {
-		if c.activeNode != nil {
-			c.activeNode.UnsubscribeAllExceptAliveLoop()
-		}
-		c.activeNode = bestNode
+	if bestNode == c.activeNode {
+		return
 	}
+
+	c.finalizeActiveNodeObservationsUnsafe()
+	// ensure that after updating the highest chain info, the best node is still alive
+	if bestNode.State() != nodeStateAlive {
+		// If the final observations invalidated the new best node, we still want to reset activeNode.
+		// This way, `RoundRobin` and `PriorityLevel` selection modes will get closer to expected behavior,
+		// as there is a chance that on the next call to `selectNode` or `checkLease`, we'll pick a new RPC instead of
+		// sticking to the one with the highest finalized block.
+		c.activeNode = nil
+		return
+	}
+
+	c.activeNode = bestNode
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLeaseLoop() {

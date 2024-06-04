@@ -75,6 +75,10 @@ type rpcClient struct {
 	// close the underlying subscription
 	subs []ethereum.Subscription
 
+	// Need to wait for completion of inflight requests that report highestChainInfo to ensure that
+	// on completion of DisconnectAll highestChainInfo contains all the info collected in current life cycle of the RPC
+	wgChainInfoInFlightRequest *sync.WaitGroup
+
 	// Need to track the aliveLoop subscription, so we do not cancel it when checking lease on the MultiNode
 	aliveLoopSub ethereum.Subscription
 
@@ -109,6 +113,7 @@ func NewRPCClient(
 		r.http = &rawclient{uri: *httpuri}
 	}
 	r.chStopInFlight = make(chan struct{})
+	r.wgChainInfoInFlightRequest = &sync.WaitGroup{}
 	lggr = logger.Named(lggr, "Client")
 	lggr = logger.With(lggr,
 		"clientTier", tier.String(),
@@ -177,15 +182,7 @@ func (r *rpcClient) DialHTTP() error {
 }
 
 func (r *rpcClient) Close() {
-	defer func() {
-		if r.ws.rpc != nil {
-			r.ws.rpc.Close()
-		}
-	}()
-
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-	r.cancelInflightRequests()
+	r.DisconnectAll()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -244,22 +241,36 @@ func (r *rpcClient) getRPCDomain() string {
 }
 
 // registerSub adds the sub to the rpcClient list
-func (r *rpcClient) registerSub(sub ethereum.Subscription) {
+func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan struct{}) error {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
+	// ensure that the `sub` belongs to current life cycle of the `rpcClient` and it should not be killed due to
+	// previous `DisconnectAll` call.
+	select {
+	case <-stopInFLightCh:
+		sub.Unsubscribe()
+		return fmt.Errorf("failed to registred subscription - all in flight requests were canceled")
+	default:
+	}
+	// TODO: BCI-3358 - delete sub when caller unsubscribes.
 	r.subs = append(r.subs, sub)
+	return nil
 }
 
 // DisconnectAll disconnects all clients connected to the rpcClient
 func (r *rpcClient) DisconnectAll() {
 	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 	if r.ws.rpc != nil {
 		r.ws.rpc.Close()
 	}
 	r.cancelInflightRequests()
 	r.unsubscribeAll()
 	r.latestChainInfo = commonclient.ChainInfo{}
+	wg := r.wgChainInfoInFlightRequest
+	r.wgChainInfoInFlightRequest = &sync.WaitGroup{}
+	r.stateMu.Unlock()
+	// wait for all requests to complete to capture all observed chainInfo
+	wg.Wait()
 }
 
 // unsubscribeAll unsubscribes all subscriptions
@@ -286,16 +297,20 @@ func (r *rpcClient) SubscribersCount() int32 {
 }
 
 // UnsubscribeAllExceptAliveLoop disconnects all subscriptions to the node except the alive loop subscription
-// while holding the n.stateMu lock
+// while holding the n.stateMu lock and waits for
 func (r *rpcClient) UnsubscribeAllExceptAliveLoop() {
 	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 
 	for _, s := range r.subs {
 		if s != r.aliveLoopSub {
 			s.Unsubscribe()
 		}
 	}
+	wg := r.wgChainInfoInFlightRequest
+	r.wgChainInfoInFlightRequest = &sync.WaitGroup{}
+	r.stateMu.Unlock()
+	// wait for all requests to complete to capture all observed chainInfo
+	wg.Wait()
 }
 
 // RPC wrappers
@@ -344,31 +359,37 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
-func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (commontypes.Subscription, error) {
-	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (_ commontypes.Subscription, err error) {
+	// ensure that DisconnectAll waits for completion of this request to collect all values observed during this life cycle
+	ctx, cancel, chStopInFlight, wg, ws, _ := r.acquireQueryCtx(ctx, 1)
+	defer wg.Done()
 	defer cancel()
 	args := []interface{}{"newHeads"}
 	lggr := r.newRqLggr().With("args", args)
 
 	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
 	start := time.Now()
-	subscriptionCtxCh := r.getChStopInflight()
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+		err = r.wrapWS(err)
+	}()
 	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
 		head.EVMChainID = ubig.New(r.chainID)
-		r.oneNewHead(subscriptionCtxCh, head)
+		r.oneNewHead(chStopInFlight, head)
 		return head
-	}, func(err error) error {
-		return fmt.Errorf("%s: %w", r.rpcClientErrorPrefix(), err)
-	})
-	err := subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
-	if err == nil {
-		r.registerSub(subForwarder)
+	}, r.wrapRPCClientError)
+	err = subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
+	if err != nil {
+		return
 	}
-	duration := time.Since(start)
 
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+	err = r.registerSub(subForwarder, chStopInFlight)
+	if err != nil {
+		return
+	}
 
-	return subForwarder, r.wrapWS(err)
+	return subForwarder, nil
 }
 
 // GethClient wrappers
@@ -477,14 +498,7 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *rpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	requestCtxCh := r.getChStopInflight()
-	block, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
-	if err != nil {
-		return nil, err
-	}
-
-	r.oneNewFinalizedHead(requestCtxCh, block)
-	return block, nil
+	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
 }
 
 func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
@@ -493,7 +507,27 @@ func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *e
 }
 
 func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evmtypes.Head, err error) {
-	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", number, false)
+	// ensure that DisconnectAll waits for completion of this request to collect all values observed during this life cycle
+	ctx, cancel, chStopInFlight, wg, ws, http := r.acquireQueryCtx(ctx, 1)
+	defer cancel()
+	defer wg.Done()
+	const method = "eth_getBlockByNumber"
+	args := []interface{}{number, false}
+	lggr := r.newRqLggr().With(
+		"method", method,
+		"args", args,
+	)
+
+	lggr.Debug("RPC call: evmclient.Client#CallContext")
+	start := time.Now()
+	if http != nil {
+		err = r.wrapHTTP(http.rpc.CallContext(ctx, &head, method, args...))
+	} else {
+		err = r.wrapWS(ws.rpc.CallContext(ctx, &head, method, args...))
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "CallContext")
 	if err != nil {
 		return nil, err
 	}
@@ -502,6 +536,14 @@ func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evm
 		return
 	}
 	head.EVMChainID = ubig.New(r.chainID)
+
+	switch number {
+	case rpc.FinalizedBlockNumber.String():
+		r.oneNewFinalizedHead(chStopInFlight, head)
+	case rpc.LatestBlockNumber.String():
+		r.oneNewHead(chStopInFlight, head)
+	}
+
 	return
 }
 
@@ -919,26 +961,30 @@ func (r *rpcClient) ClientVersion(ctx context.Context) (version string, err erro
 	return
 }
 
-func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+func (r *rpcClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (_ ethereum.Subscription, err error) {
+	ctx, cancel, chStopInFlight, _, ws, _ := r.acquireQueryCtx(ctx, 0)
 	defer cancel()
 	lggr := r.newRqLggr().With("q", q)
 
 	lggr.Debug("RPC call: evmclient.Client#SubscribeFilterLogs")
 	start := time.Now()
-	sub := newSubForwarder(ch, nil, func(err error) error {
-		return fmt.Errorf("%s: %w", r.rpcClientErrorPrefix(), err)
-	})
-	err := sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
-	if err == nil {
-		r.registerSub(sub)
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "SubscribeFilterLogs")
+		err = r.wrapWS(err)
+	}()
+	sub := newSubForwarder(ch, nil, r.wrapRPCClientError)
+	err = sub.start(ws.geth.SubscribeFilterLogs(ctx, q, sub.srcCh))
+	if err != nil {
+		return
 	}
-	err = r.wrapWS(err)
-	duration := time.Since(start)
 
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "SubscribeFilterLogs")
+	err = r.registerSub(sub, chStopInFlight)
+	if err != nil {
+		return
+	}
 
-	return sub, err
+	return sub, nil
 }
 
 func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
@@ -1023,17 +1069,27 @@ func (r *rpcClient) wrapHTTP(err error) error {
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx
 func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient) {
+	ctx, cancel, _, _, ws, http = r.acquireQueryCtx(parentCtx, 0)
+	return
+}
+
+func (r *rpcClient) acquireQueryCtx(parentCtx context.Context, wgDelta uint16) (ctx context.Context, cancel context.CancelFunc,
+	chStopInFlight chan struct{}, wg *sync.WaitGroup, ws rawclient, http *rawclient) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	r.stateMu.RLock()
-	cancelCh := r.chStopInFlight
+	chStopInFlight = r.chStopInFlight
+	wg = r.wgChainInfoInFlightRequest
+	if wgDelta != 0 {
+		wg.Add(int(wgDelta))
+	}
 	ws = r.ws
 	if r.http != nil {
 		cp := *r.http
 		http = &cp
 	}
 	r.stateMu.RUnlock()
-	ctx, cancel = makeQueryCtx(parentCtx, cancelCh)
+	ctx, cancel = makeQueryCtx(parentCtx, chStopInFlight)
 	return
 }
 

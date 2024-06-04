@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -115,16 +116,18 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		head := <-ch
 		require.Equal(t, chainId, head.ChainID())
 	})
-	t.Run("Failed SubscribeNewHead returns proper error", func(t *testing.T) {
+	t.Run("Failed SubscribeNewHead returns and logs proper error", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, func(reqMethod string, reqParams gjson.Result) (resp testutils.JSONRPCResponse) {
 			return resp
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
+		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
+		tests.AssertLogEventually(t, observed, "evmclient.Client#EthSubscribe RPC call failure")
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -151,16 +154,18 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithTimeout(tests.Context(t), tests.WaitTimeout(t))
 	defer cancel()
-	t.Run("Failed SubscribeFilterLogs returns proper error", func(t *testing.T) {
+	t.Run("Failed SubscribeFilterLogs logs and returns proper error", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, func(reqMethod string, reqParams gjson.Result) (resp testutils.JSONRPCResponse) {
 			return resp
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
+		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
+		tests.AssertLogEventually(t, observed, "evmclient.Client#SubscribeFilterLogs RPC call failure")
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {

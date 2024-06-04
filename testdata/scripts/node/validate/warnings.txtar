@@ -321,6 +321,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [EVM.Transactions]
 ForwardersEnabled = false
@@ -373,6 +374,7 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
 
 [EVM.OCR]
 ContractConfirmations = 4
