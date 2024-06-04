@@ -383,8 +383,14 @@ func Test_filterOutFullyExecutedMessages(t *testing.T) {
 				},
 			},
 			want: []model.ExecutePluginCommitData{
-				{SequenceNumberRange: model.NewSeqNumRange(10, 20)},
-				{SequenceNumberRange: model.NewSeqNumRange(30, 40)},
+				{
+					SequenceNumberRange: model.NewSeqNumRange(10, 20),
+					ExecutedMessages:    []model.SeqNum{15, 16, 17, 18, 19, 20},
+				},
+				{
+					SequenceNumberRange: model.NewSeqNumRange(30, 40),
+					ExecutedMessages:    []model.SeqNum{30, 31, 32, 33, 34, 35},
+				},
 				{SequenceNumberRange: model.NewSeqNumRange(50, 60)},
 			},
 			wantErr: assert.NoError,
@@ -402,8 +408,14 @@ func Test_filterOutFullyExecutedMessages(t *testing.T) {
 				},
 			},
 			want: []model.ExecutePluginCommitData{
-				{SequenceNumberRange: model.NewSeqNumRange(10, 20)},
-				{SequenceNumberRange: model.NewSeqNumRange(50, 60)},
+				{
+					SequenceNumberRange: model.NewSeqNumRange(10, 20),
+					ExecutedMessages:    []model.SeqNum{15, 16, 17, 18, 19, 20},
+				},
+				{
+					SequenceNumberRange: model.NewSeqNumRange(50, 60),
+					ExecutedMessages:    []model.SeqNum{50, 51, 52, 53, 54, 55},
+				},
 			},
 			wantErr: assert.NoError,
 		},

@@ -158,14 +158,32 @@ func filterOutExecutedMessages(reports []model.ExecutePluginCommitData, executed
 				break
 			}
 
-			reportIdx++
-
-			if reportRange.Start() >= executed.Start() && reportRange.End() <= executed.End() {
-				// fully executed report
+			if executed.End() < reportRange.Start() {
+				// add report that has non-executed messages.
+				reportIdx++
+				filtered = append(filtered, reports[i])
 				continue
 			}
 
-			filtered = append(filtered, reports[i])
+			if reportRange.Start() >= executed.Start() && reportRange.End() <= executed.End() {
+				// skip fully executed report.
+				reportIdx++
+				continue
+			}
+
+			s := executed.Start()
+			if reportRange.Start() > executed.Start() {
+				s = reportRange.Start()
+			}
+			for ; s <= executed.End(); s++ {
+				// This range runs into the next report.
+				if s > reports[i].SequenceNumberRange.End() {
+					reportIdx++
+					filtered = append(filtered, reports[i])
+					break
+				}
+				reports[i].ExecutedMessages = append(reports[i].ExecutedMessages, s)
+			}
 		}
 	}
 
