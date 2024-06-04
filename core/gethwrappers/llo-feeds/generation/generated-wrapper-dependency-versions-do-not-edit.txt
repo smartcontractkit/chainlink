@@ -1,5 +1,5 @@
 GETH_VERSION: 1.13.14
-channel_config_store: ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.bin 4ae3e6ca866fdf48850d67c0c7a4bdaf4905c81a4e3ce5efb9ef9613a55d8454
+channel_config_store: ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.19/ChannelConfigStore/ChannelConfigStore.bin c90e29d9f1a885098982b6175e0447416431b28c605273c807694ac7141e9167
 channel_config_verifier_proxy: ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.abi ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.bin 655658e5f61dfadfe3268de04f948b7e690ad03ca45676e645d6cd6018154661
 channel_verifier: ../../../contracts/solc/v0.8.19/ChannelVerifier/ChannelVerifier.abi ../../../contracts/solc/v0.8.19/ChannelVerifier/ChannelVerifier.bin e6020553bd8e3e6b250fcaffe7efd22aea955c8c1a0eb05d282fdeb0ab6550b7
 errored_verifier: ../../../contracts/solc/v0.8.19/ErroredVerifier/ErroredVerifier.abi ../../../contracts/solc/v0.8.19/ErroredVerifier/ErroredVerifier.bin a3e5a77262e13ee30fe8d35551b32a3452d71929e43fd780bbfefeaf4aa62e43

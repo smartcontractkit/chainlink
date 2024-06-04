@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -32,6 +32,7 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -59,7 +60,7 @@ import (
 
 type ocr2vrfUniverse struct {
 	owner   *bind.TransactOpts
-	backend *backends.SimulatedBackend
+	backend *simulated.Backend
 
 	dkgAddress common.Address
 	dkg        *dkg_wrapper.DKG
@@ -101,12 +102,12 @@ func setupOCR2VRFContracts(
 	t *testing.T, beaconPeriod int64, keyID [32]byte, consumerShouldFail bool) ocr2vrfUniverse {
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = assets.GWei(1).ToInt()
-	genesisData := core.GenesisAlloc{
+	genesisData := types.GenesisAlloc{
 		owner.From: {
 			Balance: assets.Ether(100).ToInt(),
 		},
 	}
-	b := backends.NewSimulatedBackend(genesisData, ethconfig.Defaults.Miner.GasCeil*2)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(ethconfig.Defaults.Miner.GasCeil*2))
 
 	// deploy OCR2VRF contracts, which have the following deploy order:
 	// * link token
@@ -115,21 +116,21 @@ func setupOCR2VRFContracts(
 	// * VRF (coordinator, and beacon)
 	// * VRF consumer
 	linkAddress, _, link, err := link_token_interface.DeployLinkToken(
-		owner, b)
+		owner, b.Client())
 	require.NoError(t, err)
 	b.Commit()
 
 	feedAddress, _, feed, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
-		owner, b, 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
+		owner, b.Client(), 18, assets.GWei(int(1e7)).ToInt()) // 0.01 eth per link
 	require.NoError(t, err)
 	b.Commit()
 
-	dkgAddress, _, dkg, err := dkg_wrapper.DeployDKG(owner, b)
+	dkgAddress, _, dkg, err := dkg_wrapper.DeployDKG(owner, b.Client())
 	require.NoError(t, err)
 	b.Commit()
 
 	coordinatorAddress, _, coordinator, err := vrf_wrapper.DeployVRFCoordinator(
-		owner, b, big.NewInt(beaconPeriod), linkAddress)
+		owner, b.Client(), big.NewInt(beaconPeriod), linkAddress)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -148,17 +149,17 @@ func setupOCR2VRFContracts(
 	b.Commit()
 
 	beaconAddress, _, beacon, err := vrf_beacon.DeployVRFBeacon(
-		owner, b, linkAddress, coordinatorAddress, dkgAddress, keyID)
+		owner, b.Client(), linkAddress, coordinatorAddress, dkgAddress, keyID)
 	require.NoError(t, err)
 	b.Commit()
 
 	consumerAddress, _, consumer, err := vrf_beacon_consumer.DeployBeaconVRFConsumer(
-		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b.Client(), coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
 	loadTestConsumerAddress, _, loadTestConsumer, err := load_test_beacon_consumer.DeployLoadTestBeaconVRFConsumer(
-		owner, b, coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
+		owner, b.Client(), coordinatorAddress, consumerShouldFail, big.NewInt(beaconPeriod))
 	require.NoError(t, err)
 	b.Commit()
 
@@ -221,7 +222,7 @@ func setupNodeOCR2(
 	owner *bind.TransactOpts,
 	port int,
 	dbName string,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	useForwarders bool,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
@@ -276,7 +277,7 @@ func setupNodeOCR2(
 		require.Len(t, sendingKeys, 2)
 
 		// Deploy a forwarder.
-		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
+		faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 		require.NoError(t, err)
 
 		// Set the node's sending keys as authorized senders.
@@ -296,7 +297,7 @@ func setupNodeOCR2(
 	var sendingKeyStrings []string
 	for _, k := range sendingKeys {
 		sendingKeyStrings = append(sendingKeyStrings, k.Address.String())
-		n, err := b.NonceAt(ctx, owner.From, nil)
+		n, err := b.Client().NonceAt(ctx, owner.From, nil)
 		require.NoError(t, err)
 
 		tx := cltest.NewLegacyTransaction(
@@ -307,7 +308,7 @@ func setupNodeOCR2(
 			nil)
 		signedTx, err := owner.Signer(owner.From, tx)
 		require.NoError(t, err)
-		err = b.SendTransaction(ctx, signedTx)
+		err = b.Client().SendTransaction(ctx, signedTx)
 		require.NoError(t, err)
 		b.Commit()
 	}
@@ -410,7 +411,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		}
 	}()
 
-	blockBeforeConfig, err := uni.backend.BlockByNumber(ctx, nil)
+	blockBeforeConfig, err := uni.backend.Client().BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 
 	t.Log("Setting DKG config before block:", blockBeforeConfig.Number().String())
@@ -661,7 +662,7 @@ linkEthFeedAddress     	= "%s"
 	totalNopPayout := new(big.Int)
 	for idx, payeeTransactor := range payeeTransactors {
 		// Fund the payee with some ETH.
-		n, err2 := uni.backend.NonceAt(ctx, uni.owner.From, nil)
+		n, err2 := uni.backend.Client().NonceAt(ctx, uni.owner.From, nil)
 		require.NoError(t, err2)
 		tx := cltest.NewLegacyTransaction(
 			n, payeeTransactor.From,
@@ -671,7 +672,7 @@ linkEthFeedAddress     	= "%s"
 			nil)
 		signedTx, err2 := uni.owner.Signer(uni.owner.From, tx)
 		require.NoError(t, err2)
-		err2 = uni.backend.SendTransaction(ctx, signedTx)
+		err2 = uni.backend.Client().SendTransaction(ctx, signedTx)
 		require.NoError(t, err2)
 
 		_, err2 = uni.beacon.WithdrawPayment(payeeTransactor, transmitters[idx])

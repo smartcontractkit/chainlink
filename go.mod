@@ -67,6 +67,7 @@ require (
 	github.com/prometheus/prometheus v0.48.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.11.0
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.3.1
@@ -282,7 +283,6 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rs/cors v1.8.3 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect

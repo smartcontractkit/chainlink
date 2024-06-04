@@ -12,10 +12,10 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -66,18 +66,33 @@ var (
 // SimulatedBackendClient is an Client implementation using a simulated
 // blockchain backend. Note that not all RPC methods are implemented here.
 type SimulatedBackendClient struct {
-	b       *backends.SimulatedBackend
-	t       testing.TB
-	chainId *big.Int
+	b                    evmtypes.Backend // *simulated.Backend, or something satisfying same interface
+	client               simulated.Client
+	t                    testing.TB
+	chainId              *big.Int
+	chainFamily          evmtypes.ChainFamily
+	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
 // NewSimulatedBackendClient creates an eth client backed by a simulated backend.
-func NewSimulatedBackendClient(t testing.TB, b *backends.SimulatedBackend, chainId *big.Int) *SimulatedBackendClient {
+func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.Int) *SimulatedBackendClient {
 	return &SimulatedBackendClient{
 		b:       b,
+		client:  b.Client(),
 		t:       t,
 		chainId: chainId,
 	}
+}
+
+// Switch to a new backend client (simulating an rpc failover event)
+// If chainFamily = Optimism, the new backend will exhibit the non-geth behavior of optimism (and some other rpc clients),
+// where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
+// requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
+// and other solutions were designed to recover from.
+func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainFamily evmtypes.ChainFamily) {
+	c.chainFamily = chainFamily
+	c.b = backend
+	c.client = backend.Client()
 }
 
 // Dial noop for the sim.
@@ -113,13 +128,20 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
-	return c.b.FilterLogs(ctx, q)
+	logs, err = c.client.FilterLogs(ctx, q)
+	if c.chainFamily == evmtypes.Optimism {
+		if err != nil && err.Error() == "unknown block" {
+			return []types.Log{}, nil // emulate optimism behavior of returning success instead of "unknown block"
+		}
+	}
+
+	return logs, err
 }
 
 // SubscribeFilterLogs registers a subscription for push notifications of logs
 // from a given address.
 func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, channel chan<- types.Log) (ethereum.Subscription, error) {
-	return c.b.SubscribeFilterLogs(ctx, q, channel)
+	return c.client.SubscribeFilterLogs(ctx, q, channel)
 }
 
 func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (balance *big.Int, err error) {
@@ -128,7 +150,7 @@ func (c *SimulatedBackendClient) TokenBalance(ctx context.Context, address commo
 		return nil, fmt.Errorf("%w: while seeking the ERC20 balance of %s on %s", err,
 			address, contractAddress)
 	}
-	b, err := c.b.CallContract(ctx, ethereum.CallMsg{
+	b, err := c.client.CallContract(ctx, ethereum.CallMsg{
 		To: &contractAddress, Data: callData},
 		big.NewInt(int64(rpc.LatestBlockNumber)))
 	if err != nil {
@@ -149,11 +171,11 @@ func (c *SimulatedBackendClient) LINKBalance(ctx context.Context, address common
 
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
-	return c.b.TransactionReceipt(ctx, receipt)
+	return c.client.TransactionReceipt(ctx, receipt)
 }
 
 func (c *SimulatedBackendClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
-	tx, _, err = c.b.TransactionByHash(ctx, txHash)
+	tx, _, err = c.client.TransactionByHash(ctx, txHash)
 	return
 }
 
@@ -163,7 +185,7 @@ func (c *SimulatedBackendClient) blockNumber(ctx context.Context, number interfa
 		switch n {
 		case "latest":
 			var n uint64
-			n, err = c.b.BlockNumber(ctx)
+			n, err = c.client.BlockNumber(ctx)
 			if err != nil {
 				return
 			}
@@ -174,7 +196,7 @@ func (c *SimulatedBackendClient) blockNumber(ctx context.Context, number interfa
 			return big.NewInt(0), nil
 		case "pending":
 			var h *types.Header
-			h, err = c.b.HeaderByNumber(ctx, new(big.Int).SetInt64(rpc.PendingBlockNumber.Int64()))
+			h, err = c.client.HeaderByNumber(ctx, new(big.Int).SetInt64(rpc.PendingBlockNumber.Int64()))
 			if err != nil {
 				return
 			}
@@ -182,7 +204,7 @@ func (c *SimulatedBackendClient) blockNumber(ctx context.Context, number interfa
 			return
 		case "finalized":
 			var h *types.Header
-			h, err = c.b.HeaderByNumber(ctx, new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64()))
+			h, err = c.client.HeaderByNumber(ctx, new(big.Int).SetInt64(rpc.FinalizedBlockNumber.Int64()))
 			if err != nil {
 				return
 			}
@@ -208,17 +230,29 @@ func (c *SimulatedBackendClient) blockNumber(ctx context.Context, number interfa
 	}
 }
 
+func (c *SimulatedBackendClient) RegisterHeadByNumberCallback(cb func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error) {
+	c.headByNumberCallback = cb
+}
+
 // HeadByNumber returns our own header type.
 func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error) {
 	if n == nil {
 		n = big.NewInt(int64(rpc.LatestBlockNumber))
 	}
-	header, err := c.b.HeaderByNumber(ctx, n)
+	header, err := c.client.HeaderByNumber(ctx, n)
 	if err != nil {
 		return nil, err
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
+
+	if c.headByNumberCallback != nil {
+		err = c.headByNumberCallback(ctx, c, n)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &evmtypes.Head{
 		EVMChainID: ubig.NewI(c.chainId.Int64()),
 		Hash:       header.Hash(),
@@ -230,7 +264,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 
 // HeadByHash returns our own header type.
 func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
-	header, err := c.b.HeaderByHash(ctx, h)
+	header, err := c.client.HeaderByHash(ctx, h)
 	if err != nil {
 		return nil, err
 	} else if header == nil {
@@ -247,16 +281,16 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 
 // BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByNumber(ctx context.Context, n *big.Int) (*types.Block, error) {
-	return c.b.BlockByNumber(ctx, n)
+	return c.client.BlockByNumber(ctx, n)
 }
 
 // BlockByNumber returns a geth block type.
 func (c *SimulatedBackendClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return c.b.BlockByHash(ctx, hash)
+	return c.client.BlockByHash(ctx, hash)
 }
 
 func (c *SimulatedBackendClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	header, err := c.b.HeaderByNumber(ctx, nil)
+	header, err := c.client.HeaderByNumber(ctx, nil)
 	return header.Number, err
 }
 
@@ -272,18 +306,18 @@ func (c *SimulatedBackendClient) ChainID() (*big.Int, error) {
 
 // PendingNonceAt gets pending nonce i.e. mempool nonce.
 func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	return c.b.PendingNonceAt(ctx, account)
+	return c.client.PendingNonceAt(ctx, account)
 }
 
 // NonceAt gets nonce as of a specified block.
 func (c *SimulatedBackendClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
-	nonce, err := c.b.NonceAt(ctx, account, blockNumber)
+	nonce, err := c.client.NonceAt(ctx, account, blockNumber)
 	return evmtypes.Nonce(nonce), err
 }
 
 // BalanceAt gets balance as of a specified block.
 func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	return c.b.BalanceAt(ctx, account, blockNumber)
+	return c.client.BalanceAt(ctx, account, blockNumber)
 }
 
 type headSubscription struct {
@@ -313,7 +347,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	ch := make(chan *types.Header)
 
 	var err error
-	subscription.subscription, err = c.b.SubscribeNewHead(ctx, ch)
+	subscription.subscription, err = c.client.SubscribeNewHead(ctx, ch)
 	if err != nil {
 		return nil, fmt.Errorf("%w: could not subscribe to new heads on "+
 			"simulated backend", err)
@@ -348,11 +382,11 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 
 // HeaderByNumber returns the geth header type.
 func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return c.b.HeaderByNumber(ctx, n)
+	return c.client.HeaderByNumber(ctx, n)
 }
 
 func (c *SimulatedBackendClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
-	return c.b.HeaderByHash(ctx, h)
+	return c.client.HeaderByHash(ctx, h)
 }
 
 func (c *SimulatedBackendClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
@@ -373,7 +407,7 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	if err != nil {
 		logger.Test(c.t).Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
 	}
-	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
+	pendingNonce, err := c.client.PendingNonceAt(ctx, sender)
 	if err != nil {
 		panic(fmt.Errorf("unable to determine nonce for account %s: %v", sender.Hex(), err))
 	}
@@ -384,7 +418,7 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 		return nil
 	}
 
-	err = c.b.SendTransaction(ctx, tx)
+	err = c.client.SendTransaction(ctx, tx)
 	return err
 }
 
@@ -412,7 +446,7 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 	//	Message string      `json:"message"`
 	//	Data    interface{} `json:"data,omitempty"`
 	//}
-	res, err := c.b.CallContract(ctx, msg, blockNumber)
+	res, err := c.client.CallContract(ctx, msg, blockNumber)
 	if err != nil {
 		dataErr := revertError{}
 		if errors.Is(err, &dataErr) {
@@ -431,7 +465,7 @@ func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg et
 	//	Message string      `json:"message"`
 	//	Data    interface{} `json:"data,omitempty"`
 	//}
-	res, err := c.b.PendingCallContract(ctx, msg)
+	res, err := c.client.PendingCallContract(ctx, msg)
 	if err != nil {
 		dataErr := revertError{}
 		if errors.Is(err, &dataErr) {
@@ -445,22 +479,22 @@ func (c *SimulatedBackendClient) PendingCallContract(ctx context.Context, msg et
 
 // CodeAt gets the code associated with an account as of a specified block.
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	return c.b.CodeAt(ctx, account, blockNumber)
+	return c.client.CodeAt(ctx, account, blockNumber)
 }
 
 // PendingCodeAt gets the latest code.
 func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	return c.b.PendingCodeAt(ctx, account)
+	return c.client.PendingCodeAt(ctx, account)
 }
 
 // EstimateGas estimates gas for a msg.
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	return c.b.EstimateGas(ctx, call)
+	return c.client.EstimateGas(ctx, call)
 }
 
 // SuggestGasPrice recommends a gas price.
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	panic("unimplemented")
+	return c.client.SuggestGasPrice(ctx)
 }
 
 // BatchCallContext makes a batch rpc call.
@@ -506,10 +540,10 @@ func (c *SimulatedBackendClient) BatchCallContextAll(ctx context.Context, b []rp
 
 // SuggestGasTipCap suggests a gas tip cap.
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
-	return c.b.SuggestGasTipCap(ctx)
+	return c.client.SuggestGasTipCap(ctx)
 }
 
-func (c *SimulatedBackendClient) Backend() *backends.SimulatedBackend {
+func (c *SimulatedBackendClient) Backend() evmtypes.Backend {
 	return c.b
 }
 
@@ -529,17 +563,17 @@ func (c *SimulatedBackendClient) IsL2() bool {
 func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag string) (*types.Header, error) {
 	switch blockNumOrTag {
 	case rpc.SafeBlockNumber.String():
-		return c.b.HeaderByNumber(ctx, big.NewInt(int64(rpc.SafeBlockNumber)))
+		return c.client.HeaderByNumber(ctx, big.NewInt(int64(rpc.SafeBlockNumber)))
 	case rpc.LatestBlockNumber.String():
-		return c.b.HeaderByNumber(ctx, big.NewInt(int64(rpc.LatestBlockNumber)))
+		return c.client.HeaderByNumber(ctx, big.NewInt(int64(rpc.LatestBlockNumber)))
 	case rpc.FinalizedBlockNumber.String():
-		return c.b.HeaderByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
+		return c.client.HeaderByNumber(ctx, big.NewInt(int64(rpc.FinalizedBlockNumber)))
 	default:
 		blockNum, ok := new(big.Int).SetString(blockNumOrTag, 0)
 		if !ok {
 			return nil, fmt.Errorf("error while converting block number string: %s to big.Int ", blockNumOrTag)
 		}
-		return c.b.HeaderByNumber(ctx, blockNum)
+		return c.client.HeaderByNumber(ctx, blockNum)
 	}
 }
 
@@ -553,7 +587,7 @@ func (c *SimulatedBackendClient) ethGetTransactionReceipt(ctx context.Context, r
 		return fmt.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", args[0])
 	}
 
-	receipt, err := c.b.TransactionReceipt(ctx, hash)
+	receipt, err := c.client.TransactionReceipt(ctx, hash)
 	if err != nil {
 		return err
 	}
@@ -625,7 +659,7 @@ func (c *SimulatedBackendClient) ethEstimateGas(ctx context.Context, result inte
 		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
 	}
 
-	resp, err := c.b.EstimateGas(ctx, toCallMsg(params))
+	resp, err := c.client.EstimateGas(ctx, toCallMsg(params))
 	if err != nil {
 		return err
 	}
@@ -656,7 +690,7 @@ func (c *SimulatedBackendClient) ethCall(ctx context.Context, result interface{}
 		return fmt.Errorf("SimulatedBackendClient expected second arg to be the string 'latest' or a *big.Int for eth_call, got: %T", args[1])
 	}
 
-	resp, err := c.b.CallContract(ctx, toCallMsg(params), nil /* always latest block on simulated backend */)
+	resp, err := c.client.CallContract(ctx, toCallMsg(params), nil /* always latest block on simulated backend */)
 	if err != nil {
 		return err
 	}
@@ -687,7 +721,7 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 		return fmt.Errorf("SimulatedBackendClient expected first arg to be a string for eth_getHeaderByNumber: %w", err)
 	}
 
-	header, err := c.b.HeaderByNumber(ctx, blockNumber)
+	header, err := c.client.HeaderByNumber(ctx, blockNumber)
 	if err != nil {
 		return err
 	}
@@ -703,7 +737,7 @@ func (c *SimulatedBackendClient) ethGetHeaderByNumber(ctx context.Context, resul
 }
 
 func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	h, err := c.b.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
+	h, err := c.client.HeaderByNumber(ctx, big.NewInt(rpc.FinalizedBlockNumber.Int64()))
 	if err != nil {
 		return nil, err
 	}
@@ -773,7 +807,7 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 		Addresses: addresses,
 		Topics:    topics,
 	}
-	logs, err := c.b.FilterLogs(ctx, query)
+	logs, err := c.FilterLogs(ctx, query)
 	if err != nil {
 		return err
 	}

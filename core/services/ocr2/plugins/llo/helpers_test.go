@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -158,7 +158,7 @@ func setupNode(
 	t *testing.T,
 	port int,
 	dbName string,
-	backend *backends.SimulatedBackend,
+	backend *simulated.Backend,
 	csaKey csakey.KeyV2,
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port

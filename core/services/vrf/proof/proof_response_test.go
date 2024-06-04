@@ -4,13 +4,14 @@ import (
 	"math/big"
 	"testing"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/pkg/errors"
@@ -44,10 +45,10 @@ func TestMarshaledProof(t *testing.T) {
 	ethereumKey, _ := crypto.GenerateKey()
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
-	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
+	genesisData := gethtypes.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	gasLimit := uint32(ethconfig.Defaults.Miner.GasCeil)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
-	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend.Client())
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
 	}

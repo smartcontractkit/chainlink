@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,17 +53,17 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
+		simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 	defer b.Close()
-	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b)
+	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b.Client())
 	require.NoError(t, err)
-	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(user, b)
+	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(user, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	ocrAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		user,
-		b,
+		b.Client(),
 		linkTokenAddress,
 		big.NewInt(0),
 		big.NewInt(10),
@@ -122,7 +122,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	// Set the config
 	contractConfig := setFunctionsConfig(t, pluginConfig, ocrContract, user)
 	b.Commit()
-	latest, err := b.BlockByNumber(testutils.Context(t), nil)
+	latest, err := b.Client().BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	// Ensure we capture this config set log.
 	require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))

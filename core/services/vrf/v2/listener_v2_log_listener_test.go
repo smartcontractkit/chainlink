@@ -10,9 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -45,7 +45,7 @@ type vrfLogPollerListenerTH struct {
 	ChainID           *big.Int
 	ORM               logpoller.ORM
 	LogPoller         logpoller.LogPollerTest
-	Client            *backends.SimulatedBackend
+	Backend           *simulated.Backend
 	Emitter           *log_emitter.LogEmitter
 	EmitterAddress    common.Address
 	VRFLogEmitter     *vrf_log_emitter.VRFLogEmitter
@@ -69,11 +69,12 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	o := logpoller.NewORM(chainID, db, lggr)
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	backend := simulated.NewBackend(ethtypes.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
+	ec := backend.Client()
 	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
 	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
 	// FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
@@ -81,11 +82,10 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	h, err := ec.HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	blockTime := time.UnixMilli(int64(h.Time))
-	err = ec.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	err = backend.AdjustTime(time.Since(blockTime) - FirstBlockAge)
 	require.NoError(t, err)
-	ec.Commit()
 
-	esc := client.NewSimulatedBackendClient(t, ec, chainID)
+	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
 	//TODO must we do this?
 	//h, err := ec.HeaderByNumber(ctx, nil)
@@ -109,7 +109,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 	require.NoError(t, err)
 	vrfLogEmitterAddress, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, ec)
 	require.NoError(t, err)
-	ec.Commit()
+	backend.Commit()
 
 	// Log Poller Listener
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
@@ -168,7 +168,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		EmitterAddress:    emitterAddress1,
 		VRFLogEmitter:     vrfLogEmitter,
 		VRFEmitterAddress: vrfLogEmitterAddress,
-		Client:            ec,
+		Backend:           backend,
 		Owner:             owner,
 		Db:                db,
 		Listener:          listener,
@@ -197,7 +197,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Emit some logs from block 5 to 9 (Inclusive)
@@ -207,7 +207,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 5 (EmitLog blocks) = 9
@@ -270,7 +270,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Create VRF request block and a fulfillment block
@@ -281,10 +281,10 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID, preSeed, big.NewInt(10), true)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
 	n := 5
@@ -293,7 +293,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
@@ -327,7 +327,7 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Make a VRF request without fulfilling it
@@ -338,17 +338,17 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
 	n := 5
-	th.Client.Commit()
+	th.Backend.Commit()
 	for i := 0; i < n; i++ {
 		_, err1 := th.Emitter.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
@@ -381,7 +381,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Emit some logs in blocks with VRF reqs interspersed
@@ -392,7 +392,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration
 		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
@@ -402,13 +402,13 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
@@ -443,7 +443,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Emit some logs in blocks with VRF reqs interspersed
@@ -454,7 +454,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration and fulfill one
 		// of them. This creates a mixed workload of fulfilled and unfulfilled
@@ -466,7 +466,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
@@ -475,7 +475,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
@@ -518,7 +518,7 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Create VRF request logs
@@ -530,13 +530,13 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	reqID2 := big.NewInt(int64(2))
 	_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
 	n := 5
@@ -545,7 +545,7 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req blocks) + 5 (EmitLog blocks) = 11
@@ -575,7 +575,7 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Create VRF request log block with a fulfillment log block
@@ -587,11 +587,11 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
 	n := 5
@@ -600,7 +600,7 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req/resp blocks) + 5 (EmitLog blocks) = 11
@@ -630,7 +630,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Create VRF request logs without a fulfillment log block
@@ -642,7 +642,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 		keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 	require.NoError(t, err2)
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
 	n := 5
@@ -651,7 +651,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 1 (VRF req block) + 5 (EmitLog blocks) = 10
@@ -681,7 +681,7 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
@@ -691,7 +691,7 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration
 		keyHash := [32]byte(th.Listener.job.VRFSpec.PublicKey.MustHash().Bytes())
@@ -702,13 +702,13 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID2, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
@@ -738,7 +738,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 	// Block 3 to finalityDepth. Ensure we have finality number of blocks
 	for i := 1; i < int(finalityDepth); i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Emit some logs in blocks to make the VRF req and fulfillment older than finalityDepth from latestBlock
@@ -748,7 +748,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		// Create 2 blocks with VRF requests in each iteration and fulfill one
 		// of them. This creates a mixed workload of fulfilled and unfulfilled
@@ -761,7 +761,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		_, err2 := th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
 			keyHash, reqID1, preSeed, subID, 10, 10000, 2, th.Owner.From)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 
 		reqID2 := big.NewInt(int64(2*i + 1))
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsRequested(th.Owner,
@@ -769,7 +769,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 		require.NoError(t, err2)
 		_, err2 = th.VRFLogEmitter.EmitRandomWordsFulfilled(th.Owner, reqID1, preSeed, big.NewInt(10), true)
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
@@ -812,15 +812,15 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 
 	// Construct CoordinatorV2_X object for VRF listener
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	b := simulated.NewBackend(ethtypes.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
-	_, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, ec)
+	}, simulated.WithBlockGasLimit(10e6))
+	_, _, vrfLogEmitter, err := vrf_log_emitter.DeployVRFLogEmitter(owner, b.Client())
 	require.NoError(t, err)
-	ec.Commit()
-	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), ec)
+	b.Commit()
+	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), b.Client())
 	require.Nil(t, err)
 	coordinator := NewCoordinatorV2(coordinatorV2)
 

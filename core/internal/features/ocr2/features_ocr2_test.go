@@ -17,11 +17,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -64,16 +63,16 @@ type ocr2Node struct {
 	keybundle            ocr2key.KeyBundle
 }
 
-func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *ocr2aggregator.OCR2Aggregator) {
+func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *ocr2aggregator.OCR2Aggregator) {
 	owner := testutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
-	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
+	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
-	b := backends.NewSimulatedBackend(genesisData, gasLimit)
-	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
+	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit))
+	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b.Client())
 	require.NoError(t, err)
-	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(owner, b)
+	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(owner, b.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	b.Commit()
 
@@ -83,7 +82,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 	maxAnswer.Sub(maxAnswer, big.NewInt(1))
 	ocrContractAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
 		owner,
-		b,
+		b.Client(),
 		linkTokenAddress, //_link common.Address,
 		minAnswer,        // -2**191
 		maxAnswer,        // 2**191 - 1
@@ -108,7 +107,7 @@ func setupNodeOCR2(
 	owner *bind.TransactOpts,
 	port int,
 	useForwarder bool,
-	b *backends.SimulatedBackend,
+	b *simulated.Backend,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 ) *ocr2Node {
 	ctx := testutils.Context(t)
@@ -143,7 +142,7 @@ func setupNodeOCR2(
 	effectiveTransmitter := sendingKeys[0].Address
 
 	// Fund the transmitter address with some ETH
-	n, err := b.NonceAt(testutils.Context(t), owner.From, nil)
+	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := cltest.NewLegacyTransaction(
@@ -154,7 +153,7 @@ func setupNodeOCR2(
 		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.SendTransaction(testutils.Context(t), signedTx)
+	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -163,7 +162,7 @@ func setupNodeOCR2(
 
 	if useForwarder {
 		// deploy a forwarder
-		faddr, _, authorizedForwarder, err2 := authorized_forwarder.DeployAuthorizedForwarder(owner, b, common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
+		faddr, _, authorizedForwarder, err2 := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), common.HexToAddress("0x326C977E6efc84E512bB9C30f76E30c160eD06FB"), owner.From, common.Address{}, []byte{})
 		require.NoError(t, err2)
 
 		// set EOA as an authorized sender for the forwarder
@@ -173,7 +172,7 @@ func setupNodeOCR2(
 
 		// add forwarder address to be tracked in db
 		forwarderORM := forwarders.NewORM(app.GetDB())
-		chainID, err := b.ChainID(testutils.Context(t))
+		chainID, err := b.Client().ChainID(testutils.Context(t))
 		require.NoError(t, err)
 		_, err2 = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
 		require.NoError(t, err2)
@@ -619,7 +618,7 @@ updateInterval = "1m"
 	}
 }
 
-func initOCR2(t *testing.T, lggr logger.Logger, b *backends.SimulatedBackend,
+func initOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	ocrContract *ocr2aggregator.OCR2Aggregator,
 	owner *bind.TransactOpts,
 	bootstrapNode *ocr2Node,
@@ -637,7 +636,7 @@ func initOCR2(t *testing.T, lggr logger.Logger, b *backends.SimulatedBackend,
 		payees,
 	)
 	require.NoError(t, err)
-	blockBeforeConfig, err = b.BlockByNumber(testutils.Context(t), nil)
+	blockBeforeConfig, err = b.Client().BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
 	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,

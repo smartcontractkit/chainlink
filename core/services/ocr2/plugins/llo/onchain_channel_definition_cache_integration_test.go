@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
@@ -36,13 +36,13 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	orm := llo.NewORM(db, testutils.SimulatedChainID)
 
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit() // ensure starting block number at least 1
 
 	ethClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
-	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
 
 	channel1 := rand.Uint32()
@@ -73,7 +73,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	require.NoError(t, utils.JustError(configStoreContract.AddChannel(steve, channel2, channel2Def)))
 
 	h := backend.Commit()
-	channel2Block, err := backend.BlockByHash(ctx, h)
+	channel2Block, err := backend.Client().BlockByHash(ctx, h)
 	require.NoError(t, err)
 
 	t.Run("with zero fromblock", func(t *testing.T) {

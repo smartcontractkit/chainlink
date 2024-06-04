@@ -10,13 +10,10 @@ import (
 
 	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
@@ -156,7 +153,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		BackupPollerBlockDelay:   100,
 	}
 	th := SetupTH(t, lpOpts)
-	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
+	th.Backend.Commit() // Block 2. Ensure we have finality number of blocks
 	ctx := testutils.Context(t)
 
 	require.NoError(t, th.LogPoller.RegisterFilter(ctx, logpoller.Filter{Name: "Integration test", EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID}, Addresses: []common.Address{th.EmitterAddress1}}))
@@ -172,7 +169,7 @@ func TestLogPoller_Integration(t *testing.T) {
 		require.NoError(t, err1)
 		_, err1 = th.Emitter1.EmitLog2(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
 	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
@@ -226,8 +223,9 @@ func TestLogPoller_Integration(t *testing.T) {
 	assert.ErrorIs(t, th.LogPoller.Replay(ctx, 4), logpoller.ErrReplayRequestAborted)
 }
 
-// Simulate a badly behaving rpc server, where unfinalized blocks can return different logs
-// for the same block hash.  We should be able to handle this without missing any logs, as
+// Simulate an rpc failover event on optimism, where logs are requested from a block hash which doesn't
+// exist on the new rpc server, but a successful error code is returned. This is bad/buggy behavior on the
+// part of the rpc server, but we should be able to handle this without missing any logs, as
 // long as the logs returned for finalized blocks are consistent.
 func Test_BackupLogPoller(t *testing.T) {
 	tests := []struct {
@@ -259,15 +257,6 @@ func Test_BackupLogPoller(t *testing.T) {
 					BackupPollerBlockDelay:   100,
 				},
 			)
-			// later, we will need at least 32 blocks filled with logs for cache invalidation
-			for i := int64(0); i < 32; i++ {
-				// to invalidate geth's internal read-cache, a matching log must be found in the bloom Filter
-				// for each of the 32 blocks
-				tx, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(i + 7)})
-				require.NoError(t, err)
-				require.NotNil(t, tx)
-				th.Client.Commit()
-			}
 
 			ctx := testutils.Context(t)
 
@@ -301,6 +290,11 @@ func Test_BackupLogPoller(t *testing.T) {
 				assert.NoError(t, th.LogPoller.UnregisterFilter(ctx, "filter2"))
 			}()
 
+			for n := 1; n < 31; n++ {
+				h := th.Backend.Commit()
+				require.Len(t, h, 32)
+			}
+
 			// generate some tx's with logs
 			tx1, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
@@ -314,83 +308,82 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, tx3)
 
-			th.Client.Commit() // commit block 34 with 3 tx's included
+			th.Backend.Commit() // commit block 32 with 3 tx's included
 
-			h, err := th.Client.HeaderByNumber(ctx, nil) // get latest header
+			block32, err := th.Client.BlockByNumber(ctx, nil)
 			require.NoError(t, err)
-			require.Equal(t, uint64(34), h.Number.Uint64())
+			require.Equal(t, uint64(32), block32.Number().Uint64())
 
-			// save these 3 receipts for later
-			receipts := rawdb.ReadReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), uint64(time.Now().Unix()), params.AllEthashProtocolChanges)
-			require.NotZero(t, receipts.Len())
+			// Ensure that the logs have been included in this rpc server's view of the blockchain
+			txs := block32.Body().Transactions
+			require.Len(t, txs, 3)
+			receipt, err := th.Client.TransactionReceipt(ctx, txs[0].Hash())
+			require.NoError(t, err)
+			require.NotZero(t, receipt)
+			require.Len(t, receipt.Logs, 1)
 
-			// Simulate a situation where the rpc server has a block, but no logs available for it yet
-			//  this can't happen with geth itself, but can with other clients.
-			rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), types.Receipts{}) // wipes out all logs for block 34
+			// Simulate an optimism rpc server, which is behind and still syncing
+			backupRpc := simulated.NewBackend(types.GenesisAlloc{
+				th.Owner.From: {
+					Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
+				},
+			}, simulated.WithBlockGasLimit(10e6))
 
-			body := rawdb.ReadBody(th.EthDB, h.Hash(), h.Number.Uint64())
-			require.Equal(t, 3, len(body.Transactions))
-			txs := body.Transactions                 // save transactions for later
-			body.Transactions = types.Transactions{} // number of tx's must match # of logs for GetLogs() to succeed
-			rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
+			primaryRpc := th.Backend // save primaryRpc for later
+
+			// Failover to simulated optimism rpc on block 30
+			th.Client.RegisterHeadByNumberCallback(func(ctx context.Context, c *client.SimulatedBackendClient, n *big.Int) error {
+				if n.Int64() != 32 {
+					return nil
+				}
+				th.SetActiveClient(backupRpc, evmtypes.Optimism)
+				return nil
+			})
 
 			currentBlockNumber := th.PollAndSaveLogs(ctx, 1)
-			assert.Equal(t, int64(35), currentBlockNumber)
-
-			// simulate logs becoming available
-			rawdb.WriteReceipts(th.EthDB, h.Hash(), h.Number.Uint64(), receipts)
-			require.True(t, rawdb.HasReceipts(th.EthDB, h.Hash(), h.Number.Uint64()))
-			body.Transactions = txs
-			rawdb.WriteBody(th.EthDB, h.Hash(), h.Number.Uint64(), body)
-
-			// flush out cached block 34 by reading logs from first 32 blocks
-			query := ethereum.FilterQuery{
-				FromBlock: big.NewInt(int64(2)),
-				ToBlock:   big.NewInt(int64(33)),
-				Addresses: []common.Address{th.EmitterAddress1},
-				Topics:    [][]common.Hash{{EmitterABI.Events["Log1"].ID}},
-			}
-			fLogs, err := th.Client.FilterLogs(ctx, query)
-			require.NoError(t, err)
-			require.Equal(t, 32, len(fLogs))
+			require.Equal(t, int64(33), currentBlockNumber)
 
 			// logs shouldn't show up yet
-			logs, err := th.LogPoller.Logs(ctx, 34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+			logs, err := th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, 0, len(logs))
+			require.Equal(t, 0, len(logs))
 
-			th.Client.Commit()
-			th.Client.Commit()
-			markBlockAsFinalized(t, th, 34)
+			finalizeThroughBlock(t, th, 32)
+
+			b, ok := primaryRpc.(*simulated.Backend)
+			require.True(t, ok)
+			th.SetActiveClient(b, evmtypes.Optimism) // restore primary rpc
 
 			// Run ordinary poller + backup poller at least once
-			currentBlock, _ := th.LogPoller.LatestBlock(ctx)
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlock.BlockNumber+1)
+			require.NoError(t, err)
+			currentBlockNumber = th.PollAndSaveLogs(ctx, currentBlockNumber)
+			require.Equal(t, int64(33), currentBlockNumber)
 			th.LogPoller.BackupPollAndSaveLogs(ctx)
-			currentBlock, _ = th.LogPoller.LatestBlock(ctx)
-
-			require.Equal(t, int64(37), currentBlock.BlockNumber+1)
+			latestBlock, err := th.LogPoller.LatestBlock(ctx)
+			require.NoError(t, err)
+			require.Equal(t, currentBlockNumber-1, latestBlock.BlockNumber) // shouldn't change
 
 			// logs still shouldn't show up, because we don't want to backfill the last finalized log
 			//  to help with reorg detection
-			logs, err = th.LogPoller.Logs(ctx, 34, 34, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+			logs, err = th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, 0, len(logs))
-			th.Client.Commit()
-			markBlockAsFinalized(t, th, 35)
+			require.Equal(t, 0, len(logs))
+			th.Backend.Commit()
+			finalizeThroughBlock(t, th, 64)
 
 			// Run ordinary poller + backup poller at least once more
-			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber+1)
+			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
 			th.LogPoller.BackupPollAndSaveLogs(ctx)
-			currentBlock, _ = th.LogPoller.LatestBlock(ctx)
+			currentBlock, err := th.LogPoller.LatestBlock(ctx)
+			require.NoError(t, err)
 
-			require.Equal(t, int64(38), currentBlock.BlockNumber+1)
+			require.Equal(t, int64(64), currentBlock.BlockNumber)
 
 			// all 3 logs in block 34 should show up now, thanks to backup logger
 			logs, err = th.LogPoller.Logs(ctx, 30, 37, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
-			assert.Equal(t, 5, len(logs))
-			logs, err = th.LogPoller.Logs(ctx, 34, 34, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+			assert.Equal(t, 1, len(logs))
+			logs, err = th.LogPoller.Logs(ctx, 32, 32, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
 			require.NoError(t, err)
 			assert.Equal(t, 1, len(logs))
 			logs, err = th.LogPoller.Logs(ctx, 32, 36, EmitterABI.Events["Log1"].ID, th.EmitterAddress2)
@@ -401,7 +394,7 @@ func Test_BackupLogPoller(t *testing.T) {
 }
 
 func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
-	emittedLogs := 30
+	emittedLogs := 40
 	// Intentionally use very low backupLogPollerDelay to verify if finality is used properly
 	ctx := testutils.Context(t)
 	lpOpts := logpoller.Opts{
@@ -413,27 +406,25 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	}
 	th := SetupTH(t, lpOpts)
 
-	header, err := th.Client.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-
 	// Emit some logs in blocks
 	for i := 0; i < emittedLogs; i++ {
+		if i == 30 {
+			// Call PollAndSave with no filters are registered.  We call it on block 31, so that
+			// it misses the logs for blocks 2 - 31 but marks block 0 as finalized (rather than 32)
+			currentBlock := th.PollAndSaveLogs(ctx, 1)
+			// currentBlock should be blockChain start + number of emitted logs + 1
+			assert.Equal(t, int64(32), currentBlock)
+		}
+
 		_, err2 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err2)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
-	// First PollAndSave, no filters are registered
-	// 0 (finalized) -> 1 -> 2 -> ...
-	currentBlock := th.PollAndSaveLogs(ctx, 1)
-	// currentBlock should be blockChain start + number of emitted logs + 1
-	assert.Equal(t, int64(emittedLogs)+header.Number.Int64()+1, currentBlock)
-
 	// LogPoller not working, but chain in the meantime has progressed
-	// 0 -> 1 -> 2 -> ... -> currentBlock - 10 (finalized) -> .. -> currentBlock
-	markBlockAsFinalized(t, th, currentBlock-10)
+	// 0 -> 1 -> 2 -> ... -> 32 (finalized) -> .. -> 42 (currentBlock)
 
-	err = th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
+	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "Test Emitter",
 		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{th.EmitterAddress1},
@@ -448,23 +439,22 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	logs, err := th.LogPoller.Logs(
 		ctx,
 		0,
-		currentBlock,
+		42,
 		EmitterABI.Events["Log1"].ID,
 		th.EmitterAddress1,
 	)
 	require.NoError(t, err)
 	require.Len(t, logs, emittedLogs-10)
 
-	// Progressing even more, move blockchain forward by 1 block and mark it as finalized
-	th.Client.Commit()
-	markBlockAsFinalized(t, th, currentBlock)
+	// Finalize the rest of the logs emitted, after which Backup Poller should pick them up
+	finalizeThroughBlock(t, th, 42)
 	th.LogPoller.BackupPollAndSaveLogs(ctx)
 
 	// All emitted logs should be backfilled
 	logs, err = th.LogPoller.Logs(
 		ctx,
 		0,
-		currentBlock+1,
+		43,
 		EmitterABI.Events["Log1"].ID,
 		th.EmitterAddress1,
 	)
@@ -488,15 +478,15 @@ func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 	for i := 0; i < emittedLogs; i++ {
 		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 	// Emit one more empty block
-	th.Client.Commit()
+	th.Backend.Commit()
 
 	header, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	// Mark everything as finalized
-	markBlockAsFinalized(t, th, header.Number.Int64())
+	//markBlockAsFinalized(t, th, header.Number.Int64())
 
 	// First PollAndSave, no filters are registered, but finalization is the same as the latest block
 	// 1 -> 2 -> ...
@@ -548,28 +538,30 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 
 	// Emit some logs in blocks
 	for i := 1; i <= logsBatch; i++ {
-		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(0x100 + i))})
 		require.NoError(t, err)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// First PollAndSave, no filters are registered, but finalization is the same as the latest block
 	// 1 -> 2 -> ... -> firstBatchBlock
-	firstBatchBlock := th.PollAndSaveLogs(ctx, 1)
-	// Mark current tip of the chain as finalized (after emitting 10 logs)
-	markBlockAsFinalized(t, th, firstBatchBlock-1)
+	firstBatchBlock := th.PollAndSaveLogs(ctx, 1) - 1
+
+	// Mark all blocks from first batch of emitted logs as finalized
+	finalizeThroughBlock(t, th, firstBatchBlock)
 
 	// Emit 2nd batch of block
 	for i := 1; i <= logsBatch; i++ {
-		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(100 + i))})
+		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(0x200 + i))})
 		require.NoError(t, err)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
-	// 1 -> 2 -> ... -> firstBatchBlock (finalized) -> .. -> firstBatchBlock + emitted logs
-	secondBatchBlock := th.PollAndSaveLogs(ctx, firstBatchBlock)
-	// Mark current tip of the block as finalized (after emitting 20 logs)
-	markBlockAsFinalized(t, th, secondBatchBlock-1)
+	// 1 -> 2 -> ... -> firstBatchBlock (finalized) -> .. -> firstBatchBlock + logsBatch
+	secondBatchBlock := th.PollAndSaveLogs(ctx, firstBatchBlock) - 1
+
+	// Mark all blocks from second batch of emitted logs as finalized
+	finalizeThroughBlock(t, th, secondBatchBlock)
 
 	// Register filter
 	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
@@ -583,8 +575,8 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	th.LogPoller.BackupPollAndSaveLogs(ctx)
 	require.NoError(t, err)
 
-	// Only the 2nd batch + 1 log from a previous batch should be backfilled, because we perform backfill starting
-	// from one block behind the latest finalized block
+	// Only the 2nd batch should be backfilled, because we perform backfill starting from one
+	// behind the latest finalized block
 	logs, err := th.LogPoller.Logs(
 		ctx,
 		0,
@@ -594,7 +586,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	)
 	require.NoError(t, err)
 	require.Len(t, logs, logsBatch)
-	require.Equal(t, hexutil.MustDecode(`0x000000000000000000000000000000000000000000000000000000000000000a`), logs[0].Data)
+	require.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000201`), logs[0].Data) // 0x201 = 1st log from 2nd batch
 }
 
 func TestLogPoller_BlockTimestamps(t *testing.T) {
@@ -619,39 +611,37 @@ func TestLogPoller_BlockTimestamps(t *testing.T) {
 	require.Equal(t, big.NewInt(1), blk.Number())
 	start := blk.Time()
 
-	// There is automatically a 10s delay between each block.  To make sure it's including the correct block timestamps,
+	// There is automatically a 1ns delay between each block.  To make sure it's including the correct block timestamps,
 	// we introduce irregularities by inserting two additional block delays. We can't control the block times for
 	// blocks produced by the log emitter, but we can adjust the time on empty blocks in between.  Simulated time
-	// sequence:  [ #1 ] ..(10s + delay1).. [ #2 ] ..10s.. [ #3 (LOG1) ] ..(10s + delay2).. [ #4 ] ..10s.. [ #5 (LOG2) ]
-	const delay1 = 589
-	const delay2 = 643
-	time1 := start + 20 + delay1
-	time2 := time1 + 20 + delay2
+	// sequence:  [ #1 ] ..(1ns + delay1).. [ #2 ] ..1ns.. [ #3 (LOG1) ] ..(1ns + delay2).. [ #4 ] ..1ns.. [ #5 (LOG2) ]
+	const delay1 = 589 * time.Second
+	const delay2 = 643 * time.Second
+	time1 := start + 1 + uint64(delay1)
+	time2 := time1 + 1 + uint64(delay2)
 
-	require.NoError(t, th.Client.AdjustTime(delay1*time.Second))
-	hash := th.Client.Commit()
+	require.NoError(t, th.Backend.AdjustTime(delay1))
 
-	blk, err = th.Client.BlockByHash(ctx, hash)
+	blk, err = th.Client.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(2), blk.Number())
-	assert.Equal(t, time1-10, blk.Time())
+	assert.Equal(t, time1-1, blk.Time())
 
 	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
-	hash = th.Client.Commit()
+	hash := th.Backend.Commit()
 
 	blk, err = th.Client.BlockByHash(ctx, hash)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(3), blk.Number())
 	assert.Equal(t, time1, blk.Time())
 
-	require.NoError(t, th.Client.AdjustTime(delay2*time.Second))
-	th.Client.Commit()
+	require.NoError(t, th.Backend.AdjustTime(delay2))
 	_, err = th.Emitter2.EmitLog2(th.Owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
-	hash = th.Client.Commit()
+	th.Client.Commit()
 
-	blk, err = th.Client.BlockByHash(ctx, hash)
+	blk, err = th.Client.BlockByNumber(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(5), blk.Number())
 	assert.Equal(t, time2, blk.Time())
@@ -703,11 +693,12 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		// Set up a test chain with a log emitting contract deployed.
 		orm := logpoller.NewORM(chainID, db, lggr)
 		// Note this property test is run concurrently and the sim is not threadsafe.
-		ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+		backend := simulated.NewBackend(types.GenesisAlloc{
 			owner.From: {
 				Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 			},
-		}, 10e6)
+		}, simulated.WithBlockGasLimit(10e6))
+		ec := backend.Client()
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
 
@@ -718,9 +709,9 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, lpOpts)
+		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, backend, chainID), lggr, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
-			ec.Commit()
+			backend.Commit()
 		}
 		currentBlockNumber := int64(1)
 		lp.PollAndSaveLogs(testutils.Context(t), currentBlockNumber)
@@ -750,7 +741,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			if rand.Bool() {
 				// Mine blocks
 				for j := 0; j < int(mineOrReorg[i]); j++ {
-					ec.Commit()
+					backend.Commit()
 					latest, err1 := ec.BlockByNumber(testutils.Context(t), nil)
 					require.NoError(t, err1)
 					t.Log("mined block", latest.Hash())
@@ -762,13 +753,13 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 				reorgedBlock := big.NewInt(0).Sub(latest.Number(), big.NewInt(int64(mineOrReorg[i])))
 				reorg, err1 := ec.BlockByNumber(testutils.Context(t), reorgedBlock)
 				require.NoError(t, err1)
-				require.NoError(t, ec.Fork(testutils.Context(t), reorg.Hash()))
+				require.NoError(t, backend.Fork(reorg.Hash()))
 				t.Logf("Reorging from (%v, %x) back to (%v, %x)\n", latest.NumberU64(), latest.Hash(), reorgedBlock.Uint64(), reorg.Hash())
 				// Actually need to change the block here to trigger the reorg.
 				_, err1 = emitter1.EmitLog1(owner, []*big.Int{big.NewInt(1)})
 				require.NoError(t, err1)
 				for j := 0; j < int(mineOrReorg[i]+1); j++ { // Need +1 to make it actually longer height so we detect it.
-					ec.Commit()
+					backend.Commit()
 				}
 				latest, err1 = ec.BlockByNumber(testutils.Context(t), nil)
 				require.NoError(t, err1)
@@ -825,7 +816,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			b, err := th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
 			require.Equal(t, uint64(1), b.NumberU64())
-			require.Equal(t, uint64(10), b.Time())
 
 			// Test scenario: single block in chain, no logs.
 			// Chain genesis <- 1
@@ -839,7 +829,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, lpb.BlockHash, b.Hash())
 			assert.Equal(t, lpb.BlockNumber, int64(b.NumberU64()))
 			assert.Equal(t, int64(1), int64(b.NumberU64()))
-			assert.Equal(t, uint64(10), b.Time())
 
 			// No logs.
 			lgs, err := th.ORM.SelectLogsByBlockRange(testutils.Context(t), 1, 1)
@@ -860,7 +849,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// DB: 1
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
-			th.Client.Commit()
+			th.Backend.Commit()
 
 			// Polling should get us the L1 log.
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
@@ -884,19 +873,17 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			// DB: 1, 2
 			// - Detect a reorg,
 			// - Update the block 2's hash
-			// - Save L1'
+			// - Save L1_2
 			// - L1_1 deleted
-			reorgedOutBlock, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(2))
-			require.NoError(t, err)
 			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
 			require.NoError(t, err)
-			require.NoError(t, th.Client.Fork(testutils.Context(t), lca.Hash()))
+			require.NoError(t, th.Backend.Fork(lca.Hash()))
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
 			require.NoError(t, err)
 			// Create 2'
-			th.Client.Commit()
+			th.Backend.Commit()
 			// Create 3 (we need a new block for us to do any polling and detect the reorg).
-			th.Client.Commit()
+			th.Backend.Commit()
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(4), newStart)
@@ -909,18 +896,26 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
 			th.assertHaveCanonical(t, 1, 3)
 
-			// Test scenario: reorg back to previous tip.
-			// Chain gen <- 1 <- 2 (L1_1) <- 3' (L1_3) <- 4
-			//                \ 2'(L1_2) <- 3
-			require.NoError(t, th.Client.Fork(testutils.Context(t), reorgedOutBlock.Hash()))
+			parent, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+			require.NoError(t, err)
+
+			// Test scenario: reorg back to a chain that looks similar to the original chain. (simulated geth used to allow
+			// re-org'ing back to exactly the same chain--now the best we can do is re-emit the same logs on a new one to simulate that)
+			// Chain gen <- 1 <- 2 (L1_1)
+			//               \ 2' (L1_2) <- 3
+			//                \ 2''(L1_1) <- 3' <- 4
+			require.NoError(t, th.Backend.Fork(parent.Hash()))
+			// Re-emit L1 to make 2'' tip look like original 2 tip
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
+			require.NoError(t, err)
+			th.Backend.Commit()
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
 			require.NoError(t, err)
 			// Create 3'
-			th.Client.Commit()
+			th.Backend.Commit()
 			// Create 4
-			th.Client.Commit()
-			// Mark block 1 as finalized
-			markBlockAsFinalized(t, th, 1)
+			th.Backend.Commit()
+
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(5), newStart)
 			latest, err = th.ORM.SelectLatestBlock(testutils.Context(t))
@@ -928,8 +923,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, int64(4), latest.BlockNumber)
 			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 1, 3)
 			require.NoError(t, err)
-			// We expect ONLY L1_1 and L1_3 since L1_2 is reorg'd out.
-			assert.Equal(t, 2, len(lgs))
+
+			require.Equal(t, 2, len(lgs))
 			assert.Equal(t, int64(2), lgs[0].BlockNumber)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000001`), lgs[0].Data)
 			assert.Equal(t, int64(3), lgs[1].BlockNumber)
@@ -949,13 +944,15 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			_, err = th.Emitter2.EmitLog1(th.Owner, []*big.Int{big.NewInt(5)})
 			require.NoError(t, err)
 			// Create 4
-			th.Client.Commit()
+			th.Backend.Commit()
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(6)})
 			require.NoError(t, err)
 			// Create 5
-			th.Client.Commit()
+			th.Backend.Commit()
 			// Mark block 2 as finalized
-			markBlockAsFinalized(t, th, 3)
+			//if tt.finalityTag {
+			//	finalizeThroughBlock(t, th, 3)
+			//}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(7), newStart)
@@ -982,10 +979,8 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			for i := 7; i < 11; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
-				th.Client.Commit()
+				th.Backend.Commit()
 			}
-			// Mark block 7 as finalized
-			markBlockAsFinalized(t, th, 7)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(11), newStart)
@@ -998,43 +993,42 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			assert.Equal(t, int64(8), lgs[1].BlockNumber)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000009`), lgs[2].Data)
 			assert.Equal(t, int64(9), lgs[2].BlockNumber)
-			th.assertDontHave(t, 7, 7) // Do not expect to save backfilled blocks.
 			th.assertHaveCanonical(t, 8, 10)
 
 			// Test scenario large backfill (multiple batches)
-			// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..16
+			// Chain gen <- 1 <- 2 (L1_1) <- 3' L1_3 <- 4 <- 5 (L1_4, L2_5) <- 6 (L1_6) <- 7 (L1_7) <- 8 (L1_8) <- 9 (L1_9) <- 10..32
 			//                \ 2'(L1_2) <- 3
-			// DB: 1, 2, 3, 4, 5, 6, (backfilled 7), 8, 9, 10
-			// - 11, 12, 13 backfilled in batch 1
-			// - 14 backfilled in batch 2
-			// - 15, 16, 17 to be treated as unfinalized
-			for i := 11; i < 18; i++ {
+			// DB: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+			// - 11 - 13 backfilled in batch 1
+			// - 14 - 16 backfilled in batch 2
+			// ...
+			// - 33, 34, 35 to be treated as unfinalized
+			for i := 11; i < 36; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
-				th.Client.Commit()
+				th.Backend.Commit()
 			}
-			// Mark block 14 as finalized
-			markBlockAsFinalized(t, th, 14)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
-			assert.Equal(t, int64(18), newStart)
-			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 11, 17)
+			assert.Equal(t, int64(36), newStart)
+			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 11, 36)
 			require.NoError(t, err)
-			assert.Equal(t, 7, len(lgs))
-			th.assertHaveCanonical(t, 14, 16) // Should have last finalized block plus unfinalized blocks
+			assert.Equal(t, 25, len(lgs))
+			th.assertHaveCanonical(t, 32, 36) // Should have last finalized block plus unfinalized blocks
 			th.assertDontHave(t, 11, 13)      // Should not have older finalized blocks
+			th.assertDontHave(t, 14, 16)      // Should not have older finalized blocks
 
 			// Verify that a custom block timestamp will get written to db correctly also
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
-			require.Equal(t, uint64(17), b.NumberU64())
-			require.Equal(t, uint64(170), b.Time())
-			require.NoError(t, th.Client.AdjustTime(1*time.Hour))
-			th.Client.Commit()
+			require.Equal(t, uint64(35), b.NumberU64())
+			blockTimestamp := b.Time()
+			require.NoError(t, th.Backend.AdjustTime(time.Hour))
+			th.Backend.Commit()
 
 			b, err = th.Client.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
-			require.Equal(t, uint64(180+time.Hour.Seconds()), b.Time())
+			require.Equal(t, blockTimestamp+uint64(time.Hour)+1, b.Time())
 		})
 	}
 }
@@ -1076,51 +1070,50 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test scenario
-			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
+			// Chain gen <- 1 <- 2 <- ... <- 32 (finalized) <- 33 (L1_1)
+			finalizeThroughBlock(t, th, 32)
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
-			th.Client.Commit()
-			th.Client.Commit()
-			th.Client.Commit()
-			markBlockAsFinalized(t, th, 3)
+			th.Backend.Commit()
 
 			// Polling should get us the L1 log.
 			firstPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
-			assert.Equal(t, int64(5), firstPoll)
+			assert.Equal(t, int64(34), firstPoll)
 			assert.NoError(t, th.LogPoller.Healthy())
 
 			// Fork deeper than finality depth
-			// Chain gen <- 1 <- 2 <- 3 (finalized) <- 4 (L1_1)
-			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
-			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
+			// Chain gen <- 1 <- 2 <- 3 <- ... <- 32 (finalized) <- 33 (L1_1)
+			//              \      <- 3' <- ... <- 31' <- 32' (finalized) <- 33' <- 34' (L1_2)
+			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(2))
 			require.NoError(t, err)
-			require.NoError(t, th.Client.Fork(testutils.Context(t), lca.Hash()))
+			require.NoError(t, th.Backend.Fork(lca.Hash()))
 
-			// Create 2'
-			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
+			// Create 3'
+			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(3)})
 			require.NoError(t, err)
-			th.Client.Commit()
+			th.Backend.Commit()
 
-			// Create 3-10
-			for i := 3; i < 10; i++ {
+			finalizeThroughBlock(t, th, 32)
+
+			// Create 33' - 34'
+			for i := 33; i < 35; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
-				th.Client.Commit()
+				th.Backend.Commit()
 			}
-			markBlockAsFinalized(t, th, 6)
 
 			secondPoll := th.PollAndSaveLogs(testutils.Context(t), firstPoll)
 			assert.Equal(t, firstPoll, secondPoll)
 			assert.Equal(t, logpoller.ErrFinalityViolated, th.LogPoller.Healthy())
 
-			// Manually remove latest block from the log poller to bring it back to life
+			// Manually remove re-org'd chain from the log poller to bring it back to life
 			// LogPoller should be healthy again after first poll
-			// Chain gen <- 1
-			//              \  2' <- 3' <- 4' <- 5' <- 6' (finalized) <- 7' <- 8' <- 9' <- 10' (L1_2)
-			require.NoError(t, th.ORM.DeleteLogsAndBlocksAfter(testutils.Context(t), 2))
+			// Chain gen <- 1 <- 2
+			//                    \ <- 3' <- 4' <- 5' <- 32' (finalized) <- 33' <- 34' (L1_2)
+			require.NoError(t, th.ORM.DeleteLogsAndBlocksAfter(testutils.Context(t), 3))
 			// Poll from latest
 			recoveryPoll := th.PollAndSaveLogs(testutils.Context(t), 1)
-			assert.Equal(t, int64(10), recoveryPoll)
+			assert.Equal(t, int64(35), recoveryPoll)
 			assert.NoError(t, th.LogPoller.Healthy())
 		})
 	}
@@ -1151,8 +1144,8 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			lpOpts := logpoller.Opts{
 				UseFinalityTag:           tt.finalityTag,
 				FinalityDepth:            tt.finalityDepth,
-				BackfillBatchSize:        3,
-				RpcBatchSize:             2,
+				BackfillBatchSize:        50,
+				RpcBatchSize:             50,
 				KeepFinalizedBlocksDepth: 1000,
 			}
 			th := SetupTH(t, lpOpts)
@@ -1170,8 +1163,8 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			// DB: 1
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
-			th.Client.Commit()
-			markBlockAsFinalized(t, th, 1)
+			th.Backend.Commit()
+			//markBlockAsFinalized(t, th, 1)
 
 			// Polling should get us the L1 log.
 			newStart := th.PollAndSaveLogs(testutils.Context(t), 1)
@@ -1185,34 +1178,34 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 
 			// Single block reorg and log poller not working for a while, mine blocks and progress with finalization
 			// Chain gen <- 1 <- 2 (L1_1)
-			//                \ 2'(L1_2) <- 3 <- 4 <- 5 <- 6 (finalized on chain) <- 7 <- 8 <- 9 <- 10
+			//                \ 2'(L1_2) <- 3' <- 4' <- ... <- 32' (finalized on chain) <- 33' <- 34' <- 35'
 			lca, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(1))
 			require.NoError(t, err)
-			require.NoError(t, th.Client.Fork(testutils.Context(t), lca.Hash()))
+			require.NoError(t, th.Backend.Fork(lca.Hash()))
 			// Create 2'
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
 			require.NoError(t, err)
-			th.Client.Commit()
-			// Create 3-10
-			for i := 3; i < 10; i++ {
+			th.Backend.Commit()
+			// Create 3-35
+			for i := 3; i <= 35; i++ {
 				_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err)
-				th.Client.Commit()
+				th.Backend.Commit()
 			}
-			markBlockAsFinalized(t, th, 6)
+			finalizeThroughBlock(t, th, 32)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
-			assert.Equal(t, int64(10), newStart)
+			assert.Equal(t, int64(36), newStart)
 			assert.NoError(t, th.LogPoller.Healthy())
 
 			// Expect L1_2 to be properly updated
-			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 2)
+			lgs, err = th.ORM.SelectLogsByBlockRange(testutils.Context(t), 2, 31)
 			require.NoError(t, err)
-			require.NotZero(t, len(lgs))
+			require.Len(t, lgs, 30)
 			assert.Equal(t, hexutil.MustDecode(`0x0000000000000000000000000000000000000000000000000000000000000002`), lgs[0].Data)
-			th.assertHaveCanonical(t, 1, 1)
-			th.assertDontHave(t, 2, 3) // These blocks are backfilled
-			th.assertHaveCanonical(t, 5, 10)
+			th.assertHaveCanonical(t, 1, 2)
+			th.assertDontHave(t, 2, 31) // These blocks are backfilled
+			th.assertHaveCanonical(t, 32, 36)
 		})
 	}
 }
@@ -1314,11 +1307,11 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 
 	_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 	require.NoError(t, err)
-	th.Client.Commit() // Commit block #2 with log in it
+	th.Backend.Commit() // Commit block #2 with log in it
 
 	_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(2)})
 	require.NoError(t, err)
-	th.Client.Commit() // Commit block #3 with a different log
+	th.Backend.Commit() // Commit block #3 with a different log
 
 	err = th.LogPoller.RegisterFilter(testutils.Context(t), logpoller.Filter{
 		Name:      "GetBlocks Test",
@@ -1346,7 +1339,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, "Received unfinalized block 2 while expecting finalized block (latestFinalizedBlockNumber = 1)", err.Error())
 
-	th.Client.Commit() // Commit block #4, so that block #2 is finalized
+	th.Backend.Commit() // Commit block #4, so that block #2 is finalized
 
 	// Assert block 2 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 2)
@@ -1358,7 +1351,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	assert.Equal(t, 1, len(rpcBlocks))
 	assert.Equal(t, 2, int(rpcBlocks[0].BlockNumber))
 
-	th.Client.Commit() // commit block #5 so that #3 becomes finalized
+	th.Backend.Commit() // commit block #5 so that #3 becomes finalized
 
 	// Assert block 3 is not yet in DB
 	_, err = th.ORM.SelectBlockByNumber(testutils.Context(t), 3)
@@ -1429,7 +1422,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 	th := SetupTH(t, lpOpts)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Nothing in the DB yet, should use whatever we specify.
@@ -1444,7 +1437,7 @@ func TestGetReplayFromBlock(t *testing.T) {
 
 	// Commit a few more so chain is ahead.
 	for i := 0; i < 3; i++ {
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 	// Should take min(latest, requested), in this case latest.
 	requested = int64(15)
@@ -1471,20 +1464,21 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	o := logpoller.NewORM(chainID1, db, lggr)
 
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	backend := simulated.NewBackend(types.GenesisAlloc{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
+	ec := backend.Client()
 	_, _, emitter, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	_, err = emitter.EmitLog1(owner, []*big.Int{big.NewInt(9)})
 	require.NoError(t, err)
 	_, err = emitter.EmitLog1(owner, []*big.Int{big.NewInt(7)})
 	require.NoError(t, err)
-	ec.Commit()
-	ec.Commit()
-	ec.Commit()
+	backend.Commit()
+	backend.Commit()
+	backend.Commit()
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Hour,
@@ -1493,7 +1487,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, backend, chainID2), lggr, lpOpts)
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
@@ -1655,23 +1649,25 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	for i := 0; i < firstBatchLen; i++ {
 		_, err1 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	// Mark current head as finalized
-	//TODO can we skip?
-	//h := th.Client.Blockchain().CurrentHeader()
-	//th.Client.Blockchain().SetFinalized(h)
+
+	h, err := th.Client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, h)
+	finalizeThroughBlock(t, th, h.Number.Int64())
 
 	// Generate next blocks, not marked as finalized
 	for i := 0; i < secondBatchLen; i++ {
 		_, err1 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 		require.NoError(t, err1)
-		th.Client.Commit()
+		th.Backend.Commit()
 	}
 
 	currentBlock := th.PollAndSaveLogs(ctx, 1)
-	require.Equal(t, int(currentBlock), firstBatchLen+secondBatchLen+2)
+	require.Equal(t, 32+secondBatchLen+1, int(currentBlock))
 
 	finalizedLogs, err := th.LogPoller.LogsDataWordGreaterThan(
 		ctx,
@@ -1699,7 +1695,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 
 func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	ctx := testutils.Context(t)
-	numberOfBlocks := 10
+	numberOfBlocks := 37 // must be greater than 1 epoch
 
 	tests := []struct {
 		name                   string
@@ -1716,14 +1712,14 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 		{
 			name:                   "setting last finalized block number to 0 if finality is too deep",
 			useFinalityTag:         false,
-			finalityDepth:          20,
+			finalityDepth:          40,
 			expectedFinalizedBlock: 0,
 		},
 		{
 			name:                   "using finality from chain",
 			useFinalityTag:         true,
 			finalityDepth:          0,
-			expectedFinalizedBlock: 1,
+			expectedFinalizedBlock: 32,
 		},
 	}
 	for _, tt := range tests {
@@ -1740,14 +1736,13 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			_, err := th.LogPoller.LatestBlock(ctx)
 			require.Error(t, err)
 
-			// Mark first block as finalized
-			//TODO OK to skip?
-			//h := th.Client.Blockchain().CurrentHeader()
-			//th.Client.Blockchain().SetFinalized(h)
-
 			// Create a couple of blocks
 			for i := 0; i < numberOfBlocks-1; i++ {
-				th.Client.Commit()
+				th.Backend.Commit()
+			}
+
+			if tt.useFinalityTag {
+				finalizeThroughBlock(t, th, tt.expectedFinalizedBlock)
 			}
 
 			th.PollAndSaveLogs(ctx, 1)
@@ -1802,7 +1797,7 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			for i := 0; i < emittedLogs; i++ {
 				_, err2 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
 				require.NoError(t, err2)
-				th.Client.Commit()
+				th.Backend.Commit()
 			}
 
 			// First PollAndSave, no filters are registered
@@ -1815,10 +1810,13 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// Emit blocks to cover finality depth, because backup always backfill up to the one block before last finalized
-			for i := 0; i < int(tt.finalityDepth)+1; i++ {
-				bh := th.Client.Commit()
-				markBlockAsFinalizedByHash(t, th, bh)
+			// Finalize current block, because backup always backfill up to one block before last finalized
+			if tt.finalityTag {
+				finalizeThroughBlock(t, th, currentBlock)
+			} else {
+				for i := 0; i < int(tt.finalityDepth)+1; i++ {
+					th.Backend.Commit()
+				}
 			}
 
 			// LogPoller should backfill entire history
@@ -1911,18 +1909,25 @@ func Test_PruneOldBlocks(t *testing.T) {
 	}
 }
 
-func markBlockAsFinalized(t *testing.T, th TestHarness, blockNumber int64) {
-	_, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(blockNumber))
+// Commits new blocks until blockNumber is finalized. This requires committing all of
+// the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
+// ends on a 32-block boundary (blockNumber % 32 == 0)
+func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
+	var currentBlock common.Hash
+	ctx := testutils.Context(t)
+	targetBlockNumber := blockNumber
+	if targetBlockNumber%32 != 0 {
+		targetBlockNumber = 32 * (blockNumber/32 + 1)
+	}
+	h, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
-	//TODO ok to skip?
-	//th.Client.Blockchain().SetFinalized(b.Header())
-}
-
-func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.Hash) {
-	_, err := th.Client.BlockByHash(testutils.Context(t), blockHash)
+	for n := h.Number.Int64(); n < targetBlockNumber; n++ {
+		currentBlock = th.Backend.Commit()
+		require.Len(t, currentBlock, 32)
+	}
+	h, err = th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
-	//TODO ok to skip?
-	//th.Client.Blockchain().SetFinalized(b.Header())
+	require.GreaterOrEqual(t, h.Number.Int64(), targetBlockNumber)
 }
 
 func TestFindLCA(t *testing.T) {

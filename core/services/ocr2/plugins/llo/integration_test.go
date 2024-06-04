@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,20 +46,20 @@ var (
 	multiplier int64 = 100000000
 )
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, *channel_verifier.ChannelVerifier, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *channel_verifier.ChannelVerifier, common.Address, *channel_config_store.ChannelConfigStore, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
 	// Deploy contracts
-	verifierProxyAddr, _, _, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	verifierProxyAddr, _, _, err := verifier_proxy.DeployVerifierProxy(steve, backend.Client(), common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
 
-	verifierAddress, _, verifierContract, err := channel_verifier.DeployChannelVerifier(steve, backend, verifierProxyAddr)
+	verifierAddress, _, verifierContract, err := channel_verifier.DeployChannelVerifier(steve, backend.Client(), verifierProxyAddr)
 	require.NoError(t, err)
-	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend)
+	configStoreAddress, _, configStoreContract, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
 	require.NoError(t, err)
 
 	backend.Commit()
@@ -255,7 +255,7 @@ func TestIntegration_LLO(t *testing.T) {
 	// TODO: test verification
 }
 
-func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+func setConfig(t *testing.T, steve *bind.TransactOpts, backend *simulated.Backend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
 	// Setup config on contract
 	rawOnchainConfig := datastreamsllo.OnchainConfig{}
 	onchainConfig, err := (&datastreamsllo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
@@ -310,7 +310,7 @@ func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.Simulat
 	return l.ConfigDigest
 }
 
-func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, configStoreContract *channel_config_store.ChannelConfigStore, streams []Stream) map[llotypes.ChannelID]channel_config_store.IChannelConfigStoreChannelDefinition {
+func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *simulated.Backend, configStoreContract *channel_config_store.ChannelConfigStore, streams []Stream) map[llotypes.ChannelID]channel_config_store.IChannelConfigStoreChannelDefinition {
 	channels := []llotypes.ChannelID{
 		rand.Uint32(),
 		rand.Uint32(),
