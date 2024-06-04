@@ -90,9 +90,9 @@ func (p *Poller[T]) pollingLoop() {
 			}
 			// Send result to channel or block if channel is full
 			select {
-			case p.channel <- result:
 			case <-p.stopCh:
 				return
+			case p.channel <- result:
 			}
 		}
 	}
