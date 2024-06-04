@@ -62,7 +62,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.updateNodes(nodes);
   }
 

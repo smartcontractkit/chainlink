@@ -40,7 +40,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The node's parameters
     /// @notice The id of the node operator that manages this node
     uint32 nodeOperatorId;
-    /// @notice The number of times the node's capability has been updated
+    /// @notice The number of times the node's configuration has been updated
     uint32 configCount;
     /// @notice The signer address for application-layer message verification.
     /// @dev This key is guaranteed to be unique in the CapabilityRegistry
@@ -84,8 +84,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     ///
     /// bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
     bytes32 labelledName;
-    /// @notice Semver, e.g., "1.2.3"
-    ///  @dev must be valid Semver + max 32 characters.
+    /// @notice The capability's version number
+    /// @dev Derived by converting the semantic version to bytes32
+    /// i.e bytes32("1.2.3")
+    /// @dev Limited to 32 characters
     bytes32 version;
     /// @notice Indicates whether remote response requires
     // aggregation or is an OCR report. There are multiple possible
@@ -156,7 +158,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when a caller is not allowed
   /// to execute the transaction
-  error AccessForbidden();
+  /// @param sender The address that tried to execute the transaction
+  error AccessForbidden(address sender);
 
   /// @notice This error is thrown when there is a mismatch between
   /// array arguments
@@ -189,7 +192,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when trying add a capability that already
   /// exists.
-  error CapabilityAlreadyExists();
+  /// @param hashedCapabilityId The hashed capability ID of the capability
+  /// that already exists
+  error CapabilityAlreadyExists(bytes32 hashedCapabilityId);
 
   /// @notice This error is thrown when trying to add a node to a DON where
   /// the node does not support the capability
@@ -308,15 +313,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Mapping of DON IDs to DONs
   mapping(uint32 donId => DON don) private s_dons;
 
-  /// @notice The latest node operator ID
-  // @dev Starting with 1 to avoid confusion with the zero value
-  /// @dev No getter for this as this is an implementation detail
-  uint32 private s_nodeOperatorId = 1;
-
-  /// @notice The latest DON ID
+  /// @notice The next ID to assign a new node operator to
   /// @dev Starting with 1 to avoid confusion with the zero value
   /// @dev No getter for this as this is an implementation detail
-  uint32 private s_donId = 1;
+  uint32 private s_nextNodeOperatorId = 1;
+
+  /// @notice The next ID to assign a new DON to
+  /// @dev Starting with 1 to avoid confusion with the zero value
+  /// @dev No getter for this as this is an implementation detail
+  uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
     return "CapabilityRegistry 1.0.0";
@@ -328,9 +333,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodeOperators.length; ++i) {
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      uint32 nodeOperatorId = s_nodeOperatorId;
+      uint32 nodeOperatorId = s_nextNodeOperatorId;
       s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
-      ++s_nodeOperatorId;
+      ++s_nextNodeOperatorId;
       emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
     }
   }
@@ -358,7 +363,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden();
+      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
         s_nodeOperators[nodeOperatorId].admin != nodeOperator.admin ||
@@ -381,9 +386,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Gets all node operators
   /// @return NodeOperator[] All node operators
   function getNodeOperators() external view returns (NodeOperator[] memory) {
-    uint32 nodeOperatorId = s_nodeOperatorId;
-    /// Minus one to account for s_nodeOperatorId starting at index 1
-    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nodeOperatorId - 1);
+    uint32 nodeOperatorId = s_nextNodeOperatorId;
+    /// Minus one to account for s_nextNodeOperatorId starting at index 1
+    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nextNodeOperatorId - 1);
     uint256 idx;
     for (uint32 i = 1; i < nodeOperatorId; ++i) {
       if (s_nodeOperators[i].admin != address(0)) {
@@ -391,7 +396,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         ++idx;
       }
     }
-    if (idx != s_nodeOperatorId - 1) {
+    if (idx != s_nextNodeOperatorId - 1) {
       assembly {
         mstore(nodeOperators, idx)
       }
@@ -409,7 +414,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       if (s_nodes[node.p2pId].signer != bytes32("") || bytes32(node.p2pId) == bytes32(""))
         revert InvalidNodeP2PId(node.p2pId);
@@ -449,7 +454,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (bytes32(node.signer) == bytes32("")) revert InvalidNodeP2PId(p2pId);
       if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
-      if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
       s_nodeSigners.remove(node.signer);
       s_nodeP2PIds.remove(node.p2pId);
       delete s_nodes[p2pId];
@@ -466,7 +471,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeInfo memory node = nodes[i];
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       if (s_nodes[node.p2pId].signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
@@ -539,7 +544,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < capabilities.length; ++i) {
       Capability memory capability = capabilities[i];
       bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
-      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
+      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists(hashedCapabilityId);
       s_hashedCapabilityIds.add(hashedCapabilityId);
       _setCapability(hashedCapabilityId, capability);
     }
@@ -556,7 +561,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
   }
 
-  /// @notice Deprecates a capability by adding it to the deprecated list
+  /// @notice Deprecates a capability
   /// @param hashedCapabilityIds[] The IDs of the capabilities to deprecate
   function deprecateCapabilities(bytes32[] calldata hashedCapabilityIds) external onlyOwner {
     for (uint256 i; i < hashedCapabilityIds.length; ++i) {
@@ -571,7 +576,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
   }
 
-  /// @notice This function returns a Capability by its hashed ID. Use `getHashedCapabilityId` to get the hashed ID.
+  /// @notice Returns a Capability by its hashed ID.
+  /// @dev Use `getHashedCapabilityId` to get the hashed ID.
   function getCapability(bytes32 hashedId) external view returns (Capability memory) {
     return s_capabilities[hashedId];
   }
@@ -632,7 +638,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic
   ) external onlyOwner {
-    uint32 id = s_donId++;
+    uint32 id = s_nextDONId++;
     s_dons[id].id = id;
     _setDONConfig(id, 1, nodes, capabilityConfigurations, isPublic);
   }
@@ -687,8 +693,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Returns the list of configured DONs
   /// @return DONInfo[] The list of configured DONs
   function getDONs() external view returns (DONInfo[] memory) {
-    /// Minus one to account for s_donId starting at index 1
-    uint32 donId = s_donId;
+    /// Minus one to account for s_nextDONId starting at index 1
+    uint32 donId = s_nextDONId;
     DONInfo[] memory dons = new DONInfo[](donId - 1);
     uint256 idx;
     ///
@@ -819,6 +825,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param capability The capability's data
   function _setCapability(bytes32 hashedCapabilityId, Capability memory capability) internal {
     if (capability.configurationContract != address(0)) {
+
+      /// Check that the configuration contract being assigned
+      /// correctly supports the ICapabilityConfiguration interface
+      /// by implementing both getCapabilityConfiguration and
+      /// beforeCapabilityConfigSet
       if (
         capability.configurationContract.code.length == 0 ||
         !IERC165(capability.configurationContract).supportsInterface(

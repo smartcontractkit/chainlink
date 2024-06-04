@@ -28,7 +28,9 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
     s_capabilityRegistry.addCapabilities(capabilities);
 
     // Try to add the same capability again
-    vm.expectRevert(CapabilityRegistry.CapabilityAlreadyExists.selector);
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.CapabilityAlreadyExists.selector, s_basicHashedCapabilityId)
+    );
     s_capabilityRegistry.addCapabilities(capabilities);
   }
 

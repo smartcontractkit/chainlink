@@ -26,7 +26,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 

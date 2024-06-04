@@ -35,7 +35,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.addNodes(nodes);
   }
 
