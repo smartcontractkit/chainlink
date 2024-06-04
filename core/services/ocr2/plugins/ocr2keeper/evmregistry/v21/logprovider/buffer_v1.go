@@ -1,15 +1,25 @@
 package logprovider
 
 import (
-	"math"
+	"context"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
+)
+
+const (
+	LogBufferServiceName = "LogBuffer"
 )
 
 type BufferedLog struct {
@@ -18,6 +28,8 @@ type BufferedLog struct {
 }
 
 type LogBuffer interface {
+	Start(context.Context) error
+	Close() error
 	// Enqueue adds logs to the buffer and might also drop logs if the limit for the
 	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
@@ -65,26 +77,69 @@ func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
 	o.blockRate.Store(blockRate)
 }
 
-func (o *logBufferOptions) windows() int {
-	return int(math.Ceil(float64(o.lookback.Load()) / float64(o.blockRate.Load())))
-}
-
 type logBuffer struct {
+	services.StateMachine
 	lggr logger.Logger
 	opts *logBufferOptions
 	// last block number seen by the buffer
 	lastBlockSeen *atomic.Int64
 	// map of upkeep id to its queue
-	queues map[string]*upkeepLogQueue
-	lock   sync.RWMutex
+	queues          map[string]*upkeepLogQueue
+	lock            sync.RWMutex
+	blockHashes     map[int64]string
+	latestBlockHash atomic.Pointer[common.Hash]
+	history         atomic.Pointer[automation.BlockHistory]
+	subID           int
+	blockHistoryCh  chan automation.BlockHistory
+	threadCtrl      utils.ThreadControl
+	blockSubscriber automation.BlockSubscriber
 }
 
-func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
+func NewLogBuffer(lggr logger.Logger, blockSubscriber automation.BlockSubscriber, lookback, blockRate, logLimit uint32) (LogBuffer, error) {
+	id, blockChan, err := blockSubscriber.Subscribe()
+	if err != nil {
+		return nil, err
+	}
+
 	return &logBuffer{
-		lggr:          lggr.Named("KeepersRegistry.LogEventBufferV1"),
-		opts:          newLogBufferOptions(lookback, blockRate, logLimit),
-		lastBlockSeen: new(atomic.Int64),
-		queues:        make(map[string]*upkeepLogQueue),
+		lggr:            lggr.Named("KeepersRegistry.LogEventBufferV1"),
+		opts:            newLogBufferOptions(lookback, blockRate, logLimit),
+		lastBlockSeen:   new(atomic.Int64),
+		queues:          make(map[string]*upkeepLogQueue),
+		blockHashes:     make(map[int64]string),
+		subID:           id,
+		blockHistoryCh:  blockChan,
+		threadCtrl:      utils.NewThreadControl(),
+		blockSubscriber: blockSubscriber,
+	}, nil
+}
+
+func (b *logBuffer) Start(context.Context) error {
+	return b.StartOnce(LogBufferServiceName, func() error {
+		b.threadCtrl.Go(func(ctx context.Context) {
+			b.readBlockHistory(ctx)
+		})
+		return nil
+	})
+}
+
+func (b *logBuffer) Close() error {
+	return b.StopOnce(LogBufferServiceName, func() error {
+		b.threadCtrl.Close()
+		return b.blockSubscriber.Unsubscribe(b.subID)
+	})
+}
+
+func (b *logBuffer) readBlockHistory(_ context.Context) {
+	for history := range b.blockHistoryCh {
+		latest, err := history.Latest()
+		if err != nil {
+			b.lggr.Errorw("unable to read latest block from block history", "error", err.Error())
+		} else {
+			hash := common.Hash(latest.Hash)
+			b.latestBlockHash.Store(&hash)
+			b.history.Store(&history)
+		}
 	}
 }
 
@@ -97,7 +152,12 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
 		b.setUpkeepQueue(uid, buf)
 	}
-	latestBlock := latestBlockNumber(logs...)
+
+	latestBlock, reorgBlocks := b.blockStatistics(logs...)
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
 	if b.lastBlockSeen.Load() < latestBlock {
 		b.lastBlockSeen.Store(latestBlock)
 	}
@@ -106,6 +166,16 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		blockThreshold = 1
 	}
 	return buf.enqueue(blockThreshold, logs...)
+}
+
+func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
+	for _, queue := range b.queues {
+		for blockNumber := range reorgBlocks {
+			if _, ok := queue.logs[blockNumber]; ok {
+				queue.logs[blockNumber] = []logpoller.Log{}
+			}
+		}
+	}
 }
 
 // Dequeue greedly pulls logs from the buffers.
@@ -230,7 +300,8 @@ type upkeepLogQueue struct {
 	opts *logBufferOptions
 
 	// logs is the buffer of logs for the upkeep
-	logs []logpoller.Log
+	blockNumbers []int64
+	logs         map[int64][]logpoller.Log
 	// states keeps track of the state of the logs that are known to the queue
 	// and the block number they were seen at
 	states map[string]logTriggerStateEntry
@@ -238,13 +309,13 @@ type upkeepLogQueue struct {
 }
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
-	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
-		lggr:   lggr.With("upkeepID", id.String()),
-		id:     id,
-		opts:   opts,
-		logs:   make([]logpoller.Log, 0, maxLogs),
-		states: make(map[string]logTriggerStateEntry),
+		lggr:         lggr.With("upkeepID", id.String()),
+		id:           id,
+		opts:         opts,
+		logs:         map[int64][]logpoller.Log{},
+		states:       make(map[string]logTriggerStateEntry),
+		blockNumbers: make([]int64, 0),
 	}
 }
 
@@ -254,9 +325,9 @@ func (q *upkeepLogQueue) sizeOfRange(start, end int64) int {
 	defer q.lock.RUnlock()
 
 	size := 0
-	for _, l := range q.logs {
-		if l.BlockNumber >= start && l.BlockNumber <= end {
-			size++
+	for blockNumber, logList := range q.logs {
+		if blockNumber >= start && blockNumber <= end {
+			size += len(logList)
 		}
 	}
 	return size
@@ -274,25 +345,25 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 
 	var results []logpoller.Log
 	var remaining int
-	updatedLogs := make([]logpoller.Log, 0)
-	for _, l := range q.logs {
-		if l.BlockNumber >= start && l.BlockNumber <= end {
-			if len(results) < limit {
-				results = append(results, l)
-				lid := logID(l)
-				if s, ok := q.states[lid]; ok {
-					s.state = logTriggerStateDequeued
-					q.states[lid] = s
+
+	for _, blockNumber := range q.blockNumbers {
+		if blockNumber >= start && blockNumber <= end {
+			for _, l := range q.logs[blockNumber] {
+				if len(results) < limit {
+					results = append(results, l)
+					lid := logID(l)
+					if s, ok := q.states[lid]; ok {
+						s.state = logTriggerStateDequeued
+						q.states[lid] = s
+					}
+					continue
 				}
-				continue
+				remaining++
 			}
-			remaining++
 		}
-		updatedLogs = append(updatedLogs, l)
 	}
 
 	if len(results) > 0 {
-		q.logs = updatedLogs
 		q.lggr.Debugw("Dequeued logs", "start", start, "end", end, "limit", limit, "results", len(results), "remaining", remaining)
 	}
 
@@ -308,7 +379,6 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	logs := q.logs
 	var added int
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
@@ -322,9 +392,15 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		}
 		q.states[lid] = logTriggerStateEntry{state: logTriggerStateEnqueued, block: log.BlockNumber}
 		added++
-		logs = append(logs, log)
+
+		if logList, ok := q.logs[log.BlockNumber]; ok {
+			logList = append(logList, log)
+			q.logs[log.BlockNumber] = logList
+		} else {
+			q.logs[log.BlockNumber] = []logpoller.Log{log}
+			q.blockNumbers = append(q.blockNumbers, log.BlockNumber)
+		}
 	}
-	q.logs = logs
 
 	var dropped int
 	if added > 0 {
@@ -345,9 +421,14 @@ func (q *upkeepLogQueue) orderLogs() {
 	// sort logs by block number, tx hash and log index
 	// to keep the q sorted and to ensure that logs can be
 	// grouped by block windows for the cleanup
-	sort.SliceStable(q.logs, func(i, j int) bool {
-		return LogSorter(q.logs[i], q.logs[j])
-	})
+
+	for _, blockNumber := range q.blockNumbers {
+		toSort := q.logs[blockNumber]
+		sort.SliceStable(toSort, func(i, j int) bool {
+			return LogSorter(toSort[i], toSort[j])
+		})
+		q.logs[blockNumber] = toSort
+	}
 }
 
 // clean removes logs that are older than blockThreshold and drops logs if the limit for the
@@ -358,47 +439,58 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	blockRate := int(q.opts.blockRate.Load())
 	windowLimit := int(q.opts.windowLimit.Load())
 	updated := make([]logpoller.Log, 0)
+	blockNumbers := make([]int64, 0)
 	// helper variables to keep track of the current window capacity
 	currentWindowCapacity, currentWindowStart := 0, int64(0)
-	for _, l := range q.logs {
-		if blockThreshold > l.BlockNumber { // old log, removed
-			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
-			// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
-			logid := logID(l)
-			delete(q.states, logid)
-			expired++
-			continue
-		}
-		start, _ := getBlockWindow(l.BlockNumber, blockRate)
-		if start != currentWindowStart {
-			// new window, reset capacity
-			currentWindowStart = start
-			currentWindowCapacity = 0
-		}
-		currentWindowCapacity++
-		// if capacity has been reached, drop the log
-		if currentWindowCapacity > windowLimit {
-			lid := logID(l)
-			if s, ok := q.states[lid]; ok {
-				s.state = logTriggerStateDropped
-				q.states[lid] = s
+	for _, blockNumber := range q.blockNumbers {
+		logs := q.logs[blockNumber]
+
+		if blockThreshold > blockNumber { // old log, removed
+			for _, l := range logs {
+				prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionExpired).Inc()
+				// q.lggr.Debugw("Expiring old log", "blockNumber", l.BlockNumber, "blockThreshold", blockThreshold, "logIndex", l.LogIndex)
+				logid := logID(l)
+				delete(q.states, logid)
+				expired++
 			}
-			dropped++
-			prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
-			q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
-				"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),
-				"currentWindowStart", currentWindowStart, "currentWindowCapacity", currentWindowCapacity,
-				"maxLogsPerWindow", windowLimit, "blockRate", blockRate)
-			continue
+			delete(q.logs, blockNumber)
+		} else {
+			blockNumbers = append(blockNumbers, blockNumber)
+
+			start, _ := getBlockWindow(blockNumber, blockRate)
+			if start != currentWindowStart {
+				// new window, reset capacity
+				currentWindowStart = start
+				currentWindowCapacity = 0
+			}
+
+			for _, l := range logs {
+				currentWindowCapacity++
+				// if capacity has been reached, drop the log
+				if currentWindowCapacity > windowLimit {
+					lid := logID(l)
+					if s, ok := q.states[lid]; ok {
+						s.state = logTriggerStateDropped
+						q.states[lid] = s
+					}
+					dropped++
+					prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionDropped).Inc()
+					q.lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", l.BlockNumber,
+						"blockHash", l.BlockHash, "txHash", l.TxHash, "logIndex", l.LogIndex, "len updated", len(updated),
+						"currentWindowStart", currentWindowStart, "currentWindowCapacity", currentWindowCapacity,
+						"maxLogsPerWindow", windowLimit, "blockRate", blockRate)
+				} else {
+					updated = append(updated, l)
+				}
+			}
 		}
-		updated = append(updated, l)
+		if dropped > 0 || expired > 0 {
+			q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
+			q.logs[blockNumber] = updated
+		}
 	}
 
-	if dropped > 0 || expired > 0 {
-		q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
-		q.logs = updated
-	}
-
+	q.blockNumbers = blockNumbers
 	q.cleanStates(blockThreshold)
 
 	return dropped

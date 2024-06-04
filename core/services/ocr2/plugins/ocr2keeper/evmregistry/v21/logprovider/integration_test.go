@@ -6,6 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
+	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
+
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -70,7 +76,13 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
-			provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
+
+			hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+			hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+
+			blockSubscriber := evm.NewBlockSubscriber(hb, lp, 256, logger.TestLogger(t))
+
+			provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, blockSubscriber, &opts)
 			logProvider := provider.(logprovider.LogEventProviderTest)
 
 			n := 10
@@ -110,7 +122,15 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				// assuming that our service was closed and restarted,
 				// we should be able to backfill old logs and fetch new ones
 				filterStore := logprovider.NewUpkeepFilterStore()
-				logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, opts)
+
+				hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+
+				hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+
+				blockSubscriber := evm.NewBlockSubscriber(hb, lp, 256, logger.TestLogger(t))
+
+				logProvider2, err := logprovider.NewLogProvider(logger.TestLogger(t), lp, big.NewInt(1), logprovider.NewLogEventsPacker(), filterStore, blockSubscriber, opts)
+				require.NoError(t, err)
 
 				poll(backend.Commit())
 				go func() {
@@ -160,7 +180,11 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	}
 	lp, ethClient := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, opts)
+	hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+
+	blockSubscriber := evm.NewBlockSubscriber(hb, lp, 256, logger.TestLogger(t))
+	provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, blockSubscriber, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -256,7 +280,13 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
-			provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, &opts)
+
+			hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+			hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+
+			blockSubscriber := evm.NewBlockSubscriber(hb, lp, 256, logger.TestLogger(t))
+
+			provider, _ := setup(logger.TestLogger(t), lp, nil, nil, filterStore, blockSubscriber, &opts)
 			logProvider := provider.(logprovider.LogEventProviderTest)
 
 			n := 10
@@ -315,7 +345,13 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	defer func() {
 		logprovider.RecoveryInterval = origDefaultRecoveryInterval
 	}()
-	provider, recoverer := setup(logger.TestLogger(t), lp, nil, &mockUpkeepStateStore{}, filterStore, opts)
+
+	hb := htmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+
+	blockSubscriber := evm.NewBlockSubscriber(hb, lp, 256, logger.TestLogger(t))
+
+	provider, recoverer := setup(logger.TestLogger(t), lp, nil, &mockUpkeepStateStore{}, filterStore, blockSubscriber, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
@@ -510,13 +546,13 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	return lp, ethClient
 }
 
-func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, stateStore evmregistry21.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, stateStore evmregistry21.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, blockSubscriber ocr2keepers.BlockSubscriber, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
 	packer := logprovider.NewLogEventsPacker()
 	if opts == nil {
 		o := logprovider.NewOptions(200, big.NewInt(1))
 		opts = &o
 	}
-	provider := logprovider.NewLogProvider(lggr, poller, big.NewInt(1), packer, filterStore, *opts)
+	provider, _ := logprovider.NewLogProvider(lggr, poller, big.NewInt(1), packer, filterStore, blockSubscriber, *opts)
 	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, *opts)
 
 	return provider, recoverer

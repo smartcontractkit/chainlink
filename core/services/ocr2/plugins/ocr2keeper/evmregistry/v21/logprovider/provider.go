@@ -116,18 +116,23 @@ type logEventProvider struct {
 	chainID *big.Int
 }
 
-func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, blockSubscriber ocr2keepers.BlockSubscriber, opts LogTriggersOptions) (*logEventProvider, error) {
+	logBuffer, err := NewLogBuffer(lggr, blockSubscriber, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit)
+	if err != nil {
+		return nil, err
+	}
+
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		bufferV1:    logBuffer,
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
 		chainID:     chainID,
-	}
+	}, nil
 }
 
 func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
@@ -165,7 +170,7 @@ func (p *logEventProvider) WithBufferVersion(v BufferVersion) {
 	p.opts.BufferVersion = v
 }
 
-func (p *logEventProvider) Start(context.Context) error {
+func (p *logEventProvider) Start(ctx context.Context) error {
 	return p.StartOnce(LogProviderServiceName, func() error {
 		readQ := make(chan []*big.Int, readJobQueueSize)
 
@@ -208,6 +213,10 @@ func (p *logEventProvider) Start(context.Context) error {
 			}
 		})
 
+		if p.opts.BufferVersion == BufferVersionV1 {
+			return p.bufferV1.Start(ctx)
+		}
+
 		return nil
 	})
 }
@@ -215,6 +224,10 @@ func (p *logEventProvider) Start(context.Context) error {
 func (p *logEventProvider) Close() error {
 	return p.StopOnce(LogProviderServiceName, func() error {
 		p.threadCtrl.Close()
+
+		if p.opts.BufferVersion == BufferVersionV1 {
+			return p.bufferV1.Close()
+		}
 		return nil
 	})
 }

@@ -3,6 +3,8 @@ package logprovider
 import (
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -57,13 +59,38 @@ func logID(l logpoller.Log) string {
 	return hex.EncodeToString(ext.LogIdentifier())
 }
 
-// latestBlockNumber returns the latest block number from the given logs
-func latestBlockNumber(logs ...logpoller.Log) int64 {
+// blockStatistics returns the latest block number from the given logs and a map of blocks that have been reorg'd
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
+	var latestBlockHash common.Hash
+
+	reorgBlocks := map[int64]bool{}
+
 	for _, l := range logs {
+		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 		if l.BlockNumber > latest {
 			latest = l.BlockNumber
+			latestBlockHash = l.BlockHash
 		}
 	}
-	return latest
+
+	subscriberLatest := b.latestBlockHash.Load()
+	history := b.history.Load()
+
+	// if we see a reorg, update the stored hashes for the reorg blocks, and collect the reorg block numbers
+	// so that we can later evict logs for those block numbers
+	if subscriberLatest != nil && history != nil && subscriberLatest.String() != latestBlockHash.String() {
+		b.lggr.Debugw("latest block hash does not match subscriber latest, assuming reorg")
+		for _, block := range *history {
+			historyBlockNumber := int64(block.Number)
+			historyBlockHash := common.Hash(block.Hash).String()
+
+			if hash, ok := b.blockHashes[historyBlockNumber]; ok && hash != historyBlockHash {
+				b.blockHashes[historyBlockNumber] = historyBlockHash
+				reorgBlocks[historyBlockNumber] = true
+			}
+		}
+	}
+
+	return latest, reorgBlocks
 }
