@@ -57,8 +57,8 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, true);
-    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, false);
+    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, true, true, 1);
+    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, false, false, 1);
   }
 
   function test_CorrectlyFetchesDONs() public view {

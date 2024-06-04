@@ -61,7 +61,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       capabilityId: s_basicHashedCapabilityId,
       config: BASIC_CAPABILITY_CONFIG
     });
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_NodeDoesNotSupportCapability() public {
@@ -80,7 +80,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
         s_capabilityWithConfigurationContractId
       )
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_CapabilityDoesNotExist() public {
@@ -94,7 +94,22 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.CapabilityDoesNotExist.selector, s_nonExistentHashedCapabilityId)
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
+  }
+
+  function test_RevertWhen_FaultToleranceIsZero() public {
+    bytes32[] memory nodes = new bytes32[](1);
+    nodes[0] = P2P_ID;
+
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: BASIC_CAPABILITY_CONFIG
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidFaultTolerance.selector, 0, 1));
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 0);
   }
 
   function test_RevertWhen_DuplicateCapabilityAdded() public {
@@ -115,7 +130,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(CapabilityRegistry.DuplicateDONCapability.selector, 1, s_basicHashedCapabilityId)
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_DeprecatedCapabilityAdded() public {
@@ -133,7 +148,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     });
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.CapabilityIsDeprecated.selector, capabilityId));
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_DuplicateNodeAdded() public {
@@ -148,7 +163,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       config: BASIC_CAPABILITY_CONFIG
     });
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DuplicateDONNode.selector, 1, P2P_ID));
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
   }
 
   function test_AddDON() public {
@@ -179,7 +194,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
       ),
       1
     );
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, 1);
 
     CapabilityRegistry.DONInfo memory donInfo = s_capabilityRegistry.getDON(DON_ID);
     assertEq(donInfo.id, DON_ID);

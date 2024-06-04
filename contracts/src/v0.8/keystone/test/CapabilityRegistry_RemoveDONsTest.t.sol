@@ -58,7 +58,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
