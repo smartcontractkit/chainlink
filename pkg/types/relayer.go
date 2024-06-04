@@ -73,12 +73,14 @@ type PluginArgs struct {
 	PluginConfig  []byte
 }
 
+// RelayArgs are the args required to create relayer.
+// The are common to all relayer implementations.
 type RelayArgs struct {
 	ExternalJobID      uuid.UUID
 	JobID              int32
 	ContractID         string
-	New                bool // Whether this is a first time job add.
-	RelayConfig        []byte
+	New                bool   // Whether this is a first time job add.
+	RelayConfig        []byte // The specific configuration of a given relayer instance. Will vary by relayer type.
 	ProviderType       string
 	MercuryCredentials *MercuryCredentials
 }
