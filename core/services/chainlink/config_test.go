@@ -1210,11 +1210,11 @@ func TestConfig_full(t *testing.T) {
 	for c := range got.EVM {
 		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
 		require.NoError(t, err)
-		if got.EVM[c].ChainWriter.FromAddress == nil {
-			got.EVM[c].ChainWriter.FromAddress = &addr
+		if got.EVM[c].Workflow.FromAddress == nil {
+			got.EVM[c].Workflow.FromAddress = &addr
 		}
-		if got.EVM[c].ChainWriter.ForwarderAddress == nil {
-			got.EVM[c].ChainWriter.ForwarderAddress = &addr
+		if got.EVM[c].Workflow.ForwarderAddress == nil {
+			got.EVM[c].Workflow.ForwarderAddress = &addr
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
@@ -1646,13 +1646,6 @@ func TestConfig_warnings(t *testing.T) {
 				},
 			},
 			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
-		},
-		{
-			name: "Value warning - ChainType=xdai is deprecated",
-			config: Config{
-				EVM: evmcfg.EVMConfigs{{Chain: evmcfg.Chain{ChainType: commonconfig.NewChainTypeConfig("xdai")}}},
-			},
-			expectedErrors: []string{"EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.13.0, use 'gnosis' instead"},
 		},
 	}
 
