@@ -19,9 +19,87 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+const queryTimeout = 10 * time.Second
+const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
+
 var _ Client = (*chainClient)(nil)
 
-// TODO-1663: rename this to client, once the client.go file is deprecated.
+//go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
+
+// Client is the interface used to interact with an ethereum node.
+type Client interface {
+	Dial(ctx context.Context) error
+	Close()
+	// ChainID locally stored for quick access
+	ConfiguredChainID() *big.Int
+	// ChainID RPC call
+	ChainID() (*big.Int, error)
+
+	// NodeStates returns a map of node Name->node state
+	// It might be nil or empty, e.g. for mock clients etc
+	NodeStates() map[string]string
+
+	TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error)
+
+	// Wrapped RPC methods
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	// BatchCallContextAll calls BatchCallContext for every single node including
+	// sendonlys.
+	// CAUTION: This should only be used for mass re-transmitting transactions, it
+	// might have unexpected effects to use it for anything else.
+	BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
+
+	// HeadByNumber and HeadByHash is a reimplemented version due to a
+	// difference in how block header hashes are calculated by Parity nodes
+	// running on Kovan, Avalanche and potentially others. We have to return our own wrapper type to capture the
+	// correct hash from the RPC response.
+	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error)
+	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
+
+	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
+
+	// Wrapped Geth client methods
+	// blockNumber can be specified as `nil` to imply latest block
+	// if blocks, transactions, or receipts are not found - a nil result and an error are returned
+	// these methods may not be compatible with non Ethereum chains as return types may follow different formats
+	// suggested options: use HeadByNumber/HeadByHash (above) or CallContext and parse with custom types
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	LatestBlockHeight(ctx context.Context) (*big.Int, error)
+
+	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
+	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
+
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error)
+
+	IsL2() bool
+
+	// Simulate the transaction prior to sending to catch zk out-of-counters errors ahead of time
+	CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError
+}
+
+func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
+	return context.WithTimeout(context.Background(), queryTimeout)
+}
+
 type chainClient struct {
 	multiNode commonclient.MultiNode[
 		*big.Int,

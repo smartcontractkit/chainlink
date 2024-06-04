@@ -85,7 +85,15 @@ func (entry *codecEntry) EncodingPrefix() []byte {
 	return tmp
 }
 
-func (entry *codecEntry) Init() error {
+func (entry *codecEntry) Init() (err error) {
+	// Since reflection panics if errors occur, best to recover in case of any unknown errors
+	defer func() {
+		if r := recover(); r != nil {
+			entry.checkedType = nil
+			entry.nativeType = nil
+			err = fmt.Errorf("%w: %v", commontypes.ErrInvalidConfig, r)
+		}
+	}()
 	if entry.checkedType != nil {
 		return nil
 	}
@@ -234,6 +242,7 @@ func createTupleType(curType *abi.Type, converter func(reflect.Type) reflect.Typ
 	checkedFields := make([]reflect.StructField, len(curType.TupleElems))
 	for i, elm := range curType.TupleElems {
 		name := curType.TupleRawNames[i]
+		name = strings.ToUpper(name[:1]) + name[1:]
 		nativeFields[i].Name = name
 		checkedFields[i].Name = name
 		nativeArgType, checkedArgType, err := getNativeAndCheckedTypes(elm)

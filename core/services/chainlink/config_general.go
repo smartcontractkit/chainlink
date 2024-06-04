@@ -135,7 +135,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 		return nil, err
 	}
 
-	_, warning := utils.MultiErrorList(o.Config.warnings())
+	_, warning := commonconfig.MultiErrorList(o.Config.warnings())
 
 	o.Config.setDefaults()
 	if !o.SkipEnv {
@@ -220,7 +220,7 @@ func (g *generalConfig) validate(secretsValidationFn func() error) error {
 		secretsValidationFn(),
 	)
 
-	_, errList := utils.MultiErrorList(err)
+	_, errList := commonconfig.MultiErrorList(err)
 	return errList
 }
 
@@ -235,7 +235,7 @@ var emptyStringsEnv string
 func validateEnv() (err error) {
 	defer func() {
 		if err != nil {
-			_, err = utils.MultiErrorList(err)
+			_, err = commonconfig.MultiErrorList(err)
 			err = fmt.Errorf("invalid environment: %w", err)
 		}
 	}()
