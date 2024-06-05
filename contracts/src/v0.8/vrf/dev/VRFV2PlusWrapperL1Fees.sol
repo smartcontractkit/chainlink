@@ -30,7 +30,6 @@ abstract contract VRFV2PlusWrapperL1Fees is ArbitrumL1Fees, OptimismL1Fees {
   /// @dev total data size = 6144 bits + 32 bits = 6176 bits = 772 bytes
   uint32 public s_fulfillmentTxSizeBytes = 772;
 
-  error UnsupportedChainId(uint256 chainId);
   error UnsupportedFunction();
 
   event FulfillmentTxSizeSet(uint32 size);
@@ -90,6 +89,6 @@ abstract contract VRFV2PlusWrapperL1Fees is ArbitrumL1Fees, OptimismL1Fees {
     } else if (_isOptimismChainId(chainid)) {
       return OptimismL1Fees._getL1CostWeiForCalldataSize(s_fulfillmentTxSizeBytes);
     }
-    revert UnsupportedChainId(chainid);
+    return 0;
   }
 }
