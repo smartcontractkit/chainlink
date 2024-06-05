@@ -2,6 +2,13 @@ package evm
 
 import (
 	"fmt"
+	"math/big"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -13,11 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 )
 
 func TestChainWriter(t *testing.T) {
@@ -58,7 +60,6 @@ func TestChainWriter(t *testing.T) {
 		t.Run("Fails with invalid codecs", func(t *testing.T) {
 			// TODO: implement
 		})
-
 	})
 
 	t.Run("SubmitTransaction", func(t *testing.T) {
@@ -112,6 +113,17 @@ func TestChainWriter(t *testing.T) {
 
 			_, err = cw.GetFeeComponents(ctx)
 			require.Error(t, err)
+		})
+
+		t.Run("Fails when GetFee returns an error", func(t *testing.T) {
+			expectedErr := fmt.Errorf("GetFee error")
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+				Legacy:        nil,
+				DynamicFeeCap: nil,
+				DynamicTipCap: nil,
+			}, uint64(0), expectedErr).Once()
+			_, err = cw.GetFeeComponents(ctx)
+			require.Equal(t, expectedErr, err)
 		})
 
 		t.Run("Fails when L1Oracle returns error", func(t *testing.T) {

@@ -3,10 +3,11 @@ package evm
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"math/big"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -173,7 +174,9 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}
 
 	gasPriceWei, _, err := w.ge.estimator.GetFee(ctx, nil, 0, assets.NewWei(w.ge.maxGasPrice))
-
+	if err != nil {
+		return nil, err
+	}
 	// Use legacy if no dynamic is available.
 	gasPrice := gasPriceWei.Legacy.ToInt()
 	if gasPriceWei.DynamicFeeCap != nil {
