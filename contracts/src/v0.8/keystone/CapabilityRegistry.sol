@@ -369,18 +369,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint32 nodeOperatorId = nodeOperatorIds[i];
-      if (s_nodeOperators[nodeOperatorId].admin == address(0)) revert NodeOperatorDoesNotExist(nodeOperatorId);
+
+      NodeOperator storage currentNodeOperator = s_nodeOperators[nodeOperatorId];
+      if (currentNodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(nodeOperatorId);
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
       if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
-        s_nodeOperators[nodeOperatorId].admin != nodeOperator.admin ||
-        keccak256(abi.encode(s_nodeOperators[nodeOperatorId].name)) != keccak256(abi.encode(nodeOperator.name))
+        currentNodeOperator.admin != nodeOperator.admin ||
+        keccak256(abi.encode(currentNodeOperator.name)) != keccak256(abi.encode(nodeOperator.name))
       ) {
-        s_nodeOperators[nodeOperatorId].admin = nodeOperator.admin;
-        s_nodeOperators[nodeOperatorId].name = nodeOperator.name;
+        currentNodeOperator.admin = nodeOperator.admin;
+        currentNodeOperator.name = nodeOperator.name;
         emit NodeOperatorUpdated(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
       }
     }
@@ -426,25 +428,25 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      if (s_nodes[node.p2pId].signer != bytes32("") || bytes32(node.p2pId) == bytes32(""))
-        revert InvalidNodeP2PId(node.p2pId);
+      Node storage storedNode = s_nodes[node.p2pId];
+      if (storedNode.signer != bytes32("") || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
-      ++s_nodes[node.p2pId].configCount;
+      ++storedNode.configCount;
 
-      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
+      uint32 capabilityConfigCount = storedNode.configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(capabilityIds[j])) revert InvalidNodeCapabilities(capabilityIds);
-        s_nodes[node.p2pId].supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
+        storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
-      s_nodes[node.p2pId].p2pId = node.p2pId;
-      s_nodes[node.p2pId].signer = node.signer;
+      storedNode.nodeOperatorId = node.nodeOperatorId;
+      storedNode.p2pId = node.p2pId;
+      storedNode.signer = node.signer;
       s_nodeSigners.add(node.signer);
       s_nodeP2PIds.add(node.p2pId);
       emit NodeAdded(node.p2pId, node.nodeOperatorId, node.signer);
@@ -483,32 +485,32 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      if (s_nodes[node.p2pId].signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      Node storage storedNode = s_nodes[node.p2pId];
+      if (storedNode.signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (
-        bytes32(node.signer) == bytes32("") ||
-        (s_nodes[node.p2pId].signer != node.signer && s_nodeSigners.contains(node.signer))
+        bytes32(node.signer) == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer))
       ) revert InvalidNodeSigner();
 
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
-      s_nodes[node.p2pId].configCount++;
-      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
+      storedNode.configCount++;
+      uint32 capabilityConfigCount = storedNode.configCount;
       for (uint256 j; j < supportedHashedCapabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
-        s_nodes[node.p2pId].supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
+        storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
-      s_nodes[node.p2pId].p2pId = node.p2pId;
+      storedNode.nodeOperatorId = node.nodeOperatorId;
+      storedNode.p2pId = node.p2pId;
 
-      bytes32 previousSigner = s_nodes[node.p2pId].signer;
+      bytes32 previousSigner = storedNode.signer;
 
-      if (s_nodes[node.p2pId].signer != node.signer) {
+      if (storedNode.signer != node.signer) {
         s_nodeSigners.remove(previousSigner);
-        s_nodes[node.p2pId].signer = node.signer;
+        storedNode.signer = node.signer;
         s_nodeSigners.add(node.signer);
       }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
@@ -540,10 +542,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32[] memory configCounts = new uint32[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      bytes32 p2pId = p2pIds[i];
-      (NodeInfo memory node, uint32 configCount) = getNode(p2pId);
-      nodeInfo[i] = node;
-      configCounts[i] = configCount;
+      (nodeInfo[i], configCounts[i]) = getNode(p2pIds[i]);
     }
     return (nodeInfo, configCounts);
   }
@@ -554,8 +553,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < capabilities.length; ++i) {
       Capability memory capability = capabilities[i];
       bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
-      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists(hashedCapabilityId);
-      s_hashedCapabilityIds.add(hashedCapabilityId);
+      if (!s_hashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityAlreadyExists(hashedCapabilityId);
       _setCapability(hashedCapabilityId, capability);
     }
   }
@@ -577,10 +575,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < hashedCapabilityIds.length; ++i) {
       bytes32 hashedCapabilityId = hashedCapabilityIds[i];
       if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
-      if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId))
-        revert CapabilityIsDeprecated(hashedCapabilityId);
+      if (!s_deprecatedHashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
-      s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
       delete s_capabilities[hashedCapabilityId];
       emit CapabilityDeprecated(hashedCapabilityId);
     }
@@ -774,8 +770,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
 
     for (uint256 i; i < nodes.length; ++i) {
-      if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
-      donCapabilityConfig.nodes.add(nodes[i]);
+      if (!donCapabilityConfig.nodes.add(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
+
+      /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
+      /// will only store unique DON IDs
       s_nodes[nodes[i]].supportedDONIds.add(donId);
     }
 
