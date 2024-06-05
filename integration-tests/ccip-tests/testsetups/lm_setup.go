@@ -28,12 +28,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/ccip/integration-tests/client"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/AlekSi/pointer"
 	"github.com/pkg/errors"
@@ -52,6 +48,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+
+	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/testhelpers/integration"
 )
 
 type LMTestSetupOutputs struct {
@@ -575,19 +573,14 @@ func (o *LMTestSetupOutputs) AddJobs(chainId int64, lggr zerolog.Logger) error {
 	// Add bootstrap job
 	clNodesWithKeys := o.Env.CLNodesWithKeys[strconv.FormatInt(chainId, 10)]
 	bootstrapNode := clNodesWithKeys[0]
-	bootstrapSpec := &client.OCR2TaskJobSpec{
-		Name:    "ocr2 bootstrap node " + o.LMModules[chainId].LM.EthAddress.String(),
-		JobType: "bootstrap",
-		OCR2OracleSpec: job.OCR2OracleSpec{
-			ContractID: o.LMModules[chainId].LM.EthAddress.String(),
-			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
-				"chainID": int(chainId),
-			},
-			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
-		},
+	bootstrapSpec, err := integrationtesthelpers.NewBootsrapJobSpec(&integrationtesthelpers.LMJobSpecParams{
+		ChainID:            uint64(chainId),
+		ContractID:         o.LMModules[chainId].LM.EthAddress.String(),
+		CfgTrackerInterval: 15 * time.Second,
+	})
+	if err != nil {
+		return errors.WithStack(fmt.Errorf("failed to create bootstrap job spec: %w", err))
 	}
-
 	lggr.Info().Msg("Adding bootstrap job")
 	j, err := bootstrapNode.Node.MustCreateJob(bootstrapSpec)
 	if err != nil {
@@ -600,32 +593,20 @@ func (o *LMTestSetupOutputs) AddJobs(chainId int64, lggr zerolog.Logger) error {
 	// Add LM jobs
 	donNodes := clNodesWithKeys[1:]
 
-	//TODO: Replace this with proper LM job config generation
 	for _, node := range donNodes {
-		lmPluginConf := job.JSONConfig{
-			"closePluginTimeoutSec":   10,
-			"liquidityManagerAddress": "\"" + o.LMModules[chainId].LM.EthAddress.String() + "\"",
-			"liquidityManagerNetwork": "\"" + strconv.FormatUint(o.LMModules[chainId].ChainSelectror, 10) +
-				"\"" + "\n[pluginConfig.rebalancerConfig]\n type = \"ping-pong\"\n",
-		}
-
-		lmJobSpec := &client.OCR2TaskJobSpec{
-			Name:    "lm " + o.LMModules[chainId].LM.EthAddress.String(),
-			JobType: "offchainreporting2",
-			OCR2OracleSpec: job.OCR2OracleSpec{
-				PluginType: "liquiditymanager",
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": int(chainId),
-				},
-				PluginConfig: lmPluginConf,
-
-				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
-				ContractID:                        o.LMModules[chainId].LM.EthAddress.String(),      // registryAddr
-				OCRKeyBundleID:                    null.StringFrom(node.KeysBundle.OCR2Key.Data.ID), // get node ocr2config.ID
-				TransmitterID:                     null.StringFrom(node.KeysBundle.EthAddress),      // node addr
-				P2PV2Bootstrappers:                pq.StringArray{P2Pv2Bootstrapper},                // bootstrap node key and address <p2p-key>@bootstrap:8000
-			},
+		lmJobSpec, err := integrationtesthelpers.NewJobSpec(&integrationtesthelpers.LMJobSpecParams{
+			ChainID:                 uint64(chainId),
+			ContractID:              o.LMModules[chainId].LM.EthAddress.String(),
+			OCRKeyBundleID:          node.KeysBundle.OCR2Key.Data.ID,
+			TransmitterID:           node.KeysBundle.EthAddress,
+			P2PV2Bootstrappers:      pq.StringArray{P2Pv2Bootstrapper},
+			CfgTrackerInterval:      15 * time.Second,
+			LiquidityManagerAddress: *o.LMModules[chainId].LM.EthAddress,
+			NetworkSelector:         o.LMModules[chainId].ChainSelectror,
+			Type:                    "ping-pong",
+		})
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to create LM job spec: %w", err))
 		}
 		lggr.Debug().Interface("lmJobSpec", lmJobSpec).Msg("lmJobSpec")
 		lggr.Info().Str("Node URL", node.Node.URL()).Msg("Adding LM job")
