@@ -111,6 +111,7 @@ jobs:
               keyname="${SELECTED_NETWORK}_KEYFILE"
               echo "Will use keyname $keyname"
               READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
+              echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
             fi
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
