@@ -740,8 +740,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
     // Validate the f value. We are intentionally relaxing the 3f+1 requirement
     // as not all DONs will run OCR instances.
-    // if (donParams.f == 0 || donParams.f + 1 > nodes.length) revert InvalidFaultTolerance(donParams.f, nodes.length);
-    if (donParams.f == 0) revert InvalidFaultTolerance(donParams.f, nodes.length);
+    if (donParams.f == 0 || donParams.f + 1 > nodes.length) revert InvalidFaultTolerance(donParams.f, nodes.length);
 
     for (uint256 i; i < nodes.length; ++i) {
       if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donParams.id, nodes[i]);
