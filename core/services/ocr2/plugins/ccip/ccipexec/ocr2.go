@@ -50,18 +50,19 @@ var (
 )
 
 type ExecutionPluginStaticConfig struct {
-	lggr                        logger.Logger
-	onRampReader                ccipdata.OnRampReader
-	offRampReader               ccipdata.OffRampReader
-	commitStoreReader           ccipdata.CommitStoreReader
-	sourcePriceRegistryProvider ccipdataprovider.PriceRegistry
-	sourceWrappedNativeToken    cciptypes.Address
-	tokenDataWorker             tokendata.Worker
-	destChainSelector           uint64
-	priceRegistryProvider       ccipdataprovider.PriceRegistry // destination price registry provider.
-	tokenPoolBatchedReader      batchreader.TokenPoolBatchedReader
-	metricsCollector            ccip.PluginMetricsCollector
-	chainHealthcheck            cache.ChainHealthcheck
+	lggr                          logger.Logger
+	onRampReader                  ccipdata.OnRampReader
+	offRampReader                 ccipdata.OffRampReader
+	commitStoreReader             ccipdata.CommitStoreReader
+	sourcePriceRegistryProvider   ccipdataprovider.PriceRegistry
+	sourceWrappedNativeToken      cciptypes.Address
+	tokenDataWorker               tokendata.Worker
+	destChainSelector             uint64
+	priceRegistryProvider         ccipdataprovider.PriceRegistry // destination price registry provider.
+	tokenPoolBatchedReader        batchreader.TokenPoolBatchedReader
+	metricsCollector              ccip.PluginMetricsCollector
+	chainHealthcheck              cache.ChainHealthcheck
+	newReportingPluginRetryConfig ccipdata.RetryConfig
 }
 
 type ExecutionReportingPlugin struct {
