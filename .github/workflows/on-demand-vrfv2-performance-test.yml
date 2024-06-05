@@ -96,8 +96,19 @@ jobs:
               echo "Network is simulated, no need to fetch keyfile"
               echo "READ_CMD=" >> $GITHUB_ENV
             else
+              
+            networks=($(echo ${{ env.NETWORKS }} | tr -d '[] ' | tr ',' ' '))          
+            
+            if [ ${#networks[@]} -ne 1 ]; then
+              echo "Error: More than one selected network found. That's not supported"
+              exit 1
+            else
+              SELECTED_NETWORK=${elements[0]}
+              echo "Selected network: SELECTED_NETWORK"
+            fi              
+              
               echo "Fetching keyfile from 1Password"
-              keyname="${{ env.NETWORKS }}_KEYFILE"
+              keyname="$SELECTED_NETWORK_KEYFILE"
               echo "Using keyname $keyname"
               READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
               echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
