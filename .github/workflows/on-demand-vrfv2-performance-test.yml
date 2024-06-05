@@ -108,6 +108,7 @@ jobs:
               echo "Selected network: $SELECTED_NETWORK"
             fi                                
               echo "Fetching keyfile from 1Password"
+              keyname="${SELECTED_NETWORK}_KEYFILE"
               echo "Will use keyname $keyname"
               READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
             fi
