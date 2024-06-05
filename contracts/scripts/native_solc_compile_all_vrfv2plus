@@ -21,7 +21,10 @@ compileContract () {
   local contract
   contract=$(basename "$1" ".sol")
 
-  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ \
+      @rari-capital="$ROOT"/contracts/node_modules/@rari-capital/ \
+      solady="$ROOT"/contracts/node_modules/solady/ \
+      --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
       "$ROOT"/contracts/src/v0.8/"$1"
@@ -31,7 +34,10 @@ compileContractAltOpts () {
   local contract
   contract=$(basename "$1" ".sol")
 
-  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs "$2" --metadata-hash none \
+  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ \
+      @rari-capital="$ROOT"/contracts/node_modules/@rari-capital/ \
+      solady="$ROOT"/contracts/node_modules/solady/ \
+      --overwrite --optimize --optimize-runs "$2" --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
       "$ROOT"/contracts/src/v0.8/"$1"
@@ -40,9 +46,14 @@ compileContractAltOpts () {
 # VRF V2Plus
 compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
+compileContract vrf/dev/ArbitrumL1Fees.sol
+compileContract vrf/dev/OptimismL1Fees.sol
 compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 500
+compileContractAltOpts vrf/dev/VRFCoordinatorV2_5_Arbitrum.sol 500
+compileContractAltOpts vrf/dev/VRFCoordinatorV2_5_Optimism.sol 500
 compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
 compileContract vrf/dev/VRFV2PlusWrapper.sol
+compileContract vrf/dev/VRFV2PlusWrapperL1Fees.sol
 compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 compileContract vrf/dev/testhelpers/VRFMaliciousConsumerV2Plus.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusExternalSubOwnerExample.sol

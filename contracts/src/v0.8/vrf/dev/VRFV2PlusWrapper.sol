@@ -9,14 +9,20 @@ import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interfa
 import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
 import {VRFV2PlusWrapperConsumerBase} from "./VRFV2PlusWrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {VRFV2PlusWrapperL1Fees} from "./VRFV2PlusWrapperL1Fees.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
 // solhint-disable-next-line max-states-count
-contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
+contract VRFV2PlusWrapper is
+  ConfirmedOwner,
+  TypeAndVersionInterface,
+  VRFConsumerBaseV2Plus,
+  IVRFV2PlusWrapper,
+  VRFV2PlusWrapperL1Fees
+{
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   // upper bound limit for premium percentages to make sure fee calculations don't overflow
@@ -32,8 +38,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_link_native_feed;
 
-  event FulfillmentTxSizeSet(uint32 size);
-  event UpperBoundLimitL1FeeCalculationSet(bool enabled);
+  //event FulfillmentTxSizeSet(uint32 size);
+  // event UpperBoundLimitL1FeeCalculationSet(bool enabled);
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverheadNative,
@@ -107,17 +113,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
 
-  // Configuration fetched from VRFCoordinatorV2
-
-  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
-  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
-  /// @dev commitmentSize = 10 words = 10 * 256 = 2560 bits
-  /// @dev onlyPremiumParameterSize = 256 bits
-  /// @dev dataSize = proofSize + commitmentSize + onlyPremiumParameterSize = 6144 bits
-  /// @dev function selector = 32 bits
-  /// @dev total data size = 6144 bits + 32 bits = 6176 bits = 772 bytes
-  uint32 public s_fulfillmentTxSizeBytes = 772;
-
   // s_coordinatorGasOverheadNative reflects the gas overhead of the coordinator's fulfillRandomWords
   // function for native payment. The cost for this gas is billed to the subscription, and must therefor be included
   // in the pricing for wrapped requests. This includes the gas costs of proof verification and
@@ -164,16 +159,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
   /* Storage Slot 6: END */
 
-  /* Storage Slot 7: BEGIN */
-  bytes private s_fulfillmentTxData;
-  /* Storage Slot 7: END */
-
-  /* Storage Slot 8: BEGIN */
-  // s_upperBoundLimitL1FeeCalculationEnabled indicates if we are using upper bound limit gas calculation
-  // to determine L1 gas feed (crucial for OP stack chains) or using the accurate gas calculation
-  bool public s_upperBoundLimitL1FeeCalculationEnabled = false;
-  /* Storage Slot 8: 31 bytes left in the slot */
-
   constructor(
     address _link,
     address _linkNativeFeed,
@@ -196,54 +181,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // Migration of the wrapper's subscription to the new coordinator has to be
     // handled by the external account (owner of the subscription).
     SUBSCRIPTION_ID = _subId;
-
-    // Creating a dummy fulfillment transaction data is needed when we don't want
-    // to use upper bound limit calculation (estimate) but switch to a more accurate
-    // gas estimation instead (the one provided by the chain itself)
-    if (!s_upperBoundLimitL1FeeCalculationEnabled) {
-      s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
-      for (uint256 i = 0; i < s_fulfillmentTxData.length; i++) {
-        s_fulfillmentTxData[i] = 0xff;
-      }
-    }
-  }
-
-  /**
-   * @notice setFulfillmentTxSize sets the size of the fulfillment transaction in bytes.
-   * @param _size is the size of the fulfillment transaction in bytes.
-   */
-  function setFulfillmentTxSize(uint32 _size) external onlyOwner {
-    s_fulfillmentTxSizeBytes = _size;
-
-    if (!s_upperBoundLimitL1FeeCalculationEnabled) {
-      delete s_fulfillmentTxData;
-
-      s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
-      for (uint256 i = 0; i < s_fulfillmentTxData.length; i++) {
-        s_fulfillmentTxData[i] = 0xff;
-      }
-    }
-
-    emit FulfillmentTxSizeSet(_size);
-  }
-
-  /**
-   * @notice setUpperBoundLimitL1FeeCalculation enables or disables L1 fee upper bound calculation.
-   * @param _enabled set to true to enable it, false otherwise.
-   */
-  function setUpperBoundLimitL1FeeCalculation(bool _enabled) external onlyOwner {
-    s_upperBoundLimitL1FeeCalculationEnabled = _enabled;
-
-    delete s_fulfillmentTxData;
-
-    if (!_enabled) {
-      s_fulfillmentTxData = new bytes(s_fulfillmentTxSizeBytes);
-      for (uint256 i = 0; i < s_fulfillmentTxData.length; i++) {
-        s_fulfillmentTxData[i] = 0xff;
-      }
-    }
-
-    emit UpperBoundLimitL1FeeCalculationSet(_enabled);
   }
 
   /**
@@ -470,16 +407,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // (wei/gas) * gas
     uint256 wrapperCostWei = _requestGasPrice * s_wrapperGasOverhead;
 
-    // calculate L1 gas fee cost for the calldata (via upper bound calculation or in the accurate way)
-    uint256 l1CalldataCost = (s_upperBoundLimitL1FeeCalculationEnabled)
-      ? ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes)
-      : ChainSpecificUtil._getCurrentTxL1GasFees(s_fulfillmentTxData);
-
     // coordinatorCostWei takes into account the L1 posting costs of the VRF fulfillment transaction, if we are on an L2.
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, true)) +
-      l1CalldataCost;
+      VRFV2PlusWrapperL1Fees._getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
@@ -499,16 +431,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // (wei/gas) * gas
     uint256 wrapperCostWei = _requestGasPrice * s_wrapperGasOverhead;
 
-    // calculate L1 gas fee cost for the calldata (via upper bound calculation or in the accurate way)
-    uint256 l1CalldataCost = (s_upperBoundLimitL1FeeCalculationEnabled)
-      ? ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes)
-      : ChainSpecificUtil._getCurrentTxL1GasFees(s_fulfillmentTxData);
-
     // coordinatorCostWei takes into account the L1 posting costs of the VRF fulfillment transaction, if we are on an L2.
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, false)) +
-      l1CalldataCost;
+      VRFV2PlusWrapperL1Fees._getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
