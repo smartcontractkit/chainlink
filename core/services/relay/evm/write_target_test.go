@@ -53,12 +53,12 @@ func TestEvmWrite(t *testing.T) {
 		a := testutils.NewAddress()
 		addr, err2 := types.NewEIP55Address(a.Hex())
 		require.NoError(t, err2)
-		c.EVM[0].ChainWriter.FromAddress = &addr
+		c.EVM[0].Workflow.FromAddress = &addr
 
 		forwarderA := testutils.NewAddress()
 		forwarderAddr, err2 := types.NewEIP55Address(forwarderA.Hex())
 		require.NoError(t, err2)
-		c.EVM[0].ChainWriter.ForwarderAddress = &forwarderAddr
+		c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -91,7 +91,7 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
+			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
 		})
 		require.NoError(t, err)
 
@@ -124,7 +124,7 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
+			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
 		})
 		require.NoError(t, err)
 
@@ -185,7 +185,7 @@ func TestEvmWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		config, err := values.NewMap(map[string]any{
-			"Address": evmCfg.EVM().ChainWriter().ForwarderAddress().String(),
+			"Address": evmCfg.EVM().Workflow().ForwarderAddress().String(),
 		})
 		require.NoError(t, err)
 
