@@ -161,9 +161,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 id;
     /// @notice The number of times the DON was configured
     uint32 configCount;
+    /// @notice The f value for the DON.  This is the number of faulty nodes
+    /// that the DON can tolerate. This can be different from the f value of
+    /// the OCR instances that capabilities spawn.
+    uint32 f;
     /// @notice True if the DON is public.  A public DON means that it accepts
     /// external capability requests
     bool isPublic;
+    /// @notice True if the DON accepts Workflows.
+    bool acceptsWorkflows;
     /// @notice List of member node P2P Ids
     bytes32[] nodeP2PIds;
     /// @notice List of capability configurations
@@ -844,7 +850,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       DONInfo({
         id: s_dons[donId].id,
         configCount: configCount,
+        f: s_dons[donId].f,
         isPublic: s_dons[donId].isPublic,
+        acceptsWorkflows: s_dons[donId].acceptsWorkflows,
         nodeP2PIds: donCapabilityConfig.nodes.values(),
         capabilityConfigurations: capabilityConfigurations
       });

@@ -64,6 +64,8 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     assertEq(dons[0].id, DON_ID);
     assertEq(dons[0].configCount, 1);
     assertEq(dons[0].isPublic, true);
+    assertEq(dons[0].acceptsWorkflows, true);
+    assertEq(dons[0].f, 1);
     assertEq(dons[0].capabilityConfigurations.length, s_capabilityConfigs.length);
     assertEq(dons[0].capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
 
@@ -84,6 +86,8 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     assertEq(dons[0].id, DON_ID_TWO);
     assertEq(dons[0].configCount, 1);
     assertEq(dons[0].isPublic, false);
+    assertEq(dons[0].acceptsWorkflows, false);
+    assertEq(dons[0].f, 1);
     assertEq(dons[0].capabilityConfigurations.length, s_capabilityConfigs.length);
     assertEq(dons[0].capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
   }
