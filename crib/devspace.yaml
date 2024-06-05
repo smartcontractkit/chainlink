@@ -57,6 +57,8 @@ commands:
     go run dashboard/cmd/deploy.go
   dashboard_test: |-
     cd dashboard/tests && npx playwright test || cd -
+  get_test_input: |-
+    aws s3 cp s3://${DEVSPACE_CCIP_SCRIPTS_OUTPUT_BUCKET_NAME}/${DEVSPACE_NAMESPACE}-testInput.toml override.toml
 
 images:
   app:
@@ -97,6 +99,7 @@ deployments:
     updateImageTags: false
     namespace: ${DEVSPACE_NAMESPACE}
     helm:
+      upgradeArgs: [ "--timeout", "10m" ]
       releaseName: "app"
       chart:
         name: ${CCIP_HELM_CHART_URI}
