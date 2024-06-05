@@ -1263,29 +1263,6 @@ func main() {
 		tx, err := wrapper.SetFulfillmentTxSize(e.Owner, uint32(*size))
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set fulfillment tx size")
-	case "wrapper-is-l1-fee-upper-bound-limit-used":
-		cmd := flag.NewFlagSet("wrapper-is-l1-fee-upper-bound-limit-used", flag.ExitOnError)
-		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
-		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
-		wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(common.HexToAddress(*wrapperAddress), e.Ec)
-		helpers.PanicErr(err)
-		enabled, err := wrapper.SUpperBoundLimitL1FeeCalculationEnabled(nil)
-		helpers.PanicErr(err)
-		if enabled {
-			fmt.Println("upper bound limit L1 fee calculation on", *wrapperAddress, "is enabled")
-		} else {
-			fmt.Println("upper bound limit L1 fee calculation on", *wrapperAddress, "is disabled")
-		}
-	case "wrapper-configure-l1-fee-upper-bound-limit-used":
-		cmd := flag.NewFlagSet("wrapper-configure-l1-fee-upper-bound-limit-used", flag.ExitOnError)
-		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
-		enable := cmd.Bool("enable", true, "true to enable L1 fee upper bound limit calculation, false otherwise")
-		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "enable")
-		wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(common.HexToAddress(*wrapperAddress), e.Ec)
-		helpers.PanicErr(err)
-		tx, err := wrapper.SetUpperBoundLimitL1FeeCalculation(e.Owner, bool(*enable))
-		helpers.PanicErr(err)
-		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "reconfigured L1 upper bound limit calculation setting")
 	case "wrapper-consumer-deploy":
 		cmd := flag.NewFlagSet("wrapper-consumer-deploy", flag.ExitOnError)
 		linkAddress := cmd.String("link-address", "", "address of link token")
