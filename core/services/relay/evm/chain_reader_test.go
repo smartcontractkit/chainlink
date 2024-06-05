@@ -47,6 +47,7 @@ const (
 )
 
 func TestChainReaderInterfaceTests(t *testing.T) {
+	// TODO flaky BCF-3258
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
 	RunChainReaderInterfaceTests(t, it)
@@ -168,6 +169,9 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+				ContractPollingFilter: types.ContractPollingFilter{
+					GenericEventNames: []string{EventName, EventWithFilterName},
+				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "getElementAtIndex",
@@ -201,16 +205,24 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
-						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"fieldHash"}},
+						EventDefinitions: &types.EventDefinitions{
+							InputFields: []string{"fieldHash"},
+							// no specific reason for filter being defined here insted on contract level,
+							// this is just for test case variety
+							PollingFilter: &types.PollingFilter{},
+						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName:       triggerWithAllTopics,
-						ReadType:                types.Event,
-						EventDefinitions:        &types.EventDefinitions{InputFields: []string{"Field1", "Field2", "Field3"}},
+						ChainSpecificName: triggerWithAllTopics,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							InputFields:   []string{"Field1", "Field2", "Field3"},
+							PollingFilter: &types.PollingFilter{},
+						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {

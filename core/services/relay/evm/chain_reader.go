@@ -107,6 +107,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
+		// TODO validate that contract polling filter can't be empty if there are events defined
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
@@ -127,7 +128,8 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 						commontypes.ErrInvalidConfig, contractName, typeName)
 				}
 
-				if !eventOverridesContractFilter {
+				if !eventOverridesContractFilter &&
+					!slices.Contains(eventSigsForContractFilter, contractAbi.Events[chainReaderDefinition.ChainSpecificName].ID) {
 					eventSigsForContractFilter = append(eventSigsForContractFilter, contractAbi.Events[chainReaderDefinition.ChainSpecificName].ID)
 				}
 

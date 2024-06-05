@@ -27,6 +27,7 @@ type contractBinding struct {
 	FilterRegisterer
 	// key is read name method, event or event keys used for queryKey.
 	readBindings map[string]readBinding
+	bound        bool
 }
 
 func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
@@ -60,6 +61,7 @@ func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, bound
 
 		cb.pollingFilter.Addresses = evmtypes.AddressArray{common.HexToAddress(bc.Address)}
 		cb.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
+		cb.bound = true
 
 		// we are changing contract address reference, so we need to unregister old filters if they exist
 		if err := cb.Unregister(ctx, logPoller); err != nil {
@@ -91,19 +93,17 @@ func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contrac
 }
 
 // Register registers polling filters.
-func (cb *contractBinding) Register(ctx context.Context, logPoller logpoller.LogPoller) error {
+func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller) error {
 	cb.filterLock.Lock()
 	defer cb.filterLock.Unlock()
 
+	if cb.bound && len(cb.pollingFilter.EventSigs) > 0 && !lp.HasFilter(cb.pollingFilter.Name) {
+		if err := lp.RegisterFilter(ctx, cb.pollingFilter); err != nil {
+			return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
+		}
+	}
+
 	cb.isRegistered = true
-
-	if logPoller.HasFilter(cb.pollingFilter.Name) {
-		return nil
-	}
-
-	if err := logPoller.RegisterFilter(ctx, cb.pollingFilter); err != nil {
-		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-	}
 
 	for _, rb := range cb.readBindings {
 		if err := rb.Register(ctx); err != nil {

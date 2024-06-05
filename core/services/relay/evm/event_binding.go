@@ -63,7 +63,6 @@ func (e *eventBinding) Register(ctx context.Context) error {
 	e.filterLock.Lock()
 	defer e.filterLock.Unlock()
 
-	e.isRegistered = true
 	if !e.bound || e.lp.HasFilter(e.pollingFilter.Name) {
 		return nil
 	}
@@ -71,6 +70,8 @@ func (e *eventBinding) Register(ctx context.Context) error {
 	if err := e.lp.RegisterFilter(ctx, e.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+	e.isRegistered = true
+
 	return nil
 }
 
