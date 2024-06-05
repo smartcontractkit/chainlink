@@ -128,7 +128,17 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     s_configs[configId].f = f;
   }
 
-  // TODO: clearConfig
+  function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
+    bytes32 configId = keccak256(abi.encode(donId, configVersion));
+
+    // remove any old signer addresses
+    for (uint256 i; i < s_configs[configId].signers.length; ++i) {
+      address signer = s_configs[configId].signers[i];
+      delete s_configs[configId]._positions[signer];
+    }
+
+    s_configs[configId].f = 0;
+  }
 
   // send a report to receiver
   function report(
