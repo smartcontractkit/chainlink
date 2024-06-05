@@ -11,6 +11,7 @@ contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
   uint32 internal DON_ID = 0x01020304;
   uint8 internal F = 1;
+  uint32 internal CONFIG_VERSION = 1;
 
   struct Signer {
     uint256 mockPrivateKey;
