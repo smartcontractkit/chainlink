@@ -12,7 +12,7 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '11155111'
-            [EVM.ChainWriter]
+            [EVM.Workflow]
             FromAddress = '{{ node_2_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
         node3: 
@@ -20,7 +20,7 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '11155111'
-            [EVM.ChainWriter]
+            [EVM.Workflow]
             FromAddress = '{{ node_3_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
         node4: 
@@ -28,7 +28,7 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '11155111'
-            [EVM.ChainWriter]
+            [EVM.Workflow]
             FromAddress = '{{ node_4_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
         node5: 
@@ -36,6 +36,6 @@ helm:
           overridesToml: |-
             [[EVM]]
             ChainID = '11155111'
-            [EVM.ChainWriter]
+            [EVM.Workflow]
             FromAddress = '{{ node_5_address }}'
             ForwarderAddress = '{{ forwarder_address }}'
