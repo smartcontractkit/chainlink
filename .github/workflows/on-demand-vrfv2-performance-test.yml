@@ -95,26 +95,26 @@ jobs:
             if [[ ${{ env.NETWORK_SIMULATED }} == "true" ]]; then
               echo "Network is simulated, no need to fetch keyfile"
               echo "READ_CMD=" >> $GITHUB_ENV
-            else
+            else          
+              cleaned_string=$(echo ${{ env.NETWORKS }} | tr -d '[] ')
+              IFS=',' read -ra networks <<< "$cleaned_string"
+              
+              if [ ${#networks[@]} -ne 1 ]; then
+                echo "Error: More than one selected network found. That's not supported"
+                exit 1
+              else
+                SELECTED_NETWORK=${networks[0]}
+                echo "Selected network: $SELECTED_NETWORK"
+              fi                                
+                echo "Fetching keyfile from 1Password"
+                keyname="${SELECTED_NETWORK}_KEYFILE"
+                echo "Will use keyname $keyname"
+                READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
+                echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
           
-            cleaned_string=$(echo ${{ env.NETWORKS }} | tr -d '[] ')
-            IFS=',' read -ra networks <<< "$cleaned_string"
-            
-            if [ ${#networks[@]} -ne 1 ]; then
-              echo "Error: More than one selected network found. That's not supported"
-              exit 1
-            else
-              SELECTED_NETWORK=${networks[0]}
-              echo "Selected network: $SELECTED_NETWORK"
-            fi                                
-              echo "Fetching keyfile from 1Password"
-              keyname="${SELECTED_NETWORK}_KEYFILE"
-              echo "Will use keyname $keyname"
-              READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
-              echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
-            fi
-            SETH_KEYFILE_BASE64=$(eval ${{env.READ_CMD}} | base64 -w0)
-            echo $SETH_KEYFILE_BASE64
+                SETH_KEYFILE_BASE64=$(eval ${{env.READ_CMD}} | base64 -w0)
+                echo $SETH_KEYFILE_BASE64
+              fi
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
