@@ -42,6 +42,7 @@ jobs:
       GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       WASP_LOG_LEVEL: info
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -74,11 +75,44 @@ jobs:
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
+      - name: Evaluate if network is simulated
+        run: |
+          if [[ ${{ env.NETWORKS }} == *"SIMULATED"* ]]; then
+            echo "Network is simulated"
+            echo "NETWORK_SIMULATED=true" >> $GITHUB_ENV
+          else
+            echo "Network is a live network"
+            echo "NETWORK_SIMULATED=false" >> $GITHUB_ENV
+          fi
+      - name: Install 1Password CLI
+        uses: 1password/install-cli-action@v1
+        if: env.NETWORK_SIMULATED == 'true'
+        with:
+          version: 2.18.0
+      - name: Prepare optional 1Password keyfile fetching command
+        run: |
+            if [[ ${{ env.NETWORK_SIMULATED }} == "true" ]]; then
+              echo "Network is simulated, no need to fetch keyfile"
+              echo "READ_CMD=" >> $GITHUB_ENV
+            else
+              echo "Fetching keyfile from 1Password"
+              keyname = ${{ env.NETWORKS }}_KEYFILE
+              echo "Using keyname $keyname"
+              READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/${env.NETWORKS}_KEYFILE/keyfile"
+              echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
+              RESULT=$(eval $READ_CMD)
+              echo $RESULT
+            fi
+      - name: Test OP command
+        run: |
+          RESULT=$(eval $READ_CMD)
+          echo $RESULT
+          exit 1
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
+          test_command_to_run: SETH_KEYFILE_BASE64=$(eval $READ_CMD | base64 -w0) && cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
