@@ -236,10 +236,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	consumerAddress := EoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
 
 	fmt.Println("\nAdding subscription...")
-	s, err := EoaCreateSub(e, *coordinator)
-	helpers.PanicErr(err)
-
-	subID := FindSubscriptionID(e, coordinator)
+	subID, err := EoaCreateSub(e, *coordinator)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nAdding consumer to subscription...")
@@ -753,10 +750,8 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	consumerAddress := EoaV2PlusLoadTestConsumerWithMetricsDeploy(e, contractAddresses.CoordinatorAddress.String())
 
 	fmt.Println("\nAdding subscription...")
-	s, err := EoaCreateSub(e, *coordinator)
+	subID, err := EoaCreateSub(e, *coordinator)
 	helpers.PanicErr(err)
-
-	subID := FindSubscriptionID(e, coordinator)
 
 	fmt.Println("\nAdding consumer to subscription...")
 	EoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
