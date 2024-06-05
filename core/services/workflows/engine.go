@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -137,6 +138,20 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
+	}
+
+	// Special treatment for local targets - wrap into a transmission capability
+	target, isTarget := cp.(capabilities.TargetCapability)
+	if isTarget {
+		capInfo, err2 := target.Info(ctx)
+		if err2 != nil {
+			return fmt.Errorf("failed to get info of target capability: %w", err2)
+		}
+
+		// If the DON is nil this is a local target
+		if capInfo.DON == nil {
+			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
+		}
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -398,7 +413,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
@@ -547,7 +562,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	l.Debugw("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
-		Outputs:     &store.StepOutput{},
+		Outputs:     store.StepOutput{},
 		ExecutionID: msg.state.ExecutionID,
 		Ref:         msg.stepRef,
 	}
