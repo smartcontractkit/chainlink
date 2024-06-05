@@ -3,47 +3,48 @@ package slicelib
 import (
 	"testing"
 
-	"github.com/smartcontractkit/ccipocr3/internal/model"
 	"github.com/stretchr/testify/assert"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func TestBigIntSortedMiddle(t *testing.T) {
 	tests := []struct {
 		name string
-		vals []model.BigInt
-		want model.BigInt
+		vals []cciptypes.BigInt
+		want cciptypes.BigInt
 	}{
 		{
 			name: "base case",
-			vals: []model.BigInt{
-				model.NewBigIntFromInt64(1),
-				model.NewBigIntFromInt64(2),
-				model.NewBigIntFromInt64(4),
-				model.NewBigIntFromInt64(5),
+			vals: []cciptypes.BigInt{
+				cciptypes.NewBigIntFromInt64(1),
+				cciptypes.NewBigIntFromInt64(2),
+				cciptypes.NewBigIntFromInt64(4),
+				cciptypes.NewBigIntFromInt64(5),
 			},
-			want: model.NewBigIntFromInt64(4),
+			want: cciptypes.NewBigIntFromInt64(4),
 		},
 		{
 			name: "not sorted",
-			vals: []model.BigInt{
-				model.NewBigIntFromInt64(100),
-				model.NewBigIntFromInt64(50),
-				model.NewBigIntFromInt64(30),
-				model.NewBigIntFromInt64(110),
+			vals: []cciptypes.BigInt{
+				cciptypes.NewBigIntFromInt64(100),
+				cciptypes.NewBigIntFromInt64(50),
+				cciptypes.NewBigIntFromInt64(30),
+				cciptypes.NewBigIntFromInt64(110),
 			},
-			want: model.NewBigIntFromInt64(100),
+			want: cciptypes.NewBigIntFromInt64(100),
 		},
 		{
 			name: "empty slice",
-			vals: []model.BigInt{},
-			want: model.BigInt{},
+			vals: []cciptypes.BigInt{},
+			want: cciptypes.BigInt{},
 		},
 		{
 			name: "one item",
-			vals: []model.BigInt{
-				model.NewBigIntFromInt64(123),
+			vals: []cciptypes.BigInt{
+				cciptypes.NewBigIntFromInt64(123),
 			},
-			want: model.NewBigIntFromInt64(123),
+			want: cciptypes.NewBigIntFromInt64(123),
 		},
 	}
 	for _, tt := range tests {

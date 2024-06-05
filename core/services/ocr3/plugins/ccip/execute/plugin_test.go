@@ -9,15 +9,16 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/ccipocr3/internal/mocks"
-	"github.com/smartcontractkit/ccipocr3/internal/model"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func Test_getPendingExecutedReports(t *testing.T) {
 	tests := []struct {
 		name    string
-		reports []model.CommitPluginReportWithMeta
-		ranges  map[model.ChainSelector][]model.SeqNumRange
-		want    model.ExecutePluginCommitObservations
+		reports []cciptypes.CommitPluginReportWithMeta
+		ranges  map[cciptypes.ChainSelector][]cciptypes.SeqNumRange
+		want    cciptypes.ExecutePluginCommitObservations
 		want1   time.Time
 		wantErr assert.ErrorAssertionFunc
 	}{
@@ -26,33 +27,33 @@ func Test_getPendingExecutedReports(t *testing.T) {
 			name:    "empty",
 			reports: nil,
 			ranges:  nil,
-			want:    model.ExecutePluginCommitObservations{},
+			want:    cciptypes.ExecutePluginCommitObservations{},
 			want1:   time.Time{},
 			wantErr: assert.NoError,
 		},
 		{
 			name: "single non-executed report",
-			reports: []model.CommitPluginReportWithMeta{
+			reports: []cciptypes.CommitPluginReportWithMeta{
 				{
 					BlockNum:  999,
 					Timestamp: time.UnixMilli(10101010101),
-					Report: model.CommitPluginReport{
-						MerkleRoots: []model.MerkleRootChain{
+					Report: cciptypes.CommitPluginReport{
+						MerkleRoots: []cciptypes.MerkleRootChain{
 							{
 								ChainSel:     1,
-								SeqNumsRange: model.NewSeqNumRange(1, 10),
+								SeqNumsRange: cciptypes.NewSeqNumRange(1, 10),
 							},
 						},
 					},
 				},
 			},
-			ranges: map[model.ChainSelector][]model.SeqNumRange{
+			ranges: map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
 				1: nil,
 			},
-			want: model.ExecutePluginCommitObservations{
-				1: []model.ExecutePluginCommitData{
+			want: cciptypes.ExecutePluginCommitObservations{
+				1: []cciptypes.ExecutePluginCommitData{
 					{
-						SequenceNumberRange: model.NewSeqNumRange(1, 10),
+						SequenceNumberRange: cciptypes.NewSeqNumRange(1, 10),
 						ExecutedMessages:    nil,
 						Timestamp:           time.UnixMilli(10101010101),
 						BlockNum:            999,
@@ -64,33 +65,33 @@ func Test_getPendingExecutedReports(t *testing.T) {
 		},
 		{
 			name: "single half-executed report",
-			reports: []model.CommitPluginReportWithMeta{
+			reports: []cciptypes.CommitPluginReportWithMeta{
 				{
 					BlockNum:  999,
 					Timestamp: time.UnixMilli(10101010101),
-					Report: model.CommitPluginReport{
-						MerkleRoots: []model.MerkleRootChain{
+					Report: cciptypes.CommitPluginReport{
+						MerkleRoots: []cciptypes.MerkleRootChain{
 							{
 								ChainSel:     1,
-								SeqNumsRange: model.NewSeqNumRange(1, 10),
+								SeqNumsRange: cciptypes.NewSeqNumRange(1, 10),
 							},
 						},
 					},
 				},
 			},
-			ranges: map[model.ChainSelector][]model.SeqNumRange{
+			ranges: map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
 				1: {
-					model.NewSeqNumRange(1, 3),
-					model.NewSeqNumRange(7, 8),
+					cciptypes.NewSeqNumRange(1, 3),
+					cciptypes.NewSeqNumRange(7, 8),
 				},
 			},
-			want: model.ExecutePluginCommitObservations{
-				1: []model.ExecutePluginCommitData{
+			want: cciptypes.ExecutePluginCommitObservations{
+				1: []cciptypes.ExecutePluginCommitData{
 					{
-						SequenceNumberRange: model.NewSeqNumRange(1, 10),
+						SequenceNumberRange: cciptypes.NewSeqNumRange(1, 10),
 						Timestamp:           time.UnixMilli(10101010101),
 						BlockNum:            999,
-						ExecutedMessages:    []model.SeqNum{1, 2, 3, 7, 8},
+						ExecutedMessages:    []cciptypes.SeqNum{1, 2, 3, 7, 8},
 					},
 				},
 			},
@@ -99,20 +100,20 @@ func Test_getPendingExecutedReports(t *testing.T) {
 		},
 		{
 			name: "last timestamp",
-			reports: []model.CommitPluginReportWithMeta{
+			reports: []cciptypes.CommitPluginReportWithMeta{
 				{
 					BlockNum:  999,
 					Timestamp: time.UnixMilli(10101010101),
-					Report:    model.CommitPluginReport{},
+					Report:    cciptypes.CommitPluginReport{},
 				},
 				{
 					BlockNum:  999,
 					Timestamp: time.UnixMilli(9999999999999999),
-					Report:    model.CommitPluginReport{},
+					Report:    cciptypes.CommitPluginReport{},
 				},
 			},
-			ranges:  map[model.ChainSelector][]model.SeqNumRange{},
-			want:    model.ExecutePluginCommitObservations{},
+			ranges:  map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{},
+			want:    cciptypes.ExecutePluginCommitObservations{},
 			want1:   time.UnixMilli(9999999999999999),
 			wantErr: assert.NoError,
 		},
@@ -130,9 +131,9 @@ func Test_getPendingExecutedReports(t *testing.T) {
 
 			// CCIP Reader mocks:
 			// once:
-			//      CommitReportsGTETimestamp(ctx, dest, ts, 1000) -> ([]model.CommitPluginReportWithMeta, error)
+			//      CommitReportsGTETimestamp(ctx, dest, ts, 1000) -> ([]cciptypes.CommitPluginReportWithMeta, error)
 			// for each chain selector:
-			//      ExecutedMessageRanges(ctx, selector, dest, seqRange) -> ([]model.SeqNumRange, error)
+			//      ExecutedMessageRanges(ctx, selector, dest, seqRange) -> ([]cciptypes.SeqNumRange, error)
 
 			got, got1, err := getPendingExecutedReports(context.Background(), mockReader, 123, time.Now())
 			if !tt.wantErr(t, err, "getPendingExecutedReports(...)") {

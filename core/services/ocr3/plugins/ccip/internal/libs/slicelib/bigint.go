@@ -3,18 +3,18 @@ package slicelib
 import (
 	"sort"
 
-	"github.com/smartcontractkit/ccipocr3/internal/model"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // BigIntSortedMiddle returns the middle number after sorting the provided numbers. nil is returned if the provided slice is empty.
 // If length of the provided slice is even, the right-hand-side value of the middle 2 numbers is returned.
 // The objective of this function is to always pick within the range of values reported by honest nodes when we have 2f+1 values.
-func BigIntSortedMiddle(vals []model.BigInt) model.BigInt {
+func BigIntSortedMiddle(vals []cciptypes.BigInt) cciptypes.BigInt {
 	if len(vals) == 0 {
-		return model.BigInt{}
+		return cciptypes.BigInt{}
 	}
 
-	valsCopy := make([]model.BigInt, len(vals))
+	valsCopy := make([]cciptypes.BigInt, len(vals))
 	copy(valsCopy[:], vals[:])
 
 	sort.Slice(valsCopy, func(i, j int) bool {

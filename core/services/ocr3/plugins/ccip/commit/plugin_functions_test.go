@@ -11,68 +11,68 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
 	"github.com/smartcontractkit/ccipocr3/internal/mocks"
-	"github.com/smartcontractkit/ccipocr3/internal/model"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func Test_observeMaxSeqNumsPerChain(t *testing.T) {
 	testCases := []struct {
 		name           string
-		prevOutcome    model.CommitPluginOutcome
-		onChainSeqNums map[model.ChainSelector]model.SeqNum
-		readChains     []model.ChainSelector
-		destChain      model.ChainSelector
+		prevOutcome    cciptypes.CommitPluginOutcome
+		onChainSeqNums map[cciptypes.ChainSelector]cciptypes.SeqNum
+		readChains     []cciptypes.ChainSelector
+		destChain      cciptypes.ChainSelector
 		expErr         bool
-		expMaxSeqNums  []model.SeqNumChain
+		expMaxSeqNums  []cciptypes.SeqNumChain
 	}{
 		{
 			name:        "report on chain seq num when no previous outcome and can read dest",
-			prevOutcome: model.CommitPluginOutcome{},
-			onChainSeqNums: map[model.ChainSelector]model.SeqNum{
+			prevOutcome: cciptypes.CommitPluginOutcome{},
+			onChainSeqNums: map[cciptypes.ChainSelector]cciptypes.SeqNum{
 				1: 10,
 				2: 20,
 			},
-			readChains: []model.ChainSelector{1, 2, 3},
+			readChains: []cciptypes.ChainSelector{1, 2, 3},
 			destChain:  3,
 			expErr:     false,
-			expMaxSeqNums: []model.SeqNumChain{
+			expMaxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
 		},
 		{
 			name:        "nothing to report when there is no previous outcome and cannot read dest",
-			prevOutcome: model.CommitPluginOutcome{},
-			onChainSeqNums: map[model.ChainSelector]model.SeqNum{
+			prevOutcome: cciptypes.CommitPluginOutcome{},
+			onChainSeqNums: map[cciptypes.ChainSelector]cciptypes.SeqNum{
 				1: 10,
 				2: 20,
 			},
-			readChains:    []model.ChainSelector{1, 2},
+			readChains:    []cciptypes.ChainSelector{1, 2},
 			destChain:     3,
 			expErr:        false,
-			expMaxSeqNums: []model.SeqNumChain{},
+			expMaxSeqNums: []cciptypes.SeqNumChain{},
 		},
 		{
 			name: "report previous outcome seq nums and override when on chain is higher if can read dest",
-			prevOutcome: model.CommitPluginOutcome{
-				MaxSeqNums: []model.SeqNumChain{
+			prevOutcome: cciptypes.CommitPluginOutcome{
+				MaxSeqNums: []cciptypes.SeqNumChain{
 					{ChainSel: 1, SeqNum: 11}, // for chain 1 previous outcome is higher than on-chain state
 					{ChainSel: 2, SeqNum: 19}, // for chain 2 previous outcome is behind on-chain state
 				},
 			},
-			onChainSeqNums: map[model.ChainSelector]model.SeqNum{
+			onChainSeqNums: map[cciptypes.ChainSelector]cciptypes.SeqNum{
 				1: 10,
 				2: 20,
 			},
-			readChains: []model.ChainSelector{1, 2, 3},
+			readChains: []cciptypes.ChainSelector{1, 2, 3},
 			destChain:  3,
 			expErr:     false,
-			expMaxSeqNums: []model.SeqNumChain{
+			expMaxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 11},
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -83,17 +83,17 @@ func Test_observeMaxSeqNumsPerChain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			mockReader := mocks.NewCCIPReader()
-			knownSourceChains := slicelib.Filter(tc.readChains, func(ch model.ChainSelector) bool { return ch != tc.destChain })
+			knownSourceChains := slicelib.Filter(tc.readChains, func(ch cciptypes.ChainSelector) bool { return ch != tc.destChain })
 			lggr := logger.Test(t)
 
 			var encodedPrevOutcome []byte
 			var err error
-			if !reflect.DeepEqual(tc.prevOutcome, model.CommitPluginOutcome{}) {
+			if !reflect.DeepEqual(tc.prevOutcome, cciptypes.CommitPluginOutcome{}) {
 				encodedPrevOutcome, err = tc.prevOutcome.Encode()
 				assert.NoError(t, err)
 			}
 
-			onChainSeqNums := make([]model.SeqNum, 0)
+			onChainSeqNums := make([]cciptypes.SeqNum, 0)
 			for _, chain := range knownSourceChains {
 				if v, ok := tc.onChainSeqNums[chain]; !ok {
 					t.Fatalf("invalid test case missing on chain seq num expectation for %d", chain)
@@ -126,70 +126,70 @@ func Test_observeMaxSeqNumsPerChain(t *testing.T) {
 func Test_observeNewMsgs(t *testing.T) {
 	testCases := []struct {
 		name               string
-		maxSeqNumsPerChain []model.SeqNumChain
-		readChains         []model.ChainSelector
-		destChain          model.ChainSelector
+		maxSeqNumsPerChain []cciptypes.SeqNumChain
+		readChains         []cciptypes.ChainSelector
+		destChain          cciptypes.ChainSelector
 		msgScanBatchSize   int
-		newMsgs            map[model.ChainSelector][]model.CCIPMsg
-		expMsgs            []model.CCIPMsg
+		newMsgs            map[cciptypes.ChainSelector][]cciptypes.CCIPMsg
+		expMsgs            []cciptypes.CCIPMsg
 		expErr             bool
 	}{
 		{
 			name: "no new messages",
-			maxSeqNumsPerChain: []model.SeqNumChain{
+			maxSeqNumsPerChain: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
-			readChains:       []model.ChainSelector{1, 2},
+			readChains:       []cciptypes.ChainSelector{1, 2},
 			msgScanBatchSize: 256,
-			newMsgs: map[model.ChainSelector][]model.CCIPMsg{
+			newMsgs: map[cciptypes.ChainSelector][]cciptypes.CCIPMsg{
 				1: {},
 				2: {},
 			},
-			expMsgs: []model.CCIPMsg{},
+			expMsgs: []cciptypes.CCIPMsg{},
 			expErr:  false,
 		},
 		{
 			name: "new messages",
-			maxSeqNumsPerChain: []model.SeqNumChain{
+			maxSeqNumsPerChain: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
-			readChains:       []model.ChainSelector{1, 2},
+			readChains:       []cciptypes.ChainSelector{1, 2},
 			msgScanBatchSize: 256,
-			newMsgs: map[model.ChainSelector][]model.CCIPMsg{
+			newMsgs: map[cciptypes.ChainSelector][]cciptypes.CCIPMsg{
 				1: {
-					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}},
+					{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}},
 				},
 				2: {
-					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
-					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
+					{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+					{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 				},
 			},
-			expMsgs: []model.CCIPMsg{
-				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}},
-				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
-				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
+			expMsgs: []cciptypes.CCIPMsg{
+				{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}},
+				{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+				{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 			},
 			expErr: false,
 		},
 		{
 			name: "new messages but one chain is not readable",
-			maxSeqNumsPerChain: []model.SeqNumChain{
+			maxSeqNumsPerChain: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
-			readChains:       []model.ChainSelector{2},
+			readChains:       []cciptypes.ChainSelector{2},
 			msgScanBatchSize: 256,
-			newMsgs: map[model.ChainSelector][]model.CCIPMsg{
+			newMsgs: map[cciptypes.ChainSelector][]cciptypes.CCIPMsg{
 				2: {
-					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
-					{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
+					{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+					{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 				},
 			},
-			expMsgs: []model.CCIPMsg{
-				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
-				{CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
+			expMsgs: []cciptypes.CCIPMsg{
+				{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{2}, SourceChain: 2, SeqNum: 21}},
+				{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: [32]byte{3}, SourceChain: 2, SeqNum: 22}},
 			},
 			expErr: false,
 		},
@@ -208,7 +208,7 @@ func Test_observeNewMsgs(t *testing.T) {
 						"MsgsBetweenSeqNums",
 						ctx,
 						seqNumChain.ChainSel,
-						model.NewSeqNumRange(seqNumChain.SeqNum+1, seqNumChain.SeqNum+model.SeqNum(1+tc.msgScanBatchSize)),
+						cciptypes.NewSeqNumRange(seqNumChain.SeqNum+1, seqNumChain.SeqNum+cciptypes.SeqNum(1+tc.msgScanBatchSize)),
 					).Return(tc.newMsgs[seqNumChain.ChainSel], nil)
 				}
 			}
@@ -240,11 +240,11 @@ func Benchmark_observeNewMsgs(b *testing.B) {
 		newMsgsPerChain = 256
 	)
 
-	readChains := make([]model.ChainSelector, numChains)
-	maxSeqNumsPerChain := make([]model.SeqNumChain, numChains)
+	readChains := make([]cciptypes.ChainSelector, numChains)
+	maxSeqNumsPerChain := make([]cciptypes.SeqNumChain, numChains)
 	for i := 0; i < numChains; i++ {
-		readChains[i] = model.ChainSelector(i + 1)
-		maxSeqNumsPerChain[i] = model.SeqNumChain{ChainSel: model.ChainSelector(i + 1), SeqNum: model.SeqNum(1)}
+		readChains[i] = cciptypes.ChainSelector(i + 1)
+		maxSeqNumsPerChain[i] = cciptypes.SeqNumChain{ChainSel: cciptypes.ChainSelector(i + 1), SeqNum: cciptypes.SeqNum(1)}
 	}
 
 	for i := 0; i < b.N; i++ {
@@ -253,15 +253,15 @@ func Benchmark_observeNewMsgs(b *testing.B) {
 		ccipReader := mocks.NewCCIPReader()
 		msgHasher := mocks.NewMessageHasher()
 
-		expNewMsgs := make([]model.CCIPMsg, 0, newMsgsPerChain*numChains)
+		expNewMsgs := make([]cciptypes.CCIPMsg, 0, newMsgsPerChain*numChains)
 		for _, seqNumChain := range maxSeqNumsPerChain {
-			newMsgs := make([]model.CCIPMsg, 0, newMsgsPerChain)
+			newMsgs := make([]cciptypes.CCIPMsg, 0, newMsgsPerChain)
 			for msgSeqNum := 1; msgSeqNum <= newMsgsPerChain; msgSeqNum++ {
-				newMsgs = append(newMsgs, model.CCIPMsg{
-					CCIPMsgBaseDetails: model.CCIPMsgBaseDetails{
-						ID:          model.Bytes32{byte(msgSeqNum)},
+				newMsgs = append(newMsgs, cciptypes.CCIPMsg{
+					CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+						ID:          cciptypes.Bytes32{byte(msgSeqNum)},
 						SourceChain: seqNumChain.ChainSel,
-						SeqNum:      model.SeqNum(msgSeqNum),
+						SeqNum:      cciptypes.SeqNum(msgSeqNum),
 					},
 				})
 			}
@@ -269,10 +269,10 @@ func Benchmark_observeNewMsgs(b *testing.B) {
 			ccipReader.On(
 				"MsgsBetweenSeqNums",
 				ctx,
-				[]model.ChainSelector{seqNumChain.ChainSel},
-				model.NewSeqNumRange(
+				[]cciptypes.ChainSelector{seqNumChain.ChainSel},
+				cciptypes.NewSeqNumRange(
 					seqNumChain.SeqNum+1,
-					seqNumChain.SeqNum+model.SeqNum(1+newMsgsPerChain),
+					seqNumChain.SeqNum+cciptypes.SeqNum(1+newMsgsPerChain),
 				),
 			).Run(func(args mock.Arguments) {
 				time.Sleep(time.Duration(readerDelayMS) * time.Millisecond)
@@ -307,10 +307,10 @@ func Test_observeTokenPrices(t *testing.T) {
 		priceReader.On("GetTokenPricesUSD", ctx, tokens).Return(mockPrices, nil)
 		prices, err := observeTokenPrices(ctx, priceReader, tokens)
 		assert.NoError(t, err)
-		assert.Equal(t, []model.TokenPrice{
-			model.NewTokenPrice("0x1", big.NewInt(10)),
-			model.NewTokenPrice("0x2", big.NewInt(20)),
-			model.NewTokenPrice("0x3", big.NewInt(30)),
+		assert.Equal(t, []cciptypes.TokenPrice{
+			cciptypes.NewTokenPrice("0x1", big.NewInt(10)),
+			cciptypes.NewTokenPrice("0x2", big.NewInt(20)),
+			cciptypes.NewTokenPrice("0x3", big.NewInt(30)),
 		}, prices)
 	})
 
@@ -330,28 +330,28 @@ func Test_observeGasPrices(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
 		mockReader := mocks.NewCCIPReader()
-		chains := []model.ChainSelector{1, 2, 3}
-		mockGasPrices := []model.BigInt{
-			model.NewBigIntFromInt64(10),
-			model.NewBigIntFromInt64(20),
-			model.NewBigIntFromInt64(30),
+		chains := []cciptypes.ChainSelector{1, 2, 3}
+		mockGasPrices := []cciptypes.BigInt{
+			cciptypes.NewBigIntFromInt64(10),
+			cciptypes.NewBigIntFromInt64(20),
+			cciptypes.NewBigIntFromInt64(30),
 		}
 		mockReader.On("GasPrices", ctx, chains).Return(mockGasPrices, nil)
 		gasPrices, err := observeGasPrices(ctx, mockReader, chains)
 		assert.NoError(t, err)
-		assert.Equal(t, []model.GasPriceChain{
-			model.NewGasPriceChain(mockGasPrices[0].Int, chains[0]),
-			model.NewGasPriceChain(mockGasPrices[1].Int, chains[1]),
-			model.NewGasPriceChain(mockGasPrices[2].Int, chains[2]),
+		assert.Equal(t, []cciptypes.GasPriceChain{
+			cciptypes.NewGasPriceChain(mockGasPrices[0].Int, chains[0]),
+			cciptypes.NewGasPriceChain(mockGasPrices[1].Int, chains[1]),
+			cciptypes.NewGasPriceChain(mockGasPrices[2].Int, chains[2]),
 		}, gasPrices)
 	})
 
 	t.Run("gas reader internal issue", func(t *testing.T) {
 		mockReader := mocks.NewCCIPReader()
-		chains := []model.ChainSelector{1, 2, 3}
-		mockGasPrices := []model.BigInt{
-			model.NewBigIntFromInt64(10),
-			model.NewBigIntFromInt64(20),
+		chains := []cciptypes.ChainSelector{1, 2, 3}
+		mockGasPrices := []cciptypes.BigInt{
+			cciptypes.NewBigIntFromInt64(10),
+			cciptypes.NewBigIntFromInt64(20),
 		} // return 2 prices for 3 chains
 		mockReader.On("GasPrices", ctx, chains).Return(mockGasPrices, nil)
 		_, err := observeGasPrices(ctx, mockReader, chains)
@@ -362,8 +362,8 @@ func Test_observeGasPrices(t *testing.T) {
 func Test_validateObservedSequenceNumbers(t *testing.T) {
 	testCases := []struct {
 		name       string
-		msgs       []model.CCIPMsgBaseDetails
-		maxSeqNums []model.SeqNumChain
+		msgs       []cciptypes.CCIPMsgBaseDetails
+		maxSeqNums []cciptypes.SeqNumChain
 		expErr     bool
 	}{
 		{
@@ -375,7 +375,7 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		{
 			name: "dup seq num observation",
 			msgs: nil,
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 				{ChainSel: 1, SeqNum: 10},
@@ -385,7 +385,7 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		{
 			name: "seq nums ok",
 			msgs: nil,
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -393,13 +393,13 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		},
 		{
 			name: "dup msg seq num",
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 13},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 14},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 13}, // dup
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 13},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 14},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 13}, // dup
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -407,13 +407,13 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		},
 		{
 			name: "msg seq nums ok",
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 13},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 14},
-				{ID: model.Bytes32{1}, SourceChain: 2, SeqNum: 21},
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 13},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 14},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 2, SeqNum: 21},
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -421,13 +421,13 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		},
 		{
 			name: "msg seq nums does not match observed max seq num",
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 13},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 10}, // max seq num is already 10
-				{ID: model.Bytes32{1}, SourceChain: 2, SeqNum: 21},
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 13},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 10}, // max seq num is already 10
+				{ID: cciptypes.Bytes32{1}, SourceChain: 2, SeqNum: 21},
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
@@ -435,13 +435,13 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 		},
 		{
 			name: "max seq num not found",
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 13},
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 14},
-				{ID: model.Bytes32{1}, SourceChain: 2, SeqNum: 21}, // max seq num not reported
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 13},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 14},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 2, SeqNum: 21}, // max seq num not reported
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
 			expErr: true,
@@ -464,57 +464,57 @@ func Test_validateObserverReadingEligibility(t *testing.T) {
 	testCases := []struct {
 		name         string
 		observer     commontypes.OracleID
-		msgs         []model.CCIPMsgBaseDetails
-		observerInfo map[commontypes.OracleID]model.ObserverInfo
+		msgs         []cciptypes.CCIPMsgBaseDetails
+		observerInfo map[commontypes.OracleID]cciptypes.ObserverInfo
 		expErr       bool
 	}{
 		{
 			name:     "observer can read all chains",
 			observer: commontypes.OracleID(10),
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{3}, SourceChain: 2, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 3, SeqNum: 12},
-				{ID: model.Bytes32{2}, SourceChain: 3, SeqNum: 12},
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{3}, SourceChain: 2, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 3, SeqNum: 12},
+				{ID: cciptypes.Bytes32{2}, SourceChain: 3, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]model.ObserverInfo{
-				10: {Reads: []model.ChainSelector{1, 2, 3}},
+			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
+				10: {Reads: []cciptypes.ChainSelector{1, 2, 3}},
 			},
 			expErr: false,
 		},
 		{
 			name:     "observer cannot read one chain",
 			observer: commontypes.OracleID(10),
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{3}, SourceChain: 2, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 3, SeqNum: 12},
-				{ID: model.Bytes32{2}, SourceChain: 3, SeqNum: 12},
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{3}, SourceChain: 2, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 3, SeqNum: 12},
+				{ID: cciptypes.Bytes32{2}, SourceChain: 3, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]model.ObserverInfo{
-				10: {Reads: []model.ChainSelector{1, 3}},
+			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
+				10: {Reads: []cciptypes.ChainSelector{1, 3}},
 			},
 			expErr: true,
 		},
 		{
 			name:     "observer cfg not found",
 			observer: commontypes.OracleID(10),
-			msgs: []model.CCIPMsgBaseDetails{
-				{ID: model.Bytes32{1}, SourceChain: 1, SeqNum: 12},
-				{ID: model.Bytes32{3}, SourceChain: 2, SeqNum: 12},
-				{ID: model.Bytes32{1}, SourceChain: 3, SeqNum: 12},
-				{ID: model.Bytes32{2}, SourceChain: 3, SeqNum: 12},
+			msgs: []cciptypes.CCIPMsgBaseDetails{
+				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
+				{ID: cciptypes.Bytes32{3}, SourceChain: 2, SeqNum: 12},
+				{ID: cciptypes.Bytes32{1}, SourceChain: 3, SeqNum: 12},
+				{ID: cciptypes.Bytes32{2}, SourceChain: 3, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]model.ObserverInfo{
-				20: {Reads: []model.ChainSelector{1, 3}}, // observer 10 not found
+			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
+				20: {Reads: []cciptypes.ChainSelector{1, 3}}, // observer 10 not found
 			},
 			expErr: true,
 		},
 		{
 			name:         "no msgs",
 			observer:     commontypes.OracleID(10),
-			msgs:         []model.CCIPMsgBaseDetails{},
-			observerInfo: map[commontypes.OracleID]model.ObserverInfo{},
+			msgs:         []cciptypes.CCIPMsgBaseDetails{},
+			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{},
 			expErr:       false,
 		},
 	}
@@ -534,41 +534,41 @@ func Test_validateObserverReadingEligibility(t *testing.T) {
 func Test_validateObservedTokenPrices(t *testing.T) {
 	testCases := []struct {
 		name        string
-		tokenPrices []model.TokenPrice
+		tokenPrices []cciptypes.TokenPrice
 		expErr      bool
 	}{
 		{
 			name:        "empty is valid",
-			tokenPrices: []model.TokenPrice{},
+			tokenPrices: []cciptypes.TokenPrice{},
 			expErr:      false,
 		},
 		{
 			name: "all valid",
-			tokenPrices: []model.TokenPrice{
-				model.NewTokenPrice("0x1", big.NewInt(1)),
-				model.NewTokenPrice("0x2", big.NewInt(1)),
-				model.NewTokenPrice("0x3", big.NewInt(1)),
-				model.NewTokenPrice("0xa", big.NewInt(1)),
+			tokenPrices: []cciptypes.TokenPrice{
+				cciptypes.NewTokenPrice("0x1", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x2", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x3", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0xa", big.NewInt(1)),
 			},
 			expErr: false,
 		},
 		{
 			name: "dup price",
-			tokenPrices: []model.TokenPrice{
-				model.NewTokenPrice("0x1", big.NewInt(1)),
-				model.NewTokenPrice("0x2", big.NewInt(1)),
-				model.NewTokenPrice("0x1", big.NewInt(1)), // dup
-				model.NewTokenPrice("0xa", big.NewInt(1)),
+			tokenPrices: []cciptypes.TokenPrice{
+				cciptypes.NewTokenPrice("0x1", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x2", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x1", big.NewInt(1)), // dup
+				cciptypes.NewTokenPrice("0xa", big.NewInt(1)),
 			},
 			expErr: true,
 		},
 		{
 			name: "nil price",
-			tokenPrices: []model.TokenPrice{
-				model.NewTokenPrice("0x1", big.NewInt(1)),
-				model.NewTokenPrice("0x2", big.NewInt(1)),
-				model.NewTokenPrice("0x3", nil), // nil price
-				model.NewTokenPrice("0xa", big.NewInt(1)),
+			tokenPrices: []cciptypes.TokenPrice{
+				cciptypes.NewTokenPrice("0x1", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x2", big.NewInt(1)),
+				cciptypes.NewTokenPrice("0x3", nil), // nil price
+				cciptypes.NewTokenPrice("0xa", big.NewInt(1)),
 			},
 			expErr: true,
 		},
@@ -590,38 +590,38 @@ func Test_validateObservedTokenPrices(t *testing.T) {
 func Test_validateObservedGasPrices(t *testing.T) {
 	testCases := []struct {
 		name      string
-		gasPrices []model.GasPriceChain
+		gasPrices []cciptypes.GasPriceChain
 		expErr    bool
 	}{
 		{
 			name:      "empty is valid",
-			gasPrices: []model.GasPriceChain{},
+			gasPrices: []cciptypes.GasPriceChain{},
 			expErr:    false,
 		},
 		{
 			name: "all valid",
-			gasPrices: []model.GasPriceChain{
-				model.NewGasPriceChain(big.NewInt(10), 1),
-				model.NewGasPriceChain(big.NewInt(20), 2),
-				model.NewGasPriceChain(big.NewInt(1312), 3),
+			gasPrices: []cciptypes.GasPriceChain{
+				cciptypes.NewGasPriceChain(big.NewInt(10), 1),
+				cciptypes.NewGasPriceChain(big.NewInt(20), 2),
+				cciptypes.NewGasPriceChain(big.NewInt(1312), 3),
 			},
 			expErr: false,
 		},
 		{
 			name: "duplicate gas price",
-			gasPrices: []model.GasPriceChain{
-				model.NewGasPriceChain(big.NewInt(10), 1),
-				model.NewGasPriceChain(big.NewInt(20), 2),
-				model.NewGasPriceChain(big.NewInt(1312), 1), // notice we already have a gas price for chain 1
+			gasPrices: []cciptypes.GasPriceChain{
+				cciptypes.NewGasPriceChain(big.NewInt(10), 1),
+				cciptypes.NewGasPriceChain(big.NewInt(20), 2),
+				cciptypes.NewGasPriceChain(big.NewInt(1312), 1), // notice we already have a gas price for chain 1
 			},
 			expErr: true,
 		},
 		{
 			name: "empty gas price",
-			gasPrices: []model.GasPriceChain{
-				model.NewGasPriceChain(big.NewInt(10), 1),
-				model.NewGasPriceChain(big.NewInt(20), 2),
-				model.NewGasPriceChain(nil, 3), // nil
+			gasPrices: []cciptypes.GasPriceChain{
+				cciptypes.NewGasPriceChain(big.NewInt(10), 1),
+				cciptypes.NewGasPriceChain(big.NewInt(20), 2),
+				cciptypes.NewGasPriceChain(nil, 3), // nil
 			},
 			expErr: true,
 		},
@@ -642,228 +642,228 @@ func Test_validateObservedGasPrices(t *testing.T) {
 func Test_newMsgsConsensusForChain(t *testing.T) {
 	testCases := []struct {
 		name           string
-		maxSeqNums     []model.SeqNumChain
-		observations   []model.CommitPluginObservation
-		expMerkleRoots []model.MerkleRootChain
-		fChain         map[model.ChainSelector]int
+		maxSeqNums     []cciptypes.SeqNumChain
+		observations   []cciptypes.CommitPluginObservation
+		expMerkleRoots []cciptypes.MerkleRootChain
+		fChain         map[cciptypes.ChainSelector]int
 		expErr         bool
 	}{
 		{
 			name:           "empty",
-			maxSeqNums:     []model.SeqNumChain{},
+			maxSeqNums:     []cciptypes.SeqNumChain{},
 			observations:   nil,
-			expMerkleRoots: []model.MerkleRootChain{},
+			expMerkleRoots: []cciptypes.MerkleRootChain{},
 			expErr:         false,
 		},
 		{
 			name: "one message but not reaching 2fChain+1 observations",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{},
+			expMerkleRoots: []cciptypes.MerkleRootChain{},
 			expErr:         false,
 		},
 		{
 			name: "one message reaching 2fChain+1 observations",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(11, 11),
+					SeqNumsRange: cciptypes.NewSeqNumRange(11, 11),
 				},
 			},
 			expErr: false,
 		},
 		{
 			name: "multiple messages all of them reaching 2fChain+1 observations",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(11, 13),
+					SeqNumsRange: cciptypes.NewSeqNumRange(11, 13),
 				},
 			},
 			expErr: false,
 		},
 		{
 			name: "one message sequence number is lower than consensus max seq num",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 10}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(12, 13),
+					SeqNumsRange: cciptypes.NewSeqNumRange(12, 13),
 				},
 			},
 			expErr: false,
 		},
 		{
 			name: "multiple messages some of them not reaching 2fChain+1 observations",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 12}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 13}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(11, 11), // we stop at 11 because there is a gap for going to 13
+					SeqNumsRange: cciptypes.NewSeqNumRange(11, 11), // we stop at 11 because there is a gap for going to 13
 				},
 			},
 			expErr: false,
 		},
 		{
 			name: "multiple messages on different chains",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 				2: 1,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 				{ChainSel: 2, SeqNum: 20},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 2, SeqNum: 21}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{4}, SourceChain: 2, SeqNum: 22}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(11, 11), // we stop at 11 because there is a gap for going to 13
+					SeqNumsRange: cciptypes.NewSeqNumRange(11, 11), // we stop at 11 because there is a gap for going to 13
 				},
 				{
 					ChainSel:     2,
-					SeqNumsRange: model.NewSeqNumRange(21, 22), // we stop at 11 because there is a gap for going to 13
+					SeqNumsRange: cciptypes.NewSeqNumRange(21, 22), // we stop at 11 because there is a gap for going to 13
 				},
 			},
 			expErr: false,
 		},
 		{
 			name: "one message seq num with multiple reported ids",
-			fChain: map[model.ChainSelector]int{
+			fChain: map[cciptypes.ChainSelector]int{
 				1: 2,
 			},
-			maxSeqNums: []model.SeqNumChain{
+			maxSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 10},
 			},
-			observations: []model.CommitPluginObservation{
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+			observations: []cciptypes.CommitPluginObservation{
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{1}, SourceChain: 1, SeqNum: 11}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{10}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{111}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{3}, SourceChain: 1, SeqNum: 11}}},
 
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
-				{NewMsgs: []model.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
+				{NewMsgs: []cciptypes.CCIPMsgBaseDetails{{ID: [32]byte{2}, SourceChain: 1, SeqNum: 11}}},
 			},
-			expMerkleRoots: []model.MerkleRootChain{
+			expMerkleRoots: []cciptypes.MerkleRootChain{
 				{
 					ChainSel:     1,
-					SeqNumsRange: model.NewSeqNumRange(11, 11),
+					SeqNumsRange: cciptypes.NewSeqNumRange(11, 11),
 				},
 			},
 			expErr: false,
@@ -891,21 +891,21 @@ func Test_newMsgsConsensusForChain(t *testing.T) {
 func Test_maxSeqNumsConsensus(t *testing.T) {
 	testCases := []struct {
 		name         string
-		observations []model.CommitPluginObservation
+		observations []cciptypes.CommitPluginObservation
 		fChain       int
-		expSeqNums   []model.SeqNumChain
+		expSeqNums   []cciptypes.SeqNumChain
 	}{
 		{
 			name:         "empty observations",
-			observations: []model.CommitPluginObservation{},
+			observations: []cciptypes.CommitPluginObservation{},
 			fChain:       2,
-			expSeqNums:   []model.SeqNumChain{},
+			expSeqNums:   []cciptypes.SeqNumChain{},
 		},
 		{
 			name: "one chain all followers agree",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					MaxSeqNums: []model.SeqNumChain{
+					MaxSeqNums: []cciptypes.SeqNumChain{
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
@@ -917,15 +917,15 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 				},
 			},
 			fChain: 2,
-			expSeqNums: []model.SeqNumChain{
+			expSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 			},
 		},
 		{
 			name: "one chain all followers agree but not enough observations",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					MaxSeqNums: []model.SeqNumChain{
+					MaxSeqNums: []cciptypes.SeqNumChain{
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
@@ -935,13 +935,13 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 				},
 			},
 			fChain:     3,
-			expSeqNums: []model.SeqNumChain{},
+			expSeqNums: []cciptypes.SeqNumChain{},
 		},
 		{
 			name: "one chain 3 followers not in sync, 4 in sync",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					MaxSeqNums: []model.SeqNumChain{
+					MaxSeqNums: []cciptypes.SeqNumChain{
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 19},
 						{ChainSel: 2, SeqNum: 20},
@@ -953,15 +953,15 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 				},
 			},
 			fChain: 3,
-			expSeqNums: []model.SeqNumChain{
+			expSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 			},
 		},
 		{
 			name: "two chains",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					MaxSeqNums: []model.SeqNumChain{
+					MaxSeqNums: []cciptypes.SeqNumChain{
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
 						{ChainSel: 2, SeqNum: 20},
@@ -979,7 +979,7 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 				},
 			},
 			fChain: 2,
-			expSeqNums: []model.SeqNumChain{
+			expSeqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 2, SeqNum: 20},
 				{ChainSel: 3, SeqNum: 30},
 			},
@@ -998,95 +998,95 @@ func Test_maxSeqNumsConsensus(t *testing.T) {
 func Test_tokenPricesConsensus(t *testing.T) {
 	testCases := []struct {
 		name         string
-		observations []model.CommitPluginObservation
+		observations []cciptypes.CommitPluginObservation
 		fChain       int
-		expPrices    []model.TokenPrice
+		expPrices    []cciptypes.TokenPrice
 		expErr       bool
 	}{
 		{
 			name:         "empty",
-			observations: make([]model.CommitPluginObservation, 0),
+			observations: make([]cciptypes.CommitPluginObservation, 0),
 			fChain:       2,
-			expPrices:    make([]model.TokenPrice, 0),
+			expPrices:    make([]cciptypes.TokenPrice, 0),
 			expErr:       false,
 		},
 		{
 			name: "happy flow",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(10)),
-						model.NewTokenPrice("0x2", big.NewInt(20)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(10)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(20)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(11)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(11)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(10)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(10)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(11)),
-						model.NewTokenPrice("0x2", big.NewInt(20)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(20)),
 					},
 				},
 			},
 			fChain: 2,
-			expPrices: []model.TokenPrice{
-				model.NewTokenPrice("0x1", big.NewInt(11)),
-				model.NewTokenPrice("0x2", big.NewInt(21)),
+			expPrices: []cciptypes.TokenPrice{
+				cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+				cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 			},
 			expErr: false,
 		},
 		{
 			name: "not enough observations for some token",
-			observations: []model.CommitPluginObservation{
+			observations: []cciptypes.CommitPluginObservation{
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x2", big.NewInt(20)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x2", big.NewInt(20)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(11)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(11)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(11)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(10)),
-						model.NewTokenPrice("0x2", big.NewInt(21)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(10)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 					},
 				},
 				{
-					TokenPrices: []model.TokenPrice{
-						model.NewTokenPrice("0x1", big.NewInt(10)),
-						model.NewTokenPrice("0x2", big.NewInt(20)),
+					TokenPrices: []cciptypes.TokenPrice{
+						cciptypes.NewTokenPrice("0x1", big.NewInt(10)),
+						cciptypes.NewTokenPrice("0x2", big.NewInt(20)),
 					},
 				},
 			},
 			fChain: 2,
-			expPrices: []model.TokenPrice{
-				model.NewTokenPrice("0x2", big.NewInt(21)),
+			expPrices: []cciptypes.TokenPrice{
+				cciptypes.NewTokenPrice("0x2", big.NewInt(21)),
 			},
 			expErr: false,
 		},
@@ -1108,60 +1108,60 @@ func Test_tokenPricesConsensus(t *testing.T) {
 func Test_gasPricesConsensus(t *testing.T) {
 	testCases := []struct {
 		name         string
-		observations []model.CommitPluginObservation
+		observations []cciptypes.CommitPluginObservation
 		fChain       int
-		expPrices    []model.GasPriceChain
+		expPrices    []cciptypes.GasPriceChain
 	}{
 		{
 			name:         "empty",
-			observations: make([]model.CommitPluginObservation, 0),
+			observations: make([]cciptypes.CommitPluginObservation, 0),
 			fChain:       2,
-			expPrices:    make([]model.GasPriceChain, 0),
+			expPrices:    make([]cciptypes.GasPriceChain, 0),
 		},
 		{
 			name: "one chain happy path",
-			observations: []model.CommitPluginObservation{
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+			observations: []cciptypes.CommitPluginObservation{
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
 			},
 			fChain: 2,
-			expPrices: []model.GasPriceChain{
-				model.NewGasPriceChain(big.NewInt(10), 1),
+			expPrices: []cciptypes.GasPriceChain{
+				cciptypes.NewGasPriceChain(big.NewInt(10), 1),
 			},
 		},
 		{
 			name: "one chain no consensus",
-			observations: []model.CommitPluginObservation{
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
+			observations: []cciptypes.CommitPluginObservation{
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
 			},
 			fChain:    3, // notice fChain is 3, means we need at least 2*3+1=7 observations
-			expPrices: []model.GasPriceChain{},
+			expPrices: []cciptypes.GasPriceChain{},
 		},
 		{
 			name: "two chains determinism check",
-			observations: []model.CommitPluginObservation{
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(20), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(11), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(10), 1)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(200), 10)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(110), 10)}},
-				{GasPrices: []model.GasPriceChain{model.NewGasPriceChain(big.NewInt(100), 10)}},
+			observations: []cciptypes.CommitPluginObservation{
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(20), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(11), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(10), 1)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(200), 10)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(100), 10)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(100), 10)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(110), 10)}},
+				{GasPrices: []cciptypes.GasPriceChain{cciptypes.NewGasPriceChain(big.NewInt(100), 10)}},
 			},
 			fChain: 2,
-			expPrices: []model.GasPriceChain{
-				model.NewGasPriceChain(big.NewInt(10), 1),
-				model.NewGasPriceChain(big.NewInt(100), 10),
+			expPrices: []cciptypes.GasPriceChain{
+				cciptypes.NewGasPriceChain(big.NewInt(10), 1),
+				cciptypes.NewGasPriceChain(big.NewInt(100), 10),
 			},
 		},
 	}

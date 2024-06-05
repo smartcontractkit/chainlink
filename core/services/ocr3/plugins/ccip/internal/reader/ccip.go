@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/ccipocr3/internal/model"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 )
@@ -18,52 +17,26 @@ var (
 	ErrChainReaderNotFound = errors.New("chain reader not found")
 )
 
-type CCIP interface {
-	// CommitReportsGTETimestamp reads the requested chain starting at a given timestamp
-	// and finds all ReportAccepted up to the provided limit.
-	CommitReportsGTETimestamp(ctx context.Context, dest model.ChainSelector, ts time.Time, limit int) ([]model.CommitPluginReportWithMeta, error)
-
-	// ExecutedMessageRanges reads the destination chain and finds which messages are executed.
-	// A slice of sequence number ranges is returned to express which messages are executed.
-	ExecutedMessageRanges(ctx context.Context, source, dest model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.SeqNumRange, error)
-
-	// MsgsBetweenSeqNums reads the provided chains.
-	// Finds and returns ccip messages submitted between the provided sequence numbers.
-	// Messages are sorted ascending based on their timestamp and limited up to the provided limit.
-	MsgsBetweenSeqNums(ctx context.Context, chain model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.CCIPMsg, error)
-
-	// NextSeqNum reads the destination chain.
-	// Returns the next expected sequence number for each one of the provided chains.
-	// TODO: if destination was a parameter, this could be a capability reused across plugin instances.
-	NextSeqNum(ctx context.Context, chains []model.ChainSelector) (seqNum []model.SeqNum, err error)
-
-	// GasPrices reads the provided chains gas prices.
-	GasPrices(ctx context.Context, chains []model.ChainSelector) ([]model.BigInt, error)
-
-	// Close closes any open resources.
-	Close(ctx context.Context) error
-}
-
 type CCIPChainReader struct {
-	chainReaders map[model.ChainSelector]types.ChainReader
-	destChain    model.ChainSelector
+	contractReaders map[cciptypes.ChainSelector]types.ContractReader
+	destChain       cciptypes.ChainSelector
 }
 
-func (r *CCIPChainReader) CommitReportsGTETimestamp(ctx context.Context, dest model.ChainSelector, ts time.Time, limit int) ([]model.CommitPluginReportWithMeta, error) {
+func (r *CCIPChainReader) CommitReportsGTETimestamp(ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int) ([]cciptypes.CommitPluginReportWithMeta, error) {
 	if err := r.validateReaderExistence(dest); err != nil {
 		return nil, err
 	}
 	panic("implement me")
 }
 
-func (r *CCIPChainReader) ExecutedMessageRanges(ctx context.Context, source, dest model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.SeqNumRange, error) {
+func (r *CCIPChainReader) ExecutedMessageRanges(ctx context.Context, source, dest cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.SeqNumRange, error) {
 	if err := r.validateReaderExistence(source, dest); err != nil {
 		return nil, err
 	}
 	panic("implement me")
 }
 
-func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain model.ChainSelector, seqNumRange model.SeqNumRange) ([]model.CCIPMsg, error) {
+func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.CCIPMsg, error) {
 	if err := r.validateReaderExistence(chain); err != nil {
 		return nil, err
 	}
@@ -74,7 +47,7 @@ func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain model.Ch
 		eventAttributeName = "SequenceNumber"
 	)
 
-	seq, err := r.chainReaders[chain].QueryKey(
+	seq, err := r.contractReaders[chain].QueryKey(
 		ctx,
 		contractName,
 		query.KeyFilter{
@@ -106,15 +79,15 @@ func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain model.Ch
 				Count: uint64(seqNumRange.End() - seqNumRange.Start() + 1),
 			},
 		},
-		&model.CCIPMsg{},
+		&cciptypes.CCIPMsg{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query onRamp: %w", err)
 	}
 
-	msgs := make([]model.CCIPMsg, 0)
+	msgs := make([]cciptypes.CCIPMsg, 0)
 	for _, item := range seq {
-		msg, ok := item.Data.(model.CCIPMsg)
+		msg, ok := item.Data.(cciptypes.CCIPMsg)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast %v to CCIPMsg", item.Data)
 		}
@@ -124,7 +97,7 @@ func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain model.Ch
 	return msgs, nil
 }
 
-func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []model.ChainSelector) ([]model.SeqNum, error) {
+func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []cciptypes.ChainSelector) ([]cciptypes.SeqNum, error) {
 	if err := r.validateReaderExistence(r.destChain); err != nil {
 		return nil, err
 	}
@@ -134,8 +107,8 @@ func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []model.ChainSe
 		funcName     = "getExpectedNextSequenceNumbers"
 	)
 
-	seqNums := make([]model.SeqNum, 0)
-	err := r.chainReaders[r.destChain].GetLatestValue(
+	seqNums := make([]cciptypes.SeqNum, 0)
+	err := r.contractReaders[r.destChain].GetLatestValue(
 		ctx,
 		contractName,
 		funcName,
@@ -147,7 +120,7 @@ func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []model.ChainSe
 	return seqNums, err
 }
 
-func (r *CCIPChainReader) GasPrices(ctx context.Context, chains []model.ChainSelector) ([]model.BigInt, error) {
+func (r *CCIPChainReader) GasPrices(ctx context.Context, chains []cciptypes.ChainSelector) ([]cciptypes.BigInt, error) {
 	if err := r.validateReaderExistence(chains...); err != nil {
 		return nil, err
 	}
@@ -158,9 +131,9 @@ func (r *CCIPChainReader) Close(ctx context.Context) error {
 	return nil
 }
 
-func (r *CCIPChainReader) validateReaderExistence(chains ...model.ChainSelector) error {
+func (r *CCIPChainReader) validateReaderExistence(chains ...cciptypes.ChainSelector) error {
 	for _, ch := range chains {
-		_, exists := r.chainReaders[ch]
+		_, exists := r.contractReaders[ch]
 		if !exists {
 			return fmt.Errorf("chain %d: %w", ch, ErrChainReaderNotFound)
 		}

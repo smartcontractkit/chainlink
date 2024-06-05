@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/smartcontractkit/ccipocr3/internal/model"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 type CommitPluginJSONReportCodec struct{}
@@ -13,12 +13,12 @@ func NewCommitPluginJSONReportCodec() *CommitPluginJSONReportCodec {
 	return &CommitPluginJSONReportCodec{}
 }
 
-func (c CommitPluginJSONReportCodec) Encode(ctx context.Context, report model.CommitPluginReport) ([]byte, error) {
+func (c CommitPluginJSONReportCodec) Encode(ctx context.Context, report cciptypes.CommitPluginReport) ([]byte, error) {
 	return json.Marshal(report)
 }
 
-func (c CommitPluginJSONReportCodec) Decode(ctx context.Context, bytes []byte) (model.CommitPluginReport, error) {
-	report := model.CommitPluginReport{}
+func (c CommitPluginJSONReportCodec) Decode(ctx context.Context, bytes []byte) (cciptypes.CommitPluginReport, error) {
+	report := cciptypes.CommitPluginReport{}
 	err := json.Unmarshal(bytes, &report)
 	return report, err
 }

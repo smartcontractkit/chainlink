@@ -4,9 +4,10 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/ccipocr3/internal/reader"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/mock"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 type TokenPricesReader struct {
@@ -25,4 +26,4 @@ func (t TokenPricesReader) GetTokenPricesUSD(ctx context.Context, tokens []ocrty
 }
 
 // Interface compatibility check.
-var _ reader.TokenPrices = (*TokenPricesReader)(nil)
+var _ cciptypes.TokenPricesReader = (*TokenPricesReader)(nil)

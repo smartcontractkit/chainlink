@@ -7,32 +7,30 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/smartcontractkit/ccipocr3/internal/codec"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
-	"github.com/smartcontractkit/ccipocr3/internal/model"
-	"github.com/smartcontractkit/ccipocr3/internal/reader"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // Plugin implements the main ocr3 ccip commit plugin logic.
 // To learn more about the plugin lifecycle, see the ocr3types.ReportingPlugin interface.
 type Plugin struct {
 	nodeID            commontypes.OracleID
-	cfg               model.CommitPluginConfig
-	ccipReader        reader.CCIP
-	tokenPricesReader reader.TokenPrices
-	reportCodec       codec.Commit
-	msgHasher         codec.MessageHasher
+	cfg               cciptypes.CommitPluginConfig
+	ccipReader        cciptypes.CCIPReader
+	tokenPricesReader cciptypes.TokenPricesReader
+	reportCodec       cciptypes.CommitPluginCodec
+	msgHasher         cciptypes.MessageHasher
 	lggr              logger.Logger
 
 	// readableChains is the set of chains that the plugin can read from.
-	readableChains mapset.Set[model.ChainSelector]
+	readableChains mapset.Set[cciptypes.ChainSelector]
 	// knownSourceChains is the set of chains that the plugin knows about.
-	knownSourceChains mapset.Set[model.ChainSelector]
+	knownSourceChains mapset.Set[cciptypes.ChainSelector]
 }
 
 // TODO: background service for home chain config polling
@@ -40,14 +38,14 @@ type Plugin struct {
 func NewPlugin(
 	_ context.Context,
 	nodeID commontypes.OracleID,
-	cfg model.CommitPluginConfig,
-	ccipReader reader.CCIP,
-	tokenPricesReader reader.TokenPrices,
-	reportCodec codec.Commit,
-	msgHasher codec.MessageHasher,
+	cfg cciptypes.CommitPluginConfig,
+	ccipReader cciptypes.CCIPReader,
+	tokenPricesReader cciptypes.TokenPricesReader,
+	reportCodec cciptypes.CommitPluginCodec,
+	msgHasher cciptypes.MessageHasher,
 	lggr logger.Logger,
 ) *Plugin {
-	knownSourceChains := mapset.NewSet[model.ChainSelector]()
+	knownSourceChains := mapset.NewSet[cciptypes.ChainSelector]()
 	for _, inf := range cfg.ObserverInfo {
 		knownSourceChains = knownSourceChains.Union(mapset.NewSet(inf.Reads...))
 	}
@@ -121,7 +119,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		return types.Observation{}, fmt.Errorf("observe new messages: %w", err)
 	}
 
-	var tokenPrices []model.TokenPrice
+	var tokenPrices []cciptypes.TokenPrice
 	if p.cfg.TokenPricesObserver {
 		tokenPrices, err = observeTokenPrices(
 			ctx,
@@ -134,7 +132,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 	}
 
 	// Find the gas prices for each source chain.
-	var gasPrices []model.GasPriceChain
+	var gasPrices []cciptypes.GasPriceChain
 	gasPrices, err = observeGasPrices(ctx, p.ccipReader, p.knownSourceChainsSlice())
 	if err != nil {
 		return types.Observation{}, fmt.Errorf("observe gas prices: %w", err)
@@ -147,16 +145,16 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		"maxSeqNumsPerChain", maxSeqNumsPerChain,
 		"observerInfo", p.cfg.ObserverInfo)
 
-	msgBaseDetails := make([]model.CCIPMsgBaseDetails, 0)
+	msgBaseDetails := make([]cciptypes.CCIPMsgBaseDetails, 0)
 	for _, msg := range newMsgs {
 		msgBaseDetails = append(msgBaseDetails, msg.CCIPMsgBaseDetails)
 	}
-	return model.NewCommitPluginObservation(msgBaseDetails, gasPrices, tokenPrices, maxSeqNumsPerChain, p.cfg).Encode()
+	return cciptypes.NewCommitPluginObservation(msgBaseDetails, gasPrices, tokenPrices, maxSeqNumsPerChain, p.cfg).Encode()
 
 }
 
 func (p *Plugin) ValidateObservation(_ ocr3types.OutcomeContext, _ types.Query, ao types.AttributedObservation) error {
-	obs, err := model.DecodeCommitPluginObservation(ao.Observation)
+	obs, err := cciptypes.DecodeCommitPluginObservation(ao.Observation)
 	if err != nil {
 		return fmt.Errorf("decode commit plugin observation: %w", err)
 	}
@@ -196,9 +194,9 @@ func (p *Plugin) ObservationQuorum(_ ocr3types.OutcomeContext, _ types.Query) (o
 //   - Merkle Roots: One merkle tree root per source chain. The leaves of the tree are the IDs of the observed messages.
 //     The merkle root data type contains information about the chain and the sequence numbers range.
 func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
-	decodedObservations := make([]model.CommitPluginObservation, 0)
+	decodedObservations := make([]cciptypes.CommitPluginObservation, 0)
 	for _, ao := range aos {
-		obs, err := model.DecodeCommitPluginObservation(ao.Observation)
+		obs, err := cciptypes.DecodeCommitPluginObservation(ao.Observation)
 		if err != nil {
 			return ocr3types.Outcome{}, fmt.Errorf("decode commit plugin observation: %w", err)
 		}
@@ -234,7 +232,7 @@ func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.
 	gasPrices := gasPricesConsensus(p.lggr, decodedObservations, cfg.FChain[cfg.DestChain])
 	p.lggr.Debugw("gas prices consensus", "gasPrices", gasPrices)
 
-	outcome := model.NewCommitPluginOutcome(maxSeqNums, merkleRoots, tokenPrices, gasPrices)
+	outcome := cciptypes.NewCommitPluginOutcome(maxSeqNums, merkleRoots, tokenPrices, gasPrices)
 	if outcome.IsEmpty() {
 		p.lggr.Debugw("empty outcome")
 		return ocr3types.Outcome{}, nil
@@ -245,7 +243,7 @@ func (p *Plugin) Outcome(_ ocr3types.OutcomeContext, _ types.Query, aos []types.
 }
 
 func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportWithInfo[[]byte], error) {
-	outc, err := model.DecodeCommitPluginOutcome(outcome)
+	outc, err := cciptypes.DecodeCommitPluginOutcome(outcome)
 	if err != nil {
 		p.lggr.Errorw("decode commit plugin outcome", "outcome", outcome, "err", err)
 		return nil, fmt.Errorf("decode commit plugin outcome: %w", err)
@@ -256,7 +254,7 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 		and only create a report if outc.MerkleRoots is non-empty OR gas/token price timer has expired
 	*/
 
-	rep := model.NewCommitPluginReport(outc.MerkleRoots, outc.TokenPrices, outc.GasPrices)
+	rep := cciptypes.NewCommitPluginReport(outc.MerkleRoots, outc.TokenPrices, outc.GasPrices)
 
 	encodedReport, err := p.reportCodec.Encode(context.Background(), rep)
 	if err != nil {
@@ -313,10 +311,10 @@ func (p *Plugin) Close() error {
 	return nil
 }
 
-func (p *Plugin) knownSourceChainsSlice() []model.ChainSelector {
+func (p *Plugin) knownSourceChainsSlice() []cciptypes.ChainSelector {
 	knownSourceChainsSlice := p.knownSourceChains.ToSlice()
 	sort.Slice(knownSourceChainsSlice, func(i, j int) bool { return knownSourceChainsSlice[i] < knownSourceChainsSlice[j] })
-	return slicelib.Filter(knownSourceChainsSlice, func(ch model.ChainSelector) bool { return ch != p.cfg.DestChain })
+	return slicelib.Filter(knownSourceChainsSlice, func(ch cciptypes.ChainSelector) bool { return ch != p.cfg.DestChain })
 }
 
 // Interface compatibility checks.

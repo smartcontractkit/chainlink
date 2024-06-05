@@ -7,19 +7,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	//cache "github.com/smartcontractkit/ccipocr3/internal/copypaste/commit_roots_cache"
-	"github.com/smartcontractkit/ccipocr3/internal/model"
-	"github.com/smartcontractkit/ccipocr3/internal/reader"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // Plugin implements the main ocr3 plugin logic.
 type Plugin struct {
 	nodeID     commontypes.OracleID
-	cfg        model.ExecutePluginConfig
-	ccipReader reader.CCIP
+	cfg        cciptypes.ExecutePluginConfig
+	ccipReader cciptypes.CCIPReader
 
 	//commitRootsCache cache.CommitsRootsCache
 	lastReportTS *atomic.Int64
@@ -28,8 +27,8 @@ type Plugin struct {
 func NewPlugin(
 	_ context.Context,
 	nodeID commontypes.OracleID,
-	cfg model.ExecutePluginConfig,
-	ccipReader reader.CCIP,
+	cfg cciptypes.ExecutePluginConfig,
+	ccipReader cciptypes.CCIPReader,
 ) *Plugin {
 	lastReportTS := &atomic.Int64{}
 	lastReportTS.Store(time.Now().Add(-cfg.MessageVisibilityInterval).UnixMilli())
@@ -46,7 +45,7 @@ func (p *Plugin) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (ty
 	return types.Query{}, nil
 }
 
-func getPendingExecutedReports(ctx context.Context, ccipReader reader.CCIP, dest model.ChainSelector, ts time.Time) (model.ExecutePluginCommitObservations, time.Time, error) {
+func getPendingExecutedReports(ctx context.Context, ccipReader cciptypes.CCIPReader, dest cciptypes.ChainSelector, ts time.Time) (cciptypes.ExecutePluginCommitObservations, time.Time, error) {
 	oldestReport := time.Time{}
 
 	commitReports, err := ccipReader.CommitReportsGTETimestamp(ctx, dest, ts, 1000)
@@ -75,7 +74,7 @@ func getPendingExecutedReports(ctx context.Context, ccipReader reader.CCIP, dest
 			return nil, time.Time{}, err
 		}
 
-		var executedMessages []model.SeqNumRange
+		var executedMessages []cciptypes.SeqNumRange
 		for _, seqRange := range ranges {
 			executedMessagesForRange, err2 := ccipReader.ExecutedMessageRanges(ctx, selector, dest, seqRange)
 			if err2 != nil {
@@ -104,14 +103,14 @@ func getPendingExecutedReports(ctx context.Context, ccipReader reader.CCIP, dest
 // Phase 2: Gather messages from the source chains and build the execution
 // report.
 func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, _ types.Query) (types.Observation, error) {
-	previousOutcome, err := model.DecodeExecutePluginOutcome(outctx.PreviousOutcome)
+	previousOutcome, err := cciptypes.DecodeExecutePluginOutcome(outctx.PreviousOutcome)
 	if err != nil {
 		return types.Observation{}, err
 	}
 
 	// Phase 1: Gather commit reports from the destination chain and determine which messages are required to build a valid execution report.
 	ownConfig := p.cfg.ObserverInfo[p.nodeID]
-	var groupedCommits model.ExecutePluginCommitObservations
+	var groupedCommits cciptypes.ExecutePluginCommitObservations
 	if slices.Contains(ownConfig.Reads, p.cfg.DestChain) {
 		var oldestReport time.Time
 		groupedCommits, oldestReport, err = getPendingExecutedReports(ctx, p.ccipReader, p.cfg.DestChain, time.UnixMilli(p.lastReportTS.Load()))
@@ -123,7 +122,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 	}
 
 	// Phase 2: Gather messages from the source chains and build the execution report.
-	messages := make(model.ExecutePluginMessageObservations)
+	messages := make(cciptypes.ExecutePluginMessageObservations)
 	if len(previousOutcome.Messages) == 0 {
 		fmt.Println("TODO: No messages to execute. This is expected after a cold start.")
 		// No messages to execute.
@@ -154,11 +153,11 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 
 	// TODO: Fire off messages for an attestation check service.
 
-	return model.NewExecutePluginObservation(groupedCommits, messages).Encode()
+	return cciptypes.NewExecutePluginObservation(groupedCommits, messages).Encode()
 }
 
 func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
-	decodedObservation, err := model.DecodeExecutePluginObservation(ao.Observation)
+	decodedObservation, err := cciptypes.DecodeExecutePluginObservation(ao.Observation)
 	if err != nil {
 		return fmt.Errorf("decode observation: %w", err)
 	}
@@ -183,9 +182,9 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query types.Query, aos
 	// TODO: do we care about f_chain here? I believe only commit is needs true consensus.
 	//       if we do, it would mainly be to prevent bad participants from invalidating the proofs with bad data.
 	// Aggregate messages from the current observations
-	aggregatedMessages := make(map[model.ChainSelector]map[model.SeqNum]model.Bytes32)
+	aggregatedMessages := make(map[cciptypes.ChainSelector]map[cciptypes.SeqNum]cciptypes.Bytes32)
 	for _, ao := range aos {
-		obs, err := model.DecodeExecutePluginObservation(ao.Observation)
+		obs, err := cciptypes.DecodeExecutePluginObservation(ao.Observation)
 		if err != nil {
 			return ocr3types.Outcome{}, err
 		}
@@ -200,7 +199,7 @@ func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query types.Query, aos
 	// Reports from previous outcome
 	// TODO: Build the proof
 	/*
-		previousOutcome, err := model.DecodeExecutePluginOutcome(outctx.PreviousOutcome)
+		previousOutcome, err := cciptypes.DecodeExecutePluginOutcome(outctx.PreviousOutcome)
 		if err != nil {
 			return ocr3types.Outcome{}, err
 		}

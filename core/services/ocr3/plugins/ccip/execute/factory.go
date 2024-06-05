@@ -3,11 +3,11 @@ package commit
 import (
 	"context"
 
-	"github.com/smartcontractkit/ccipocr3/internal/model"
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -47,7 +47,7 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 	return NewPlugin(
 		context.Background(),
 		config.OracleID,
-		model.ExecutePluginConfig{},
+		cciptypes.ExecutePluginConfig{},
 		nil,
 	), ocr3types.ReportingPluginInfo{}, nil
 }
