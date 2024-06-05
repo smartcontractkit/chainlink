@@ -452,10 +452,10 @@ func extractObservationData(lggr logger.Logger, f int, observations []ccip.Commi
 
 	tokenPrices = make(map[cciptypes.Address][]*big.Int)
 	for token, tokenPriceObservations := range tokenPriceObservations {
-		// Token price is dropped if there are not enough valid observations. Depending on rollout status of job specs,
-		// it is possible for different nodes in the DON to observe different tokens. We can conclude a token should indeed
-		// be observed if there are at least f+1 valid observations.
-		if len(tokenPriceObservations) <= f {
+		// Token price is dropped if there are not enough valid observations. With a threshold of 2*(f-1) + 1, we achieve a balance between safety and liveness.
+		// During phased-rollout where some honest nodes may not have started observing the token yet, it requires 5 malicious node with 1 being the leader to successfully alter price.
+		// During regular operation, it requires 3 malicious nodes with 1 being the leader to temporarily delay price update for the token.
+		if len(tokenPriceObservations) < (2*(f-1) + 1) {
 			lggr.Warnf("Skipping token %s due to not enough valid observations: #obs=%d, f=%d", string(token), len(tokenPriceObservations), f)
 			continue
 		}
