@@ -40,7 +40,7 @@ const (
 	VRFJobType                     string = "vrf"
 	WebhookJobType                 string = "webhook"
 	WorkflowJobType                string = "workflow"
-	StandardCapabilityJobType      string = "standardcapability"
+	StandardCapabilitiesJobType    string = "standardcapabilities"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

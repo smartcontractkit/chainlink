@@ -12,7 +12,7 @@ union JobSpec =
     BootstrapSpec |
     GatewaySpec |
     WorkflowSpec |
-    StandardCapabilitySpec
+    StandardCapabilitiesSpec
 
 type CronSpec {
     schedule: String!
@@ -172,7 +172,7 @@ type WorkflowSpec {
     updatedAt: Time!
 }
 
-type StandardCapabilitySpec {
+type StandardCapabilitiesSpec {
     id: ID!
     createdAt: Time!
     command: String!

@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapability"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -256,8 +256,8 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		jb, err = streams.ValidatedStreamSpec(tomlString)
 	case job.Workflow:
 		jb, err = workflows.ValidatedWorkflowSpec(tomlString)
-	case job.StandardCapability:
-		jb, err = standardcapability.ValidatedStandardCapabilitySpec(tomlString)
+	case job.StandardCapabilities:
+		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
 
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)

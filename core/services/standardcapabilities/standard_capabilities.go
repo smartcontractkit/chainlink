@@ -1,4 +1,4 @@
-package standardcapability
+package standardcapabilities
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-type standardCapability struct {
+type standardCapabilities struct {
 	services.StateMachine
 	log                logger.Logger
-	spec               *job.StandardCapabilitySpec
+	spec               *job.StandardCapabilitiesSpec
 	pluginRegistrar    plugins.RegistrarConfig
 	telemetryService   core.TelemetryService
 	store              core.KeyValueStore
@@ -24,18 +24,18 @@ type standardCapability struct {
 	pipelineRunner     core.PipelineRunnerService
 	relayerSet         core.RelayerSet
 
-	capabilityLoop *loop.StandardCapabilityService
+	capabilitiesLoop *loop.StandardCapabilitiesService
 }
 
-func newStandardCapability(log logger.Logger, spec *job.StandardCapabilitySpec,
+func newStandardCapabilities(log logger.Logger, spec *job.StandardCapabilitiesSpec,
 	pluginRegistrar plugins.RegistrarConfig,
 	telemetryService core.TelemetryService,
 	store core.KeyValueStore,
 	capabilityRegistry core.CapabilitiesRegistry,
 	errorLog core.ErrorLog,
 	pipelineRunner core.PipelineRunnerService,
-	relayerSet core.RelayerSet) *standardCapability {
-	return &standardCapability{
+	relayerSet core.RelayerSet) *standardCapabilities {
+	return &standardCapabilities{
 		log:                log,
 		spec:               spec,
 		pluginRegistrar:    pluginRegistrar,
@@ -48,8 +48,8 @@ func newStandardCapability(log logger.Logger, spec *job.StandardCapabilitySpec,
 	}
 }
 
-func (s *standardCapability) Start(ctx context.Context) error {
-	return s.StartOnce("StandardCapability", func() error {
+func (s *standardCapabilities) Start(ctx context.Context) error {
+	return s.StartOnce("StandardCapabilities", func() error {
 		cmdName := s.spec.Command
 
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
@@ -62,36 +62,36 @@ func (s *standardCapability) Start(ctx context.Context) error {
 			return fmt.Errorf("error registering loop: %v", err)
 		}
 
-		s.capabilityLoop = loop.NewStandardCapability(s.log, opts, cmdFn)
+		s.capabilitiesLoop = loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)
 
-		if err = s.capabilityLoop.Start(ctx); err != nil {
-			return fmt.Errorf("error starting standard capability service: %v", err)
+		if err = s.capabilitiesLoop.Start(ctx); err != nil {
+			return fmt.Errorf("error starting standard capabilities service: %v", err)
 		}
 
-		if err = s.capabilityLoop.WaitCtx(ctx); err != nil {
-			return fmt.Errorf("error waiting for standard capability service to start: %v", err)
+		if err = s.capabilitiesLoop.WaitCtx(ctx); err != nil {
+			return fmt.Errorf("error waiting for standard capabilities service to start: %v", err)
 		}
 
-		if err = s.capabilityLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.capabilityRegistry, s.errorLog,
+		if err = s.capabilitiesLoop.Service.Initialise(ctx, s.spec.Config, s.telemetryService, s.store, s.capabilityRegistry, s.errorLog,
 			s.pipelineRunner, s.relayerSet); err != nil {
-			return fmt.Errorf("error initialising standard capability service: %v", err)
+			return fmt.Errorf("error initialising standard capabilities service: %v", err)
 		}
 
-		capabilityInfo, err := s.capabilityLoop.Service.Info(ctx)
+		capabilityInfos, err := s.capabilitiesLoop.Service.Infos(ctx)
 		if err != nil {
-			return fmt.Errorf("error getting standard capability service info: %v", err)
+			return fmt.Errorf("error getting standard capabilities service info: %v", err)
 		}
 
-		s.log.Info("Started standard capability", "info", capabilityInfo)
+		s.log.Info("Started standard capabilities", "info", capabilityInfos)
 
 		return nil
 	})
 }
 
-func (s *standardCapability) Close() error {
-	return s.StopOnce("StandardCapability", func() error {
-		if s.capabilityLoop != nil {
-			return s.capabilityLoop.Close()
+func (s *standardCapabilities) Close() error {
+	return s.StopOnce("StandardCapabilities", func() error {
+		if s.capabilitiesLoop != nil {
+			return s.capabilitiesLoop.Close()
 		}
 
 		return nil

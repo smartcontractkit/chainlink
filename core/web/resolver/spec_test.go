@@ -1106,20 +1106,20 @@ func TestResolver_GatewaySpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_StandardCapabilitySpec(t *testing.T) {
+func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
 	var (
 		id = int32(1)
 	)
 
 	testCases := []GQLTestCase{
 		{
-			name:          "StandardCapability spec",
+			name:          "StandardCapabilities spec",
 			authenticated: true,
 			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
-					Type: job.StandardCapability,
-					StandardCapabilitySpec: &job.StandardCapabilitySpec{
+					Type: job.StandardCapabilities,
+					StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
 						ID:        id,
 						CreatedAt: f.Timestamp(),
 						Command:   "testcommand",
@@ -1133,7 +1133,7 @@ func TestResolver_StandardCapabilitySpec(t *testing.T) {
 						... on Job {
 							spec {
 								__typename
-								... on StandardCapabilitySpec {
+								... on StandardCapabilitiesSpec {
 									id
 									createdAt
 									command
@@ -1148,7 +1148,7 @@ func TestResolver_StandardCapabilitySpec(t *testing.T) {
 				{
 					"job": {
 						"spec": {
-							"__typename": "StandardCapabilitySpec",
+							"__typename": "StandardCapabilitiesSpec",
 							"id": "1",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"command": "testcommand",

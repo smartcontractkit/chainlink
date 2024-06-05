@@ -1,4 +1,4 @@
-package standardcapability
+package standardcapabilities
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func NewDelegate(logger logger.Logger, ds sqlutil.DataSource, jobORM job.ORM, re
 }
 
 func (d *Delegate) JobType() job.Type {
-	return job.StandardCapability
+	return job.StandardCapabilities
 }
 
 func (d *Delegate) BeforeJobCreated(job job.Job) {
@@ -55,7 +55,7 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapability").Named(spec.StandardCapabilitySpec.GetID())
+	log := d.logger.Named("StandardCapabilities").Named(spec.StandardCapabilitiesSpec.GetID())
 
 	kvStore := job.NewKVStore(spec.ID, d.ds, log)
 	telemetryService := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
@@ -67,7 +67,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
-	standardCapability := newStandardCapability(log, spec.StandardCapabilitySpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
+	standardCapability := newStandardCapabilities(log, spec.StandardCapabilitiesSpec, d.cfg, telemetryService, kvStore, d.registry, errorLog,
 		pr, relayerSet)
 
 	return []job.ServiceCtx{standardCapability}, nil
@@ -79,32 +79,32 @@ func (d *Delegate) BeforeJobDeleted(job job.Job) {}
 
 func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error { return nil }
 
-func ValidatedStandardCapabilitySpec(tomlString string) (job.Job, error) {
+func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return jb, errors.Wrap(err, "toml error on load standard capability")
+		return jb, errors.Wrap(err, "toml error on load standard capabilities")
 	}
 
 	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return jb, errors.Wrap(err, "toml unmarshal error on standard capability spec")
+		return jb, errors.Wrap(err, "toml unmarshal error on standard capabilities spec")
 	}
 
-	var spec job.StandardCapabilitySpec
+	var spec job.StandardCapabilitiesSpec
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return jb, errors.Wrap(err, "toml unmarshal error on standard capability job")
+		return jb, errors.Wrap(err, "toml unmarshal error on standard capabilities job")
 	}
 
-	jb.StandardCapabilitySpec = &spec
-	if jb.Type != job.StandardCapability {
-		return jb, errors.Errorf("standard capability unsupported job type %s", jb.Type)
+	jb.StandardCapabilitiesSpec = &spec
+	if jb.Type != job.StandardCapabilities {
+		return jb, errors.Errorf("standard capabilities unsupported job type %s", jb.Type)
 	}
 
-	if len(jb.StandardCapabilitySpec.Command) == 0 {
-		return jb, errors.Errorf("standard capability command must be set")
+	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
+		return jb, errors.Errorf("standard capabilities command must be set")
 	}
 
 	return jb, nil

@@ -1,6 +1,6 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE standardcapability_specs (
+CREATE TABLE standardcapabilities_specs (
                                id              SERIAL PRIMARY KEY,
                                created_at      timestamp with time zone NOT NULL,
                                updated_at      timestamp with time zone NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE standardcapability_specs (
 );
 
 ALTER TABLE jobs
-    ADD COLUMN standard_capability_spec_id INT REFERENCES standardcapability_specs (id),
+    ADD COLUMN standard_capabilities_spec_id INT REFERENCES standardcapabilities_specs (id),
 DROP CONSTRAINT chk_specs,
     ADD CONSTRAINT chk_specs CHECK (
       num_nonnulls(
@@ -23,7 +23,7 @@ DROP CONSTRAINT chk_specs,
         legacy_gas_station_sidecar_spec_id,
         eal_spec_id,
         workflow_spec_id,
-        standard_capability_spec_id,
+        standard_capabilities_spec_id,
         CASE "type"
 	  WHEN 'stream'
 	  THEN 1
@@ -59,7 +59,7 @@ DROP CONSTRAINT chk_specs,
     );
 
 ALTER TABLE jobs
-DROP COLUMN standard_capability_spec_id;
+DROP COLUMN standard_capabilities_spec_id;
 
-DROP TABLE standardcapability_specs;
+DROP TABLE standardcapabilities_specs;
 -- +goose StatementEnd
