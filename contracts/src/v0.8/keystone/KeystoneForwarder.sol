@@ -17,6 +17,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
 
+  /// @notice This error is returned when the metadata version is not supported.
+  error InvalidVersion(uint8 version);
+
   /// @notice This error is thrown whenever trying to set a config with a fault
   /// tolerance of 0.
   error FaultToleranceMustBePositive();
@@ -58,9 +61,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param signature The signature that was invalid
   error InvalidSignature(bytes signature);
 
-  /// @notice This error is thrown whenever a report has already been processed.
-  /// @param reportId The ID of the report that was already processed
-  error ReportAlreadyProcessed(bytes32 reportId);
+  /// @notice This error is thrown whenever a message has already been processed.
+  /// @param messageId The ID of the message that was already processed
+  error AlreadyProcessed(bytes32 messageId);
 
   bool internal s_reentrancyGuard; // guard against reentrancy
 
@@ -83,22 +86,15 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
-  /// @param workflowOwner The address of the workflow owner
   /// @param workflowExecutionId The ID of the workflow execution
   /// @param result The result of the attempted delivery. True if successful.
-  event ReportProcessed(
-    address indexed receiver,
-    address indexed workflowOwner,
-    bytes32 indexed workflowExecutionId,
-    bool result
-  );
+  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
   constructor() ConfirmedOwner(msg.sender) {}
 
   uint256 internal constant MAX_ORACLES = 31;
-  // 32 bytes for workflowId, 4 bytes for donId, 32 bytes for
-  // workflowExecutionId, 20 bytes for workflowOwner
-  uint256 internal constant REPORT_METADATA_LENGTH = 88;
+  uint256 internal constant METADATA_LENGTH = 109;
+  uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
   function setConfig(uint32 donId, uint8 f, address[] calldata signers) external onlyOwner {
@@ -133,17 +129,19 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes calldata reportContext,
     bytes[] calldata signatures
   ) external nonReentrant {
-    if (rawReport.length < REPORT_METADATA_LENGTH) {
+    if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
 
-    (bytes32 workflowId, uint32 donId, bytes32 workflowExecutionId, address workflowOwner) = _getMetadata(rawReport);
+    (bytes32 workflowExecutionId, uint32 donId /* uint32 donConfigVersion */, , bytes2 reportId) = _getMetadata(
+      rawReport
+    );
 
     // f can never be 0, so this means the config doesn't actually exist
     if (s_configs[donId].f == 0) revert InvalidDonId(donId);
 
-    bytes32 reportId = _reportId(receiverAddress, workflowExecutionId);
-    if (s_reports[reportId].transmitter != address(0)) revert ReportAlreadyProcessed(reportId);
+    bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
+    if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
 
     if (s_configs[donId].f + 1 != signatures.length)
       revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
@@ -169,28 +167,37 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     bool success;
-    try IReceiver(receiverAddress).onReport(workflowId, workflowOwner, rawReport[REPORT_METADATA_LENGTH:]) {
+    try
+      IReceiver(receiverAddress).onReport(
+        rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
+        rawReport[METADATA_LENGTH:]
+      )
+    {
       success = true;
     } catch {
       // Do nothing, success is already false
     }
 
-    s_reports[reportId] = DeliveryStatus(msg.sender, success);
-
-    emit ReportProcessed(receiverAddress, workflowOwner, workflowExecutionId, success);
+    s_reports[combinedId] = DeliveryStatus(msg.sender, success);
+    emit ReportProcessed(receiverAddress, workflowExecutionId, success);
   }
 
-  function _reportId(address receiver, bytes32 workflowExecutionId) internal pure returns (bytes32) {
+  function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
     // TODO: gas savings: could we just use a bytes key and avoid another keccak256 call
-    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId));
+    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 
   // get transmitter of a given report or 0x0 if it wasn't transmitted yet
-  function getTransmitter(address receiver, bytes32 workflowExecutionId) external view returns (address) {
-    bytes32 reportId = _reportId(receiver, workflowExecutionId);
-    return s_reports[reportId].transmitter;
+  function getTransmitter(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (address) {
+    bytes32 combinedId = _combinedId(receiver, workflowExecutionId, reportId);
+    return s_reports[combinedId].transmitter;
   }
 
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
     if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
 
@@ -213,20 +220,30 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
   }
 
+  // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _getMetadata(
     bytes memory rawReport
-  ) internal pure returns (bytes32 workflowId, uint32 donId, bytes32 workflowExecutionId, address workflowOwner) {
+  ) internal pure returns (bytes32 workflowExecutionId, uint32 donId, uint32 donConfigVersion, bytes2 reportId) {
+    // (first 32 bytes of memory contain length of the report)
+    // version                  // offset  32, size  1
+    // workflow_execution_id    // offset  33, size 32
+    // timestamp                // offset  65, size  4
+    // don_id                   // offset  69, size  4
+    // don_config_version,	    // offset  73, size  4
+    // workflow_cid             // offset  77, size 32
+    // workflow_name            // offset 109, size 10
+    // workflow_owner           // offset 119, size 20
+    // report_name              // offset 139, size  2
+    if (uint8(rawReport[0]) != 1) {
+      revert InvalidVersion(uint8(rawReport[0]));
+    }
     assembly {
-      // skip first 32 bytes, contains length of the report
-      // first 32 bytes is the workflowId
-      workflowId := mload(add(rawReport, 32))
-      // next 4 bytes is donId. We shift right by 28 bytes to get the actual value
-      donId := shr(mul(28, 8), mload(add(rawReport, 64)))
-      // next 32 bytes is the workflowExecutionId
-      workflowExecutionId := mload(add(rawReport, 68))
-      // next 20 bytes is the workflowOwner. We shift right by 12 bytes to get
-      // the actual value
-      workflowOwner := shr(mul(12, 8), mload(add(rawReport, 100)))
+      workflowExecutionId := mload(add(rawReport, 33))
+      // shift right by 28 bytes to get the actual value
+      donId := shr(mul(28, 8), mload(add(rawReport, 69)))
+      // shift right by 28 bytes to get the actual value
+      donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
+      reportId := mload(add(rawReport, 139))
     }
   }
 

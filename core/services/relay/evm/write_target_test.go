@@ -99,6 +99,8 @@ func TestEvmWrite(t *testing.T) {
 			"signed_report": map[string]any{
 				"report":     []byte{1, 2, 3},
 				"signatures": [][]byte{},
+				"context":    []byte{4, 5},
+				"id":         []byte{9, 9},
 			},
 		})
 		require.NoError(t, err)
@@ -193,6 +195,8 @@ func TestEvmWrite(t *testing.T) {
 			"signed_report": map[string]any{
 				"report":     []byte{1, 2, 3},
 				"signatures": [][]byte{},
+				"context":    []byte{4, 5},
+				"id":         []byte{9, 9},
 			},
 		})
 		require.NoError(t, err)
