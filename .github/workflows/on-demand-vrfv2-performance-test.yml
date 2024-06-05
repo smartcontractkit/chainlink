@@ -97,7 +97,7 @@ jobs:
               echo "READ_CMD=" >> $GITHUB_ENV
             else
               echo "Fetching keyfile from 1Password"
-              keyname = "${{ env.NETWORKS }}_KEYFILE"
+              keyname="${{ env.NETWORKS }}_KEYFILE"
               echo "Using keyname $keyname"
               READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
               echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
