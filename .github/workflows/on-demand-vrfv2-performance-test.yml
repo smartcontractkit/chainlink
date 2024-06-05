@@ -113,7 +113,10 @@ jobs:
                 echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
           
                 echo "Executing"
-                SETH_KEYFILE_BASE64=$(eval ${{env.READ_CMD}} | base64 -w0)
+                SETH_KEYFILE_BASE64=$(eval "${{env.READ_CMD}}")
+                echo "BASE64-ed file: $SETH_KEYFILE_BASE64"
+          
+                SETH_KEYFILE_BASE64=$(eval "$READ_CMD")
                 echo "BASE64-ed file: $SETH_KEYFILE_BASE64"
               fi
       - name: Run Tests
