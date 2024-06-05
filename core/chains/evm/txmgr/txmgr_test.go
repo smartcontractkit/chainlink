@@ -621,18 +621,17 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
-		idempotencyKey := uuid.New()
+		idempotencyKey := uuid.New().String()
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Error(t, err, fmt.Sprintf("failed to find transaction with IdempotencyKey: %s", idempotencyKey))
 		require.Equal(t, commontypes.Unknown, state)
 	})
 
 	t.Run("returns unknown for unstarted state", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		tx := &txmgr.Tx{
-			IdempotencyKey: &idempotencyKeyStr,
+			IdempotencyKey: &idempotencyKey,
 			FromAddress:    fromAddress,
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       feeLimit,
@@ -646,13 +645,12 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns unknown for in-progress state", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		tx := &txmgr.Tx{
 			Sequence:       &nonce,
-			IdempotencyKey: &idempotencyKeyStr,
+			IdempotencyKey: &idempotencyKey,
 			FromAddress:    fromAddress,
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       feeLimit,
@@ -666,14 +664,13 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns unconfirmed for unconfirmed state", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKeyStr,
+			IdempotencyKey:     &idempotencyKey,
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
@@ -689,14 +686,13 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns unconfirmed for confirmed state newer than finalized block", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKeyStr,
+			IdempotencyKey:     &idempotencyKey,
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
@@ -706,7 +702,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
-		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKeyStr, testutils.FixtureChainID)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
 		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
 		err = txStore.InsertTxAttempt(ctx, &attempt)
@@ -719,14 +715,13 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns finalized for confirmed state older than finalized block", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKeyStr,
+			IdempotencyKey:     &idempotencyKey,
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
@@ -736,7 +731,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
-		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKeyStr, testutils.FixtureChainID)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
 		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
 		err = txStore.InsertTxAttempt(ctx, &attempt)
@@ -749,14 +744,13 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKeyStr,
+			IdempotencyKey:     &idempotencyKey,
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
@@ -772,14 +766,13 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns fatal for fatal error state with terminally stuck error", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
 		broadcast := time.Now()
 		tx := &txmgr.Tx{
 			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKeyStr,
+			IdempotencyKey:     &idempotencyKey,
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
@@ -796,12 +789,11 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 	})
 
 	t.Run("returns failed for fatal error state with other error", func(t *testing.T) {
-		idempotencyKey := uuid.New()
-		idempotencyKeyStr := idempotencyKey.String()
+		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		errorMsg := "something went wrong"
 		tx := &txmgr.Tx{
-			IdempotencyKey: &idempotencyKeyStr,
+			IdempotencyKey: &idempotencyKey,
 			FromAddress:    fromAddress,
 			EncodedPayload: []byte{1, 2, 3},
 			FeeLimit:       feeLimit,

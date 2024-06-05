@@ -64,7 +64,7 @@ type TxManager[
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
-	GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (state commontypes.TransactionStatus, err error)
+	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
 }
 
 type reset struct {
@@ -639,15 +639,15 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTrans
 	return b.txStore.CountTransactionsByState(ctx, state, b.chainID)
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status commontypes.TransactionStatus, err error) {
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
 	// Loads attempts and receipts in the transaction
-	tx, err := b.txStore.FindTxWithIdempotencyKey(ctx, transactionID.String(), b.chainID)
+	tx, err := b.txStore.FindTxWithIdempotencyKey(ctx, transactionID, b.chainID)
 	if err != nil {
-		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID.String(), err)
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID, err)
 	}
 	// This check is required since a no-rows error returns nil err
 	if tx == nil {
-		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s", transactionID.String())
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s", transactionID)
 	}
 	switch tx.State {
 	case TxUnconfirmed, TxConfirmedMissingReceipt:
@@ -768,7 +768,7 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Cou
 	return count, errors.New(n.ErrMsg)
 }
 
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (status commontypes.TransactionStatus, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
 	return
 }
 
