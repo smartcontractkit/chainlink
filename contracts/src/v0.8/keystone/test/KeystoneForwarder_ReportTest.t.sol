@@ -27,7 +27,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
 
-    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, CONFIG_VERSION, _getSignerAddresses());
+    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
 
     mercuryReports[0] = hex"010203";
     mercuryReports[1] = hex"aabbccdd";
