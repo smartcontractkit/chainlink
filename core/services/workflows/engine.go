@@ -413,7 +413,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
@@ -562,7 +562,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	l.Debugw("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
-		Outputs:     &store.StepOutput{},
+		Outputs:     store.StepOutput{},
 		ExecutionID: msg.state.ExecutionID,
 		Ref:         msg.stepRef,
 	}
@@ -794,7 +794,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
-	workflow.name = cfg.WorkflowName
+	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
