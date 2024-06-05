@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -267,4 +269,84 @@ func TestOCR2OracleSpec(t *testing.T) {
 			require.Equal(t, compact, string(gotB))
 		})
 	})
+}
+
+func TestWorkflowSpec_Validate(t *testing.T) {
+	type fields struct {
+		ID            int32
+		WorkflowID    string
+		Workflow      string
+		WorkflowOwner string
+		WorkflowName  string
+		CreatedAt     time.Time
+		UpdatedAt     time.Time
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		expectedErr error
+	}{
+		{
+			name: "valid",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner: "00000000000000000000000000000000000000aa",
+				WorkflowName:  "ten bytes!",
+			},
+		},
+
+		{
+			name: "not hex owner",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner: "00000000000000000000000000000000000000az",
+				WorkflowName:  "ten bytes!",
+			},
+			expectedErr: ErrInvalidWorkflowOwner,
+		},
+
+		{
+			name: "not len 40 owner",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner: "0000000000",
+				WorkflowName:  "ten bytes!",
+			},
+			expectedErr: ErrInvalidWorkflowOwner,
+		},
+
+		{
+			name: "not len 10 name",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner: "00000000000000000000000000000000000000aa",
+				WorkflowName:  "not ten bytes!",
+			},
+			expectedErr: ErrInvalidWorkflowName,
+		},
+		{
+			name: "not len 64 id",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f",
+				WorkflowOwner: "00000000000000000000000000000000000000aa",
+				WorkflowName:  "ten bytes!",
+			},
+			expectedErr: ErrInvalidWorkflowID,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := &WorkflowSpec{
+				ID:            tt.fields.ID,
+				WorkflowID:    tt.fields.WorkflowID,
+				Workflow:      tt.fields.Workflow,
+				WorkflowOwner: tt.fields.WorkflowOwner,
+				WorkflowName:  tt.fields.WorkflowName,
+				CreatedAt:     tt.fields.CreatedAt,
+				UpdatedAt:     tt.fields.UpdatedAt,
+			}
+			err := w.Validate()
+			assert.ErrorIs(t, err, tt.expectedErr)
+		})
+	}
 }
