@@ -143,7 +143,7 @@ contract VRFV2PlusWrapper is
   // s_coordinatorLinkPremiumPercentage is the premium ratio in percentage for link payment. For example, a
   // value of 0 indicates no premium. A value of 15 indicates a 15 percent premium.
   // Wrapper has no premium. This premium is for VRFCoordinator.
-  uint8 public s_coordinatorLinkPremiumPercentage;
+  uint8 private s_coordinatorLinkPremiumPercentage;
   /* Storage Slot 5: END */
 
   struct Callback {
