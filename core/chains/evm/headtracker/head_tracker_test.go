@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -21,30 +21,31 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
@@ -58,24 +59,24 @@ func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), nil)
 	// finalized
-	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(cltest.Head(0), nil)
-	mockEth := &evmtest.MockEth{
+	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(testutils.Head(0), nil)
+	mockEth := &testutils.MockEth{
 		EthClient: ethClient,
 	}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Maybe().
 		Return(mockEth.NewSub(t), nil)
 
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
-	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(1)))
-	last := cltest.Head(16)
-	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), last))
-	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(10)))
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
+	assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), testutils.Head(1)))
+	last := testutils.Head(16)
+	assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), last))
+	assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), testutils.Head(10)))
 
-	evmcfg := cltest.NewTestChainScopedConfig(t)
+	evmcfg := testutils.NewTestChainScopedConfig(t, nil)
 	ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
 	ht.Start(t)
 
@@ -89,31 +90,30 @@ func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
-		c.EVM[0].HeadTracker.HistoryDepth = ptr[uint32](100)
+	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.HeadTracker.HistoryDepth = ptr[uint32](100)
 	})
-	config := evmtest.NewChainScopedConfig(t, gCfg)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
 	for idx := 0; idx < 200; idx++ {
-		assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(idx)))
+		assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), testutils.Head(idx)))
 	}
 
-	latest := cltest.Head(201)
-	assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), latest))
+	latest := testutils.Head(201)
+	assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), latest))
 
 	ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
-	_, err := ht.headSaver.Load(testutils.Context(t), latest.Number)
+	_, err := ht.headSaver.Load(tests.Context(t), latest.Number)
 	require.NoError(t, err)
-	require.NoError(t, ht.headSaver.MarkFinalized(testutils.Context(t), latest))
+	require.NoError(t, ht.headSaver.MarkFinalized(tests.Context(t), latest))
 	assert.Equal(t, big.NewInt(201), ht.headSaver.LatestChain().ToInt())
 
 	firstHead := firstHead(t, db)
 	assert.Equal(t, big.NewInt(101), firstHead.ToInt())
 
-	lastHead, err := orm.LatestHead(testutils.Context(t))
+	lastHead, err := orm.LatestHead(tests.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, int64(201), lastHead.Number)
 }
@@ -121,31 +121,31 @@ func TestHeadTracker_MarkFinalized_MarksAndTrimsTable(t *testing.T) {
 func TestHeadTracker_Get(t *testing.T) {
 	t.Parallel()
 
-	start := cltest.Head(5)
+	start := testutils.Head(5)
 
-	tests := []struct {
+	cases := []struct {
 		name    string
 		initial *evmtypes.Head
 		toSave  *evmtypes.Head
 		want    *big.Int
 	}{
-		{"greater", start, cltest.Head(6), big.NewInt(6)},
-		{"less than", start, cltest.Head(1), big.NewInt(5)},
-		{"zero", start, cltest.Head(0), big.NewInt(5)},
+		{"greater", start, testutils.Head(6), big.NewInt(6)},
+		{"less than", start, testutils.Head(1), big.NewInt(5)},
+		{"zero", start, testutils.Head(0), big.NewInt(5)},
 		{"nil", start, nil, big.NewInt(5)},
 		{"nil no initial", nil, nil, big.NewInt(0)},
 	}
 
-	for i := range tests {
-		t.Run(tests[i].name, func(t *testing.T) {
-			test := tests[i]
+	for i := range cases {
+		test := cases[i]
+		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			config := cltest.NewTestChainScopedConfig(t)
-			orm := headtracker.NewORM(cltest.FixtureChainID, db)
+			config := testutils.NewTestChainScopedConfig(t, nil)
+			orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
-			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+			ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 			chStarted := make(chan struct{})
-			mockEth := &evmtest.MockEth{
+			mockEth := &testutils.MockEth{
 				EthClient: ethClient,
 			}
 			ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
@@ -157,27 +157,27 @@ func TestHeadTracker_Get(t *testing.T) {
 					},
 					func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 				)
-			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil).Maybe()
+			ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), nil).Maybe()
 
 			fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe()
 			fnCall.RunFn = func(args mock.Arguments) {
 				num := args.Get(1).(*big.Int)
-				fnCall.ReturnArguments = mock.Arguments{cltest.Head(num.Int64()), nil}
+				fnCall.ReturnArguments = mock.Arguments{testutils.Head(num.Int64()), nil}
 			}
 
 			if test.initial != nil {
-				assert.Nil(t, orm.IdempotentInsertHead(testutils.Context(t), test.initial))
+				assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), test.initial))
 			}
 
 			ht := createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
 			ht.Start(t)
 
 			if test.toSave != nil {
-				err := ht.headSaver.Save(testutils.Context(t), test.toSave)
+				err := ht.headSaver.Save(tests.Context(t), test.toSave)
 				assert.NoError(t, err)
 			}
 
-			testutils.AssertEventually(t, func() bool {
+			tests.AssertEventually(t, func() bool {
 				latest := ht.headSaver.LatestChain().ToInt()
 				return latest != nil && test.want.Cmp(latest) == 0
 			})
@@ -189,18 +189,18 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := cltest.NewTestChainScopedConfig(t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	config := testutils.NewTestChainScopedConfig(t, nil)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	chStarted := make(chan struct{})
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	sub := mockEth.NewSub(t)
 	// for initial load
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil).Once()
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(0), nil).Once()
 	// for backfill
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(0), nil).Maybe()
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) {
 			close(chStarted)
@@ -225,31 +225,30 @@ func TestHeadTracker_Start(t *testing.T) {
 	}
 	newHeadTracker := func(t *testing.T, opts opts) *headTrackerUniverse {
 		db := pgtest.NewSqlxDB(t)
-		gCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, _ *chainlink.Secrets) {
+		config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 			if opts.FinalityTagEnable != nil {
-				c.EVM[0].FinalityTagEnabled = opts.FinalityTagEnable
+				c.FinalityTagEnabled = opts.FinalityTagEnable
 			}
-			c.EVM[0].HeadTracker.HistoryDepth = ptr[uint32](historyDepth)
-			c.EVM[0].FinalityDepth = ptr[uint32](finalityDepth)
+			c.HeadTracker.HistoryDepth = ptr[uint32](historyDepth)
+			c.FinalityDepth = ptr[uint32](finalityDepth)
 			if opts.MaxAllowedFinalityDepth != nil {
-				c.EVM[0].HeadTracker.MaxAllowedFinalityDepth = opts.MaxAllowedFinalityDepth
+				c.HeadTracker.MaxAllowedFinalityDepth = opts.MaxAllowedFinalityDepth
 			}
 
 			if opts.FinalityTagBypass != nil {
-				c.EVM[0].HeadTracker.FinalityTagBypass = opts.FinalityTagBypass
+				c.HeadTracker.FinalityTagBypass = opts.FinalityTagBypass
 			}
 		})
-		config := evmtest.NewChainScopedConfig(t, gCfg)
-		orm := headtracker.NewORM(cltest.FixtureChainID, db)
+		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		mockEth := &evmtest.MockEth{EthClient: ethClient}
+		mockEth := &testutils.MockEth{EthClient: ethClient}
 		sub := mockEth.NewSub(t)
 		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
 		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
 	}
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
 		ht := newHeadTracker(t, opts{})
-		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), errors.New("failed to get init head"))
+		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), errors.New("failed to get init head"))
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
@@ -261,7 +260,7 @@ func TestHeadTracker_Start(t *testing.T) {
 	})
 	t.Run("Starts even if fails to get finalizedHead", func(t *testing.T) {
 		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
-		head := cltest.Head(1000)
+		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to load latest finalized")).Once()
 		ht.Start(t)
@@ -269,7 +268,7 @@ func TestHeadTracker_Start(t *testing.T) {
 	})
 	t.Run("Starts even if latest finalizedHead is nil", func(t *testing.T) {
 		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
-		head := cltest.Head(1000)
+		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
 		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
@@ -277,12 +276,12 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
 	t.Run("Happy path (finality tag)", func(t *testing.T) {
-		head := cltest.Head(1000)
+		head := testutils.Head(1000)
 		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
-		ctx := testutils.Context(t)
-		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, cltest.Head(799)))
+		ctx := tests.Context(t)
+		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(799)))
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
-		finalizedHead := cltest.Head(800)
+		finalizedHead := testutils.Head(800)
 		// on start
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalizedHead, nil).Once()
 		// on backfill
@@ -292,13 +291,13 @@ func TestHeadTracker_Start(t *testing.T) {
 		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
 	})
 	happyPathFD := func(t *testing.T, opts opts) {
-		head := cltest.Head(1000)
+		head := testutils.Head(1000)
 		ht := newHeadTracker(t, opts)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
-		finalizedHead := cltest.Head(head.Number - finalityDepth)
+		finalizedHead := testutils.Head(head.Number - finalityDepth)
 		ht.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(finalizedHead.Number)).Return(finalizedHead, nil).Once()
-		ctx := testutils.Context(t)
-		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, cltest.Head(finalizedHead.Number-1)))
+		ctx := tests.Context(t)
+		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(finalizedHead.Number-1)))
 		// on backfill
 		ht.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
 		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
@@ -334,33 +333,33 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	db := pgtest.NewSqlxDB(t)
-	config := cltest.NewTestChainScopedConfig(t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	config := testutils.NewTestChainScopedConfig(t, nil)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchHeaders := make(chan testutils.RawSub[*evmtypes.Head], 1)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				chchHeaders <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(0), nil)
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(testutils.Head(0), nil).Maybe()
 
-	checker := &cltest.MockHeadTrackable{}
+	checker := &mocks.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
 	ht.Start(t)
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
-	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: ubig.New(&cltest.FixtureChainID)})
+	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: ubig.New(testutils.FixtureChainID)})
 	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
 
 	ht.Stop(t)
@@ -372,11 +371,11 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	db := pgtest.NewSqlxDB(t)
-	config := cltest.NewTestChainScopedConfig(t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	config := testutils.NewTestChainScopedConfig(t, nil)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
@@ -388,9 +387,8 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription { return mockEth.NewSub(t) },
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
-
-	checker := &cltest.MockHeadTrackable{}
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(0), nil)
+	checker := &mocks.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
 	// connect
@@ -399,7 +397,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 	// trigger reconnect loop
 	mockEth.SubsErr(errors.New("test error to force reconnect"))
-	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker.OnNewLongestChainCount, 5*time.Second, tests.TestInterval).Should(gomega.Equal(int32(1)))
 }
 
 func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
@@ -407,26 +405,26 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	db := pgtest.NewSqlxDB(t)
-	config := cltest.NewTestChainScopedConfig(t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	config := testutils.NewTestChainScopedConfig(t, nil)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchHeaders := make(chan testutils.RawSub[*evmtypes.Head], 1)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				chchHeaders <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(testutils.Head(0), nil)
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(testutils.Head(0), nil).Maybe()
 
-	checker := &cltest.MockHeadTrackable{}
+	checker := &mocks.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
 	ht.Start(t)
@@ -434,37 +432,37 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 
 	headers := <-chchHeaders
 	go func() {
-		headers.TrySend(cltest.Head(1))
+		headers.TrySend(testutils.Head(1))
 	}()
 
 	g.Eventually(func() bool {
 		report := ht.headTracker.HealthReport()
 		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
-	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
+	}, 5*time.Second, tests.TestInterval).Should(gomega.Equal(true))
 
 	// trigger reconnect loop
 	headers.CloseCh()
 
 	// wait for full disconnect and a new subscription
-	g.Eventually(checker.OnNewLongestChainCount, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(int32(1)))
+	g.Eventually(checker.OnNewLongestChainCount, 5*time.Second, tests.TestInterval).Should(gomega.Equal(int32(1)))
 }
 
 func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	config := cltest.NewTestChainScopedConfig(t)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	config := testutils.NewTestChainScopedConfig(t, nil)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
 	heads := []*evmtypes.Head{
-		cltest.Head(0),
-		cltest.Head(1),
-		cltest.Head(2),
-		cltest.Head(3),
+		testutils.Head(0),
+		testutils.Head(1),
+		testutils.Head(2),
+		testutils.Head(3),
 	}
-	var parentHash gethCommon.Hash
+	var parentHash common.Hash
 	for i := 0; i < len(heads); i++ {
-		if parentHash != (gethCommon.Hash{}) {
+		if parentHash != (common.Hash{}) {
 			heads[i].ParentHash = parentHash
 		}
 		parentHash = heads[i].Hash
@@ -475,23 +473,23 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, heads[1].Hash).Return(heads[1], nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, heads[0].Hash).Return(heads[0], nil).Maybe()
 
-	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchHeaders := make(chan testutils.RawSub[*evmtypes.Head], 1)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				chchHeaders <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
-	trackable := &cltest.MockHeadTrackable{}
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
+	trackable := &mocks.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, trackable)
 
-	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), heads[2]))
+	require.NoError(t, orm.IdempotentInsertHead(tests.Context(t), heads[2]))
 
 	ht.Start(t)
 
@@ -499,16 +497,16 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	headers := <-chchHeaders
 	go func() {
-		headers.TrySend(cltest.Head(1))
+		headers.TrySend(testutils.Head(1))
 	}()
 
 	gomega.NewWithT(t).Eventually(func() bool {
 		report := ht.headTracker.HealthReport()
 		services.CopyHealth(report, ht.headBroadcaster.HealthReport())
 		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
-	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
+	}, 5*time.Second, tests.TestInterval).Should(gomega.Equal(true))
 
-	h, err := orm.LatestHead(testutils.Context(t))
+	h, err := orm.LatestHead(tests.Context(t))
 	require.NoError(t, err)
 	require.NotNil(t, h)
 	assert.Equal(t, h.Number, int64(3))
@@ -519,34 +517,33 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	db := pgtest.NewSqlxDB(t)
 
-	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
-		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(2500 * time.Millisecond)
+		c.HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.HeadTracker.SamplingInterval = commonconfig.MustNewDuration(2500 * time.Millisecond)
 	})
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	checker := htmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
-	orm := headtracker.NewORM(*evmtest.MustGetDefaultChainID(t, config.EVMConfigs()), db)
-	csCfg := evmtest.NewChainScopedConfig(t, config)
-	ht := createHeadTrackerWithChecker(t, ethClient, csCfg.EVM(), csCfg.EVM().HeadTracker(), orm, checker)
+	checker := htmocks.NewHeadTrackable[*evmtypes.Head, common.Hash](t)
+	orm := headtracker.NewORM(*config.EVM().ChainID(), db)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
-	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchHeaders := make(chan testutils.RawSub[*evmtypes.Head], 1)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				chchHeaders <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 
 	// ---------------------
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := NewBlocks(t, 10)
 
 	head0 := blocks.Head(0)
 	// Initial query
@@ -555,7 +552,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(head0, nil)
 	ht.Start(t)
 
-	headSeq := cltest.NewHeadBuffer(t)
+	headSeq := NewHeadBuffer(t)
 	headSeq.Append(blocks.Head(0))
 	headSeq.Append(blocks.Head(1))
 
@@ -576,7 +573,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	headSeq.Append(blocksForked.Head(4))
 	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
 
-	lastLongestChainAwaiter := cltest.NewAwaiter()
+	lastLongestChainAwaiter := testutils.NewAwaiter()
 
 	// the callback is only called for head number 5 because of head sampling
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
@@ -610,14 +607,14 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
-	latestHeadByHash := make(map[gethCommon.Hash]*evmtypes.Head)
+	latestHeadByHash := make(map[common.Hash]*evmtypes.Head)
 	latestHeadByHashMu := new(sync.Mutex)
 
 	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything).Maybe()
 	fnCall.RunFn = func(args mock.Arguments) {
 		latestHeadByHashMu.Lock()
 		defer latestHeadByHashMu.Unlock()
-		hash := args.Get(1).(gethCommon.Hash)
+		hash := args.Get(1).(common.Hash)
 		head := latestHeadByHash[hash]
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
@@ -629,8 +626,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		headers.TrySend(h)
 	}
 
-	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
-	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
+	// default 10s may not be sufficient, so using tests.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
@@ -648,34 +645,33 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	db := pgtest.NewSqlxDB(t)
 
-	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
+	config := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.FinalityDepth = ptr[uint32](50)
 		// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
-		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0)
+		c.HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0)
 	})
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	checker := htmocks.NewHeadTrackable[*evmtypes.Head, gethCommon.Hash](t)
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
-	evmcfg := evmtest.NewChainScopedConfig(t, config)
-	ht := createHeadTrackerWithChecker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm, checker)
+	checker := htmocks.NewHeadTrackable[*evmtypes.Head, common.Hash](t)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
+	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
 
-	chchHeaders := make(chan evmtest.RawSub[*evmtypes.Head], 1)
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	chchHeaders := make(chan testutils.RawSub[*evmtypes.Head], 1)
+	mockEth := &testutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchHeaders <- evmtest.NewRawSub(ch, sub.Err())
+				chchHeaders <- testutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 
 	// ---------------------
-	blocks := cltest.NewBlocks(t, 10)
+	blocks := NewBlocks(t, 10)
 
 	head0 := blocks.Head(0) // evmtypes.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
 	// Initial query
@@ -683,7 +679,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	// backfill
 	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(0)).Return(head0, nil)
 
-	headSeq := cltest.NewHeadBuffer(t)
+	headSeq := NewHeadBuffer(t)
 	headSeq.Append(blocks.Head(0))
 	headSeq.Append(blocks.Head(1))
 
@@ -704,7 +700,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	headSeq.Append(blocksForked.Head(4))
 	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
 
-	lastLongestChainAwaiter := cltest.NewAwaiter()
+	lastLongestChainAwaiter := testutils.NewAwaiter()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -767,14 +763,14 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
-	latestHeadByHash := make(map[gethCommon.Hash]*evmtypes.Head)
+	latestHeadByHash := make(map[common.Hash]*evmtypes.Head)
 	latestHeadByHashMu := new(sync.Mutex)
 
 	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything).Maybe()
 	fnCall.RunFn = func(args mock.Arguments) {
 		latestHeadByHashMu.Lock()
 		defer latestHeadByHashMu.Unlock()
-		hash := args.Get(1).(gethCommon.Hash)
+		hash := args.Get(1).(common.Hash)
 		head := latestHeadByHash[hash]
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
@@ -784,11 +780,11 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		latestHeadByHash[h.Hash] = h
 		latestHeadByHashMu.Unlock()
 		headers.TrySend(h)
-		time.Sleep(testutils.TestInterval)
+		time.Sleep(tests.TestInterval)
 	}
 
-	// default 10s may not be sufficient, so using testutils.WaitTimeout(t)
-	lastLongestChainAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
+	// default 10s may not be sufficient, so using tests.WaitTimeout(t)
+	lastLongestChainAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 	ht.Stop(t)
 	assert.Equal(t, int64(5), ht.headSaver.LatestChain().Number)
 
@@ -818,12 +814,12 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 	gethHead0 := &gethTypes.Header{
 		Number:     big.NewInt(0),
-		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
+		ParentHash: common.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, ubig.New(&cltest.FixtureChainID))
+	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, ubig.New(testutils.FixtureChainID))
 
-	h1 := *cltest.Head(1)
+	h1 := *testutils.Head(1)
 	h1.ParentHash = head0.Hash
 
 	gethHead8 := &gethTypes.Header{
@@ -831,9 +827,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, ubig.New(&cltest.FixtureChainID))
+	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, ubig.New(testutils.FixtureChainID))
 
-	h9 := *cltest.Head(9)
+	h9 := *testutils.Head(9)
 	h9.ParentHash = head8.Hash
 
 	gethHead10 := &gethTypes.Header{
@@ -841,24 +837,24 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, ubig.New(&cltest.FixtureChainID))
+	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, ubig.New(testutils.FixtureChainID))
 
-	h11 := *cltest.Head(11)
+	h11 := *testutils.Head(11)
 	h11.ParentHash = head10.Hash
 
-	h12 := *cltest.Head(12)
+	h12 := *testutils.Head(12)
 	h12.ParentHash = h11.Hash
 
-	h13 := *cltest.Head(13)
+	h13 := *testutils.Head(13)
 	h13.ParentHash = h12.Hash
 
-	h14Orphaned := *cltest.Head(14)
+	h14Orphaned := *testutils.Head(14)
 	h14Orphaned.ParentHash = h13.Hash
 
-	h14 := *cltest.Head(14)
+	h14 := *testutils.Head(14)
 	h14.ParentHash = h13.Hash
 
-	h15 := *cltest.Head(15)
+	h15 := *testutils.Head(15)
 	h15.ParentHash = h14.Hash
 
 	heads := []evmtypes.Head{
@@ -871,7 +867,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		h15,
 	}
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	type opts struct {
 		Heads                   []evmtypes.Head
@@ -881,26 +877,25 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		MaxAllowedFinalityDepth uint32
 	}
 	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
-		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
-			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
-			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
-			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
-			c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
+		evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+			c.FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
+			c.FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
+			c.FinalityDepth = ptr(opts.FinalityDepth)
+			c.HeadTracker.FinalityTagBypass = ptr(false)
 			if opts.MaxAllowedFinalityDepth > 0 {
-				c.EVM[0].HeadTracker.MaxAllowedFinalityDepth = ptr(opts.MaxAllowedFinalityDepth)
+				c.HeadTracker.MaxAllowedFinalityDepth = ptr(opts.MaxAllowedFinalityDepth)
 			}
 		})
 
-		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 		db := pgtest.NewSqlxDB(t)
-		orm := headtracker.NewORM(cltest.FixtureChainID, db)
+		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 		for i := range opts.Heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &opts.Heads[i]))
+			require.NoError(t, orm.IdempotentInsertHead(tests.Context(t), &opts.Heads[i]))
 		}
-		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
+		ethClient := testutils.NewEthClientMock(t)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmcfg.EVM().ChainID(), nil)
 		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
-		_, err := ht.headSaver.Load(testutils.Context(t), 0)
+		_, err := ht.headSaver.Load(tests.Context(t), 0)
 		require.NoError(t, err)
 		return ht
 	}
@@ -977,7 +972,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		require.NotNil(t, h.Parent.Parent.Parent)
 		assert.Equal(t, int64(9), h.Parent.Parent.Parent.Number)
 
-		writtenHead, err := htu.orm.HeadByHash(testutils.Context(t), head10.Hash)
+		writtenHead, err := htu.orm.HeadByHash(tests.Context(t), head10.Hash)
 		require.NoError(t, err)
 		assert.Equal(t, int64(10), writtenHead.Number)
 	})
@@ -1147,15 +1142,15 @@ func TestHeadTracker_Backfill(t *testing.T) {
 func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
-	h11 := cltest.Head(11)
+	h11 := testutils.Head(11)
 	h11.ParentHash = utils.NewHash()
 
-	h12 := cltest.Head(12)
+	h12 := testutils.Head(12)
 	h12.ParentHash = h11.Hash
 
-	h13 := cltest.Head(13)
+	h13 := testutils.Head(13)
 	h13.ParentHash = h12.Hash
 
 	type opts struct {
@@ -1166,23 +1161,21 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 	}
 
 	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
-		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
-			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
-			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
-			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
-			//c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
+		evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+			c.FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
+			c.FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
+			c.FinalityDepth = ptr(opts.FinalityDepth)
 		})
 
-		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 		db := pgtest.NewSqlxDB(t)
-		orm := headtracker.NewORM(cltest.FixtureChainID, db)
+		orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 		for i := range opts.Heads {
-			require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), &opts.Heads[i]))
+			require.NoError(t, orm.IdempotentInsertHead(tests.Context(t), &opts.Heads[i]))
 		}
 		ethClient := evmtest.NewEthClientMock(t)
-		ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(testutils.FixtureChainID, nil)
 		ht := createHeadTracker(t, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
-		_, err := ht.headSaver.Load(testutils.Context(t), 0)
+		_, err := ht.headSaver.Load(tests.Context(t), 0)
 		require.NoError(t, err)
 		return ht
 	}
@@ -1242,7 +1235,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true, FinalizedBlockOffset: 2, Heads: []evmtypes.Head{*h13, *h12, *h11}})
 		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(h12, nil).Once()
-		h10 := cltest.Head(10)
+		h10 := testutils.Head(10)
 		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).Return(h10, nil).Once()
 
 		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
@@ -1271,7 +1264,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 	t.Run("returns latest finalized block with offset from RPC (finality depth)", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{FinalityDepth: 1, FinalizedBlockOffset: 2, Heads: []evmtypes.Head{*h13, *h12, *h11}})
 		htu.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h13, nil).Once()
-		h10 := cltest.Head(10)
+		h10 := testutils.Head(10)
 		htu.ethClient.On("HeadByNumber", mock.Anything, big.NewInt(10)).Return(h10, nil).Once()
 
 		actualL, actualLF, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
@@ -1284,10 +1277,9 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 // BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
 // backfill on start up
 func BenchmarkHeadTracker_Backfill(b *testing.B) {
-	cfg := configtest.NewGeneralConfig(b, func(c *chainlink.Config, _ *chainlink.Secrets) {
-		c.EVM[0].FinalityTagEnabled = ptr(true)
+	evmcfg := testutils.NewTestChainScopedConfig(b, func(c *toml.EVMConfig) {
+		c.FinalityTagEnabled = ptr(true)
 	})
-	evmcfg := evmtest.NewChainScopedConfig(b, cfg)
 	db := pgtest.NewSqlxDB(b)
 	chainID := big.NewInt(evmclient.NullClientChainID)
 	orm := headtracker.NewORM(*chainID, db)
@@ -1295,8 +1287,8 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	ethClient.On("ConfiguredChainID").Return(chainID)
 	ht := createHeadTracker(b, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
 	ctx := tests.Context(b)
-	makeHash := func(n int64) gethCommon.Hash {
-		return gethCommon.BigToHash(big.NewInt(n))
+	makeHash := func(n int64) common.Hash {
+		return common.BigToHash(big.NewInt(n))
 	}
 	const finalityDepth = 12000 // observed value on Arbitrum
 	makeBlock := func(n int64) *evmtypes.Head {
@@ -1304,7 +1296,7 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	}
 	latest := makeBlock(finalityDepth)
 	finalized := makeBlock(1)
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash gethCommon.Hash) (*evmtypes.Head, error) {
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash common.Hash) (*evmtypes.Head, error) {
 		number := hash.Big().Int64()
 		return makeBlock(number), nil
 	})
@@ -1323,7 +1315,7 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	}
 }
 
-func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
+func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
@@ -1340,7 +1332,7 @@ func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config headt
 	}
 }
 
-func createHeadTrackerWithChecker(t *testing.T, ethClient *evmclimocks.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
+func createHeadTrackerWithChecker(t *testing.T, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)
@@ -1378,7 +1370,7 @@ func (u *headTrackerUniverse) Backfill(ctx context.Context, head *evmtypes.Head)
 func (u *headTrackerUniverse) Start(t *testing.T) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	require.NoError(t, u.headBroadcaster.Start(ctx))
 	require.NoError(t, u.headTracker.Start(ctx))
 	require.NoError(t, u.mailMon.Start(ctx))
@@ -1387,7 +1379,7 @@ func (u *headTrackerUniverse) Start(t *testing.T) {
 	g.Eventually(func() bool {
 		report := u.headBroadcaster.HealthReport()
 		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
-	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
+	}, 5*time.Second, tests.TestInterval).Should(gomega.Equal(true))
 
 	t.Cleanup(func() {
 		u.Stop(t)
@@ -1407,3 +1399,99 @@ func (u *headTrackerUniverse) Stop(t *testing.T) {
 }
 
 func ptr[T any](t T) *T { return &t }
+
+// headBuffer - stores heads in sequence, with increasing timestamps
+type headBuffer struct {
+	t     *testing.T
+	Heads []*evmtypes.Head
+}
+
+func NewHeadBuffer(t *testing.T) *headBuffer {
+	return &headBuffer{
+		t:     t,
+		Heads: make([]*evmtypes.Head, 0),
+	}
+}
+
+func (hb *headBuffer) Append(head *evmtypes.Head) {
+	cloned := &evmtypes.Head{
+		Number:     head.Number,
+		Hash:       head.Hash,
+		ParentHash: head.ParentHash,
+		Parent:     head.Parent,
+		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
+		EVMChainID: head.EVMChainID,
+	}
+	hb.Heads = append(hb.Heads, cloned)
+}
+
+type blocks struct {
+	t       *testing.T
+	Hashes  []common.Hash
+	mHashes map[int64]common.Hash
+	Heads   map[int64]*evmtypes.Head
+}
+
+func (b *blocks) Head(number uint64) *evmtypes.Head {
+	return b.Heads[int64(number)]
+}
+
+func NewBlocks(t *testing.T, numHashes int) *blocks {
+	hashes := make([]common.Hash, 0)
+	heads := make(map[int64]*evmtypes.Head)
+	for i := int64(0); i < int64(numHashes); i++ {
+		hash := testutils.NewHash()
+		hashes = append(hashes, hash)
+
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(testutils.FixtureChainID)}
+		if i > 0 {
+			parent := heads[i-1]
+			heads[i].Parent = parent
+			heads[i].ParentHash = parent.Hash
+		}
+	}
+
+	hashesMap := make(map[int64]common.Hash)
+	for i := 0; i < len(hashes); i++ {
+		hashesMap[int64(i)] = hashes[i]
+	}
+
+	return &blocks{
+		t:       t,
+		Hashes:  hashes,
+		mHashes: hashesMap,
+		Heads:   heads,
+	}
+}
+
+func (b *blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *blocks {
+	forked := NewBlocks(t, len(b.Heads)+numHashes)
+	if _, exists := forked.Heads[blockNum]; !exists {
+		t.Fatalf("Not enough length for block num: %v", blockNum)
+	}
+
+	for i := int64(0); i < blockNum; i++ {
+		forked.Heads[i] = b.Heads[i]
+	}
+
+	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
+	forked.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	return forked
+}
+
+func (b *blocks) NewHead(number uint64) *evmtypes.Head {
+	parentNumber := number - 1
+	parent, ok := b.Heads[int64(parentNumber)]
+	if !ok {
+		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
+	}
+	head := &evmtypes.Head{
+		Number:     parent.Number + 1,
+		Hash:       testutils.NewHash(),
+		ParentHash: parent.Hash,
+		Parent:     parent,
+		Timestamp:  time.Unix(parent.Number+1, 0),
+		EVMChainID: ubig.New(testutils.FixtureChainID),
+	}
+	return head
+}

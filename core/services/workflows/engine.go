@@ -794,7 +794,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	workflow.id = cfg.WorkflowID
 	workflow.owner = cfg.WorkflowOwner
-	workflow.name = cfg.WorkflowName
+	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
