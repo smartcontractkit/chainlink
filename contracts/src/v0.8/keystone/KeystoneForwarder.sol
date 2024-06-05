@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IRouter} from "./interfaces/IRouter.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
@@ -75,16 +76,11 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     mapping(address => uint256) _positions; // 1-indexed to detect unset values
   }
 
+  address internal s_router;
+
   /// @notice Contains the configuration for each DON ID
   // @param configId keccak256(donId, donConfigVersion)
   mapping(bytes32 configId => OracleSet) internal s_configs;
-
-  struct DeliveryStatus {
-    address transmitter;
-    bool success;
-  }
-
-  mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
 
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
@@ -92,7 +88,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param result The result of the attempted delivery. True if successful.
   event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
-  constructor() ConfirmedOwner(msg.sender) {}
+  constructor(address router) ConfirmedOwner(msg.sender) {
+    s_router = router;
+  }
 
   uint256 internal constant MAX_ORACLES = 31;
   uint256 internal constant METADATA_LENGTH = 109;
@@ -100,6 +98,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
   function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
+    // TODO: configSet event
+
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
@@ -148,56 +148,54 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     bytes32 workflowExecutionId;
-    bytes2 reportId;
-    bytes32 configId;
+    bytes32 combinedId;
     {
-      uint32 donId;
-      uint32 configVersion;
-      (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(rawReport);
+      bytes32 configId;
+      {
+        uint32 donId;
+        uint32 configVersion;
+        bytes2 reportId;
+        (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(rawReport);
 
-      configId = keccak256(abi.encode(donId, configVersion));
+        configId = keccak256(abi.encode(donId, configVersion));
 
-      uint8 f = s_configs[configId].f;
-      // f can never be 0, so this means the config doesn't actually exist
-      if (f == 0) revert InvalidConfig(donId, configVersion);
-      if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
-    }
+        uint8 f = s_configs[configId].f;
+        // f can never be 0, so this means the config doesn't actually exist
+        if (f == 0) revert InvalidConfig(donId, configVersion);
+        if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
-    bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
-    if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
+        combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
+      }
 
-    // validate signatures
-    {
-      bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
+      // validate signatures
+      {
+        bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
 
-      address[MAX_ORACLES] memory signed;
-      uint8 index;
-      for (uint256 i; i < signatures.length; ++i) {
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(completeHash, v + 27, r, s);
+        address[MAX_ORACLES] memory signed;
+        uint8 index;
+        for (uint256 i; i < signatures.length; ++i) {
+          (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
+          address signer = ecrecover(completeHash, v + 27, r, s);
 
-        // validate signer is trusted and signature is unique
-        index = uint8(s_configs[configId]._positions[signer]);
-        if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
-        index -= 1;
-        if (signed[index] != address(0)) revert DuplicateSigner(signer);
-        signed[index] = signer;
+          // validate signer is trusted and signature is unique
+          index = uint8(s_configs[configId]._positions[signer]);
+          if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
+          index -= 1;
+          if (signed[index] != address(0)) revert DuplicateSigner(signer);
+          signed[index] = signer;
+        }
       }
     }
 
-    bool success;
-    try
-      IReceiver(receiverAddress).onReport(
-        rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
-        rawReport[METADATA_LENGTH:]
-      )
-    {
-      success = true;
-    } catch {
-      // Do nothing, success is already false
-    }
+    // TODO: make router address a compile time address to save on read from storage?
+    bool success = IRouter(s_router).route(
+      combinedId,
+      msg.sender,
+      receiverAddress,
+      rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
+      rawReport[METADATA_LENGTH:]
+    );
 
-    s_reports[combinedId] = DeliveryStatus(msg.sender, success);
     emit ReportProcessed(receiverAddress, workflowExecutionId, success);
   }
 
@@ -206,14 +204,13 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 
-  // get transmitter of a given report or 0x0 if it wasn't transmitted yet
   function getTransmitter(
-    address receiver,
+    address receiverAddress,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address) {
-    bytes32 combinedId = _combinedId(receiver, workflowExecutionId, reportId);
-    return s_reports[combinedId].transmitter;
+    bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
+    return IRouter(s_router).getTransmitter(combinedId);
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns
