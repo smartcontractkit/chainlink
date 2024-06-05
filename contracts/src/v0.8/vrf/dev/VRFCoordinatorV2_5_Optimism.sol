@@ -15,7 +15,7 @@ contract VRFCoordinatorV2_5_Optimism is VRFCoordinatorV2_5, OptimismL1Fees {
   /// @notice on OP stack, they will work with the default implementation
 
   /// @notice Override getL1CostWei function from VRFCoordinatorV2_5 to activate Optimism getL1Fee computation
-  function getL1CostWei(bytes calldata data) internal view override returns (uint256) {
+  function _getL1CostWei(bytes calldata data) internal view override returns (uint256) {
     return _getL1CostWeiForCalldata(data);
   }
 }

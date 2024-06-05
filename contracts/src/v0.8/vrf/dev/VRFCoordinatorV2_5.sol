@@ -288,7 +288,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(_fromBytes(req.extraArgs));
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, getBlockNumber(), subId, req.callbackGasLimit, req.numWords, msg.sender, extraArgsBytes)
+      abi.encode(requestId, _getBlockNumber(), subId, req.callbackGasLimit, req.numWords, msg.sender, extraArgsBytes)
     );
     emit RandomWordsRequested(
       req.keyHash,
@@ -377,7 +377,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert IncorrectCommitment();
     }
 
-    bytes32 blockHash = getBlockhash(rc.blockNum);
+    bytes32 blockHash = _getBlockhash(rc.blockNum);
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
       if (blockHash == bytes32(0)) {
@@ -542,7 +542,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     bool onlyPremium
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = getL1CostWei(msg.data);
+    uint256 l1CostWei = _getL1CostWei(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft());
     // calculate flat fee in native
@@ -565,7 +565,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = getL1CostWei(msg.data);
+    uint256 l1CostWei = _getL1CostWei(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 *
       (weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
@@ -602,7 +602,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice Returns the block number of the current block by using specific opcode.
    * @notice Override this function in chain specific way if needed (L2 chains).
    */
-  function getBlockNumber() internal view virtual returns (uint256) {
+  function _getBlockNumber() internal view virtual returns (uint256) {
     return block.number;
   }
 
@@ -611,7 +611,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice If the blockNumber is more than 256 blocks in the past, returns the empty string.
    * @notice Override this function in chain specific way if needed (L2 chains).
    */
-  function getBlockhash(uint64 blockNumber) internal view virtual returns (bytes32) {
+  function _getBlockhash(uint64 blockNumber) internal view virtual returns (bytes32) {
     return blockhash(blockNumber);
   }
 
@@ -619,7 +619,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice Returns the L1 fee for the calldata payload (always return 0 on L1 chains).
    * @notice Override this function in chain specific way for L2 chains.
    */
-  function getL1CostWei(bytes calldata data) internal view virtual returns (uint256) {
+  // solhint-disable-next-line no-unused-vars
+  function _getL1CostWei(bytes calldata data) internal view virtual returns (uint256) {
     return 0;
   }
 

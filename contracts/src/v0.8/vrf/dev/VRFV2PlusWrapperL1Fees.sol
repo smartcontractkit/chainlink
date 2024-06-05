@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {ArbitrumL1Fees} from "./ArbitrumL1Fees.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
-import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
 
 /// @dev This abstract contract combines all L2 specific operations necessary for L1 gas fee computation.
 /// @dev It hides away the L1 gas fee computation from the VRFV2PlusWrapper contract.
@@ -75,7 +74,7 @@ abstract contract VRFV2PlusWrapperL1Fees is ArbitrumL1Fees, OptimismL1Fees {
    * @notice from accidentially using this function.
    */
   function _getL1CostWeiForCalldataSize(
-    uint256 calldataSizeBytes
+    uint256 calldataSizeBytes // solhint-disable-line no-unused-vars
   ) internal view override(ArbitrumL1Fees, OptimismL1Fees) returns (uint256) {
     revert UnsupportedFunction();
   }

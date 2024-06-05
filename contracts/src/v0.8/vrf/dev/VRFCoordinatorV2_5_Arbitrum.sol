@@ -20,8 +20,8 @@ contract VRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5, ArbitrumL1Fees {
    * @notice Override getBlockhash from VRFCoordinatorV2_5
    * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockHash to get the blockhash.
    */
-  function getBlockhash(uint64 blockNumber) internal view override returns (bytes32) {
-    if ((getBlockNumber() - blockNumber) > 256 || blockNumber >= getBlockNumber()) {
+  function _getBlockhash(uint64 blockNumber) internal view override returns (bytes32) {
+    if ((_getBlockNumber() - blockNumber) > 256 || blockNumber >= _getBlockNumber()) {
       return "";
     }
     return ARBSYS.arbBlockHash(blockNumber);
@@ -31,12 +31,13 @@ contract VRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5, ArbitrumL1Fees {
    * @notice Override getBlockNumber from VRFCoordinatorV2_5
    * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockNumber to get the block number.
    */
-  function getBlockNumber() internal view override returns (uint256) {
+  function _getBlockNumber() internal view override returns (uint256) {
     return ARBSYS.arbBlockNumber();
   }
 
   /// @notice Override getL1CostWei function from VRFCoordinatorV2_5 to activate Arbitrum getL1Fee computation
-  function getL1CostWei(bytes calldata data) internal view override returns (uint256) {
+  // solhint-disable-next-line no-unused-vars
+  function _getL1CostWei(bytes calldata data) internal view override returns (uint256) {
     return _getL1CostWeiForCalldata();
   }
 }

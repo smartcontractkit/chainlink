@@ -23,16 +23,16 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
 
   /// @dev Option 1: getL1Fee() function from predeploy GasPriceOracle contract with the fulfillment calldata payload
   /// @dev This option is only available for the Coordinator contract
-  uint8 internal constant L1GasFeesMode = 0;
+  uint8 internal constant L1_GAS_FEES_MODE = 0;
   /// @dev Option 2: our own implementation of getL1Fee() function (Ecotone version) with projected
   /// @dev fulfillment calldata payload (number of non-zero bytes estimated based on historical data)
   /// @dev This option is available for the Coordinator and the Wrapper contract
-  uint8 internal constant L1CalldataGasCostMode = 1;
+  uint8 internal constant L1_CALLDATA_GAS_COST_MODE = 1;
   /// @dev Option 3: getL1FeeUpperBound() function from predeploy GasPriceOracle contract (available after Fjord upgrade)
   /// @dev This option is available for the Coordinator and the Wrapper contract
-  uint8 internal constant L1GasFeesUpperBoundMode = 2;
+  uint8 internal constant L1_GAS_FEES_UPPER_BOUND_MODE = 2;
 
-  uint8 public s_L1FeeCalculationMode = L1GasFeesMode;
+  uint8 public s_L1FeeCalculationMode = L1_GAS_FEES_MODE;
 
   /// @dev L1 fee coefficient can be applied to options 2 or 3 to reduce possibly inflated gas price
   uint8 public s_L1FeeCoefficient = 100;
@@ -57,16 +57,16 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   }
 
   function _getL1CostWeiForCalldata(bytes calldata data) internal view virtual returns (uint256) {
-    if (s_L1FeeCalculationMode == L1GasFeesMode) {
+    if (s_L1FeeCalculationMode == L1_GAS_FEES_MODE) {
       return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(data, L1_FEE_DATA_PADDING));
     }
     return _getL1CostWeiForCalldataSize(data.length);
   }
 
   function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
-    if (s_L1FeeCalculationMode == L1CalldataGasCostMode) {
+    if (s_L1FeeCalculationMode == L1_CALLDATA_GAS_COST_MODE) {
       return (s_L1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes)) / 100;
-    } else if (s_L1FeeCalculationMode == L1GasFeesUpperBoundMode) {
+    } else if (s_L1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
       // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
       return
         (s_L1FeeCoefficient *
