@@ -232,6 +232,23 @@ func init() {
 	}
 }
 
+// overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
+// results, even after context cancellation.
+func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if d, ok := ctx.Deadline(); ok {
+		// We do not use context.WithDeadline/Timeout in order to prevent the monitor hook from logging noisily, since
+		// we expect and want these operations to use most of their allotted time.
+		// TODO replace with custom thresholds: https://smartcontract-it.atlassian.net/browse/BCF-3252
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(context.WithoutCancel(ctx))
+		t := time.AfterFunc(time.Until(d.Add(overtime)), cancel)
+		stop := context.AfterFunc(ctx, func() { t.Stop() })
+		return ctx, func() { cancel(); stop() }
+	}
+	// do not propagate cancellation in any case
+	return context.WithoutCancel(ctx), func() {}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,

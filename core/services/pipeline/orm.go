@@ -744,7 +744,7 @@ func (o *orm) prune(tx sqlutil.DataSource, jobID int32) {
 }
 
 func (o *orm) execPrune(ctx context.Context, jobID int32) {
-	res, err := o.ds.ExecContext(o.ctx, `DELETE FROM pipeline_runs WHERE pruning_key = $1 AND state = $2 AND id NOT IN (
+	res, err := o.ds.ExecContext(ctx, `DELETE FROM pipeline_runs WHERE pruning_key = $1 AND state = $2 AND id NOT IN (
 SELECT id FROM pipeline_runs
 WHERE pruning_key = $1 AND state = $2
 ORDER BY id DESC
