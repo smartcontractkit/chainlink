@@ -385,18 +385,12 @@ func TestMultiNode_selectNode(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, prevActiveNode.String(), newActiveNode.String())
 	})
-	t.Run("Updates node if active is not healthy and sets highest chain info", func(t *testing.T) {
+	t.Run("Updates node if active is not healthy", func(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		oldBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
 		oldBest.On("UnsubscribeAllExceptAliveLoop").Once()
-		expectedChainInfo := ChainInfo{
-			BlockNumber:          100,
-			FinalizedBlockNumber: 150,
-			TotalDifficulty:      big.NewInt(200),
-		}
-		oldBest.On("HighestChainInfo").Return(expectedChainInfo).Once()
 		newBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		newBest.On("String").Return("newBest").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -407,11 +401,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(oldBest).Once()
 		mn.nodeSelector = nodeSelector
-		mn.highestChainInfo = ChainInfo{
-			BlockNumber:          10,
-			FinalizedBlockNumber: 15,
-			TotalDifficulty:      big.NewInt(20),
-		}
 		activeNode, err := mn.selectNode()
 		require.NoError(t, err)
 		require.Equal(t, oldBest.String(), activeNode.String())
@@ -421,7 +410,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		newActiveNode, err := mn.selectNode()
 		require.NoError(t, err)
 		require.Equal(t, newBest.String(), newActiveNode.String())
-		require.Equal(t, expectedChainInfo, mn.highestChainInfo)
 	})
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
@@ -446,45 +434,39 @@ func TestMultiNode_selectNode(t *testing.T) {
 func TestMultiNode_ChainInfo(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
-		LatestChainInfo  ChainInfo
-		HighestChainInfo ChainInfo
-		State            nodeState
+		LatestChainInfo      ChainInfo
+		AppLayerObservations ChainInfo
+		State                nodeState
 	}
-
-	chainID := types.RandomID()
-	type testCase struct {
-		Name                     string
-		ExpectedNLiveNodes       int
-		ExpectedLatestChainInfo  ChainInfo
-		ExpectedHighestChainInfo ChainInfo
-		NodeParams               []nodeParams
-		ActiveNodeI              int
-	}
-	testCases := []testCase{
+	testCases := []struct {
+		Name                         string
+		ExpectedNLiveNodes           int
+		ExpectedLatestChainInfo      ChainInfo
+		ExpectedAppLayerObservations ChainInfo
+		NodeParams                   []nodeParams
+	}{
 		{
 			Name: "no nodes",
 			ExpectedLatestChainInfo: ChainInfo{
 				TotalDifficulty: big.NewInt(0),
 			},
-			ExpectedHighestChainInfo: ChainInfo{
+			ExpectedAppLayerObservations: ChainInfo{
 				TotalDifficulty: big.NewInt(0),
 			},
-			ActiveNodeI: -1,
 		},
 		{
-			Name:               "Best node is not healthy and not active",
+			Name:               "Best node is not healthy",
 			ExpectedNLiveNodes: 3,
 			ExpectedLatestChainInfo: ChainInfo{
 				BlockNumber:          20,
 				FinalizedBlockNumber: 10,
 				TotalDifficulty:      big.NewInt(10),
 			},
-			ExpectedHighestChainInfo: ChainInfo{
-				BlockNumber:          24,
-				FinalizedBlockNumber: 14,
-				TotalDifficulty:      big.NewInt(15),
+			ExpectedAppLayerObservations: ChainInfo{
+				BlockNumber:          1005,
+				FinalizedBlockNumber: 995,
+				TotalDifficulty:      big.NewInt(2005),
 			},
-			ActiveNodeI: 2,
 			NodeParams: []nodeParams{
 				{
 					State: nodeStateOutOfSync,
@@ -493,7 +475,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 990,
 						TotalDifficulty:      big.NewInt(2000),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          1005,
 						FinalizedBlockNumber: 995,
 						TotalDifficulty:      big.NewInt(2005),
@@ -506,7 +488,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 10,
 						TotalDifficulty:      big.NewInt(9),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          25,
 						FinalizedBlockNumber: 15,
 						TotalDifficulty:      big.NewInt(14),
@@ -519,7 +501,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 9,
 						TotalDifficulty:      big.NewInt(10),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          24,
 						FinalizedBlockNumber: 14,
 						TotalDifficulty:      big.NewInt(15),
@@ -532,7 +514,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 1,
 						TotalDifficulty:      nil,
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          16,
 						FinalizedBlockNumber: 6,
 						TotalDifficulty:      nil,
@@ -541,52 +523,30 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 			},
 		},
 	}
+
+	chainID := types.RandomID()
+	mn := newTestMultiNode(t, multiNodeOpts{
+		selectionMode: NodeSelectionModeRoundRobin,
+		chainID:       chainID,
+	})
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.Name, func(t *testing.T) {
-			mn := newTestMultiNode(t, multiNodeOpts{
-				selectionMode: NodeSelectionModeRoundRobin,
-				chainID:       chainID,
-			})
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
-				node.On("HighestChainInfo").Return(params.HighestChainInfo).Maybe()
+				node.On("AppLayerObservations").Return(params.AppLayerObservations)
 				mn.nodes = append(mn.nodes, node)
-			}
-
-			if tc.ActiveNodeI >= 0 {
-				mn.activeNode = mn.nodes[tc.ActiveNodeI]
 			}
 
 			nNodes, latestChainInfo := mn.LatestChainInfo()
 			assert.Equal(t, tc.ExpectedNLiveNodes, nNodes)
 			assert.Equal(t, tc.ExpectedLatestChainInfo, latestChainInfo)
 
-			highestChainInfo := mn.HighestChainInfo()
-			assert.Equal(t, tc.ExpectedHighestChainInfo, highestChainInfo)
+			highestChainInfo := mn.AppLayerObservations()
+			assert.Equal(t, tc.ExpectedAppLayerObservations, highestChainInfo)
 		})
 	}
-	t.Run("HighestChainInfo returns cached value, If not able to acquire active node lock", func(t *testing.T) {
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-		})
-		mn.highestChainInfo = ChainInfo{
-			BlockNumber:          10,
-			FinalizedBlockNumber: 20,
-			TotalDifficulty:      big.NewInt(30),
-		}
-		mn.activeNode = newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-		mn.activeMu.Lock()
-		defer mn.activeMu.Unlock()
-		highestChainInfo := mn.HighestChainInfo()
-		require.Equal(t, ChainInfo{
-			BlockNumber:          10,
-			FinalizedBlockNumber: 20,
-			TotalDifficulty:      big.NewInt(30),
-		}, highestChainInfo)
-	})
 }
 
 func TestMultiNode_BatchCallContextAll(t *testing.T) {

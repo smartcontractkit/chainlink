@@ -67,16 +67,15 @@ type Node[
 	State() nodeState
 	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 	StateAndLatest() (nodeState, ChainInfo)
-	// HighestChainInfo - returns highest ChainInfo ever observed by the Node
-	HighestChainInfo() ChainInfo
+	// AppLayerObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
+	AppLayerObservations() ChainInfo
 	SetPoolChainInfoProvider(PoolChainInfoProvider)
 	// Name is a unique identifier for this node.
 	Name() string
 	String() string
 	RPC() RPC
 	SubscribersCount() int32
-	// UnsubscribeAllExceptAliveLoop - closes all subscriptions except the aliveLoop subscription and waits for all requests
-	// that might update HighestChainInfo to complete.
+	// UnsubscribeAllExceptAliveLoop - closes all subscriptions except the aliveLoop subscription
 	UnsubscribeAllExceptAliveLoop()
 	ConfiguredChainID() CHAIN_ID
 	Order() int32
@@ -323,4 +322,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) disconnectAll() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	return n.order
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) newCtx() (context.Context, context.CancelFunc) {
+	ctx, cancel := n.stopCh.NewCtx()
+	ctx = CtxAddHealthCheckFlag(ctx)
+	return ctx, cancel
 }

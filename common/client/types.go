@@ -168,8 +168,8 @@ type PoolChainInfoProvider interface {
 	// Return highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
 	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
 	LatestChainInfo() (int, ChainInfo)
-	// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
-	HighestChainInfo() ChainInfo
+	// AppLayerObservations - returns highest ChainInfo ever observed by any user of MultiNode.
+	AppLayerObservations() ChainInfo
 }
 
 // ChainInfo - defines RPC's or MultiNode's view on the chain

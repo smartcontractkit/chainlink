@@ -60,13 +60,13 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
-		latest, highest := rpc.GetInterceptedChainInfo()
+		latest, appLayerObservations := rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Nil(t, latest.TotalDifficulty)
-		assert.Equal(t, int64(0), highest.BlockNumber)
-		assert.Equal(t, int64(0), highest.FinalizedBlockNumber)
-		assert.Nil(t, highest.TotalDifficulty)
+		assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+		assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
+		assert.Nil(t, appLayerObservations.TotalDifficulty)
 
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
@@ -79,28 +79,52 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		// received 128 head
 		<-ch
 
-		latest, highest = rpc.GetInterceptedChainInfo()
+		latest, appLayerObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(128), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Equal(t, big.NewInt(500), latest.TotalDifficulty)
 
-		assertHighest := func(highest commonclient.ChainInfo) {
-			assert.Equal(t, int64(256), highest.BlockNumber)
-			assert.Equal(t, int64(0), highest.FinalizedBlockNumber)
-			assert.Equal(t, big.NewInt(1000), highest.TotalDifficulty)
+		assertAppLayerObservations := func(appLayerObservations commonclient.ChainInfo) {
+			assert.Equal(t, int64(256), appLayerObservations.BlockNumber)
+			assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
+			assert.Equal(t, big.NewInt(1000), appLayerObservations.TotalDifficulty)
 		}
 
-		assertHighest(highest)
+		assertAppLayerObservations(appLayerObservations)
 
 		// DisconnectAll resets latest
 		rpc.DisconnectAll()
 
-		latest, highest = rpc.GetInterceptedChainInfo()
+		latest, appLayerObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Nil(t, latest.TotalDifficulty)
 
-		assertHighest(highest)
+		assertAppLayerObservations(appLayerObservations)
+	})
+	t.Run("App layer observations are not affected by new block if health check flag is present", func(t *testing.T) {
+		server := testutils.NewWSServer(t, chainId, serverCallBack)
+		wsURL := server.WSURL()
+
+		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		defer rpc.Close()
+		require.NoError(t, rpc.Dial(ctx))
+		ch := make(chan *evmtypes.Head)
+		sub, err := rpc.SubscribeNewHead(commonclient.CtxAddHealthCheckFlag(tests.Context(t)), ch)
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
+		// received 256 head
+		<-ch
+
+		latest, appLayerObservations := rpc.GetInterceptedChainInfo()
+		assert.Equal(t, int64(256), latest.BlockNumber)
+		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
+		assert.Equal(t, big.NewInt(1000), latest.TotalDifficulty)
+
+		assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+		assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
+		assert.Equal(t, (*big.Int)(nil), appLayerObservations.TotalDifficulty)
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -233,31 +257,43 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	latest, highest := rpc.GetInterceptedChainInfo()
+	latest, appLayerObservations := rpc.GetInterceptedChainInfo()
 
-	assert.Equal(t, int64(0), highest.BlockNumber)
-	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(128), latest.FinalizedBlockNumber)
 
-	// lower block number does not update Highest
+	// lower block number does not update appLayerObservations
 	server.Head = &evmtypes.Head{Number: 127}
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	latest, highest = rpc.GetInterceptedChainInfo()
+	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
 
-	assert.Equal(t, int64(0), highest.BlockNumber)
-	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(127), latest.FinalizedBlockNumber)
 
+	// health check flg prevents change in appLayerObservations
+	server.Head = &evmtypes.Head{Number: 256}
+	_, err = rpc.LatestFinalizedBlock(commonclient.CtxAddHealthCheckFlag(ctx))
+	require.NoError(t, err)
+	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+
+	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
+
+	assert.Equal(t, int64(0), latest.BlockNumber)
+	assert.Equal(t, int64(256), latest.FinalizedBlockNumber)
+
 	// DisconnectAll resets latest ChainInfo
 	rpc.DisconnectAll()
-	latest, highest = rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), highest.BlockNumber)
-	assert.Equal(t, int64(128), highest.FinalizedBlockNumber)
+	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
+	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(0), latest.FinalizedBlockNumber)

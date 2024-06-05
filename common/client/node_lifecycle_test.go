@@ -1669,7 +1669,7 @@ func TestNode_State(t *testing.T) {
 				rpc: rpc,
 			})
 			poolInfo := newMockPoolChainInfoProvider(t)
-			poolInfo.On("HighestChainInfo").Return(tc.PoolChainInfo).Once()
+			poolInfo.On("AppLayerObservations").Return(tc.PoolChainInfo).Once()
 			node.SetPoolChainInfoProvider(poolInfo)
 			node.setState(nodeStateAlive)
 			assert.Equal(t, tc.ExpectedState, node.State())
