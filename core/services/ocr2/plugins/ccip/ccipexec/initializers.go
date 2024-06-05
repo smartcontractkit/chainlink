@@ -47,6 +47,8 @@ import (
 
 const numTokenDataWorkers = 5
 
+var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{InitialDelay: time.Second, MaxDelay: 5 * time.Minute}
+
 func NewExecutionServices(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	execPluginConfig, backfillArgs, chainHealthcheck, tokenWorker, err := jobSpecToExecPluginConfig(ctx, lggr, jb, chainSet)
 	if err != nil {
@@ -292,18 +294,19 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		onchainConfig.PermissionLessExecutionThresholdSeconds,
 	)
 	return &ExecutionPluginStaticConfig{
-			lggr:                        execLggr,
-			onRampReader:                onRampReader,
-			commitStoreReader:           commitStoreReader,
-			offRampReader:               offRampReader,
-			sourcePriceRegistryProvider: ccipdataprovider.NewEvmPriceRegistry(params.sourceChain.LogPoller(), params.sourceChain.Client(), execLggr, ccip.ExecPluginLabel),
-			sourceWrappedNativeToken:    cciptypes.Address(sourceWrappedNative.String()),
-			destChainSelector:           destChainSelector,
-			priceRegistryProvider:       ccipdataprovider.NewEvmPriceRegistry(params.destChain.LogPoller(), params.destChain.Client(), execLggr, ccip.ExecPluginLabel),
-			tokenPoolBatchedReader:      tokenPoolBatchedReader,
-			tokenDataWorker:             tokenBackgroundWorker,
-			metricsCollector:            metricsCollector,
-			chainHealthcheck:            chainHealthcheck,
+			lggr:                          execLggr,
+			onRampReader:                  onRampReader,
+			commitStoreReader:             commitStoreReader,
+			offRampReader:                 offRampReader,
+			sourcePriceRegistryProvider:   ccipdataprovider.NewEvmPriceRegistry(params.sourceChain.LogPoller(), params.sourceChain.Client(), execLggr, ccip.ExecPluginLabel),
+			sourceWrappedNativeToken:      cciptypes.Address(sourceWrappedNative.String()),
+			destChainSelector:             destChainSelector,
+			priceRegistryProvider:         ccipdataprovider.NewEvmPriceRegistry(params.destChain.LogPoller(), params.destChain.Client(), execLggr, ccip.ExecPluginLabel),
+			tokenPoolBatchedReader:        tokenPoolBatchedReader,
+			tokenDataWorker:               tokenBackgroundWorker,
+			metricsCollector:              metricsCollector,
+			chainHealthcheck:              chainHealthcheck,
+			newReportingPluginRetryConfig: defaultNewReportingPluginRetryConfig,
 		}, &ccipcommon.BackfillArgs{
 			SourceLP:         params.sourceChain.LogPoller(),
 			DestLP:           params.destChain.LogPoller(),

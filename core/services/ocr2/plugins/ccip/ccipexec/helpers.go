@@ -1,9 +1,8 @@
 package ccipexec
 
 import (
-	"github.com/pkg/errors"
-
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 )
