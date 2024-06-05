@@ -7,9 +7,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_AddNodeOperatorsTest is BaseTest {
   event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
 
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
     vm.expectRevert("Only callable by owner");

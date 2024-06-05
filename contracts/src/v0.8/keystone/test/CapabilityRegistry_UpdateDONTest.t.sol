@@ -8,14 +8,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_UpdateDONTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
-  uint32 private constant DON_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  uint32 private constant TEST_NODE_OPERATOR_THREE_ID = 3;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes private constant BASIC_CAPABILITY_CONFIG = bytes("basic-capability-config");
-  bytes private constant CONFIG_CAPABILITY_CONFIG = bytes("config-capability-config");
-
   function setUp() public override {
     BaseTest.setUp();
 
