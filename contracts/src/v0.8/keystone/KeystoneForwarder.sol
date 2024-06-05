@@ -144,24 +144,25 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 workflowExecutionId;
     bytes2 reportId;
     bytes32 configId;
+    uint8 f;
     {
-    uint32 donId;
-    uint32 configVersion;
-    (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(
-      rawReport
-    );
+      uint32 donId;
+      uint32 configVersion;
+      (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(
+        rawReport
+      );
 
-    configId = keccak256(abi.encode(donId, configVersion));
+      configId = keccak256(abi.encode(donId, configVersion));
 
-    // f can never be 0, so this means the config doesn't actually exist
-    if (s_configs[configId].f == 0) revert InvalidDonId(donId);
+      f = s_configs[configId].f;
+      // f can never be 0, so this means the config doesn't actually exist
+      if (f == 0) revert InvalidDonId(donId);
     }
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
 
-    if (s_configs[configId].f + 1 != signatures.length)
-      revert InvalidSignatureCount(s_configs[configId].f + 1, signatures.length);
+    if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
     // validate signatures
     {
