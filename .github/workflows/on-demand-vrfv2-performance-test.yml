@@ -113,6 +113,7 @@ jobs:
             fi
             SETH_KEYFILE_BASE64=$(eval $READ_CMD | base64 -w0)
             echo $SETH_KEYFILE_BASE64
+            exit 1
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
