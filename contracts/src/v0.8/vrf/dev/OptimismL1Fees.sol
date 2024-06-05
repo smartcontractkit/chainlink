@@ -21,9 +21,17 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
   OVM_GasPriceOracle private constant OVM_GASPRICEORACLE = OVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
+  /// @dev Option 1: getL1Fee() function from predeploy GasPriceOracle contract with the fulfillment calldata payload
+  /// @dev This option is only available for the Coordinator contract
   uint8 internal constant L1GasFeesMode = 0;
+  /// @dev Option 2: our own implementation of getL1Fee() function (Ecotone version) with projected
+  /// @dev fulfillment calldata payload (number of non-zero bytes estimated based on historical data)
+  /// @dev This option is available for the Coordinator and the Wrapper contract
   uint8 internal constant L1CalldataGasCostMode = 1;
+  /// @dev Option 3: getL1FeeUpperBound() function from predeploy GasPriceOracle contract (available after Fjord upgrade)
+  /// @dev This option is available for the Coordinator and the Wrapper contract
   uint8 internal constant L1GasFeesUpperBoundMode = 2;
+
   uint8 public s_L1FeeCalculationMode = L1GasFeesMode;
 
   error InvalidL1FeeCalculationMode(uint8 mode);
@@ -60,7 +68,7 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   function _calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
     // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
     // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
-    // we assume the worst-case scenario and treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas)
+    // we treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas) because accurate estimation is too expensive
     // we also have to account for the padding data and the signature data
     uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE) *
       16;
