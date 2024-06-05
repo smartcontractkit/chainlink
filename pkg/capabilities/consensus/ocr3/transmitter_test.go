@@ -1,6 +1,7 @@
 package ocr3
 
 import (
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 func TestTransmitter(t *testing.T) {
 	wid := "consensus-workflow-test-id-1"
 	wowner := "foo-owner"
+	repId := []byte{0xf0, 0xe0}
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
 	s := newStore()
@@ -49,7 +51,7 @@ func TestTransmitter(t *testing.T) {
 		"aggregation_config": map[string]any{},
 		"encoder":            "",
 		"encoder_config":     map[string]any{},
-		"report_id":          "aa",
+		"report_id":          hex.EncodeToString(repId),
 	})
 	require.NoError(t, err)
 	gotCh, err := cp.Execute(ctx, capabilities.CapabilityRequest{
@@ -70,6 +72,7 @@ func TestTransmitter(t *testing.T) {
 			WorkflowExecutionId: weid,
 			WorkflowId:          wid,
 			WorkflowOwner:       wowner,
+			ReportId:            hex.EncodeToString(repId),
 		},
 		ShouldReport: true,
 	}
@@ -96,14 +99,13 @@ func TestTransmitter(t *testing.T) {
 	resp := <-gotCh
 	assert.Nil(t, resp.Err)
 
-	unwrapped, err := values.Unwrap(resp.Value)
-	um := unwrapped.(map[string]any)
-	require.NoError(t, err)
-	assert.Equal(t, um["report"].([]byte), spb)
-	assert.Len(t, um["signatures"], 1)
-	assert.Len(t, um["context"], 96)
-	_, ok := um[methodHeader]
-	assert.False(t, ok)
+	signedReport := pbtypes.SignedReport{}
+	require.NoError(t, resp.Value.UnwrapTo(&signedReport))
+
+	assert.Equal(t, spb, signedReport.Report)
+	assert.Len(t, signedReport.Signatures, 1)
+	assert.Len(t, signedReport.Context, 96)
+	assert.Equal(t, repId, signedReport.ID)
 }
 
 func TestTransmitter_ShouldReportFalse(t *testing.T) {
@@ -180,12 +182,11 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 	resp := <-gotCh
 	assert.Nil(t, resp.Err)
 
-	unwrapped, err := values.Unwrap(resp.Value)
-	um := unwrapped.(map[string]any)
-	require.NoError(t, err)
-	assert.Nil(t, um["report"])
-	assert.Len(t, um["signatures"], 0)
-	assert.Nil(t, um["context"])
-	_, ok := um[methodHeader]
-	assert.False(t, ok)
+	signedReport := pbtypes.SignedReport{}
+	require.NoError(t, resp.Value.UnwrapTo(&signedReport))
+
+	assert.Len(t, signedReport.Report, 0)
+	assert.Len(t, signedReport.Signatures, 0)
+	assert.Len(t, signedReport.Context, 0)
+	assert.Len(t, signedReport.ID, 0)
 }

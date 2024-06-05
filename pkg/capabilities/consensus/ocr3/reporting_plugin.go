@@ -244,14 +244,15 @@ func (r *reportingPlugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]oc
 		var report []byte
 		if info.ShouldReport {
 			meta := &pbtypes.Metadata{
-				Version:       1,
-				ExecutionID:   id.WorkflowExecutionId,
-				Timestamp:     0, // TODO include timestamp in consensus phase
-				DONID:         id.WorkflowDonId,
-				WorkflowID:    id.WorkflowId,
-				WorkflowName:  id.WorkflowName,
-				WorkflowOwner: id.WorkflowOwner,
-				ReportID:      id.ReportId,
+				Version:          1,
+				ExecutionID:      id.WorkflowExecutionId,
+				Timestamp:        0, // TODO include timestamp in consensus phase
+				DONID:            id.WorkflowDonId,
+				DONConfigVersion: 0, // TODO include when Syncer is ready
+				WorkflowID:       id.WorkflowId,
+				WorkflowName:     id.WorkflowName,
+				WorkflowOwner:    id.WorkflowOwner,
+				ReportID:         id.ReportId,
 			}
 			newOutcome, err := pbtypes.AppendMetadata(outcome, meta)
 			if err != nil {

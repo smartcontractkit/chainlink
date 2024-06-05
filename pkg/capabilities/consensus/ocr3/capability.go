@@ -21,6 +21,7 @@ const (
 	methodStartRequest = "start_request"
 	methodSendResponse = "send_response"
 	methodHeader       = "method"
+	transmissionHeader = "transmission"
 )
 
 var info = capabilities.MustNewCapabilityInfo(
@@ -155,7 +156,8 @@ func (o *capability) UnregisterFromWorkflow(ctx context.Context, request capabil
 // registry and calls Execute with the response, setting "method = `methodSendResponse`".
 func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
 	m := struct {
-		Method string
+		Method       string
+		Transmission map[string]any
 	}{
 		Method: methodStartRequest,
 	}
@@ -166,18 +168,7 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 
 	switch m.Method {
 	case methodSendResponse:
-		unwrapped, err := r.Inputs.Unwrap()
-		if err != nil {
-			return nil, fmt.Errorf("failed to unwrap response inputs: %w", err)
-		}
-
-		withoutHeader := map[string]any{}
-		for k, v := range unwrapped.(map[string]any) {
-			if k != methodHeader {
-				withoutHeader[k] = v
-			}
-		}
-		inputs, err := values.NewMap(withoutHeader)
+		inputs, err := values.NewMap(m.Transmission)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create map for response inputs: %w", err)
 		}

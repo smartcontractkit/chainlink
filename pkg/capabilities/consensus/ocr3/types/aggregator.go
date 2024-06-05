@@ -10,14 +10,15 @@ import (
 const MetadataFieldName = "INTERNAL_METADATA"
 
 type Metadata struct {
-	Version       uint32 // 1 byte
-	ExecutionID   string // 32 hex bytes
-	Timestamp     uint32 //  4 bytes
-	DONID         string //  4 hex bytes
-	WorkflowID    string // 32 hex bytes
-	WorkflowName  string // 10 hex bytes
-	WorkflowOwner string // 20 hex bytes
-	ReportID      string //  2 hex bytes
+	Version          uint32 //  1 byte
+	ExecutionID      string // 32 hex bytes
+	Timestamp        uint32 //  4 bytes
+	DONID            string //  4 hex bytes
+	DONConfigVersion uint32 //  4 bytes
+	WorkflowID       string // 32 hex bytes
+	WorkflowName     string // 10 hex bytes
+	WorkflowOwner    string // 20 hex bytes
+	ReportID         string //  2 hex bytes
 }
 
 type Aggregator interface {

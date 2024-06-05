@@ -347,14 +347,15 @@ func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 
 	// The workflow ID and execution ID get added to the report.
 	nm.Underlying[pbtypes.MetadataFieldName], err = values.NewMap(map[string]any{
-		"Version":       1,
-		"ExecutionID":   weid,
-		"Timestamp":     0,
-		"DONID":         donId,
-		"WorkflowID":    workflowTestID,
-		"WorkflowName":  workflowTestName,
-		"WorkflowOwner": wowner,
-		"ReportID":      reportTestId,
+		"Version":          1,
+		"ExecutionID":      weid,
+		"Timestamp":        0,
+		"DONID":            donId,
+		"DONConfigVersion": 0,
+		"WorkflowID":       workflowTestID,
+		"WorkflowName":     workflowTestName,
+		"WorkflowOwner":    wowner,
+		"ReportID":         reportTestId,
 	})
 	require.NoError(t, err)
 	fp := values.FromProto(rep)
