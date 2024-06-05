@@ -116,7 +116,7 @@ jobs:
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: SETH_KEYFILE_BASE64=$(eval $READ_CMD | base64 -w0) && cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
+          test_command_to_run: SETH_KEYFILE_BASE64=$(eval ${{env.READ_CMD}} | base64 -w0) && cd ./integration-tests/load && go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
