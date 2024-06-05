@@ -87,7 +87,7 @@ jobs:
           fi
       - name: Install 1Password CLI
         uses: 1password/install-cli-action@v1
-        if: env.NETWORK_SIMULATED == 'true'
+        if: env.NETWORK_SIMULATED == 'false'
         with:
           version: 2.18.0
       - name: Prepare optional 1Password keyfile fetching command
