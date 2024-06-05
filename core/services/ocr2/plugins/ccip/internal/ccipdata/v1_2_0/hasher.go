@@ -4,9 +4,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
@@ -35,7 +34,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 	message := msg.Message
-	encodedTokens, err := utils.ABIEncode(
+	encodedTokens, err := abihelpers.ABIEncode(
 		`[
 {"components": [{"name":"token","type":"address"},{"name":"amount","type":"uint256"}], "type":"tuple[]"}]`, message.TokenAmounts)
 	if err != nil {
@@ -52,7 +51,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 
-	packedFixedSizeValues, err := utils.ABIEncode(
+	packedFixedSizeValues, err := abihelpers.ABIEncode(
 		`[
 {"name": "sender", "type":"address"},
 {"name": "receiver", "type":"address"},
@@ -77,7 +76,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 	}
 	fixedSizeValuesHash := t.ctx.Hash(packedFixedSizeValues)
 
-	packedValues, err := utils.ABIEncode(
+	packedValues, err := abihelpers.ABIEncode(
 		`[
 {"name": "leafDomainSeparator","type":"bytes1"},
 {"name": "metadataHash", "type":"bytes32"},
