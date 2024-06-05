@@ -92,7 +92,6 @@ jobs:
           version: 2.18.0
       - name: Prepare optional 1Password keyfile fetching command
         run: |
-            echo "NETWORKS: ${{ env.NETWORKS }}"
             if [[ ${{ env.NETWORK_SIMULATED }} == "true" ]]; then
               echo "Network is simulated, no need to fetch keyfile"
               echo "READ_CMD=" >> $GITHUB_ENV
@@ -109,8 +108,7 @@ jobs:
               echo "Selected network: $SELECTED_NETWORK"
             fi                                
               echo "Fetching keyfile from 1Password"
-              keyname="${SELECTED_NETWORK}_KEYFILE"
-              echo "Using keyname $keyname"
+              echo "Will use keyname $keyname"
               READ_CMD="op read op://${{secrets.OP_TEST_VAULT_ID}}/$keyname/keyfile"
             fi
       - name: Run Tests
