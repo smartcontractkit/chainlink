@@ -276,20 +276,6 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
-	t.Run("Logs error if finality gap is too big", func(t *testing.T) {
-		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false), MaxAllowedFinalityDepth: ptr(uint32(10))})
-		head := cltest.Head(1000)
-		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
-		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(cltest.Head(989), nil).Once()
-		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
-		ht.Start(t)
-		tests.AssertEventually(t, func() bool {
-			// must exactly match the error passed to logger
-			field := zap.String("err", "failed to calculate latest finalized head: gap between latest finalized block (989) and current head (1000) is too large (> 10)")
-			filtered := ht.observer.FilterMessage("Error handling initial head").FilterField(field)
-			return filtered.Len() > 0
-		})
-	})
 	t.Run("Happy path (finality tag)", func(t *testing.T) {
 		head := cltest.Head(1000)
 		ht := newHeadTracker(t, opts{FinalityTagEnable: ptr(true), FinalityTagBypass: ptr(false)})
@@ -888,10 +874,11 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	type opts struct {
-		Heads                []evmtypes.Head
-		FinalityTagEnabled   bool
-		FinalizedBlockOffset uint32
-		FinalityDepth        uint32
+		Heads                   []evmtypes.Head
+		FinalityTagEnabled      bool
+		FinalizedBlockOffset    uint32
+		FinalityDepth           uint32
+		MaxAllowedFinalityDepth uint32
 	}
 	newHeadTrackerUniverse := func(t *testing.T, opts opts) *headTrackerUniverse {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, secrets *chainlink.Secrets) {
@@ -899,6 +886,9 @@ func TestHeadTracker_Backfill(t *testing.T) {
 			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
 			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
 			c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
+			if opts.MaxAllowedFinalityDepth > 0 {
+				c.EVM[0].HeadTracker.MaxAllowedFinalityDepth = ptr(opts.MaxAllowedFinalityDepth)
+			}
 		})
 
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -929,6 +919,13 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		err := htu.headTracker.Backfill(ctx, &h12)
 		require.EqualError(t, err, "failed to calculate finalized block: failed to get valid latest finalized block")
+	})
+	t.Run("Returns error if finality gap is too big", func(t *testing.T) {
+		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true, MaxAllowedFinalityDepth: 2})
+		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(&h9, nil).Once()
+
+		err := htu.headTracker.Backfill(ctx, &h12)
+		require.EqualError(t, err, "gap between latest finalized block (9) and current head (12) is too large (> 2)")
 	})
 	t.Run("Returns error if finalized head is ahead of canonical", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
@@ -1173,7 +1170,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
 			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
 			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
-			c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
+			//c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
 		})
 
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)

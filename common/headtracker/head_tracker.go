@@ -42,7 +42,8 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface 
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H) (err error)
 	LatestChain() H
-	// LatestAndFinalizedBlock - returns latest and finalized blocks
+	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
 }
 
@@ -146,7 +147,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 	}
 	ht.log.Debugw("Got initial head", "head", initialHead, "blockNumber", initialHead.BlockNumber(), "blockHash", initialHead.BlockHash())
 
-	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead)
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead, ht.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate latest finalized head: %w", err)
 	}
@@ -197,7 +198,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH) (err error) {
-	latestFinalized, err := ht.calculateLatestFinalized(ctx, headWithChain)
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, headWithChain, ht.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate finalized block: %w", err)
 	}
@@ -212,6 +213,11 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
 			Criticalf(errMsg)
 		return errors.New(errMsg)
+	}
+
+	if headWithChain.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
+		return fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
+			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
 	}
 
 	return ht.backfill(ctx, headWithChain, latestFinalized)
@@ -335,6 +341,9 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	}
 }
 
+// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
+// TODO: BCI-3321 use cached values instead of making RPC requests
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HTH, err error) {
 	latest, err = ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -347,7 +356,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 		return
 	}
 
-	finalized, err = ht.calculateLatestFinalized(ctx, latest)
+	finalized, err = ht.calculateLatestFinalized(ctx, latest, false)
 	if err != nil {
 		err = fmt.Errorf("failed to calculate latest finalized block: %w", err)
 		return
@@ -381,8 +390,8 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Conte
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (HTH, error) {
-	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagBypass() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH, finalityTagBypass bool) (HTH, error) {
+	if ht.config.FinalityTagEnabled() && !finalityTagBypass {
 		latestFinalized, err := ht.client.LatestFinalizedBlock(ctx)
 		if err != nil {
 			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)
@@ -390,11 +399,6 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 
 		if !latestFinalized.IsValid() {
 			return latestFinalized, fmt.Errorf("failed to get valid latest finalized block")
-		}
-
-		if currentHead.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
-			return latestFinalized, fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
-				latestFinalized.BlockNumber(), currentHead.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
 		}
 
 		if ht.config.FinalizedBlockOffset() == 0 {
