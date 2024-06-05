@@ -1173,6 +1173,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 			c.EVM[0].FinalityTagEnabled = ptr(opts.FinalityTagEnabled)
 			c.EVM[0].FinalizedBlockOffset = ptr(opts.FinalizedBlockOffset)
 			c.EVM[0].FinalityDepth = ptr(opts.FinalityDepth)
+			c.EVM[0].HeadTracker.FinalityTagBypass = ptr(false)
 		})
 
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
@@ -1218,7 +1219,7 @@ func TestHeadTracker_LatestAndFinalizedBlock(t *testing.T) {
 		htu.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
 
 		_, _, err := htu.headTracker.LatestAndFinalizedBlock(ctx)
-		require.ErrorContains(t, err, "expected finalized block to be valid")
+		require.ErrorContains(t, err, "failed to get valid latest finalized block")
 	})
 	t.Run("returns latest finalized block as is if FinalizedBlockOffset is 0 (finality tag)", func(t *testing.T) {
 		htu := newHeadTrackerUniverse(t, opts{FinalityTagEnabled: true})
