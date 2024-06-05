@@ -35,6 +35,7 @@ jobs:
       LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
       TEST_TYPE: ${{ inputs.performanceTestType }}
       TEST_LOG_LEVEL: debug
+      SETH_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
       SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
