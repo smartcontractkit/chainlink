@@ -113,22 +113,22 @@ func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]
 	binary.BigEndian.PutUint32(cfgVersionBytes, meta.DONConfigVersion)
 	result = append(result, cfgVersionBytes...)
 
-	// 5. Workflow ID / spec hash (32 bytes)
+	// 6. Workflow ID / spec hash (32 bytes)
 	if result, err = decodeAndAppend(meta.WorkflowID, 32, result, "WorkflowID"); err != nil {
 		return nil, err
 	}
 
-	// 6. Workflow Name (10 bytes)
+	// 7. Workflow Name (10 bytes)
 	if result, err = decodeAndAppend(meta.WorkflowName, 10, result, "WorkflowName"); err != nil {
 		return nil, err
 	}
 
-	// 7. Workflow Owner (20 bytes)
+	// 8. Workflow Owner (20 bytes)
 	if result, err = decodeAndAppend(meta.WorkflowOwner, 20, result, "WorkflowOwner"); err != nil {
 		return nil, err
 	}
 
-	// 8. Report ID (2 bytes)
+	// 9. Report ID (2 bytes)
 	if result, err = decodeAndAppend(meta.ReportID, 2, result, "ReportID"); err != nil {
 		return nil, err
 	}
