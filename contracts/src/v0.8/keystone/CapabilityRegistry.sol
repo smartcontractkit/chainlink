@@ -82,18 +82,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   struct Capability {
     /// @notice The partially qualified ID for the capability.
-    ///
     /// @dev Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
     // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
     ///
     /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
     ///     labelledName = "data-streams-reports:chain:ethereum"
     ///
-    /// bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
-    bytes32 labelledName;
+    /// validation regex: ^[a-z0-9_\-:]{1,32}$
+    string labelledName;
     /// @notice Semver, e.g., "1.2.3"
-    ///  @dev must be valid Semver + max 32 characters.
-    bytes32 version;
+    /// @dev must be valid Semver + max 32 characters.
+    string version;
     /// @notice CapabilityType indicates the type of capability which determines
     /// where the capability can be used in a Workflow Spec.
     CapabilityType capabilityType;
@@ -624,8 +623,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param version The capability's version number
   /// @return bytes32 A unique identifier for the capability
   /// @dev The hash of the encoded labelledName and version
-  function getHashedCapabilityId(bytes32 labelledName, bytes32 version) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(labelledName, version));
+  function getHashedCapabilityId(string calldata labelledName, string calldata version) public pure returns (bytes32) {
+    return keccak256(abi.encode(labelledName, version));
   }
 
   /// @notice Returns whether a capability is deprecated

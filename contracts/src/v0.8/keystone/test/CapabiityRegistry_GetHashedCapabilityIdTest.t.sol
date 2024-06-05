@@ -7,8 +7,8 @@ import {CapabilityConfigurationContract} from "./mocks/CapabilityConfigurationCo
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_GetHashedCapabilityTest is BaseTest {
-  bytes32 constant CAPABILITY_LABELLED_NAME = bytes32("ccip1");
-  bytes32 constant CAPABILITY_VERSION = bytes32("1.0.0");
+  string constant CAPABILITY_LABELLED_NAME = "ccip1";
+  string constant CAPABILITY_VERSION = "1.0.0";
 
   function test_CorrectlyGeneratesHashedCapabilityId() public view {
     bytes32 expectedHashedCapabilityId = keccak256(abi.encode(CAPABILITY_LABELLED_NAME, CAPABILITY_VERSION));
@@ -22,7 +22,7 @@ contract CapabilityRegistry_GetHashedCapabilityTest is BaseTest {
   function test_DoesNotCauseIncorrectClashes() public view {
     assertNotEq(
       s_capabilityRegistry.getHashedCapabilityId(CAPABILITY_LABELLED_NAME, CAPABILITY_VERSION),
-      s_capabilityRegistry.getHashedCapabilityId(bytes32("ccip"), bytes32("11.0.0"))
+      s_capabilityRegistry.getHashedCapabilityId("ccip", "11.0.0")
     );
   }
 }
