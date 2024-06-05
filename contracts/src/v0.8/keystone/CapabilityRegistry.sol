@@ -10,6 +10,11 @@ import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.so
 /// @notice CapabilityRegistry is used to manage Nodes (including their links to Node
 /// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
 /// sets of nodes that support those Capabilities.
+/// @dev The contract currently stores the entire state of Node Operators, Nodes,
+/// Capabilities and DONs in the contract and requires a full state migration
+/// if an upgrade is ever required.  The team acknowledges this and is fine
+/// reconfiguring the upgraded contract in the future so as to not add extra
+/// complexity to this current version.
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -66,6 +71,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice CapabilityResponseType indicates whether remote response requires
   // aggregation or is an already aggregated report. There are multiple
   // possible ways to aggregate.
+  /// @dev REPORT response type receives signatures together with the response that
+  /// is used to verify the data.  OBSERVATION_IDENTICAL just receives data without
+  /// signatures and waits for some number of observations before proceeeding to
+  /// the next step
   enum CapabilityResponseType {
     // No additional aggregation is needed on the remote response.
     REPORT,
@@ -783,7 +792,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       for (uint256 j; j < nodes.length; ++j) {
         if (
-          !s_nodes[nodes[j]].supportedHashedCapabilityIds[s_nodes[nodes[j]].configCount].contains(configuration.capabilityId)
+          !s_nodes[nodes[j]].supportedHashedCapabilityIds[s_nodes[nodes[j]].configCount].contains(
+            configuration.capabilityId
+          )
         ) revert NodeDoesNotSupportCapability(nodes[j], configuration.capabilityId);
       }
 
@@ -826,7 +837,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param capability The capability's data
   function _setCapability(bytes32 hashedCapabilityId, Capability memory capability) internal {
     if (capability.configurationContract != address(0)) {
-
       /// Check that the configuration contract being assigned
       /// correctly supports the ICapabilityConfiguration interface
       /// by implementing both getCapabilityConfiguration and
