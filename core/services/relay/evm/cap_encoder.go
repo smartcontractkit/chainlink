@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 const (
 	abiConfigFieldName = "abi"
 	encoderName        = "user"
-	idLen              = 32
 )
 
 type capEncoder struct {
@@ -84,41 +84,65 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 }
 
 func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
-	// TODO: use all 7 fields from Metadata struct
-	result := []byte{}
-	workflowID, err := decodeID(meta.WorkflowID, idLen)
-	if err != nil {
-		return nil, err
-	}
-	result = append(result, workflowID...)
+	var err error
+	var result []byte
 
-	donID, err := decodeID(meta.DONID, 4)
-	if err != nil {
-		return nil, err
+	// 1. Version (1 byte)
+	if meta.Version > 255 {
+		return nil, fmt.Errorf("version must be between 0 and 255")
 	}
-	result = append(result, donID...)
+	result = append(result, byte(meta.Version))
 
-	executionID, err := decodeID(meta.ExecutionID, idLen)
-	if err != nil {
+	// 2. Execution ID (32 bytes)
+	if result, err = decodeAndAppend(meta.ExecutionID, 32, result, "ExecutionID"); err != nil {
 		return nil, err
 	}
-	result = append(result, executionID...)
 
-	workflowOwner, err := decodeID(meta.WorkflowOwner, 20)
-	if err != nil {
+	// 3. Timestamp (4 bytes)
+	tsBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tsBytes, meta.Timestamp)
+	result = append(result, tsBytes...)
+
+	// 4. DON ID (4 bytes)
+	if result, err = decodeAndAppend(meta.DONID, 4, result, "DONID"); err != nil {
 		return nil, err
 	}
-	result = append(result, workflowOwner...)
+
+	// 5. DON config version (4 bytes)
+	cfgVersionBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(cfgVersionBytes, meta.DONConfigVersion)
+	result = append(result, cfgVersionBytes...)
+
+	// 5. Workflow ID / spec hash (32 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowID, 32, result, "WorkflowID"); err != nil {
+		return nil, err
+	}
+
+	// 6. Workflow Name (10 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowName, 10, result, "WorkflowName"); err != nil {
+		return nil, err
+	}
+
+	// 7. Workflow Owner (20 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowOwner, 20, result, "WorkflowOwner"); err != nil {
+		return nil, err
+	}
+
+	// 8. Report ID (2 bytes)
+	if result, err = decodeAndAppend(meta.ReportID, 2, result, "ReportID"); err != nil {
+		return nil, err
+	}
+
 	return append(result, userPayload...), nil
 }
 
-func decodeID(id string, expectedLen int) ([]byte, error) {
+func decodeAndAppend(id string, expectedLen int, prevResult []byte, logName string) ([]byte, error) {
 	b, err := hex.DecodeString(id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to hex-decode %s (%s): %w", logName, id, err)
 	}
 	if len(b) != expectedLen {
-		return nil, fmt.Errorf("incorrect length for id %s, expected %d bytes, got %d", id, expectedLen, len(b))
+		return nil, fmt.Errorf("incorrect length for id %s (%s), expected %d bytes, got %d", logName, id, expectedLen, len(b))
 	}
-	return b, nil
+	return append(prevResult, b...), nil
 }
