@@ -842,8 +842,9 @@ type LiquidityBalancerSpec struct {
 }
 
 type WorkflowSpec struct {
-	ID            int32     `toml:"-"`
-	WorkflowID    string    `toml:"workflowId"` // content hash
+	ID int32 `toml:"-"`
+	// TODO it may be possible to compute the workflow id from the hash(yaml, owner, name) and remove this field
+	WorkflowID    string    `toml:"workflowId"` // globally unique identifier for the workflow, specified by the user
 	Workflow      string    `toml:"workflow"`
 	WorkflowOwner string    `toml:"workflowOwner"` // hex string representation of 20 bytes
 	WorkflowName  string    `toml:"workflowName"`  // 10 byte plain text name
@@ -858,14 +859,14 @@ var (
 )
 
 const (
-	workflowIDLen = 64 // content hash
-	// owner and name are constrained the onchain representation i
+	workflowIDLen = 64 // conveniently the same length as a sha256 hash
+	// owner and name are constrained the onchain representation in [github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/types/Metadata]
 	workflowOwnerLen = 40 // hex string representation of 20 bytes
 	workflowNameLen  = 10 // plain text name
 )
 
 // Validate checks the length of the workflow id, owner and name
-// which are constrained by the onchain representation in [github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/types/Metadata]
+// that latter two are constrained by the onchain representation in [github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/types/Metadata]
 func (w *WorkflowSpec) Validate() error {
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
