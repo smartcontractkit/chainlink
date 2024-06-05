@@ -413,7 +413,7 @@ func NewSendError(e error) *SendError {
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
 }
 
-func NewTxError(e error) commontypes.TxError {
+func NewTxError(e error) commontypes.ErrorClassifier {
 	return NewSendError(e)
 }
 

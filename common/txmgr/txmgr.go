@@ -29,7 +29,7 @@ import (
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
 
-type NewTxError func(err error) txmgrtypes.TxError
+type NewErrorClassifier func(err error) txmgrtypes.ErrorClassifier
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
@@ -96,25 +96,23 @@ type Txm[
 	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	pruneQueueAndCreateLock sync.Mutex
 
-	chHeads                 chan HEAD
-	latestFinalizedBlockNum int64
-	finalizedBlockNumMu     sync.RWMutex
-	trigger                 chan ADDR
-	reset                   chan reset
-	resumeCallback          ResumeCallback
+	chHeads        chan HEAD
+	trigger        chan ADDR
+	reset          chan reset
+	resumeCallback ResumeCallback
 
 	chStop   services.StopChan
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper           *Reaper[CHAIN_ID]
-	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	tracker          *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	newTxError       NewTxError
+	reaper             *Reaper[CHAIN_ID]
+	resender           *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	broadcaster        *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmer          *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	tracker            *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
+	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	newErrorClassifier NewErrorClassifier
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -147,28 +145,28 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	newTxErrorFunc NewTxError,
+	newErrorClassifierFunc NewErrorClassifier,
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		logger:           logger.Sugared(lggr),
-		txStore:          txStore,
-		config:           cfg,
-		txConfig:         txCfg,
-		keyStore:         keyStore,
-		chainID:          chainId,
-		checkerFactory:   checkerFactory,
-		chHeads:          make(chan HEAD),
-		trigger:          make(chan ADDR),
-		chStop:           make(chan struct{}),
-		chSubbed:         make(chan struct{}),
-		reset:            make(chan reset),
-		fwdMgr:           fwdMgr,
-		txAttemptBuilder: txAttemptBuilder,
-		broadcaster:      broadcaster,
-		confirmer:        confirmer,
-		resender:         resender,
-		tracker:          tracker,
-		newTxError:       newTxErrorFunc,
+		logger:             logger.Sugared(lggr),
+		txStore:            txStore,
+		config:             cfg,
+		txConfig:           txCfg,
+		keyStore:           keyStore,
+		chainID:            chainId,
+		checkerFactory:     checkerFactory,
+		chHeads:            make(chan HEAD),
+		trigger:            make(chan ADDR),
+		chStop:             make(chan struct{}),
+		chSubbed:           make(chan struct{}),
+		reset:              make(chan reset),
+		fwdMgr:             fwdMgr,
+		txAttemptBuilder:   txAttemptBuilder,
+		broadcaster:        broadcaster,
+		confirmer:          confirmer,
+		resender:           resender,
+		tracker:            tracker,
+		newErrorClassifier: newErrorClassifierFunc,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -419,12 +417,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
 			b.tracker.mb.Deliver(head.BlockNumber())
-			// Set latest finalized block number
-			b.finalizedBlockNumMu.Lock()
-			if head.LatestFinalizedHead() != nil && head.LatestFinalizedHead().BlockNumber() != 0 {
-				b.latestFinalizedBlockNum = head.LatestFinalizedHead().BlockNumber()
-			}
-			b.finalizedBlockNumMu.Unlock()
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -654,26 +646,15 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
 		return commontypes.Unconfirmed, nil
 	case TxConfirmed:
-		var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
-		// Find tx receipt if one exists
-		for _, attempt := range tx.TxAttempts {
-			if len(attempt.Receipts) > 0 {
-				// Tx will only have one receipt
-				receipt = attempt.Receipts[0]
-				break
-			}
-		}
-		b.finalizedBlockNumMu.RLock()
-		defer b.finalizedBlockNumMu.RUnlock()
-		if receipt != nil && b.latestFinalizedBlockNum != 0 && receipt.GetBlockNumber().Cmp(big.NewInt(b.latestFinalizedBlockNum)) <= 0 {
+		if b.confirmer.CheckTransactionFinality(ctx, tx) {
 			// Return finalized if tx receipt's block is equal or older than the latest finalized block
 			return commontypes.Finalized, nil
 		}
 		// Return unconfirmed if tx receipt's block is newer than the latest finalized block
 		return commontypes.Unconfirmed, nil
 	case TxFatalError:
-		// Use the TxError builder to classify the error message stored for the tx
-		txErr := b.newTxError(tx.GetError())
+		// Use an ErrorClassifier to determine if the transaction is considered Fatal
+		txErr := b.newErrorClassifier(tx.GetError())
 		if txErr != nil && txErr.IsFatal() {
 			return commontypes.Fatal, tx.GetError()
 		}

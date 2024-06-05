@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"strconv"
 	"sync"
@@ -141,6 +142,10 @@ type Confirmer[
 
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
+
+	// Used to compare against receipt block num to determine if a transaction is finalized
+	latestFinalizedBlockNum int64
+	finalizedBlockNumMu     sync.RWMutex
 }
 
 func NewConfirmer[
@@ -289,6 +294,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "confirmer")
+
+	ec.SetLatestFinalizedBlockNum(ctx, head)
 
 	if err := ec.txStore.SetBroadcastBeforeBlockNum(ctx, head.BlockNumber(), ec.chainID); err != nil {
 		return fmt.Errorf("SetBroadcastBeforeBlockNum failed: %w", err)
@@ -1216,6 +1223,37 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 	}
 
 	return nil
+}
+
+// Set latest finalized block number using the latest head
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetLatestFinalizedBlockNum(ctx context.Context, head types.Head[BLOCK_HASH]) {
+	if head.LatestFinalizedHead() != nil && head.LatestFinalizedHead().BlockNumber() != 0 {
+		ec.finalizedBlockNumMu.Lock()
+		ec.latestFinalizedBlockNum = head.LatestFinalizedHead().BlockNumber()
+		ec.finalizedBlockNumMu.Unlock()
+	}
+
+	ec.lggr.Debugf("set latest finalized block num: %d", ec.latestFinalizedBlockNum)
+}
+
+// Determines if a transaction is finalized by comparing its receipt's (if one exists) block num against the latest finalized block num
+// If the receipt's block num is less than or equal to the finalized block num, the transaction is considered finalized
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CheckTransactionFinality(ctx context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool {
+	var receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH]
+	// Find tx receipt if one exists
+	for _, attempt := range tx.TxAttempts {
+		if len(attempt.Receipts) > 0 {
+			// Tx will only have one receipt
+			receipt = attempt.Receipts[0]
+			break
+		}
+	}
+	ec.finalizedBlockNumMu.RLock()
+	defer ec.finalizedBlockNumMu.RUnlock()
+	if receipt != nil && ec.latestFinalizedBlockNum != 0 && receipt.GetBlockNumber().Cmp(big.NewInt(ec.latestFinalizedBlockNum)) <= 0 {
+		return true
+	}
+	return false
 }
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
