@@ -36,6 +36,13 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 	return uint32(0)
 }
 
+func (h *headTrackerConfig) FinalityTagBypass() bool {
+	return false
+}
+func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
+	return 10000
+}
+
 type config struct {
 	finalityDepth                     uint32
 	blockEmissionIdleWarningThreshold time.Duration

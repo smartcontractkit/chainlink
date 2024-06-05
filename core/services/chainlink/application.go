@@ -200,21 +200,27 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	if opts.CapabilitiesRegistry == nil {
+	if opts.CapabilitiesRegistry == nil { // for tests only, in prod Registry is always set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
 		externalPeerWrapper = externalPeer
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
+		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
+		}
+
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
+
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
@@ -395,7 +401,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
 		opts.CapabilitiesRegistry,
-		legacyEVMChains,
 		workflowORM,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
