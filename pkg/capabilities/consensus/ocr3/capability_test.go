@@ -83,7 +83,7 @@ func TestOCR3Capability(t *testing.T) {
 			"aggregation_config": map[string]any{},
 			"encoder_config":     map[string]any{},
 			"encoder":            "evm",
-			"report_id":          "aa",
+			"report_id":          "ffff",
 		},
 	)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 			"aggregation_config": map[string]any{},
 			"encoder_config":     map[string]any{},
 			"encoder":            "evm",
-			"report_id":          "aa",
+			"report_id":          "aaaa",
 		},
 	)
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func TestOCR3Capability_Registration(t *testing.T) {
 		"aggregation_config": map[string]any{},
 		"encoder":            "",
 		"encoder_config":     map[string]any{},
-		"report_id":          "aa",
+		"report_id":          "000f",
 	})
 	require.NoError(t, err)
 
@@ -248,7 +248,7 @@ func TestOCR3Capability_ValidateConfig(t *testing.T) {
 			"aggregation_config": map[string]any{},
 			"encoder":            "",
 			"encoder_config":     map[string]any{},
-			"report_id":          "aa",
+			"report_id":          "aaaa",
 		})
 		require.NoError(t, err)
 
@@ -257,14 +257,32 @@ func TestOCR3Capability_ValidateConfig(t *testing.T) {
 		require.NotNil(t, c)
 	})
 
-	t.Run("InvalidConfig", func(t *testing.T) {
+	t.Run("InvalidConfig null", func(t *testing.T) {
 		config, err := values.NewMap(map[string]any{
 			"aggregation_method": "data_feeds",
+			"report_id":          "aaaa",
 		})
 		require.NoError(t, err)
 
 		c, err := o.ValidateConfig(config)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "expected object, but got null") // taken from the error json schema error message
+		require.Nil(t, c)
+	})
+
+	t.Run("InvalidConfig illegal report_id", func(t *testing.T) {
+		config, err := values.NewMap(map[string]any{
+			"aggregation_method": "data_feeds",
+			"aggregation_config": map[string]any{},
+			"encoder":            "",
+			"encoder_config":     map[string]any{},
+			"report_id":          "aa",
+		})
+		require.NoError(t, err)
+
+		c, err := o.ValidateConfig(config)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match pattern") // taken from the error json schema error message
 		require.Nil(t, c)
 	})
 }

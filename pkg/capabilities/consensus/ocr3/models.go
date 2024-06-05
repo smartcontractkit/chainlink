@@ -13,7 +13,7 @@ type config struct {
 	AggregationConfig *values.Map `mapstructure:"aggregation_config" json:"aggregation_config"`
 	Encoder           string      `mapstructure:"encoder" json:"encoder"`
 	EncoderConfig     *values.Map `mapstructure:"encoder_config" json:"encoder_config"`
-	ReportID          string      `mapstructure:"report_id" json:"report_id"`
+	ReportID          string      `mapstructure:"report_id" json:"report_id" jsonschema:"required,pattern=^[a-f0-9]{4}$"`
 }
 
 type inputs struct {

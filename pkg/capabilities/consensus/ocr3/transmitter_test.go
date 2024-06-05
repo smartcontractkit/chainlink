@@ -135,7 +135,7 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 		"aggregation_config": map[string]any{},
 		"encoder":            "",
 		"encoder_config":     map[string]any{},
-		"report_id":          "aa",
+		"report_id":          "aaff",
 	})
 	require.NoError(t, err)
 	gotCh, err := cp.Execute(ctx, capabilities.CapabilityRequest{

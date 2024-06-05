@@ -38,7 +38,8 @@
           ]
         },
         "report_id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-f0-9]{4}$"
         }
       },
       "additionalProperties": false,
