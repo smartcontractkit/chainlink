@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -38,8 +37,6 @@ type ORM interface {
 
 type orm struct {
 	ds sqlutil.DataSource
-
-	bridgeTypesCache sync.Map
 }
 
 var _ ORM = (*orm)(nil)
@@ -58,58 +55,33 @@ func (o *orm) transact(ctx context.Context, readOnly bool, fn func(tx *orm) erro
 // FindBridge looks up a Bridge by its Name.
 // Returns sql.ErrNoRows if name not present
 func (o *orm) FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, err error) {
-	if bridgeType, ok := o.bridgeTypesCache.Load(name); ok {
-		return bridgeType.(BridgeType), nil
-	}
-
 	stmt := "SELECT * FROM bridge_types WHERE name = $1"
 	err = o.ds.GetContext(ctx, &bt, stmt, name.String())
-	if err == nil {
-		o.bridgeTypesCache.Store(bt.Name, bt)
-	}
+
 	return
 }
 
 // FindBridges looks up multiple bridges in a single query.
 // Errors unless all bridges successfully found. Requires at least one bridge.
 // Expects all bridges to be unique
-func (o *orm) FindBridges(ctx context.Context, names []BridgeName) (bts []BridgeType, err error) {
-	if len(names) == 0 {
-		return nil, pkgerrors.Errorf("at least one bridge name is required")
-	}
-
-	var allFoundBts []BridgeType
-	var searchNames []BridgeName
-
-	for _, n := range names {
-		if bridgeType, ok := o.bridgeTypesCache.Load(n); ok {
-			allFoundBts = append(allFoundBts, bridgeType.(BridgeType))
-		} else {
-			searchNames = append(searchNames, n)
-		}
-	}
-
-	if len(allFoundBts) == len(names) {
-		return allFoundBts, nil
-	}
-
+func (o *orm) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType, error) {
 	stmt := "SELECT * FROM bridge_types WHERE name IN (?)"
-	query, args, err := sqlx.In(stmt, searchNames)
+	query, args, err := sqlx.In(stmt, names)
 	if err != nil {
 		return nil, err
 	}
-	err = o.ds.SelectContext(ctx, &bts, o.ds.Rebind(query), args...)
-	if err != nil {
+
+	var bts []BridgeType
+
+	if err = o.ds.SelectContext(ctx, &bts, o.ds.Rebind(query), args...); err != nil {
 		return nil, err
 	}
-	for _, bt := range bts {
-		o.bridgeTypesCache.Store(bt.Name, bt)
+
+	if len(bts) != len(names) {
+		return nil, pkgerrors.Errorf("not all bridges exist, asked for %v, exists %v", names, bts)
 	}
-	allFoundBts = append(allFoundBts, bts...)
-	if len(allFoundBts) != len(names) {
-		return nil, pkgerrors.Errorf("not all bridges exist, asked for %v, exists %v", names, allFoundBts)
-	}
-	return allFoundBts, nil
+
+	return bts, nil
 }
 
 // DeleteBridgeType removes the bridge type
@@ -119,16 +91,17 @@ func (o *orm) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	if err != nil {
 		return err
 	}
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return err
 	}
-	// We delete regardless of the rows affected, in case it gets out of sync
-	o.bridgeTypesCache.Delete(bt.Name)
+
 	if rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
-	return err
+
+	return nil
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
@@ -161,9 +134,6 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 		defer stmt.Close()
 		return stmt.GetContext(ctx, bt, bt)
 	})
-	if err == nil {
-		o.bridgeTypesCache.Store(bt.Name, *bt)
-	}
 
 	return pkgerrors.Wrap(err, "CreateBridgeType failed")
 }
@@ -172,23 +142,43 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
 	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
 	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
-	if err == nil {
-		o.bridgeTypesCache.Store(bt.Name, *bt)
-	}
 
 	return err
 }
 
-func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) (response []byte, err error) {
+func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
+	response, _, err := o.getCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+func (o *orm) getCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
-	sql := `SELECT value FROM bridge_last_value WHERE
+	sql := `SELECT value, finished_at FROM bridge_last_value WHERE
 				dot_id = $1 AND 
 				spec_id = $2 AND 
 				finished_at > ($3)	
 				ORDER BY finished_at 
 				DESC LIMIT 1;`
-	err = pkgerrors.Wrap(o.ds.GetContext(ctx, &response, sql, dotId, specId, stalenessThreshold), fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId))
-	return
+
+	type responseType struct {
+		response   []byte
+		finishedAt time.Time
+	}
+
+	var result responseType
+
+	if err := pkgerrors.Wrap(
+		o.ds.SelectContext(ctx, &result, sql, dotId, specId, stalenessThreshold),
+		fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId),
+	); err != nil {
+		return nil, time.Now(), err
+	}
+
+	return result.response, result.finishedAt, nil
 }
 
 func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
@@ -198,7 +188,36 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 				DO UPDATE SET value = $3, finished_at = $4;`
 
 	_, err := o.ds.ExecContext(ctx, sql, dotId, specId, response, time.Now())
-	return pkgerrors.Wrap(err, "failed to upsert bridge response")
+
+	return err
+}
+
+func (o *orm) bulkUpsertBridgeResponse(ctx context.Context, responses []scopedResponse) error {
+	argCnt := 4
+	valueStrings := make([]string, len(responses))
+	valueArgs := make([]interface{}, argCnt*len(responses))
+
+	for idx, resp := range responses {
+		valueStrings[idx] = "(?, ?, ?, ?)"
+
+		pointIdx := argCnt * idx
+
+		valueArgs[pointIdx] = resp.dotId
+		valueArgs[pointIdx+1] = resp.specId
+		valueArgs[pointIdx+2] = resp.response
+		valueArgs[pointIdx+3] = resp.finishedAt
+	}
+
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+				VALUES %s
+			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
+				DO UPDATE SET value = excluded.value, finished_at = excluded.finished_at;`
+
+	if _, err := o.ds.ExecContext(ctx, sql, valueArgs...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // --- External Initiator

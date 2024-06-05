@@ -108,7 +108,17 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(
+	orm ORM,
+	btORM bridges.ORM,
+	cfg Config,
+	bridgeCfg BridgeConfig,
+	legacyChains legacyevm.LegacyChainContainer,
+	ethks ETHKeyStore,
+	vrfks VRFKeyStore,
+	lggr logger.Logger,
+	httpClient, unrestrictedHTTPClient *http.Client,
+) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
@@ -124,21 +134,35 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
+
+	cachedORM, err := bridges.NewBridgeCache(btORM, lggr, bridges.DefaultUpsertInterval)
+	if err == nil {
+		r.btORM = cachedORM
+	}
+
 	r.runReaperWorker = commonutils.NewSleeperTask(
 		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
+
 	return r
 }
 
 // Start starts Runner.
-func (r *runner) Start(context.Context) error {
+func (r *runner) Start(ctx context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
+		// starting cache can happen here for ORM
 		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
 		if r.config.ReaperInterval() != time.Duration(0) {
 			r.wgDone.Add(1)
 			go r.runReaperLoop()
 		}
+
+		cache, isCache := r.btORM.(*bridges.BridgeCache)
+		if isCache {
+			return cache.Start(ctx)
+		}
+
 		return nil
 	})
 }
@@ -147,6 +171,12 @@ func (r *runner) Close() error {
 	return r.StopOnce("PipelineRunner", func() error {
 		close(r.chStop)
 		r.wgDone.Wait()
+
+		cache, isCache := r.btORM.(*bridges.BridgeCache)
+		if isCache {
+			return cache.Close()
+		}
+
 		return nil
 	})
 }
@@ -156,7 +186,15 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	cache, isCache := r.btORM.(*bridges.BridgeCache)
+	if !isCache {
+		return map[string]error{r.Name(): r.Healthy()}
+	}
+
+	return map[string]error{
+		r.Name():     r.Healthy(),
+		cache.Name(): cache.Healthy(),
+	}
 }
 
 func (r *runner) destroy() {
@@ -311,6 +349,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
+			// orm added to BridgeTask
 			task.(*BridgeTask).orm = r.btORM
 			task.(*BridgeTask).specId = spec.ID
 			// URL is "safe" because it comes from the node's own database. We
