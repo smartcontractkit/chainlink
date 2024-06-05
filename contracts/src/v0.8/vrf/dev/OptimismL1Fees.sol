@@ -34,18 +34,26 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
 
   uint8 public s_L1FeeCalculationMode = L1GasFeesMode;
 
+  /// @dev L1 fee coefficient can be applied to options 2 or 3 to reduce possibly inflated gas price
+  uint8 public s_L1FeeCoefficient = 100;
+
   error InvalidL1FeeCalculationMode(uint8 mode);
+  error InvalidL1FeeCoefficient(uint8 coefficient);
 
-  event L1FeeCalculationModeSet(uint8 mode);
+  event L1FeeCalculationSet(uint8 mode, uint8 coefficient);
 
-  function setL1FeeCalculationMode(uint8 mode) external onlyOwner {
+  function setL1FeeCalculation(uint8 mode, uint8 coefficient) external onlyOwner {
     if (mode >= 3) {
       revert InvalidL1FeeCalculationMode(mode);
     }
+    if (coefficient == 0 || coefficient > 100) {
+      revert InvalidL1FeeCoefficient(coefficient);
+    }
 
     s_L1FeeCalculationMode = mode;
+    s_L1FeeCoefficient = coefficient;
 
-    emit L1FeeCalculationModeSet(mode);
+    emit L1FeeCalculationSet(mode, coefficient);
   }
 
   function _getL1CostWeiForCalldata(bytes calldata data) internal view virtual returns (uint256) {
@@ -57,10 +65,12 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
 
   function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
     if (s_L1FeeCalculationMode == L1CalldataGasCostMode) {
-      return _calculateOptimismL1DataFee(calldataSizeBytes);
+      return (s_L1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes)) / 100;
     } else if (s_L1FeeCalculationMode == L1GasFeesUpperBoundMode) {
       // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
-      return OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE);
+      return
+        (s_L1FeeCoefficient *
+          OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)) / 100;
     }
     revert InvalidL1FeeCalculationMode(s_L1FeeCalculationMode);
   }
