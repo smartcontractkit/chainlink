@@ -1,0 +1,27 @@
+name: Observability Lib Checks
+
+on:
+  push:
+    paths:
+      - "observability-lib/**"
+
+jobs:
+  run-tests:
+    defaults:
+      run:
+        working-directory: observability-lib
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+
+      - name: Set up Go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: "go.mod"
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Unit Tests
+        run: go test -v ./...
