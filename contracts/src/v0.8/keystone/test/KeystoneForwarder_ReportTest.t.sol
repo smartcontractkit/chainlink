@@ -27,7 +27,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
 
-    s_forwarder.setConfig(DON_ID, F, _getSignerAddresses());
+    s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
 
     mercuryReports[0] = hex"010203";
     mercuryReports[1] = hex"aabbccdd";
@@ -37,13 +37,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     header = abi.encodePacked(version, executionId, timestamp, DON_ID, CONFIG_VERSION, metadata);
     report = abi.encodePacked(header, rawReports);
 
-    for (uint256 i = 0; i < requiredSignaturesNum; i++) {
-      (uint8 v, bytes32 r, bytes32 s) = vm.sign(
-        s_signers[i].mockPrivateKey,
-        keccak256(abi.encodePacked(keccak256(report), reportContext))
-      );
-      signatures[i] = bytes.concat(r, s, bytes1(v - 27));
-    }
+    signatures = _signReport(report, reportContext, requiredSignaturesNum);
 
     vm.startPrank(TRANSMITTER);
   }
@@ -63,7 +57,25 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       rawReports
     );
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidDonId.selector, invalidDONId));
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, invalidDONId, CONFIG_VERSION));
+    s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
+  }
+
+  function test_RevertWhen_ReportHasInexistentConfigVersion() public {
+    bytes memory reportWithInvalidDONId = abi.encodePacked(
+      version,
+      executionId,
+      timestamp,
+      DON_ID,
+      CONFIG_VERSION + 1,
+      workflowId,
+      workflowName,
+      workflowOwner,
+      reportId,
+      rawReports
+    );
+
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION + 1));
     s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
@@ -129,9 +141,6 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_Report_SuccessfulDelivery() public {
-    // taken from https://github.com/smartcontractkit/chainlink/blob/2390ec7f3c56de783ef4e15477e99729f188c524/core/services/relay/evm/cap_encoder_test.go#L42-L55
-    // bytes memory report = hex"6d795f6964000000000000000000000000000000000000000000000000000000010203046d795f657865637574696f6e5f696400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000301020300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004aabbccdd00000000000000000000000000000000000000000000000000000000";
-
     vm.expectEmit(address(s_receiver));
     emit MessageReceived(metadata, mercuryReports);
 
@@ -142,6 +151,59 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     // validate transmitter was recorded
     address transmitter = s_forwarder.getTransmitter(address(s_receiver), executionId, reportId);
+    assertEq(transmitter, TRANSMITTER, "transmitter mismatch");
+  }
+
+  function test_Report_ConfigVersion() public {
+    vm.stopPrank();
+    // configure a new configVersion
+    vm.prank(ADMIN);
+    s_forwarder.setConfig(DON_ID, CONFIG_VERSION + 1, F, _getSignerAddresses());
+
+    // old version still works
+    vm.expectEmit(address(s_receiver));
+    emit MessageReceived(metadata, mercuryReports);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(address(s_receiver), executionId, true);
+
+    vm.prank(TRANSMITTER);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+
+    // after clear the old version doesn't work anymore
+    vm.prank(ADMIN);
+    s_forwarder.clearConfig(DON_ID, CONFIG_VERSION);
+
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION));
+    vm.prank(TRANSMITTER);
+    s_forwarder.report(address(s_receiver), report, reportContext, signatures);
+
+    // but new config does
+    bytes32 newExecutionId = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000001";
+    bytes memory newMetadata = abi.encodePacked(workflowId, workflowName, workflowOwner, reportId);
+    bytes memory newHeader = abi.encodePacked(
+      version,
+      newExecutionId,
+      timestamp,
+      DON_ID,
+      CONFIG_VERSION + 1,
+      newMetadata
+    );
+    bytes memory newReport = abi.encodePacked(newHeader, rawReports);
+    // resign the new report
+    bytes[] memory newSignatures = _signReport(newReport, reportContext, requiredSignaturesNum);
+
+    vm.expectEmit(address(s_receiver));
+    emit MessageReceived(newMetadata, mercuryReports);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(address(s_receiver), newExecutionId, true);
+
+    vm.prank(TRANSMITTER);
+    s_forwarder.report(address(s_receiver), newReport, reportContext, newSignatures);
+
+    // validate transmitter was recorded
+    address transmitter = s_forwarder.getTransmitter(address(s_receiver), newExecutionId, reportId);
     assertEq(transmitter, TRANSMITTER, "transmitter mismatch");
   }
 }
