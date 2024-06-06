@@ -57,6 +57,10 @@ func TestVRFV2Performance(t *testing.T) {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
 	}
+
+	// Initialising Seth here for simulated network will fail, because the chain is not running yet
+	// The solution is to modify cleanupFn signature to accept seth client as an argument and
+	// initialise Seth client after simulated chain has been started
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
 	sethClient, err := actions_seth.GetChainClient(testConfig, network)
@@ -73,6 +77,7 @@ func TestVRFV2Performance(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequestDeviation", *vrfv2Config.General.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
