@@ -674,10 +674,11 @@ targets:
     inputs: 
       consensus_output: $(a-consensus.outputs)
 `
-		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
-		proposalIDWF = int64(11)
-		remoteUUIDWF = uuid.New()
-		argsWF       = &feeds.ProposeJobArgs{
+		wfSpec              = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
+		proposalIDWF        = int64(11)
+		jobProposalSpecIdWF = int64(101)
+		remoteUUIDWF        = uuid.New()
+		argsWF              = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDWF,
 			Spec:           wfSpec,
@@ -709,7 +710,7 @@ targets:
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
-				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
@@ -718,7 +719,7 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&proposalSpecWF, nil)
 				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
@@ -737,7 +738,7 @@ targets:
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
-					proposalSpecWF.JobProposalID,
+					jobProposalSpecIdWF,
 					mock.IsType(uuid.UUID{}),
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -751,12 +752,13 @@ targets:
 			args:   argsWF,
 			wantID: proposalIDWF,
 		},
+
 		{
 			name: "Auto approve WF spec: error creating job",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
-				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
 				//			svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
@@ -765,7 +767,7 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&proposalSpecWF, nil)
 				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
