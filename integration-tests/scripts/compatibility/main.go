@@ -9,18 +9,18 @@ import (
 )
 
 type Input struct {
-	ProductName           string   `json:"product_name"`
-	TestNameRegex         string   `json:"test_name_regex"`
-	TestFile              string   `json:"test_file"`
-	EthImplementationName string   `json:"eth_implementation_name"`
-	DockerImages          []string `json:"docker_images"`
+	Product           string   `json:"product"`
+	TestRegex         string   `json:"test_regex"`
+	File              string   `json:"file"`
+	EthImplementation string   `json:"eth_implementation"`
+	DockerImages      []string `json:"docker_images"`
 }
 
 type OutputEntry struct {
-	ProductName           string `json:"product_name"`
-	TestNameRegex         string `json:"test_name_regex"`
-	TestFile              string `json:"test_file"`
-	EthImplementationName string `json:"eth_implementation_name"`
+	Product               string `json:"product"`
+	TestRegex             string `json:"test_regex"`
+	File                  string `json:"file"`
+	EthImplementationName string `json:"eth_implementation"`
 	DockerImage           string `json:"docker_image"`
 }
 
@@ -32,8 +32,8 @@ const OutputFile = "compatibility_test_list.json"
 
 func main() {
 	if len(os.Args) < 5 {
-		fmt.Println("Usage: go run main.go <product_name> <test_name_regex> <test_file> '<eth_implementation_name> <docker_images>")
-		fmt.Println("Example: go run main.go 'OCR' 'TestOCR.*' './smoke/ocr_test.go' 'besu' 'hyperledger/besu:21.0.0,hyperledger/besu:22.0.0'")
+		fmt.Println("Usage: go run main.go <product> <test_regex> <file> '<eth_implementation> <docker_images>")
+		fmt.Println("Example: go run main.go 'ocr' 'TestOCR.*' './smoke/ocr_test.go' 'besu' 'hyperledger/besu:21.0.0,hyperledger/besu:22.0.0'")
 		os.Exit(1)
 	}
 
@@ -41,11 +41,11 @@ func main() {
 	dockerImages := strings.Split(dockerImagesArg, ",")
 
 	input := Input{
-		ProductName:           os.Args[1],
-		TestNameRegex:         os.Args[2],
-		TestFile:              os.Args[3],
-		EthImplementationName: os.Args[4],
-		DockerImages:          dockerImages,
+		Product:           os.Args[1],
+		TestRegex:         os.Args[2],
+		File:              os.Args[3],
+		EthImplementation: os.Args[4],
+		DockerImages:      dockerImages,
 	}
 
 	var output Output
@@ -85,10 +85,10 @@ func main() {
 			os.Exit(1)
 		}
 		output.Entries = append(output.Entries, OutputEntry{
-			ProductName:           input.ProductName,
-			TestNameRegex:         input.TestNameRegex,
-			TestFile:              input.TestFile,
-			EthImplementationName: input.EthImplementationName,
+			Product:               input.Product,
+			TestRegex:             input.TestRegex,
+			File:                  input.File,
+			EthImplementationName: input.EthImplementation,
 			DockerImage:           image,
 		})
 	}
@@ -104,5 +104,5 @@ func main() {
 		return
 	}
 
-	fmt.Printf("%d compatibility test(s) for %s and %s added successfully!\n", len(dockerImages), input.ProductName, input.EthImplementationName)
+	fmt.Printf("%d compatibility test(s) for %s and %s added successfully!\n", len(dockerImages), input.Product, input.EthImplementation)
 }

@@ -199,7 +199,6 @@ jobs:
           go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../.
-          exit 1
       - name: Create Test Matrix
         id: create-test-matrix-list
         run: |
@@ -224,58 +223,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: ocr-geth
-            os: ubuntu-latest
-            test: TestOCRBasic
-            file: ocr
-            client: geth
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-geth-simulated
-          - name: ocr-nethermind
-            test: TestOCRBasic
-            file: ocr
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          - name: ocr-besu
-            test: TestOCRBasic
-            file: ocr
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-besu-simulated
-          - name: ocr-erigon
-            test: TestOCRBasic
-            file: ocr
-            client: erigon
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr-erigon-simulated
-          - name: ocr2-geth
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: geth
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-geth-simulated
-          - name: ocr2-nethermind
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: nethermind
-            timeout: 30m
-            pyroscope_env: ci-smoke-nethermind-evm-simulated
-          - name: ocr2-besu
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: besu
-            timeout: 30m
-            pyroscope_env: ci-smoke-ocr2-besu-simulated
-          - name: ocr2-erigon
-            test: "^TestOCRv2Basic/plugins$"
-            file: ocr2
-            client: erigon
-            timeout: 60m
-            pyroscope_env: ci-smoke-ocr2-erigon-simulated
+        evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        include:
+#          - name: ocr-geth
+#            os: ubuntu-latest
+#            test: TestOCRBasic
+#            file: ocr
+#            client: geth
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr-geth-simulated
+#          - name: ocr-nethermind
+#            test: TestOCRBasic
+#            file: ocr
+#            client: nethermind
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr-nethermind-simulated
+#          - name: ocr-besu
+#            test: TestOCRBasic
+#            file: ocr
+#            client: besu
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr-besu-simulated
+#          - name: ocr-erigon
+#            test: TestOCRBasic
+#            file: ocr
+#            client: erigon
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr-erigon-simulated
+#          - name: ocr2-geth
+#            test: "^TestOCRv2Basic/plugins$"
+#            file: ocr2
+#            client: geth
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr2-geth-simulated
+#          - name: ocr2-nethermind
+#            test: "^TestOCRv2Basic/plugins$"
+#            file: ocr2
+#            client: nethermind
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-nethermind-evm-simulated
+#          - name: ocr2-besu
+#            test: "^TestOCRv2Basic/plugins$"
+#            file: ocr2
+#            client: besu
+#            timeout: 30m
+#            pyroscope_env: ci-smoke-ocr2-besu-simulated
+#          - name: ocr2-erigon
+#            test: "^TestOCRv2Basic/plugins$"
+#            file: ocr2
+#            client: erigon
+#            timeout: 60m
+#            pyroscope_env: ci-smoke-ocr2-erigon-simulated
     runs-on: ubuntu-latest
-    name: Client Compatibility Test ${{ matrix.name }}
+    name: Client Compatibility Test ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -306,7 +309,7 @@ jobs:
           grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          ethExecutionClient: ${{ matrix.evm_node.eth_client }}
+          ethExecutionClient: ${{ matrix.evm_node.eth_implementation }}
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
           pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscopeEnvironment: ci-client-compatability-${{ matrix.eth_client }}-testnet
@@ -320,11 +323,11 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.name }}-test-logs
+          artifacts_name: ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
             /tmp/gotest.log
-          publish_check_name: ${{ matrix.name }}
+          publish_check_name: ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}

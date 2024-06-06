@@ -2,182 +2,211 @@
     "tests": [
       {
         "product": "ocr",
-        "name": "TestOCRBasic",
-        "eth_client": "geth",
+        "test_regex": "TestOCRBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr_test.go",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "ocr",
-        "name": "TestOCRBasic",
-        "eth_client": "geth",
+        "test_regex": "TestOCRBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "ocr",
-        "name": "TestOCRBasic",
-        "eth_client": "geth",
+        "test_regex": "TestOCRBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "ocr",
-        "name": "TestOCRBasic",
-        "eth_client": "geth",
+        "test_regex": "TestOCRBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "ocr",
-        "name": "TestOCRBasic",
-        "eth_client": "geth",
+        "test_regex": "TestOCRBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       },
       {
         "product": "ocr2",
-        "name": "TestOCRv2Request",
-        "eth_client": "geth",
+        "test_regex": "TestOCRv2Request",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr2_test.go",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "ocr2",
-        "name": "TestOCRv2Request",
-        "eth_client": "geth",
+        "test_regex": "TestOCRv2Request",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr2_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "ocr2",
-        "name": "TestOCRv2Request",
-        "eth_client": "geth",
+        "test_regex": "TestOCRv2Request",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr2_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "ocr2",
-        "name": "TestOCRv2Request",
-        "eth_client": "geth",
+        "test_regex": "TestOCRv2Request",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr2_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "ocr2",
-        "name": "TestOCRv2Request",
-        "eth_client": "geth",
+        "test_regex": "TestOCRv2Request",
+        "eth_implementation": "geth",
+        "file" : "./smoke/ocr2_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       },
       {
         "product": "vrf",
-        "name": "TestVRFBasic",
-        "eth_client": "geth",
+        "test_regex": "TestVRFBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrf_test.go",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "vrf",
-        "name": "TestVRFBasic",
-        "eth_client": "geth",
+        "test_regex": "TestVRFBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrf_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "vrf",
-        "name": "TestVRFBasic",
-        "eth_client": "geth",
+        "test_regex": "TestVRFBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrf_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "vrf",
-        "name": "TestVRFBasic",
-        "eth_client": "geth",
+        "test_regex": "TestVRFBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrf_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "vrf",
-        "name": "TestVRFBasic",
-        "eth_client": "geth",
+        "test_regex": "TestVRFBasic",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrf_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       },
       {
         "product": "vrfv2",
-        "name": "TestVRFv2Basic/Request Randomness",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Basic/Request Randomness",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2_test.go",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "vrfv2",
-        "name": "TestVRFv2Basic/Request Randomness",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Basic/Request Randomness",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "vrfv2",
-        "name": "TestVRFv2Basic/Request Randomness",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Basic/Request Randomness",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "vrfv2",
-        "name": "TestVRFv2Basic/Request Randomness",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Basic/Request Randomness",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "vrfv2",
-        "name": "TestVRFv2Basic/Request Randomness",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Basic/Request Randomness",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       },
       {
         "product": "vrfv2plus",
-        "name": "TestVRFv2Plus/Link Billing",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Plus/Link Billing",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2plus_test.go",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "vrfv2plus",
-        "name": "TestVRFv2Plus/Link Billing",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Plus/Link Billing",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2plus_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "vrfv2plus",
-        "name": "TestVRFv2Plus/Link Billing",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Plus/Link Billing",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2plus_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "vrfv2plus",
-        "name": "TestVRFv2Plus/Link Billing",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Plus/Link Billing",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2plus_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "vrfv2plus",
-        "name": "TestVRFv2Plus/Link Billing",
-        "eth_client": "geth",
+        "test_regex": "TestVRFv2Plus/Link Billing",
+        "eth_implementation": "geth",
+        "file" : "./smoke/vrfv2plus_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       },
       {
         "product": "automation",
-        "name": "TestSetUpkeepTriggerConfig",
-        "eth_client": "geth",
+        "test_regex": "TestSetUpkeepTriggerConfig",
+        "eth_implementation": "geth",
         "docker_image": "ethereum/client-go:latest_stable"
       },
       {
         "product": "automation",
-        "name": "TestSetUpkeepTriggerConfig",
-        "eth_client": "geth",
+        "test_regex": "TestSetUpkeepTriggerConfig",
+        "eth_implementation": "geth",
+        "file" : "./smoke/automation_test.go",
         "docker_image": "ethereum/client-go:v1.13.0"
       },
       {
         "product": "automation",
         "name": "TestSetUpkeepTriggerConfig",
-        "eth_client": "geth",
+        "eth_implementation": "geth",
+        "file" : "./smoke/automation_test.go",
         "docker_image": "ethereum/client-go:v1.12.0"
       },
       {
         "product": "automation",
-        "name": "TestSetUpkeepTriggerConfig",
-        "eth_client": "geth",
+        "test_regex": "TestSetUpkeepTriggerConfig",
+        "eth_implementation": "geth",
+        "file" : "./smoke/automation_test.go",
         "docker_image": "ethereum/client-go:v1.11.0"
       },
       {
         "product": "automation",
-        "name": "TestSetUpkeepTriggerConfig",
-        "eth_client": "geth",
+        "test_regex": "TestSetUpkeepTriggerConfig",
+        "eth_implementation": "geth",
+        "file" : "./smoke/automation_test.go",
         "docker_image": "ethereum/client-go:v1.10.0"
       }
     ]
