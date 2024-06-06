@@ -221,7 +221,15 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 
 var (
 	// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
-	overtime = 100 * time.Millisecond
+	overtime           = 100 * time.Millisecond
+	overtimeThresholds = sqlutil.LogThresholds{
+		Warn: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 5) // 80%
+		},
+		Error: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 10) // 90%
+		},
+	}
 )
 
 func init() {
@@ -237,17 +245,12 @@ func init() {
 // overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
 // results, even after context cancellation.
 func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx = overtimeThresholds.ContextWithValue(ctx)
 	if d, ok := ctx.Deadline(); ok {
-		// We do not use context.WithDeadline/Timeout in order to prevent the monitor hook from logging noisily, since
-		// we expect and want these operations to use most of their allotted time.
-		// TODO replace with custom thresholds: https://smartcontract-it.atlassian.net/browse/BCF-3252
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithCancel(context.WithoutCancel(ctx))
-		t := time.AfterFunc(time.Until(d.Add(overtime)), cancel)
-		stop := context.AfterFunc(ctx, func() { t.Stop() })
-		return ctx, func() { cancel(); stop() }
+		// extend deadline
+		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
 	}
-	// do not propagate cancellation in any case
+	// remove cancellation
 	return context.WithoutCancel(ctx), func() {}
 }
 
