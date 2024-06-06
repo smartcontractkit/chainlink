@@ -17,27 +17,15 @@ dependencies:
   '@eth-optimism/contracts':
     specifier: 0.6.0
     version: 0.6.0(ethers@5.7.2)
-  '@eth-optimism/contracts-bedrock':
-    specifier: 0.17.3
-    version: 0.17.3
   '@openzeppelin/contracts':
     specifier: 4.9.3
     version: 4.9.3
   '@openzeppelin/contracts-upgradeable':
     specifier: 4.9.3
     version: 4.9.3
-  '@rari-capital/solmate':
-    specifier: 7.0.0-alpha.3
-    version: 7.0.0-alpha.3
   '@scroll-tech/contracts':
     specifier: 0.1.0
     version: 0.1.0
-  semver:
-    specifier: ^7.6.2
-    version: 7.6.2
-  solady:
-    specifier: 0.0.158
-    version: 0.0.158
 
 devDependencies:
   '@ethereum-waffle/mock-contract':
@@ -438,10 +426,6 @@ packages:
     resolution: {integrity: sha512-Ys+3g2TaW7gADOJzPt83SJtCDhMjndcDMFVQ/Tj9iA1BfJzFKD9mAUXT3OenpuPHbI6P/myECxRJrofUsDx/5g==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     dev: true
-
-  /@eth-optimism/contracts-bedrock@0.17.3:
-    resolution: {integrity: sha512-cHPO7ntWeOBDLO7ZFFSZGI1D7CDqf4loRbRVJrFIsqLEz+hysWIqA0e3dv2GnrjVeuYePBfI2NTBEG4uwz9bQQ==}
-    dev: false
 
   /@eth-optimism/contracts@0.6.0(ethers@5.7.2):
     resolution: {integrity: sha512-vQ04wfG9kMf1Fwy3FEMqH2QZbgS0gldKhcBeBUPfO8zu68L61VI97UDXmsMQXzTsEAxK8HnokW3/gosl4/NW3w==}
@@ -1268,11 +1252,6 @@ packages:
     dependencies:
       prettier: 3.2.5
     dev: true
-
-  /@rari-capital/solmate@7.0.0-alpha.3:
-    resolution: {integrity: sha512-cW0PouqpoiEDhhkOxkqQKcjG4oMJ1Qb+kY6aiwBlgOjpfnhmXK7lkU5ZkHKC22ypQj6lvSc6CaHmXXaPywPsYg==}
-    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
-    dev: false
 
   /@scroll-tech/contracts@0.1.0:
     resolution: {integrity: sha512-aBbDOc3WB/WveZdpJYcrfvMYMz7ZTEiW8M9XMJLba8p9FAR5KGYB/cV+8+EUsq3MKt7C1BfR+WnXoTVdvwIY6w==}
@@ -5063,10 +5042,6 @@ packages:
     dependencies:
       no-case: 2.3.2
     dev: true
-
-  /solady@0.0.158:
-    resolution: {integrity: sha512-Iz9vy3XVGAylu2z5ZWM/GORrVjpOUTRf3zYjaxuc2OFM3y378ZSUM8esyVm4HXdJQ3oJIDqKkkB/avxC74g93w==}
-    dev: false
 
   /solc@0.7.3(debug@4.3.4):
     resolution: {integrity: sha512-GAsWNAjGzIDg7VxzP6mPjdurby3IkGCjQcM8GFYZT6RyaoUZKmMU6Y7YwG+tFGhv7dwZ8rmR4iwFDrrD99JwqA==}

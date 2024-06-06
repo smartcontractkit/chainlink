@@ -22,8 +22,6 @@ compileContract () {
   contract=$(basename "$1" ".sol")
 
   solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ \
-      @rari-capital="$ROOT"/contracts/node_modules/@rari-capital/ \
-      solady="$ROOT"/contracts/node_modules/solady/ \
       --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
@@ -35,8 +33,6 @@ compileContractAltOpts () {
   contract=$(basename "$1" ".sol")
 
   solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ \
-      @rari-capital="$ROOT"/contracts/node_modules/@rari-capital/ \
-      solady="$ROOT"/contracts/node_modules/solady/ \
       --overwrite --optimize --optimize-runs "$2" --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Storage} from "./Storage.sol";
 import {Constants} from "./Constants.sol";
-import {LibString} from "solady/src/utils/LibString.sol";
+import {LibString} from "../../../../../solady/src/utils/LibString.sol";
 
 /// @title IGasToken
 /// @notice Implemented by contracts that are aware of the custom gas token used

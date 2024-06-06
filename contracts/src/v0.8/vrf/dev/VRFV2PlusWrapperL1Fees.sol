@@ -71,10 +71,11 @@ abstract contract VRFV2PlusWrapperL1Fees is ArbitrumL1Fees, OptimismL1Fees {
   /**
    * @notice This is only necessary to avoid compiler issue and to prevent anyone
    * @notice from accidentially using this function.
+   * @notice NOTE Function mutability set to pure instead of view to supress compiler warning
    */
   function _getL1CostWeiForCalldataSize(
-    uint256 calldataSizeBytes // solhint-disable-line no-unused-vars
-  ) internal view override(ArbitrumL1Fees, OptimismL1Fees) returns (uint256) {
+    uint256 /* calldataSizeBytes */ // solhint-disable-line no-unused-vars
+  ) internal pure override(ArbitrumL1Fees, OptimismL1Fees) returns (uint256) {
     revert UnsupportedFunction();
   }
 

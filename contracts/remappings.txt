@@ -5,5 +5,3 @@ forge-std/=foundry-lib/forge-std/src/
 hardhat/=node_modules/hardhat/
 @eth-optimism/=node_modules/@eth-optimism/
 @scroll-tech/=node_modules/@scroll-tech/
-solady/=node_modules/solady
-@rari-capital/=node_modules/@rari-capital/

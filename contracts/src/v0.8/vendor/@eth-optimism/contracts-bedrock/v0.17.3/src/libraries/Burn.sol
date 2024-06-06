@@ -27,6 +27,7 @@ library Burn {
 ///         from the circulating supply.
 contract Burner {
   constructor() payable {
+    // solhint-disable-next-line avoid-low-level-calls
     selfdestruct(payable(address(this)));
   }
 }

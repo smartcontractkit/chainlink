@@ -77,12 +77,8 @@
     "@changesets/changelog-github": "^0.4.8",
     "@changesets/cli": "~2.26.2",
     "@eth-optimism/contracts": "0.6.0",
-    "@eth-optimism/contracts-bedrock": "0.17.3",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-upgradeable": "4.9.3",
-    "@rari-capital/solmate": "7.0.0-alpha.3",
-    "@scroll-tech/contracts": "0.1.0",
-    "semver": "^7.6.2",
-    "solady": "0.0.158"
+    "@scroll-tech/contracts": "0.1.0"
   }
 }
