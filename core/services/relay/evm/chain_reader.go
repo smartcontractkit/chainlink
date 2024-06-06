@@ -107,7 +107,6 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			return err
 		}
 
-		// TODO validate that contract polling filter can't be empty if there are events defined
 		var eventSigsForContractFilter evmtypes.HashArray
 		for typeName, chainReaderDefinition := range chainContractReader.Configs {
 			switch chainReaderDefinition.ReadType {
@@ -151,8 +150,13 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBinding) error {
-			return rbs.Register(ctx, cr.lp)
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+			for _, rb := range cb.readBindings {
+				if err := rb.Register(ctx); err != nil {
+					return err
+				}
+			}
+			return cb.Register(ctx, cr.lp)
 		})
 	})
 }
@@ -161,8 +165,13 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, rbs *contractBinding) error {
-			return rbs.Unregister(ctx, cr.lp)
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+			for _, rb := range cb.readBindings {
+				if err := rb.Unregister(ctx); err != nil {
+					return err
+				}
+			}
+			return cb.Unregister(ctx, cr.lp)
 		})
 	})
 }

@@ -90,6 +90,8 @@ func (e *eventBinding) Unregister(ctx context.Context) error {
 	if err := e.lp.UnregisterFilter(ctx, e.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+	e.isRegistered = false
+
 	return nil
 }
 
@@ -141,17 +143,25 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) Bind(binding commontypes.BoundContract) {
+func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	if err := e.Unregister(ctx); err != nil {
+		return err
+	}
+
 	e.address = common.HexToAddress(binding.Address)
 	e.pending = binding.Pending
+	e.bound = true
 
 	if e.FilterRegisterer != nil {
 		id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
 		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
 		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
+		if e.isRegistered {
+			return e.Register(ctx)
+		}
 	}
 
-	e.bound = true
+	return nil
 }
 
 func (e *eventBinding) getLatestValueWithoutFilters(ctx context.Context, confs evmtypes.Confirmations, into any) error {

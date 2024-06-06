@@ -22,8 +22,10 @@ type FilterRegisterer struct {
 	isRegistered  bool
 }
 
+// contractBinding stores read bindings and manages the common contract event filter.
 type contractBinding struct {
-	// FilterRegisterer is used to manage polling filter registration for the contact wide event filter.
+	// FilterRegisterer is used to manage polling filter registration for the common contract filter.
+	// The common contract filter should be used by events that share filtering args.
 	FilterRegisterer
 	// key is read name method, event or event keys used for queryKey.
 	readBindings map[string]readBinding
@@ -52,7 +54,8 @@ func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) 
 	cb.readBindings[readName] = rb
 }
 
-func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
+// Bind binds contract addresses and creates event binding filters and the common contract filter.
+func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
 	for _, bc := range boundContracts {
 		cb, cbExists := b[bc.Name]
 		if !cbExists {
@@ -63,19 +66,21 @@ func (b bindings) Bind(ctx context.Context, logPoller logpoller.LogPoller, bound
 		cb.pollingFilter.Name = logpoller.FilterName(bc.Name+"."+uuid.NewString(), bc.Address)
 		cb.bound = true
 
-		// we are changing contract address reference, so we need to unregister old filters if they exist
-		if err := cb.Unregister(ctx, logPoller); err != nil {
+		// we are changing contract address reference, so we need to unregister old filter it exists
+		if err := cb.Unregister(ctx, lp); err != nil {
 			return err
 		}
 
-		for _, rb := range cb.readBindings {
-			rb.Bind(bc)
+		// if contract event filter isn't already registered then it will be on startup
+		// if its already registered then we are overriding it because(address) has changed
+		if cb.isRegistered {
+			if err := cb.Register(ctx, lp); err != nil {
+				return err
+			}
 		}
 
-		// if contract event filters aren't already registered then they will on startup
-		// if they are already registered then we are overriding them because contract binding (address) has changed
-		if cb.isRegistered {
-			if err := cb.Register(ctx, logPoller); err != nil {
+		for _, rb := range cb.readBindings {
+			if err := rb.Bind(ctx, bc); err != nil {
 				return err
 			}
 		}
@@ -92,7 +97,7 @@ func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contrac
 	return nil
 }
 
-// Register registers polling filters.
+// Register registers the common contract filter.
 func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller) error {
 	cb.filterLock.Lock()
 	defer cb.filterLock.Unlock()
@@ -101,35 +106,25 @@ func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller)
 		if err := lp.RegisterFilter(ctx, cb.pollingFilter); err != nil {
 			return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 		}
+		cb.isRegistered = true
 	}
 
-	cb.isRegistered = true
-
-	for _, rb := range cb.readBindings {
-		if err := rb.Register(ctx); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-// Unregister unregisters polling filters.
-func (cb *contractBinding) Unregister(ctx context.Context, logPoller logpoller.LogPoller) error {
+// Unregister unregisters the common contract filter.
+func (cb *contractBinding) Unregister(ctx context.Context, lp logpoller.LogPoller) error {
 	cb.filterLock.Lock()
 	defer cb.filterLock.Unlock()
 
-	if !logPoller.HasFilter(cb.pollingFilter.Name) {
+	if !lp.HasFilter(cb.pollingFilter.Name) {
 		return nil
 	}
 
-	if err := logPoller.UnregisterFilter(ctx, cb.pollingFilter.Name); err != nil {
+	if err := lp.UnregisterFilter(ctx, cb.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+	cb.isRegistered = false
 
-	for _, rb := range cb.readBindings {
-		if err := rb.Unregister(ctx); err != nil {
-			return err
-		}
-	}
 	return nil
 }

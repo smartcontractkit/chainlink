@@ -68,7 +68,8 @@ func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.L
 	return nil, nil
 }
 
-func (m *methodBinding) Bind(binding commontypes.BoundContract) {
+func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
 	m.address = common.HexToAddress(binding.Address)
 	m.bound = true
+	return nil
 }
