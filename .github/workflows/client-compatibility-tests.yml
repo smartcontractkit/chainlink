@@ -144,7 +144,7 @@ jobs:
                 for ignored_tag in "${ignored_tags_array[@]}"; do
                   if [ "$tag" == "$ignored_tag" ]; then
                     ignore=true
-                    echo "Ignoring tag $tag" > &2
+                    echo "Ignoring tag $tag" >&2
                     break
                   fi
                 done
