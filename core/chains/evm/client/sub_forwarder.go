@@ -1,22 +1,10 @@
 package client
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 var _ ethereum.Subscription = &subForwarder[any]{}
-
-func newChainIDSubForwarder(chainID *big.Int, ch chan<- *evmtypes.Head) *subForwarder[*evmtypes.Head] {
-	return newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
-		head.EVMChainID = ubig.New(chainID)
-		return head
-	}, nil)
-}
 
 // subForwarder wraps a subscription in order to intercept and augment each result before forwarding.
 type subForwarder[T any] struct {
