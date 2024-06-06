@@ -49,8 +49,11 @@ func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) 
 	}
 
 	return &BridgeCache{
-		orm:  validBase,
-		stop: make(chan struct{}, 1),
+		orm:                  validBase,
+		lggr:                 lggr,
+		interval:             upsertInterval,
+		stop:                 make(chan struct{}, 1),
+		bridgeLastValueCache: make(map[string]scopedResponse),
 	}, nil
 }
 
