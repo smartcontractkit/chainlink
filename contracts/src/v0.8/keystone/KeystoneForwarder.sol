@@ -47,10 +47,11 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param received The number of signatures received
   error InvalidSignatureCount(uint256 expected, uint256 received);
 
-  /// @notice This error is thrown whenever a report specifies a DON ID that
-  /// does not have a configuration.
+  /// @notice This error is thrown whenever a report specifies a configuration that
+  /// does not exist.
   /// @param donId The DON ID that was provided in the report
-  error InvalidDonId(uint32 donId);
+  /// @param configVersion The config version that was provided in the report
+  error InvalidConfig(uint32 donId, uint32 configVersion);
 
   /// @notice This error is thrown whenever a signer address is not in the
   /// configuration.
@@ -75,7 +76,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @notice Contains the configuration for each DON ID
-  mapping(uint32 donId => OracleSet) internal s_configs;
+  // @param configId keccak256(donId, donConfigVersion)
+  mapping(bytes32 configId => OracleSet) internal s_configs;
 
   struct DeliveryStatus {
     address transmitter;
@@ -97,28 +99,40 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  function setConfig(uint32 donId, uint8 f, address[] calldata signers) external onlyOwner {
+  function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
 
-    // TODO: how does setConfig handle expiration? e.g. if the signer set changes
+    bytes32 configId = keccak256(abi.encode(donId, configVersion));
 
     // remove any old signer addresses
-    for (uint256 i; i < s_configs[donId].signers.length; ++i) {
-      address signer = s_configs[donId].signers[i];
-      delete s_configs[donId]._positions[signer];
+    for (uint256 i; i < s_configs[configId].signers.length; ++i) {
+      address signer = s_configs[configId].signers[i];
+      delete s_configs[configId]._positions[signer];
     }
 
     // add new signer addresses
     for (uint256 i; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
-      if (s_configs[donId]._positions[signer] != 0) revert DuplicateSigner(signer);
-      s_configs[donId]._positions[signer] = uint8(i) + 1;
-      s_configs[donId].signers.push(signer);
+      if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
+      s_configs[configId]._positions[signer] = uint8(i) + 1;
+      s_configs[configId].signers.push(signer);
     }
-    s_configs[donId].f = f;
+    s_configs[configId].f = f;
+  }
+
+  function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
+    bytes32 configId = keccak256(abi.encode(donId, configVersion));
+
+    // remove any old signer addresses
+    for (uint256 i; i < s_configs[configId].signers.length; ++i) {
+      address signer = s_configs[configId].signers[i];
+      delete s_configs[configId]._positions[signer];
+    }
+
+    s_configs[configId].f = 0;
   }
 
   // send a report to receiver
@@ -132,19 +146,25 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       revert InvalidReport();
     }
 
-    (bytes32 workflowExecutionId, uint32 donId /* uint32 donConfigVersion */, , bytes2 reportId) = _getMetadata(
-      rawReport
-    );
+    bytes32 workflowExecutionId;
+    bytes2 reportId;
+    bytes32 configId;
+    {
+      uint32 donId;
+      uint32 configVersion;
+      (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(rawReport);
 
-    // f can never be 0, so this means the config doesn't actually exist
-    if (s_configs[donId].f == 0) revert InvalidDonId(donId);
+      configId = keccak256(abi.encode(donId, configVersion));
+
+      uint8 f = s_configs[configId].f;
+      // f can never be 0, so this means the config doesn't actually exist
+      if (f == 0) revert InvalidConfig(donId, configVersion);
+      if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
+    }
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
     s_reports[combinedId].transmitter = msg.sender;
-
-    if (s_configs[donId].f + 1 != signatures.length)
-      revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
 
     // validate signatures
     {
@@ -154,12 +174,11 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       uint8 index;
 
       for (uint256 i; i < signatures.length; ++i) {
-        // TODO: is libocr-style multiple bytes32 arrays more optimal, gas-wise?
         (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
         address signer = ecrecover(completeHash, v + 27, r, s);
 
         // validate signer is trusted and signature is unique
-        index = uint8(s_configs[donId]._positions[signer]);
+        index = uint8(s_configs[configId]._positions[signer]);
         if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
         index -= 1;
         if (signed[index] != address(0)) revert DuplicateSigner(signer);
