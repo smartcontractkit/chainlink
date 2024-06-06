@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/ccipocr3/internal/libs/hashlib"
-	"github.com/smartcontractkit/ccipocr3/internal/libs/merklemulti/fixtures"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/stat/combin"
+
+	"github.com/smartcontractkit/ccipocr3/internal/libs/hashlib"
+	"github.com/smartcontractkit/ccipocr3/internal/libs/merklemulti/fixtures"
 )
 
 var (
@@ -138,14 +139,14 @@ func TestMerkleMultiProof(t *testing.T) {
 		ctx.HashInternal(ctx.HashInternal(ctx.HashInternal(a, b), ctx.HashInternal(c, d)), ctx.HashInternal(ctx.HashInternal(e, f), ctx.ZeroHash())),
 	}
 	// For every size tree from 0..len(leaves)
-	for len_ := 1; len_ <= len(leafHashes); len_++ {
-		tr, err := NewTree(ctx, leafHashes[:len_])
+	for length := 1; length <= len(leafHashes); length++ {
+		tr, err := NewTree(ctx, leafHashes[:length])
 		require.NoError(t, err)
-		expectedRoot := expectedRoots[len_-1]
+		expectedRoot := expectedRoots[length-1]
 		require.Equal(t, tr.Root(), expectedRoot)
 		// Prove every subset of its leaves
-		for k := 1; k <= len_; k++ {
-			gen := combin.NewCombinationGenerator(len_, k)
+		for k := 1; k <= length; k++ {
+			gen := combin.NewCombinationGenerator(length, k)
 			for gen.Next() {
 				leaveIndices := gen.Combination(nil)
 				proof, err := tr.Prove(leaveIndices)

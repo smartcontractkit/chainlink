@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
 )
 
 var (
@@ -55,20 +56,20 @@ func (r *OCR3Runner[RI]) RunRound(ctx context.Context) (result RoundResult[RI], 
 
 	q, err := leaderNode.Query(ctx, outcomeCtx)
 	if err != nil {
-		return RoundResult[RI]{}, fmt.Errorf("%s: %w", err, ErrQuery)
+		return RoundResult[RI]{}, fmt.Errorf("%w: %w", err, ErrQuery)
 	}
 
 	attributedObservations := make([]types.AttributedObservation, len(r.nodes))
 	for i, n := range r.nodes {
 		obs, err2 := n.Observation(ctx, outcomeCtx, q)
 		if err2 != nil {
-			return RoundResult[RI]{}, fmt.Errorf("%s: %w", err2, ErrObservation)
+			return RoundResult[RI]{}, fmt.Errorf("%w: %w", err2, ErrObservation)
 		}
 
 		attrObs := types.AttributedObservation{Observation: obs, Observer: r.nodeIDs[i]}
 		err = leaderNode.ValidateObservation(outcomeCtx, q, attrObs)
 		if err != nil {
-			return RoundResult[RI]{}, fmt.Errorf("%s: %w", err, ErrValidateObservation)
+			return RoundResult[RI]{}, fmt.Errorf("%w: %w", err, ErrValidateObservation)
 		}
 
 		attributedObservations[i] = attrObs
@@ -78,7 +79,7 @@ func (r *OCR3Runner[RI]) RunRound(ctx context.Context) (result RoundResult[RI], 
 	for i, n := range r.nodes {
 		outcome, err2 := n.Outcome(outcomeCtx, q, attributedObservations)
 		if err2 != nil {
-			return RoundResult[RI]{}, fmt.Errorf("%s: %w", err2, ErrOutcome)
+			return RoundResult[RI]{}, fmt.Errorf("%w: %w", err2, ErrOutcome)
 		}
 		if len(outcome) == 0 {
 			return RoundResult[RI]{}, ErrEmptyOutcome
@@ -98,7 +99,7 @@ func (r *OCR3Runner[RI]) RunRound(ctx context.Context) (result RoundResult[RI], 
 	for i, n := range r.nodes {
 		reportsWithInfo, err2 := n.Reports(seqNr, outcomes[0])
 		if err2 != nil {
-			return RoundResult[RI]{}, fmt.Errorf("%s: %w", err2, ErrReports)
+			return RoundResult[RI]{}, fmt.Errorf("%w: %w", err2, ErrReports)
 		}
 
 		allReports[i] = reportsWithInfo
@@ -118,7 +119,7 @@ func (r *OCR3Runner[RI]) RunRound(ctx context.Context) (result RoundResult[RI], 
 		for i, n := range r.nodes {
 			shouldAccept, err2 := n.ShouldAcceptAttestedReport(ctx, seqNr, report)
 			if err2 != nil {
-				return RoundResult[RI]{}, fmt.Errorf("%s: %w", err2, ErrShouldAcceptAttestedReport)
+				return RoundResult[RI]{}, fmt.Errorf("%w: %w", err2, ErrShouldAcceptAttestedReport)
 			}
 
 			allShouldAccept[i] = shouldAccept
@@ -136,7 +137,7 @@ func (r *OCR3Runner[RI]) RunRound(ctx context.Context) (result RoundResult[RI], 
 		for i, n := range r.nodes {
 			shouldTransmit, err2 := n.ShouldTransmitAcceptedReport(ctx, seqNr, report)
 			if err2 != nil {
-				return RoundResult[RI]{}, fmt.Errorf("%s: %w", err2, ErrShouldTransmitAcceptedReport)
+				return RoundResult[RI]{}, fmt.Errorf("%w: %w", err2, ErrShouldTransmitAcceptedReport)
 			}
 
 			allShouldTransmit[i] = shouldTransmit

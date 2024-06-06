@@ -5,12 +5,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/smartcontractkit/ccipocr3/internal/libs/testhelpers"
-	"github.com/smartcontractkit/ccipocr3/internal/mocks"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/ccipocr3/internal/libs/testhelpers"
+	"github.com/smartcontractkit/ccipocr3/internal/mocks"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"

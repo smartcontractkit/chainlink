@@ -9,4 +9,4 @@ test: ensure_go_1_21
 	go test -race -fullpath -shuffle on -count 10 ./...
 
 lint: ensure_go_1_21
-	golangci-lint run
+	golangci-lint run -c .golangci.yml

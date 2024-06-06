@@ -28,6 +28,6 @@ jobs:
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.0
       - name: Run linter
-        run: golangci-lint run
+        run: golangci-lint run -c .golangci.yml
       - name: Run tests
         run: go test -race -fullpath -shuffle on -count 20 ./...
