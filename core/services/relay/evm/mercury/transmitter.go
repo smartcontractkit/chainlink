@@ -18,6 +18,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -109,6 +110,7 @@ type mercuryTransmitter struct {
 	lggr logger.Logger
 	cfg  TransmitterConfig
 
+	orm     ORM
 	servers map[string]*server
 
 	codec TransmitterReportDecoder
@@ -307,6 +309,7 @@ func NewTransmitter(lggr logger.Logger, cfg TransmitterConfig, clients map[strin
 		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		cfg,
+		orm,
 		servers,
 		codec,
 		feedID,
@@ -407,14 +410,14 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	mt.lggr.Tracew("Transmit enqueue", "req.Payload", req.Payload, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
+	if err := mt.orm.InsertTransmitRequest(ctx, maps.Keys(mt.servers), req, mt.jobID, reportCtx); err != nil {
+		return err
+	}
+
 	g := new(errgroup.Group)
 	for _, s := range mt.servers {
 		s := s // https://golang.org/doc/faq#closures_and_goroutines
 		g.Go(func() error {
-			if err := s.pm.Insert(ctx, req, reportCtx); err != nil {
-				s.transmitQueueInsertErrorCount.Inc()
-				return err
-			}
 			if ok := s.q.Push(req, reportCtx); !ok {
 				s.transmitQueuePushErrorCount.Inc()
 				return errors.New("transmit queue is closed")
