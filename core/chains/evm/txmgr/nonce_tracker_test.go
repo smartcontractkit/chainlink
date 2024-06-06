@@ -13,12 +13,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	clientmock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txstoremock "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
@@ -26,7 +26,7 @@ import (
 func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
@@ -77,7 +77,7 @@ func TestNonceTracker_LoadSequenceMap(t *testing.T) {
 func TestNonceTracker_syncOnChain(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
@@ -133,7 +133,7 @@ func TestNonceTracker_syncOnChain(t *testing.T) {
 func TestNonceTracker_SyncSequence(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
@@ -180,7 +180,7 @@ func TestNonceTracker_SyncSequence(t *testing.T) {
 func TestNonceTracker_GetNextSequence(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
@@ -230,7 +230,7 @@ func TestNonceTracker_GetNextSequence(t *testing.T) {
 func TestNonceTracker_GenerateNextSequence(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	txStore := txstoremock.NewEvmTxStore(t)
 
@@ -259,10 +259,10 @@ func TestNonceTracker_GenerateNextSequence(t *testing.T) {
 func Test_SetNonceAfterInit(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	chainID := big.NewInt(0)
 	db := pgtest.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
+	txStore := txmgr.NewTxStore(db, logger.Test(t))
 
 	client := clientmock.NewClient(t)
 	client.On("ConfiguredChainID").Return(chainID)
