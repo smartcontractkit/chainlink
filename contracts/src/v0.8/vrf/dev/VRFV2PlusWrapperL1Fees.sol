@@ -21,7 +21,7 @@ abstract contract VRFV2PlusWrapperL1Fees is ArbitrumL1Fees, OptimismL1Fees {
   uint256 private constant BASE_GOERLI_CHAIN_ID = 84531;
   uint256 private constant BASE_SEPOLIA_CHAIN_ID = 84532;
 
-  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
+  /// @dev this is the size of a VRF v2plus fulfillment's calldata abi-encoded in bytes.
   /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
   /// @dev commitmentSize = 10 words = 10 * 256 = 2560 bits
   /// @dev onlyPremiumParameterSize = 256 bits

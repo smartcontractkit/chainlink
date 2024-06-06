@@ -8,7 +8,7 @@ import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/c
 // solhint-disable-next-line contract-name-camelcase
 abstract contract OptimismL1Fees is ConfirmedOwner {
   /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
-  /// @dev The padding size was estimated based on looking at existing transactions on Optimism
+  /// @dev The padding size was estimated based on hypothetical max RLP-encoded transaction size
   uint256 internal constant L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE = 71;
   /// @dev Signature data size used in the GasPriceOracle predeploy
   /// @dev reference: https://github.com/ethereum-optimism/optimism/blob/a96cbe7c8da144d79d4cec1303d8ae60a64e681e/packages/contracts-bedrock/contracts/L2/GasPriceOracle.sol#L145
@@ -32,10 +32,10 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   /// @dev This option is available for the Coordinator and the Wrapper contract
   uint8 internal constant L1_GAS_FEES_UPPER_BOUND_MODE = 2;
 
-  uint8 public s_L1FeeCalculationMode = L1_GAS_FEES_MODE;
+  uint8 public s_l1FeeCalculationMode = L1_GAS_FEES_MODE;
 
   /// @dev L1 fee coefficient can be applied to options 2 or 3 to reduce possibly inflated gas price
-  uint8 public s_L1FeeCoefficient = 100;
+  uint8 public s_l1FeeCoefficient = 100;
 
   error InvalidL1FeeCalculationMode(uint8 mode);
   error InvalidL1FeeCoefficient(uint8 coefficient);
@@ -50,27 +50,27 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
       revert InvalidL1FeeCoefficient(coefficient);
     }
 
-    s_L1FeeCalculationMode = mode;
-    s_L1FeeCoefficient = coefficient;
+    s_l1FeeCalculationMode = mode;
+    s_l1FeeCoefficient = coefficient;
 
     emit L1FeeCalculationSet(mode, coefficient);
   }
 
   function _getL1CostWeiForCalldata(bytes calldata data) internal view virtual returns (uint256) {
-    if (s_L1FeeCalculationMode == L1_GAS_FEES_MODE) {
+    if (s_l1FeeCalculationMode == L1_GAS_FEES_MODE) {
       return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(data, L1_FEE_DATA_PADDING));
     }
     return _getL1CostWeiForCalldataSize(data.length);
   }
 
   function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
-    uint8 l1FeeCalculationMode = s_L1FeeCalculationMode;
+    uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
     if (l1FeeCalculationMode == L1_CALLDATA_GAS_COST_MODE) {
-      return (s_L1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes)) / 100;
+      return (s_l1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes)) / 100;
     } else if (l1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
       // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
       return
-        (s_L1FeeCoefficient *
+        (s_l1FeeCoefficient *
           OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)) / 100;
     }
     revert InvalidL1FeeCalculationMode(l1FeeCalculationMode);

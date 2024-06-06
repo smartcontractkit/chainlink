@@ -649,14 +649,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
-    address[] storage s_SubscriptionConsumers = s_subscriptionConfigs[subId].consumers;
-    uint256 consumersLength = s_SubscriptionConsumers.length;
+    address[] storage s_subscriptionConsumers = s_subscriptionConfigs[subId].consumers;
+    uint256 consumersLength = s_subscriptionConsumers.length;
     for (uint256 i = 0; i < consumersLength; ++i) {
-      if (s_SubscriptionConsumers[i] == consumer) {
+      if (s_subscriptionConsumers[i] == consumer) {
         // Storage write to preserve last element
-        s_SubscriptionConsumers[i] = s_SubscriptionConsumers[consumersLength - 1];
+        s_subscriptionConsumers[i] = s_subscriptionConsumers[consumersLength - 1];
         // Storage remove last element
-        s_SubscriptionConsumers.pop();
+        s_subscriptionConsumers.pop();
         break;
       }
     }

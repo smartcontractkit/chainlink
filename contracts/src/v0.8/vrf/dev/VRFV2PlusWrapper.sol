@@ -38,8 +38,6 @@ contract VRFV2PlusWrapper is
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_link_native_feed;
 
-  //event FulfillmentTxSizeSet(uint32 size);
-  // event UpperBoundLimitL1FeeCalculationSet(bool enabled);
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverheadNative,

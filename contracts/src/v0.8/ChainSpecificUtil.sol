@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 import {ArbSys} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import {ArbGasInfo} from "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import {GasPriceOracle as OVM_GasPriceOracle} from "./vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
+import {OVM_GasPriceOracle} from "./vendor/@eth-optimism/contracts/v0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 
 /// @dev A library that abstracts out opcodes that behave differently across chains.
 /// @dev The methods below return values that are pertinent to the given chain.
@@ -28,15 +28,9 @@ library ChainSpecificUtil {
   // ------------ End Arbitrum Constants ------------
 
   // ------------ Start Optimism Constants ------------
-  /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
-  /// @dev The padding size was estimated based on looking at existing transactions on Optimism
-  uint256 internal constant L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE = 71;
-  /// @dev Signature data size used in the GasPriceOracle predeploy
-  /// @dev reference: https://github.com/ethereum-optimism/optimism/blob/a96cbe7c8da144d79d4cec1303d8ae60a64e681e/packages/contracts-bedrock/contracts/L2/GasPriceOracle.sol#L145
-  uint256 internal constant L1_TX_SIGNATURE_DATA_BYTES_SIZE = 68;
-  /// @dev L1_FEE_DATA_PADDING includes 71 bytes for L1 data padding for Optimism
+  /// @dev L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
-    hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
@@ -145,15 +139,25 @@ library ChainSpecificUtil {
   }
 
   function _calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
-    // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
-    // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
-    // we assume the worst-case scenario and treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas)
-    // we also have to account for the padding data and the signature data
-    uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE) *
-      16;
-    uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() * 16 * OVM_GASPRICEORACLE.l1BaseFee();
-    uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() * OVM_GASPRICEORACLE.blobBaseFee();
-    uint256 fee = l1GasUsed * (scaledBaseFee + scaledBlobBaseFee);
-    return fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals());
+    // from: https://community.optimism.io/docs/developers/build/transaction-fees/#the-l1-data-fee
+    // l1_data_fee = l1_gas_price * (tx_data_gas + fixed_overhead) * dynamic_overhead
+    // tx_data_gas = count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16
+    // note we conservatively assume all non-zero bytes.
+    uint256 l1BaseFeeWei = OVM_GASPRICEORACLE.l1BaseFee();
+    uint256 numZeroBytes = 0;
+    uint256 numNonzeroBytes = calldataSizeBytes - numZeroBytes;
+    uint256 txDataGas = numZeroBytes * 4 + numNonzeroBytes * 16;
+    uint256 fixedOverhead = OVM_GASPRICEORACLE.overhead();
+
+    // The scalar is some value like 0.684, but is represented as
+    // that times 10 ^ number of scalar decimals.
+    // e.g scalar = 0.684 * 10^6
+    // The divisor is used to divide that and have a net result of the true scalar.
+    uint256 scalar = OVM_GASPRICEORACLE.scalar();
+    uint256 scalarDecimals = OVM_GASPRICEORACLE.decimals();
+    uint256 divisor = 10 ** scalarDecimals;
+
+    uint256 l1DataFee = (l1BaseFeeWei * (txDataGas + fixedOverhead) * scalar) / divisor;
+    return l1DataFee;
   }
 }
