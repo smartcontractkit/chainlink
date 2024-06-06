@@ -112,7 +112,7 @@ func (r *server) Receive(msg *types.MessageBody) {
 			return
 		}
 
-		r.requestIDToRequest[requestID] = request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+		r.requestIDToRequest[requestID] = request.NewServerRequest(r.lggr, r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 			callingDon, messageId, r.dispatcher, r.requestTimeout)
 	}
 
@@ -128,4 +128,24 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 func GetMessageID(msg *types.MessageBody) string {
 	return string(msg.MessageId)
+}
+
+func (r *server) Start(ctx context.Context) error {
+	return nil
+}
+
+func (r *server) Close() error {
+	return nil
+}
+
+func (r *server) Ready() error {
+	return nil
+}
+
+func (r *server) HealthReport() map[string]error {
+	return nil
+}
+
+func (r *server) Name() string {
+	return "TargetServer"
 }

@@ -72,6 +72,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId string, receiver rem
 		return fmt.Errorf("receiver already exists for capability %s and don %s", capabilityId, donId)
 	}
 	d.receivers[k] = receiver
+	d.lggr.Debugw("receiver set", "capabilityId", capabilityId, "donId", donId)
 	return nil
 }
 
