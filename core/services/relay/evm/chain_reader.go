@@ -43,6 +43,7 @@ type chainReader struct {
 }
 
 var _ ChainReaderService = (*chainReader)(nil)
+var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
@@ -124,30 +125,6 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 
 func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
-var _ commontypes.ContractTypeProvider = &chainReader{}
-
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
-	if err != nil {
-		return err
-	}
-
-	return b.GetLatestValue(ctx, params, returnVal)
-}
-
-func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
-}
-
-func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
-}
-
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
@@ -179,8 +156,31 @@ func (cr *chainReader) Close() error {
 }
 
 func (cr *chainReader) Ready() error { return nil }
+
 func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
+}
+
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+	if err != nil {
+		return err
+	}
+
+	return b.GetLatestValue(ctx, params, returnVal)
+}
+
+func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
+}
+
+func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
 }
 
 func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
