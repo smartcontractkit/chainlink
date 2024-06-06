@@ -91,7 +91,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, err
 	}
 
-	if inputs.Report == nil {
+	if len(inputs.Report) == 0 {
 		// We received any empty report -- this means we should skip transmission.
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil

@@ -133,13 +133,23 @@ func (entry *codecEntry) Init() (err error) {
 		if err != nil {
 			return err
 		}
+		allowRename := false
 		if len(arg.Name) == 0 {
-			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
+			arg.Name = fmt.Sprintf("F%d", i)
+			allowRename = true
 		}
 
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
-			return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
+			if !allowRename {
+				return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
+			}
+			for {
+				name = name + "_X"
+				if !seenNames[name] {
+					break
+				}
+			}
 		}
 		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg}

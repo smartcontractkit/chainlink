@@ -49,6 +49,7 @@ const (
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
 	Workflow                Type = (Type)(pipeline.WorkflowJobType)
+	StandardCapabilities    Type = (Type)(pipeline.StandardCapabilitiesJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -88,6 +89,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	supportsAsync = map[Type]bool{
 		BlockHeaderFeeder:       false,
@@ -106,6 +108,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	schemaVersions = map[Type]uint32{
 		BlockHeaderFeeder:       1,
@@ -124,6 +127,7 @@ var (
 		VRF:                     1,
 		Webhook:                 1,
 		Workflow:                1,
+		StandardCapabilities:    1,
 	}
 )
 
@@ -167,6 +171,8 @@ type Job struct {
 	PipelineSpec                  *pipeline.Spec
 	WorkflowSpecID                *int32
 	WorkflowSpec                  *WorkflowSpec
+	StandardCapabilitiesSpecID    *int32
+	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -884,5 +890,26 @@ func (w *WorkflowSpec) Validate() error {
 		return fmt.Errorf("%w: incorrect length for name %s: expected %d, got %d", ErrInvalidWorkflowName, w.WorkflowName, workflowNameLen, len(w.WorkflowName))
 	}
 
+	return nil
+}
+
+type StandardCapabilitiesSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+	Command   string    `toml:"command"`
+	Config    string    `toml:"config"`
+}
+
+func (w *StandardCapabilitiesSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *StandardCapabilitiesSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
 	return nil
 }

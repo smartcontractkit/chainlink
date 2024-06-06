@@ -149,6 +149,16 @@ gas_fee_cap = 150_000_000_000 #150 gwei
 gas_tip_cap = 50_000_000_000 #50 gwei
 
 [[Seth.networks]]
+name = "Anvil"
+transaction_timeout = "30s"
+transfer_gas_fee = 21_000
+gas_limit = 8_000_000
+gas_price = 1_000_000_000
+eip_1559_dynamic_fees = true
+gas_fee_cap = 15_000_000_000
+gas_tip_cap = 5_000_000_000
+
+[[Seth.networks]]
 name = "Geth"
 transaction_timeout = "30s"
 

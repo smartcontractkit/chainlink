@@ -660,6 +660,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceMin:     ptr[uint64](10),
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
+				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
@@ -1148,6 +1149,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
+BlockHistoryPollPeriod = '1m0s'
 
 [[Solana.Nodes]]
 Name = 'primary'

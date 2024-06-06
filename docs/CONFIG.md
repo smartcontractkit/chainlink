@@ -8294,6 +8294,7 @@ ComputeUnitPriceMax = 1000 # Default
 ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
+BlockHistoryPollPeriod = '5s' # Default
 ```
 
 
@@ -8399,6 +8400,12 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 FeeBumpPeriod = '3s' # Default
 ```
 FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+
+### BlockHistoryPollPeriod
+```toml
+BlockHistoryPollPeriod = '5s' # Default
+```
+BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 
 ## Solana.Nodes
 ```toml

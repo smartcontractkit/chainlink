@@ -1,31 +1,18 @@
 # Changelog Chainlink Core
 
-## 2.12.0 - UNRELEASED
+## 2.12.0 - 2024-06-05
 
 ### Minor Changes
 
-- [#13000](https://github.com/smartcontractkit/chainlink/pull/13000) [`1b994043b0`](https://github.com/smartcontractkit/chainlink/commit/1b994043b00cad9e0c900b6d12173dd1008480a5) Thanks [@ettec](https://github.com/ettec)! - #internal changes to core required by change BCF3168 in common to add relayer set
+- [#13246](https://github.com/smartcontractkit/chainlink/pull/13246) [`119df08eec`](https://github.com/smartcontractkit/chainlink/commit/119df08eec3609a41880a5b471c466e90fff36f8) Thanks [@ilija42](https://github.com/ilija42)! - Added a mechanism to validate forwarders for OCR2 and fallback to EOA if necessary #added
 
 - [#12867](https://github.com/smartcontractkit/chainlink/pull/12867) [`27d9413286`](https://github.com/smartcontractkit/chainlink/commit/27d941328655e0cde608c1eff47de736c11e2e58) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Added a new CLI command, `blocks find-lca,` which finds the latest block that is available in both the database and on the chain for the specified chain.
   Added a new CLI command, `node remove-blocks,` which removes all blocks and logs greater than or equal to the specified block number.
   #nops #added
 
-- [#12914](https://github.com/smartcontractkit/chainlink/pull/12914) [`28df745115`](https://github.com/smartcontractkit/chainlink/commit/28df74511568df989944ee92cfd625a5d22a2840) Thanks [@krehermann](https://github.com/krehermann)! - #internal Add script to create test database user and update docs
-
-- [#12837](https://github.com/smartcontractkit/chainlink/pull/12837) [`f7982fa718`](https://github.com/smartcontractkit/chainlink/commit/f7982fa718cd9dc6563019acd8dfc5a40475df9e) Thanks [@cedric-cordenier](https://github.com/cedric-cordenier)! - Add support for workflow jobs to Operator UI #wip #added
-
 - [#12686](https://github.com/smartcontractkit/chainlink/pull/12686) [`2e768c150b`](https://github.com/smartcontractkit/chainlink/commit/2e768c150b44eb3ac8e41e7bafdd46911be57397) Thanks [@nolag](https://github.com/nolag)! - Add a comment to Chain Reader Service constructor that specifies that anonymous events are not supported.
 
-- [#12650](https://github.com/smartcontractkit/chainlink/pull/12650) [`6991af26d9`](https://github.com/smartcontractkit/chainlink/commit/6991af26d9fa0e048b72a05f4f9c13f2306c0328) Thanks [@silaslenihan](https://github.com/silaslenihan)! - #internal Gas Estimator L1Oracles to be chain specific
-  #removed cmd/arbgas
-
-- [#12857](https://github.com/smartcontractkit/chainlink/pull/12857) [`d90229e7a7`](https://github.com/smartcontractkit/chainlink/commit/d90229e7a7011f8dc1c331dffb0ad1eeaddba46f) Thanks [@ettec](https://github.com/ettec)! - #internal Updates required to work with chainlink-common changes to support grpc streams for capabilities
-
 - [#12605](https://github.com/smartcontractkit/chainlink/pull/12605) [`1d9dd466e2`](https://github.com/smartcontractkit/chainlink/commit/1d9dd466e2933b7558949554b882f29f63d90b9f) Thanks [@reductionista](https://github.com/reductionista)! - core/chains/evm/logpoller: Stricter finality checks in LogPoller, to be more robust during rpc failover events #updated
-
-- [#12968](https://github.com/smartcontractkit/chainlink/pull/12968) [`c97781582b`](https://github.com/smartcontractkit/chainlink/commit/c97781582bbe0333332b985fb10a06edeaafa524) Thanks [@dimriou](https://github.com/dimriou)! - Moved test functions under evm package to support evm extraction #internal
-
-- [#12456](https://github.com/smartcontractkit/chainlink/pull/12456) [`78dd3e026a`](https://github.com/smartcontractkit/chainlink/commit/78dd3e026a81cb656b99ac62ce552369573ca736) Thanks [@jmank88](https://github.com/jmank88)! - Use sqlutil instead of pg.Opts/Q/Queryer #internal
 
 - [#12533](https://github.com/smartcontractkit/chainlink/pull/12533) [`ccb8cd85fe`](https://github.com/smartcontractkit/chainlink/commit/ccb8cd85fef8e3bbe3fb5580277a7bd7f477e6bb) Thanks [@DylanTinianov](https://github.com/DylanTinianov)! - #added : Re-enable abandoned transaction tracker
 
@@ -37,71 +24,47 @@
 
 - [#12767](https://github.com/smartcontractkit/chainlink/pull/12767) [`8db5ccfb39`](https://github.com/smartcontractkit/chainlink/commit/8db5ccfb39f86c9817fcad28292dbe6500821810) Thanks [@pavel-raykov](https://github.com/pavel-raykov)! - Validate user email before asking for a password in the chainlink CLI.
 
-- [#12851](https://github.com/smartcontractkit/chainlink/pull/12851) [`40064f0dfe`](https://github.com/smartcontractkit/chainlink/commit/40064f0dfecda6e404993dff056e7a666cca7d26) Thanks [@amit-momin](https://github.com/amit-momin)! - #internal Updated FindTxesWithAttemptsAndReceiptsByIdsAndState method signature to accept int64 for tx ID instead of big.Int
-
 ### Patch Changes
+
+- [#13327](https://github.com/smartcontractkit/chainlink/pull/13327) [`0abe09d785`](https://github.com/smartcontractkit/chainlink/commit/0abe09d7852cf13970d1bb44b0e570e72be9e1e4) Thanks [@reductionista](https://github.com/reductionista)! - Reducing the scope of 0233 migration to include only 5th word index which is required for CCIP #db_update
+
+- [#13316](https://github.com/smartcontractkit/chainlink/pull/13316) [`4fbcf7d2f8`](https://github.com/smartcontractkit/chainlink/commit/4fbcf7d2f8a51bcbec185f7061ea95078ef0d11c) Thanks [@friedemannf](https://github.com/friedemannf)! - #bugfix allow ChainType to be set to xdai
+
+- [#13260](https://github.com/smartcontractkit/chainlink/pull/13260) [`5daefad14c`](https://github.com/smartcontractkit/chainlink/commit/5daefad14c42011ad0c19d9c21fb1e27d93c649c) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - Fixed CPU usage issues caused by inefficiencies in HeadTracker.
+
+  HeadTracker's support of finality tags caused a drastic increase in the number of tracked blocks on the Arbitrum chain (from 50 to 12,000), which has led to a 30% increase in CPU usage.
+
+  The fix improves the data structure for tracking blocks and makes lookup more efficient. BenchmarkHeadTracker_Backfill shows 40x time reduction.
+  #bugfix
+
+- [#13256](https://github.com/smartcontractkit/chainlink/pull/13256) [`d133da44a9`](https://github.com/smartcontractkit/chainlink/commit/d133da44a9bb0a1393363740cbdc7edc18871b4f) Thanks [@samsondav](https://github.com/samsondav)! - Fix panic if mercury server returns error #bugfix
 
 - [#12907](https://github.com/smartcontractkit/chainlink/pull/12907) [`f0439ec840`](https://github.com/smartcontractkit/chainlink/commit/f0439ec8408b39456a74c37df9a264782ed4725c) Thanks [@ilija42](https://github.com/ilija42)! - Fix in memory data source cache changes/bug that only allowed pipeline results where none of the data sources failed. #bugfix
 
-- [#12996](https://github.com/smartcontractkit/chainlink/pull/12996) [`0a37c0ed53`](https://github.com/smartcontractkit/chainlink/commit/0a37c0ed5346df509b545c88278c026cb2adf375) Thanks [@DeividasK](https://github.com/DeividasK)! - #wip Keystone contract wrappers updated
-
 - [#12923](https://github.com/smartcontractkit/chainlink/pull/12923) [`274a988985`](https://github.com/smartcontractkit/chainlink/commit/274a988985e0530676bdfedbdb35dec4cb9fe8b2) Thanks [@shileiwill](https://github.com/shileiwill)! - use safe lib for approve #bugfix
 
-- [#12991](https://github.com/smartcontractkit/chainlink/pull/12991) [`929312681f`](https://github.com/smartcontractkit/chainlink/commit/929312681fb27529915912e8bd6e4000559ea77f) Thanks [@cds95](https://github.com/cds95)! - generate gethwrappers for updating node operators in capability registry #internal
-
-- [#12959](https://github.com/smartcontractkit/chainlink/pull/12959) [`e482c79822`](https://github.com/smartcontractkit/chainlink/commit/e482c7982278e232acaaa4b3e9a79165faa35d1c) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal Optimize workflow engine tests
-
 - [#12754](https://github.com/smartcontractkit/chainlink/pull/12754) [`4d9875ecba`](https://github.com/smartcontractkit/chainlink/commit/4d9875ecba9c7f672a9320d43cdb3d24a529f2ee) Thanks [@amirylm](https://github.com/amirylm)! - Bumping chainlink-automation version to v1.0.3
-
-- [#12636](https://github.com/smartcontractkit/chainlink/pull/12636) [`bdc076c139`](https://github.com/smartcontractkit/chainlink/commit/bdc076c1395259298f520d741a3a1b397c3e0037) Thanks [@dimriou](https://github.com/dimriou)! - Removed AppConfig from Evm config #internal
-
-- [#12880](https://github.com/smartcontractkit/chainlink/pull/12880) [`8337fc821b`](https://github.com/smartcontractkit/chainlink/commit/8337fc821baf8011c6c73203482db85f5a44d7ae) Thanks [@DeividasK](https://github.com/DeividasK)! - #wip Keystone wrapper regenerate
-
-- [#12807](https://github.com/smartcontractkit/chainlink/pull/12807) [`dd41ee6c1f`](https://github.com/smartcontractkit/chainlink/commit/dd41ee6c1fb79333bfec4e8ef795a859e09e72c8) Thanks [@jmank88](https://github.com/jmank88)! - core/services: update llo & versioning to use sqlutil #internal
 
 - [#12887](https://github.com/smartcontractkit/chainlink/pull/12887) [`e87b83cd78`](https://github.com/smartcontractkit/chainlink/commit/e87b83cd78595c09061c199916c4bb9145e719b7) Thanks [@jinhoonbang](https://github.com/jinhoonbang)! - #bugfix
   vrf fix replay number of blocks logic and add logging for job specs
 
 - [#12848](https://github.com/smartcontractkit/chainlink/pull/12848) [`91698020fb`](https://github.com/smartcontractkit/chainlink/commit/91698020fb695545eeb4befb2d73e36cc3ded0ab) Thanks [@poopoothegorilla](https://github.com/poopoothegorilla)! - bump mockery in makefile #updated
 
-- [#12810](https://github.com/smartcontractkit/chainlink/pull/12810) [`1fce16e735`](https://github.com/smartcontractkit/chainlink/commit/1fce16e735e417553c00680a3fcae2e081353095) Thanks [@jmank88](https://github.com/jmank88)! - core/services/keystore: switch to sqlutil.DataStore #internal
-
 - [#11936](https://github.com/smartcontractkit/chainlink/pull/11936) [`2b38bd8738`](https://github.com/smartcontractkit/chainlink/commit/2b38bd8738b4edf16e9913c90720820bc2b8dbd1) Thanks [@erikburt](https://github.com/erikburt)! - Validate support for postgresql-client 16, and update docker image's bundled postgresql-client from 15 to 16. #nops #updated
-
-- [#12820](https://github.com/smartcontractkit/chainlink/pull/12820) [`e523aa0bc7`](https://github.com/smartcontractkit/chainlink/commit/e523aa0bc7752fbf11dfbb842c8a411d345f30e7) Thanks [@jmank88](https://github.com/jmank88)! - core/services/keeper: switch to sqlutil.DataSource #internal
-
-- [#12859](https://github.com/smartcontractkit/chainlink/pull/12859) [`44c9b40e0a`](https://github.com/smartcontractkit/chainlink/commit/44c9b40e0a77be0609c33d06c3101d8a7163c3e7) Thanks [@dimriou](https://github.com/dimriou)! - Drop unused queryTimeout config from TXM strategy #internal
-
-- [#12909](https://github.com/smartcontractkit/chainlink/pull/12909) [`fa5b22773e`](https://github.com/smartcontractkit/chainlink/commit/fa5b22773e52744d3abab1a05cd12ecc2e103d88) Thanks [@vyzaldysanchez](https://github.com/vyzaldysanchez)! - #internal Generic Plugin `onchainSigningStrategy` support
 
 - [#12845](https://github.com/smartcontractkit/chainlink/pull/12845) [`63abd08cd5`](https://github.com/smartcontractkit/chainlink/commit/63abd08cd55b6dc31e74c6d3e50597eb8400eeb4) Thanks [@bolekk](https://github.com/bolekk)! - #internal Remote Trigger setup
 
-- [#12961](https://github.com/smartcontractkit/chainlink/pull/12961) [`e50d38b0bd`](https://github.com/smartcontractkit/chainlink/commit/e50d38b0bddc34aa0b97ae6bdf23c355b5619682) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal Rename workflow tags to labels
-
 - [#12997](https://github.com/smartcontractkit/chainlink/pull/12997) [`8c8994e242`](https://github.com/smartcontractkit/chainlink/commit/8c8994e24284236645509b4c49152e6270ce0e35) Thanks [@george-dorin](https://github.com/george-dorin)! - #bugfix Fixed an issue where the `rebroadcast-transactions` commands did not execute config validation.
-
-- [#12888](https://github.com/smartcontractkit/chainlink/pull/12888) [`7c059b2c26`](https://github.com/smartcontractkit/chainlink/commit/7c059b2c26ed6d99a40403b4f690c0f3e08154b4) Thanks [@DeividasK](https://github.com/DeividasK)! - #wip Regenerate Keystone wrappers
-
-- [#12806](https://github.com/smartcontractkit/chainlink/pull/12806) [`9964dc82e5`](https://github.com/smartcontractkit/chainlink/commit/9964dc82e591f8653adb06f0b149a16e0b6cea40) Thanks [@jmank88](https://github.com/jmank88)! - core/services/ocr2/plugins/ocr2keeper/evmregister/v21/upkeepstate: use sqlutil instead of pg.QOpts #internal
-
-- [#12818](https://github.com/smartcontractkit/chainlink/pull/12818) [`6a0b4a9b09`](https://github.com/smartcontractkit/chainlink/commit/6a0b4a9b099663e3aed202f48f363afc4d111293) Thanks [@jmank88](https://github.com/jmank88)! - cor/services/relay/evm/mercury: switch to sqlutil.DataStore #internal
-
-- [#12947](https://github.com/smartcontractkit/chainlink/pull/12947) [`758ffd6da0`](https://github.com/smartcontractkit/chainlink/commit/758ffd6da097adac1f49ceded5e0998cdcb98a29) Thanks [@momentmaker](https://github.com/momentmaker)! - Add check for valid semvar value for changeset file #internal
 
 - [#13026](https://github.com/smartcontractkit/chainlink/pull/13026) [`e21be2a890`](https://github.com/smartcontractkit/chainlink/commit/e21be2a890a50bd3cbac60c450e3c2d68ddefbd3) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Improving LogPoller read queries by properly sorting by multiple columns #updated
 
 - [#12638](https://github.com/smartcontractkit/chainlink/pull/12638) [`bcf7653486`](https://github.com/smartcontractkit/chainlink/commit/bcf76534862b32503f4192e38b7e1cb4dd7e312d) Thanks [@dhaidashenko](https://github.com/dhaidashenko)! - #changed
   Added prefix `RPCClient returned error ({RPC_NAME})` to RPC errors to simplify filtering of RPC related issues.
 
-- [#12811](https://github.com/smartcontractkit/chainlink/pull/12811) [`6b0a7afe23`](https://github.com/smartcontractkit/chainlink/commit/6b0a7afe235399790c066dd725c437403a47a73e) Thanks [@jmank88](https://github.com/jmank88)! - core/services/functions: switch to sqlutil.DataStore #internal
-
 - [#12786](https://github.com/smartcontractkit/chainlink/pull/12786) [`fbb705c4f1`](https://github.com/smartcontractkit/chainlink/commit/fbb705c4f1338c6e0919d728adee827ec1e2007a) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Narrowing topic, data_word indexes by adding (evm_chain_id, address, event_sig) to the index definition #db_update
 
 - [#12747](https://github.com/smartcontractkit/chainlink/pull/12747) [`2729ef76f3`](https://github.com/smartcontractkit/chainlink/commit/2729ef76f34877a2e6e8644b2e67f3e5dfb0c2b6) Thanks [@friedemannf](https://github.com/friedemannf)! - Add support for X Layer (X1) #added
 
-- [#12979](https://github.com/smartcontractkit/chainlink/pull/12979) [`0c4c24ad8c`](https://github.com/smartcontractkit/chainlink/commit/0c4c24ad8c95e505cd2a29be711cc40e612658b0) Thanks [@cds95](https://github.com/cds95)! - update keystone gethwrapper with remove operator function #internal
-
-- [#12856](https://github.com/smartcontractkit/chainlink/pull/12856) [`0ec92765cc`](https://github.com/smartcontractkit/chainlink/commit/0ec92765ccd419973f4eab5b0cc38df212f4ad21) Thanks [@jmank88](https://github.com/jmank88)! - switch more EVM components to use sqlutil.DataStore #internal
 
 - [#12680](https://github.com/smartcontractkit/chainlink/pull/12680) [`f55d8be495`](https://github.com/smartcontractkit/chainlink/commit/f55d8be495a83c97ac5439672563400e12ec2ee7) Thanks [@samsondav](https://github.com/samsondav)! - #added
 
@@ -113,33 +76,24 @@
   TransmitTimeout = "5s" # Default
   ```
 
-- [#13059](https://github.com/smartcontractkit/chainlink/pull/13059) [`ea08b5f08d`](https://github.com/smartcontractkit/chainlink/commit/ea08b5f08d84d2ff1ddfa2027660ff58a60219c3) Thanks [@HenryNguyen5](https://github.com/HenryNguyen5)! - #internal fix txdb documentation typos
-
 - [#12902](https://github.com/smartcontractkit/chainlink/pull/12902) [`d1845e22d3`](https://github.com/smartcontractkit/chainlink/commit/d1845e22d3b057d9d736bc05c30f0db34c84a7e4) Thanks [@samsondav](https://github.com/samsondav)! - Bump libocr => fd3cab206b2ca3b7ff207996b95673b2d6303ec4
 
-  #internal
-
-- [#12809](https://github.com/smartcontractkit/chainlink/pull/12809) [`0af4acafbd`](https://github.com/smartcontractkit/chainlink/commit/0af4acafbdf243feea8507e421016933b0e538ca) Thanks [@jmank88](https://github.com/jmank88)! - core/sessions: switch to sqlutil.DataSource #internal
-
-- [#12808](https://github.com/smartcontractkit/chainlink/pull/12808) [`601c79f891`](https://github.com/smartcontractkit/chainlink/commit/601c79f89120dc0d98db63a528c79644ebb38132) Thanks [@jmank88](https://github.com/jmank88)! - core/bridges: use sqlutil.DataSource #internal
-
-- [#12903](https://github.com/smartcontractkit/chainlink/pull/12903) [`a293dfe797`](https://github.com/smartcontractkit/chainlink/commit/a293dfe7975b035a71eff7a6197e3ce5a25f1887) Thanks [@shileiwill](https://github.com/shileiwill)! - add getters #internal
-
 - [#12669](https://github.com/smartcontractkit/chainlink/pull/12669) [`3134ce8868`](https://github.com/smartcontractkit/chainlink/commit/3134ce8868ccc22bd4ae670c8b0bfda5fa78a332) Thanks [@leeyikjiun](https://github.com/leeyikjiun)! - vrfv2plus - account for num words in coordinator gas overhead in v2plus wrapper
-
-- [#13022](https://github.com/smartcontractkit/chainlink/pull/13022) [`2805fa6c9b`](https://github.com/smartcontractkit/chainlink/commit/2805fa6c9b469d535edcd3d66c08e1d22bbaa2d0) Thanks [@cds95](https://github.com/cds95)! - #internal
 
 - [#12951](https://github.com/smartcontractkit/chainlink/pull/12951) [`c98ea6413d`](https://github.com/smartcontractkit/chainlink/commit/c98ea6413dcdc02a7d0c82b9b36d3fce97dac94b) Thanks [@ogtownsend](https://github.com/ogtownsend)! - #changed Updating the log trigger log provider's readMaxBatchSize to 56
 
 - [#12944](https://github.com/smartcontractkit/chainlink/pull/12944) [`167782c680`](https://github.com/smartcontractkit/chainlink/commit/167782c680b92b1e99ae3e9d1a8b87fd595dd644) Thanks [@shileiwill](https://github.com/shileiwill)! - minor fixes #bugfix
-
-- [#12906](https://github.com/smartcontractkit/chainlink/pull/12906) [`365c38be8b`](https://github.com/smartcontractkit/chainlink/commit/365c38be8b589d5ffa0b21755dcb40e2e4205652) Thanks [@cds95](https://github.com/cds95)! - update keystone gethwrapper #internal
 
 - [#12966](https://github.com/smartcontractkit/chainlink/pull/12966) [`ac7d3409ed`](https://github.com/smartcontractkit/chainlink/commit/ac7d3409ed9bc98af970ca75c3b92e41e4fb01cf) Thanks [@george-dorin](https://github.com/george-dorin)! - #added JuelsPerFeeCoinCache is enabled by default for OCR2 jobs, added `Disable` field under [pluginConfig.JuelsPerFeeCoinCache] tag to disable this feature (e.g. Disable=true)
 
 - [#12916](https://github.com/smartcontractkit/chainlink/pull/12916) [`7ec1d5b7ab`](https://github.com/smartcontractkit/chainlink/commit/7ec1d5b7abb51e100f7a6a48662e33703a589ecb) Thanks [@shileiwill](https://github.com/shileiwill)! - offchain settlement fix #bugfix
 
 - [#12998](https://github.com/smartcontractkit/chainlink/pull/12998) [`d50936ce38`](https://github.com/smartcontractkit/chainlink/commit/d50936ce3824d7ad6026f630172e9764a34cc08b) Thanks [@mateusz-sekara](https://github.com/mateusz-sekara)! - Support for retention in LogPoller's filters registered by ContractTransmitter #changed
+
+## 2.11.1 - 2024-05-20
+
+### Patch Changes
+- [#13254](https://github.com/smartcontractkit/chainlink/pull/13254) [`c0d201a9a8`](https://github.com/smartcontractkit/chainlink/commit/c0d201a9a85b66718c5102427c34276e0b61c84e) Thanks [@samsondav!] - Fix panic if mercury server returns error #bugfix
 
 ## 2.11.0 - 2024-04-30
 
