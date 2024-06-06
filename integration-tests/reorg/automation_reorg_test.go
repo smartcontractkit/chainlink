@@ -147,6 +147,10 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
+			// Fix network URLs
+			network.URLs = []string{"ws://simulated-geth-ethereum-geth:8546"}
+			network.HTTPURLs = []string{"http://simulated-geth-ethereum-geth:8544"}
+
 			defaultAutomationSettings["replicas"] = numberOfNodes
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
