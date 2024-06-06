@@ -168,20 +168,20 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, s
 				DESC LIMIT 1;`
 
 	type responseType struct {
-		response   []byte
-		finishedAt time.Time
+		Value      []byte
+		FinishedAt time.Time
 	}
 
 	var result responseType
 
 	if err := pkgerrors.Wrap(
-		o.ds.SelectContext(ctx, &result, sql, dotId, specId, stalenessThreshold),
+		o.ds.GetContext(ctx, &result, sql, dotId, specId, stalenessThreshold),
 		fmt.Sprintf("failed to fetch last good value for task %s spec %d", dotId, specId),
 	); err != nil {
 		return nil, time.Now(), err
 	}
 
-	return result.response, result.finishedAt, nil
+	return result.Value, result.FinishedAt, nil
 }
 
 func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {

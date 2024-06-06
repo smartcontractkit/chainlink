@@ -1069,7 +1069,15 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	orm := bridges.NewORM(db)
+	// orm := bridges.NewORM(db)
+	orm := bridges.NewBridgeCache(bridges.NewORM(db), nil, bridges.DefaultUpsertInterval)
+
+	t.Cleanup(func() {
+		require.NoError(t, orm.Close())
+	})
+
+	require.NoError(t, orm.Start(context.Background()))
+
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 
 	task := pipeline.BridgeTask{
