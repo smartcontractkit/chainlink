@@ -26,13 +26,13 @@ pragma solidity ^0.8.4;
  * *****************************************************************************
  * @dev USAGE
  *
- * @dev Calling contracts must inherit from VRFConsumerBase, and can
- * @dev initialize VRFConsumerBase's attributes in their constructor as
+ * @dev Calling contracts must inherit from VRFConsumerBaseV2, and can
+ * @dev initialize VRFConsumerBaseV2's attributes in their constructor as
  * @dev shown:
  *
  * @dev   contract VRFConsumer {
  * @dev     constructor(<other arguments>, address _vrfCoordinator, address _link)
- * @dev       VRFConsumerBase(_vrfCoordinator) public {
+ * @dev       VRFConsumerBaseV2(_vrfCoordinator) public {
  * @dev         <initialization with other arguments goes here>
  * @dev       }
  * @dev   }
@@ -66,7 +66,7 @@ pragma solidity ^0.8.4;
  * @dev A method with the ability to call your fulfillRandomness method directly
  * @dev could spoof a VRF response with any random value, so it's critical that
  * @dev it cannot be directly called by anything other than this base contract
- * @dev (specifically, by the VRFConsumerBase.rawFulfillRandomness method).
+ * @dev (specifically, by the VRFConsumerBaseV2.rawFulfillRandomness method).
  *
  * @dev For your users to trust that your contract's random behavior is free
  * @dev from malicious interference, it's best if you can write it so that all
