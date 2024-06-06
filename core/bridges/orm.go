@@ -32,6 +32,9 @@ type ORM interface {
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (*ExternalInitiator, error)
 	FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error)
 
+	GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error)
+	BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error
+
 	WithDataSource(sqlutil.DataSource) ORM
 }
 
@@ -147,7 +150,7 @@ func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeT
 }
 
 func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
-	response, _, err := o.getCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	response, _, err := o.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +158,7 @@ func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32,
 	return response, nil
 }
 
-func (o *orm) getCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
+func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT value, finished_at FROM bridge_last_value WHERE
 				dot_id = $1 AND 
@@ -192,7 +195,7 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 	return err
 }
 
-func (o *orm) bulkUpsertBridgeResponse(ctx context.Context, responses []scopedResponse) error {
+func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
 	argCnt := 4
 	valueStrings := make([]string, len(responses))
 	valueArgs := make([]interface{}, argCnt*len(responses))
@@ -202,10 +205,10 @@ func (o *orm) bulkUpsertBridgeResponse(ctx context.Context, responses []scopedRe
 
 		pointIdx := argCnt * idx
 
-		valueArgs[pointIdx] = resp.dotId
-		valueArgs[pointIdx+1] = resp.specId
-		valueArgs[pointIdx+2] = resp.response
-		valueArgs[pointIdx+3] = resp.finishedAt
+		valueArgs[pointIdx] = resp.DotId
+		valueArgs[pointIdx+1] = resp.SpecId
+		valueArgs[pointIdx+2] = resp.Response
+		valueArgs[pointIdx+3] = resp.FinishedAt
 	}
 
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 

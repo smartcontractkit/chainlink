@@ -121,7 +121,7 @@ func NewRunner(
 ) *runner {
 	r := &runner{
 		orm:                    orm,
-		btORM:                  btORM,
+		btORM:                  bridges.NewBridgeCache(btORM, lggr, bridges.DefaultUpsertInterval),
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
@@ -133,11 +133,6 @@ func NewRunner(
 		lggr:                   lggr.Named("PipelineRunner"),
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-	}
-
-	cachedORM, err := bridges.NewBridgeCache(btORM, lggr, bridges.DefaultUpsertInterval)
-	if err == nil {
-		r.btORM = cachedORM
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(

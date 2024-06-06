@@ -24,7 +24,7 @@ const (
 
 type BridgeCache struct {
 	// dependencies and configurations
-	orm      *orm
+	orm      ORM
 	lggr     logger.Logger
 	interval time.Duration
 
@@ -35,32 +35,25 @@ type BridgeCache struct {
 
 	// data state
 	bridgeTypesCache     sync.Map
-	bridgeLastValueCache map[string]scopedResponse
+	bridgeLastValueCache map[string]BridgeResponse
 	mu                   sync.RWMutex
 }
 
 var _ ORM = (*BridgeCache)(nil)
 var _ services.Service = (*BridgeCache)(nil)
 
-func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) (*BridgeCache, error) {
-	validBase, isValid := base.(*orm)
-	if !isValid {
-		return nil, errors.New("BridgeCache must use a *bridges.orm")
-	}
-
+func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *BridgeCache {
 	return &BridgeCache{
-		orm:                  validBase,
+		orm:                  base,
 		lggr:                 lggr,
 		interval:             upsertInterval,
 		stop:                 make(chan struct{}, 1),
-		bridgeLastValueCache: make(map[string]scopedResponse),
-	}, nil
+		bridgeLastValueCache: make(map[string]BridgeResponse),
+	}
 }
 
 func (c *BridgeCache) WithDataSource(ds sqlutil.DataSource) ORM {
-	newORM, _ := NewBridgeCache(NewORM(ds), c.lggr, c.interval)
-
-	return newORM
+	return NewBridgeCache(NewORM(ds), c.lggr, c.interval)
 }
 
 func (c *BridgeCache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
@@ -162,21 +155,21 @@ func (c *BridgeCache) GetCachedResponse(ctx context.Context, dotId string, specI
 	cached, inCache := c.bridgeLastValueCache[responseKey(dotId, specId)]
 	c.mu.RUnlock()
 
-	if inCache && cached.finishedAt.After(time.Now().Add(-maxElapsed)) {
-		return cached.response, nil
+	if inCache && cached.FinishedAt.After(time.Now().Add(-maxElapsed)) {
+		return cached.Response, nil
 	}
 
-	response, finishedAt, err := c.orm.getCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	response, finishedAt, err := c.orm.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
 
 	c.mu.Lock()
-	c.bridgeLastValueCache[responseKey(dotId, specId)] = scopedResponse{
-		dotId:      dotId,
-		specId:     specId,
-		response:   response,
-		finishedAt: finishedAt,
+	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
+		DotId:      dotId,
+		SpecId:     specId,
+		Response:   response,
+		FinishedAt: finishedAt,
 	}
 	c.mu.Unlock()
 
@@ -187,11 +180,11 @@ func (c *BridgeCache) UpsertBridgeResponse(ctx context.Context, dotId string, sp
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.bridgeLastValueCache[responseKey(dotId, specId)] = scopedResponse{
-		dotId:      dotId,
-		specId:     specId,
-		response:   response,
-		finishedAt: time.Now(),
+	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
+		DotId:      dotId,
+		SpecId:     specId,
+		Response:   response,
+		FinishedAt: time.Now(),
 	}
 
 	return nil
@@ -215,6 +208,14 @@ func (c *BridgeCache) FindExternalInitiator(ctx context.Context, eia *auth.Token
 
 func (c *BridgeCache) FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error) {
 	return c.orm.FindExternalInitiatorByName(ctx, iname)
+}
+
+func (c *BridgeCache) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
+	return c.orm.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+}
+
+func (c *BridgeCache) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
+	return c.orm.BulkUpsertBridgeResponse(ctx, responses)
 }
 
 func (c *BridgeCache) Start(context.Context) error {
@@ -266,7 +267,7 @@ func (c *BridgeCache) run() {
 }
 
 func (c *BridgeCache) doBulkUpsert() {
-	values := make([]scopedResponse, 0, len(c.bridgeLastValueCache))
+	values := make([]BridgeResponse, 0, len(c.bridgeLastValueCache))
 
 	c.mu.RLock()
 
@@ -279,16 +280,9 @@ func (c *BridgeCache) doBulkUpsert() {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultBulkInsertTimeout)
 	defer cancel()
 
-	if err := c.orm.bulkUpsertBridgeResponse(ctx, values); err != nil {
+	if err := c.orm.BulkUpsertBridgeResponse(ctx, values); err != nil {
 		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
-}
-
-type scopedResponse struct {
-	dotId      string
-	specId     int32
-	response   []byte
-	finishedAt time.Time
 }
 
 func responseKey(dotId string, specId int32) string {

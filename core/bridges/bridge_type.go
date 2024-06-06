@@ -199,3 +199,10 @@ func (t *BridgeName) Scan(value interface{}) error {
 	*t = BridgeName(temp)
 	return nil
 }
+
+type BridgeResponse struct {
+	DotId      string
+	SpecId     int32
+	Response   []byte
+	FinishedAt time.Time
+}
