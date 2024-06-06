@@ -1,5 +1,5 @@
 ChainID = '534351'
-FinalityDepth = 1
+FinalityDepth = 10
 ChainType = 'scroll'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1

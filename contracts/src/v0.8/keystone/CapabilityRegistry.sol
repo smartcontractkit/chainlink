@@ -71,23 +71,34 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     OBSERVATION_IDENTICAL
   }
 
+  /// @notice CapabilityType indicates the type of capability which determines
+  /// where the capability can be used in a Workflow Spec.
+  enum CapabilityType {
+    TRIGGER,
+    ACTION,
+    CONSENSUS,
+    TARGET
+  }
+
   struct Capability {
     /// @notice The partially qualified ID for the capability.
-    ///
     /// @dev Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
     // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
     ///
     /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
     ///     labelledName = "data-streams-reports:chain:ethereum"
     ///
-    /// bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
-    bytes32 labelledName;
+    /// validation regex: ^[a-z0-9_\-:]{1,32}$
+    string labelledName;
     /// @notice Semver, e.g., "1.2.3"
-    ///  @dev must be valid Semver + max 32 characters.
-    bytes32 version;
-    /// @notice Indicates whether remote response requires
-    // aggregation or is an OCR report. There are multiple possible
-    // ways to aggregate.
+    /// @dev must be valid Semver + max 32 characters.
+    string version;
+    /// @notice CapabilityType indicates the type of capability which determines
+    /// where the capability can be used in a Workflow Spec.
+    CapabilityType capabilityType;
+    /// @notice CapabilityResponseType indicates whether remote response requires
+    // aggregation or is an already aggregated report. There are multiple
+    // possible ways to aggregate.
     CapabilityResponseType responseType;
     /// @notice An address to the capability configuration contract. Having this defined
     // on a capability enforces consistent configuration across DON instances
@@ -131,9 +142,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 id;
     /// @notice The number of times the DON was configured
     uint32 configCount;
-    /// @notice True if the DON is public.  A public DON means that it accepts
+    /// @notice The f value for the DON.  This is the number of faulty nodes
+    /// that the DON can tolerate. This can be different from the f value of
+    /// the OCR instances that capabilities spawn.
+    uint32 f;
+    /// @notice True if the DON is public. A public DON means that it accepts
     /// external capability requests
     bool isPublic;
+    /// @notice True if the DON accepts Workflows.
+    bool acceptsWorkflows;
     /// @notice Mapping of config counts to configurations
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
   }
@@ -143,13 +160,29 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 id;
     /// @notice The number of times the DON was configured
     uint32 configCount;
+    /// @notice The f value for the DON.  This is the number of faulty nodes
+    /// that the DON can tolerate. This can be different from the f value of
+    /// the OCR instances that capabilities spawn.
+    uint32 f;
     /// @notice True if the DON is public.  A public DON means that it accepts
     /// external capability requests
     bool isPublic;
+    /// @notice True if the DON accepts Workflows.
+    bool acceptsWorkflows;
     /// @notice List of member node P2P Ids
     bytes32[] nodeP2PIds;
     /// @notice List of capability configurations
     CapabilityConfiguration[] capabilityConfigurations;
+  }
+
+  /// @notice DONParams is a struct that holds the parameters for a DON.
+  /// @dev This is needed to avoid "stack too deep" errors in _setDONConfig.
+  struct DONParams {
+    uint32 id;
+    uint32 configCount;
+    bool isPublic;
+    bool acceptsWorkflows;
+    uint32 f;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -227,6 +260,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param donId The ID of the DON that the node was added for
   /// @param nodeP2PId The P2P ID of the node
   error DuplicateDONNode(uint32 donId, bytes32 nodeP2PId);
+
+  /// @notice This error is thrown when trying to configure a DON with invalid
+  /// fault tolerance value.
+  /// @param f The proposed fault tolerance value
+  /// @param nodeCount The proposed number of nodes in the DON
+  error InvalidFaultTolerance(uint32 f, uint256 nodeCount);
 
   /// @notice This error is thrown when a capability with the provided hashed ID is
   /// not found.
@@ -584,8 +623,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param version The capability's version number
   /// @return bytes32 A unique identifier for the capability
   /// @dev The hash of the encoded labelledName and version
-  function getHashedCapabilityId(bytes32 labelledName, bytes32 version) public pure returns (bytes32) {
-    return keccak256(abi.encodePacked(labelledName, version));
+  function getHashedCapabilityId(string calldata labelledName, string calldata version) public pure returns (bytes32) {
+    return keccak256(abi.encode(labelledName, version));
   }
 
   /// @notice Returns whether a capability is deprecated
@@ -604,11 +643,18 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   function addDON(
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
-    bool isPublic
+    bool isPublic,
+    bool acceptsWorkflows,
+    uint32 f
   ) external onlyOwner {
     uint32 id = s_donId;
     s_dons[id].id = id;
-    _setDONConfig(id, 1, nodes, capabilityConfigurations, isPublic);
+
+    _setDONConfig(
+      nodes,
+      capabilityConfigurations,
+      DONParams({id: id, configCount: 1, isPublic: isPublic, acceptsWorkflows: acceptsWorkflows, f: f})
+    );
     ++s_donId;
   }
 
@@ -624,11 +670,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 donId,
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
-    bool isPublic
+    bool isPublic,
+    bool acceptsWorkflows,
+    uint32 f
   ) external onlyOwner {
     uint32 configCount = s_dons[donId].configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
-    _setDONConfig(donId, ++configCount, nodes, capabilityConfigurations, isPublic);
+    _setDONConfig(
+      nodes,
+      capabilityConfigurations,
+      DONParams({id: donId, configCount: ++configCount, isPublic: isPublic, acceptsWorkflows: acceptsWorkflows, f: f})
+    );
   }
 
   /// @notice Removes DONs from the Capability Registry
@@ -680,23 +732,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Sets the configuration for a DON
-  /// @param donId The ID of the DON to set the configuration for
-  /// @param configCount The number of times the DON has been configured
   /// @param nodes The nodes making up the DON
   /// @param capabilityConfigurations The list of configurations for the
   /// capabilities supported by the DON
-  /// @param isPublic True if the DON is can accept external workflows
+  /// @param donParams The DON's parameters
   function _setDONConfig(
-    uint32 donId,
-    uint32 configCount,
     bytes32[] calldata nodes,
     CapabilityConfiguration[] calldata capabilityConfigurations,
-    bool isPublic
+    DONParams memory donParams
   ) internal {
-    DONCapabilityConfig storage donCapabilityConfig = s_dons[donId].config[configCount];
+    DONCapabilityConfig storage donCapabilityConfig = s_dons[donParams.id].config[donParams.configCount];
+
+    // Validate the f value. We are intentionally relaxing the 3f+1 requirement
+    // as not all DONs will run OCR instances.
+    if (donParams.f == 0 || donParams.f + 1 > nodes.length) revert InvalidFaultTolerance(donParams.f, nodes.length);
 
     for (uint256 i; i < nodes.length; ++i) {
-      if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
+      if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donParams.id, nodes[i]);
       donCapabilityConfig.nodes.add(nodes[i]);
     }
 
@@ -709,7 +761,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         revert CapabilityIsDeprecated(configuration.capabilityId);
 
       if (donCapabilityConfig.capabilityConfigs[configuration.capabilityId].length > 0)
-        revert DuplicateDONCapability(donId, configuration.capabilityId);
+        revert DuplicateDONCapability(donParams.id, configuration.capabilityId);
 
       for (uint256 j; j < nodes.length; ++j) {
         if (
@@ -720,11 +772,19 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       donCapabilityConfig.capabilityIds.push(configuration.capabilityId);
       donCapabilityConfig.capabilityConfigs[configuration.capabilityId] = configuration.config;
 
-      _setDONCapabilityConfig(donId, configCount, configuration.capabilityId, nodes, configuration.config);
+      _setDONCapabilityConfig(
+        donParams.id,
+        donParams.configCount,
+        configuration.capabilityId,
+        nodes,
+        configuration.config
+      );
     }
-    s_dons[donId].isPublic = isPublic;
-    s_dons[donId].configCount = configCount;
-    emit ConfigSet(donId, configCount);
+    s_dons[donParams.id].isPublic = donParams.isPublic;
+    s_dons[donParams.id].acceptsWorkflows = donParams.acceptsWorkflows;
+    s_dons[donParams.id].f = donParams.f;
+    s_dons[donParams.id].configCount = donParams.configCount;
+    emit ConfigSet(donParams.id, donParams.configCount);
   }
 
   /// @notice Sets the capability's config on the config contract
@@ -789,7 +849,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       DONInfo({
         id: s_dons[donId].id,
         configCount: configCount,
+        f: s_dons[donId].f,
         isPublic: s_dons[donId].isPublic,
+        acceptsWorkflows: s_dons[donId].acceptsWorkflows,
         nodeP2PIds: donCapabilityConfig.nodes.values(),
         capabilityConfigurations: capabilityConfigurations
       });

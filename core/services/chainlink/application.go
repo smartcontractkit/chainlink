@@ -17,7 +17,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	commoncapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -25,9 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -201,28 +200,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
+	if opts.CapabilitiesRegistry == nil { // for tests only, in prod Registry is always set at this point
+		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
 		externalPeerWrapper = externalPeer
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
-		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup(externalPeerWrapper)
+		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
-		}
-
-		if opts.CapabilitiesRegistry == nil {
-			peerID := externalPeerWrapper.GetPeer().ID()
-			if networkSetup.IsWorkflowDon(peerID) {
-				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.WorkflowsDonInfo)
-			} else if networkSetup.IsTriggerDon(peerID) {
-				opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, peerID, networkSetup.TriggerCapabilityDonInfo)
-			} else {
-				return nil, fmt.Errorf("peer %s is not a member of any known DON", peerID)
-			}
 		}
 
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
@@ -230,10 +222,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
 
 		srvcs = append(srvcs, dispatcher, registrySyncer)
-	} else {
-		if opts.CapabilitiesRegistry == nil {
-			opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger, p2ptypes.PeerID{}, commoncapabilities.DON{})
-		}
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
@@ -354,6 +342,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, pipelineORM)
 
+	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
+
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
@@ -406,6 +396,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				cfg.JobPipeline(),
 			),
+			job.StandardCapabilities: standardcapabilities.NewDelegate(
+				globalLogger,
+				opts.DS, jobORM,
+				opts.CapabilitiesRegistry,
+				loopRegistrarConfig,
+				telemetryManager,
+				pipelineRunner,
+				opts.RelayerChainInteroperators),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -469,8 +467,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
-
-	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register, opts.LoopRegistry.Unregister)
 
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")

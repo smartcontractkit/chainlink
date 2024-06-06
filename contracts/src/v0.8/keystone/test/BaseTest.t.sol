@@ -24,13 +24,15 @@ contract BaseTest is Test, Constants {
       labelledName: "data-streams-reports",
       version: "1.0.0",
       responseType: CapabilityRegistry.CapabilityResponseType.REPORT,
-      configurationContract: address(0)
+      configurationContract: address(0),
+      capabilityType: CapabilityRegistry.CapabilityType.TRIGGER
     });
     s_capabilityWithConfigurationContract = CapabilityRegistry.Capability({
       labelledName: "read-ethereum-mainnet-gas-price",
       version: "1.0.2",
       responseType: CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL,
-      configurationContract: address(s_capabilityConfigurationContract)
+      configurationContract: address(s_capabilityConfigurationContract),
+      capabilityType: CapabilityRegistry.CapabilityType.ACTION
     });
 
     s_basicHashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
