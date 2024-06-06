@@ -23,7 +23,7 @@ contract Constants {
   bytes32 internal constant NODE_OPERATOR_THREE_SIGNER_ADDRESS = bytes32(abi.encodePacked(address(5555)));
   bytes32 internal constant P2P_ID_THREE = hex"f53415859707d90ed4dc534ad730f187a17b0c368e1beec2e9b995587c4b0a06";
 
-  uint32 internal constant F_VALUE = 1;
+  uint8 internal constant F_VALUE = 1;
   uint32 internal constant DON_ID = 1;
   uint32 internal constant DON_ID_TWO = 2;
 
