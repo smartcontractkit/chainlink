@@ -136,7 +136,7 @@ jobs:
               exit 1
             fi
           
-            tags=$(IFS=,; echo "${tags_array[*]}")
+            tags=$(IFS=,; echo "${repository_name}:${tags_array[*]}")
           
             echo "$tags"
           }
