@@ -623,15 +623,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Returns all capabilities. This operation will copy capabilities
   /// to memory, which can be quite expensive. This is designed to mostly be
   /// used by view accessors that are queried without any gas fees.
-  /// @return Capability[] An array of capabilities
-  function getCapabilities() external view returns (Capability[] memory) {
+  /// @return bytes32[] List of hashed capability Ids
+  /// @return Capability[] List of capabilities
+  function getCapabilities() external view returns (bytes32[] memory, Capability[] memory) {
     bytes32[] memory hashedCapabilityIds = s_hashedCapabilityIds.values();
+
+    uint256 numSupportedCapabilities = hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length();
 
     // Solidity does not support dynamic arrays in memory, so we create a
     // fixed-size array and copy the capabilities into it.
-    Capability[] memory capabilities = new Capability[](
-      hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length()
-    );
+    Capability[] memory capabilities = new Capability[](numSupportedCapabilities);
+    bytes32[] memory supportedHashedCapabilityIds = new bytes32[](numSupportedCapabilities);
 
     // We need to keep track of the new index because we are skipping
     // deprecated capabilities.
@@ -642,11 +644,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (!s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) {
         capabilities[newIndex] = s_capabilities[hashedCapabilityId];
-        newIndex++;
+        supportedHashedCapabilityIds[newIndex] = hashedCapabilityId;
+        ++newIndex;
       }
     }
 
-    return capabilities;
+    return (supportedHashedCapabilityIds, capabilities);
   }
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
