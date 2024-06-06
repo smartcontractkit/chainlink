@@ -30,11 +30,17 @@ type contractBinding struct {
 	// key is read name method, event or event keys used for queryKey.
 	readBindings map[string]readBinding
 	// bound determines if address is set to the contract binding.
-	bound bool
+	bound    bool
+	bindLock sync.Mutex
 }
 
 // Bind binds contract addresses to contract binding and registers the common contract polling filter.
 func (cb *contractBinding) Bind(ctx context.Context, lp logpoller.LogPoller, boundContract commontypes.BoundContract) error {
+	// it's enough to just lock bound here since Register/Unregister are only called from here and from Start/Close
+	// even if they somehow happen at the same time it will be fine because of filter lock and hasFilter check
+	cb.bindLock.Lock()
+	defer cb.bindLock.Unlock()
+
 	if cb.bound {
 		// we are changing contract address reference, so we need to unregister old filter it exists
 		if err := cb.Unregister(ctx, lp); err != nil {
@@ -55,13 +61,14 @@ func (cb *contractBinding) Bind(ctx context.Context, lp logpoller.LogPoller, bou
 
 // Register registers the common contract filter.
 func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller) error {
+	cb.filterLock.Lock()
+	defer cb.filterLock.Unlock()
+
 	cb.registerCalled = true
+	// can't be true before filters params are set so there is no race with a bad filter outcome
 	if !cb.bound {
 		return nil
 	}
-
-	cb.filterLock.Lock()
-	defer cb.filterLock.Unlock()
 
 	if len(cb.pollingFilter.EventSigs) > 0 && !lp.HasFilter(cb.pollingFilter.Name) {
 		if err := lp.RegisterFilter(ctx, cb.pollingFilter); err != nil {
@@ -74,12 +81,12 @@ func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller)
 
 // Unregister unregisters the common contract filter.
 func (cb *contractBinding) Unregister(ctx context.Context, lp logpoller.LogPoller) error {
+	cb.filterLock.Lock()
+	defer cb.filterLock.Unlock()
+
 	if !cb.bound {
 		return nil
 	}
-
-	cb.filterLock.Lock()
-	defer cb.filterLock.Unlock()
 
 	if !lp.HasFilter(cb.pollingFilter.Name) {
 		return nil

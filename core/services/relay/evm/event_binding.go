@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +34,7 @@ type eventBinding struct {
 	pending bool
 	// bound determines if address is set to the contract binding.
 	bound          bool
+	bindLock       sync.Mutex
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
 	codecTopicInfo types.CodecEntry
@@ -57,6 +59,11 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 }
 
 func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	// it's enough to just lock bound here since Register/Unregister are only called from here and from Start/Close
+	// even if they somehow happen at the same time it will be fine because of filter lock and hasFilter check
+	e.bindLock.Lock()
+	defer e.bindLock.Unlock()
+
 	if e.bound {
 		// we are changing contract address reference, so we need to unregister old filter it exists
 		if err := e.Unregister(ctx); err != nil {
@@ -66,17 +73,18 @@ func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContra
 
 	e.address = common.HexToAddress(binding.Address)
 	e.pending = binding.Pending
-	e.bound = true
 
 	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
 	if e.filterRegisterer != nil {
 		id := fmt.Sprintf("%s.%s.%s", e.contractName, e.eventName, uuid.NewString())
 		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
 		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
+		e.bound = true
 		if e.registerCalled {
 			return e.Register(ctx)
 		}
 	}
+	e.bound = true
 	return nil
 }
 
@@ -85,13 +93,14 @@ func (e *eventBinding) Register(ctx context.Context) error {
 		return nil
 	}
 
+	e.filterLock.Lock()
+	defer e.filterLock.Unlock()
+
 	e.registerCalled = true
+	// can't be true before filters params are set so there is no race with a bad filter outcome
 	if !e.bound {
 		return nil
 	}
-
-	e.filterLock.Lock()
-	defer e.filterLock.Unlock()
 
 	if e.lp.HasFilter(e.pollingFilter.Name) {
 		return nil
@@ -105,12 +114,16 @@ func (e *eventBinding) Register(ctx context.Context) error {
 }
 
 func (e *eventBinding) Unregister(ctx context.Context) error {
-	if !e.bound || e.filterRegisterer == nil {
+	if e.filterRegisterer == nil {
 		return nil
 	}
 
 	e.filterLock.Lock()
 	defer e.filterLock.Unlock()
+
+	if !e.bound {
+		return nil
+	}
 
 	if !e.lp.HasFilter(e.pollingFilter.Name) {
 		return nil

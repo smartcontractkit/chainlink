@@ -74,32 +74,6 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 	return cr, err
 }
 
-func (cr *chainReader) Name() string { return cr.lggr.Name() }
-
-var _ commontypes.ContractTypeProvider = &chainReader{}
-
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
-	if err != nil {
-		return err
-	}
-
-	return b.GetLatestValue(ctx, params, returnVal)
-}
-
-func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
-}
-
-func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
-	if err != nil {
-		return nil, err
-	}
-
-	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
-}
-
 func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
 	for contractName, chainContractReader := range chainContractReaders {
 		contractAbi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
@@ -113,15 +87,15 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 			case types.Method:
 				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
 			case types.Event:
-				partOfContractFilter := slices.Contains(chainContractReader.GenericEventNames, typeName)
-				if !partOfContractFilter && !chainReaderDefinition.HasPollingFilter() {
+				partOfContractCommonFilter := slices.Contains(chainContractReader.GenericEventNames, typeName)
+				if !partOfContractCommonFilter && !chainReaderDefinition.HasPollingFilter() {
 					return fmt.Errorf(
 						"%w: chain reader has no polling filter defined for contract: %s, event: %s",
 						commontypes.ErrInvalidConfig, contractName, typeName)
 				}
 
 				eventOverridesContractFilter := chainReaderDefinition.HasPollingFilter()
-				if eventOverridesContractFilter && partOfContractFilter {
+				if eventOverridesContractFilter && partOfContractCommonFilter {
 					return fmt.Errorf(
 						"%w: conflicting chain reader polling filter definitions for contract: %s event: %s, can't have polling filter defined both on contract and event level",
 						commontypes.ErrInvalidConfig, contractName, typeName)
@@ -146,6 +120,32 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 		cr.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
 	return nil
+}
+
+func (cr *chainReader) Name() string { return cr.lggr.Name() }
+
+var _ commontypes.ContractTypeProvider = &chainReader{}
+
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+	if err != nil {
+		return err
+	}
+
+	return b.GetLatestValue(ctx, params, returnVal)
+}
+
+func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
+}
+
+func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
+	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
 }
 
 // Start registers polling filters if contracts are already bound.
@@ -287,7 +287,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 // addQueryingReadBindings reuses the eventBinding and maps it to topic and dataWord keys used for QueryKey.
 func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopicNames map[string]string, eventInputs abi.Arguments, eb *eventBinding) {
-	// add topic read readBindings for QueryKey
+	// add topic readBindings for QueryKey
 	for topicIndex, topic := range eventInputs {
 		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
@@ -299,7 +299,7 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
 
-	// add data word read readBindings for QueryKey
+	// add data word readBindings for QueryKey
 	for genericDataWordName := range eb.eventDataWords {
 		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
