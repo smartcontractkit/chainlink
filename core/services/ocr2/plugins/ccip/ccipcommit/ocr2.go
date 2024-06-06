@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -706,6 +705,7 @@ func (r *CommitReportingPlugin) isStaleMerkleRoot(ctx context.Context, lggr logg
 		lggr.Infow("Report is stale because of root", "onchain min", nextSeqNum, "report min", reportInterval.Min)
 		return true
 	}
+	lggr.Infow("Report root is not stale", "onchain min", nextSeqNum, "report min", reportInterval.Min)
 
 	// If a report has root and valid sequence number, the report should be submitted, regardless of price staleness
 	return false
