@@ -69,51 +69,6 @@ type txManagerOCR2 interface {
 	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
 	GetForwarderForEOAOCR2Feeds(ctx context.Context, eoa, ocr2AggregatorID common.Address) (forwarder common.Address, err error)
 }
-<<<<<<< HEAD
-
-type ocr2FeedsTransmitter struct {
-	ocr2Aggregator common.Address
-	txManagerOCR2
-	transmitter
-}
-
-// NewOCR2FeedsTransmitter creates a new eth transmitter that handles OCR2 Feeds specific logic surrounding forwarders.
-// ocr2FeedsTransmitter validates forwarders before every transmission, enabling smooth onchain config changes without job restarts.
-func NewOCR2FeedsTransmitter(
-	txm txManagerOCR2,
-	fromAddresses []common.Address,
-	ocr2Aggregator common.Address,
-	gasLimit uint64,
-	effectiveTransmitterAddress common.Address,
-	strategy types.TxStrategy,
-	checker txmgr.TransmitCheckerSpec,
-	chainID *big.Int,
-	keystore roundRobinKeystore,
-) (Transmitter, error) {
-	// Ensure that a keystore is provided.
-	if keystore == nil {
-		return nil, errors.New("nil keystore provided to transmitter")
-	}
-
-	return &ocr2FeedsTransmitter{
-		ocr2Aggregator: ocr2Aggregator,
-		txManagerOCR2:  txm,
-		transmitter: transmitter{
-			txm:                         txm,
-			fromAddresses:               fromAddresses,
-			gasLimit:                    gasLimit,
-			effectiveTransmitterAddress: effectiveTransmitterAddress,
-			strategy:                    strategy,
-			checker:                     checker,
-			chainID:                     chainID,
-			keystore:                    keystore,
-		},
-	}, nil
-}
-
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-=======
->>>>>>> origin/develop
 
 type ocr2FeedsTransmitter struct {
 	ocr2Aggregator common.Address

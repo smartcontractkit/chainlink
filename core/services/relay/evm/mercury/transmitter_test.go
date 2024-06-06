@@ -88,8 +88,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			// ensure it was added to the queue
 			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 1)
 			assert.Subset(t, mt.servers[sURL].q.(*transmitQueue).pq.Pop().(*Transmission).Req.Payload, report)
-<<<<<<< HEAD
-=======
 		})
 		t.Run("v3 report transmission sent only to trigger service", func(t *testing.T) {
 			report := sampleV3Report
@@ -103,7 +101,6 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 			require.NoError(t, err)
 			// queue is empty
 			require.Equal(t, mt.servers[sURL].q.(*transmitQueue).pq.Len(), 0)
->>>>>>> origin/develop
 		})
 	})
 

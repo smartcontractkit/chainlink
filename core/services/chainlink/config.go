@@ -12,11 +12,8 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-<<<<<<< HEAD
-=======
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
->>>>>>> origin/develop
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -80,21 +77,7 @@ func (c *Config) valueWarnings() (err error) {
 // deprecationWarnings returns an error if the Config contains deprecated fields.
 // This is typically used before defaults have been applied, with input from the user.
 func (c *Config) deprecationWarnings() (err error) {
-<<<<<<< HEAD
-	// ChainType xdai is deprecated and has been renamed to gnosis
-	for _, evm := range c.EVM {
-		if evm.ChainType != nil && evm.ChainType.Slug() == "xdai" {
-			err = multierr.Append(err, config.ErrInvalid{
-				Name:  "EVM.ChainType",
-				Value: evm.ChainType.Slug(),
-				Msg:   "deprecated and will be removed in v2.13.0, use 'gnosis' instead",
-			})
-		}
-	}
-	return
-=======
 	return nil
->>>>>>> origin/develop
 }
 
 // Validate returns an error if the Config is not valid for use, as-is.

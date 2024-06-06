@@ -245,7 +245,6 @@ func init() {
 // overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
 // results, even after context cancellation.
 func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
-<<<<<<< HEAD
 	if d, ok := ctx.Deadline(); ok {
 		// We do not use context.WithDeadline/Timeout in order to prevent the monitor hook from logging noisily, since
 		// we expect and want these operations to use most of their allotted time.
@@ -257,14 +256,6 @@ func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) 
 		return ctx, func() { cancel(); stop() }
 	}
 	// do not propagate cancellation in any case
-=======
-	ctx = overtimeThresholds.ContextWithValue(ctx)
-	if d, ok := ctx.Deadline(); ok {
-		// extend deadline
-		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
-	}
-	// remove cancellation
->>>>>>> origin/develop
 	return context.WithoutCancel(ctx), func() {}
 }
 

@@ -158,11 +158,7 @@ func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator 
 			continue
 		}
 
-<<<<<<< HEAD
-		eoas, err := f.getContractSenders(fwdr.Address)
-=======
 		eoas, err := f.getContractSenders(ctx, fwdr.Address)
->>>>>>> origin/develop
 		if err != nil {
 			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
 			continue

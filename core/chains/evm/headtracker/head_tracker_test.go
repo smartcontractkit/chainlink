@@ -30,11 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	htmocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
-<<<<<<< HEAD
-=======
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 
->>>>>>> origin/develop
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -1050,13 +1047,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 // BenchmarkHeadTracker_Backfill - benchmarks HeadTracker's Backfill with focus on efficiency after initial
 // backfill on start up
 func BenchmarkHeadTracker_Backfill(b *testing.B) {
-<<<<<<< HEAD
-	cfg := configtest.NewGeneralConfig(b, nil)
-
-	evmcfg := evmtest.NewChainScopedConfig(b, cfg)
-=======
 	evmcfg := testutils.NewTestChainScopedConfig(b, nil)
->>>>>>> origin/develop
 	db := pgtest.NewSqlxDB(b)
 	chainID := big.NewInt(evmclient.NullClientChainID)
 	orm := headtracker.NewORM(*chainID, db)
@@ -1064,13 +1055,8 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	ethClient.On("ConfiguredChainID").Return(chainID)
 	ht := createHeadTracker(b, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), orm)
 	ctx := tests.Context(b)
-<<<<<<< HEAD
-	makeHash := func(n int64) gethCommon.Hash {
-		return gethCommon.BigToHash(big.NewInt(n))
-=======
 	makeHash := func(n int64) common.Hash {
 		return common.BigToHash(big.NewInt(n))
->>>>>>> origin/develop
 	}
 	const finalityDepth = 12000 // observed value on Arbitrum
 	makeBlock := func(n int64) *evmtypes.Head {
@@ -1078,11 +1064,7 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	}
 	latest := makeBlock(finalityDepth)
 	finalized := makeBlock(1)
-<<<<<<< HEAD
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash gethCommon.Hash) (*evmtypes.Head, error) {
-=======
 	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(func(_ context.Context, hash common.Hash) (*evmtypes.Head, error) {
->>>>>>> origin/develop
 		number := hash.Big().Int64()
 		return makeBlock(number), nil
 	})
@@ -1099,11 +1081,7 @@ func BenchmarkHeadTracker_Backfill(b *testing.B) {
 	}
 }
 
-<<<<<<< HEAD
-func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
-=======
 func createHeadTracker(t testing.TB, ethClient *evmclimocks.Client, config commontypes.Config, htConfig commontypes.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
->>>>>>> origin/develop
 	lggr, ob := logger.TestObserved(t, zap.DebugLevel)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewHeadSaver(lggr, orm, config, htConfig)

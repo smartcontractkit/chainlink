@@ -35,11 +35,7 @@ func (c ChainType) IsL2() bool {
 
 func (c ChainType) IsValid() bool {
 	switch c {
-<<<<<<< HEAD
-	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkSync:
-=======
 	case "", ChainArbitrum, ChainCelo, ChainGnosis, ChainKroma, ChainMetis, ChainOptimismBedrock, ChainScroll, ChainWeMix, ChainXLayer, ChainZkEvm, ChainZkSync:
->>>>>>> origin/develop
 		return true
 	}
 	return false
@@ -51,11 +47,7 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainArbitrum
 	case "celo":
 		return ChainCelo
-<<<<<<< HEAD
-	case "gnosis", "xdai":
-=======
 	case "gnosis":
->>>>>>> origin/develop
 		return ChainGnosis
 	case "kroma":
 		return ChainKroma
@@ -69,11 +61,8 @@ func ChainTypeFromSlug(slug string) ChainType {
 		return ChainWeMix
 	case "xlayer":
 		return ChainXLayer
-<<<<<<< HEAD
-=======
 	case "zkevm":
 		return ChainZkEvm
->>>>>>> origin/develop
 	case "zksync":
 		return ChainZkSync
 	default:
@@ -137,9 +126,6 @@ var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Joi
 	string(ChainScroll),
 	string(ChainWeMix),
 	string(ChainXLayer),
-<<<<<<< HEAD
-=======
 	string(ChainZkEvm),
->>>>>>> origin/develop
 	string(ChainZkSync),
 }, ", "))

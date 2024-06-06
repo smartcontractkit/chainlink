@@ -991,11 +991,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		// Set chainType to Gnosis - GasEstimator should now ignore zero priced transactions
 		cfg.ChainTypeF = string(config.ChainGnosis)
-<<<<<<< HEAD
-		bhe.Recalculate(cltest.Head(0))
-=======
 		bhe.Recalculate(testutils.Head(0))
->>>>>>> origin/develop
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 
 		// And for X Layer
