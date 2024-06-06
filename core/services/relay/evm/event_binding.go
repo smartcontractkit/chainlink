@@ -28,9 +28,10 @@ type eventBinding struct {
 	// filterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
 	// If filterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
 	*filterRegisterer
-	hash           common.Hash
-	codec          commontypes.RemoteCodec
-	pending        bool
+	hash    common.Hash
+	codec   commontypes.RemoteCodec
+	pending bool
+	// bound determines if address is set to the contract binding.
 	bound          bool
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
@@ -55,28 +56,56 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
+func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	if e.bound {
+		// we are changing contract address reference, so we need to unregister old filter it exists
+		if err := e.Unregister(ctx); err != nil {
+			return err
+		}
+	}
+
+	e.address = common.HexToAddress(binding.Address)
+	e.pending = binding.Pending
+	e.bound = true
+
+	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
+	if e.filterRegisterer != nil {
+		id := fmt.Sprintf("%s.%s.%s", e.contractName, e.eventName, uuid.NewString())
+		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
+		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
+		if e.registerCalled {
+			return e.Register(ctx)
+		}
+	}
+	return nil
+}
+
 func (e *eventBinding) Register(ctx context.Context) error {
 	if e.filterRegisterer == nil {
+		return nil
+	}
+
+	e.registerCalled = true
+	if !e.bound {
 		return nil
 	}
 
 	e.filterLock.Lock()
 	defer e.filterLock.Unlock()
 
-	if !e.bound || e.lp.HasFilter(e.pollingFilter.Name) {
+	if e.lp.HasFilter(e.pollingFilter.Name) {
 		return nil
 	}
 
 	if err := e.lp.RegisterFilter(ctx, e.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
-	e.isRegistered = true
 
 	return nil
 }
 
 func (e *eventBinding) Unregister(ctx context.Context) error {
-	if e.filterRegisterer == nil {
+	if !e.bound || e.filterRegisterer == nil {
 		return nil
 	}
 
@@ -90,14 +119,13 @@ func (e *eventBinding) Unregister(ctx context.Context) error {
 	if err := e.lp.UnregisterFilter(ctx, e.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
-	e.isRegistered = false
 
 	return nil
 }
 
 func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
-	if !e.bound {
-		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+	if err := e.validateBound(); err != nil {
+		return err
 	}
 
 	// TODO BCF-3247 change GetLatestValue to use chain agnostic confidence levels
@@ -114,8 +142,8 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if !e.bound {
-		return nil, fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+	if err := e.validateBound(); err != nil {
+		return nil, err
 	}
 
 	remapped, err := e.remap(filter)
@@ -143,24 +171,15 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
-	if err := e.Unregister(ctx); err != nil {
-		return err
+func (e *eventBinding) validateBound() error {
+	if !e.bound {
+		return fmt.Errorf(
+			"%w: event %s that belongs to contract: %s, not bound",
+			commontypes.ErrInvalidType,
+			e.eventName,
+			e.contractName,
+		)
 	}
-
-	e.address = common.HexToAddress(binding.Address)
-	e.pending = binding.Pending
-	e.bound = true
-
-	if e.filterRegisterer != nil {
-		id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
-		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
-		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
-		if e.isRegistered {
-			return e.Register(ctx)
-		}
-	}
-
 	return nil
 }
 

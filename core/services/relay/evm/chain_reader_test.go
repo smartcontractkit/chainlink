@@ -47,7 +47,7 @@ const (
 )
 
 func TestChainReaderInterfaceTests(t *testing.T) {
-	// TODO flaky BCF-3258
+	// TODO QueryKey test is flaky BCF-3258
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
 	RunChainReaderInterfaceTests(t, it)

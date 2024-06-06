@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -36,7 +35,6 @@ var forwardABI = types.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 func TestEvmWrite(t *testing.T) {
 	chain := evmmocks.NewChain(t)
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	logPoller := lpmocks.NewLogPoller(t)
 	evmClient := evmclimocks.NewClient(t)
 
 	// This probably isn't the best way to do this, but couldn't find a simpler way to mock the CallContract response
@@ -48,7 +46,7 @@ func TestEvmWrite(t *testing.T) {
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
-	chain.On("LogPoller").Return(logPoller)
+	chain.On("LogPoller").Return(nil)
 	chain.On("Client").Return(evmClient)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -65,7 +63,6 @@ func TestEvmWrite(t *testing.T) {
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	chain.On("Config").Return(evmCfg)
-	logPoller.On("HasFilter", mock.Anything).Return(false)
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
