@@ -138,15 +138,19 @@ jobs:
               exit 1
             fi
           
+            IFS=',' read -r -a ignored_tags_array <<< "$ignored_tags"
+          
             images_arr=()
             for tag in "${tags_array[@]}"; do
               ignore=false
                 for ignored_tag in "${ignored_tags_array[@]}"; do
+                  echo "Checking tag $tag against ignored tag $ignored_tag" >&2
                   if [ "$tag" == "$ignored_tag" ]; then
                     ignore=true
                     echo "Ignoring tag $tag" >&2
                     break
                   fi
+                  echo "Not ignoring tag $tag" >&2
                 done
             if [ "$ignore" = false ]; then
               images_arr+=("${repository_name}:${tag}")
