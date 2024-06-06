@@ -7,9 +7,10 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
-
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_ReturnsCapabilities() public view {
@@ -38,7 +39,9 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
       s_basicCapability.labelledName,
       s_basicCapability.version
     );
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
     CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
     assertEq(capabilities.length, 1);
