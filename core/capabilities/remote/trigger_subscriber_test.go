@@ -68,11 +68,12 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, workflowDonInfo, dispatcher, nil, lggr)
 	require.NoError(t, subscriber.Start(ctx))
 
-	triggerEventCallbackCh, err := subscriber.RegisterTrigger(ctx, commoncap.CapabilityRequest{
+	req := commoncap.CapabilityRequest{
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID: workflowID1,
 		},
-	})
+	}
+	triggerEventCallbackCh, err := subscriber.RegisterTrigger(ctx, req)
 	require.NoError(t, err)
 	<-awaitRegistrationMessageCh
 
@@ -99,5 +100,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	response := <-triggerEventCallbackCh
 	require.Equal(t, response.Value, triggerEventValue)
 
+	require.NoError(t, subscriber.UnregisterTrigger(ctx, req))
+	require.NoError(t, subscriber.UnregisterTrigger(ctx, req))
 	require.NoError(t, subscriber.Close())
 }

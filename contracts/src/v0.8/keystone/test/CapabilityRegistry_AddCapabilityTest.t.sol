@@ -47,10 +47,7 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   function test_AddCapability_NoConfigurationContract() public {
     s_capabilityRegistry.addCapability(s_basicCapability);
 
-    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
-      bytes32("data-streams-reports"),
-      bytes32("1.0.0")
-    );
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("data-streams-reports", "1.0.0");
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
     assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
@@ -63,8 +60,8 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
-      bytes32(s_capabilityWithConfigurationContract.labelledName),
-      bytes32(s_capabilityWithConfigurationContract.version)
+      s_capabilityWithConfigurationContract.labelledName,
+      s_capabilityWithConfigurationContract.version
     );
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 

@@ -8,12 +8,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_GetDONsTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
-  uint32 private constant DON_ID_ONE = 1;
-  uint32 private constant DON_ID_TWO = 2;
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes private constant CONFIG = bytes("onchain-config");
   CapabilityRegistry.CapabilityConfiguration[] private s_capabilityConfigs;
 
   function setUp() public override {
@@ -49,7 +43,10 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     s_capabilityRegistry.addNodes(nodes);
 
     s_capabilityConfigs.push(
-      CapabilityRegistry.CapabilityConfiguration({capabilityId: s_basicHashedCapabilityId, config: CONFIG})
+      CapabilityRegistry.CapabilityConfiguration({
+        capabilityId: s_basicHashedCapabilityId,
+        config: BASIC_CAPABILITY_CONFIG
+      })
     );
 
     bytes32[] memory nodeIds = new bytes32[](2);
@@ -57,16 +54,18 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, true);
-    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, false);
+    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, true, true, 1);
+    s_capabilityRegistry.addDON(nodeIds, s_capabilityConfigs, false, false, 1);
   }
 
   function test_CorrectlyFetchesDONs() public view {
     CapabilityRegistry.DONInfo[] memory dons = s_capabilityRegistry.getDONs();
     assertEq(dons.length, 2);
-    assertEq(dons[0].id, DON_ID_ONE);
+    assertEq(dons[0].id, DON_ID);
     assertEq(dons[0].configCount, 1);
     assertEq(dons[0].isPublic, true);
+    assertEq(dons[0].acceptsWorkflows, true);
+    assertEq(dons[0].f, 1);
     assertEq(dons[0].capabilityConfigurations.length, s_capabilityConfigs.length);
     assertEq(dons[0].capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
 
@@ -79,7 +78,7 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
 
   function test_DoesNotIncludeRemovedDONs() public {
     uint32[] memory removedDONIDs = new uint32[](1);
-    removedDONIDs[0] = DON_ID_ONE;
+    removedDONIDs[0] = DON_ID;
     s_capabilityRegistry.removeDONs(removedDONIDs);
 
     CapabilityRegistry.DONInfo[] memory dons = s_capabilityRegistry.getDONs();
@@ -87,6 +86,8 @@ contract CapabilityRegistry_GetDONsTest is BaseTest {
     assertEq(dons[0].id, DON_ID_TWO);
     assertEq(dons[0].configCount, 1);
     assertEq(dons[0].isPublic, false);
+    assertEq(dons[0].acceptsWorkflows, false);
+    assertEq(dons[0].f, 1);
     assertEq(dons[0].capabilityConfigurations.length, s_capabilityConfigs.length);
     assertEq(dons[0].capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
   }
