@@ -147,20 +147,15 @@ func stepToState(step workflowStepRow) (*WorkflowExecutionStep, error) {
 		outputs = values.FromProto(vProto)
 	}
 
-	var so *StepOutput
-	if outputErr != nil || outputs != nil {
-		so = &StepOutput{
-			Err:   outputErr,
-			Value: outputs,
-		}
-	}
-
 	return &WorkflowExecutionStep{
 		ExecutionID: step.WorkflowExecutionID,
 		Ref:         step.Ref,
 		Status:      step.Status,
 		Inputs:      inputs,
-		Outputs:     so,
+		Outputs: StepOutput{
+			Err:   outputErr,
+			Value: outputs,
+		},
 	}, nil
 }
 
@@ -180,10 +175,6 @@ func stateToStep(state *WorkflowExecutionStep) (workflowStepRow, error) {
 		Ref:                 state.Ref,
 		Status:              state.Status,
 		Inputs:              inpb,
-	}
-
-	if state.Outputs == nil {
-		return wsr, nil
 	}
 
 	if state.Outputs.Value != nil {

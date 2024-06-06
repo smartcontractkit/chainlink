@@ -394,7 +394,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			tomlTemplate: func(_ string) string {
 				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 				owner := "00000000000000000000000000000000000000aa"
-				name := "my-test-workflow"
+				name := "myworkflow" // 10 bytes
 				workflow := `
 triggers:
   - id: "mercury-trigger"

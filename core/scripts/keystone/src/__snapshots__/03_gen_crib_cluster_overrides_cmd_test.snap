@@ -1,0 +1,44 @@
+
+[TestGenerateCribConfig - 1]
+helm:
+  values:
+    chainlink:
+      nodes:
+        node1: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+        node2: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '0x8B60FDcc9CAC8ea476b31d17011CB204471431d9'
+            ForwarderAddress = '0x1234567890abcdef'
+        node3: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '0x6620F516F29979B214e2451498a057FDd3a0A85d'
+            ForwarderAddress = '0x1234567890abcdef'
+        node4: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '0xFeB61E22FCf4F9740c9D96b05199F195bd61A7c2'
+            ForwarderAddress = '0x1234567890abcdef'
+        node5: 
+          image: ${runtime.images.app}
+          overridesToml: |-
+            [[EVM]]
+            ChainID = '11155111'
+            [EVM.Workflow]
+            FromAddress = '0x882Fd04D78A7e7D386Dd5b550f19479E5494B0B2'
+            ForwarderAddress = '0x1234567890abcdef'
+---

@@ -148,10 +148,7 @@ func TestIntegration_LLO(t *testing.T) {
 		})
 	}
 
-	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
-	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
-
-	// Bury everything with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
@@ -159,9 +156,11 @@ func TestIntegration_LLO(t *testing.T) {
 		backend.Commit()
 	}
 
+	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
+	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
+
 	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
 	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
-
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
 		seen := make(map[ocr2types.Account]map[llotypes.ChannelID]struct{})

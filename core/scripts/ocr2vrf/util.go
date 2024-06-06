@@ -55,7 +55,7 @@ var (
 	Enabled = true
 
 	[[EVM]]
-	FinalityDepth = 1
+	FinalityDepth = 10
 	ChainID = '%d'
 
 	[EVM.Transactions]

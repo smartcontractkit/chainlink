@@ -1,0 +1,135 @@
+
+[TestGenSpecs - 1]
+Bootstrap:
+Host: crib-henry-keystone-node1.main.stage.cldev.sh
+type = "bootstrap"
+schemaVersion = 1
+name = "Keystone boot"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+relay = "evm"
+
+[relayConfig]
+chainID = "11155111"
+
+Oracles:
+Oracle 0:
+Host: crib-henry-keystone-node2.main.stage.cldev.sh
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Keystone"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+ocrKeyBundleID = "b3df4d8748b67731a1112e8b45a764941974f5590c93672eebbc4f3504dd10ed"
+p2pv2Bootstrappers = [
+  "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x8B60FDcc9CAC8ea476b31d17011CB204471431d9"
+
+[relayConfig]
+chainID = "11155111"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "plugin"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+
+--------------------------------
+Oracle 1:
+Host: crib-henry-keystone-node3.main.stage.cldev.sh
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Keystone"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+ocrKeyBundleID = "38459ae37f29f2c1fde0f25972a973322be8cada82acf43f464756836725be97"
+p2pv2Bootstrappers = [
+  "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x6620F516F29979B214e2451498a057FDd3a0A85d"
+
+[relayConfig]
+chainID = "11155111"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "plugin"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+
+--------------------------------
+Oracle 2:
+Host: crib-henry-keystone-node4.main.stage.cldev.sh
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Keystone"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+ocrKeyBundleID = "b5dbc4c9da983cddde2e3226b85807eb7beaf818694a22576af4d80f352702ed"
+p2pv2Bootstrappers = [
+  "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0xFeB61E22FCf4F9740c9D96b05199F195bd61A7c2"
+
+[relayConfig]
+chainID = "11155111"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "plugin"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+
+--------------------------------
+Oracle 3:
+Host: crib-henry-keystone-node5.main.stage.cldev.sh
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Keystone"
+contractID = "0xB29934624cAe3765E33115A9530a13f5aEC7fa8A"
+ocrKeyBundleID = "260d5c1a618cdf5324509d7db95f5a117511864ebb9e1f709e8969339eb225af"
+p2pv2Bootstrappers = [
+  "12D3KooWNmhKZL1XW4Vv3rNjLXzJ6mqcVerihdijjGYuexPrFUFZ@crib-henry-keystone-node1.main.stage.cldev.sh:6690",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "0x882Fd04D78A7e7D386Dd5b550f19479E5494B0B2"
+
+[relayConfig]
+chainID = "11155111"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "plugin"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'
+
+
+---

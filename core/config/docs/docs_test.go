@@ -81,10 +81,10 @@ func TestDoc(t *testing.T) {
 		docDefaults.FlagsContractAddress = nil
 		docDefaults.LinkContractAddress = nil
 		docDefaults.OperatorFactoryAddress = nil
-		require.Empty(t, docDefaults.ChainWriter.FromAddress)
-		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
-		docDefaults.ChainWriter.FromAddress = nil
-		docDefaults.ChainWriter.ForwarderAddress = nil
+		require.Empty(t, docDefaults.Workflow.FromAddress)
+		require.Empty(t, docDefaults.Workflow.ForwarderAddress)
+		docDefaults.Workflow.FromAddress = nil
+		docDefaults.Workflow.ForwarderAddress = nil
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
 
 		// Transactions.AutoPurge configs are only set if the feature is enabled
