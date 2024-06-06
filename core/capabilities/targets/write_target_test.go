@@ -72,7 +72,7 @@ func TestWriteTarget(t *testing.T) {
 	t.Run("succeeds with empty report", func(t *testing.T) {
 		emptyInputs, err2 := values.NewMap(map[string]any{
 			"signed_report": map[string]any{
-				"report": nil,
+				"report": []byte{},
 			},
 			"signatures": [][]byte{},
 		})
