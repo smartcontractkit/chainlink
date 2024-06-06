@@ -89,10 +89,10 @@ jobs:
     env:
       IMAGE_COUNT: 3
     outputs:
-      geth_tags: ${{ env.GETH_TAGS }}
-      nethermind_tags: ${{ env.NETHERMIND_TAGS }}
-      besu_tags: ${{ env.BESU_TAGS }}
-      erigon_tags: ${{ env.ERIGON_TAGS }}
+      geth_images: ${{ env.GETH_IMAGES }}
+      nethermind_images: ${{ env.NETHERMIND_IMAGES }}
+      besu_images: ${{ env.BESU_IMAGES }}
+      erigon_images: ${{ env.ERIGON_IMAGES }}
     steps:
       # Setup AWS creds
       - name: Configure AWS Credentials
@@ -111,11 +111,11 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       - name: Get latest docker images from ECR
         run: |
-          function get_latest_version_tags() {
+          function get_latest_images() {
             local repository_name="$1"
             local grep_string="$2"
             local count="$3"
-            local tags
+            local images
           
             # get the list of images with aws cli
             # jq then filters out only the first tags
@@ -129,33 +129,35 @@ jobs:
               head -n ${count} |\
               paste -sd " " -)
                         
-            IFS=' ' read -r -a tags_array <<< "$tags"
+            for tag in "${tags_array[@]}"; do
+              images+=("${repository_name}:${tag}")
+            done
             
             if [ ${#tags_array[@]} -lt ${count} ]; then
               echo "Failed to get ${count} latest tags for ${repository_name}"
               exit 1
             fi
           
-            tags=$(IFS=,; echo "${repository_name}:${tags_array[*]}")
+            images=$(IFS=,; echo "${repository_name}:${tags_array[*]}")
           
-            echo "$tags"
+            echo "$images"
           }
           
-          geth_tags=$(get_latest_version_tags ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
-          echo "GETH_TAGS=$geth_tags" >> $GITHUB_ENV
-          echo "Geth latest tags: $geth_tags"
+          geth_images=$(get_latest_images ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
+          echo "Geth latest images: $geth_images"
           
-          nethermind_tags=$(get_latest_version_tags nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
-          echo "NETHERMIND_TAGS=$nethermind_tags" >> $GITHUB_ENV
-          echo "Nethermind latest tags: $nethermind_tags"
+          nethermind_images=$(get_latest_images nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
+          echo "Nethermind latest images: $nethermind_images"
           
-          besu_tags=$(get_latest_version_tags hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }})
-          echo "BESU_TAGS=$besu_tags" >> $GITHUB_ENV
-          echo "Besu latest tags: $besu_tags"
+          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }})
+          echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
+          echo "Besu latest images: $besu_images"
           
-          erigon_tags=$(get_latest_version_tags thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
-          echo "ERIGON_TAGS=$erigon_tags" >> $GITHUB_ENV
-          echo "Erigon latest tags: $erigon_tags"    
+          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
+          echo "Erigon latest images: $erigon_images"    
 
   # End Build Test Dependencies
 
@@ -188,10 +190,10 @@ jobs:
         run: |
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
-          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_tags }}"
-          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_tags }}"
-          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_tags }}"
-          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_tags }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../.
           exit 1
