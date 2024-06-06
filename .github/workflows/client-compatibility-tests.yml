@@ -206,6 +206,10 @@ jobs:
         run: |
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
+          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -214,10 +218,14 @@ jobs:
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -395,7 +403,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   post-test-results-to-slack:
-    name: Post Test Results for ${{matrix.evm_node.product}}
+    name: Post Test Results for ${{matrix.product}}
     if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
@@ -408,7 +416,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [ocr, ocr2]
+        product: [automation,log_poller,ocr,ocr2,vrf,vrfv2]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -420,8 +428,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^Client Compatibility Test ${{ matrix.evm_node.product }}-(?<cap>.*?)$
-          message_title: ${{ matrix.evm_node.product }}
+          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
+          message_title: ${{ matrix.product }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
