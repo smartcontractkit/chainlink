@@ -77,9 +77,15 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice Contains the configuration for each DON ID
   mapping(uint32 donId => OracleSet) internal s_configs;
 
+  enum DeliveryState {
+    PROCESSING,
+    SUCCESS,
+    FAILURE
+  }
+
   struct DeliveryStatus {
     address transmitter;
-    bool success;
+    DeliveryState state;
   }
 
   mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
@@ -87,8 +93,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
   /// @param workflowExecutionId The ID of the workflow execution
-  /// @param result The result of the attempted delivery. True if successful.
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
+  /// @param result The result of the attempted delivery. 1 if successful, 2 if not.
+  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, DeliveryState result);
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -127,7 +133,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes calldata rawReport,
     bytes calldata reportContext,
     bytes[] calldata signatures
-  ) external nonReentrant {
+  ) external {
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
@@ -141,6 +147,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
+    s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.PROCESSING);
 
     if (s_configs[donId].f + 1 != signatures.length)
       revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
@@ -166,20 +173,18 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       }
     }
 
-    bool success;
     try
       IReceiver(receiverAddress).onReport(
         rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
         rawReport[METADATA_LENGTH:]
       )
     {
-      success = true;
+      s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.SUCCESS);
+      emit ReportProcessed(receiverAddress, workflowExecutionId, DeliveryState.SUCCESS);
     } catch {
-      // Do nothing, success is already false
+      s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.FAILURE);
+      emit ReportProcessed(receiverAddress, workflowExecutionId, DeliveryState.FAILURE);
     }
-
-    s_reports[combinedId] = DeliveryStatus(msg.sender, success);
-    emit ReportProcessed(receiverAddress, workflowExecutionId, success);
   }
 
   function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
@@ -250,15 +255,5 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
     return "KeystoneForwarder 1.0.0";
-  }
-
-  /**
-   * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
-   */
-  modifier nonReentrant() {
-    if (s_reentrancyGuard) revert ReentrantCall();
-    s_reentrancyGuard = true;
-    _;
-    s_reentrancyGuard = false;
   }
 }
