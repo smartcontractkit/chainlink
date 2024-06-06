@@ -123,9 +123,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) State() NodeState {
 func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (NodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
+	var blockDifficulty *big.Int
+	if n.stateLatestTotalDifficulty != nil {
+		blockDifficulty = new(big.Int).Set(n.stateLatestTotalDifficulty)
+	}
 	return n.state, ChainInfo{
 		BlockNumber:          n.stateLatestBlockNumber,
-		BlockDifficulty:      n.stateLatestTotalDifficulty,
+		BlockDifficulty:      blockDifficulty,
 		LatestFinalizedBlock: n.stateLatestFinalizedBlockNumber}
 }
 

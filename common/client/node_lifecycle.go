@@ -62,7 +62,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) setLatestReceived(blockNumber int64, totalDi
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
-	n.stateLatestTotalDifficulty = totalDifficulty
+	if totalDifficulty != nil {
+		n.stateLatestTotalDifficulty = nil
+		return
+	}
+	n.stateLatestTotalDifficulty = new(big.Int).Set(totalDifficulty)
 }
 
 const (
@@ -111,7 +115,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 	// TODO: nit fix. If multinode switches primary node before we set sub as AliveSub, sub will be closed and we'll
 	// falsely transition this node to unreachable state
+	n.stateMu.Lock()
 	n.aliveLoopSub = sub
+	n.stateMu.Unlock()
 	defer sub.Unsubscribe()
 
 	var outOfSyncT *time.Ticker
@@ -157,6 +163,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 	_, chainInfo := n.StateAndLatest()
 	highestReceivedBlockNumber := chainInfo.BlockNumber
+
 	var pollFailures uint32
 
 	for {
@@ -211,6 +218,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			promPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Got head", "head", bh)
+			n.stateMu.Lock()
 			if bh.BlockNumber() > highestReceivedBlockNumber {
 				promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.BlockNumber()))
 				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
@@ -218,15 +226,19 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			} else {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
 			}
+			n.stateMu.Unlock()
 			if outOfSyncT != nil {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 			}
 			n.setLatestReceived(bh.BlockNumber(), bh.BlockDifficulty())
 			if !n.chainCfg.FinalityTagEnabled() {
 				latestFinalizedBN := max(bh.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
-				if latestFinalizedBN > n.stateLatestFinalizedBlockNumber {
+				_, chainInfo := n.StateAndLatest()
+				if latestFinalizedBN > chainInfo.LatestFinalizedBlock {
 					promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+					n.stateMu.Lock()
 					n.stateLatestFinalizedBlockNumber = latestFinalizedBN
+					n.stateMu.Unlock()
 				}
 			}
 		case err := <-sub.Err():
@@ -260,10 +272,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 
 			latestFinalizedBN := latestFinalized.BlockNumber()
+			n.stateMu.Lock()
 			if latestFinalizedBN > n.stateLatestFinalizedBlockNumber {
 				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
 				n.stateLatestFinalizedBlockNumber = latestFinalizedBN
 			}
+			n.stateMu.Unlock()
 		}
 	}
 }
@@ -448,6 +462,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 			panic(fmt.Sprintf("invalidChainIDLoop can only run for node in InvalidChainID state, got: %s", state))
 		}
 	}
+
+	fmt.Println("invalidChainIDLoop")
 
 	invalidAt := time.Now()
 

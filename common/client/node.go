@@ -170,6 +170,7 @@ func NewNode[
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.stateLatestBlockNumber = -1
+	n.stateLatestTotalDifficulty = big.NewInt(0)
 	n.rpc = rpc
 	n.chainFamily = chainFamily
 	return n
@@ -196,14 +197,10 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) RPC() RPC_CLIENT {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
 	return n.rpc
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) UnsubscribeAll() {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
 	n.rpc.UnsubscribeAllExcept(n.aliveLoopSub, n.finalizedBlockSub)
 }
 
