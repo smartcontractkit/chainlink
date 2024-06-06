@@ -166,7 +166,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, get-latest-available-images]
+    needs: [get-latest-available-images]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
