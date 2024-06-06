@@ -37,7 +37,7 @@ jobs:
 
       - name: Download Golangci-lint report
         if: always()
-        uses: dawidd6/action-download-artifact@09f2f74827fd3a8607589e5ad7f9398816f540fe # v3.1.4
+        uses: dawidd6/action-download-artifact@93c629661111aae296c04004b30ae3ba22ed46f3 # v5
         with:
           workflow: golangci_lint.yml
           workflow_conclusion: ""
@@ -47,7 +47,7 @@ jobs:
 
       - name: Download Go PKG test reports
         if: always()
-        uses: dawidd6/action-download-artifact@09f2f74827fd3a8607589e5ad7f9398816f540fe # v3.1.4
+        uses: dawidd6/action-download-artifact@93c629661111aae296c04004b30ae3ba22ed46f3 # v5
         with:
           workflow: pkg.yml
           workflow_conclusion: ""
