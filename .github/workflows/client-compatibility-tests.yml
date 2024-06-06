@@ -89,10 +89,10 @@ jobs:
     env:
       IMAGE_COUNT: 3
     outputs:
-      geth_tag: ${{ env.GETH_TAGS }}
-      nethermind_tag: ${{ env.NETHERMIND_TAGS }}
-      besu_tag: ${{ env.BESU_TAGS }}
-      erigon_tag: ${{ env.ERIGON_TAGS }}
+      geth_tags: ${{ env.GETH_TAGS }}
+      nethermind_tags: ${{ env.NETHERMIND_TAGS }}
+      besu_tags: ${{ env.BESU_TAGS }}
+      erigon_tags: ${{ env.ERIGON_TAGS }}
     steps:
       # Setup AWS creds
       - name: Configure AWS Credentials
