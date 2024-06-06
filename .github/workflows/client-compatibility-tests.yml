@@ -127,18 +127,19 @@ jobs:
               sort -rV |\
               grep -E ${grep_string} |\
               head -n ${count} |\
-              paste -sd " " -)
-                        
-            for tag in "${tags_array[@]}"; do
-              images+=("${repository_name}:${tag}")
-            done
+              paste -sd " " -)                      
             
             if [ ${#tags_array[@]} -lt ${count} ]; then
               echo "Failed to get ${count} latest tags for ${repository_name}"
               exit 1
             fi
           
-            images=$(IFS=,; echo "${repository_name}:${tags_array[*]}")
+            images_arr=()
+            for tag in "${tags_array[@]}"; do
+              images_arr+=("${repository_name}:${tag}")
+            done
+          
+            images=$(IFS=,; echo "${images_arr[*]}")
           
             echo "$images"
           }
