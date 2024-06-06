@@ -71,7 +71,7 @@ func (m *mockTrigger) Stop() {
 
 func mustMockTrigger(t *testing.T) *mockTrigger {
 	return &mockTrigger{
-		BaseCapability:  capabilities.MustNewCapabilityInfo("trigger", capabilities.CapabilityTypeTrigger, "a mock trigger", "v0.0.1"),
+		BaseCapability:  capabilities.MustNewCapabilityInfo("trigger@1.0.0", capabilities.CapabilityTypeTrigger, "a mock trigger"),
 		callback:        make(chan capabilities.CapabilityResponse, 10),
 		unregisterCalls: make(chan bool, 10),
 		registerCalls:   make(chan bool, 10),
@@ -101,7 +101,7 @@ func (m *mockCallback) Execute(ctx context.Context, request capabilities.Capabil
 
 func mustMockCallback(t *testing.T, _type capabilities.CapabilityType) *mockCallback {
 	return &mockCallback{
-		BaseCapability: capabilities.MustNewCapabilityInfo(fmt.Sprintf("callback %s", _type), _type, fmt.Sprintf("a mock %s", _type), "v0.0.1"),
+		BaseCapability: capabilities.MustNewCapabilityInfo(fmt.Sprintf("callback-%s@1.0.0", _type), _type, fmt.Sprintf("a mock %s", _type)),
 		callback:       make(chan capabilities.CapabilityResponse),
 	}
 }
@@ -505,7 +505,7 @@ func (m *synchronousCallback) Execute(ctx context.Context, request capabilities.
 
 func mustSynchronousCallback(t *testing.T, _type capabilities.CapabilityType) *synchronousCallback {
 	return &synchronousCallback{
-		BaseCapability: capabilities.MustNewCapabilityInfo(fmt.Sprintf("callback %s", _type), _type, fmt.Sprintf("a mock %s", _type), "v0.0.1"),
+		BaseCapability: capabilities.MustNewCapabilityInfo(fmt.Sprintf("callback-%s@1.0.0", _type), _type, fmt.Sprintf("a mock %s", _type)),
 		callback:       make(chan capabilities.CapabilityResponse, 0),
 		executeCalled:  false,
 	}

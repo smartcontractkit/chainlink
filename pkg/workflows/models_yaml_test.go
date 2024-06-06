@@ -195,12 +195,11 @@ func TestJsonSchema(t *testing.T) {
 		generatedSchema, err := GenerateJSONSchema()
 		require.NoError(t, err)
 
-		// test version regex
-		// for keystone, we should support major versions only along with prereleases and build metadata
 		t.Run("version", func(t *testing.T) {
 			readVersionFixture := yamlFixtureReaderObj(t, "versioning")
 			failingFixture1 := readVersionFixture("failing_1")
 			failingFixture2 := readVersionFixture("failing_2")
+			failingFixture3 := readVersionFixture("failing_3")
 			passingFixture1 := readVersionFixture("passing_1")
 			jsonSchema, err := jsonschema.CompileString("github.com/smartcontractkit/chainlink", string(generatedSchema))
 			require.NoError(t, err)
@@ -209,6 +208,9 @@ func TestJsonSchema(t *testing.T) {
 			require.Error(t, err)
 
 			err = jsonSchema.Validate(failingFixture2)
+			require.Error(t, err)
+
+			err = jsonSchema.Validate(failingFixture3)
 			require.Error(t, err)
 
 			err = jsonSchema.Validate(passingFixture1)

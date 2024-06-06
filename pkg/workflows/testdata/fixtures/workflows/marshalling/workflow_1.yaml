@@ -1,5 +1,5 @@
  triggers:
-   - id: mercury-trigger@1
+   - id: mercury-trigger@1.0.0
      ref: report_data
      config:
        boolean_coercion:
@@ -54,7 +54,7 @@
  # no actions
 
  consensus:
-   - id: offchain_reporting@1
+   - id: offchain_reporting@1.0.0
      inputs:
        observations:
          - triggers.report_data.outputs
@@ -76,7 +76,7 @@
            abi: "mercury_reports bytes[]"
 
  targets:
-   - id: write_polygon_mainnet@1
+   - id: write_polygon_mainnet@1.0.0
      inputs:
        report:
          - consensus.evm_median.outputs.report

@@ -1,5 +1,5 @@
  triggers:
-   - id: on_mercury_report@1
+   - id: on_mercury_report@1.0.0
      ref: report_data
      config: {}
 
@@ -8,7 +8,7 @@
  consensus:
    - id: 
       name: trigger_test
-      version: "2"
+      version: "2.0.0"
       labels:
         chain: ethereum
         aaShouldBeFirst: "true"
@@ -19,7 +19,7 @@
          - triggers.report_data.outputs
 
  targets:
-   - id: write_polygon_mainnet@1
+   - id: write_polygon_mainnet@1.0.0
      config: {}
      inputs:
        report:

@@ -19,10 +19,9 @@ var (
 	GetConsensusID = "get-consensus-id"
 	GetTargetID    = "get-target-id"
 	CapabilityInfo = capabilities.CapabilityInfo{
-		ID:             "capability-info-id",
+		ID:             "capability-info-id@1.0.0",
 		CapabilityType: 2,
 		Description:    "capability-info-description",
-		Version:        "capability-info-version",
 	}
 )
 

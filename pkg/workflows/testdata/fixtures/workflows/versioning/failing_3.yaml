@@ -1,0 +1,18 @@
+triggers:
+  - id: trigger_test@1.0.0
+    config: {}
+
+consensus:
+  - id:
+      version: "1.0" 
+      name: asdfas
+      labels:
+        - key: value
+    ref: offchain_reporting_1
+    config: {}
+
+targets:
+  - id: write_polygon_mainnet@1.0.0-alpha+sha246er3
+    ref: write_polygon_mainnet_1
+    config: {}
+# yaml-language-server: $schema=../workflow_schema.json

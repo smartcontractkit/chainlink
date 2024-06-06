@@ -1,14 +1,14 @@
 {
   "triggers": [
     {
-      "id": "on_mercury_report@1",
+      "id": "on_mercury_report@1.0.0",
       "ref": "report_data",
       "config": {}
     }
   ],
   "consensus": [
     {
-      "id": "trigger_test:aaShouldBeFirst_true:chain_ethereum:network_mainnet@2",
+      "id": "trigger_test:aaShouldBeFirst_true:chain_ethereum:network_mainnet@2.0.0",
       "inputs": {
         "observations": [
           "triggers.report_data.outputs"
@@ -19,7 +19,7 @@
   ],
   "targets": [
     {
-      "id": "write_polygon_mainnet@1",
+      "id": "write_polygon_mainnet@1.0.0",
       "inputs": {
         "report": [
           "consensus.evm_median.outputs.report"

@@ -140,7 +140,6 @@ func capabilityInfoToCapabilityInfoReply(info capabilities.CapabilityInfo) *capa
 		Id:             info.ID,
 		CapabilityType: ct,
 		Description:    info.Description,
-		Version:        info.Version,
 	}
 }
 
@@ -183,7 +182,6 @@ func capabilityInfoReplyToCapabilityInfo(resp *capabilitiespb.CapabilityInfoRepl
 		ID:             resp.Id,
 		CapabilityType: ct,
 		Description:    resp.Description,
-		Version:        resp.Version,
 	}, nil
 }
 

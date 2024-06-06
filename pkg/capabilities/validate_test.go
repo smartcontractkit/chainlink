@@ -200,10 +200,9 @@ func TestValidator_ValidateOutputs(t *testing.T) {
 
 func TestValidator_GenerateSchema(t *testing.T) {
 	capInfo := CapabilityInfo{
-		ID:             "test",
+		ID:             "test@1.0.0",
 		CapabilityType: CapabilityTypeTrigger,
 		Description:    "test description",
-		Version:        "1.0.0",
 	}
 	v := NewValidator[TestConfig, TestInputs, TestOutputs](ValidatorArgs{Info: capInfo})
 	schema, err := v.Schema()

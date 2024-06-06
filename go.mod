@@ -36,7 +36,6 @@ require (
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.18.0
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa
-	golang.org/x/mod v0.14.0
 	gonum.org/v1/gonum v0.14.0
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.31.0

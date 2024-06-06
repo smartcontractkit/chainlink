@@ -14,13 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
-const triggerID = "streams-trigger"
+const triggerID = "streams-trigger@1.0.0"
 
 var capInfo = capabilities.MustNewCapabilityInfo(
 	triggerID,
 	capabilities.CapabilityTypeTrigger,
 	"Streams Trigger",
-	"v1.0.0",
 )
 
 const defaultTickerResolutionMs = 1000

@@ -1,14 +1,14 @@
 triggers:
-- id: trigger_test@1
+- id: trigger_test@1.0.0
   config: {}
 
 consensus:
-  - id: offchain_reporting@1
+  - id: offchain_reporting@1.0.0
     ref: offchain_reporting=1
     config: {}
 
 targets:
-  - id: write_polygon_mainnet@1
+  - id: write_polygon_mainnet@1.0.0
     ref: write_polygon_mainnet_1 
     config: {}
 

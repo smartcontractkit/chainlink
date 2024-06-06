@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ocrCapabilityID = "offchain_reporting"
+	ocrCapabilityID = "offchain_reporting@1.0.0"
 
 	methodStartRequest = "start_request"
 	methodSendResponse = "send_response"
@@ -28,7 +28,6 @@ var info = capabilities.MustNewCapabilityInfo(
 	ocrCapabilityID,
 	capabilities.CapabilityTypeConsensus,
 	"OCR3 consensus exposed as a capability.",
-	"v1.0.0",
 )
 
 type capability struct {
