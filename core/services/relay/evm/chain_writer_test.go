@@ -147,6 +147,7 @@ func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
 	return relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
 			"forwarder": {
+				// TODO: Use generic ABI / test contract rather than a keystone specific one
 				ContractABI: forwarder.KeystoneForwarderABI,
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
 					"report": {
