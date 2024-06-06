@@ -25,16 +25,20 @@ contract CapabilityRegistry_AddNodeOperatorsTest is BaseTest {
     changePrank(ADMIN);
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit NodeOperatorAdded(0, NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
+    emit NodeOperatorAdded(TEST_NODE_OPERATOR_ONE_ID, NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit NodeOperatorAdded(1, NODE_OPERATOR_TWO_ADMIN, NODE_OPERATOR_TWO_NAME);
+    emit NodeOperatorAdded(TEST_NODE_OPERATOR_TWO_ID, NODE_OPERATOR_TWO_ADMIN, NODE_OPERATOR_TWO_NAME);
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
 
-    CapabilityRegistry.NodeOperator memory nodeOperatorOne = s_capabilityRegistry.getNodeOperator(0);
+    CapabilityRegistry.NodeOperator memory nodeOperatorOne = s_capabilityRegistry.getNodeOperator(
+      TEST_NODE_OPERATOR_ONE_ID
+    );
     assertEq(nodeOperatorOne.admin, NODE_OPERATOR_ONE_ADMIN);
     assertEq(nodeOperatorOne.name, NODE_OPERATOR_ONE_NAME);
 
-    CapabilityRegistry.NodeOperator memory nodeOperatorTwo = s_capabilityRegistry.getNodeOperator(1);
+    CapabilityRegistry.NodeOperator memory nodeOperatorTwo = s_capabilityRegistry.getNodeOperator(
+      TEST_NODE_OPERATOR_TWO_ID
+    );
     assertEq(nodeOperatorTwo.admin, NODE_OPERATOR_TWO_ADMIN);
     assertEq(nodeOperatorTwo.name, NODE_OPERATOR_TWO_NAME);
   }

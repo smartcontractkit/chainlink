@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -44,11 +45,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -83,6 +82,8 @@ type OCRSoakTest struct {
 
 	ocrV2Instances   []contracts.OffchainAggregatorV2
 	ocrV2InstanceMap map[string]contracts.OffchainAggregatorV2 // address : instance
+
+	rpcNetwork blockchain.EVMNetwork // network configuration for the blockchain node
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -107,18 +108,62 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
-	network := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
+	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
 	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
-	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
 	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
 		Test:               o.t,
 		PreventPodEviction: true,
+	}
+
+	testEnv := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil))
+
+	var anvilChart *foundry.Chart
+	if nodeNetwork.Name == "Anvil" {
+		anvilConfig := ocrTestConfig.GetNetworkConfig().AnvilConfigs["ANVIL"]
+		anvilChart = foundry.New(&foundry.Props{
+			Values: map[string]interface{}{
+				"fullnameOverride": "anvil",
+				"anvil": map[string]interface{}{
+					"chainId":                   fmt.Sprintf("%d", nodeNetwork.ChainID),
+					"blockTime":                 anvilConfig.BlockTime,
+					"forkURL":                   anvilConfig.URL,
+					"forkBlockNumber":           anvilConfig.BlockNumber,
+					"forkRetries":               anvilConfig.Retries,
+					"forkTimeout":               anvilConfig.Timeout,
+					"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
+					"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
+				},
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "4",
+						"memory": "6Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "4",
+						"memory": "6Gi",
+					},
+				},
+			},
+		})
+		testEnv.AddHelm(anvilChart)
+		nodeNetwork.URLs = []string{anvilChart.ClusterWSURL}
+		nodeNetwork.HTTPURLs = []string{anvilChart.ClusterHTTPURL}
+	} else {
+		testEnv.AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: nodeNetwork.Name,
+			Simulated:   nodeNetwork.Simulated,
+			WsURLs:      nodeNetwork.URLs,
+		}))
 	}
 
 	var conf string
@@ -135,26 +180,29 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 
 	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, nodeNetwork),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
 		"prometheus": true,
 	}, ocrTestConfig.GetChainlinkImageConfig(), overrideFn)
+	testEnv.AddHelm(cd)
 
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})).
-		AddHelm(cd)
-	err := testEnvironment.Run()
+	err := testEnv.Run()
 	require.NoError(o.t, err, "Error launching test environment")
-	o.testEnvironment = testEnvironment
-	o.namespace = testEnvironment.Cfg.Namespace
+	o.testEnvironment = testEnv
+	o.namespace = testEnv.Cfg.Namespace
+
+	o.rpcNetwork = nodeNetwork
+	if o.rpcNetwork.Simulated && o.rpcNetwork.Name == "Anvil" {
+		if testEnv.Cfg.InsideK8s {
+			// Test is running inside K8s, set the cluster URL of Anvil blockchain node
+			o.rpcNetwork.URLs = []string{anvilChart.ClusterWSURL}
+		} else {
+			// Test is running locally, set forwarded URL of Anvil blockchain node
+			o.rpcNetwork.URLs = []string{anvilChart.ForwardedWSURL}
+		}
+	}
 }
 
 // Environment returns the full K8s test environment
@@ -163,15 +211,8 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	var (
-		err     error
-		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
-	)
-
-	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	seth, err := actions_seth.GetChainClient(o.Config, network)
+	seth, err := actions_seth.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
-
 	o.seth = seth
 
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)

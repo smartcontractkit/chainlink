@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"net/url"
 	"testing"
 	"time"
 
@@ -48,15 +49,21 @@ type TestEvmConfig struct {
 	ResendAfterThreshold time.Duration
 	BumpThreshold        uint64
 	MaxQueued            uint64
+	Enabled              bool
+	Threshold            uint32
+	MinAttempts          uint32
+	DetectionApiUrl      *url.URL
 }
 
 func (e *TestEvmConfig) Transactions() evmconfig.Transactions {
-	return &transactionsConfig{e: e}
+	return &transactionsConfig{e: e, autoPurge: &autoPurgeConfig{}}
 }
 
 func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
+
+func (e *TestEvmConfig) ChainType() commonconfig.ChainType { return "" }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
@@ -115,15 +122,23 @@ func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 
 
 type transactionsConfig struct {
 	evmconfig.Transactions
-	e *TestEvmConfig
+	e         *TestEvmConfig
+	autoPurge evmconfig.AutoPurgeConfig
 }
 
-func (*transactionsConfig) ForwardersEnabled() bool               { return true }
-func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.MaxInFlight }
-func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.MaxQueued }
-func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.ReaperInterval }
-func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.ReaperThreshold }
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.ResendAfterThreshold }
+func (*transactionsConfig) ForwardersEnabled() bool                { return true }
+func (t *transactionsConfig) MaxInFlight() uint32                  { return t.e.MaxInFlight }
+func (t *transactionsConfig) MaxQueued() uint64                    { return t.e.MaxQueued }
+func (t *transactionsConfig) ReaperInterval() time.Duration        { return t.e.ReaperInterval }
+func (t *transactionsConfig) ReaperThreshold() time.Duration       { return t.e.ReaperThreshold }
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration  { return t.e.ResendAfterThreshold }
+func (t *transactionsConfig) AutoPurge() evmconfig.AutoPurgeConfig { return t.autoPurge }
+
+type autoPurgeConfig struct {
+	evmconfig.AutoPurgeConfig
+}
+
+func (a *autoPurgeConfig) Enabled() bool { return false }
 
 type MockConfig struct {
 	EvmConfig           *TestEvmConfig

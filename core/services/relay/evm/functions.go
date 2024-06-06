@@ -81,7 +81,7 @@ func (p *functionsProvider) Name() string {
 	return p.configWatcher.Name()
 }
 
-func (p *functionsProvider) ChainReader() commontypes.ChainReader {
+func (p *functionsProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 

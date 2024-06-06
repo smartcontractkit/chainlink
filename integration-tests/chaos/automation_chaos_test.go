@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -25,8 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -243,7 +243,7 @@ func TestAutomationChaos(t *testing.T) {
 					chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 					require.NoError(t, err, "Error connecting to Chainlink nodes")
 
-					network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+					network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
 					chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, network, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 					require.NoError(t, err, "Error creating seth client")

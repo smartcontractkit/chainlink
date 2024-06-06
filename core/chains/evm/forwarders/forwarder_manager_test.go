@@ -150,7 +150,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	err = fwdMgr.Start(testutils.Context(t))
 	require.NoError(t, err)
 	addr, err := fwdMgr.ForwarderFor(ctx, owner.From)
-	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.ErrorIs(t, err, forwarders.ErrForwarderForEOANotFound)
 	require.True(t, utils.IsZero(addr))
 	err = fwdMgr.Close()
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	require.NoError(t, fwdMgr.Start(testutils.Context(t)))
 	// cannot find forwarder because it isn't authorized nor added as a transmitter
 	addr, err := fwdMgr.ForwarderForOCR2Feeds(ctx, owner.From, ocr2Address)
-	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.ErrorIs(t, err, forwarders.ErrForwarderForEOANotFound)
 	require.True(t, utils.IsZero(addr))
 
 	_, err = forwarder.SetAuthorizedSenders(owner, []common.Address{owner.From})
@@ -229,7 +229,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 
 	// cannot find forwarder because it isn't added as a transmitter
 	addr, err = fwdMgr.ForwarderForOCR2Feeds(ctx, owner.From, ocr2Address)
-	require.ErrorContains(t, err, "Cannot find forwarder for given EOA")
+	require.ErrorIs(t, err, forwarders.ErrForwarderForEOANotFound)
 	require.True(t, utils.IsZero(addr))
 
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))

@@ -12,9 +12,9 @@ import (
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
+	lggr logger.Logger
 	m    map[string]capabilities.BaseCapability
 	mu   sync.RWMutex
-	lggr logger.Logger
 }
 
 // Get gets a capability from the registry.
