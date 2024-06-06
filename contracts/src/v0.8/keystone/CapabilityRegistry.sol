@@ -20,10 +20,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// operator
     address admin;
     /// @notice Human readable name of a Node Operator managing the node
-    /// @dev The contract does not validate the length of the node operator
-    /// name and does not validate whether or not it contains invalid
-    /// characters.  These names will be supplied by a trusted admin
-    /// and we want to minimize gas costs by omitting these checks on-chain.
+    /// @dev The contract does not validate the length or characters of the
+    /// node operator name because a trusted admin will supply these names.
+    /// We reduce gas costs by omitting these checks on-chain.
     string name;
   }
 
