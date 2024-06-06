@@ -219,8 +219,18 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
-// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
-var overtime = 100 * time.Millisecond
+var (
+	// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+	overtime           = 100 * time.Millisecond
+	overtimeThresholds = sqlutil.LogThresholds{
+		Warn: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 5) // 80%
+		},
+		Error: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 10) // 90%
+		},
+	}
+)
 
 func init() {
 	// undocumented escape hatch
@@ -235,6 +245,7 @@ func init() {
 // overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
 // results, even after context cancellation.
 func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx = overtimeThresholds.ContextWithValue(ctx)
 	if d, ok := ctx.Deadline(); ok {
 		// extend deadline
 		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
