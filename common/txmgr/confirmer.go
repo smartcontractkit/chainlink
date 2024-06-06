@@ -121,7 +121,7 @@ type Confirmer[
 	services.StateMachine
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	lggr    logger.SugaredLogger
-	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, HEAD]
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	resumeCallback  ResumeCallback
@@ -143,9 +143,9 @@ type Confirmer[
 	nConsecutiveBlocksChainTooShort int
 	isReceiptNil                    func(R) bool
 
-	// Used to compare against receipt block num to determine if a transaction is finalized
-	latestFinalizedBlockNum int64
-	finalizedBlockNumMu     sync.RWMutex
+	// Used to determine if a transaction is finalized
+	latestFinalizedHead types.Head[BLOCK_HASH]
+	finalizedHeadMu     sync.RWMutex
 }
 
 func NewConfirmer[
@@ -159,7 +159,7 @@ func NewConfirmer[
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, HEAD],
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
@@ -1228,12 +1228,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 // Set latest finalized block number using the latest head
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SetLatestFinalizedBlockNum(ctx context.Context, head types.Head[BLOCK_HASH]) {
 	if head.LatestFinalizedHead() != nil && head.LatestFinalizedHead().BlockNumber() != 0 {
-		ec.finalizedBlockNumMu.Lock()
-		ec.latestFinalizedBlockNum = head.LatestFinalizedHead().BlockNumber()
-		ec.finalizedBlockNumMu.Unlock()
+		ec.finalizedHeadMu.Lock()
+		ec.latestFinalizedHead = head.LatestFinalizedHead()
+		ec.lggr.Debugw("set latest finalized head", "block num", ec.latestFinalizedHead.BlockNumber(), "block hash", ec.latestFinalizedHead.BlockHash())
+		ec.finalizedHeadMu.Unlock()
 	}
-
-	ec.lggr.Debugf("set latest finalized block num: %d", ec.latestFinalizedBlockNum)
 }
 
 // Determines if a transaction is finalized by comparing its receipt's (if one exists) block num against the latest finalized block num
@@ -1248,12 +1247,32 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 			break
 		}
 	}
-	ec.finalizedBlockNumMu.RLock()
-	defer ec.finalizedBlockNumMu.RUnlock()
-	if receipt != nil && ec.latestFinalizedBlockNum != 0 && receipt.GetBlockNumber().Cmp(big.NewInt(ec.latestFinalizedBlockNum)) <= 0 {
-		return true
+	// Cannot be finalized without receipt
+	if receipt == nil {
+		return false
 	}
-	return false
+	ec.finalizedHeadMu.RLock()
+	defer ec.finalizedHeadMu.RUnlock()
+	// Cannot determine finality without a finalized head for comparison
+	if ec.latestFinalizedHead == nil {
+		return false
+	}
+	// Cannot be finalized if receipt block num is newer than the latest finalized block num
+	if receipt.GetBlockNumber().Cmp(big.NewInt(ec.latestFinalizedHead.BlockNumber())) > 0 {
+		return false
+	}
+	earliestBlockNumInChain := ec.latestFinalizedHead.EarliestHeadInChain().BlockNumber()
+	// Check if receipt block num is older than the earliest head stored by the HeadTracker
+	if receipt.GetBlockNumber().Int64() >= earliestBlockNumInChain {
+		receiptBlockInChain := ec.latestFinalizedHead.HashAtHeight(receipt.GetBlockNumber().Int64())
+		// Cannot be finalized if the receipt block hash does not match the block hash in chain at the same height
+		// Transaction has been re-org'd out but state has not be updated yet by Confirmer
+		return receiptBlockInChain == receipt.GetBlockHash()
+	}
+	// If the receipt block num is older than the earliest head in chain, the block hash check needs to be done through an RPC call
+	head, err := ec.client.BlockByHash(ctx, receipt.GetBlockHash())
+	// If a block is not returned for the receipt hash, the transaction has been re-org'd out but state has not be updated yet by Confirmer
+	return err == nil && head.IsValid()
 }
 
 // observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed

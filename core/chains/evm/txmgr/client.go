@@ -183,3 +183,7 @@ func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumbe
 	}, blockNumber)
 	return client.ExtractRPCError(errCall)
 }
+
+func (c *evmTxmClient) BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
+	return c.client.HeadByHash(ctx, hash)
+}

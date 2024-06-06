@@ -21,6 +21,7 @@ type TxmClient[
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
+	HEAD types.Head[BLOCK_HASH],
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
 	TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -30,6 +31,7 @@ type TxmClient[
 		ctx context.Context,
 		attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	) (txReceipt []R, txErr []error, err error)
+	BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error)
 }
 
 // TransactionClient contains the methods for building, simulating, broadcasting transactions

@@ -29,7 +29,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -588,7 +587,7 @@ func TestTxm_Reset(t *testing.T) {
 	})
 }
 
-func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
+func TestTxm_GetTransactionStatus(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
@@ -743,6 +742,66 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.Equal(t, commontypes.Finalized, state)
 	})
 
+	t.Run("returns unconfirmed for tx with receipt re-org'd out", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash)
+		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, commontypes.Unconfirmed, state)
+	})
+
+	t.Run("returns finalized for tx with receipt older than block history depth", func(t *testing.T) {
+		idempotencyKey := uuid.New().String()
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+		nonce := evmtypes.Nonce(0)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Insert receipt for finalized block num
+		receiptHash := utils.NewHash()
+		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash, attempt.Hash)
+		ethClient.On("HeadByHash", mock.Anything, receiptHash).Return(&evmtypes.Head{Number: head.Parent.Number-1, Hash: receiptHash}, nil)
+		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
+		require.NoError(t, err)
+		require.Equal(t, commontypes.Finalized, state)
+	})
+
 	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -777,7 +836,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
 			State:              txmgrcommon.TxFatalError,
-			Error:              null.NewString(client.TerminallyStuckMsg, true),
+			Error:              null.NewString(evmclient.TerminallyStuckMsg, true),
 			BroadcastAt:        &broadcast,
 			InitialBroadcastAt: &broadcast,
 		}
@@ -785,7 +844,7 @@ func TestTxm_TxStatusByIdempotencyKey(t *testing.T) {
 		require.NoError(t, err)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.Equal(t, commontypes.Fatal, state)
-		require.Error(t, err, client.TerminallyStuckMsg)
+		require.Error(t, err, evmclient.TerminallyStuckMsg)
 	})
 
 	t.Run("returns failed for fatal error state with other error", func(t *testing.T) {
