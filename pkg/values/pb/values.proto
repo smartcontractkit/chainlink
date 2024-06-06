@@ -5,6 +5,7 @@ option go_package = "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 package values;
 
 message Value {
+  reserved 8;
   oneof value {
     string string_value = 1;
     bool bool_value = 2;
@@ -13,8 +14,13 @@ message Value {
     List list_value = 5;
     string decimal_value = 6;
     int64 int64_value = 7;
-    bytes bigint_value = 8;
+    BigInt bigint_value = 9;
   }
+}
+
+message BigInt {
+     bytes abs_val = 1;
+     int64 sign = 2;
 }
 
 message Map {

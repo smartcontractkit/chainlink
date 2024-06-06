@@ -16,7 +16,10 @@ func NewBigInt(b *big.Int) *BigInt {
 }
 
 func (b *BigInt) proto() *pb.Value {
-	return pb.NewBigIntValue(b.Underlying.Bytes())
+	return pb.NewBigIntValue(
+		b.Underlying.Sign(),
+		b.Underlying.Bytes(),
+	)
 }
 
 func (b *BigInt) Unwrap() (any, error) {
