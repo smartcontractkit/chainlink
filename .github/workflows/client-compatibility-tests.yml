@@ -199,6 +199,10 @@ jobs:
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
@@ -280,7 +284,7 @@ jobs:
 #            timeout: 60m
 #            pyroscope_env: ci-smoke-ocr2-erigon-simulated
     runs-on: ubuntu-latest
-    name: Client Compatibility Test ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}
+    name: Client Compatibility Test ${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -404,7 +408,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   post-test-results-to-slack:
-    name: Post Test Results for ${{matrix.product}}
+    name: Post Test Results for ${{matrix.evm_node.product}}
     if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
@@ -429,8 +433,8 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
-          message_title: ${{ matrix.product }}
+          github_job_name_regex: ^Client Compatibility Test ${{ matrix.evm_node.product }}-(?<cap>.*?)$
+          message_title: ${{ matrix.evm_node.product }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
