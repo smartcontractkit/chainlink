@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodesTest is BaseTest {
-  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
   uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
@@ -62,7 +62,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.updateNodes(nodes);
   }
 

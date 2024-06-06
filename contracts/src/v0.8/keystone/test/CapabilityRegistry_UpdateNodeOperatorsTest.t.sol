@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
-  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   uint32 private constant TEST_NODE_OPERATOR_ID = 1;
   address private constant NEW_NODE_OPERATOR_ADMIN = address(3);
@@ -26,7 +26,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     uint32[] memory nodeOperatorIds = new uint32[](1);
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
   }
 

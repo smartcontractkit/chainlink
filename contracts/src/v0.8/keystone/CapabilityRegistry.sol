@@ -10,6 +10,11 @@ import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.so
 /// @notice CapabilityRegistry is used to manage Nodes (including their links to Node
 /// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
 /// sets of nodes that support those Capabilities.
+/// @dev The contract currently stores the entire state of Node Operators, Nodes,
+/// Capabilities and DONs in the contract and requires a full state migration
+/// if an upgrade is ever required.  The team acknowledges this and is fine
+/// reconfiguring the upgraded contract in the future so as to not add extra
+/// complexity to this current version.
 contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -43,7 +48,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The node's parameters
     /// @notice The id of the node operator that manages this node
     uint32 nodeOperatorId;
-    /// @notice The number of times the node's capability has been updated
+    /// @notice The number of times the node's configuration has been updated
     uint32 configCount;
     /// @notice The signer address for application-layer message verification.
     /// @dev This key is guaranteed to be unique in the CapabilityRegistry
@@ -61,7 +66,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @dev This is stored as a map so that we can easily update to a set of
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
-    mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedCapabilityIds;
+    mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedHashedCapabilityIds;
     /// @notice The list of DON Ids supported by the node.
     EnumerableSet.UintSet supportedDONIds;
   }
@@ -69,6 +74,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice CapabilityResponseType indicates whether remote response requires
   // aggregation or is an already aggregated report. There are multiple
   // possible ways to aggregate.
+  /// @dev REPORT response type receives signatures together with the response that
+  /// is used to verify the data.  OBSERVATION_IDENTICAL just receives data without
+  /// signatures and waits for some number of observations before proceeeding to
+  /// the next step
   enum CapabilityResponseType {
     // No additional aggregation is needed on the remote response.
     REPORT,
@@ -87,8 +96,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     ///
     /// bytes32(string); validation regex: ^[a-z0-9_\-:]{1,32}$
     bytes32 labelledName;
-    /// @notice Semver, e.g., "1.2.3"
-    ///  @dev must be valid Semver + max 32 characters.
+    /// @notice The capability's version number
+    /// @dev Derived by converting the semantic version to bytes32
+    /// i.e bytes32("1.2.3")
+    /// @dev Limited to 32 characters
     bytes32 version;
     /// @notice Indicates whether remote response requires
     // aggregation or is an OCR report. There are multiple possible
@@ -159,7 +170,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when a caller is not allowed
   /// to execute the transaction
-  error AccessForbidden();
+  /// @param sender The address that tried to execute the transaction
+  error AccessForbidden(address sender);
 
   /// @notice This error is thrown when there is a mismatch between
   /// array arguments
@@ -192,7 +204,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice This error is thrown when trying add a capability that already
   /// exists.
-  error CapabilityAlreadyExists();
+  /// @param hashedCapabilityId The hashed capability ID of the capability
+  /// that already exists
+  error CapabilityAlreadyExists(bytes32 hashedCapabilityId);
 
   /// @notice This error is thrown when trying to add a node to a DON where
   /// the node does not support the capability
@@ -240,7 +254,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The encoded node's signer address
-  event NodeAdded(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+  event NodeAdded(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a node is removed
   /// @param p2pId The P2P ID of the node that was removed
@@ -250,7 +264,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node
   /// @param nodeOperatorId The ID of the node operator that manages this node
   /// @param signer The node's signer address
-  event NodeUpdated(bytes32 p2pId, uint32 nodeOperatorId, bytes32 signer);
+  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   /// @notice This event is emitted when a DON's config is set
   /// @param donId The ID of the DON the config was set for
@@ -263,17 +277,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param admin The address of the admin that can manage the node
   /// operator
   /// @param name The human readable name of the node operator
-  event NodeOperatorAdded(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorAdded(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a node operator is removed
   /// @param nodeOperatorId The ID of the node operator that was removed
-  event NodeOperatorRemoved(uint32 nodeOperatorId);
+  event NodeOperatorRemoved(uint32 indexed nodeOperatorId);
 
   /// @notice This event is emitted when a node operator is updated
   /// @param nodeOperatorId The ID of the node operator that was updated
   /// @param admin The address of the node operator's admin
   /// @param name The node operator's human readable name
-  event NodeOperatorUpdated(uint32 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorUpdated(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   /// @notice This event is emitted when a new capability is added
   /// @param hashedCapabilityId The hashed ID of the newly added capability
@@ -311,15 +325,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Mapping of DON IDs to DONs
   mapping(uint32 donId => DON don) private s_dons;
 
-  /// @notice The latest node operator ID
-  // @dev Starting with 1 to avoid confusion with the zero value
-  /// @dev No getter for this as this is an implementation detail
-  uint32 private s_nodeOperatorId = 1;
-
-  /// @notice The latest DON ID
+  /// @notice The next ID to assign a new node operator to
   /// @dev Starting with 1 to avoid confusion with the zero value
   /// @dev No getter for this as this is an implementation detail
-  uint32 private s_donId = 1;
+  uint32 private s_nextNodeOperatorId = 1;
+
+  /// @notice The next ID to assign a new DON to
+  /// @dev Starting with 1 to avoid confusion with the zero value
+  /// @dev No getter for this as this is an implementation detail
+  uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
     return "CapabilityRegistry 1.0.0";
@@ -331,9 +345,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < nodeOperators.length; ++i) {
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      uint32 nodeOperatorId = s_nodeOperatorId;
+      uint32 nodeOperatorId = s_nextNodeOperatorId;
       s_nodeOperators[nodeOperatorId] = NodeOperator({admin: nodeOperator.admin, name: nodeOperator.name});
-      ++s_nodeOperatorId;
+      ++s_nextNodeOperatorId;
       emit NodeOperatorAdded(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
     }
   }
@@ -350,6 +364,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Updates a node operator
   /// @param nodeOperatorIds The ID of the node operator being updated
+  /// @param nodeOperators The updated node operator params
   function updateNodeOperators(uint32[] calldata nodeOperatorIds, NodeOperator[] calldata nodeOperators) external {
     if (nodeOperatorIds.length != nodeOperators.length)
       revert LengthMismatch(nodeOperatorIds.length, nodeOperators.length);
@@ -357,18 +372,20 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     address owner = owner();
     for (uint256 i; i < nodeOperatorIds.length; ++i) {
       uint32 nodeOperatorId = nodeOperatorIds[i];
-      if (s_nodeOperators[nodeOperatorId].admin == address(0)) revert NodeOperatorDoesNotExist(nodeOperatorId);
+
+      NodeOperator storage currentNodeOperator = s_nodeOperators[nodeOperatorId];
+      if (currentNodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(nodeOperatorId);
 
       NodeOperator memory nodeOperator = nodeOperators[i];
       if (nodeOperator.admin == address(0)) revert InvalidNodeOperatorAdmin();
-      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden();
+      if (msg.sender != nodeOperator.admin && msg.sender != owner) revert AccessForbidden(msg.sender);
 
       if (
-        s_nodeOperators[nodeOperatorId].admin != nodeOperator.admin ||
-        keccak256(abi.encode(s_nodeOperators[nodeOperatorId].name)) != keccak256(abi.encode(nodeOperator.name))
+        currentNodeOperator.admin != nodeOperator.admin ||
+        keccak256(abi.encode(currentNodeOperator.name)) != keccak256(abi.encode(nodeOperator.name))
       ) {
-        s_nodeOperators[nodeOperatorId].admin = nodeOperator.admin;
-        s_nodeOperators[nodeOperatorId].name = nodeOperator.name;
+        currentNodeOperator.admin = nodeOperator.admin;
+        currentNodeOperator.name = nodeOperator.name;
         emit NodeOperatorUpdated(nodeOperatorId, nodeOperator.admin, nodeOperator.name);
       }
     }
@@ -384,9 +401,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Gets all node operators
   /// @return NodeOperator[] All node operators
   function getNodeOperators() external view returns (NodeOperator[] memory) {
-    uint32 nodeOperatorId = s_nodeOperatorId;
-    /// Minus one to account for s_nodeOperatorId starting at index 1
-    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nodeOperatorId - 1);
+    uint32 nodeOperatorId = s_nextNodeOperatorId;
+    /// Minus one to account for s_nextNodeOperatorId starting at index 1
+    NodeOperator[] memory nodeOperators = new NodeOperator[](s_nextNodeOperatorId - 1);
     uint256 idx;
     for (uint32 i = 1; i < nodeOperatorId; ++i) {
       if (s_nodeOperators[i].admin != address(0)) {
@@ -394,7 +411,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
         ++idx;
       }
     }
-    if (idx != s_nodeOperatorId - 1) {
+    if (idx != s_nextNodeOperatorId - 1) {
       assembly {
         mstore(nodeOperators, idx)
       }
@@ -406,34 +423,33 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
   function addNodes(NodeInfo[] calldata nodes) external {
+    bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeInfo memory node = nodes[i];
 
-      bool isOwner = msg.sender == owner();
-
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
-      if (nodeExists || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      Node storage storedNode = s_nodes[node.p2pId];
+      if (storedNode.signer != bytes32("") || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
 
-      ++s_nodes[node.p2pId].configCount;
+      ++storedNode.configCount;
 
-      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
+      uint32 capabilityConfigCount = storedNode.configCount;
       for (uint256 j; j < capabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(capabilityIds[j])) revert InvalidNodeCapabilities(capabilityIds);
-        s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
+        storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(capabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
-      s_nodes[node.p2pId].p2pId = node.p2pId;
-      s_nodes[node.p2pId].signer = node.signer;
+      storedNode.nodeOperatorId = node.nodeOperatorId;
+      storedNode.p2pId = node.p2pId;
+      storedNode.signer = node.signer;
       s_nodeSigners.add(node.signer);
       s_nodeP2PIds.add(node.p2pId);
       emit NodeAdded(node.p2pId, node.nodeOperatorId, node.signer);
@@ -450,13 +466,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       Node storage node = s_nodes[p2pId];
 
-      bool nodeExists = bytes32(node.signer) != bytes32("");
-      if (!nodeExists) revert InvalidNodeP2PId(p2pId);
+      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeP2PId(p2pId);
       if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
-      NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
       s_nodeSigners.remove(node.signer);
       s_nodeP2PIds.remove(node.p2pId);
       delete s_nodes[p2pId];
@@ -468,41 +481,39 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
   function updateNodes(NodeInfo[] calldata nodes) external {
+    bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeInfo memory node = nodes[i];
 
-      bool isOwner = msg.sender == owner();
-
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
-      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden();
+      if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
-      bool nodeExists = s_nodes[node.p2pId].signer != bytes32("");
-      if (!nodeExists) revert InvalidNodeP2PId(node.p2pId);
+      Node storage storedNode = s_nodes[node.p2pId];
+      if (storedNode.signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
       if (
-        bytes32(node.signer) == bytes32("") ||
-        (s_nodes[node.p2pId].signer != node.signer && s_nodeSigners.contains(node.signer))
+        bytes32(node.signer) == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer))
       ) revert InvalidNodeSigner();
 
-      bytes32[] memory supportedCapabilityIds = node.hashedCapabilityIds;
-      if (supportedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedCapabilityIds);
+      bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
+      if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
-      s_nodes[node.p2pId].configCount++;
-      uint32 capabilityConfigCount = s_nodes[node.p2pId].configCount;
-      for (uint256 j; j < supportedCapabilityIds.length; ++j) {
-        if (!s_hashedCapabilityIds.contains(supportedCapabilityIds[j]))
-          revert InvalidNodeCapabilities(supportedCapabilityIds);
-        s_nodes[node.p2pId].supportedCapabilityIds[capabilityConfigCount].add(supportedCapabilityIds[j]);
+      storedNode.configCount++;
+      uint32 capabilityConfigCount = storedNode.configCount;
+      for (uint256 j; j < supportedHashedCapabilityIds.length; ++j) {
+        if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
+          revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
+        storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
       }
 
-      s_nodes[node.p2pId].nodeOperatorId = node.nodeOperatorId;
-      s_nodes[node.p2pId].p2pId = node.p2pId;
+      storedNode.nodeOperatorId = node.nodeOperatorId;
+      storedNode.p2pId = node.p2pId;
 
-      bytes32 previousSigner = s_nodes[node.p2pId].signer;
+      bytes32 previousSigner = storedNode.signer;
 
-      if (s_nodes[node.p2pId].signer != node.signer) {
+      if (storedNode.signer != node.signer) {
         s_nodeSigners.remove(previousSigner);
-        s_nodes[node.p2pId].signer = node.signer;
+        storedNode.signer = node.signer;
         s_nodeSigners.add(node.signer);
       }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
@@ -513,8 +524,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param p2pId The P2P ID of the node to query for
   /// @return NodeInfo The node data
   /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) external view returns (NodeInfo memory, uint32 configCount) {
-    return _getNode(p2pId);
+  function getNode(bytes32 p2pId) public view returns (NodeInfo memory, uint32 configCount) {
+    return (
+      NodeInfo({
+        nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
+        p2pId: s_nodes[p2pId].p2pId,
+        signer: s_nodes[p2pId].signer,
+        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values()
+      }),
+      s_nodes[p2pId].configCount
+    );
   }
 
   /// @notice Gets all nodes
@@ -526,10 +545,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32[] memory configCounts = new uint32[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      bytes32 p2pId = p2pIds[i];
-      (NodeInfo memory node, uint32 configCount) = _getNode(p2pId);
-      nodeInfo[i] = node;
-      configCounts[i] = configCount;
+      (nodeInfo[i], configCounts[i]) = getNode(p2pIds[i]);
     }
     return (nodeInfo, configCounts);
   }
@@ -543,28 +559,26 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     for (uint256 i; i < capabilities.length; ++i) {
       Capability memory capability = capabilities[i];
       bytes32 hashedCapabilityId = getHashedCapabilityId(capability.labelledName, capability.version);
-      if (s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityAlreadyExists();
-      s_hashedCapabilityIds.add(hashedCapabilityId);
+      if (!s_hashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityAlreadyExists(hashedCapabilityId);
       _setCapability(hashedCapabilityId, capability);
     }
   }
 
-  /// @notice Deprecates a capability by adding it to the deprecated list
+  /// @notice Deprecates a capability
   /// @param hashedCapabilityIds[] The IDs of the capabilities to deprecate
   function deprecateCapabilities(bytes32[] calldata hashedCapabilityIds) external onlyOwner {
     for (uint256 i; i < hashedCapabilityIds.length; ++i) {
       bytes32 hashedCapabilityId = hashedCapabilityIds[i];
       if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
-      if (s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId))
-        revert CapabilityIsDeprecated(hashedCapabilityId);
+      if (!s_deprecatedHashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
-      s_deprecatedHashedCapabilityIds.add(hashedCapabilityId);
       delete s_capabilities[hashedCapabilityId];
       emit CapabilityDeprecated(hashedCapabilityId);
     }
   }
 
-  /// @notice This function returns a Capability by its hashed ID. Use `getHashedCapabilityId` to get the hashed ID.
+  /// @notice Returns a Capability by its hashed ID.
+  /// @dev Use `getHashedCapabilityId` to get the hashed ID.
   function getCapability(bytes32 hashedId) external view returns (Capability memory) {
     return s_capabilities[hashedId];
   }
@@ -625,10 +639,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic
   ) external onlyOwner {
-    uint32 id = s_donId;
+    uint32 id = s_nextDONId++;
     s_dons[id].id = id;
     _setDONConfig(id, 1, nodes, capabilityConfigurations, isPublic);
-    ++s_donId;
   }
 
   /// @notice Updates a DON's configuration.  This allows
@@ -681,8 +694,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Returns the list of configured DONs
   /// @return DONInfo[] The list of configured DONs
   function getDONs() external view returns (DONInfo[] memory) {
-    /// Minus one to account for s_donId starting at index 1
-    uint32 donId = s_donId;
+    /// Minus one to account for s_nextDONId starting at index 1
+    uint32 donId = s_nextDONId;
     DONInfo[] memory dons = new DONInfo[](donId - 1);
     uint256 idx;
     ///
@@ -752,8 +765,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
 
     for (uint256 i; i < nodes.length; ++i) {
-      if (donCapabilityConfig.nodes.contains(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
-      donCapabilityConfig.nodes.add(nodes[i]);
+      if (!donCapabilityConfig.nodes.add(nodes[i])) revert DuplicateDONNode(donId, nodes[i]);
+
+      /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
+      /// will only store unique DON IDs
       s_nodes[nodes[i]].supportedDONIds.add(donId);
     }
 
@@ -770,7 +785,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       for (uint256 j; j < nodes.length; ++j) {
         if (
-          !s_nodes[nodes[j]].supportedCapabilityIds[s_nodes[nodes[j]].configCount].contains(configuration.capabilityId)
+          !s_nodes[nodes[j]].supportedHashedCapabilityIds[s_nodes[nodes[j]].configCount].contains(
+            configuration.capabilityId
+          )
         ) revert NodeDoesNotSupportCapability(nodes[j], configuration.capabilityId);
       }
 
@@ -808,27 +825,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     }
   }
 
-  /// @notice Gets a node's data
-  /// @param p2pId The P2P ID of the node to query for
-  /// @return NodeInfo The node data
-  /// @return configCount The number of times the node has been configured
-  function _getNode(bytes32 p2pId) internal view returns (NodeInfo memory, uint32 configCount) {
-    return (
-      NodeInfo({
-        nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
-        p2pId: s_nodes[p2pId].p2pId,
-        signer: s_nodes[p2pId].signer,
-        hashedCapabilityIds: s_nodes[p2pId].supportedCapabilityIds[s_nodes[p2pId].configCount].values()
-      }),
-      s_nodes[p2pId].configCount
-    );
-  }
-
   /// @notice Sets a capability's data
   /// @param hashedCapabilityId The ID of the capability being set
   /// @param capability The capability's data
   function _setCapability(bytes32 hashedCapabilityId, Capability memory capability) internal {
     if (capability.configurationContract != address(0)) {
+      /// Check that the configuration contract being assigned
+      /// correctly supports the ICapabilityConfiguration interface
+      /// by implementing both getCapabilityConfiguration and
+      /// beforeCapabilityConfigSet
       if (
         capability.configurationContract.code.length == 0 ||
         !IERC165(capability.configurationContract).supportsInterface(

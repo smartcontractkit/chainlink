@@ -45,7 +45,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = P2P_ID;
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.removeNodes(nodes);
   }
 
