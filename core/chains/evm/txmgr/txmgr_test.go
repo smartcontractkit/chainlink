@@ -796,7 +796,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		// Insert receipt for finalized block num
 		receiptHash := utils.NewHash()
 		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash, attempt.Hash)
-		ethClient.On("HeadByHash", mock.Anything, receiptHash).Return(&evmtypes.Head{Number: head.Parent.Number-1, Hash: receiptHash}, nil)
+		ethClient.On("HeadByHash", mock.Anything, receiptHash).Return(&evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash}, nil)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Finalized, state)
