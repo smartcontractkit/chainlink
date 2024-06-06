@@ -77,8 +77,9 @@ service CallbackExecutable {
   rpc Execute(CapabilityRequest) returns (stream ResponseMessage) {}
 }
 
-service StandardCapability {
+service StandardCapabilities {
   rpc Initialise(InitialiseRequest) returns (google.protobuf.Empty) {}
+  rpc Infos(google.protobuf.Empty) returns (CapabilityInfosReply) {}
 }
 
 message InitialiseRequest {
@@ -89,4 +90,8 @@ message InitialiseRequest {
   uint32 capRegistry_id = 5;
   uint32 keyValueStore_id = 6;
   uint32 relayer_set_id = 7;
+}
+
+message CapabilityInfosReply {
+  repeated CapabilityInfoReply infos = 1;
 }

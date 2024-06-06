@@ -22,17 +22,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
-type StandardCapability interface {
+type StandardCapabilities interface {
 	services.Service
-	capabilities.BaseCapability
 	Initialise(ctx context.Context, config string, telemetryService core.TelemetryService, store core.KeyValueStore,
 		capabilityRegistry core.CapabilitiesRegistry, errorLog core.ErrorLog,
 		pipelineRunner core.PipelineRunnerService, relayerSet core.RelayerSet) error
+	Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error)
 }
 
-type StandardCapabilityClient struct {
+type StandardCapabilitiesClient struct {
 	*goplugin.PluginClient
-	capabilitiespb.StandardCapabilityClient
+	capabilitiespb.StandardCapabilitiesClient
 	*baseCapabilityClient
 	*goplugin.ServiceClient
 	*net.BrokerExt
@@ -40,19 +40,19 @@ type StandardCapabilityClient struct {
 	resources []net.Resource
 }
 
-var _ StandardCapability = (*StandardCapabilityClient)(nil)
+var _ StandardCapabilities = (*StandardCapabilitiesClient)(nil)
 
-func NewStandardCapabilityClient(brokerExt *net.BrokerExt, conn *grpc.ClientConn) *StandardCapabilityClient {
-	return &StandardCapabilityClient{
-		PluginClient:             goplugin.NewPluginClient(brokerExt.Broker, brokerExt.BrokerConfig, conn),
-		ServiceClient:            goplugin.NewServiceClient(brokerExt, conn),
-		StandardCapabilityClient: capabilitiespb.NewStandardCapabilityClient(conn),
-		baseCapabilityClient:     newBaseCapabilityClient(brokerExt, conn),
-		BrokerExt:                brokerExt,
+func NewStandardCapabilitiesClient(brokerExt *net.BrokerExt, conn *grpc.ClientConn) *StandardCapabilitiesClient {
+	return &StandardCapabilitiesClient{
+		PluginClient:               goplugin.NewPluginClient(brokerExt.Broker, brokerExt.BrokerConfig, conn),
+		ServiceClient:              goplugin.NewServiceClient(brokerExt, conn),
+		StandardCapabilitiesClient: capabilitiespb.NewStandardCapabilitiesClient(conn),
+		baseCapabilityClient:       newBaseCapabilityClient(brokerExt, conn),
+		BrokerExt:                  brokerExt,
 	}
 }
 
-func (c *StandardCapabilityClient) Initialise(ctx context.Context, config string, telemetryService core.TelemetryService,
+func (c *StandardCapabilitiesClient) Initialise(ctx context.Context, config string, telemetryService core.TelemetryService,
 	keyValueStore core.KeyValueStore, capabilitiesRegistry core.CapabilitiesRegistry, errorLog core.ErrorLog,
 	pipelineRunner core.PipelineRunnerService, relayerSet core.RelayerSet) error {
 	telemetryID, telemetryRes, err := c.ServeNew("Telemetry", func(s *grpc.Server) {
@@ -114,7 +114,7 @@ func (c *StandardCapabilityClient) Initialise(ctx context.Context, config string
 
 	resources = append(resources, relayerSetRes)
 
-	_, err = c.StandardCapabilityClient.Initialise(ctx, &capabilitiespb.InitialiseRequest{
+	_, err = c.StandardCapabilitiesClient.Initialise(ctx, &capabilitiespb.InitialiseRequest{
 		Config:           config,
 		ErrorLogId:       errorLogID,
 		PipelineRunnerId: pipelineRunnerID,
@@ -134,45 +134,63 @@ func (c *StandardCapabilityClient) Initialise(ctx context.Context, config string
 	return nil
 }
 
-func (c *StandardCapabilityClient) Close() error {
+func (c *StandardCapabilitiesClient) Infos(ctx context.Context) ([]capabilities.CapabilityInfo, error) {
+	infosResponse, err := c.StandardCapabilitiesClient.Infos(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get capability infos: %w", err)
+	}
+
+	var infos []capabilities.CapabilityInfo
+	for _, infoResponse := range infosResponse.Infos {
+		info, err := capabilityInfoReplyToCapabilityInfo(infoResponse)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert capability info: %w", err)
+		}
+
+		infos = append(infos, info)
+	}
+
+	return infos, nil
+}
+
+func (c *StandardCapabilitiesClient) Close() error {
 	c.CloseAll(c.resources...)
 	return c.ServiceClient.Close()
 }
 
-type standardCapabilityServer struct {
-	capabilitiespb.UnimplementedStandardCapabilityServer
+type standardCapabilitiesServer struct {
+	capabilitiespb.UnimplementedStandardCapabilitiesServer
 	*net.BrokerExt
-	impl StandardCapability
+	impl StandardCapabilities
 
 	resources []net.Resource
 }
 
-func newStandardCapabilityServer(brokerExt *net.BrokerExt, impl StandardCapability) *standardCapabilityServer {
-	return &standardCapabilityServer{
+func newStandardCapabilitiesServer(brokerExt *net.BrokerExt, impl StandardCapabilities) *standardCapabilitiesServer {
+	return &standardCapabilitiesServer{
 		impl:      impl,
 		BrokerExt: brokerExt,
 	}
 }
 
-var _ capabilitiespb.StandardCapabilityServer = (*standardCapabilityServer)(nil)
+var _ capabilitiespb.StandardCapabilitiesServer = (*standardCapabilitiesServer)(nil)
 
-func RegisterStandardCapabilityServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl StandardCapability) error {
+func RegisterStandardCapabilitiesServer(server *grpc.Server, broker net.Broker, brokerCfg net.BrokerConfig, impl StandardCapabilities) error {
 	bext := &net.BrokerExt{
 		BrokerConfig: brokerCfg,
 		Broker:       broker,
 	}
 
-	capabilityServer := newStandardCapabilityServer(bext, impl)
-	capabilitiespb.RegisterStandardCapabilityServer(server, capabilityServer)
-	capabilitiespb.RegisterBaseCapabilityServer(server, newBaseCapabilityServer(impl))
+	capabilityServer := newStandardCapabilitiesServer(bext, impl)
+	capabilitiespb.RegisterStandardCapabilitiesServer(server, capabilityServer)
 	pb.RegisterServiceServer(server, &goplugin.ServiceServer{Srv: &resourceClosingServer{
-		StandardCapability: impl,
-		server:             capabilityServer,
+		StandardCapabilities: impl,
+		server:               capabilityServer,
 	}})
 	return nil
 }
 
-func (s *standardCapabilityServer) Initialise(ctx context.Context, request *capabilitiespb.InitialiseRequest) (*emptypb.Empty, error) {
+func (s *standardCapabilitiesServer) Initialise(ctx context.Context, request *capabilitiespb.InitialiseRequest) (*emptypb.Empty, error) {
 	telemetryConn, err := s.Dial(request.TelemetryId)
 	if err != nil {
 		return nil, net.ErrConnDial{Name: "Telemetry", ID: request.TelemetryId, Err: err}
@@ -232,12 +250,26 @@ func (s *standardCapabilityServer) Initialise(ctx context.Context, request *capa
 	return &emptypb.Empty{}, nil
 }
 
+func (s *standardCapabilitiesServer) Infos(ctx context.Context, request *emptypb.Empty) (*capabilitiespb.CapabilityInfosReply, error) {
+	infos, err := s.impl.Infos(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get capability infos: %w", err)
+	}
+
+	var infosReply []*capabilitiespb.CapabilityInfoReply
+	for _, info := range infos {
+		infosReply = append(infosReply, capabilityInfoToCapabilityInfoReply(info))
+	}
+
+	return &capabilitiespb.CapabilityInfosReply{Infos: infosReply}, nil
+}
+
 type resourceClosingServer struct {
-	StandardCapability
-	server *standardCapabilityServer
+	StandardCapabilities
+	server *standardCapabilitiesServer
 }
 
 func (r *resourceClosingServer) Close() error {
 	r.server.CloseAll(r.server.resources...)
-	return r.StandardCapability.Close()
+	return r.StandardCapabilities.Close()
 }

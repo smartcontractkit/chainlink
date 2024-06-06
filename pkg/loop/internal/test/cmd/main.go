@@ -82,13 +82,13 @@ func main() {
 		lggr.Info("Done serving relayer")
 		os.Exit(0)
 
-	case loop.PluginStandardCapabilityName:
+	case loop.PluginStandardCapabilitiesName:
 		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: loop.StandardCapabilityHandshakeConfig(),
+			HandshakeConfig: loop.StandardCapabilitiesHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				loop.PluginStandardCapabilityName: &loop.StandardCapabilityLoop{
+				loop.PluginStandardCapabilitiesName: &loop.StandardCapabilitiesLoop{
 					Logger:       lggr,
-					PluginServer: sctest.StandardCapabilityService{},
+					PluginServer: sctest.StandardCapabilitiesService{},
 					BrokerConfig: loop.BrokerConfig{Logger: lggr, StopCh: stopCh},
 				},
 			},
