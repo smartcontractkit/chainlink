@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -89,6 +90,19 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		return
 	}
 
+	targetCapId := "write_ethereum-testnet-sepolia"
+	targetInfo, err := capabilities.NewRemoteCapabilityInfo(
+		targetCapId,
+		capabilities.CapabilityTypeTarget,
+		"Remote Target",
+		"v0.0.1",
+		&s.networkSetup.TargetCapabilityDonInfo,
+	)
+	if err != nil {
+		s.lggr.Errorw("failed to create capability info for write_ethereum-testnet-sepolia", "error", err)
+		return
+	}
+
 	myId := s.peerWrapper.GetPeer().ID()
 	config := remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   20000,
@@ -107,15 +121,29 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, s.networkSetup.TriggerCapabilityDonInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, aggregator, s.lggr)
 		err = s.registry.Add(ctx, triggerCap)
 		if err != nil {
-			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
+			s.lggr.Errorw("failed to add remote trigger capability to registry", "error", err)
 			return
 		}
 		err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo.ID, triggerCap)
 		if err != nil {
-			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
+			s.lggr.Errorw("workflow DON failed to set receiver for trigger", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
 			return
 		}
 		s.subServices = append(s.subServices, triggerCap)
+
+		s.lggr.Info("member of a workflow DON - starting remote targets")
+		targetCap := target.NewClient(ctx, s.lggr, targetInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, time.Duration(60*time.Second))
+		err = s.registry.Add(ctx, targetCap)
+		if err != nil {
+			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
+			return
+		}
+		err = s.dispatcher.SetReceiver(targetCapId, s.networkSetup.TargetCapabilityDonInfo.ID, targetCap)
+		if err != nil {
+			s.lggr.Errorw("workflow DON failed to set receiver for target", "capabilityId", capId, "donId", s.networkSetup.TargetCapabilityDonInfo.ID, "error", err)
+			return
+		}
+		s.subServices = append(s.subServices, targetCap)
 	}
 	if s.networkSetup.IsTriggerDon(myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
@@ -163,6 +191,24 @@ func (s *registrySyncer) launch(ctx context.Context) {
 			break
 		}
 	}
+	if s.networkSetup.IsTargetDon(myId) {
+		s.lggr.Info("member of a target DON - starting remote shims")
+		underlying, err2 := s.registry.GetTarget(ctx, targetCapId)
+		if err2 != nil {
+			s.lggr.Errorw("target not found yet", "capabilityId", targetCapId, "error", err2)
+			return
+		}
+		workflowDONs := map[string]capabilities.DON{
+			s.networkSetup.WorkflowsDonInfo.ID: s.networkSetup.WorkflowsDonInfo,
+		}
+		targetCap := target.NewReceiver(ctx, s.lggr, myId, underlying, targetInfo, *targetInfo.DON, workflowDONs, s.dispatcher, time.Duration(60*time.Second))
+		err = s.dispatcher.SetReceiver(targetCapId, s.networkSetup.TargetCapabilityDonInfo.ID, targetCap)
+		if err != nil {
+			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TargetCapabilityDonInfo.ID, "error", err)
+			return
+		}
+		s.subServices = append(s.subServices, targetCap)
+	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {
 		err = srv.Start(ctx)
@@ -201,11 +247,13 @@ func (s *registrySyncer) Name() string {
 type HardcodedDonNetworkSetup struct {
 	workflowDonPeers  []string
 	triggerDonPeers   []string
+	targetDonPeers    []string
 	triggerDonSigners []string
 	allPeers          map[ragetypes.PeerID]p2ptypes.StreamConfig
 
 	WorkflowsDonInfo         capabilities.DON
 	TriggerCapabilityDonInfo capabilities.DON
+	TargetCapabilityDonInfo  capabilities.DON
 }
 
 func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
@@ -235,6 +283,12 @@ func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 		"0x5d1e87d87bF2e0cD4Ea64F381a2dbF45e5f0a553",
 		"0x91d9b0062265514f012Eb8fABA59372fD9520f56",
 	}
+	result.targetDonPeers = []string{
+		"12D3KooWQx7zKjqu1TrZgS9J13tC2THYAtbsHAvgnHBJHQ5ujxUC",
+		"12D3KooWRMwwgRvQc9CuCmiHk3XynWrctVrWdDoTXkS4nq3LZQkW",
+		"12D3KooWCxGoRGDM8B592Jr7anWfHspWrVYFyRAYKPetYxr3a4i5",
+		"12D3KooWSF6aBVmT9MhEweEG8nN9UcwqMPnFN3ZRzQqjqr4AARaK",
+	}
 
 	result.allPeers = make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
 	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
@@ -258,6 +312,11 @@ func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to trigger DON info: %w", err)
 	}
 
+	result.TargetCapabilityDonInfo = capabilities.DON{ID: "targetDon1", F: 1} // NOTE: misconfiguration - should be 2
+	if err := addPeersToDONInfo(result.targetDonPeers, &result.TargetCapabilityDonInfo); err != nil {
+		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to target DON info: %w", err)
+	}
+
 	return result, nil
 }
 
@@ -267,6 +326,10 @@ func (h HardcodedDonNetworkSetup) IsWorkflowDon(id p2ptypes.PeerID) bool {
 
 func (h HardcodedDonNetworkSetup) IsTriggerDon(id p2ptypes.PeerID) bool {
 	return slices.Contains(h.triggerDonPeers, id.String())
+}
+
+func (h HardcodedDonNetworkSetup) IsTargetDon(id p2ptypes.PeerID) bool {
+	return slices.Contains(h.targetDonPeers, id.String())
 }
 
 type mockMercuryDataProducer struct {

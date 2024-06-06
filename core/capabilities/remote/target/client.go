@@ -140,3 +140,23 @@ func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil
 }
+
+func (c *client) Start(ctx context.Context) error {
+	return nil
+}
+
+func (c *client) Close() error {
+	return nil
+}
+
+func (c *client) Ready() error {
+	return nil
+}
+
+func (c *client) HealthReport() map[string]error {
+	return nil
+}
+
+func (c *client) Name() string {
+	return "TargetClient"
+}

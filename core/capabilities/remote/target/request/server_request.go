@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -42,10 +43,11 @@ type ServerRequest struct {
 	requestMessageID string
 	requestTimeout   time.Duration
 
-	mux sync.Mutex
+	mux  sync.Mutex
+	lggr logger.Logger
 }
 
-func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+func NewServerRequest(lggr logger.Logger, capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration) *ServerRequest {
 	return &ServerRequest{
@@ -60,6 +62,7 @@ func NewServerRequest(capability capabilities.TargetCapability, capabilityID str
 		callingDon:              callingDon,
 		requestMessageID:        requestMessageID,
 		requestTimeout:          requestTimeout,
+		lggr:                    lggr,
 	}
 }
 
@@ -117,6 +120,8 @@ func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte) erro
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
+
+	e.lggr.Debugw("Executing capability", "inputs", capabilityRequest.Inputs, "metadata", capabilityRequest.Metadata)
 
 	capResponseCh, err := e.capability.Execute(ctxWithTimeout, capabilityRequest)
 
