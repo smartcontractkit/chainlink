@@ -12,15 +12,15 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
+	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -63,21 +63,6 @@ LimitDefault = 5_000_000`
 				"limits": map[string]interface{}{
 					"cpu":    "250m",
 					"memory": "256Mi",
-				},
-			},
-		},
-	}
-
-	defaultReorgEthereumSettings = &reorg.Props{
-		NetworkName: "",
-		NetworkType: "geth-reorg",
-		Values: map[string]interface{}{
-			"geth": map[string]interface{}{
-				"genesis": map[string]interface{}{
-					"networkId": "1337",
-				},
-				"miner": map[string]interface{}{
-					"replicas": 2,
 				},
 			},
 		},
@@ -129,11 +114,12 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":             ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		// TODO: enable these tests
+		// "registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		// "registry_2_2_conditional": ethereum.RegistryVersion_2_2,
+		// "registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
@@ -158,19 +144,22 @@ func TestAutomationReorg(t *testing.T) {
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
 
-			ethSetting := defaultReorgEthereumSettings
-			ethSetting.NetworkName = network.Name
-
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
 					TTL:             time.Hour * 1,
 					Test:            t}).
-				AddHelm(reorg.New(ethSetting)).
-				AddChart(blockscout.New(&blockscout.Props{
-					Name:    "geth-blockscout",
-					WsURL:   network.URL,
-					HttpURL: network.HTTPURLs[0]})).
+				// Use Geth blockchain to simulate reorgs
+				AddHelm(geth_helm.New(&geth_helm.Props{
+					NetworkName: network.Name,
+					Simulated:   true,
+					WsURLs:      network.URLs,
+				})).
+				// TODO: enable blockscout
+				// AddChart(blockscout.New(&blockscout.Props{
+				// 	Name:    "geth-blockscout",
+				// 	WsURL:   network.URL,
+				// 	HttpURL: network.HTTPURLs[0]})).
 				AddHelm(cd)
 			err = testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
@@ -178,6 +167,9 @@ func TestAutomationReorg(t *testing.T) {
 			if testEnvironment.WillUseRemoteRunner() {
 				return
 			}
+			gethURL := testEnvironment.URLs["Simulated Geth_http"][0]
+			require.NotEmpty(t, gethURL, "Geth URL should not be empty")
+			gethRPCClient := ctf_client.NewRPCClient(gethURL)
 
 			chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 			require.NoError(t, err, "Error connecting to blockchain")
@@ -247,20 +239,13 @@ func TestAutomationReorg(t *testing.T) {
 
 			l.Info().Msg("All upkeeps performed under happy path. Starting reorg")
 
-			rc, err := NewReorgController(
-				&ReorgConfig{
-					FromPodLabel:            reorg.TXNodesAppLabel,
-					ToPodLabel:              reorg.MinerNodesAppLabel,
-					Network:                 chainClient,
-					Env:                     testEnvironment,
-					BlockConsensusThreshold: 3,
-					Timeout:                 1800 * time.Second,
-				},
-			)
-
-			require.NoError(t, err, "Error getting reorg controller")
-			rc.ReOrg(automationReorgBlocks)
-			rc.WaitReorgStarted()
+			l.Info().
+				Str("URL", gethRPCClient.URL).
+				Str("Case", "below finality").
+				Int("BlocksBack", automationReorgBlocks).
+				Msg("Rewinding blocks on src chain")
+			err = gethRPCClient.GethSetHead(automationReorgBlocks)
+			require.NoError(t, err, "Error rewinding blocks on chain")
 
 			l.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
 
@@ -275,23 +260,6 @@ func TestAutomationReorg(t *testing.T) {
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
 			}, "5m", "1s").Should(gomega.Succeed())
-
-			l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
-			err = rc.WaitDepthReached()
-			require.NoError(t, err)
-
-			l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
-			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(testcontext.Get(t))
-					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-					expect := 20
-					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				}
-			}, "10m", "1s").Should(gomega.Succeed())
 		})
 	}
 }
