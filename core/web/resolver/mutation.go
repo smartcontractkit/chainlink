@@ -157,6 +157,7 @@ type createFeedsManagerChainConfigInput struct {
 	ChainID              string
 	ChainType            string
 	AccountAddr          string
+	AccountAddrPubKey    *string
 	AdminAddr            string
 	FluxMonitorEnabled   bool
 	OCR1Enabled          bool
@@ -201,6 +202,10 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		FluxMonitorConfig: feeds.FluxMonitorConfig{
 			Enabled: args.Input.FluxMonitorEnabled,
 		},
+	}
+
+	if args.Input.AccountAddrPubKey != nil {
+		params.AccountAddressPublicKey = null.StringFromPtr(args.Input.AccountAddrPubKey)
 	}
 
 	if args.Input.OCR1Enabled {
@@ -292,6 +297,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 
 type updateFeedsManagerChainConfigInput struct {
 	AccountAddr          string
+	AccountAddrPubKey    *string
 	AdminAddr            string
 	FluxMonitorEnabled   bool
 	OCR1Enabled          bool
@@ -330,6 +336,10 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		FluxMonitorConfig: feeds.FluxMonitorConfig{
 			Enabled: args.Input.FluxMonitorEnabled,
 		},
+	}
+
+	if args.Input.AccountAddrPubKey != nil {
+		params.AccountAddressPublicKey = null.StringFromPtr(args.Input.AccountAddrPubKey)
 	}
 
 	if args.Input.OCR1Enabled {
