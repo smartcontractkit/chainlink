@@ -129,11 +129,7 @@ jobs:
               head -n ${count} |\
               paste -sd " " -)            
           
-            echo "Tags: $tags"
-          
             IFS=' ' read -r -a tags_array <<< "$tags"
-            echo "Tags Array Length: ${#tags_array[@]}"
-            echo "Tags Array: ${tags_array[@]}"
             
             if [ ${#tags_array[@]} -lt ${count} ]; then
               echo "Failed to get ${count} latest tags for ${repository_name}"
@@ -147,7 +143,7 @@ jobs:
           
             images=$(IFS=,; echo "${images_arr[*]}")
           
-            echo "Images: $images"
+            echo $images
           }
           
           geth_images=$(get_latest_images ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
@@ -164,7 +160,7 @@ jobs:
           
           erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
           echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
-          echo "Erigon latest images: $erigon_images"    
+          echo "Erigon latest images: $erigon_images" 
 
   # End Build Test Dependencies
 
