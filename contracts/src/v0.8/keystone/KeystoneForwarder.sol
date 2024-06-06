@@ -52,10 +52,11 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configVersion The config version that was provided in the report
   error InvalidConfigVersion(uint32 configVersion);
 
-  /// @notice This error is thrown whenever a report specifies a DON ID that
-  /// does not have a configuration.
+  /// @notice This error is thrown whenever a report specifies a configuration that
+  /// does not exist.
   /// @param donId The DON ID that was provided in the report
-  error InvalidDonId(uint32 donId);
+  /// @param configVersion The config version that was provided in the report
+  error InvalidConfig(uint32 donId, uint32 configVersion);
 
   /// @notice This error is thrown whenever a signer address is not in the
   /// configuration.
@@ -166,7 +167,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
       f = s_configs[configId].f;
       // f can never be 0, so this means the config doesn't actually exist
-      if (f == 0) revert InvalidDonId(donId);
+      if (f == 0) revert InvalidConfig(donId, configVersion);
     }
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
