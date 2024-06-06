@@ -62,7 +62,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) setLatestReceived(blockNumber int64, totalDi
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
-	if totalDifficulty != nil {
+	if totalDifficulty == nil {
 		n.stateLatestTotalDifficulty = nil
 		return
 	}
@@ -218,7 +218,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			promPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Got head", "head", bh)
-			n.stateMu.Lock()
 			if bh.BlockNumber() > highestReceivedBlockNumber {
 				promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.BlockNumber()))
 				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
@@ -226,7 +225,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			} else {
 				lggr.Tracew("Ignoring previously seen block number", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
 			}
-			n.stateMu.Unlock()
 			if outOfSyncT != nil {
 				outOfSyncT.Reset(noNewHeadsTimeoutThreshold)
 			}
