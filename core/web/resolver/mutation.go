@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -1060,6 +1061,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	case job.Workflow:
 		jb, err = workflows.ValidatedWorkflowSpec(args.Input.TOML)
+	case job.StandardCapabilities:
+		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),
