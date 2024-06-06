@@ -40,11 +40,11 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 	networkTOML = `Enabled = true
-FinalityDepth = 200
+FinalityDepth = 20
 LogPollInterval = '1s'
 
 [EVM.HeadTracker]
-HistoryDepth = 400
+HistoryDepth = 40
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
