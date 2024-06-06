@@ -111,7 +111,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     // add new signer addresses
-    s_configs[donId].signers = signers;
     for (uint256 i; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
@@ -152,6 +151,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
       address[MAX_ORACLES] memory signed;
       uint8 index;
+
       for (uint256 i; i < signatures.length; ++i) {
         // TODO: is libocr-style multiple bytes32 arrays more optimal, gas-wise?
         (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
