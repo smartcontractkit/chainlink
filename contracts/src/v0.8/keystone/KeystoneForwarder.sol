@@ -158,9 +158,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     {
       uint32 donId;
       uint32 configVersion;
-      (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(
-        rawReport
-      );
+      (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(rawReport);
 
       configId = keccak256(abi.encode(donId, configVersion));
 

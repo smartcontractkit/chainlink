@@ -181,7 +181,14 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     // but new config does
     bytes32 newExecutionId = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000001";
     bytes memory newMetadata = abi.encodePacked(workflowId, workflowName, workflowOwner, reportId);
-    bytes memory newHeader = abi.encodePacked(version, newExecutionId, timestamp, DON_ID, CONFIG_VERSION + 1, newMetadata);
+    bytes memory newHeader = abi.encodePacked(
+      version,
+      newExecutionId,
+      timestamp,
+      DON_ID,
+      CONFIG_VERSION + 1,
+      newMetadata
+    );
     bytes memory newReport = abi.encodePacked(newHeader, rawReports);
     // resign the new report
     bytes[] memory newSignatures = _signReport(newReport, reportContext, requiredSignaturesNum);
