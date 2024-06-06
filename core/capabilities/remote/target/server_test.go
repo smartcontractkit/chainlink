@@ -144,8 +144,8 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout)
+		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout, lggr)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
 	}

@@ -336,6 +336,22 @@ func mockFailingConsensus() *mockCapability {
 	)
 }
 
+func mockConsensusWithEarlyTermination() *mockCapability {
+	return newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"offchain_reporting",
+			capabilities.CapabilityTypeConsensus,
+			"an ocr3 consensus capability",
+			"v3.0.0",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				Err: errors.New(capabilities.ErrStopExecution),
+			}, nil
+		},
+	)
+}
+
 func mockConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
@@ -401,6 +417,31 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	assert.Equal(t, state.Status, store.StatusErrored)
 	// evm_median is the ref of our failing consensus step
 	assert.Equal(t, state.Steps["evm_median"].Status, store.StatusErrored)
+}
+
+func TestEngine_GracefulEarlyTermination(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
+
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
+
+	eid := getExecutionId(t, eng, hooks)
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
 }
 
 const (

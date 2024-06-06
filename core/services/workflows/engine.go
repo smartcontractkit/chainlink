@@ -454,6 +454,11 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 
 	switch stepUpdate.Status {
 	case store.StatusCompleted:
+		if stepUpdate.Outputs.Err != nil && stepUpdate.Outputs.Err.Error() == capabilities.ErrStopExecution {
+			e.logger.Infow("execution terminated early", "executionID", state.ExecutionID)
+			return e.finishExecution(ctx, state.ExecutionID, store.StatusCompleted)
+		}
+
 		stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
 		if err != nil {
 			return err
@@ -569,9 +574,15 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	if err != nil {
-		l.Errorf("error executing step request: %s", err)
-		stepState.Outputs.Err = err
-		stepState.Status = store.StatusErrored
+		if err.Error() == capabilities.ErrStopExecution {
+			l.Infow("step executed successfully with a termination")
+			stepState.Outputs.Err = err
+			stepState.Status = store.StatusCompleted
+		} else {
+			l.Errorf("error executing step request: %s", err)
+			stepState.Outputs.Err = err
+			stepState.Status = store.StatusErrored
+		}
 	} else {
 		l.Infow("step executed successfully", "outputs", outputs)
 		stepState.Outputs.Value = outputs

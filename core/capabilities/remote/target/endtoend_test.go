@@ -229,8 +229,8 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout)
+		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout, lggr)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
 	}
@@ -238,7 +238,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	workflowNodes := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		workflowNode := target.NewClient(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout)
+		workflowNode := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, lggr)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
 		workflowNodes[i] = workflowNode
 	}
