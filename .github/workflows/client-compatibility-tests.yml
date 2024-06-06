@@ -116,6 +116,7 @@ jobs:
             local repository_name="$1"
             local grep_string="$2"
             local count="$3"
+            local ignored_tags="$4"
             local images
           
             # get the list of images with aws cli
@@ -139,7 +140,17 @@ jobs:
           
             images_arr=()
             for tag in "${tags_array[@]}"; do
+              ignore=false
+                for ignored_tag in "${ignored_tags_array[@]}"; do
+                  if [ "$tag" == "$ignored_tag" ]; then
+                    ignore=true
+                    echo "Ignoring tag $tag" > &2
+                    break
+                  fi
+                done
+            if [ "$ignore" = false ]; then
               images_arr+=("${repository_name}:${tag}")
+            fi
             done
           
             images=$(IFS=,; echo "${images_arr[*]}")
@@ -155,11 +166,11 @@ jobs:
           echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
           echo "Nethermind latest images: $nethermind_images"
           
-          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }})
+          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }} "24.3.3")
           echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
           echo "Besu latest images: $besu_images"
           
-          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }} "v2.60.0,v2.60.1")
           echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
           echo "Erigon latest images: $erigon_images" 
 
@@ -203,6 +214,14 @@ jobs:
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'automation' 'TestSetUpkeepTriggerConfig' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
@@ -230,59 +249,6 @@ jobs:
       fail-fast: false
       matrix:
         evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        include:
-#          - name: ocr-geth
-#            os: ubuntu-latest
-#            test: TestOCRBasic
-#            file: ocr
-#            client: geth
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr-geth-simulated
-#          - name: ocr-nethermind
-#            test: TestOCRBasic
-#            file: ocr
-#            client: nethermind
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr-nethermind-simulated
-#          - name: ocr-besu
-#            test: TestOCRBasic
-#            file: ocr
-#            client: besu
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr-besu-simulated
-#          - name: ocr-erigon
-#            test: TestOCRBasic
-#            file: ocr
-#            client: erigon
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr-erigon-simulated
-#          - name: ocr2-geth
-#            test: "^TestOCRv2Basic/plugins$"
-#            file: ocr2
-#            client: geth
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr2-geth-simulated
-#          - name: ocr2-nethermind
-#            test: "^TestOCRv2Basic/plugins$"
-#            file: ocr2
-#            client: nethermind
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-nethermind-evm-simulated
-#          - name: ocr2-besu
-#            test: "^TestOCRv2Basic/plugins$"
-#            file: ocr2
-#            client: besu
-#            timeout: 30m
-#            pyroscope_env: ci-smoke-ocr2-besu-simulated
-#          - name: ocr2-erigon
-#            test: "^TestOCRv2Basic/plugins$"
-#            file: ocr2
-#            client: erigon
-#            timeout: 60m
-#            pyroscope_env: ci-smoke-ocr2-erigon-simulated
     runs-on: ubuntu-latest
     name: Client Compatibility Test ${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}
     steps:
@@ -320,7 +286,28 @@ jobs:
           pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscopeEnvironment: ci-client-compatability-${{ matrix.eth_client }}-testnet
           pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+      - name: Prepare test log name
+        run: |
+          replace_special_chars() {
+            if [ -z "$1" ]; then
+              echo "Please provide a string as an argument."
+              return 1
+            fi
 
+            local input_string="$1"
+
+            # Replace '/' with '-'
+            local modified_string="${input_string//\//-}"
+
+            # Replace ':' with '-'
+            modified_string="${modified_string//:/-}"
+
+            # Replace '.' with '-'
+            modified_string="${modified_string//./-}"
+
+            echo "$modified_string"
+          }
+          echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}-test-logs")" >> $GITHUB_ENV
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
@@ -329,7 +316,7 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}-test-logs
+          artifacts_name: ${{ env.TEST_LOG_NAME }}
           artifacts_location: |
             ./integration-tests/smoke/logs/
             /tmp/gotest.log
