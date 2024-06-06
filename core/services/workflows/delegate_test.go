@@ -86,9 +86,9 @@ triggers: []
 consensus: []
 targets: []
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, validName + "1", wf).Toml()
+				return testspecs.GenerateWorkflowSpec(id, owner, validName+"1", wf).Toml()
 			},
-			true,
+			false,
 		},
 
 		// Taken from jobs controller test, as we want to fail early without a db / slow test dependency
@@ -144,7 +144,7 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, "test", workflow).Toml()
+				return testspecs.GenerateWorkflowSpec(id, owner, validName, workflow).Toml()
 			},
 			true,
 		},
