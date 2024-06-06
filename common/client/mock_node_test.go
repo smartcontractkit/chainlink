@@ -14,6 +14,24 @@ type mockNode[CHAIN_ID types.ID, HEAD Head, RPC NodeClient[CHAIN_ID, HEAD]] stru
 	mock.Mock
 }
 
+// AppLayerObservations provides a mock function with given fields:
+func (_m *mockNode[CHAIN_ID, HEAD, RPC]) AppLayerObservations() ChainInfo {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for AppLayerObservations")
+	}
+
+	var r0 ChainInfo
+	if rf, ok := ret.Get(0).(func() ChainInfo); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(ChainInfo)
+	}
+
+	return r0
+}
+
 // Close provides a mock function with given fields:
 func (_m *mockNode[CHAIN_ID, HEAD, RPC]) Close() error {
 	ret := _m.Called()
@@ -45,24 +63,6 @@ func (_m *mockNode[CHAIN_ID, HEAD, RPC]) ConfiguredChainID() CHAIN_ID {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(CHAIN_ID)
-	}
-
-	return r0
-}
-
-// HighestChainInfo provides a mock function with given fields:
-func (_m *mockNode[CHAIN_ID, HEAD, RPC]) HighestChainInfo() ChainInfo {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for HighestChainInfo")
-	}
-
-	var r0 ChainInfo
-	if rf, ok := ret.Get(0).(func() ChainInfo); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(ChainInfo)
 	}
 
 	return r0

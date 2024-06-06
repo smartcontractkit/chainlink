@@ -2,6 +2,7 @@ package forwarders
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -42,7 +43,7 @@ type FwdMgr struct {
 	logpoller evmlogpoller.LogPoller
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
-	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
+	// https://smartcontract-it.atlassian.net/browse/ARCHIVE-22505
 	sendersCache map[common.Address][]common.Address
 	latestBlock  int64
 
@@ -129,8 +130,11 @@ func (f *FwdMgr) ForwarderFor(ctx context.Context, addr common.Address) (forward
 			}
 		}
 	}
-	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, ErrForwarderForEOANotFound
 }
+
+// ErrForwarderForEOANotFound defines the error triggered when no valid forwarders were found for EOA
+var ErrForwarderForEOANotFound = errors.New("cannot find forwarder for given EOA")
 
 func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator common.Address) (forwarder common.Address, err error) {
 	fwdrs, err := f.ORM.FindForwardersByChain(ctx, big.Big(*f.evmClient.ConfiguredChainID()))
@@ -165,7 +169,7 @@ func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator 
 			}
 		}
 	}
-	return common.Address{}, pkgerrors.Errorf("Cannot find forwarder for given EOA")
+	return common.Address{}, ErrForwarderForEOANotFound
 }
 
 func (f *FwdMgr) ConvertPayload(dest common.Address, origPayload []byte) ([]byte, error) {

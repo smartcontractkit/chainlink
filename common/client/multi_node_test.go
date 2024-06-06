@@ -434,23 +434,23 @@ func TestMultiNode_selectNode(t *testing.T) {
 func TestMultiNode_ChainInfo(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
-		LatestChainInfo  ChainInfo
-		HighestChainInfo ChainInfo
-		State            nodeState
+		LatestChainInfo      ChainInfo
+		AppLayerObservations ChainInfo
+		State                nodeState
 	}
 	testCases := []struct {
-		Name                     string
-		ExpectedNLiveNodes       int
-		ExpectedLatestChainInfo  ChainInfo
-		ExpectedHighestChainInfo ChainInfo
-		NodeParams               []nodeParams
+		Name                         string
+		ExpectedNLiveNodes           int
+		ExpectedLatestChainInfo      ChainInfo
+		ExpectedAppLayerObservations ChainInfo
+		NodeParams                   []nodeParams
 	}{
 		{
 			Name: "no nodes",
 			ExpectedLatestChainInfo: ChainInfo{
 				TotalDifficulty: big.NewInt(0),
 			},
-			ExpectedHighestChainInfo: ChainInfo{
+			ExpectedAppLayerObservations: ChainInfo{
 				TotalDifficulty: big.NewInt(0),
 			},
 		},
@@ -462,7 +462,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 				FinalizedBlockNumber: 10,
 				TotalDifficulty:      big.NewInt(10),
 			},
-			ExpectedHighestChainInfo: ChainInfo{
+			ExpectedAppLayerObservations: ChainInfo{
 				BlockNumber:          1005,
 				FinalizedBlockNumber: 995,
 				TotalDifficulty:      big.NewInt(2005),
@@ -475,7 +475,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 990,
 						TotalDifficulty:      big.NewInt(2000),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          1005,
 						FinalizedBlockNumber: 995,
 						TotalDifficulty:      big.NewInt(2005),
@@ -488,7 +488,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 10,
 						TotalDifficulty:      big.NewInt(9),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          25,
 						FinalizedBlockNumber: 15,
 						TotalDifficulty:      big.NewInt(14),
@@ -501,7 +501,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 9,
 						TotalDifficulty:      big.NewInt(10),
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          24,
 						FinalizedBlockNumber: 14,
 						TotalDifficulty:      big.NewInt(15),
@@ -514,7 +514,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 						FinalizedBlockNumber: 1,
 						TotalDifficulty:      nil,
 					},
-					HighestChainInfo: ChainInfo{
+					AppLayerObservations: ChainInfo{
 						BlockNumber:          16,
 						FinalizedBlockNumber: 6,
 						TotalDifficulty:      nil,
@@ -535,7 +535,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
-				node.On("HighestChainInfo").Return(params.HighestChainInfo)
+				node.On("AppLayerObservations").Return(params.AppLayerObservations)
 				mn.nodes = append(mn.nodes, node)
 			}
 
@@ -543,8 +543,8 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 			assert.Equal(t, tc.ExpectedNLiveNodes, nNodes)
 			assert.Equal(t, tc.ExpectedLatestChainInfo, latestChainInfo)
 
-			highestChainInfo := mn.HighestChainInfo()
-			assert.Equal(t, tc.ExpectedHighestChainInfo, highestChainInfo)
+			highestChainInfo := mn.AppLayerObservations()
+			assert.Equal(t, tc.ExpectedAppLayerObservations, highestChainInfo)
 		})
 	}
 }

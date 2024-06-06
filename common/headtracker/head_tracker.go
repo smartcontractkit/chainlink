@@ -42,7 +42,8 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface 
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H) (err error)
 	LatestChain() H
-	// LatestAndFinalizedBlock - returns latest and finalized blocks
+	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
 }
 
@@ -119,7 +120,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		onSubscribe := func() {
 			err := ht.handleInitialHead(ctx)
 			if err != nil {
-				ht.log.Errorw("Error handling initial head", "err", err)
+				ht.log.Errorw("Error handling initial head", "err", err.Error())
 			}
 		}
 
@@ -146,7 +147,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 	}
 	ht.log.Debugw("Got initial head", "head", initialHead, "blockNumber", initialHead.BlockNumber(), "blockHash", initialHead.BlockHash())
 
-	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead)
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead, ht.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate latest finalized head: %w", err)
 	}
@@ -197,7 +198,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 }
 
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH) (err error) {
-	latestFinalized, err := ht.calculateLatestFinalized(ctx, headWithChain)
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, headWithChain, ht.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate finalized block: %w", err)
 	}
@@ -212,6 +213,11 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
 			Criticalf(errMsg)
 		return errors.New(errMsg)
+	}
+
+	if headWithChain.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
+		return fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
+			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
 	}
 
 	return ht.backfill(ctx, headWithChain, latestFinalized)
@@ -335,6 +341,9 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	}
 }
 
+// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
+// TODO: BCI-3321 use cached values instead of making RPC requests
 func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HTH, err error) {
 	latest, err = ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
@@ -347,9 +356,9 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 		return
 	}
 
-	finalized, err = ht.calculateLatestFinalized(ctx, latest)
+	finalized, err = ht.calculateLatestFinalized(ctx, latest, false)
 	if err != nil {
-		err = fmt.Errorf("failed to calculate latest finalized block")
+		err = fmt.Errorf("failed to calculate latest finalized block: %w", err)
 		return
 	}
 	if !finalized.IsValid() {
@@ -360,19 +369,44 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx conte
 	return
 }
 
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Context, chainHeadHash BLOCK_HASH, blockHeight int64) (HTH, error) {
+	chainHead := ht.headSaver.Chain(chainHeadHash)
+	if chainHead.IsValid() {
+		// check if provided chain contains a block of specified height
+		headAtHeight, err := chainHead.HeadAtHeight(blockHeight)
+		if err == nil {
+			// we are forced to reload the block due to type mismatched caused by generics
+			hthAtHeight := ht.headSaver.Chain(headAtHeight.BlockHash())
+			// ensure that the block was not removed from the chain by another goroutine
+			if hthAtHeight.IsValid() {
+				return hthAtHeight, nil
+			}
+		}
+	}
+
+	return ht.client.HeadByNumber(ctx, big.NewInt(blockHeight))
+}
+
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (HTH, error) {
-	if ht.config.FinalityTagEnabled() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH, finalityTagBypass bool) (HTH, error) {
+	if ht.config.FinalityTagEnabled() && !finalityTagBypass {
 		latestFinalized, err := ht.client.LatestFinalizedBlock(ctx)
-		if err != nil || !latestFinalized.IsValid() || ht.config.FinalizedBlockOffset() == 0 {
-			return latestFinalized, err
+		if err != nil {
+			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)
+		}
+
+		if !latestFinalized.IsValid() {
+			return latestFinalized, fmt.Errorf("failed to get valid latest finalized block")
+		}
+
+		if ht.config.FinalizedBlockOffset() == 0 {
+			return latestFinalized, nil
 		}
 
 		finalizedBlockNumber := max(latestFinalized.BlockNumber()-int64(ht.config.FinalizedBlockOffset()), 0)
-		finalizedWithOffset, _, err := ht.fetchAncestorAtHeight(ctx, latestFinalized, finalizedBlockNumber)
-		return finalizedWithOffset, err
+		return ht.getHeadAtHeight(ctx, latestFinalized.BlockHash(), finalizedBlockNumber)
 	}
 	// no need to make an additional RPC call on chains with instant finality
 	if ht.config.FinalityDepth() == 0 && ht.config.FinalizedBlockOffset() == 0 {
@@ -382,29 +416,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 	if finalizedBlockNumber <= 0 {
 		finalizedBlockNumber = 0
 	}
-	return ht.client.HeadByNumber(ctx, big.NewInt(finalizedBlockNumber))
-}
-
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAncestorAtHeight(ctx context.Context, head HTH, baseHeight int64) (ancestor HTH, fetched int, err error) {
-	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
-		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		existingHead := ht.headSaver.Chain(head.GetParentHash())
-		if existingHead.IsValid() {
-			head = existingHead
-			continue
-		}
-		var err error
-		head, err = ht.fetchAndSaveHead(ctx, i, head.GetParentHash())
-		fetched++
-		if ctx.Err() != nil {
-			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
-			return ancestor, fetched, fmt.Errorf("fetchAndSaveHead failed: %w", ctx.Err())
-		} else if err != nil {
-			return ancestor, fetched, fmt.Errorf("fetchAndSaveHead failed: %w", err)
-		}
-	}
-
-	return head, fetched, nil
+	return ht.getHeadAtHeight(ctx, currentHead.BlockHash(), finalizedBlockNumber)
 }
 
 // backfill fetches all missing heads up until the latestFinalizedHead
@@ -429,9 +441,21 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			"err", err)
 	}()
 
-	head, fetched, err = ht.fetchAncestorAtHeight(ctx, head, baseHeight)
-	if err != nil {
-		return fmt.Errorf("failed to fetch ancestor with height %d: %w", baseHeight, err)
+	for i := head.BlockNumber() - 1; i >= baseHeight; i-- {
+		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
+		existingHead := ht.headSaver.Chain(head.GetParentHash())
+		if existingHead.IsValid() {
+			head = existingHead
+			continue
+		}
+		head, err = ht.fetchAndSaveHead(ctx, i, head.GetParentHash())
+		fetched++
+		if ctx.Err() != nil {
+			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
+			return fmt.Errorf("fetchAndSaveHead failed: %w", ctx.Err())
+		} else if err != nil {
+			return fmt.Errorf("fetchAndSaveHead failed: %w", err)
+		}
 	}
 
 	if head.BlockHash() != latestFinalizedHead.BlockHash() {

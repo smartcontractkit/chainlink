@@ -73,6 +73,7 @@ type CLTestEnvBuilder struct {
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
 	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
 	testreporters.NewAllowedLogMessage("Error stopping job service", "It's a known issue with lifecycle. There's ongoing work that will fix it.", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
+	testreporters.NewAllowedLogMessage("SLOW SQL QUERY", "Known issue in Automation Node Upgrade Test - https://smartcontract-it.atlassian.net/browse/BCF-3245", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
 }
 
 var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
@@ -279,7 +280,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		// this clean up has to be added as the FIRST one, because cleanup functions are executed in reverse order (LIFO)
-		if b.t != nil && b.cleanUpType == CleanUpTypeStandard {
+		if b.t != nil && b.cleanUpType != CleanUpTypeNone {
 			b.t.Cleanup(func() {
 				b.l.Info().Msg("Shutting down LogStream")
 				logPath, err := osutil.GetAbsoluteFolderPath("logs")
@@ -306,21 +307,24 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 					// we cannot do parallel processing here, because ProcessContainerLogs() locks a mutex that controls whether
 					// new logs can be added to the log stream, so parallel processing would get stuck on waiting for it to be unlocked
+				LogScanningLoop:
 					for i := 0; i < b.clNodesCount; i++ {
 						// ignore count return, because we are only interested in the error
 						_, err := logProcessor.ProcessContainerLogs(b.te.ClCluster.Nodes[i].ContainerName, processFn)
 						if err != nil && !strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) && !strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr) {
-							b.l.Error().Err(err).Msg("Error processing logs")
-							return
+							b.l.Error().Err(err).Msg("Error processing CL node logs")
+							continue
 						} else if err != nil && (strings.Contains(err.Error(), testreporters.MultipleLogsAtLogLevelErr) || strings.Contains(err.Error(), testreporters.OneLogAtLogLevelErr)) {
 							flushLogStream = true
-							b.t.Fatalf("Found a concerning log in Chainklink Node logs: %v", err)
+							b.t.Errorf("Found a concerning log in Chainklink Node logs: %v", err)
+							break LogScanningLoop
 						}
 					}
 					b.l.Info().Msg("Finished scanning Chainlink Node logs for concerning errors")
 				}
 
 				if flushLogStream {
+					b.l.Info().Msg("Flushing LogStream logs")
 					// we can't do much if this fails, so we just log the error in LogStream
 					if err := b.te.LogStream.FlushAndShutdown(); err != nil {
 						b.l.Error().Err(err).Msg("Error flushing and shutting down LogStream")
@@ -328,9 +332,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					b.te.LogStream.PrintLogTargetsLocations()
 					b.te.LogStream.SaveLogLocationInTestSummary()
 				}
+				b.l.Info().Msg("Finished shutting down LogStream")
 			})
 		} else {
-			b.l.Warn().Msg("LogStream won't be cleaned up, because test instance is not set or cleanup type is not standard")
+			b.l.Warn().Msg("LogStream won't be cleaned up, because either test instance is not set or cleanup type is set to none")
 		}
 	}
 
@@ -516,6 +521,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	// Start Chainlink Nodes
 	if b.clNodesCount > 0 {
+		// needed for live networks
+		if len(b.te.EVMNetworks) == 0 {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+		}
+
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
 		for _, en := range b.te.EVMNetworks {
 			network := *en
@@ -554,7 +564,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if len(b.privateEthereumNetworks) > 0 && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.clNodesCount > 0 && b.ETHFunds != nil {
 		if b.hasEVMClient {
 			b.te.ParallelTransactions(true)
 			defer b.te.ParallelTransactions(false)

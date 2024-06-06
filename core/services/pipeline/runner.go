@@ -232,6 +232,17 @@ func init() {
 	}
 }
 
+// overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
+// results, even after context cancellation.
+func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if d, ok := ctx.Deadline(); ok {
+		// extend deadline
+		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
+	}
+	// remove cancellation
+	return context.WithoutCancel(ctx), func() {}
+}
+
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,

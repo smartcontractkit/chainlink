@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+
+	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -17,7 +19,7 @@ type headListener = headtracker.HeadListener[*evmtypes.Head, common.Hash]
 func NewHeadListener(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	config Config, chStop chan struct{},
+	config htrktypes.Config, chStop chan struct{},
 ) headListener {
 	return headtracker.NewHeadListener[
 		*evmtypes.Head,

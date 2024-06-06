@@ -148,7 +148,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 		return false
 	}
 
-	highestObservedByCaller := n.poolInfoProvider.HighestChainInfo()
+	highestObservedByCaller := n.poolInfoProvider.AppLayerObservations()
 	latest, _ := n.rpc.GetInterceptedChainInfo()
 	if n.chainCfg.FinalityTagEnabled() {
 		return latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
@@ -165,10 +165,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	return n.recalculateState(), latest
 }
 
-// HighestChainInfo - returns highest ChainInfo ever observed by the Node
-func (n *node[CHAIN_ID, HEAD, RPC]) HighestChainInfo() ChainInfo {
-	_, highest := n.rpc.GetInterceptedChainInfo()
-	return highest
+// AppLayerObservations - returns highest ChainInfo ever observed by external user of the Node
+func (n *node[CHAIN_ID, HEAD, RPC]) AppLayerObservations() ChainInfo {
+	_, appLayerObservations := n.rpc.GetInterceptedChainInfo()
+	return appLayerObservations
 }
 func (n *node[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(poolInfoProvider PoolChainInfoProvider) {
 	n.poolInfoProvider = poolInfoProvider

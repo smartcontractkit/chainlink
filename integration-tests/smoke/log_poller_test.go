@@ -46,13 +46,13 @@ func TestLogPollerFewFiltersFinalityTag(t *testing.T) {
 
 // consistency test with no network disruptions with approximate emission of 1000-1100 logs per second for ~110-120 seconds
 // 900 filters are registered
-func TestLogPollerManyFiltersFixedDepth(t *testing.T) {
-	t.Skip("Execute manually, when needed as it runs for a long time")
+func XTestLogPollerManyFiltersFixedDepth(t *testing.T) {
+	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 
-func TestLogPollerManyFiltersFinalityTag(t *testing.T) {
-	t.Skip("Execute manually, when needed as it runs for a long time")
+func XTestLogPollerManyFiltersFinalityTag(t *testing.T) {
+	t.Skip("Execute manually, when needed as it runs for a long time, remove the X from the test name to run it")
 	executeBasicLogPollerTest(t, test_env.DefaultChainlinkNodeLogScannerSettings)
 }
 

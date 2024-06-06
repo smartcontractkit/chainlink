@@ -70,7 +70,7 @@ const (
 // Should only be run ONCE per node, after a successful Dial
 func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	defer n.wg.Done()
-	ctx, cancel := n.stopCh.NewCtx()
+	ctx, cancel := n.newCtx()
 	defer cancel()
 
 	{
@@ -295,7 +295,7 @@ const (
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
 func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td *big.Int) bool) {
 	defer n.wg.Done()
-	ctx, cancel := n.stopCh.NewCtx()
+	ctx, cancel := n.newCtx()
 	defer cancel()
 
 	{
@@ -368,7 +368,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 
 func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	defer n.wg.Done()
-	ctx, cancel := n.stopCh.NewCtx()
+	ctx, cancel := n.newCtx()
 	defer cancel()
 
 	{
@@ -423,7 +423,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	defer n.wg.Done()
-	ctx, cancel := n.stopCh.NewCtx()
+	ctx, cancel := n.newCtx()
 	defer cancel()
 
 	{
@@ -475,7 +475,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 	defer n.wg.Done()
-	ctx, cancel := n.stopCh.NewCtx()
+	ctx, cancel := n.newCtx()
 	defer cancel()
 
 	{
