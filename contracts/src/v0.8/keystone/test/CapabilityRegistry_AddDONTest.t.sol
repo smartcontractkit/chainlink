@@ -10,10 +10,12 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
 
   function setUp() public override {
     BaseTest.setUp();
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
 
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](3);
     bytes32[] memory capabilityIds = new bytes32[](2);
@@ -138,7 +140,9 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
 
   function test_RevertWhen_DeprecatedCapabilityAdded() public {
     bytes32 capabilityId = s_basicHashedCapabilityId;
-    s_capabilityRegistry.deprecateCapability(capabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = capabilityId;
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
     bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;
@@ -207,7 +211,16 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     assertEq(donInfo.isPublic, true);
     assertEq(donInfo.capabilityConfigurations.length, capabilityConfigs.length);
     assertEq(donInfo.capabilityConfigurations[0].capabilityId, s_basicHashedCapabilityId);
-    assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), BASIC_CAPABILITY_CONFIG);
+
+    (bytes memory capabilityRegistryDONConfig, bytes memory capabilityConfigContractConfig) = s_capabilityRegistry
+      .getCapabilityConfigs(DON_ID, s_basicHashedCapabilityId);
+    assertEq(capabilityRegistryDONConfig, BASIC_CAPABILITY_CONFIG);
+    assertEq(capabilityConfigContractConfig, bytes(""));
+
+    (bytes memory capabilityRegistryDONConfigTwo, bytes memory capabilityConfigContractConfigTwo) = s_capabilityRegistry
+      .getCapabilityConfigs(DON_ID, s_capabilityWithConfigurationContractId);
+    assertEq(capabilityRegistryDONConfigTwo, CONFIG_CAPABILITY_CONFIG);
+    assertEq(capabilityConfigContractConfigTwo, CONFIG_CAPABILITY_CONFIG);
 
     assertEq(donInfo.nodeP2PIds.length, nodes.length);
     assertEq(donInfo.nodeP2PIds[0], P2P_ID);
