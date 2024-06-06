@@ -6,8 +6,6 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_GetDONsTest is BaseTest {
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   CapabilityRegistry.CapabilityConfiguration[] private s_capabilityConfigs;
 
   function setUp() public override {

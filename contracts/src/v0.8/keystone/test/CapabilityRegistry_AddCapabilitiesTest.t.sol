@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityConfigurationContract} from "./mocks/CapabilityConfigurationContract.sol";
@@ -8,8 +8,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
-  event CapabilityConfigured(bytes32 indexed hashedCapabilityId);
-
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
 
@@ -80,7 +78,7 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
 
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("data-streams-reports", "1.0.0");
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit CapabilityConfigured(hashedCapabilityId);
+    emit CapabilityRegistry.CapabilityConfigured(hashedCapabilityId);
     s_capabilityRegistry.addCapabilities(capabilities);
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
@@ -99,7 +97,7 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
       s_capabilityWithConfigurationContract.version
     );
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit CapabilityConfigured(hashedCapabilityId);
+    emit CapabilityRegistry.CapabilityConfigured(hashedCapabilityId);
     s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);

@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {ICapabilityConfiguration} from "../interfaces/ICapabilityConfiguration.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateDONTest is BaseTest {
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   function setUp() public override {
     BaseTest.setUp();
 
@@ -207,7 +205,7 @@ contract CapabilityRegistry_UpdateDONTest is BaseTest {
     uint32 expectedConfigCount = oldDONInfo.configCount + 1;
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit ConfigSet(DON_ID, expectedConfigCount);
+    emit CapabilityRegistry.ConfigSet(DON_ID, expectedConfigCount);
     vm.expectCall(
       address(s_capabilityConfigurationContract),
       abi.encodeWithSelector(

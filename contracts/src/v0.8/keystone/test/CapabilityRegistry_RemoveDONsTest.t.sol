@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_RemoveDONsTest is BaseTest {
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   function setUp() public override {
     BaseTest.setUp();
 
@@ -78,7 +76,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     uint32[] memory donIDs = new uint32[](1);
     donIDs[0] = DON_ID;
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit ConfigSet(DON_ID, 0);
+    emit CapabilityRegistry.ConfigSet(DON_ID, 0);
     s_capabilityRegistry.removeDONs(donIDs);
 
     CapabilityRegistry.DONInfo memory donInfo = s_capabilityRegistry.getDON(DON_ID);

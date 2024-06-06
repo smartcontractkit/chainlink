@@ -5,8 +5,6 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_DeprecateCapabilitiesTest is BaseTest {
-  event CapabilityDeprecated(bytes32 indexed hashedCapabilityId);
-
   function setUp() public override {
     BaseTest.setUp();
     CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
@@ -76,7 +74,7 @@ contract CapabilityRegistry_DeprecateCapabilitiesTest is BaseTest {
     deprecatedCapabilities[0] = hashedCapabilityId;
 
     vm.expectEmit(address(s_capabilityRegistry));
-    emit CapabilityDeprecated(hashedCapabilityId);
+    emit CapabilityRegistry.CapabilityDeprecated(hashedCapabilityId);
     s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
   }
 }

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
-  event NodeOperatorUpdated(uint32 indexed nodeOperatorId, address indexed admin, string name);
-
   uint32 private constant TEST_NODE_OPERATOR_ID = 1;
   address private constant NEW_NODE_OPERATOR_ADMIN = address(3);
   string private constant NEW_NODE_OPERATOR_NAME = "new-node-operator";
@@ -80,7 +78,7 @@ contract CapabilityRegistry_UpdateNodeOperatorTest is BaseTest {
     nodeOperatorIds[0] = TEST_NODE_OPERATOR_ID;
 
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
-    emit NodeOperatorUpdated(TEST_NODE_OPERATOR_ID, NEW_NODE_OPERATOR_ADMIN, NEW_NODE_OPERATOR_NAME);
+    emit CapabilityRegistry.NodeOperatorUpdated(TEST_NODE_OPERATOR_ID, NEW_NODE_OPERATOR_ADMIN, NEW_NODE_OPERATOR_NAME);
     s_capabilityRegistry.updateNodeOperators(nodeOperatorIds, nodeOperators);
 
     CapabilityRegistry.NodeOperator memory nodeOperator = s_capabilityRegistry.getNodeOperator(TEST_NODE_OPERATOR_ID);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.24;
 
 import {ICapabilityConfiguration} from "../../interfaces/ICapabilityConfiguration.sol";
 import {ERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165.sol";

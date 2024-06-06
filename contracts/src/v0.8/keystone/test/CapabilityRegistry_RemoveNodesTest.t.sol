@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_RemoveNodesTest is BaseTest {
-  event NodeRemoved(bytes32 p2pId);
-
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
@@ -179,7 +177,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     nodes[0] = P2P_ID;
 
     vm.expectEmit(address(s_capabilityRegistry));
-    emit NodeRemoved(P2P_ID);
+    emit CapabilityRegistry.NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
     (CapabilityRegistry.NodeInfo memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
@@ -228,7 +226,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     nodes[0] = P2P_ID;
 
     vm.expectEmit(address(s_capabilityRegistry));
-    emit NodeRemoved(P2P_ID);
+    emit CapabilityRegistry.NodeRemoved(P2P_ID);
     s_capabilityRegistry.removeNodes(nodes);
 
     (CapabilityRegistry.NodeInfo memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);

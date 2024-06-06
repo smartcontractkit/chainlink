@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
 
 import {IForwarder} from "./interfaces/IForwarder.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
