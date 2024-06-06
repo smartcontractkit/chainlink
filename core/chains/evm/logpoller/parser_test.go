@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func assertArgs(t *testing.T, args *queryArgs, numVals int) {
@@ -46,22 +47,25 @@ func TestDSLParser(t *testing.T) {
 		expressions := []query.Expression{
 			NewAddressFilter(common.HexToAddress("0x42")),
 			NewEventSigFilter(common.HexToHash("0x21")),
+			NewConfirmationsFilter(types.Finalized),
 		}
-		limiter := query.NewLimitAndSort(query.CursorLimit("10-0x42-5", query.CursorFollowing, 20))
+		limiter := query.NewLimitAndSort(query.CursorLimit("10-5-0x42", query.CursorFollowing, 20))
 
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"AND (address = :address_0 AND event_sig = :event_sig_0) " +
-			"AND block_number >= :cursor_block AND tx_hash >= :cursor_txhash AND log_index > :cursor_log_index " +
-			"ORDER BY block_number ASC, tx_hash ASC, log_index ASC " +
+			"AND (address = :address_0 AND event_sig = :event_sig_0 " +
+			"AND block_number <= " +
+			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
+			"AND block_number >= :cursor_block AND log_index > :cursor_log_index " +
+			"ORDER BY block_number ASC, log_index ASC, tx_hash ASC " +
 			"LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 6)
+		assertArgs(t, args, 5)
 	})
 
 	t.Run("query with limit and no order by", func(t *testing.T) {
@@ -100,7 +104,7 @@ func TestDSLParser(t *testing.T) {
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"ORDER BY block_number DESC, tx_hash DESC, log_index DESC"
+			"ORDER BY block_number DESC, log_index DESC, tx_hash DESC"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -138,9 +142,8 @@ func TestDSLParser(t *testing.T) {
 			query.TxHash(common.HexToHash("0x84").String()),
 			query.Block(99, primitives.Neq),
 			query.Confidence(primitives.Finalized),
-			query.Confidence(primitives.Unconfirmed),
 		}
-		limiter := query.NewLimitAndSort(query.CursorLimit("10-0x42-20", query.CursorPrevious, 20))
+		limiter := query.NewLimitAndSort(query.CursorLimit("10-20-0x42", query.CursorPrevious, 20))
 
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := "SELECT evm.logs.* " +
@@ -150,15 +153,14 @@ func TestDSLParser(t *testing.T) {
 			"AND tx_hash = :tx_hash_0 " +
 			"AND block_number != :block_number_0 " +
 			"AND block_number <= " +
-			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) " +
-			"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
-			"AND block_number <= :cursor_block AND tx_hash <= :cursor_txhash AND log_index < :cursor_log_index " +
-			"ORDER BY block_number DESC, tx_hash DESC, log_index DESC LIMIT 20"
+			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
+			"AND block_number <= :cursor_block AND log_index < :cursor_log_index " +
+			"ORDER BY block_number DESC, log_index DESC, tx_hash DESC LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 8)
+		assertArgs(t, args, 6)
 	})
 
 	t.Run("query for finality", func(t *testing.T) {
