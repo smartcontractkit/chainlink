@@ -215,7 +215,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error InvalidNodeOperatorAdmin();
 
   /// @notice This error is thrown when trying to add a node with P2P ID that
-  /// is empty bytes or a duplicate.
+  /// is empty bytes
   /// @param p2pId The provided P2P ID
   error InvalidNodeP2PId(bytes32 p2pId);
 
@@ -233,11 +233,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// been used by another node
   error InvalidNodeSigner();
 
-  /// @notice This error is thrown when trying add a capability that already
+  /// @notice This error is thrown when trying to add a capability that already
   /// exists.
   /// @param hashedCapabilityId The hashed capability ID of the capability
   /// that already exists
   error CapabilityAlreadyExists(bytes32 hashedCapabilityId);
+
+  /// @notice This error is thrown when trying to add a node that already
+  /// exists.
+  /// @param nodeP2PId The P2P ID of the node that already exists
+  error NodeAlreadyExists(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when trying to add a node to a DON where
   /// the node does not support the capability
@@ -271,6 +276,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// is deprecated.
   /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
   error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
+
+  /// @notice This error is thrown when a node with the provided P2P ID is
+  /// not found.
+  /// @param nodeP2PId The node P2P ID used for the lookup.
+  error NodeDoesNotExist(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when a node operator does not exist
   /// @param nodeOperatorId The ID of the node operator that does not exist
@@ -469,9 +479,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer != bytes32("") || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      if (storedNode.signer != bytes32("")) revert NodeAlreadyExists(node.p2pId);
+      if (node.p2pId == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
-      if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
+      if (node.signer == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
@@ -503,7 +514,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       Node storage node = s_nodes[p2pId];
 
-      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeP2PId(p2pId);
+      if (node.signer == bytes32("")) revert NodeDoesNotExist(p2pId);
       if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
       if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
@@ -526,11 +537,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
 
-      if (
-        bytes32(node.signer) == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer))
-      ) revert InvalidNodeSigner();
+      if (node.signer == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer)))
+        revert InvalidNodeSigner();
 
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
