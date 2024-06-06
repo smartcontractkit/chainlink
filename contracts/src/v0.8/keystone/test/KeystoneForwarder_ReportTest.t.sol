@@ -6,11 +6,7 @@ import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
-  event ReportProcessed(
-    address indexed receiver,
-    bytes32 indexed workflowExecutionId,
-    KeystoneForwarder.DeliveryState result
-  );
+  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
   uint8 internal version = 1;
   uint32 internal timestamp = 0;
@@ -133,14 +129,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
   }
 
   function test_Report_SuccessfulDelivery() public {
-    // taken from https://github.com/smartcontractkit/chainlink/blob/2390ec7f3c56de783ef4e15477e99729f188c524/core/services/relay/evm/cap_encoder_test.go#L42-L55
-    // bytes memory report = hex"6d795f6964000000000000000000000000000000000000000000000000000000010203046d795f657865637574696f6e5f696400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000301020300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004aabbccdd00000000000000000000000000000000000000000000000000000000";
-
     vm.expectEmit(address(s_receiver));
     emit MessageReceived(metadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), executionId, KeystoneForwarder.DeliveryState.SUCCESS);
+    emit ReportProcessed(address(s_receiver), executionId, true);
 
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 

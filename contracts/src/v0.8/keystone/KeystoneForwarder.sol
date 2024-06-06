@@ -77,15 +77,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice Contains the configuration for each DON ID
   mapping(uint32 donId => OracleSet) internal s_configs;
 
-  enum DeliveryState {
-    PROCESSING,
-    SUCCESS,
-    FAILURE
-  }
-
   struct DeliveryStatus {
     address transmitter;
-    DeliveryState state;
+    bool state;
   }
 
   mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
@@ -94,7 +88,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param receiver The address of the receiver contract
   /// @param workflowExecutionId The ID of the workflow execution
   /// @param result The result of the attempted delivery. 1 if successful, 2 if not.
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, DeliveryState result);
+  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -147,7 +141,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
-    s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.PROCESSING);
+    s_reports[combinedId].transmitter = msg.sender;
 
     if (s_configs[donId].f + 1 != signatures.length)
       revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
@@ -179,11 +173,10 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
         rawReport[METADATA_LENGTH:]
       )
     {
-      s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.SUCCESS);
-      emit ReportProcessed(receiverAddress, workflowExecutionId, DeliveryState.SUCCESS);
+      s_reports[combinedId].state = true;
+      emit ReportProcessed(receiverAddress, workflowExecutionId, true);
     } catch {
-      s_reports[combinedId] = DeliveryStatus(msg.sender, DeliveryState.FAILURE);
-      emit ReportProcessed(receiverAddress, workflowExecutionId, DeliveryState.FAILURE);
+      emit ReportProcessed(receiverAddress, workflowExecutionId, false);
     }
   }
 
