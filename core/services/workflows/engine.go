@@ -8,18 +8,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jonboulle/clockwork"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 const (
 	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
-	mockedTriggerID  = "cccccccccc0000000000000000000000"
-	mockedWorkflowID = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+	mockedTriggerID = "cccccccccc0000000000000000000000"
 )
 
 type donInfo struct {
@@ -27,21 +31,27 @@ type donInfo struct {
 	PeerID func() *p2ptypes.PeerID
 }
 
+type stepRequest struct {
+	stepRef string
+	state   store.WorkflowExecution
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
-	logger              logger.Logger
-	registry            core.CapabilitiesRegistry
-	workflow            *workflow
-	donInfo             donInfo
-	executionStates     *inMemoryStore
-	pendingStepRequests chan stepRequest
-	triggerEvents       chan capabilities.CapabilityResponse
-	newWorkerCh         chan struct{}
-	stepUpdateCh        chan stepState
-	wg                  sync.WaitGroup
-	stopCh              services.StopChan
-	newWorkerTimeout    time.Duration
+	logger               logger.Logger
+	registry             core.CapabilitiesRegistry
+	workflow             *workflow
+	donInfo              donInfo
+	executionStates      store.Store
+	pendingStepRequests  chan stepRequest
+	triggerEvents        chan capabilities.CapabilityResponse
+	newWorkerCh          chan struct{}
+	stepUpdateCh         chan store.WorkflowExecutionStep
+	wg                   sync.WaitGroup
+	stopCh               services.StopChan
+	newWorkerTimeout     time.Duration
+	maxExecutionDuration time.Duration
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -53,6 +63,8 @@ type Engine struct {
 	// Used for testing to control the retry interval
 	// when initializing the engine.
 	retryMs int
+
+	clock clockwork.Clock
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -78,7 +90,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	//
 	triggersInitialized := true
 	for _, t := range e.workflow.triggers {
-		tg, err := e.registry.GetTrigger(ctx, t.Type)
+		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
 			e.logger.Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
@@ -98,56 +110,70 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	// - fetching the capability
 	// - register the capability to this workflow
 	// - initializing the step's executionStrategy
-	capabilityRegistrationErr := e.workflow.walkDo(keywordTrigger, func(s *step) error {
+	capabilityRegistrationErr := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		// The graph contains a dummy step for triggers, but
 		// we handle triggers separately since there might be more than one
 		// trigger registered to a workflow.
-		if s.Ref == keywordTrigger {
+		if s.Ref == workflows.KeywordTrigger {
 			return nil
 		}
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize capability for step %s: %w", s.Ref, err)
 		}
 
-		return e.initializeExecutionStrategy(s)
+		return nil
 	})
 
 	return capabilityRegistrationErr
 }
 
-func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
+func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// If the capability already exists, that means we've already registered it
-	if s.capability != nil {
+	if step.capability != nil {
 		return nil
 	}
 
-	cp, err := e.registry.Get(ctx, s.Type)
+	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", s.Type, err)
+		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
+	}
+
+	// Special treatment for local targets - wrap into a transmission capability
+	target, isTarget := cp.(capabilities.TargetCapability)
+	if isTarget {
+		capInfo, err2 := target.Info(ctx)
+		if err2 != nil {
+			return fmt.Errorf("failed to get info of target capability: %w", err2)
+		}
+
+		// If the DON is nil this is a local target
+		if capInfo.DON == nil {
+			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
+		}
 	}
 
 	// We configure actions, consensus and targets here, and
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", s.Type)
+		return fmt.Errorf("could not coerce capability %s to CallbackCapability", step.ID)
 	}
 
-	if s.config == nil {
-		configMap, newMapErr := values.NewMap(s.Config)
+	if step.config == nil {
+		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
 			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
 		}
-		s.config = configMap
+		step.config = configMap
 	}
 
 	registrationRequest := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
 			WorkflowID: e.workflow.id,
 		},
-		Config: s.config,
+		Config: step.config,
 	}
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
@@ -155,7 +181,7 @@ func (e *Engine) initializeCapability(ctx context.Context, s *step) error {
 		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
 	}
 
-	s.capability = cc
+	step.capability = cc
 	return nil
 }
 
@@ -183,7 +209,13 @@ func (e *Engine) init(ctx context.Context) {
 		return
 	}
 
-	e.logger.Debug("capabilities resolved, registering triggers")
+	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
+	err := e.resumeInProgressExecutions(ctx)
+	if err != nil {
+		e.logger.Errorf("failed to resume workflows: %w", err)
+	}
+
+	e.logger.Debug("registering triggers")
 	for _, t := range e.workflow.triggers {
 		err := e.registerTrigger(ctx, t)
 		if err != nil {
@@ -195,56 +227,52 @@ func (e *Engine) init(ctx context.Context) {
 	e.afterInit(true)
 }
 
-// initializeExecutionStrategy for `step`.
-// Broadly speaking, we'll use `immediateExecution` for non-target steps
-// and `scheduledExecution` for targets. If we don't have the necessary
-// config to initialize a scheduledExecution for a target, we'll fallback to
-// using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(step *step) error {
-	if step.executionStrategy != nil {
-		return nil
+var (
+	defaultOffset, defaultLimit = 0, 1_000
+)
+
+func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
+	wipExecutions, err := e.executionStates.GetUnfinished(ctx, defaultOffset, defaultLimit)
+	if err != nil {
+		return err
 	}
 
-	// If donInfo has no peerID, then the peer wrapper hasn't been initialized.
-	// Let's error and try again next time around.
-	if e.donInfo.PeerID() == nil {
-		return fmt.Errorf("failed to initialize execution strategy: peer ID %s has not been initialized", e.donInfo.PeerID())
+	// TODO: paginate properly
+	if len(wipExecutions) >= defaultLimit {
+		e.logger.Warnf("possible execution overflow during resumption")
 	}
 
-	ie := immediateExecution{}
-	if step.CapabilityType != capabilities.CapabilityTypeTarget {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", step)
-		step.executionStrategy = ie
-		return nil
-	}
+	// Cache the dependents associated with a step.
+	// We may have to reprocess many executions, but should only
+	// need to calculate the dependents of a step once since
+	// they won't change.
+	refToDeps := map[string][]*step{}
+	for _, execution := range wipExecutions {
+		for _, step := range execution.Steps {
+			// NOTE: In order to determine what tasks need to be enqueued,
+			// we look at any completed steps, and for each dependent,
+			// check if they are ready to be enqueued.
+			// This will also handle an execution that has stalled immediately on creation,
+			// since we always create an execution with an initially completed trigger step.
+			if step.Status != store.StatusCompleted {
+				continue
+			}
 
-	dinfo := e.donInfo
-	if dinfo.DON == nil {
-		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
-		step.executionStrategy = ie
-		return nil
-	}
+			sds, ok := refToDeps[step.Ref]
+			if !ok {
+				s, err := e.workflow.dependents(step.Ref)
+				if err != nil {
+					return err
+				}
 
-	var position *int
-	for i, w := range dinfo.Members {
-		if w == *dinfo.PeerID() {
-			idx := i
-			position = &idx
+				sds = s
+			}
+
+			for _, sd := range sds {
+				e.queueIfReady(execution, sd)
+			}
 		}
 	}
-
-	if position == nil {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", step, e.donInfo)
-		step.executionStrategy = ie
-		return nil
-	}
-
-	step.executionStrategy = scheduledExecution{
-		DON:      e.donInfo.DON,
-		Position: *position,
-		PeerID:   e.donInfo.PeerID(),
-	}
-	e.logger.Debugf("initializing step %+v with scheduled execution strategy", step)
 	return nil
 }
 
@@ -268,14 +296,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate trigger %s, %s", t.Type, err)
+		return fmt.Errorf("failed to instantiate trigger %s, %s", t.ID, err)
 	}
 
 	go func() {
@@ -341,12 +372,12 @@ func (e *Engine) loop(ctx context.Context) {
 			// Wait for a new worker to be available before dispatching a new one.
 			// We'll do this up to newWorkerTimeout. If this expires, we'll put the
 			// message back on the queue and keep going.
-			t := time.NewTimer(e.newWorkerTimeout)
+			t := e.clock.NewTimer(e.newWorkerTimeout)
 			select {
 			case <-e.newWorkerCh:
 				e.wg.Add(1)
 				go e.workerForStepRequest(ctx, pendingStepRequest)
-			case <-t.C:
+			case <-t.Chan():
 				e.logger.Errorf("timed out when spinning off worker for pending step request %+v", pendingStepRequest)
 				e.pendingStepRequests <- pendingStepRequest
 			}
@@ -379,21 +410,23 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
 	e.logger.Debugw("executing on a trigger event", "event", event, "executionID", executionID)
-	ec := &executionState{
-		steps: map[string]*stepState{
-			keywordTrigger: {
-				outputs: &stepOutput{
-					value: event,
+	ec := &store.WorkflowExecution{
+		Steps: map[string]*store.WorkflowExecutionStep{
+			workflows.KeywordTrigger: {
+				Outputs: store.StepOutput{
+					Value: event,
 				},
-				status: statusCompleted,
+				Status:      store.StatusCompleted,
+				ExecutionID: executionID,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		workflowID:  e.workflow.id,
-		executionID: executionID,
-		status:      statusStarted,
+		WorkflowID:  e.workflow.id,
+		ExecutionID: executionID,
+		Status:      store.StatusStarted,
 	}
 
-	err := e.executionStates.add(ctx, ec)
+	err := e.executionStates.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -401,7 +434,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	// Find the tasks we need to fire when a trigger has fired and enqueue them.
 	// This consists of a) nodes without a dependency and b) nodes which depend
 	// on a trigger
-	triggerDependents, err := e.workflow.dependents(keywordTrigger)
+	triggerDependents, err := e.workflow.dependents(workflows.KeywordTrigger)
 	if err != nil {
 		return err
 	}
@@ -413,26 +446,25 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	return nil
 }
 
-func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) error {
-	state, err := e.executionStates.updateStep(ctx, &stepUpdate)
+func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.WorkflowExecutionStep) error {
+	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
 
-	switch stepUpdate.status {
-	case statusCompleted:
-		stepDependents, err := e.workflow.dependents(stepUpdate.ref)
+	switch stepUpdate.Status {
+	case store.StatusCompleted:
+		stepDependents, err := e.workflow.dependents(stepUpdate.Ref)
 		if err != nil {
 			return err
 		}
 
 		// There are no steps left to process in the current path, so let's check if
 		// we've completed the workflow.
-		// If not, we'll check for any dependents that are ready to process.
 		if len(stepDependents) == 0 {
 			workflowCompleted := true
-			err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
-				step, ok := state.steps[s.Ref]
+			err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+				step, ok := state.Steps[s.Ref]
 				// The step is missing from the state,
 				// which means it hasn't been processed yet.
 				// Let's mark `workflowCompleted` = false, and
@@ -442,8 +474,8 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) err
 					return nil
 				}
 
-				switch step.status {
-				case statusCompleted, statusErrored:
+				switch step.Status {
+				case store.StatusCompleted, store.StatusErrored:
 				default:
 					workflowCompleted = false
 				}
@@ -454,18 +486,23 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) err
 			}
 
 			if workflowCompleted {
-				err := e.finishExecution(ctx, state.executionID, statusCompleted)
-				if err != nil {
-					return err
-				}
+				return e.finishExecution(ctx, state.ExecutionID, store.StatusCompleted)
 			}
 		}
 
+		// We haven't completed the workflow, but should we continue?
+		// If we've been executing for too long, let's time the workflow out and stop here.
+		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
+			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
+		}
+
+		// Finally, since the workflow hasn't timed out or completed, let's
+		// check for any dependents that are ready to process.
 		for _, sd := range stepDependents {
 			e.queueIfReady(state, sd)
 		}
-	case statusErrored:
-		err := e.finishExecution(ctx, state.executionID, statusErrored)
+	case store.StatusErrored:
+		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
 		if err != nil {
 			return err
 		}
@@ -474,11 +511,11 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate stepState) err
 	return nil
 }
 
-func (e *Engine) queueIfReady(state executionState, step *step) {
+func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 	// Check if all dependencies are completed for the current step
 	var waitingOnDependencies bool
-	for _, dr := range step.dependencies {
-		stepState, ok := state.steps[dr]
+	for _, dr := range step.Vertex.Dependencies {
+		stepState, ok := state.Steps[dr]
 		if !ok {
 			waitingOnDependencies = true
 			continue
@@ -489,7 +526,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 		// This includes cases where one of the dependent
 		// steps has errored, since that means we shouldn't
 		// schedule the step for execution.
-		if stepState.status != statusCompleted {
+		if stepState.Status != store.StatusCompleted {
 			waitingOnDependencies = true
 		}
 	}
@@ -506,7 +543,7 @@ func (e *Engine) queueIfReady(state executionState, step *step) {
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
 	e.logger.Infow("finishing execution", "executionID", executionID, "status", status)
-	err := e.executionStates.updateStatus(ctx, executionID, status)
+	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
 	}
@@ -521,27 +558,27 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
-	l := e.logger.With("stepRef", msg.stepRef, "executionID", msg.state.executionID)
+	l := e.logger.With("stepRef", msg.stepRef, "executionID", msg.state.ExecutionID)
 
 	l.Debugw("executing on a step event")
-	stepState := &stepState{
-		outputs:     &stepOutput{},
-		executionID: msg.state.executionID,
-		ref:         msg.stepRef,
+	stepState := &store.WorkflowExecutionStep{
+		Outputs:     store.StepOutput{},
+		ExecutionID: msg.state.ExecutionID,
+		Ref:         msg.stepRef,
 	}
 
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	if err != nil {
 		l.Errorf("error executing step request: %s", err)
-		stepState.outputs.err = err
-		stepState.status = statusErrored
+		stepState.Outputs.Err = err
+		stepState.Status = store.StatusErrored
 	} else {
 		l.Infow("step executed successfully", "outputs", outputs)
-		stepState.outputs.value = outputs
-		stepState.status = statusCompleted
+		stepState.Outputs.Value = outputs
+		stepState.Status = store.StatusCompleted
 	}
 
-	stepState.inputs = inputs
+	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
 	// If the context is canceled, we'll just drop the update.
@@ -577,12 +614,15 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Inputs: inputs,
 		Config: step.config,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          msg.state.workflowID,
-			WorkflowExecutionID: msg.state.executionID,
+			WorkflowID:          msg.state.WorkflowID,
+			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowOwner:       e.workflow.owner,
+			WorkflowName:        e.workflow.name,
+			WorkflowDonID:       e.donInfo.ID,
 		},
 	}
 
-	output, err := step.executionStrategy.Apply(ctx, l, step.capability, tr)
+	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
 	if err != nil {
 		return inputs, nil, err
 	}
@@ -601,7 +641,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
@@ -635,8 +678,8 @@ func (e *Engine) Close() error {
 		close(e.stopCh)
 		e.wg.Wait()
 
-		err := e.workflow.walkDo(keywordTrigger, func(s *step) error {
-			if s.Ref == keywordTrigger {
+		err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+			if s.Ref == workflows.KeywordTrigger {
 				return nil
 			}
 
@@ -670,27 +713,33 @@ func (e *Engine) Close() error {
 }
 
 type Config struct {
-	Spec             string
-	WorkflowID       string
-	Lggr             logger.Logger
-	Registry         core.CapabilitiesRegistry
-	MaxWorkerLimit   int
-	QueueSize        int
-	NewWorkerTimeout time.Duration
-	DONInfo          *capabilities.DON
-	PeerID           func() *p2ptypes.PeerID
+	Spec                 string
+	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         string
+	Lggr                 logger.Logger
+	Registry             core.CapabilitiesRegistry
+	MaxWorkerLimit       int
+	QueueSize            int
+	NewWorkerTimeout     time.Duration
+	MaxExecutionDuration time.Duration
+	DONInfo              *capabilities.DON
+	PeerID               func() *p2ptypes.PeerID
+	Store                store.Store
 
 	// For testing purposes only
 	maxRetries          int
 	retryMs             int
 	afterInit           func(success bool)
 	onExecutionFinished func(weid string)
+	clock               clockwork.Clock
 }
 
 const (
-	defaultWorkerLimit      = 100
-	defaultQueueSize        = 100000
-	defaultNewWorkerTimeout = 2 * time.Second
+	defaultWorkerLimit          = 100
+	defaultQueueSize            = 100000
+	defaultNewWorkerTimeout     = 2 * time.Second
+	defaultMaxExecutionDuration = 10 * time.Minute
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
@@ -706,6 +755,14 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.NewWorkerTimeout = defaultNewWorkerTimeout
 	}
 
+	if cfg.MaxExecutionDuration == 0 {
+		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
+	}
+
+	if cfg.Store == nil {
+		cfg.Store = store.NewInMemoryStore()
+	}
+
 	if cfg.retryMs == 0 {
 		cfg.retryMs = 5000
 	}
@@ -716,6 +773,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.onExecutionFinished == nil {
 		cfg.onExecutionFinished = func(weid string) {}
+	}
+
+	if cfg.clock == nil {
+		cfg.clock = clockwork.NewRealClock()
 	}
 
 	// TODO: validation of the workflow spec
@@ -732,6 +793,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	workflow.id = cfg.WorkflowID
+	workflow.owner = cfg.WorkflowOwner
+	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
@@ -747,18 +810,38 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 			DON:    cfg.DONInfo,
 			PeerID: cfg.PeerID,
 		},
-		executionStates:     newInMemoryStore(),
-		pendingStepRequests: make(chan stepRequest, cfg.QueueSize),
-		newWorkerCh:         newWorkerCh,
-		stepUpdateCh:        make(chan stepState),
-		triggerEvents:       make(chan capabilities.CapabilityResponse),
-		stopCh:              make(chan struct{}),
-		newWorkerTimeout:    cfg.NewWorkerTimeout,
+		executionStates:      cfg.Store,
+		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
+		newWorkerCh:          newWorkerCh,
+		stepUpdateCh:         make(chan store.WorkflowExecutionStep),
+		triggerEvents:        make(chan capabilities.CapabilityResponse),
+		stopCh:               make(chan struct{}),
+		newWorkerTimeout:     cfg.NewWorkerTimeout,
+		maxExecutionDuration: cfg.MaxExecutionDuration,
 
 		onExecutionFinished: cfg.onExecutionFinished,
 		afterInit:           cfg.afterInit,
 		maxRetries:          cfg.maxRetries,
 		retryMs:             cfg.retryMs,
+		clock:               cfg.clock,
 	}
 	return engine, nil
+}
+
+// ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
+// result if it is a single value otherwise returns the list.
+func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
+	l, err := capabilities.ExecuteSync(ctx, cap, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// `ExecuteSync` returns a `values.List` even if there was
+	// just one return value. If that is the case, let's unwrap the
+	// single value to make it easier to use in -- for example -- variable interpolation.
+	if len(l.Underlying) > 1 {
+		return l, nil
+	}
+
+	return l.Underlying[0], nil
 }

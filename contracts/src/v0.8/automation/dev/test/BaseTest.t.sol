@@ -43,6 +43,7 @@ contract BaseTest is Test {
   LinkToken internal linkToken;
   ERC20Mock6Decimals internal usdToken6;
   ERC20Mock internal usdToken18;
+  ERC20Mock internal usdToken18_2;
   WETH9 internal weth;
   MockV3Aggregator internal LINK_USD_FEED;
   MockV3Aggregator internal NATIVE_USD_FEED;
@@ -76,6 +77,7 @@ contract BaseTest is Test {
     linkToken = new LinkToken();
     linkToken.grantMintRole(OWNER);
     usdToken18 = new ERC20Mock("MOCK_ERC20_18Decimals", "MOCK_ERC20_18Decimals", OWNER, 0);
+    usdToken18_2 = new ERC20Mock("Second_MOCK_ERC20_18Decimals", "Second_MOCK_ERC20_18Decimals", OWNER, 0);
     usdToken6 = new ERC20Mock6Decimals("MOCK_ERC20_6Decimals", "MOCK_ERC20_6Decimals", OWNER, 0);
     weth = new WETH9();
 
@@ -127,6 +129,8 @@ contract BaseTest is Test {
     usdToken18.mint(UPKEEP_ADMIN, 1000e18);
     usdToken18.mint(FINANCE_ADMIN, 1000e18);
     usdToken18.mint(STRANGER, 1000e18);
+
+    usdToken18_2.mint(UPKEEP_ADMIN, 1000e18);
 
     usdToken6.mint(OWNER, 1000e6);
     usdToken6.mint(UPKEEP_ADMIN, 1000e6);

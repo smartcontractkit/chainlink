@@ -23,6 +23,7 @@ type = "workflow"
 schemaVersion = 1
 workflowId = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 workflowOwner = "00000000000000000000000000000000000000aa"
+workflowName = "ten bytes!"
 `,
 			true,
 		},
@@ -38,6 +39,28 @@ invalid syntax{{{{
 			`
 type = "work flows"
 schemaVersion = 1
+`,
+			false,
+		},
+		{
+			"invalid name length",
+			`
+type = "workflow"
+schemaVersion = 1
+workflowId = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+workflowOwner = "00000000000000000000000000000000000000aa"
+workflowName = "not ten bytes"
+`,
+			false,
+		},
+		{
+			"not a hex owner",
+			`
+type = "workflow"
+schemaVersion = 1
+workflowId = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+workflowOwner = "00000000000000000000000000000000000000aZ"
+workflowName = "0123456789"
 `,
 			false,
 		},

@@ -94,7 +94,6 @@ func Test_Eth_Errors(t *testing.T) {
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
-
 		tests := []errorCase{
 			{"replacement transaction underpriced", true, "geth"},
 			{"Replacement transaction underpriced", true, "Besu"},
@@ -214,6 +213,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient balance for transfer", true, "zkSync"},
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 			{"client error insufficient eth", true, "tomlConfig"},
+			{"transaction would cause overdraft", true, "Geth"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)

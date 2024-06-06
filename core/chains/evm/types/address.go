@@ -92,7 +92,6 @@ func (a *EIP55Address) UnmarshalJSON(input []byte) error {
 // Value returns this instance serialized for database storage.
 func (a EIP55Address) Value() (driver.Value, error) {
 	return a.Bytes(), nil
-
 }
 
 // Scan reads the database value and returns an instance.

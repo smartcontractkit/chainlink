@@ -118,7 +118,6 @@ func (f *fixedPriceEstimator) BumpDynamicFee(
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
 ) (bumped DynamicFee, err error) {
-
 	return BumpDynamicFeeOnly(
 		f.config,
 		f.bhConfig.EIP1559FeeCapBufferBlocks(),

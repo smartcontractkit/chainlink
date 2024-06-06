@@ -108,22 +108,19 @@ type orm struct {
 	lggr              logger.Logger
 	maxSuccessfulRuns uint64
 	// jobID => count
-	pm   sync.Map
-	wg   sync.WaitGroup
-	ctx  context.Context
-	cncl context.CancelFunc
+	pm     sync.Map
+	wg     sync.WaitGroup
+	stopCh services.StopChan
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(ds sqlutil.DataSource, lggr logger.Logger, jobPipelineMaxSuccessfulRuns uint64) *orm {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &orm{
 		ds:                ds,
 		lggr:              lggr.Named("PipelineORM"),
 		maxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
-		ctx:               ctx,
-		cncl:              cancel,
+		stopCh:            make(chan struct{}),
 	}
 }
 
@@ -142,7 +139,7 @@ func (o *orm) Start(_ context.Context) error {
 
 func (o *orm) Close() error {
 	return o.StopOnce("PipelineORM", func() error {
-		o.cncl()
+		close(o.stopCh)
 		o.wg.Wait()
 		return nil
 	})
@@ -177,13 +174,11 @@ func (o *orm) DataSource() sqlutil.DataSource { return o.ds }
 func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return o.withDataSource(ds) }
 
 func (o *orm) withDataSource(ds sqlutil.DataSource) *orm {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &orm{
 		ds:                ds,
 		lggr:              o.lggr,
 		maxSuccessfulRuns: o.maxSuccessfulRuns,
-		ctx:               ctx,
-		cncl:              cancel,
+		stopCh:            make(chan struct{}),
 	}
 }
 
@@ -231,7 +226,7 @@ func (o *orm) CreateRun(ctx context.Context, run *Run) (err error) {
 // InsertRun inserts a run into the database
 func (o *orm) InsertRun(ctx context.Context, run *Run) error {
 	if run.Status() == RunStatusCompleted {
-		defer o.prune(o.ds, run.PruningKey)
+		defer o.prune(ctx, o.ds, run.PruningKey)
 	}
 	query, args, err := o.ds.BindNamed(`INSERT INTO pipeline_runs (pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 		VALUES (:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
@@ -287,7 +282,7 @@ func (o *orm) StoreRun(ctx context.Context, run *Run) (restart bool, err error) 
 				return fmt.Errorf("failed to update pipeline run %d to %s: %w", run.ID, run.State, err)
 			}
 		} else {
-			defer o.prune(tx.ds, run.PruningKey)
+			defer o.prune(ctx, tx.ds, run.PruningKey)
 			// Simply finish the run, no need to do any sort of locking
 			if run.Outputs.Val == nil || len(run.FatalErrors)+len(run.AllErrors) == 0 {
 				return fmt.Errorf("run must have both Outputs and Errors, got Outputs: %#v, FatalErrors: %#v, AllErrors: %#v", run.Outputs.Val, run.FatalErrors, run.AllErrors)
@@ -401,7 +396,7 @@ RETURNING id
 
 		defer func() {
 			for pruningKey := range pruningKeysm {
-				o.prune(tx.ds, pruningKey)
+				o.prune(ctx, tx.ds, pruningKey)
 			}
 		}()
 
@@ -510,13 +505,12 @@ func (o *orm) insertFinishedRun(ctx context.Context, run *Run, saveSuccessfulTas
 		return nil
 	}
 
-	defer o.prune(o.ds, run.PruningKey)
+	defer o.prune(ctx, o.ds, run.PruningKey)
 	sql = `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at, finished_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at, :finished_at);`
 	_, err = o.ds.NamedExecContext(ctx, sql, run.PipelineTaskRuns)
 	return errors.Wrap(err, "failed to insert pipeline_task_runs")
-
 }
 
 // DeleteRunsOlderThan deletes all pipeline_runs that have been finished for a certain threshold to free DB space
@@ -710,13 +704,13 @@ const syncLimit = 1000
 //
 // Note this does not guarantee the pipeline_runs table is kept to exactly the
 // max length, rather that it doesn't excessively larger than it.
-func (o *orm) prune(tx sqlutil.DataSource, jobID int32) {
+func (o *orm) prune(ctx context.Context, tx sqlutil.DataSource, jobID int32) {
 	if jobID == 0 {
 		o.lggr.Panic("expected a non-zero job ID")
 	}
 	// For small maxSuccessfulRuns its fast enough to prune every time
 	if o.maxSuccessfulRuns < syncLimit {
-		o.withDataSource(tx).execPrune(o.ctx, jobID)
+		o.withDataSource(tx).execPrune(ctx, jobID)
 		return
 	}
 	// for large maxSuccessfulRuns we do it async on a sampled basis
@@ -726,15 +720,15 @@ func (o *orm) prune(tx sqlutil.DataSource, jobID int32) {
 	if val%every == 0 {
 		ok := o.IfStarted(func() {
 			o.wg.Add(1)
-			go func() {
+			go func(ctx context.Context) {
 				o.lggr.Debugw("Pruning runs", "jobID", jobID, "count", val, "every", every, "maxSuccessfulRuns", o.maxSuccessfulRuns)
 				defer o.wg.Done()
-				ctx, cancel := context.WithTimeout(sqlutil.WithoutDefaultTimeout(o.ctx), time.Minute)
+				ctx, cancel := o.stopCh.CtxCancel(context.WithTimeout(sqlutil.WithoutDefaultTimeout(ctx), time.Minute))
 				defer cancel()
 
 				// Must not use tx here since it could be stale by the time we execute async.
 				o.execPrune(ctx, jobID)
-			}()
+			}(context.WithoutCancel(ctx)) // don't propagate cancellation
 		})
 		if !ok {
 			o.lggr.Warnw("Cannot prune: ORM is not running", "jobID", jobID)

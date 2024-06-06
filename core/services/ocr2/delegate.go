@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
@@ -25,21 +26,28 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+<<<<<<< HEAD
+=======
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+
+>>>>>>> origin/develop
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
-	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -298,7 +306,7 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	spec := jb.OCR2OracleSpec
 	chain, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
-		d.lggr.Error("cleanupEVM: failed to chain get chain %s", "err", relayID.ChainID, err)
+		d.lggr.Errorw("cleanupEVM: failed to get chain id", "chainId", relayID.ChainID, "err", err)
 		return nil
 	}
 	lp := chain.LogPoller()
@@ -311,10 +319,17 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
 	case types.OCR2Keeper:
+		// Not worth the effort to validate and parse the job spec config to figure out whether this is v2.0 or v2.1,
+		// simpler and faster to just Unregister them both
 		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
+		filters21, err2 := ocr2keeper.FilterNamesFromSpec21(spec)
+		if err2 != nil {
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+		}
+		filters = append(filters, filters21...)
 	default:
 		return nil
 	}
@@ -682,17 +697,59 @@ func (d *Delegate) newServicesGenericPlugin(
 		}
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
-		oracle, err := libocr2.NewOracle(oracleArgs)
-		if err != nil {
-			return nil, err
+		oracle, oracleErr := libocr2.NewOracle(oracleArgs)
+		if oracleErr != nil {
+			return nil, oracleErr
 		}
 		srvs = append(srvs, job.NewServiceAdapter(oracle))
 
 	case 3:
 		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
-		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog,
-			capabilitiesRegistry, keyValueStore, relayerSet)
-		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
+		plugin := ocr3.NewLOOPPService(
+			pluginLggr,
+			grpcOpts,
+			cmdFn,
+			pluginConfig,
+			providerClientConn,
+			pr,
+			ta,
+			errorLog,
+			capabilitiesRegistry,
+			keyValueStore,
+			relayerSet,
+		)
+
+		// Adapt the provider's contract transmitter for OCR3, unless
+		// the provider exposes an OCR3ContractTransmitter interface, in which case
+		// we'll use that instead.
+		contractTransmitter := ocr3types.ContractTransmitter[[]byte](
+			ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter()),
+		)
+		if ocr3Provider, ok := provider.(types.OCR3ContractTransmitter); ok {
+			contractTransmitter = ocr3Provider.OCR3ContractTransmitter()
+		}
+		var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+		if onchainSigningStrategy.IsMultiChain() {
+			// We are extracting the config beforehand
+			keyBundles := map[string]ocr2key.KeyBundle{}
+			for name := range onchainSigningStrategy.ConfigCopy() {
+				kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				os, ostErr := d.ks.Get(kbID)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				keyBundles[name] = os
+			}
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
+		}
 		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -704,7 +761,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			MonitoringEndpoint:           oracleEndpoint,
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
-			OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+			OnchainKeyring:               onchainKeyringAdapter,
 			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin
@@ -1452,7 +1509,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
-
 	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}

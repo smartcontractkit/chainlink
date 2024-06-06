@@ -80,7 +80,6 @@ func TestShell_CosmosKeys(t *testing.T) {
 		require.Equal(t, 1, len(r.Renders))
 		keys := *r.Renders[0].(*cmd.CosmosKeyPresenters)
 		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
-
 	})
 
 	t.Run("CreateCosmosKey", func(tt *testing.T) {

@@ -95,6 +95,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
     bytes memory callData = _checkPayload(id, triggerType, triggerData);
 
     gasUsed = gasleft();
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
@@ -196,6 +197,7 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
 
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
+    // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
     gasUsed = gasUsed - gasleft();
     if (!success) {
@@ -430,14 +432,14 @@ contract AutomationRegistryLogicB2_3 is AutomationRegistryBase2_3, Chainable {
    * @param asset the asset to withdraw
    * @param to the address to send the fees to
    * @param amount the amount to withdraw
-   * @dev we prevent withdrawing non-LINK fees unless there is sufficient LINK liquidity
+   * @dev in ON_CHAIN mode, we prevent withdrawing non-LINK fees unless there is sufficient LINK liquidity
    * to cover all outstanding debts on the registry
    */
   function withdrawERC20Fees(IERC20 asset, address to, uint256 amount) external {
     _onlyFinanceAdminAllowed();
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (address(asset) == address(i_link)) revert InvalidToken();
-    if (_linkAvailableForPayment() < 0) revert InsufficientLinkLiquidity();
+    if (_linkAvailableForPayment() < 0 && s_payoutMode == PayoutMode.ON_CHAIN) revert InsufficientLinkLiquidity();
     uint256 available = asset.balanceOf(address(this)) - s_reserveAmounts[asset];
     if (amount > available) revert InsufficientBalance(available, amount);
 

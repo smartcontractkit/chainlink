@@ -37,6 +37,7 @@ type evmTxAttemptBuilderFeeConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMin() *assets.Wei
 	PriceMaxKey(common.Address) *assets.Wei
+	LimitDefault() uint64
 }
 
 func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
@@ -75,9 +76,39 @@ func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, prev
 	if err != nil {
 		return attempt, bumpedFee, bumpedFeeLimit, true, pkgerrors.Wrap(err, "failed to bump fee") // estimator errors are retryable
 	}
-
+	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt also sends empty payload, 0 value, and LimitDefault as fee limit
+	if previousAttempt.IsPurgeAttempt {
+		etx.EncodedPayload = []byte{}
+		etx.Value = *big.NewInt(0)
+		bumpedFeeLimit = c.feeConfig.LimitDefault()
+	}
 	attempt, retryable, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, bumpedFeeLimit, previousAttempt.TxType, lggr)
+	// If transaction's previous attempt is marked for purge, ensure the new bumped attempt is also marked for purge
+	if previousAttempt.IsPurgeAttempt {
+		attempt.IsPurgeAttempt = true
+	}
 	return attempt, bumpedFee, bumpedFeeLimit, retryable, err
+}
+
+func (c *evmTxAttemptBuilder) NewPurgeTxAttempt(ctx context.Context, etx Tx, lggr logger.Logger) (attempt TxAttempt, err error) {
+	// Use the LimitDefault since this is an empty tx
+	gasLimit := c.feeConfig.LimitDefault()
+	// Transactions being purged will always have a previous attempt since it had to have been broadcasted before at least once
+	previousAttempt := etx.TxAttempts[0]
+	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
+	bumpedFee, _, err := c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(etx.TxAttempts))
+	if err != nil {
+		return attempt, fmt.Errorf("failed to bump previous fee to use for the purge attempt: %w", err)
+	}
+	// Set empty payload and 0 value for purge attempts
+	etx.EncodedPayload = []byte{}
+	etx.Value = *big.NewInt(0)
+	attempt, _, err = c.NewCustomTxAttempt(ctx, etx, bumpedFee, gasLimit, previousAttempt.TxType, lggr)
+	if err != nil {
+		return attempt, fmt.Errorf("failed to create purge attempt: %w", err)
+	}
+	attempt.IsPurgeAttempt = true
+	return attempt, nil
 }
 
 // NewCustomTxAttempt is the lowest level func where the fee parameters + tx type must be passed in
@@ -138,7 +169,6 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(ctx context.Context, nonce evmty
 	attempt.SignedRawTx = signedTxBytes
 	attempt.Hash = hash
 	return attempt, nil
-
 }
 
 func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(ctx context.Context, etx Tx, fee gas.DynamicFee, gasLimit uint64) (attempt TxAttempt, err error) {

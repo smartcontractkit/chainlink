@@ -9,15 +9,19 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+<<<<<<< HEAD
+=======
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
+>>>>>>> origin/develop
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -38,7 +42,7 @@ type Config struct {
 
 	Cosmos coscfg.TOMLConfigs `toml:",omitempty"`
 
-	Solana solana.TOMLConfigs `toml:",omitempty"`
+	Solana solcfg.TOMLConfigs `toml:",omitempty"`
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 }
@@ -57,7 +61,7 @@ func (c *Config) warnings() (err error) {
 	deprecationErr := c.deprecationWarnings()
 	warningErr := c.valueWarnings()
 	err = multierr.Append(deprecationErr, warningErr)
-	_, list := utils.MultiErrorList(err)
+	_, list := commonconfig.MultiErrorList(err)
 	return list
 }
 
@@ -76,6 +80,7 @@ func (c *Config) valueWarnings() (err error) {
 // deprecationWarnings returns an error if the Config contains deprecated fields.
 // This is typically used before defaults have been applied, with input from the user.
 func (c *Config) deprecationWarnings() (err error) {
+<<<<<<< HEAD
 	// ChainType xdai is deprecated and has been renamed to gnosis
 	for _, evm := range c.EVM {
 		if evm.ChainType != nil && evm.ChainType.Slug() == "xdai" {
@@ -87,12 +92,15 @@ func (c *Config) deprecationWarnings() (err error) {
 		}
 	}
 	return
+=======
+	return nil
+>>>>>>> origin/develop
 }
 
 // Validate returns an error if the Config is not valid for use, as-is.
 // This is typically used after defaults have been applied.
 func (c *Config) Validate() error {
-	if err := config.Validate(c); err != nil {
+	if err := commonconfig.Validate(c); err != nil {
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 	return nil
@@ -121,7 +129,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.TOMLConfig)
+			c.Solana[i] = new(solcfg.TOMLConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}
@@ -138,22 +146,22 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	c.Core.SetFrom(&f.Core)
 
 	if err1 := c.EVM.SetFrom(&f.EVM); err1 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err1, "EVM"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err1, "EVM"))
 	}
 
 	if err2 := c.Cosmos.SetFrom(&f.Cosmos); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Cosmos"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Cosmos"))
 	}
 
 	if err3 := c.Solana.SetFrom(&f.Solana); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Solana"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err3, "Solana"))
 	}
 
 	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Starknet"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
 	}
 
-	_, err = utils.MultiErrorList(err)
+	_, err = commonconfig.MultiErrorList(err)
 
 	return err
 }
@@ -164,34 +172,34 @@ type Secrets struct {
 
 func (s *Secrets) SetFrom(f *Secrets) (err error) {
 	if err2 := s.Database.SetFrom(&f.Database); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Database"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Database"))
 	}
 
 	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Password"))
 	}
 
 	if err2 := s.WebServer.SetFrom(&f.WebServer); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "WebServer"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "WebServer"))
 	}
 
 	if err2 := s.Pyroscope.SetFrom(&f.Pyroscope); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Pyroscope"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Pyroscope"))
 	}
 
 	if err2 := s.Prometheus.SetFrom(&f.Prometheus); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Prometheus"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Prometheus"))
 	}
 
 	if err2 := s.Mercury.SetFrom(&f.Mercury); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Mercury"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Mercury"))
 	}
 
 	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Threshold"))
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
 	}
 
-	_, err = utils.MultiErrorList(err)
+	_, err = commonconfig.MultiErrorList(err)
 
 	return err
 }
@@ -215,7 +223,7 @@ var ErrInvalidSecrets = errors.New("invalid secrets")
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
-	if err := config.Validate(s); err != nil {
+	if err := commonconfig.Validate(s); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil
@@ -237,7 +245,7 @@ func (s *Secrets) ValidateDB() error {
 	}
 	s.setDefaults()
 	v := &dbValidationType{s.Database}
-	if err := config.Validate(v); err != nil {
+	if err := commonconfig.Validate(v); err != nil {
 		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
 	}
 	return nil

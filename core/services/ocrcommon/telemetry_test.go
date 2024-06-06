@@ -177,7 +177,6 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-
 	resp := getJsonParsedValue(trrs[0], &trrs)
 	assert.Equal(t, 123456.123456789, *resp)
 
@@ -187,7 +186,6 @@ func TestGetJsonParsedValue(t *testing.T) {
 
 	resp = getJsonParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
-
 }
 
 func TestSendEATelemetry(t *testing.T) {
@@ -303,7 +301,6 @@ func TestGetObservation(t *testing.T) {
 	}
 	obs = e.getObservation(finalResult)
 	assert.Equal(t, obs, int64(123456))
-
 }
 
 func TestCollectAndSend(t *testing.T) {
@@ -529,7 +526,6 @@ func TestGetPricesFromResults(t *testing.T) {
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
-
 	j := job.Job{
 		Type: job.Type(pipeline.OffchainReporting2JobType),
 		OCR2OracleSpec: &job.OCR2OracleSpec{

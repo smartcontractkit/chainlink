@@ -130,9 +130,7 @@ type functionsListener struct {
 	job                job.Job
 	bridgeAccessor     BridgeAccessor
 	shutdownWaitGroup  sync.WaitGroup
-	serviceContext     context.Context
-	serviceCancel      context.CancelFunc
-	chStop             chan struct{}
+	chStop             services.StopChan
 	pluginORM          ORM
 	pluginConfig       config.PluginConfig
 	s4Storage          s4.Storage
@@ -186,12 +184,10 @@ func NewFunctionsListener(
 // Start complies with job.Service
 func (l *functionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
-		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
-
 		switch l.pluginConfig.ContractVersion {
 		case 1:
 			l.shutdownWaitGroup.Add(1)
-			go l.processOracleEventsV1(l.serviceContext)
+			go l.processOracleEventsV1()
 		default:
 			return fmt.Errorf("unsupported contract version: %d", l.pluginConfig.ContractVersion)
 		}
@@ -213,15 +209,16 @@ func (l *functionsListener) Start(context.Context) error {
 // Close complies with job.Service
 func (l *functionsListener) Close() error {
 	return l.StopOnce("FunctionsListener", func() error {
-		l.serviceCancel()
 		close(l.chStop)
 		l.shutdownWaitGroup.Wait()
 		return nil
 	})
 }
 
-func (l *functionsListener) processOracleEventsV1(ctx context.Context) {
+func (l *functionsListener) processOracleEventsV1() {
 	defer l.shutdownWaitGroup.Done()
+	ctx, cancel := l.chStop.NewCtx()
+	defer cancel()
 	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
 	if freqMillis == 0 {
 		l.logger.Errorw("ListenerEventsCheckFrequencyMillis must set to more than 0 in PluginConfig")
@@ -255,11 +252,17 @@ func (l *functionsListener) processOracleEventsV1(ctx context.Context) {
 }
 
 func (l *functionsListener) getNewHandlerContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := l.chStop.NewCtx()
 	timeoutSec := l.pluginConfig.ListenerEventHandlerTimeoutSec
 	if timeoutSec == 0 {
-		return context.WithCancel(l.serviceContext)
+		return ctx, cancel
 	}
-	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
+	var cancel2 func()
+	ctx, cancel2 = context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
+	return ctx, func() {
+		cancel2()
+		cancel()
+	}
 }
 
 func (l *functionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {

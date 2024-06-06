@@ -389,7 +389,11 @@ WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
 # Configuration warning:
+<<<<<<< HEAD
 2 errors:
 	- EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.13.0, use 'gnosis' instead
 	- Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
+=======
+Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
+>>>>>>> origin/develop
 Valid configuration.

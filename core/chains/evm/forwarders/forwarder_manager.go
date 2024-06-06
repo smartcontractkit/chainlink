@@ -43,15 +43,14 @@ type FwdMgr struct {
 	logpoller evmlogpoller.LogPoller
 
 	// TODO(samhassan): sendersCache should be an LRU capped cache
-	// https://app.shortcut.com/chainlinklabs/story/37884/forwarder-manager-uses-lru-for-caching-dest-addresses
+	// https://smartcontract-it.atlassian.net/browse/ARCHIVE-22505
 	sendersCache map[common.Address][]common.Address
 	latestBlock  int64
 
 	authRcvr    authorized_receiver.AuthorizedReceiverInterface
 	offchainAgg offchain_aggregator_wrapper.OffchainAggregatorInterface
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	stopCh services.StopChan
 
 	cacheMu sync.RWMutex
 	wg      sync.WaitGroup
@@ -67,7 +66,7 @@ func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogp
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 	}
-	fwdMgr.ctx, fwdMgr.cancel = context.WithCancel(context.Background())
+	fwdMgr.stopCh = make(chan struct{})
 	return &fwdMgr
 }
 
@@ -87,7 +86,7 @@ func (f *FwdMgr) Start(ctx context.Context) error {
 		}
 		if len(fwdrs) != 0 {
 			f.initForwardersCache(ctx, fwdrs)
-			if err = f.subscribeForwardersLogs(fwdrs); err != nil {
+			if err = f.subscribeForwardersLogs(ctx, fwdrs); err != nil {
 				return err
 			}
 		}
@@ -120,7 +119,7 @@ func (f *FwdMgr) ForwarderFor(ctx context.Context, addr common.Address) (forward
 	}
 
 	for _, fwdr := range fwdrs {
-		eoas, err := f.getContractSenders(fwdr.Address)
+		eoas, err := f.getContractSenders(ctx, fwdr.Address)
 		if err != nil {
 			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
 			continue
@@ -159,7 +158,11 @@ func (f *FwdMgr) ForwarderForOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator 
 			continue
 		}
 
+<<<<<<< HEAD
 		eoas, err := f.getContractSenders(fwdr.Address)
+=======
+		eoas, err := f.getContractSenders(ctx, fwdr.Address)
+>>>>>>> origin/develop
 		if err != nil {
 			f.logger.Errorw("Failed to get forwarder senders", "forwarder", fwdr.Address, "err", err)
 			continue
@@ -195,16 +198,16 @@ func (f *FwdMgr) getForwardedPayload(dest common.Address, origPayload []byte) ([
 	return dataBytes, nil
 }
 
-func (f *FwdMgr) getContractSenders(addr common.Address) ([]common.Address, error) {
+func (f *FwdMgr) getContractSenders(ctx context.Context, addr common.Address) ([]common.Address, error) {
 	if senders, ok := f.getCachedSenders(addr); ok {
 		return senders, nil
 	}
-	senders, err := f.getAuthorizedSenders(f.ctx, addr)
+	senders, err := f.getAuthorizedSenders(ctx, addr)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "Failed to call getAuthorizedSenders on %s", addr)
 	}
 	f.setCachedSenders(addr, senders)
-	if err = f.subscribeSendersChangedLogs(addr); err != nil {
+	if err = f.subscribeSendersChangedLogs(ctx, addr); err != nil {
 		return nil, err
 	}
 	return senders, nil
@@ -231,27 +234,26 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
-
 	}
 }
 
-func (f *FwdMgr) subscribeForwardersLogs(fwdrs []Forwarder) error {
+func (f *FwdMgr) subscribeForwardersLogs(ctx context.Context, fwdrs []Forwarder) error {
 	for _, fwdr := range fwdrs {
-		if err := f.subscribeSendersChangedLogs(fwdr.Address); err != nil {
+		if err := f.subscribeSendersChangedLogs(ctx, fwdr.Address); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (f *FwdMgr) subscribeSendersChangedLogs(addr common.Address) error {
+func (f *FwdMgr) subscribeSendersChangedLogs(ctx context.Context, addr common.Address) error {
 	if err := f.logpoller.Ready(); err != nil {
 		f.logger.Warnw("Unable to subscribe to AuthorizedSendersChanged logs", "forwarder", addr, "err", err)
 		return nil
 	}
 
 	err := f.logpoller.RegisterFilter(
-		f.ctx,
+		ctx,
 		evmlogpoller.Filter{
 			Name:      FilterName(addr),
 			EventSigs: []common.Hash{authChangedTopic},
@@ -275,8 +277,10 @@ func (f *FwdMgr) getCachedSenders(addr common.Address) ([]common.Address, bool) 
 
 func (f *FwdMgr) runLoop() {
 	defer f.wg.Done()
-	tick := time.After(0)
+	ctx, cancel := f.stopCh.NewCtx()
+	defer cancel()
 
+	tick := time.After(0)
 	for ; ; tick = time.After(utils.WithJitter(time.Minute)) {
 		select {
 		case <-tick:
@@ -292,11 +296,11 @@ func (f *FwdMgr) runLoop() {
 			}
 
 			logs, err := f.logpoller.LatestLogEventSigsAddrsWithConfs(
-				f.ctx,
+				ctx,
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
+				evmtypes.Confirmations(f.cfg.FinalityDepth()),
 			)
 			if err != nil {
 				f.logger.Errorw("Failed to retrieve latest log round", "err", err)
@@ -313,7 +317,7 @@ func (f *FwdMgr) runLoop() {
 				}
 			}
 
-		case <-f.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -357,7 +361,7 @@ func (f *FwdMgr) collectAddresses() (addrs []common.Address) {
 // Stop cancels all outgoings calls and stops internal ticker loop.
 func (f *FwdMgr) Close() error {
 	return f.StopOnce("EVMForwarderManager", func() (err error) {
-		f.cancel()
+		close(f.stopCh)
 		f.wg.Wait()
 		return nil
 	})

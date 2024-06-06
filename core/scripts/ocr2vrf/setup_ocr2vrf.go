@@ -214,7 +214,6 @@ func setupOCR2VRFNodes(e helpers.Environment) {
 	if *useForwarder {
 		fmt.Println("Setting authorized senders...")
 		for i, f := range forwarderAddresses {
-
 			// Convert the sending strings for a transmitter to addresses.
 			var sendinKeysAddresses []common.Address
 			sendingKeysStrings := sendingKeys[i+1]

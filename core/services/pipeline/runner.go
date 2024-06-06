@@ -219,8 +219,18 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
-// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
-var overtime = 100 * time.Millisecond
+var (
+	// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+	overtime           = 100 * time.Millisecond
+	overtimeThresholds = sqlutil.LogThresholds{
+		Warn: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 5) // 80%
+		},
+		Error: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 10) // 90%
+		},
+	}
+)
 
 func init() {
 	// undocumented escape hatch
@@ -235,6 +245,7 @@ func init() {
 // overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
 // results, even after context cancellation.
 func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+<<<<<<< HEAD
 	if d, ok := ctx.Deadline(); ok {
 		// We do not use context.WithDeadline/Timeout in order to prevent the monitor hook from logging noisily, since
 		// we expect and want these operations to use most of their allotted time.
@@ -246,6 +257,14 @@ func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) 
 		return ctx, func() { cancel(); stop() }
 	}
 	// do not propagate cancellation in any case
+=======
+	ctx = overtimeThresholds.ContextWithValue(ctx)
+	if d, ok := ctx.Deadline(); ok {
+		// extend deadline
+		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
+	}
+	// remove cancellation
+>>>>>>> origin/develop
 	return context.WithoutCancel(ctx), func() {}
 }
 
@@ -588,7 +607,6 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, trrs, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", run.PipelineSpecID)
 	}
 	return run.ID, trrs, nil
-
 }
 
 func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx sqlutil.DataSource) error) (incomplete bool, err error) {

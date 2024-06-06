@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/grafana/pyroscope-go"
+	"github.com/jonboulle/clockwork"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -63,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -177,6 +180,7 @@ type ApplicationOpts struct {
 	LoopRegistry               *plugins.LoopRegistry
 	GRPCOpts                   loop.GRPCOpts
 	MercuryPool                wsrpc.Pool
+	CapabilitiesRegistry       coretypes.CapabilitiesRegistry
 }
 
 // NewApplication initializes a new store if one is not already
@@ -195,19 +199,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
-	registry := capabilities.NewRegistry(globalLogger)
+
+	if opts.CapabilitiesRegistry == nil { // for tests only, in prod Registry is always set at this point
+		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
 	if cfg.Capabilities().Peering().Enabled() {
-		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), globalLogger)
+		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
 		externalPeerWrapper = externalPeer
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
+		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
+		}
+
 		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
-		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, registry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, registry, dispatcher, globalLogger)
+		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
+		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
+
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
@@ -319,6 +332,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
+		workflowORM    = workflowstore.NewDBStore(opts.DS, clockwork.NewRealClock())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -386,8 +400,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
-		registry,
-		legacyEVMChains,
+		opts.CapabilitiesRegistry,
+		workflowORM,
 		func() *p2ptypes.PeerID {
 			if externalPeerWrapper == nil {
 				return nil
@@ -469,7 +483,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,
-			registry,
+			opts.CapabilitiesRegistry,
 		)
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,

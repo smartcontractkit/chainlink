@@ -28,6 +28,58 @@ func TestValidateOracleSpec(t *testing.T) {
 		assertion func(t *testing.T, os job.Job, err error)
 	}{
 		{
+			name: "invalid result sorting index",
+			toml: `
+ds1 [type=memo value=10000.1234];
+ds2 [type=memo value=100];
+
+div_by_ds2 [type=divide divisor="$(ds2)"];
+
+ds1 -> div_by_ds2 -> answer1;
+
+answer1 [type=multiply times=10000 index=-1];
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "duplicate sorting indexes not allowed",
+			toml: `
+ds1 [type=memo value=10000.1234];
+ds2 [type=memo value=100];
+
+div_by_ds2 [type=divide divisor="$(ds2)"];
+
+ds1 -> div_by_ds2 -> answer1;
+ds1 -> div_by_ds2 -> answer2;
+
+answer1 [type=multiply times=10000 index=0];
+answer2 [type=multiply times=10000 index=0];
+`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid result sorting index",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer    = false
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=-1];
+"""`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
 			name: "minimal non-bootstrap oracle spec",
 			toml: `
 type               = "offchainreporting"

@@ -18,8 +18,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -38,13 +36,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
-			node.WithOCR2(),
-			node.WithP2Pv2(),
-		)).
-		WithForwarders().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
@@ -73,6 +66,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	operators, authorizedForwarders, _ := actions_seth.DeployForwarderContracts(
 		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
+
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
 
 	for i := range workerNodes {
 		actions_seth.AcceptAuthorizedReceiversOperator(

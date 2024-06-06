@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -81,11 +81,16 @@ func TestDoc(t *testing.T) {
 		docDefaults.FlagsContractAddress = nil
 		docDefaults.LinkContractAddress = nil
 		docDefaults.OperatorFactoryAddress = nil
-		require.Empty(t, docDefaults.ChainWriter.FromAddress)
-		require.Empty(t, docDefaults.ChainWriter.ForwarderAddress)
-		docDefaults.ChainWriter.FromAddress = nil
-		docDefaults.ChainWriter.ForwarderAddress = nil
+		require.Empty(t, docDefaults.Workflow.FromAddress)
+		require.Empty(t, docDefaults.Workflow.ForwarderAddress)
+		docDefaults.Workflow.FromAddress = nil
+		docDefaults.Workflow.ForwarderAddress = nil
 		docDefaults.NodePool.Errors = evmcfg.ClientErrors{}
+
+		// Transactions.AutoPurge configs are only set if the feature is enabled
+		docDefaults.Transactions.AutoPurge.DetectionApiUrl = nil
+		docDefaults.Transactions.AutoPurge.Threshold = nil
+		docDefaults.Transactions.AutoPurge.MinAttempts = nil
 
 		assertTOML(t, fallbackDefaults, docDefaults)
 	})
@@ -98,7 +103,7 @@ func TestDoc(t *testing.T) {
 	})
 
 	t.Run("Solana", func(t *testing.T) {
-		var fallbackDefaults solana.TOMLConfig
+		var fallbackDefaults solcfg.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)

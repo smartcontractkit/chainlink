@@ -47,10 +47,13 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   function test_AddCapability_NoConfigurationContract() public {
     s_capabilityRegistry.addCapability(s_basicCapability);
 
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(bytes32("data-streams-reports"), bytes32("1.0.0"));
-    CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(capabilityId);
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      bytes32("data-streams-reports"),
+      bytes32("1.0.0")
+    );
+    CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
-    assertEq(storedCapability.capabilityType, s_basicCapability.capabilityType);
+    assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
     assertEq(storedCapability.version, s_basicCapability.version);
     assertEq(uint256(storedCapability.responseType), uint256(s_basicCapability.responseType));
     assertEq(storedCapability.configurationContract, s_basicCapability.configurationContract);
@@ -59,13 +62,13 @@ contract CapabilityRegistry_AddCapabilityTest is BaseTest {
   function test_AddCapability_WithConfiguration() public {
     s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
 
-    bytes32 capabilityId = s_capabilityRegistry.getCapabilityID(
-      bytes32(s_capabilityWithConfigurationContract.capabilityType),
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
+      bytes32(s_capabilityWithConfigurationContract.labelledName),
       bytes32(s_capabilityWithConfigurationContract.version)
     );
-    CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(capabilityId);
+    CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
-    assertEq(storedCapability.capabilityType, s_capabilityWithConfigurationContract.capabilityType);
+    assertEq(storedCapability.labelledName, s_capabilityWithConfigurationContract.labelledName);
     assertEq(storedCapability.version, s_capabilityWithConfigurationContract.version);
     assertEq(uint256(storedCapability.responseType), uint256(s_capabilityWithConfigurationContract.responseType));
     assertEq(storedCapability.configurationContract, s_capabilityWithConfigurationContract.configurationContract);

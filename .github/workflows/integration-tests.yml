@@ -28,7 +28,7 @@ on:
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
-  group: integration-tests-chainlink-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--e2e-tests-${{ inputs.distinct_run_name }}
   cancel-in-progress: true
 
 env:
@@ -71,7 +71,7 @@ jobs:
           echo "should-enforce=$SHOULD_ENFORCE" >> $GITHUB_OUTPUT
       - name: Enforce CTF Version
         if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/mod-version@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           go-project-path: ./integration-tests
           module-name: github.com/smartcontractkit/chainlink-testing-framework
@@ -98,6 +98,7 @@ jobs:
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
               - '**/*Dockerfile'
+              - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
       - name: Ignore Filter On Workflow Dispatch
@@ -107,7 +108,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-check-paths
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -137,20 +138,21 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-build-lint-${{ matrix.project.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: Build and Lint ${{ matrix.project.name }}
+        continue-on-error: true          
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
       - name: Setup Go
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_download_vendor_packages_command: cd ${{ matrix.project.path }} && go mod download
           go_mod_path: ${{ matrix.project.path }}/go.mod
@@ -194,7 +196,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -249,6 +251,8 @@ jobs:
           MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu-latest 1)
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu-latest 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+          echo "combined array = ${COMBINED_ARRAY}"
+          echo "event name = $GITHUB_EVENT_NAME"
 
           LOG_POLLER_MATRIX_JSON=$(./scripts/buildTestMatrixList.sh ./smoke/log_poller_test.go log_poller ubuntu-latest 1)
           echo "LP_JOB_MATRIX_JSON=${LOG_POLLER_MATRIX_JSON}" >> $GITHUB_ENV
@@ -294,7 +298,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -317,6 +321,15 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
         with:
@@ -332,15 +345,16 @@ jobs:
           lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}
@@ -363,6 +377,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
@@ -370,7 +386,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
@@ -397,7 +413,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -420,6 +436,15 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
         with:
@@ -435,14 +460,15 @@ jobs:
           lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}
@@ -465,10 +491,12 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
@@ -529,12 +557,12 @@ jobs:
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             id: vrfv2
-            nodes: 5
+            nodes: 6
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: vrfv2plus
             id: vrfv2plus
-            nodes: 8
+            nodes: 9
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
@@ -556,7 +584,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -631,6 +659,15 @@ jobs:
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
         with:
@@ -646,14 +683,15 @@ jobs:
           lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}${{ matrix.product.tag_suffix }}
@@ -676,6 +714,8 @@ jobs:
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-${{ matrix.product.name }}-${{ matrix.product.tag_suffix }}
           path: .covdata
@@ -684,7 +724,7 @@ jobs:
       # Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
@@ -710,7 +750,7 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_directory: ./integration-tests/smoke/
 
@@ -731,7 +771,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-results
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -764,7 +804,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ github.event_name == 'pull_request' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-env-cleanup
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -796,7 +836,7 @@ jobs:
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
-    
+
     environment: integration
     needs: [eth-smoke-tests]
     runs-on: ubuntu-latest
@@ -809,7 +849,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
@@ -845,7 +885,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-migration-tests
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -890,9 +930,9 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 20m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 20m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ steps.get_latest_version.outputs.latest_version }}
@@ -914,10 +954,12 @@ jobs:
           should_tidy: "false"
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true          
         with:
           name: cl-node-coverage-data-migration-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
       - name: Notify Slack
         if: failure() && github.event_name != 'workflow_dispatch'
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -925,7 +967,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#team-test-tooling-internal"
-          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
 
   ## Solana Section
   get_solana_sha:
@@ -1008,7 +1050,7 @@ jobs:
     steps:
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           repository: chainlink-solana-tests
           tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -1031,16 +1073,11 @@ jobs:
         solana-test-image-exists,
         get_solana_sha,
       ]
-    container:
-      image: projectserum/build:${{ needs.get_projectserum_version.outputs.projectserum_version }}
-      env:
-        RUSTUP_HOME: "/root/.rustup"
-        FORCE_COLOR: 1
     steps:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-solana-build-contracts
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -1049,17 +1086,17 @@ jobs:
           this-job-name: Solana Build Artifacts
         continue-on-error: true
       - name: Checkout the solana repo
-        # Use v3.6.0 because the custom runner (container configured above)
-        # doesn't have node20 installed which is required for versions >=4
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Build contracts
         if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@21675b3a7dcdff8e790391708d4763020cace21e # stable action on December 18 2023
+        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@46b1311a5a83f33d08ffa8e1e0ab04f9ad51665d # node20 update on may 10, 2024
         with:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
+          image: projectserum/build
+          image-version: ${{ needs.get_projectserum_version.outputs.projectserum_version }}
 
   solana-build-test-image:
     environment: integration
@@ -1083,7 +1120,7 @@ jobs:
       - name: Collect Metrics
         if: (needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch') && needs.solana-test-image-exists.outputs.exists == 'false'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-solana-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -1136,7 +1173,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-solana-e2e-tests
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -1152,7 +1189,7 @@ jobs:
           ref: ${{ needs.get_solana_sha.outputs.sha }}
       - name: Run Setup
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_restore_only: true
@@ -1163,7 +1200,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Pull Artfacts
+      - name: Pull Artifacts
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
@@ -1181,12 +1218,20 @@ jobs:
           docker rm "$CONTAINER_ID"
       - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
         run: ./scripts/install-solana-ci.sh
+      - name: Install gauntlet
+        run: |
+          yarn --cwd ./gauntlet install --frozen-lockfile
+          yarn --cwd ./gauntlet build
+          yarn --cwd ./gauntlet gauntlet
       - name: Generate config overrides
         run: | # https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md
           cat << EOF > config.toml
           [ChainlinkImage]
           image="${{ env.CHAINLINK_IMAGE }}"
           version="${{ inputs.evm-ref || github.sha }}"
+          [Common]
+          user="${{ github.actor }}"
+          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
           EOF
           # shellcheck disable=SC2002
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -1196,7 +1241,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
@@ -1215,12 +1260,14 @@ jobs:
           QA_KUBECONFIG: ""
           run_setup: false
           go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata          
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
 
       - name: Upload Coverage Data
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
         with:
           name: cl-node-coverage-data-solana-tests
           path: .covdata
-          retention-days: 1          
+          retention-days: 1
 

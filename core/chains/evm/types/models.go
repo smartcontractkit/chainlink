@@ -168,11 +168,15 @@ func (h *Head) ChainHashes() []common.Hash {
 }
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
-	for h != nil && !h.IsFinalized {
+	for h != nil {
+		if h.IsFinalized {
+			return h
+		}
+
 		h = h.Parent
 	}
 
-	return h
+	return nil
 }
 
 func (h *Head) ChainID() *big.Int {
@@ -369,7 +373,6 @@ var ErrMissingBlock = pkgerrors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	bi := blocks.BlockInternal{}
 
@@ -419,7 +422,6 @@ const LegacyTxType = blocks.TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	ti := blocks.TransactionInternal{}
 
@@ -443,7 +445,6 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
-
 	ti := toInternalTxn(*t)
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))

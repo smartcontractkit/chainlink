@@ -17,12 +17,46 @@ The `testconfig` package serves as a centralized resource for accessing configur
 
 The order of precedence for overrides is as follows:
 
-* Environment variable `BASE64_CONFIG_OVERRIDE`
-* File `overrides.toml`
-* Product-specific file, e.g., `[product_name].toml`
-* The `default.toml` file
+* [File `default.toml`](#defaulttoml)
+* [Product-specific file, e.g., `[product_name].toml`](#product-specific-configurations)
+* [File `overrides.toml`](#overridestoml)
+* [Environment variable `BASE64_CONFIG_OVERRIDE`](#base64_config_override)
 
-The `BASE64_CONFIG_OVERRIDE` environment variable is primarily intended for use in continuous integration environments, enabling the substitution of default settings with confidential or user-specific parameters. For instance:
+### default.toml
+That file is envisioned to contain fundamental and universally applicable settings, such as logging configurations, private Ethereum network settings or Seth networks settings for known networks.
+
+### Product-specific configurations
+Product-specific configurations, such as those in `[product_name].toml`, house the bulk of default and variant settings, supporting default configurations like the following in `log_poller.toml`, which should be used by all Log Poller tests:
+
+```toml
+# product defaults
+[LogPoller]
+[LogPoller.General]
+generator = "looped"
+contracts = 2
+events_per_tx = 4
+use_finality_tag = true
+log_poll_interval = "500ms"
+# 0 disables backup poller
+backup_log_poller_block_delay = 0
+
+[LogPoller.Looped]
+execution_count = 100
+min_emit_wait_time_ms = 200
+max_emit_wait_time_ms = 500
+```
+
+### overrides.toml
+This file is recommended for local use to adjust dynamic variables or modify predefined settings. At the very minimum it should contain the Chainlink image and version, as shown in the example below:
+
+```toml
+[ChainlinkImage]
+image = "your image name"
+version = "your tag"
+```
+
+### `BASE64_CONFIG_OVERRIDE`
+This environment variable is primarily intended for use in continuous integration environments, enabling the substitution of default settings with confidential or user-specific parameters. For instance:
 
 ```bash
 cat << EOF > config.toml
@@ -61,38 +95,11 @@ BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
 echo ::add-mask::$BASE64_CONFIG_OVERRIDE
 echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 ```
-
 **It is highly recommended to use reusable GHA actions present in [.actions](../../../.github/.actions) to generate and apply the base64-encoded configuration.** Own implementation of `BASE64_CONFIG_OVERRIDE` generation is discouraged and should be used only if existing actions do not cover the use case. But even in that case it might be a better idea to extend existing actions.
-
 This variable is automatically relayed to Kubernetes-based tests, eliminating the need for manual intervention in test scripts.
 
-The `overrides.toml` file is recommended for local use to adjust dynamic variables or modify predefined settings. At the very minimum it should contain the Chainlink image and version, as shown in the example below:
 
-```toml
-[ChainlinkImage]
-image = "your image name"
-version = "your tag"
-```
-
-Product-specific configurations, such as those in `[product_name].toml`, house the bulk of default and variant settings, supporting default configurations like the following in `log_poller.toml`:
-
-```toml
-# product defaults
-[LogPoller]
-[LogPoller.General]
-generator = "looped"
-contracts = 2
-events_per_tx = 4
-use_finality_tag = true
-log_poll_interval = "500ms"
-# 0 disables backup poller
-backup_log_poller_block_delay = 0
-
-[LogPoller.Looped]
-execution_count = 100
-min_emit_wait_time_ms = 200
-max_emit_wait_time_ms = 500
-```
+## Named Configurations
 
 Named configurations allow for the customization of settings through unique identifiers, such as a test name or type, acting as specific overrides. Here's how you can define and use these configurations:
 
@@ -114,7 +121,87 @@ cancel_subs_after_test_run = true
 
 When processing TOML files, the system initially searches for a general (unnamed) configuration. If a named configuration is found, it can specifically override the general (unnamed) settings, providing a targeted approach to configuration management based on distinct identifiers like test names or types.
 
-Finally `default.toml` file is envisioned to contain fundamental and universally applicable settings, such as logging configurations.
+### Chainlink Node TOML config
+
+Find default node config in `testconfig/default.toml`
+
+To set custom config for Chainlink Node use `NodeConfig.BaseConfigTOML` in TOML. Example:
+```toml
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[OCR]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+"""
+```
+Note that you cannot override individual values in BaseConfigTOML. You must provide the entire configuration.
+
+
+To set base config for EVM chains use `NodeConfig.CommonChainConfigTOML`. Example:
+```toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+```
+
+This is the default configuration used for all EVM chains unless ChainConfigTOMLByChainID is specified.
+
+To set custom per-chain config use `[NodeConfig.ChainConfigTOMLByChainID]`. Example:
+```toml
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+```
+
+For more examples see `example.toml` in product TOML configs like `testconfig/automation/example.toml`.
+
+### Setting env vars for Chainlink Node
+
+To set env vars for Chainlink Node use `WithCLNodeOptions()` and `WithNodeEnvVars()` when building a test environment. Example:
+
+```go
+envs := map[string]string{
+    "CL_LOOPP_HOSTNAME": "hostname",
+}
+testEnv, err := test_env.NewCLTestEnvBuilder().
+    WithTestInstance(t).
+    WithTestConfig(&config).
+    WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
+    WithMockAdapter().
+    WithCLNodes(clNodeCount).
+    WithCLNodeOptions(test_env.WithNodeEnvVars(envs)).
+    WithFunding(big.NewFloat(.1)).
+    WithStandardCleanup().
+    WithSeth().
+    Build()
+```
 
 ## Local/Kubernetes Usage
 
@@ -129,7 +216,7 @@ Essential variables might include:
 
 For local testing, it is advisable to place these variables in the `overrides.toml` file. For Kubernetes or remote runners, the process involves creating a TOML file with the necessary values, encoding it in base64, and setting the result as the `BASE64_CONFIG_OVERRIDE` environment variable.
 
-## Embeded config
+## Embedded config
 
 Because Go automatically excludes TOML files during the compilation of binaries, we must take deliberate steps to include our configuration files in the compiled binary. This can be accomplished by using a custom build tag `-o embed`. Implementing this tag will incorporate all the default configurations located in the `./testconfig` folder directly into the binary. Therefore, when executing tests from the binary, you'll only need to supply the `overrides.toml` file. This file should list only the settings you wish to modify; all other configurations will be sourced from the embedded configurations. You can access these embedded configurations [here](.integration-tests/testconfig/configs_embed.go).
 

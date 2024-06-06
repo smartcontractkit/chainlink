@@ -323,7 +323,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				return fmt.Sprintf(testspecs.FluxMonitorSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-
 				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
 
 				errs := cltest.ParseJSONAPIErrors(t, r.Body)
@@ -395,9 +394,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			tomlTemplate: func(_ string) string {
 				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 				owner := "00000000000000000000000000000000000000aa"
+				name := "myworkflow" // 10 bytes
 				workflow := `
 triggers:
-  - type: "mercury-trigger"
+  - id: "mercury-trigger"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -405,7 +405,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - type: "offchain_reporting"
+  - id: "offchain_reporting"
     ref: "evm_median"
     inputs:
       observations:
@@ -427,14 +427,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - type: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - type: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -442,14 +442,14 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, workflow).Toml()
+				return testspecs.GenerateWorkflowSpec(id, owner, name, workflow).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(resp, &resource)
-				require.NoError(t, err)
+				require.NoError(t, err, "failed to parse response body: %s", resp)
 
 				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
@@ -458,6 +458,7 @@ targets:
 				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
 				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
 				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
+				assert.Equal(t, jb.WorkflowSpec.WorkflowName, resource.WorkflowSpec.WorkflowName)
 			},
 		},
 	}

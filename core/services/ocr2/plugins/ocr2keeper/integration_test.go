@@ -439,7 +439,7 @@ func setupForwarderForNode(
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(ctx, faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
