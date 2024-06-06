@@ -1096,4 +1096,34 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.addConsumer(subId, address(consumer));
     return consumer;
   }
+
+  function test_RemoveConsumer() public {
+    uint256 subId = s_testCoordinator.createSubscription();
+    uint256 consumersLength = s_testCoordinator.MAX_CONSUMERS();
+    address[] memory consumers = getRandomAddresses(consumersLength);
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      s_testCoordinator.addConsumer(subId, consumers[i]);
+    }
+
+    // test remove consumers from multiple positions to have better gas distribution
+    address earlyConsumerAddress = consumers[0];
+    s_testCoordinator.removeConsumer(subId, earlyConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(earlyConsumerAddress, consumers));
+
+    consumersLength = consumers.length;
+    address middleConsumerAddress = consumers[consumersLength / 2];
+    s_testCoordinator.removeConsumer(subId, middleConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(middleConsumerAddress, consumers));
+
+    consumersLength = consumers.length;
+    address lateConsumerAddress = consumers[consumersLength - 1];
+    s_testCoordinator.removeConsumer(subId, lateConsumerAddress);
+    (, , , , consumers) = s_testCoordinator.getSubscription(subId);
+    assertEq(consumers.length, consumersLength - 1);
+    assertFalse(addressIsIn(lateConsumerAddress, consumers));
+  }
 }

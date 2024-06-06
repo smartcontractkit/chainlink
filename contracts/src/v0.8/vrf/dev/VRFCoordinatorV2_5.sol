@@ -630,9 +630,6 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
     address[] storage consumers = s_subscriptionConfigs[subId].consumers;
     uint256 consumersLength = consumers.length;
-    if (consumersLength == 0) {
-      return false;
-    }
     for (uint256 i = 0; i < consumersLength; ++i) {
       if (s_consumers[consumers[i]][subId].pendingReqCount > 0) {
         return true;
@@ -652,15 +649,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
-    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
-    uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; ++i) {
-      if (consumers[i] == consumer) {
-        address last = consumers[lastConsumerIndex];
+    address[] storage s_SubscriptionConsumers = s_subscriptionConfigs[subId].consumers;
+    uint256 consumersLength = s_SubscriptionConsumers.length;
+    for (uint256 i = 0; i < consumersLength; ++i) {
+      if (s_SubscriptionConsumers[i] == consumer) {
         // Storage write to preserve last element
-        s_subscriptionConfigs[subId].consumers[i] = last;
+        s_SubscriptionConsumers[i] = s_SubscriptionConsumers[consumersLength - 1];
         // Storage remove last element
-        s_subscriptionConfigs[subId].consumers.pop();
+        s_SubscriptionConsumers.pop();
         break;
       }
     }
@@ -775,7 +771,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // despite the fact that we follow best practices this is still probably safest
     // to prevent any re-entrancy possibilities.
     s_config.reentrancyLock = true;
-    for (uint256 i = 0; i < consumers.length; ++i) {
+    uint256 consumersLength = consumers.length;
+    for (uint256 i = 0; i < consumersLength; ++i) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
     s_config.reentrancyLock = false;
