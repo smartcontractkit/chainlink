@@ -47,11 +47,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param received The number of signatures received
   error InvalidSignatureCount(uint256 expected, uint256 received);
 
-  /// @notice This error is thrown whenever a report specifies a config version that
-  /// is too old.
-  /// @param configVersion The config version that was provided in the report
-  error InvalidConfigVersion(uint32 configVersion);
-
   /// @notice This error is thrown whenever a report specifies a configuration that
   /// does not exist.
   /// @param donId The DON ID that was provided in the report
