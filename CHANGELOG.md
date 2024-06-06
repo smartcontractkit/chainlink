@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.12.1 - 2024-06-06
+
+### Patch Changes
+
+- [#13435](https://github.com/smartcontractkit/chainlink/pull/13435) [`72c60b65f9`](https://github.com/smartcontractkit/chainlink/commit/72c60b65f95a3b2bd9f5044a30595d10dc78f581) Thanks [@akuzni2](https://github.com/akuzni2)! - Fix panic if mercury server returns error #bugfix
+
+- [#13435](https://github.com/smartcontractkit/chainlink/pull/13435) [`cefb5bd975`](https://github.com/smartcontractkit/chainlink/commit/cefb5bd975c9294e7ee8e0d912c1b1a437735459) Thanks [@akuzni2](https://github.com/akuzni2)! - Performance improvements for mercury single insert for multiple mercury servers #internal
+
 ## 2.12.0 - 2024-06-05
 
 ### Minor Changes
@@ -65,7 +73,6 @@
 
 - [#12747](https://github.com/smartcontractkit/chainlink/pull/12747) [`2729ef76f3`](https://github.com/smartcontractkit/chainlink/commit/2729ef76f34877a2e6e8644b2e67f3e5dfb0c2b6) Thanks [@friedemannf](https://github.com/friedemannf)! - Add support for X Layer (X1) #added
 
-
 - [#12680](https://github.com/smartcontractkit/chainlink/pull/12680) [`f55d8be495`](https://github.com/smartcontractkit/chainlink/commit/f55d8be495a83c97ac5439672563400e12ec2ee7) Thanks [@samsondav](https://github.com/samsondav)! - #added
 
   Add configurability to mercury transmitter
@@ -93,6 +100,7 @@
 ## 2.11.1 - 2024-05-20
 
 ### Patch Changes
+
 - [#13254](https://github.com/smartcontractkit/chainlink/pull/13254) [`c0d201a9a8`](https://github.com/smartcontractkit/chainlink/commit/c0d201a9a85b66718c5102427c34276e0b61c84e) Thanks [@samsondav!] - Fix panic if mercury server returns error #bugfix
 
 ## 2.11.0 - 2024-04-30
