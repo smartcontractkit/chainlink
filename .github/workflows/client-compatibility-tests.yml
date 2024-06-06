@@ -79,16 +79,138 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
+  get-latest-available-images:
+    environment: integration
+    runs-on: ubuntu-latest
+    needs: [check-ecr-images-exist]
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      IMAGE_COUNT: 3
+    outputs:
+      geth_tag: ${{ env.GETH_TAGS }}
+      nethermind_tag: ${{ env.NETHERMIND_TAGS }}
+      besu_tag: ${{ env.BESU_TAGS }}
+      erigon_tag: ${{ env.ERIGON_TAGS }}
+    steps:
+      # Setup AWS creds
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      # Login to ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          mask-password: "true"
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      - name: Get latest docker images from ECR
+        run: |
+          function get_latest_version_tags() {
+            local repository_name="$1"
+            local grep_string="$2"
+            local count="$3"
+            local tags
+          
+            # get the list of images with aws cli
+            # jq then filters out only the first tags
+            # sort the semantic tags into order
+            # grep only the versions that fit the regex
+            # then take the first count
+            tags=$(aws ecr describe-images --repository-name ${repository_name} --region ${{ secrets.QA_AWS_REGION }} --output json --query 'imageDetails[?imageTags!=`null` && imageTags!=`[]`]' |\
+              jq -r '.[] | .imageTags[0]' |\
+              sort -rV |\
+              grep -E ${grep_string} |\
+              head -n ${count} |\
+              paste -sd " " -)
+                        
+            IFS=' ' read -r -a tags_array <<< "$tags"
+            
+            if [ ${#tags_array[@]} -lt ${count} ]; then
+              echo "Failed to get ${count} latest tags for ${repository_name}"
+              exit 1
+            fi
+          
+            tags=$(IFS=,; echo "${tags_array[*]}")
+          
+            echo "$tags"
+          }
+          
+          geth_tags=$(get_latest_version_tags ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "GETH_TAGS=$geth_tags" >> $GITHUB_ENV
+          echo "Geth latest tags: $geth_tags"
+          
+          nethermind_tags=$(get_latest_version_tags nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "NETHERMIND_TAGS=$nethermind_tags" >> $GITHUB_ENV
+          echo "Nethermind latest tags: $nethermind_tags"
+          
+          besu_tags=$(get_latest_version_tags hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }})
+          echo "BESU_TAGS=$besu_tags" >> $GITHUB_ENV
+          echo "Besu latest tags: $besu_tags"
+          
+          erigon_tags=$(get_latest_version_tags thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          echo "ERIGON_TAGS=$erigon_tags" >> $GITHUB_ENV
+          echo "Erigon latest tags: $erigon_tags"    
+
   # End Build Test Dependencies
 
-  client-compatibility-matrix:
+  prepare-compatibility-matrix:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, check-ecr-images-exist]
+    needs: [build-chainlink, get-latest-available-images]
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ env.JOB_MATRIX_JSON }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#      - name: Decode Base64 Test List Input if Set
+#        id: decode-base64-test-list
+#        if: env.BASE64_TEST_LIST != ''
+#        run: |
+#          echo "Decoding base64 test list..."
+#          DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
+#          echo $DECODED_BASE64_TEST_LIST
+#          cd ./integration-tests
+#          echo $DECODED_BASE64_TEST_LIST >> ./evm_node_compatibility_test_list.json
+      - name: Prepare matrix input
+#        id: decode-base64-test-list
+#        if: env.BASE64_TEST_LIST != ''
+        run: |
+          echo "Preparing matrix input"
+          cd ./integration-tests/scripts/compatibility
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_tags }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_tags }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_tags }}"
+          go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_tags }}"
+          cat compatibility_test_list.json
+          cp compatibility_test_list.json ../.
+          exit 1
+      - name: Create Test Matrix
+        id: create-test-matrix-list
+        run: |
+          cd ./integration-tests
+          JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./compatibility_test_list.json ubuntu-latest)
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
+          echo $JOB_MATRIX_JSON | jq .        
+
+  run-client-compatibility-matrix:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, prepare-compatibility-matrix]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -155,107 +277,40 @@ jobs:
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ github.sha }}
-      - name: Prepare Base64 TOML config
-        env:
-          RUN_ID: ${{ github.run_id }}
-          SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-          ETH2_EL_CLIENT: ${{matrix.client}}
-          CHAINLINK_VERSION: ${{ github.sha }}
-          GRAFANA_URL: "http://localhost:8080/primary"
-          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-        run: |
-          convert_to_toml_array() {
-              local IFS=','
-              local input_array=($1)
-              local toml_array_format="["
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
+      - name: Prepare Base64 TOML override
+        uses: ./.github/actions/setup-create-base64-config
+        with:
+          runId: ${{ github.run_id }}
+          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+          chainlinkVersion: ${{ github.sha }}
+          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          lokiBasicAuth:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafanaUrl: "http://localhost:8080/primary"
+          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          ethExecutionClient: ${{ matrix.evm_node.eth_client }}
+          customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
+          pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscopeEnvironment: ci-client-compatability-${{ matrix.eth_client }}-testnet
+          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
 
-              for element in "${input_array[@]}"; do
-                  toml_array_format+="\"$element\","
-              done
-
-              toml_array_format="${toml_array_format%,}]"
-              echo "$toml_array_format"
-          }
-
-          selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")
-
-          if [ -n "$ETH2_EL_CLIENT" ]; then
-            execution_layer="$ETH2_EL_CLIENT"
-          else
-            execution_layer="geth"
-          fi
-
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi
-
-          grafana_bearer_token=""
-          if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
-            grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
-          fi
-
-          cat << EOF > config.toml
-          [Network]
-          selected_networks=$selected_networks
-
-          [ChainlinkImage]
-          image="$CHAINLINK_IMAGE"
-          version="$CHAINLINK_VERSION"
-
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key_secret="$PYROSCOPE_KEY"
-          
-          [Logging]
-          run_id="$RUN_ID"
-        
-          [Logging.LogStream]
-          log_targets=["file","loki"]
-  
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_ENDPOINT"
-          basic_auth_secret="$LOKI_BASIC_AUTH"
-        
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dashboard_url="$GRAFANA_DASHBOARD_URL"
-          $grafana_bearer_token
-
-          [PrivateEthereumNetwork]
-          ethereum_version="eth2"
-          consensus_layer="prysm"
-          execution_layer="$execution_layer"
-          wait_for_finalization=false
-
-          [PrivateEthereumNetwork.EthereumChainConfig]
-          chain_id=1337
-          genesis_delay=15
-          seconds_per_slot=3
-          validator_count=8
-          slots_per_epoch=2
-          addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
-          EOF
-
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-          touch .root_dir
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_command_to_run: cd ./integration-tests && touch .root_dir && cd ./smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
@@ -291,7 +346,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [client-compatibility-matrix]
+    needs: [run-client-compatibility-matrix]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
