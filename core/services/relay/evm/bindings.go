@@ -3,7 +3,6 @@ package evm
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -13,24 +12,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-// key is contract name
+// bindings manage all contract bindings, key is contract name.
 type bindings map[string]*contractBinding
-
-type FilterRegisterer struct {
-	pollingFilter logpoller.Filter
-	filterLock    sync.Mutex
-	isRegistered  bool
-}
-
-// contractBinding stores read bindings and manages the common contract event filter.
-type contractBinding struct {
-	// FilterRegisterer is used to manage polling filter registration for the common contract filter.
-	// The common contract filter should be used by events that share filtering args.
-	FilterRegisterer
-	// key is read name method, event or event keys used for queryKey.
-	readBindings map[string]readBinding
-	bound        bool
-}
 
 func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
 	cb, cbExists := b[contractName]
@@ -54,7 +37,8 @@ func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) 
 	cb.readBindings[readName] = rb
 }
 
-// Bind binds contract addresses and creates event binding filters and the common contract filter.
+// Bind binds contract addresses to contract binding and read bindings.
+// Bind also registers the common contract polling filter and eventBindings polling filters.
 func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
 	for _, bc := range boundContracts {
 		cb, cbExists := b[bc.Name]
@@ -94,37 +78,5 @@ func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contrac
 			return err
 		}
 	}
-	return nil
-}
-
-// Register registers the common contract filter.
-func (cb *contractBinding) Register(ctx context.Context, lp logpoller.LogPoller) error {
-	cb.filterLock.Lock()
-	defer cb.filterLock.Unlock()
-
-	if cb.bound && len(cb.pollingFilter.EventSigs) > 0 && !lp.HasFilter(cb.pollingFilter.Name) {
-		if err := lp.RegisterFilter(ctx, cb.pollingFilter); err != nil {
-			return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-		}
-		cb.isRegistered = true
-	}
-
-	return nil
-}
-
-// Unregister unregisters the common contract filter.
-func (cb *contractBinding) Unregister(ctx context.Context, lp logpoller.LogPoller) error {
-	cb.filterLock.Lock()
-	defer cb.filterLock.Unlock()
-
-	if !lp.HasFilter(cb.pollingFilter.Name) {
-		return nil
-	}
-
-	if err := lp.UnregisterFilter(ctx, cb.pollingFilter.Name); err != nil {
-		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
-	}
-	cb.isRegistered = false
-
 	return nil
 }

@@ -25,9 +25,9 @@ type eventBinding struct {
 	contractName string
 	eventName    string
 	lp           logpoller.LogPoller
-	// FilterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
-	// If FilterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
-	*FilterRegisterer
+	// filterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
+	// If filterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
+	*filterRegisterer
 	hash           common.Hash
 	codec          commontypes.RemoteCodec
 	pending        bool
@@ -56,7 +56,7 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 }
 
 func (e *eventBinding) Register(ctx context.Context) error {
-	if e.FilterRegisterer == nil {
+	if e.filterRegisterer == nil {
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func (e *eventBinding) Register(ctx context.Context) error {
 }
 
 func (e *eventBinding) Unregister(ctx context.Context) error {
-	if e.FilterRegisterer == nil {
+	if e.filterRegisterer == nil {
 		return nil
 	}
 
@@ -152,7 +152,7 @@ func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContra
 	e.pending = binding.Pending
 	e.bound = true
 
-	if e.FilterRegisterer != nil {
+	if e.filterRegisterer != nil {
 		id := fmt.Sprintf("%s,%s,%s", e.contractName, e.eventName, uuid.NewString())
 		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
 		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}

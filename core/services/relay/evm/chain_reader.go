@@ -265,7 +265,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	if eventDefinitions := chainReaderDefinition.EventDefinitions; eventDefinitions != nil {
 		if eventDefinitions.PollingFilter != nil {
-			eb.FilterRegisterer = &FilterRegisterer{
+			eb.filterRegisterer = &filterRegisterer{
 				pollingFilter: eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}),
 				filterLock:    sync.Mutex{},
 			}
