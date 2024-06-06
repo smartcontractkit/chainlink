@@ -87,7 +87,7 @@ jobs:
             echo "NETWORK_SIMULATED=false" >> $GITHUB_ENV
           fi
       - name: Install 1Password CLI
-        uses: 1password/install-cli-action@v1 # v1.0.0
+        uses: 1password/install-cli-action@v1 # 143a85f84a90555d121cde2ff5872e393a47ab9f
         if: env.NETWORK_SIMULATED == 'false'
         with:
           version: 2.18.0
