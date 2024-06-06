@@ -78,14 +78,10 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
     CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](1);
     capabilities[0] = s_basicCapability;
 
-    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
-      bytes32("data-streams-reports"),
-      bytes32("1.0.0")
-    );
-    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+    bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("data-streams-reports", "1.0.0");
+        vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit CapabilityConfigured(hashedCapabilityId);
     s_capabilityRegistry.addCapabilities(capabilities);
-
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);
 
     assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
@@ -99,8 +95,8 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
     capabilities[0] = s_capabilityWithConfigurationContract;
 
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
-      bytes32(s_capabilityWithConfigurationContract.labelledName),
-      bytes32(s_capabilityWithConfigurationContract.version)
+      s_capabilityWithConfigurationContract.labelledName,
+      s_capabilityWithConfigurationContract.version
     );
     vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit CapabilityConfigured(hashedCapabilityId);

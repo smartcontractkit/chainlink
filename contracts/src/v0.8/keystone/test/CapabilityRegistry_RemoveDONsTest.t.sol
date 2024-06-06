@@ -8,12 +8,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveDONsTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
-  uint32 private constant DON_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes private constant CONFIG = bytes("onchain-config");
-
   function setUp() public override {
     BaseTest.setUp();
 
@@ -53,7 +47,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
 
     bytes32[] memory nodeIds = new bytes32[](2);
@@ -61,7 +55,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {

@@ -181,5 +181,5 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.NodePool.setFrom(&f.NodePool)
 	c.OCR.setFrom(&f.OCR)
 	c.OCR2.setFrom(&f.OCR2)
-	c.ChainWriter.setFrom(&f.ChainWriter)
+	c.Workflow.setFrom(&f.Workflow)
 }

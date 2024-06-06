@@ -335,6 +335,8 @@ TransactionPercentile = 15
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
+MaxAllowedFinalityDepth = 1500
+FinalityTagBypass = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -439,6 +441,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
+BlockHistoryPollPeriod = '1m0s'
 
 [[Solana.Nodes]]
 Name = 'primary'

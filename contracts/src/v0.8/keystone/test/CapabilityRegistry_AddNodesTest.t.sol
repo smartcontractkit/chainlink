@@ -7,9 +7,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_AddNodesTest is BaseTest {
   event NodeAdded(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-
   function setUp() public override {
     BaseTest.setUp();
     CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);

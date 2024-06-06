@@ -21,7 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
-	ChainWriter() ChainWriter
+	Workflow() Workflow
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -71,6 +71,8 @@ type HeadTracker interface {
 	HistoryDepth() uint32
 	MaxBufferSize() uint32
 	SamplingInterval() time.Duration
+	FinalityTagBypass() bool
+	MaxAllowedFinalityDepth() uint32
 }
 
 type BalanceMonitor interface {
@@ -154,7 +156,7 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
-type ChainWriter interface {
+type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
 }

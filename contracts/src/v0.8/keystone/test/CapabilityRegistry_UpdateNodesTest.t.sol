@@ -7,11 +7,6 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_UpdateNodesTest is BaseTest {
   event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes32 private constant NEW_NODE_SIGNER = bytes32("new-signer");
-
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);

@@ -1792,6 +1792,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -1880,6 +1882,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -1968,6 +1972,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2056,6 +2062,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2145,6 +2153,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2233,6 +2243,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2321,6 +2333,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2410,6 +2424,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2498,6 +2514,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2585,6 +2603,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2672,6 +2692,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2760,6 +2782,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2849,6 +2873,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -2937,6 +2963,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3025,6 +3053,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3113,6 +3143,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3201,6 +3233,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3289,6 +3323,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3377,6 +3413,8 @@ TransactionPercentile = 60
 HistoryDepth = 400
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3409,7 +3447,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3462,9 +3500,11 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3497,7 +3537,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3550,9 +3590,11 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3585,7 +3627,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3638,9 +3680,11 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3730,6 +3774,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3762,7 +3808,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -3818,6 +3864,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3849,7 +3897,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -3905,6 +3953,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -3937,7 +3987,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -3993,6 +4043,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4081,6 +4133,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4113,7 +4167,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -4169,6 +4223,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4201,7 +4257,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -4257,6 +4313,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4288,7 +4346,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -4344,6 +4402,8 @@ TransactionPercentile = 60
 HistoryDepth = 10
 MaxBufferSize = 100
 SamplingInterval = '0s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4432,6 +4492,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4520,6 +4582,8 @@ TransactionPercentile = 60
 HistoryDepth = 400
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4608,6 +4672,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4696,6 +4762,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4727,7 +4795,7 @@ GasLimit = 3800000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -4783,6 +4851,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4871,6 +4941,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -4959,6 +5031,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5048,6 +5122,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5080,7 +5156,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'celo'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -5136,6 +5212,8 @@ TransactionPercentile = 60
 HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5167,7 +5245,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 1000
@@ -5224,6 +5302,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5255,7 +5335,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 1000
@@ -5312,6 +5392,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5344,7 +5426,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'celo'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -5400,6 +5482,8 @@ TransactionPercentile = 60
 HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5487,6 +5571,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5574,6 +5660,8 @@ TransactionPercentile = 60
 HistoryDepth = 1000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5661,6 +5749,8 @@ TransactionPercentile = 60
 HistoryDepth = 350
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5693,7 +5783,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -5749,6 +5839,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5837,6 +5929,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -5924,6 +6018,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6012,6 +6108,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6100,6 +6198,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6189,6 +6289,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6278,6 +6380,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6366,6 +6470,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6398,7 +6504,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -6454,6 +6560,8 @@ TransactionPercentile = 60
 HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6486,7 +6594,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -6542,6 +6650,8 @@ TransactionPercentile = 60
 HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6630,6 +6740,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6718,6 +6830,8 @@ TransactionPercentile = 60
 HistoryDepth = 300
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6806,6 +6920,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6894,6 +7010,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [NodePool]
 PollFailureThreshold = 5
@@ -6957,8 +7075,6 @@ ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
-
-`xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
 
 ### FinalityDepth
 ```toml
@@ -7522,6 +7638,8 @@ Setting it lower will tend to set lower gas prices.
 HistoryDepth = 100 # Default
 MaxBufferSize = 3 # Default
 SamplingInterval = '1s' # Default
+FinalityTagBypass = true # Default
+MaxAllowedFinalityDepth = 10000 # Default
 ```
 The head tracker continually listens for new heads from the chain.
 
@@ -7551,6 +7669,22 @@ for the head tracker before we start dropping heads to keep up.
 SamplingInterval = '1s' # Default
 ```
 SamplingInterval means that head tracker callbacks will at maximum be made once in every window of this duration. This is a performance optimisation for fast chains. Set to 0 to disable sampling entirely.
+
+### FinalityTagBypass
+```toml
+FinalityTagBypass = true # Default
+```
+FinalityTagBypass disables FinalityTag support in HeadTracker and makes it track blocks up to FinalityDepth from the most recent head.
+It should only be used on chains with an extremely large actual finality depth (the number of blocks between the most recent head and the latest finalized block).
+Has no effect if `FinalityTagsEnabled` = false
+
+### MaxAllowedFinalityDepth
+```toml
+MaxAllowedFinalityDepth = 10000 # Default
+```
+MaxAllowedFinalityDepth - defines maximum number of blocks between the most recent head and the latest finalized block.
+If actual finality depth exceeds this number, HeadTracker aborts backfill and returns an error.
+Has no effect if `FinalityTagsEnabled` = false
 
 ## EVM.KeySpecific
 ```toml
@@ -7866,9 +8000,9 @@ GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
-## EVM.ChainWriter
+## EVM.Workflow
 ```toml
-[EVM.ChainWriter]
+[EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
@@ -8023,6 +8157,7 @@ ComputeUnitPriceMax = 1000 # Default
 ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
+BlockHistoryPollPeriod = '5s' # Default
 ```
 
 
@@ -8128,6 +8263,12 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 FeeBumpPeriod = '3s' # Default
 ```
 FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+
+### BlockHistoryPollPeriod
+```toml
+BlockHistoryPollPeriod = '5s' # Default
+```
+BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 
 ## Solana.Nodes
 ```toml
