@@ -16,7 +16,6 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -174,8 +174,12 @@ type Job struct {
 	Name                          null.String   `toml:"name"`
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
+	ChainReaderSpecID             *int32
+	ChainReaderSpec               ChainReaderSpecs `toml:"chainReader"`
 	CreatedAt                     time.Time
 }
+
+type ChainReaderSpecs map[string]map[string]types2.ChainReaderConfig
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash([]byte(strings.Replace(id.String(), "-", "", 4)))

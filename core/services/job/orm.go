@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -421,6 +422,15 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
 
+		//Check for chainReaderConfig
+		if jb.ChainReaderSpec != nil {
+			crSpecID, err := tx.InsertChainReaderSpec(ctx, jb.ChainReaderSpec)
+			if err != nil {
+				return errors.Wrap(err, "failed to create ChainReaderSpec for jobSpec")
+			}
+			jb.ChainReaderSpecID = &crSpecID
+		}
+
 		pipelineSpecID, err := tx.pipelineORM.CreateSpec(ctx, p, jb.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
@@ -620,6 +630,17 @@ func (o *orm) InsertWebhookSpec(ctx context.Context, webhookSpec *WebhookSpec) e
 		return fmt.Errorf("error binding arg: %w", err)
 	}
 	return o.ds.GetContext(ctx, webhookSpec, query, args...)
+}
+
+func (o *orm) InsertChainReaderSpec(ctx context.Context, spec ChainReaderSpecs) (int32, error) {
+	specToml, err := toml.Marshal(spec)
+	if err != nil {
+		return 0, fmt.Errorf("cannot marshal ChainReaderSpec: %w", err)
+	}
+
+	return o.prepareQuerySpecID(ctx, `INSERT INTO chain_reader_spec (spec,created_at, updated_at)
+			VALUES (:spec,NOW(), NOW())
+			RETURNING id;`, string(specToml))
 }
 
 func (o *orm) InsertJob(ctx context.Context, job *Job) error {
