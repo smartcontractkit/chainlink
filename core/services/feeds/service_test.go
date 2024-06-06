@@ -650,7 +650,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		// variables for workflow spec
 		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 		wfOwner  = "00000000000000000000000000000000000000aa"
-		wfName   = "my-workflow"
+		wfName   = "myworkflow" // len 10
 		specYaml = `
 triggers:
   - id: "a-trigger"

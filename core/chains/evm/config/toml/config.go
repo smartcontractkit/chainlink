@@ -367,7 +367,7 @@ type Chain struct {
 	NodePool       NodePool          `toml:",omitempty"`
 	OCR            OCR               `toml:",omitempty"`
 	OCR2           OCR2              `toml:",omitempty"`
-	ChainWriter    ChainWriter       `toml:",omitempty"`
+	Workflow       Workflow          `toml:",omitempty"`
 }
 
 func (c *Chain) ValidateConfig() (err error) {
@@ -507,12 +507,12 @@ func (a *Automation) setFrom(f *Automation) {
 	}
 }
 
-type ChainWriter struct {
+type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 }
 
-func (m *ChainWriter) setFrom(f *ChainWriter) {
+func (m *Workflow) setFrom(f *Workflow) {
 	if v := f.FromAddress; v != nil {
 		m.FromAddress = v
 	}

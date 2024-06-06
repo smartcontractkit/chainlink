@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -119,10 +120,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize capability for step %s: %w", s.Ref, err)
 		}
 
-		return e.initializeExecutionStrategy(s)
+		return nil
 	})
 
 	return capabilityRegistrationErr
@@ -137,6 +138,20 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
+	}
+
+	// Special treatment for local targets - wrap into a transmission capability
+	target, isTarget := cp.(capabilities.TargetCapability)
+	if isTarget {
+		capInfo, err2 := target.Info(ctx)
+		if err2 != nil {
+			return fmt.Errorf("failed to get info of target capability: %w", err2)
+		}
+
+		// If the DON is nil this is a local target
+		if capInfo.DON == nil {
+			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
+		}
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -261,59 +276,6 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	return nil
 }
 
-// initializeExecutionStrategy for `step`.
-// Broadly speaking, we'll use `immediateExecution` for non-target steps
-// and `scheduledExecution` for targets. If we don't have the necessary
-// config to initialize a scheduledExecution for a target, we'll fallback to
-// using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(s *step) error {
-	if s.executionStrategy != nil {
-		return nil
-	}
-
-	// If donInfo has no peerID, then the peer wrapper hasn't been initialized.
-	// Let's error and try again next time around.
-	if e.donInfo.PeerID() == nil {
-		return fmt.Errorf("failed to initialize execution strategy: peer ID %s has not been initialized", e.donInfo.PeerID())
-	}
-
-	ie := immediateExecution{}
-	if s.CapabilityType != capabilities.CapabilityTypeTarget {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", s)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	dinfo := e.donInfo
-	if dinfo.DON == nil {
-		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	var position *int
-	for i, w := range dinfo.Members {
-		if w == *dinfo.PeerID() {
-			idx := i
-			position = &idx
-		}
-	}
-
-	if position == nil {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", s, e.donInfo)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	s.executionStrategy = scheduledExecution{
-		DON:      e.donInfo.DON,
-		Position: *position,
-		PeerID:   e.donInfo.PeerID(),
-	}
-	e.logger.Debugf("initializing step %+v with scheduled execution strategy", s)
-	return nil
-}
-
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) error {
 	triggerInputs, err := values.NewMap(
@@ -334,7 +296,10 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -448,7 +413,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
@@ -597,7 +562,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	l.Debugw("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
-		Outputs:     &store.StepOutput{},
+		Outputs:     store.StepOutput{},
 		ExecutionID: msg.state.ExecutionID,
 		Ref:         msg.stepRef,
 	}
@@ -651,10 +616,13 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
 			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowOwner:       e.workflow.owner,
+			WorkflowName:        e.workflow.name,
+			WorkflowDonID:       e.donInfo.ID,
 		},
 	}
 
-	output, err := step.executionStrategy.Apply(ctx, l, step.capability, tr)
+	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
 	if err != nil {
 		return inputs, nil, err
 	}
@@ -673,7 +641,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
@@ -744,6 +715,8 @@ func (e *Engine) Close() error {
 type Config struct {
 	Spec                 string
 	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         string
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -820,6 +793,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	workflow.id = cfg.WorkflowID
+	workflow.owner = cfg.WorkflowOwner
+	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
@@ -851,4 +826,22 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		clock:               cfg.clock,
 	}
 	return engine, nil
+}
+
+// ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
+// result if it is a single value otherwise returns the list.
+func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
+	l, err := capabilities.ExecuteSync(ctx, cap, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// `ExecuteSync` returns a `values.List` even if there was
+	// just one return value. If that is the case, let's unwrap the
+	// single value to make it easier to use in -- for example -- variable interpolation.
+	if len(l.Underlying) > 1 {
+		return l, nil
+	}
+
+	return l.Underlying[0], nil
 }

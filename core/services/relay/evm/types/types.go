@@ -23,11 +23,11 @@ import (
 )
 
 type ChainWriterConfig struct {
+	Contracts    map[string]*ContractConfig
 	SendStrategy txmgrtypes.TxStrategy
-	Contracts    map[string]ChainWriter
 }
 
-type ChainWriter struct {
+type ContractConfig struct {
 	ContractABI string `json:"contractABI" toml:"contractABI"`
 	// key is genericName from config
 	Configs map[string]*ChainWriterDefinition `json:"configs" toml:"configs"`
@@ -35,10 +35,11 @@ type ChainWriter struct {
 
 type ChainWriterDefinition struct {
 	// chain specific contract method name or event type.
-	ChainSpecificName string         `json:"chainSpecificName"`
-	Checker           string         `json:"checker"`
-	FromAddress       common.Address `json:"fromAddress"`
-	GasLimit          uint64         `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+	ChainSpecificName  string                `json:"chainSpecificName"`
+	Checker            string                `json:"checker"`
+	FromAddress        common.Address        `json:"fromAddress"`
+	GasLimit           uint64                `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+	InputModifications codec.ModifiersConfig `json:"inputModifications,omitempty"`
 }
 
 type ChainReaderConfig struct {

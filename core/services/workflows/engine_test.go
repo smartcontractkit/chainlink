@@ -81,10 +81,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	initFailed := make(chan struct{})
 	executionFinished := make(chan string, 100)
 	cfg := Config{
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Spec:       spec,
-		DONInfo:    nil,
+		Lggr:     logger.TestLogger(t),
+		Registry: reg,
+		Spec:     spec,
+		DONInfo: &capabilities.DON{
+			ID: "00010203",
+		},
 		PeerID:     func() *p2ptypes.PeerID { return &peerID },
 		maxRetries: 1,
 		retryMs:    100,
@@ -212,7 +214,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 					capabilities.CapabilityTypeTarget,
 					"a write capability targeting ethereum sepolia testnet",
 					"v1.0.0",
-					nil,
 				),
 				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 					m := req.Inputs.Underlying["report"].(*values.Map)
@@ -296,7 +297,6 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -320,7 +320,6 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -334,7 +333,6 @@ func mockFailingConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -349,7 +347,6 @@ func mockConsensus() *mockCapability {
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
 			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -376,7 +373,6 @@ func mockTarget() *mockCapability {
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -472,7 +468,6 @@ func mockAction() (*mockCapability, values.Value) {
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
 			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{
@@ -549,7 +544,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
@@ -604,7 +599,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,

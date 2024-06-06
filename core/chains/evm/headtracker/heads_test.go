@@ -10,28 +10,28 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
 func TestHeads_LatestHead(t *testing.T) {
 	t.Parallel()
 
 	heads := headtracker.NewHeads()
-	heads.AddHeads(cltest.Head(100), cltest.Head(200), cltest.Head(300))
+	heads.AddHeads(testutils.Head(100), testutils.Head(200), testutils.Head(300))
 
 	latest := heads.LatestHead()
 	require.NotNil(t, latest)
 	require.Equal(t, int64(300), latest.Number)
 
-	heads.AddHeads(cltest.Head(250))
+	heads.AddHeads(testutils.Head(250))
 	latest = heads.LatestHead()
 	require.NotNil(t, latest)
 	require.Equal(t, int64(300), latest.Number)
 
-	heads.AddHeads(cltest.Head(400))
+	heads.AddHeads(testutils.Head(400))
 	latest = heads.LatestHead()
 	require.NotNil(t, latest)
 	require.Equal(t, int64(400), latest.Number)
@@ -41,9 +41,9 @@ func TestHeads_HeadByHash(t *testing.T) {
 	t.Parallel()
 
 	var testHeads = []*evmtypes.Head{
-		cltest.Head(100),
-		cltest.Head(200),
-		cltest.Head(300),
+		testutils.Head(100),
+		testutils.Head(200),
+		testutils.Head(300),
 	}
 	heads := headtracker.NewHeads()
 	heads.AddHeads(testHeads...)
@@ -62,10 +62,10 @@ func TestHeads_Count(t *testing.T) {
 	heads := headtracker.NewHeads()
 	require.Zero(t, heads.Count())
 
-	heads.AddHeads(cltest.Head(100), cltest.Head(200), cltest.Head(300))
+	heads.AddHeads(testutils.Head(100), testutils.Head(200), testutils.Head(300))
 	require.Equal(t, 3, heads.Count())
 
-	heads.AddHeads(cltest.Head(400))
+	heads.AddHeads(testutils.Head(400))
 	require.Equal(t, 4, heads.Count())
 }
 

@@ -13,8 +13,6 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-// TODO determine location for this code
-
 var (
 	// S = [N]
 	Schedule_AllAtOnce = "allAtOnce"

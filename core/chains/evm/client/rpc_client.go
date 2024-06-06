@@ -17,9 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -29,6 +32,83 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+var (
+	promEVMPoolRPCNodeDials = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_total",
+		Help: "The total number of dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeDialsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_failed",
+		Help: "The total number of failed dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeDialsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_success",
+		Help: "The total number of successful dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+
+	promEVMPoolRPCNodeCalls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_total",
+		Help: "The approximate total number of RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeCallsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_failed",
+		Help: "The approximate total number of failed RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeCallsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_success",
+		Help: "The approximate total number of successful RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "evm_pool_rpc_node_rpc_call_time",
+		Help: "The duration of an RPC call in nanoseconds",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
+	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
+)
+
+// RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+//
+//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+type RPCClient interface {
+	commonclient.RPC[
+		*big.Int,
+		evmtypes.Nonce,
+		common.Address,
+		common.Hash,
+		*types.Transaction,
+		common.Hash,
+		types.Log,
+		ethereum.FilterQuery,
+		*evmtypes.Receipt,
+		*assets.Wei,
+		*evmtypes.Head,
+		rpc.BatchElem,
+	]
+	BlockByHashGeth(ctx context.Context, hash common.Hash) (b *types.Block, err error)
+	BlockByNumberGeth(ctx context.Context, number *big.Int) (b *types.Block, err error)
+	HeaderByHash(ctx context.Context, h common.Hash) (head *types.Header, err error)
+	HeaderByNumber(ctx context.Context, n *big.Int) (head *types.Header, err error)
+	PendingCodeAt(ctx context.Context, account common.Address) (b []byte, err error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (s ethereum.Subscription, err error)
+	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
+	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
+	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
+}
+
+type rawclient struct {
+	rpc  *rpc.Client
+	geth *ethclient.Client
+	uri  url.URL
+}
 
 type RpcClient struct {
 	cfg     config.NodePool
@@ -132,7 +212,7 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 
 // Not thread-safe, pure dial.
 func (r *RpcClient) Dial(callerCtx context.Context) error {
-	ctx, cancel := r.makeQueryCtx(callerCtx)
+	ctx, cancel := makeQueryCtx(callerCtx, r.getChStopInflight())
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
@@ -852,6 +932,15 @@ func (r *RpcClient) BalanceAt(ctx context.Context, account common.Address, block
 	return
 }
 
+// CallArgs represents the data used to call the balance method of a contract.
+// "To" is the address of the ERC contract. "Data" is the message sent
+// to the contract. "From" is the sender address.
+type CallArgs struct {
+	From common.Address `json:"from"`
+	To   common.Address `json:"to"`
+	Data hexutil.Bytes  `json:"data"`
+}
+
 // TokenBalance returns the balance of the given address for the token contract address.
 func (r *RpcClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
@@ -1029,8 +1118,19 @@ func (r *RpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context)
 	return
 }
 
-func (r *RpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
-	return makeQueryCtx(ctx, r.getChStopInflight())
+// makeQueryCtx returns a context that cancels if:
+// 1. Passed in ctx cancels
+// 2. Passed in channel is closed
+// 3. Default timeout is reached (queryTimeout)
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
+	var chCancel, timeoutCancel context.CancelFunc
+	ctx, chCancel = ch.Ctx(ctx)
+	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
+	cancel := func() {
+		chCancel()
+		timeoutCancel()
+	}
+	return ctx, cancel
 }
 
 func (r *RpcClient) IsSyncing(ctx context.Context) (bool, error) {
@@ -1068,4 +1168,11 @@ func (r *RpcClient) getChStopInflight() chan struct{} {
 
 func (r *RpcClient) Name() string {
 	return r.name
+}
+
+func ToBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
 }
