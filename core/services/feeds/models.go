@@ -76,14 +76,17 @@ func (p *Plugins) Scan(value interface{}) error {
 type ChainType string
 
 const (
-	ChainTypeUnknown ChainType = "UNKNOWN"
-	ChainTypeEVM     ChainType = "EVM"
+	ChainTypeUnknown  ChainType = "UNKNOWN"
+	ChainTypeEVM      ChainType = "EVM"
+	ChainTypeStarknet ChainType = "STARKNET"
 )
 
 func NewChainType(s string) (ChainType, error) {
 	switch s {
 	case "EVM":
 		return ChainTypeEVM, nil
+	case "STARKNET":
+		return ChainTypeStarknet, nil
 	default:
 		return ChainTypeUnknown, errors.New("invalid chain type")
 	}
@@ -103,17 +106,20 @@ type FeedsManager struct {
 
 // ChainConfig defines the chain configuration for a Feeds Manager.
 type ChainConfig struct {
-	ID                int64
-	FeedsManagerID    int64
-	ChainID           string
-	ChainType         ChainType
-	AccountAddress    string
-	AdminAddress      string
-	FluxMonitorConfig FluxMonitorConfig
-	OCR1Config        OCR1Config
-	OCR2Config        OCR2ConfigModel
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                      int64
+	FeedsManagerID          int64
+	ChainID                 string
+	ChainType               ChainType
+	AccountAddress          string
+	AccountAddressPublicKey null.String
+	AdminAddress            string
+	FluxMonitorConfig       FluxMonitorConfig
+	OCR1Config              OCR1Config
+	OCR2Config              OCR2ConfigModel
+	WorkflowConfig          WorkflowConfig
+	OCR3CapabilitiesConfig  OCR3CapabilitiesConfig
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // FluxMonitorConfig defines configuration for FluxMonitorJobs.
@@ -134,13 +140,40 @@ func (c *FluxMonitorConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &c)
 }
 
-// OCR1Config defines configuration for OCR1 Jobs.
-type OCR1Config struct {
-	Enabled     bool        `json:"enabled"`
-	IsBootstrap bool        `json:"is_bootstrap"`
-	Multiaddr   null.String `json:"multiaddr"`
-	P2PPeerID   null.String `json:"p2p_peer_id"`
-	KeyBundleID null.String `json:"key_bundle_id"`
+// WorkflowConfig defines configuration for Workflow spec jobs.
+type WorkflowConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (c WorkflowConfig) Value() (driver.Value, error) {
+	return json.Marshal(c)
+}
+
+func (c *WorkflowConfig) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &c)
+}
+
+// OCR3CapabilitiesConfig defines configuration for ocr3 capabilities.
+type OCR3CapabilitiesConfig struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (c OCR3CapabilitiesConfig) Value() (driver.Value, error) {
+	return json.Marshal(c)
+}
+
+func (c *OCR3CapabilitiesConfig) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(b, &c)
 }
 
 func (c OCR1Config) Value() (driver.Value, error) {
@@ -154,6 +187,15 @@ func (c *OCR1Config) Scan(value interface{}) error {
 	}
 
 	return json.Unmarshal(b, &c)
+}
+
+// OCR1Config defines configuration for OCR1 Jobs.
+type OCR1Config struct {
+	Enabled     bool        `json:"enabled"`
+	IsBootstrap bool        `json:"is_bootstrap"`
+	Multiaddr   null.String `json:"multiaddr"`
+	P2PPeerID   null.String `json:"p2p_peer_id"`
+	KeyBundleID null.String `json:"key_bundle_id"`
 }
 
 // OCR2ConfigModel defines configuration for OCR2 Jobs.

@@ -101,8 +101,8 @@ RETURNING id;
 // CreateChainConfig creates a new chain config.
 func (o *orm) CreateChainConfig(ctx context.Context, cfg ChainConfig) (id int64, err error) {
 	stmt := `
-INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, workflow_config, ocr3_capabilities_config, created_at, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW())
 RETURNING id;
 `
 
@@ -117,6 +117,8 @@ RETURNING id;
 		cfg.FluxMonitorConfig,
 		cfg.OCR1Config,
 		cfg.OCR2Config,
+		cfg.WorkflowConfig,
+		cfg.OCR3CapabilitiesConfig,
 	)
 
 	return id, errors.Wrap(err, "CreateChainConfig failed")
@@ -129,7 +131,7 @@ func (o *orm) CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) (i
 	}
 
 	stmt := `
-INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, workflow_config, ocr3_capabilities_config, created_at, updated_at)
 VALUES %s
 RETURNING id;
 	`
@@ -141,9 +143,9 @@ RETURNING id;
 
 	for i, cfg := range cfgs {
 		// Generate the placeholders
-		pnumidx := i * 8
+		pnumidx := i * 11
 
-		lo, hi := pnumidx+1, pnumidx+8
+		lo, hi := pnumidx+1, pnumidx+11
 		pnums := make([]any, hi-lo+1)
 		for i := range pnums {
 			pnums[i] = i + lo
@@ -163,6 +165,8 @@ RETURNING id;
 			cfg.FluxMonitorConfig,
 			cfg.OCR1Config,
 			cfg.OCR2Config,
+			cfg.WorkflowConfig,
+			cfg.OCR3CapabilitiesConfig,
 		)
 	}
 
@@ -192,7 +196,7 @@ RETURNING id;
 // GetChainConfig fetches a chain config.
 func (o *orm) GetChainConfig(ctx context.Context, id int64) (*ChainConfig, error) {
 	stmt := `
-SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, workflow_config, ocr3_capabilities_config, created_at, updated_at
 FROM feeds_manager_chain_configs
 WHERE id = $1;
 `
@@ -207,7 +211,7 @@ WHERE id = $1;
 // ids.
 func (o *orm) ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]ChainConfig, error) {
 	stmt := `
-SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, workflow_config, ocr3_capabilities_config, created_at, updated_at
 FROM feeds_manager_chain_configs
 WHERE feeds_manager_id = ANY($1)
 	`
@@ -227,8 +231,11 @@ SET account_address = $1,
 	flux_monitor_config = $3,
 	ocr1_config = $4,
 	ocr2_config = $5,
+	account_address_public_key = $6,
+	workflow_config = $7,
+	ocr3_capabilities_config = $8,
 	updated_at = NOW()
-WHERE id = $6
+WHERE id = $9
 RETURNING id;
 `
 
@@ -239,6 +246,9 @@ RETURNING id;
 		cfg.FluxMonitorConfig,
 		cfg.OCR1Config,
 		cfg.OCR2Config,
+		cfg.AccountAddressPublicKey,
+		cfg.WorkflowConfig,
+		cfg.OCR3CapabilitiesConfig,
 		cfg.ID,
 	)
 

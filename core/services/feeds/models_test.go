@@ -115,6 +115,36 @@ func Test_FluxMonitorConfig_Scan(t *testing.T) {
 	assert.Equal(t, want, actual)
 }
 
+func Test_WorkflowConfig_Value(t *testing.T) {
+	t.Parallel()
+
+	cfg := WorkflowConfig{Enabled: true}
+	want := `{"enabled":true}`
+
+	val, err := cfg.Value()
+	require.NoError(t, err)
+
+	actual, ok := val.([]byte)
+	require.True(t, ok)
+
+	assert.Equal(t, want, string(actual))
+}
+
+func Test_OCR3CapabilitiesConfig_Scan(t *testing.T) {
+	t.Parallel()
+
+	var (
+		give = `{"enabled":true}`
+		want = OCR3CapabilitiesConfig{Enabled: true}
+	)
+
+	var actual OCR3CapabilitiesConfig
+	err := actual.Scan([]byte(give))
+	require.NoError(t, err)
+
+	assert.Equal(t, want, actual)
+}
+
 func Test_OCR1Config_Value(t *testing.T) {
 	t.Parallel()
 
