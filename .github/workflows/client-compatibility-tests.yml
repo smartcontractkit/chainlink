@@ -198,7 +198,7 @@ jobs:
           go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'ocr' 'TestOCRBasic' './integration-tests/smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
-          cp compatibility_test_list.json ../.
+          cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
         id: create-test-matrix-list
         run: |
