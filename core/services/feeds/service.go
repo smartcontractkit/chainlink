@@ -1157,7 +1157,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		return nil, err
 	}
 
-	return &pb.ChainConfig{
+	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
 			Type: pb.ChainType_CHAIN_TYPE_EVM,
@@ -1167,7 +1167,13 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		FluxMonitorConfig: s.newFluxMonitorConfigMsg(cfg.FluxMonitorConfig),
 		Ocr1Config:        ocr1Cfg,
 		Ocr2Config:        ocr2Cfg,
-	}, nil
+	}
+
+	if cfg.AccountAddressPublicKey.Valid {
+		pbChainConfig.AccountAddressPublicKey = &cfg.AccountAddressPublicKey.String
+	}
+
+	return &pbChainConfig, nil
 }
 
 // newFluxMonitorConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
