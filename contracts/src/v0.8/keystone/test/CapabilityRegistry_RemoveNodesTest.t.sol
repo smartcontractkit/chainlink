@@ -17,7 +17,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
     s_capabilityRegistry.addCapabilities(capabilities);
 
-    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](3);
     bytes32[] memory hashedCapabilityIds = new bytes32[](2);
     hashedCapabilityIds[0] = s_basicHashedCapabilityId;
     hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
@@ -29,7 +29,21 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    changePrank(NODE_OPERATOR_ONE_ADMIN);
+    nodes[1] = CapabilityRegistry.NodeInfo({
+      nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
+      p2pId: P2P_ID_TWO,
+      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    nodes[2] = CapabilityRegistry.NodeInfo({
+      nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
+      p2pId: P2P_ID_THREE,
+      signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    changePrank(ADMIN);
 
     s_capabilityRegistry.addNodes(nodes);
   }
@@ -63,8 +77,9 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
 
   function test_RevertWhen_NodePartOfDON() public {
     changePrank(ADMIN);
-    bytes32[] memory nodes = new bytes32[](1);
+    bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;
+    nodes[1] = P2P_ID_TWO;
 
     CapabilityRegistry.CapabilityConfiguration[]
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
@@ -73,7 +88,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
       config: BASIC_CAPABILITY_CONFIG
     });
 
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
 
     vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfDON.selector, P2P_ID));
     s_capabilityRegistry.removeNodes(nodes);
@@ -82,8 +97,9 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
   function test_CanRemoveWhenDONDeleted() public {
     changePrank(ADMIN);
 
-    bytes32[] memory nodes = new bytes32[](1);
+    bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;
+    nodes[1] = P2P_ID_TWO;
 
     CapabilityRegistry.CapabilityConfiguration[]
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
@@ -93,7 +109,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     });
 
     // Add DON
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
 
     // Try remove nodes
     bytes32[] memory removedNodes = new bytes32[](1);
@@ -118,23 +134,11 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
 
   function test_CanRemoveWhenNodeNoLongerPartOfDON() public {
     changePrank(ADMIN);
-    CapabilityRegistry.NodeInfo[] memory newNodes = new CapabilityRegistry.NodeInfo[](1);
-    bytes32[] memory hashedCapabilityIds = new bytes32[](2);
-    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
-    hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    newNodes[0] = CapabilityRegistry.NodeInfo({
-      nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
-      p2pId: P2P_ID_TWO,
-      signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
-      hashedCapabilityIds: hashedCapabilityIds
-    });
-
-    s_capabilityRegistry.addNodes(newNodes);
-
-    bytes32[] memory nodes = new bytes32[](2);
+    bytes32[] memory nodes = new bytes32[](3);
     nodes[0] = P2P_ID;
     nodes[1] = P2P_ID_TWO;
+    nodes[2] = P2P_ID_THREE;
 
     CapabilityRegistry.CapabilityConfiguration[]
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
@@ -144,7 +148,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     });
 
     // Add DON
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
 
     // Try remove nodes
     bytes32[] memory removedNodes = new bytes32[](1);
@@ -153,9 +157,10 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     s_capabilityRegistry.removeNodes(removedNodes);
 
     // Update nodes in DON
-    bytes32[] memory updatedNodes = new bytes32[](1);
+    bytes32[] memory updatedNodes = new bytes32[](2);
     updatedNodes[0] = P2P_ID;
-    s_capabilityRegistry.updateDON(DON_ID, updatedNodes, capabilityConfigs, true);
+    updatedNodes[1] = P2P_ID_THREE;
+    s_capabilityRegistry.updateDON(DON_ID, updatedNodes, capabilityConfigs, true, true, F_VALUE);
 
     // Remove node
     s_capabilityRegistry.removeNodes(removedNodes);

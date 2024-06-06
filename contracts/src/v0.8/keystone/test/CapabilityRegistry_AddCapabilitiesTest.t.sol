@@ -79,7 +79,7 @@ contract CapabilityRegistry_AddCapabilitiesTest is BaseTest {
     capabilities[0] = s_basicCapability;
 
     bytes32 hashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("data-streams-reports", "1.0.0");
-        vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
     emit CapabilityConfigured(hashedCapabilityId);
     s_capabilityRegistry.addCapabilities(capabilities);
     CapabilityRegistry.Capability memory storedCapability = s_capabilityRegistry.getCapability(hashedCapabilityId);

@@ -654,7 +654,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param version The capability's version number
   /// @return bytes32 A unique identifier for the capability
   /// @dev The hash of the encoded labelledName and version
-  function getHashedCapabilityId(string calldata labelledName, string calldata version) public pure returns (bytes32) {
+  function getHashedCapabilityId(string memory labelledName, string memory version) public pure returns (bytes32) {
     return keccak256(abi.encode(labelledName, version));
   }
 
@@ -800,8 +800,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
     // Skip removing supported DON Ids from previously configured nodes in DON if
     // we are adding the DON for the first time
-    if (configCount > 1) {
-      DONCapabilityConfig storage prevDONCapabilityConfig = s_dons[donId].config[configCount - 1];
+    if (donParams.configCount > 1) {
+      DONCapabilityConfig storage prevDONCapabilityConfig = s_dons[donParams.id].config[donParams.configCount - 1];
 
       // We acknowledge that this may result in an out of gas error if the number of configured
       // nodes is large.  This is mitigated by ensuring that there will not be a large number
@@ -810,7 +810,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // needed as the previous config will be overwritten by storing the latest config
       // at configCount
       for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
-        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donId);
+        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donParams.id);
       }
     }
 
