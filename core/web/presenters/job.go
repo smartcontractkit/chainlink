@@ -40,6 +40,7 @@ const (
 	GatewayJobSpec              JobSpecType = "gateway"
 	WorkflowJobSpec             JobSpecType = "workflow"
 	StandardCapabilitiesJobSpec JobSpecType = "standardcapabilities"
+	CCIPJobSpec                 JobSpecType = "ccip"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -466,6 +467,22 @@ func NewStandardCapabilitiesSpec(spec *job.StandardCapabilitiesSpec) *StandardCa
 	}
 }
 
+type CCIPSpec struct {
+	CreatedAt    time.Time              `json:"createdAt"`
+	UpdatedAt    time.Time              `json:"updatedAt"`
+	RelayConfig  map[string]interface{} `json:"relayConfig"`
+	PluginConfig map[string]interface{} `json:"pluginConfig"`
+}
+
+func NewCCIPSpec(spec *job.CCIPSpec) *CCIPSpec {
+	return &CCIPSpec{
+		CreatedAt:    spec.CreatedAt,
+		UpdatedAt:    spec.UpdatedAt,
+		RelayConfig:  spec.RelayConfig,
+		PluginConfig: spec.PluginConfig,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -510,6 +527,7 @@ type JobResource struct {
 	GatewaySpec              *GatewaySpec              `json:"gatewaySpec"`
 	WorkflowSpec             *WorkflowSpec             `json:"workflowSpec"`
 	StandardCapabilitiesSpec *StandardCapabilitiesSpec `json:"standardCapabilitiesSpec"`
+	CCIPSpec                 *CCIPSpec                 `json:"ccipSpec"`
 	PipelineSpec             PipelineSpec              `json:"pipelineSpec"`
 	Errors                   []JobError                `json:"errors"`
 }

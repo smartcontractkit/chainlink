@@ -41,6 +41,7 @@ const (
 	WebhookJobType                 string = "webhook"
 	WorkflowJobType                string = "workflow"
 	StandardCapabilitiesJobType    string = "standardcapabilities"
+	CCIPJobType                    string = "ccip"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

@@ -49,6 +49,7 @@ const (
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
 	Workflow                Type = (Type)(pipeline.WorkflowJobType)
 	StandardCapabilities    Type = (Type)(pipeline.StandardCapabilitiesJobType)
+	CCIP                    Type = (Type)(pipeline.CCIPJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -89,6 +90,7 @@ var (
 		Webhook:                 true,
 		Workflow:                false,
 		StandardCapabilities:    false,
+		CCIP:                    false,
 	}
 	supportsAsync = map[Type]bool{
 		BlockHeaderFeeder:       false,
@@ -108,6 +110,7 @@ var (
 		Webhook:                 true,
 		Workflow:                false,
 		StandardCapabilities:    false,
+		CCIP:                    false,
 	}
 	schemaVersions = map[Type]uint32{
 		BlockHeaderFeeder:       1,
@@ -127,6 +130,7 @@ var (
 		Webhook:                 1,
 		Workflow:                1,
 		StandardCapabilities:    1,
+		CCIP:                    1,
 	}
 )
 
@@ -172,6 +176,8 @@ type Job struct {
 	WorkflowSpec                  *WorkflowSpec
 	StandardCapabilitiesSpecID    *int32
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPSpec                      *CCIPSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -896,4 +902,79 @@ func (w *StandardCapabilitiesSpec) SetID(value string) error {
 	}
 	w.ID = int32(ID)
 	return nil
+}
+
+type CCIPSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	// P2PV2Bootstrappers is a list of "peer_id@ip_address:port" strings that are used to
+	// identify the bootstrap nodes of the P2P network.
+	// These bootstrappers will be used to bootstrap all CCIP DONs.
+	P2PV2Bootstrappers pq.StringArray `toml:"p2pv2Bootstrappers" db:"p2pv2_bootstrappers"`
+
+	// CapabilityVersion is the semantic version of the CCIP capability.
+	// This capability version must exist in the onchain capability registry.
+	CapabilityVersion string `toml:"capabilityVersion" db:"capability_version"`
+
+	// CapabilityLabelledName is the labelled name of the CCIP capability.
+	// Corresponds to the labelled name of the capability in the onchain capability registry.
+	CapabilityLabelledName string `toml:"capabilityLabelledName" db:"capability_labelled_name"`
+
+	// OCRKeyBundleIDs is a mapping from chain type to OCR key bundle ID.
+	// These are explicitly specified here so that we don't run into strange errors auto-detecting
+	// the valid bundle, since nops can create as many bundles as they want.
+	// This means that the job spec must be updated for every new chain family supported by CCIP.
+	// {"evm": "evm_key_bundle_id", "solana": "solana_key_bundle_id", ... }
+	OCRKeyBundleIDs JSONConfig `toml:"ocrKeyBundleIDs" db:"ocr_key_bundle_ids"`
+
+	// P2PKeyID is the ID of the P2P key of the node.
+	// This must be present in the capability registry otherwise the job will not start correctly.
+	P2PKeyID string `toml:"p2pKeyID" db:"p2p_key_id"`
+
+	// TransmitterIDs is a mapping from relay id to transmitter id.
+	// Safest thing to do is to whitelist them in the job spec.
+	// This means that the job spec must be updated for every new chain added to CCIP.
+	TransmitterIDs JSONConfig `toml:"transmitterIDs" db:"transmitter_ids"`
+
+	// RelayConfig consists of relay specific configuration.
+	// Chain reader configurations are stored here, and are defined on a chain family basis, e.g
+	// we will have one chain reader config for EVM, one for solana, starknet, etc.
+	// Chain writer configurations are also stored here, and are also defined on a chain family basis,
+	// e.g we will have one chain writer config for EVM, one for solana, starknet, etc.
+	// See tests for examples of relay configs in TOML.
+	// { "evm": {"chainReader": {...}, "chainWriter": {...}}, "solana": {...}, ... }
+	// Relay config structure
+	// see core/services/relay/evm/types/types.go
+	RelayConfigs map[string]JSONConfig `toml:"relayConfigs" db:"relay_configs"`
+
+	// PluginConfig contains plugin-specific config, like token price pipelines.
+	// The job spec will have to be updated once a new token needs its price posted.
+	// TODO: might get axed in favor of workflows' ccip price posting.
+	PluginConfig JSONConfig `toml:"pluginConfig"`
+}
+
+// CCIPBootstrapSpec is the spec for the CCIP role don bootstrap job.
+// This job launches a bootstrap node for each new CCIP role DON OCR instance.
+type CCIPBootstrapSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+
+	// CapabilityVersion is the semantic version of the CCIP capability.
+	// This capability version must exist in the onchain capability registry.
+	// Bootstrap nodes will be launched based on DONs with this capability version.
+	CapabilityVersion string `toml:"capabilityVersion" db:"capability_version"`
+
+	// CapabilityLabelledName is the labelled name of the CCIP capability.
+	// Corresponds to the labelled name of the capability in the onchain capability registry.
+	// Bootstrap nodes will be launched based on DONs with this capability labelled name.
+	CapabilityLabelledName string `toml:"capabilityLabelledName" db:"capability_labelled_name"`
+
+	// RelayConfig defines the chain reader configurations for the bootstrap node.
+	// Note that it must be EVM, since home chain is EVM.
+	RelayConfig        JSONConfig
+	MonitoringEndpoint null.String     `toml:"monitoringEndpoint"`
+	BlockchainTimeout  models.Interval `toml:"blockchainTimeout"`
 }
