@@ -26,6 +26,9 @@ dependencies:
   '@scroll-tech/contracts':
     specifier: 0.1.0
     version: 0.1.0
+  semver:
+    specifier: ^7.6.2
+    version: 7.6.2
 
 devDependencies:
   '@ethereum-waffle/mock-contract':

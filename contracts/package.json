@@ -79,6 +79,7 @@
     "@eth-optimism/contracts": "0.6.0",
     "@openzeppelin/contracts": "4.9.3",
     "@openzeppelin/contracts-upgradeable": "4.9.3",
-    "@scroll-tech/contracts": "0.1.0"
+    "@scroll-tech/contracts": "0.1.0",
+    "semver": "^7.6.2"
   }
 }
