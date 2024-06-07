@@ -31,12 +31,11 @@ type WriteTarget struct {
 	lggr logger.Logger
 }
 
-func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
-		name,
+		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 	)
 
 	logger := lggr.Named("WriteTarget")
