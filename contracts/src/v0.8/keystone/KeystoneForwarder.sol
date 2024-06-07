@@ -4,14 +4,14 @@ pragma solidity ^0.8.19;
 import {IRouter} from "./interfaces/IRouter.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
-contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
+contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   error ReentrantCall();
 
   /// @notice This error is returned when the report is shorter than
@@ -95,7 +95,9 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param result The result of the attempted delivery. True if successful.
   event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
-  constructor(address router) ConfirmedOwner(msg.sender) {
+  string public constant override typeAndVersion = "KeystoneForwarder 1.0.0";
+
+  constructor(address router) OwnerIsCreator() {
     s_router = router;
   }
 
@@ -272,11 +274,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
       reportId := mload(add(rawReport, 139))
     }
-  }
-
-  /// @inheritdoc TypeAndVersionInterface
-  function typeAndVersion() external pure override returns (string memory) {
-    return "KeystoneForwarder 1.0.0";
   }
 
   /**
