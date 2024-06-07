@@ -108,14 +108,13 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     }
 
     // add new signer addresses
-    s_configs[configId].signers = signers;
-
     for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = i + 1;
     }
+    s_configs[configId].signers = signers;
     s_configs[configId].f = f;
 
     emit ConfigSet(donId, configVersion, f, signers);
