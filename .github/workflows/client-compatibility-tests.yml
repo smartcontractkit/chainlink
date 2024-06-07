@@ -70,9 +70,17 @@ jobs:
       - name: Check if the job should run
         id: should-run
         run: |
-          if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "GITHUB_REF_TYPE" = "tag" ]; then
+          if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ]; then
+            echo "Will run tests, because go-ethereum dependency was bumped"
+            echo "should_run=true" >> $GITHUB_ENV
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
+            echo "should_run=true" >> $GITHUB_ENV
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "Will run tests, because new tag was created"
             echo "should_run=true" >> $GITHUB_ENV
           else
+            echo "Will not run tests"
             echo "should_run=false" >> $GITHUB_ENV
           fi
 
