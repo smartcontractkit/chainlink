@@ -95,13 +95,16 @@ LimitDefault = 5_000_000
 )
 
 /*
- * This test verifies that conditional upkeeps automatically recover from chain reorgs
+ * This test verifies that conditional upkeeps automatically recover from chain reorgs.
+ *
  * The test starts with happy path where upkeeps are expected to be performed.
- * Then reorg below finality depth starts which makes the chain unstable.
+ * Then starts reorg below finality depth which makes the chain unstable.
  *
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	require.Less(t, reorgBlockCount, finalityDepth, "Reorg block count should be less than finality depth")
+
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
