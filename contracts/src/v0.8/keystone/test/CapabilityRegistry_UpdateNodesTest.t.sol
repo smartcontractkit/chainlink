@@ -5,19 +5,17 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_UpdateNodesTest is BaseTest {
-  event NodeUpdated(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
-
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes32 private constant NEW_NODE_SIGNER = bytes32("new-signer");
+  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);
     bytes32[] memory hashedCapabilityIds = new bytes32[](2);
@@ -59,7 +57,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
     s_capabilityRegistry.updateNodes(nodes);
   }
 

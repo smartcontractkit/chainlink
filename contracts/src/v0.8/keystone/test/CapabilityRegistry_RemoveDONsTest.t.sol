@@ -8,18 +8,15 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_RemoveDONsTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
-  uint32 private constant DON_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint256 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
-  bytes32 private constant INVALID_P2P_ID = bytes32("fake-p2p");
-  bytes private constant CONFIG = bytes("onchain-config");
-
   function setUp() public override {
     BaseTest.setUp();
 
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
 
     CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
@@ -50,7 +47,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
       memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
     capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
-      config: CONFIG
+      config: BASIC_CAPABILITY_CONFIG
     });
 
     bytes32[] memory nodeIds = new bytes32[](2);
@@ -58,7 +55,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true);
+    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
@@ -89,7 +86,12 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     assertEq(donInfo.configCount, 0);
     assertEq(donInfo.isPublic, false);
     assertEq(donInfo.capabilityConfigurations.length, 0);
-    assertEq(s_capabilityRegistry.getDONCapabilityConfig(DON_ID, s_basicHashedCapabilityId), bytes(""));
+
+    (bytes memory capabilityRegistryDONConfig, bytes memory capabilityConfigContractConfig) = s_capabilityRegistry
+      .getCapabilityConfigs(DON_ID, s_basicHashedCapabilityId);
+
+    assertEq(capabilityRegistryDONConfig, bytes(""));
+    assertEq(capabilityConfigContractConfig, bytes(""));
     assertEq(donInfo.nodeP2PIds.length, 0);
   }
 }
