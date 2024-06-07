@@ -88,8 +88,8 @@ contract KeystoneFeedsConsumer is IReceiver, ConfirmedOwner {
     // workflow_owner           // offset 74, size 20
     // report_name              // offset 94, size  2
     assembly {
-      // shift right by 22 bytes to get the actual value
-      workflowName := shr(mul(22, 8), mload(add(metadata, 64)))
+      // no shifting needed for bytes10 type
+      workflowName := mload(add(metadata, 64))
       // shift right by 12 bytes to get the actual value
       workflowOwner := shr(mul(12, 8), mload(add(metadata, 74)))
     }
