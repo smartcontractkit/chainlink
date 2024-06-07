@@ -1611,6 +1611,43 @@ contract BillingOverrides is SetUp {
 }
 
 contract Transmit is SetUp {
+  function test_transmitRevertWithExtraBytes() external {
+    bytes32[3] memory exampleReportContext = [
+      bytes32(0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef),
+      bytes32(0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890),
+      bytes32(0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456)
+    ];
+
+    bytes memory exampleRawReport = hex"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+    bytes32[] memory exampleRs = new bytes32[](3);
+    exampleRs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[2] = bytes32(0x7890789078907890789078907890789078907890789078907890789078907890);
+
+    bytes32[] memory exampleSs = new bytes32[](3);
+    exampleSs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[2] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes32 exampleRawVs = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes memory transmitData = abi.encodeWithSelector(
+      registry.transmit.selector,
+      exampleReportContext,
+      exampleRawReport,
+      exampleRs,
+      exampleSs,
+      exampleRawVs
+    );
+    bytes memory badTransmitData = bytes.concat(transmitData, bytes1(0x00)); // add extra data
+    vm.startPrank(TRANSMITTERS[0]);
+    (bool success, bytes memory returnData) = address(registry).call(badTransmitData); // send the bogus transmit
+    assertFalse(success, "Call did not revert as expected");
+    assertEq(returnData, abi.encodePacked(Registry.InvalidDataLength.selector));
+    vm.stopPrank();
+  }
+
   function test_handlesMixedBatchOfBillingTokens() external {
     uint256[] memory prevUpkeepBalances = new uint256[](3);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
@@ -1664,6 +1701,104 @@ contract Transmit is SetUp {
       prevReserveBalances[2] > registry.getReserveAmount(address(weth)),
       "native reserve amount should have decreased"
     );
+  }
+
+  function test_handlesInsufficientBalanceWithUSDToken18() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken18),
+      "",
+      "",
+      ""
+    );
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken18.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 1); // smaller than gasCharge
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(gasChargeInBillingToken, balance);
+    assertEq(gasReimbursementInJuels, (balance * billingUSD) / linkUSD);
+    assertEq(premiumInJuels, 0);
+    assertEq(premiumInBillingToken, 0);
+  }
+
+  function test_handlesInsufficientBalanceWithUSDToken6() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken6),
+      "",
+      "",
+      ""
+    );
+    vm.prank(OWNER);
+    usdToken6.mint(UPKEEP_ADMIN, 1e20);
+
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken6.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 100); // this is greater than gasCharge but less than (gasCharge + premium)
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(premiumInJuels, (balance * billingUSD * 1e12) / linkUSD - gasReimbursementInJuels); // scale to 18 decimals
+    assertEq(premiumInBillingToken, (premiumInJuels * linkUSD + (billingUSD * 1e12 - 1)) / (billingUSD * 1e12));
   }
 }
 

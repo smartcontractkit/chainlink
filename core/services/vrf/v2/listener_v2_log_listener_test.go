@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -53,7 +53,6 @@ type vrfLogPollerListenerTH struct {
 	Owner             *bind.TransactOpts
 	Db                *sqlx.DB
 	Listener          *listenerV2
-	Ctx               context.Context
 }
 
 func setupVRFLogPollerListenerTH(t *testing.T,
@@ -172,7 +171,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		Owner:             owner,
 		Db:                db,
 		Listener:          listener,
-		Ctx:               ctx,
 	}
 	mockChainUpdateFn(chain, th)
 	return th
@@ -188,6 +186,7 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, th *vrfLogPollerListenerTH) {
@@ -225,7 +224,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 3, len(logs))
 
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
@@ -261,6 +260,7 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 
 func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -297,7 +297,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req/resp block) + 5 (EmitLog blocks) = 11
 	latestBlock := int64(2 + 2 + 2 + 5)
@@ -307,17 +307,18 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	// Then test if log poller is able to replay from finalizedBlockNumber (8 --> onwards)
 	// since there are no pending VRF requests
 	// Blocks: 1 2 3 4 [5;Request] [6;Fulfilment] 7 8 9 10 11
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
 
 	// initializeLastProcessedBlock must return the finalizedBlockNumber (8) instead of
 	// VRF request block number (5), since all VRF requests are fulfilled
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
 func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -352,7 +353,7 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 1 (VRF req block) + 5 (EmitLog blocks) = 10
 	latestBlock := int64(2 + 2 + 1 + 5)
@@ -361,17 +362,18 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	// Replay from block 10 (latest) onwards, so that log poller has a latest block
 	// Then test if log poller is able to replay from earliestUnprocessedBlock (5 --> onwards)
 	// Blocks: 1 2 3 4 [5;Request] 6 7 8 9 10
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
 
 	// initializeLastProcessedBlock must return the unfulfilled VRF
 	// request block number (5) instead of finalizedBlockNumber (8)
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
 func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -412,7 +414,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req/resp blocks) = 19
 	latestBlock := int64(2 + 2 + 3*5)
@@ -423,17 +425,18 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	// Blocks: 1 2 3 4 5 [6;Request] [7;Request] 8 [9;Request] [10;Request]
 	// 11 [12;Request] [13;Request] 14 [15;Request] [16;Request]
 	// 17 [18;Request] [19;Request]
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
 
 	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
 	// number instead of finalizedBlockNumber
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
 func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -479,7 +482,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	}
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req/resp blocks) = 19
 	latestBlock := int64(2 + 2 + 3*5)
@@ -489,11 +492,11 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	// Blocks: 1 2 3 4 5 [6;Request] [7;Request;6-Fulfilment] 8 [9;Request] [10;Request;9-Fulfilment]
 	// 11 [12;Request] [13;Request;12-Fulfilment] 14 [15;Request] [16;Request;15-Fulfilment]
 	// 17 [18;Request] [19;Request;18-Fulfilment]
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, latestBlock))
+	require.NoError(t, th.LogPoller.Replay(ctx, latestBlock))
 
 	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
 	// number instead of finalizedBlockNumber
-	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(th.Ctx)
+	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
 	require.Nil(t, err)
 	require.Equal(t, int64(7), lastProcessedBlock)
 }
@@ -510,6 +513,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 
 func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -551,22 +555,23 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req blocks) + 5 (EmitLog blocks) = 11
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	require.NoError(t, th.LogPoller.Replay(ctx, 4))
 
 	// updateLastProcessedBlock must return the finalizedBlockNumber as there are
 	// no VRF requests, after currLastProcessedBlock (block 6). The VRF requests
 	// made above are before the currLastProcessedBlock (7) passed in below
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(th.Ctx, 7)
+	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 7)
 	require.Nil(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
 func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -606,22 +611,23 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 2 (VRF req/resp blocks) + 5 (EmitLog blocks) = 11
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	require.NoError(t, th.LogPoller.Replay(ctx, 4))
 
 	// updateLastProcessedBlock must return the finalizedBlockNumber (8) though we have
 	// a VRF req at block (5) after currLastProcessedBlock (4) passed below, because
 	// the VRF request is fulfilled
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(th.Ctx, 4)
+	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
 	require.Nil(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
 func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -657,22 +663,23 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 1 (VRF req block) + 5 (EmitLog blocks) = 10
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	require.NoError(t, th.LogPoller.Replay(ctx, 4))
 
 	// updateLastProcessedBlock must return the VRF req at block (5) instead of
 	// finalizedBlockNumber (8) after currLastProcessedBlock (4) passed below,
 	// because the VRF request is unfulfilled
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(th.Ctx, 4)
+	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
 	require.Nil(t, err)
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
 func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -714,22 +721,23 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	require.NoError(t, th.LogPoller.Replay(ctx, 4))
 
 	// updateLastProcessedBlock must return the VRF req at block (6) instead of
 	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
 	// as block 6 contains the earliest unfulfilled VRF request
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(th.Ctx, 4)
+	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
 	require.Nil(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
 func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	t.Parallel()
+	ctx := tests.Context(t)
 
 	finalityDepth := int64(3)
 	th := setupVRFLogPollerListenerTH(t, false, finalityDepth, 3, 2, 1000, func(mockChain *evmmocks.Chain, curTH *vrfLogPollerListenerTH) {
@@ -775,17 +783,17 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 3*5 (EmitLog + VRF req blocks) = 19
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(th.Ctx))
+	require.NoError(t, th.LogPoller.Start(ctx))
 
 	// We've to replay from before VRF request log, since updateLastProcessedBlock
 	// does not internally call LogPoller.Replay
-	require.NoError(t, th.LogPoller.Replay(th.Ctx, 4))
+	require.NoError(t, th.LogPoller.Replay(ctx, 4))
 
 	// updateLastProcessedBlock must return the VRF req at block (7) instead of
 	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
 	// as block 7 contains the earliest unfulfilled VRF request. VRF request
 	// in block 6 has been fulfilled in block 7.
-	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(th.Ctx, 4)
+	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
 	require.Nil(t, err)
 	require.Equal(t, int64(7), lastProcessedBlock)
 }

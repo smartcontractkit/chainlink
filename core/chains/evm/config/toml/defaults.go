@@ -94,10 +94,7 @@ func Defaults(chainID *big.Big, with ...*Chain) Chain {
 func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
-		if d.ChainType == nil {
-			return "", true
-		}
-		return config.ChainType(*d.ChainType), true
+		return d.ChainType.ChainType(), true
 	}
 	return "", false
 }
@@ -184,5 +181,5 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.NodePool.setFrom(&f.NodePool)
 	c.OCR.setFrom(&f.OCR)
 	c.OCR2.setFrom(&f.OCR2)
-	c.ChainWriter.setFrom(&f.ChainWriter)
+	c.Workflow.setFrom(&f.Workflow)
 }

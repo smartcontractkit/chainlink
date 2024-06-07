@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -19,6 +20,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -26,7 +28,7 @@ import (
 
 type ChainReaderService interface {
 	services.ServiceCtx
-	commontypes.ChainReader
+	commontypes.ContractReader
 }
 
 type chainReader struct {
@@ -208,17 +210,23 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
+	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	if err != nil {
+		return err
+	}
+
 	eb := &eventBinding{
-		contractName:   contractName,
-		eventName:      eventName,
-		lp:             cr.lp,
-		hash:           event.ID,
-		inputInfo:      inputInfo,
-		inputModifier:  inputModifier,
-		codecTopicInfo: codecTopicInfo,
-		topicsInfo:     make(map[string]topicInfo),
-		eventDataWords: chainReaderDefinition.GenericDataWordNames,
-		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		contractName:         contractName,
+		eventName:            eventName,
+		lp:                   cr.lp,
+		hash:                 event.ID,
+		inputInfo:            inputInfo,
+		inputModifier:        inputModifier,
+		codecTopicInfo:       codecTopicInfo,
+		topics:               make(map[string]topicDetail),
+		eventDataWords:       chainReaderDefinition.GenericDataWordNames,
+		id:                   wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		confirmationsMapping: confirmations,
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
@@ -227,11 +235,12 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	for topicIndex, topic := range event.Inputs {
 		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
 		if ok {
-			eb.topicsInfo[genericTopicName] = topicInfo{
-				Argument:   topic,
-				topicIndex: uint64(topicIndex),
+			eb.topics[genericTopicName] = topicDetail{
+				Argument: topic,
+				Index:    uint64(topicIndex),
 			}
 		}
+
 		// this way querying by key/s values comparison can find its bindings
 		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
@@ -296,56 +305,6 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 	return output.Init()
 }
 
-// remapFilter, changes chain agnostic filters to match evm specific filters.
-func (e *eventBinding) remapFilter(filter query.KeyFilter) (remappedFilter query.KeyFilter, err error) {
-	addEventSigFilter := false
-	for _, expression := range filter.Expressions {
-		remappedExpression, hasComparatorPrimitive, err := e.remapExpression(filter.Key, expression)
-		if err != nil {
-			return query.KeyFilter{}, err
-		}
-		remappedFilter.Expressions = append(remappedFilter.Expressions, remappedExpression)
-		// comparator primitive maps to event by topic or event by evm data word filters, which means that event sig filter is not needed
-		addEventSigFilter = addEventSigFilter != hasComparatorPrimitive
-	}
-
-	if addEventSigFilter {
-		remappedFilter.Expressions = append(remappedFilter.Expressions, NewEventBySigFilter(e.address, e.hash))
-	}
-	return remappedFilter, nil
-}
-
-func (e *eventBinding) remapExpression(key string, expression query.Expression) (remappedExpression query.Expression, hasComparerPrimitive bool, err error) {
-	if !expression.IsPrimitive() {
-		for i := range expression.BoolExpression.Expressions {
-			remappedExpression, hasComparerPrimitive, err = e.remapExpression(key, expression.BoolExpression.Expressions[i])
-			if err != nil {
-				return query.Expression{}, false, err
-			}
-			remappedExpression.BoolExpression.Expressions = append(remappedExpression.BoolExpression.Expressions, remappedExpression)
-		}
-
-		if expression.BoolExpression.BoolOperator == query.AND {
-			return query.And(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
-		}
-		return query.Or(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
-	}
-
-	// remap chain agnostic primitives to chain specific
-	switch primitive := expression.Primitive.(type) {
-	case *primitives.Confirmations:
-		remappedExpression, err = NewFinalityFilter(primitive)
-		return remappedExpression, hasComparerPrimitive, err
-	case *primitives.Comparator:
-		if val, ok := e.eventDataWords[primitive.Name]; ok {
-			return NewEventByWordFilter(e.hash, val, primitive.ValueComparators), true, nil
-		}
-		return NewEventByTopicFilter(e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparators), true, nil
-	default:
-		return expression, hasComparerPrimitive, nil
-	}
-}
-
 func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {
 	topicFieldDefs := map[string]bool{}
 	for _, value := range def.EventInputFields {
@@ -377,4 +336,26 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 	}
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
+}
+
+func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
+	mappings := map[primitives.ConfidenceLevel]evmtypes.Confirmations{
+		primitives.Unconfirmed: evmtypes.Unconfirmed,
+		primitives.Finalized:   evmtypes.Finalized,
+	}
+
+	if values == nil {
+		return mappings, nil
+	}
+
+	for key, mapped := range values {
+		mappings[primitives.ConfidenceLevel(key)] = evmtypes.Confirmations(mapped)
+	}
+
+	if mappings[primitives.Finalized] != evmtypes.Finalized &&
+		mappings[primitives.Finalized] > mappings[primitives.Unconfirmed] {
+		return nil, errors.New("finalized confidence level should map to -1 or a higher value than 0")
+	}
+
+	return mappings, nil
 }

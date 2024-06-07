@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	evmtestutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -1265,7 +1266,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	ethClient := cltest.NewEthMocks(t)
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
-	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
+	chchNewHeads := make(chan evmtestutils.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db)
@@ -1294,12 +1295,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
 
-	mockEth := &evmtest.MockEth{EthClient: ethClient}
+	mockEth := &evmtestutils.MockEth{EthClient: ethClient}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Return(
 			func(ctx context.Context, ch chan<- *evmtypes.Head) ethereum.Subscription {
 				sub := mockEth.NewSub(t)
-				chchNewHeads <- evmtest.NewRawSub(ch, sub.Err())
+				chchNewHeads <- evmtestutils.NewRawSub(ch, sub.Err())
 				return sub
 			},
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
@@ -1331,7 +1332,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	for _, re := range cc.Slice() {
 		servicetest.Run(t, re)
 	}
-	var newHeads evmtest.RawSub[*evmtypes.Head]
+	var newHeads evmtestutils.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):

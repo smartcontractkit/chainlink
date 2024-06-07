@@ -45,11 +45,12 @@ const (
 	triggerWithAllTopics    = "TriggeredWithFourTopics"
 )
 
-func TestChainReaderGetLatestValue(t *testing.T) {
+func TestChainReaderInterfaceTests(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
-	RunChainReaderGetLatestValueInterfaceTests(t, it)
-	RunChainReaderGetLatestValueInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
+
+	RunChainReaderInterfaceTests(t, it)
+	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
 	t.Run("Dynamically typed topics can be used to filter and have type correct in return", func(t *testing.T) {
 		it.Setup(t)
@@ -190,11 +191,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					EventWithFilterName: {
-						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
-						EventInputFields:  []string{"Field"},
+						ChainSpecificName:       "Triggered",
+						ReadType:                types.Event,
+						EventInputFields:        []string{"Field"},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -203,11 +206,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName: triggerWithAllTopics,
-						ReadType:          types.Event,
-						EventInputFields:  []string{"Field1", "Field2", "Field3"},
+						ChainSpecificName:       triggerWithAllTopics,
+						ReadType:                types.Event,
+						EventInputFields:        []string{"Field1", "Field2", "Field3"},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -252,7 +257,7 @@ func (it *chainReaderInterfaceTester) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
-func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ChainReader {
+func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ContractReader {
 	ctx := testutils.Context(t)
 	if it.cr != nil {
 		return it.cr
@@ -269,6 +274,20 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 	}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
+
+	// TODO  uncomment this after this is fixed BCF-3242
+	//chain := mocks.NewChain(t)
+	//chain.Mock.On("LogPoller").Return(lp)
+	//chain.Mock.On("ID").Return(it.client.ConfiguredChainID())
+	//
+	//keyStore := cltest.NewKeyStore(t, db)
+	//relayer, err := evm.NewRelayer(lggr, chain, evm.RelayerOpts{DS: db, CSAETHKeystore: keyStore, CapabilitiesRegistry: capabilities.NewRegistry(lggr)})
+	//require.NoError(t, err)
+	//
+	//cfgBytes, err := cbor.Marshal(it.chainConfig)
+	//require.NoError(t, err)
+	//cr, err := relayer.NewContractReader(cfgBytes)
+
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))

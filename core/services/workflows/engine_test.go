@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -23,7 +24,7 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -31,7 +32,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -53,14 +54,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -80,10 +81,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	initFailed := make(chan struct{})
 	executionFinished := make(chan string, 100)
 	cfg := Config{
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Spec:       spec,
-		DONInfo:    nil,
+		Lggr:     logger.TestLogger(t),
+		Registry: reg,
+		Spec:     spec,
+		DONInfo: &capabilities.DON{
+			ID: "00010203",
+		},
 		PeerID:     func() *p2ptypes.PeerID { return &peerID },
 		maxRetries: 1,
 		retryMs:    100,
@@ -207,11 +210,9 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 
 			target2 := newMockCapability(
 				capabilities.MustNewCapabilityInfo(
-					"write_ethereum-testnet-sepolia",
+					"write_ethereum-testnet-sepolia@1.0.0",
 					capabilities.CapabilityTypeTarget,
 					"a write capability targeting ethereum sepolia testnet",
-					"v1.0.0",
-					nil,
 				),
 				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 					m := req.Inputs.Underlying["report"].(*values.Map)
@@ -248,7 +249,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 const (
 	simpleWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -256,7 +257,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
         
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -278,7 +279,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -291,11 +292,9 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -315,11 +314,9 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
-			nil,
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -329,11 +326,9 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 func mockFailingConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -344,11 +339,9 @@ func mockFailingConsensus() *mockCapability {
 func mockConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -371,11 +364,9 @@ func mockConsensus() *mockCapability {
 func mockTarget() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai",
+			"write_polygon-testnet-mumbai@1.0.0",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
-			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -415,7 +406,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 const (
 	multiStepWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -423,14 +414,15 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: "read_chain_action"
+  - id: "read_chain_action@1.0.0"
     ref: "read_chain_action"
+    config: {}
     inputs:
       action:
         - "$(trigger.outputs)"
         
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -453,7 +445,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -467,11 +459,9 @@ func mockAction() (*mockCapability, values.Value) {
 	outputs := values.NewString("output")
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"read_chain_action",
+			"read_chain_action@1.0.0",
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
-			"v1.0.0",
-			nil,
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{
@@ -547,13 +537,13 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
-				Outputs: &store.StepOutput{
+			workflows.KeywordTrigger: {
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",
@@ -602,13 +592,13 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
-			keywordTrigger: {
-				Outputs: &store.StepOutput{
+			workflows.KeywordTrigger: {
+				Outputs: store.StepOutput{
 					Value: resp,
 				},
 				Status:      store.StatusCompleted,
 				ExecutionID: "<execution-ID>",
-				Ref:         keywordTrigger,
+				Ref:         workflows.KeywordTrigger,
 			},
 		},
 		WorkflowID:  "",

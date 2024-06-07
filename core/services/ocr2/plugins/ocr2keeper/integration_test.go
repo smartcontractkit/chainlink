@@ -426,6 +426,7 @@ func setupForwarderForNode(
 	backend *simulated.Backend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
+	ctx := testutils.Context(t)
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
@@ -438,12 +439,12 @@ func setupForwarderForNode(
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID, err := backend.Client().ChainID(testutils.Context(t))
 	require.NoError(t, err)
-	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, ubig.Big(*chainID))
+	_, err = forwarderORM.CreateForwarder(ctx, faddr, ubig.Big(*chainID))
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	require.NoError(t, err)
-	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
+	fwdr, err := chain.TxManager().GetForwarderForEOA(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, faddr, fwdr)
 

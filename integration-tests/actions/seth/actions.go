@@ -25,19 +25,19 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var ContractDeploymentInterval = 200
@@ -293,7 +293,26 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		Bool("Dynamic fees", client.Cfg.Network.EIP1559DynamicFees).
 		Msg("Sent funds")
 
-	return client.WaitMined(ctx, logger, client.Client, signedTx)
+	receipt, receiptErr := client.WaitMined(ctx, logger, client.Client, signedTx)
+	if receiptErr != nil {
+		return nil, errors.Wrap(receiptErr, "failed to wait for transaction to be mined")
+	}
+
+	if receipt.Status == 1 {
+		return receipt, nil
+	}
+
+	tx, _, err := client.Client.TransactionByHash(ctx, signedTx.Hash())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get transaction by hash ")
+	}
+
+	_, err = client.Decode(tx, receiptErr)
+	if err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
 }
 
 // DeployForwarderContracts first deploys Operator Factory and then uses it to deploy given number of
@@ -905,7 +924,7 @@ var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
 type SethConfigFunction = func(*seth.Config) error
 
 // OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
-// and that there are no epehemeral keys on a live network. Root key is excluded from the check.
+// and that there are no ephemeral keys on a live network. Root key is excluded from the check.
 var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
 	concurrency := sethCfg.GetMaxConcurrency()
 
@@ -975,7 +994,7 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 		return nil, fmt.Errorf("Seth config not found")
 	}
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
 	}
@@ -985,7 +1004,7 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 		return nil, errors.Wrapf(err, "Error applying seth config function")
 	}
 
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error validating seth network config")
 	}

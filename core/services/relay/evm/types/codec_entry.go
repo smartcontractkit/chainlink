@@ -85,7 +85,15 @@ func (entry *codecEntry) EncodingPrefix() []byte {
 	return tmp
 }
 
-func (entry *codecEntry) Init() error {
+func (entry *codecEntry) Init() (err error) {
+	// Since reflection panics if errors occur, best to recover in case of any unknown errors
+	defer func() {
+		if r := recover(); r != nil {
+			entry.checkedType = nil
+			entry.nativeType = nil
+			err = fmt.Errorf("%w: %v", commontypes.ErrInvalidConfig, r)
+		}
+	}()
 	if entry.checkedType != nil {
 		return nil
 	}
@@ -125,13 +133,23 @@ func (entry *codecEntry) Init() error {
 		if err != nil {
 			return err
 		}
+		allowRename := false
 		if len(arg.Name) == 0 {
-			return fmt.Errorf("%w: empty field names are not supported for multiple returns", commontypes.ErrInvalidType)
+			arg.Name = fmt.Sprintf("F%d", i)
+			allowRename = true
 		}
 
 		name := strings.ToUpper(arg.Name[:1]) + arg.Name[1:]
 		if seenNames[name] {
-			return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
+			if !allowRename {
+				return fmt.Errorf("%w: duplicate field name %s, after ToCamelCase", commontypes.ErrInvalidConfig, name)
+			}
+			for {
+				name = name + "_X"
+				if !seenNames[name] {
+					break
+				}
+			}
 		}
 		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg}
@@ -234,6 +252,7 @@ func createTupleType(curType *abi.Type, converter func(reflect.Type) reflect.Typ
 	checkedFields := make([]reflect.StructField, len(curType.TupleElems))
 	for i, elm := range curType.TupleElems {
 		name := curType.TupleRawNames[i]
+		name = strings.ToUpper(name[:1]) + name[1:]
 		nativeFields[i].Name = name
 		checkedFields[i].Name = name
 		nativeArgType, checkedArgType, err := getNativeAndCheckedTypes(elm)

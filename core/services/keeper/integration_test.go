@@ -417,7 +417,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(ctx, fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(ctx, nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 

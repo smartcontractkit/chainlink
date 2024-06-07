@@ -24,7 +24,7 @@ type WorkflowExecutionStep struct {
 	Status      string
 
 	Inputs  *values.Map
-	Outputs *StepOutput
+	Outputs StepOutput
 
 	UpdatedAt *time.Time
 }

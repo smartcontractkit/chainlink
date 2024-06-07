@@ -7,6 +7,10 @@ vars:
 pipelines:
   deploy:
     flags:
+      - name: clean
+        short: c
+        type: bool
+        description: "If specified, keystone caches will be cleaned before deploying"
       - name: override-image-tag
         short: o
         type: string
@@ -28,7 +32,7 @@ pipelines:
         create_deployments app $args
       else
         build_images --all
-        create_deployments app 
+        create_deployments app
       fi
 
       echo
@@ -39,6 +43,34 @@ pipelines:
       kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} > /dev/null 2>&1 || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib > /dev/null 2>&1 || true
 
+      # check if profile is keystone
+      if [[  "${DEVSPACE_PROFILE}" == "keystone" ]]; then
+        echo "Keystone profile detected, provisioning Keystone"
+        pushd ../core/scripts/keystone
+        if [ $(get_flag "clean") == "true" ]; then 
+          echo "Cleaning keystone caches"
+          rm -f artefacts/deployed_contracts.json .cache/* 
+        fi 
+        go build -o keystone main.go
+        chainId=11155111
+        ./keystone deploy-contracts \
+          --ocrfile=ocr_config.json \
+          --chainid=$chainId \
+          --ethurl="${KEYSTONE_ETH_HTTP_URL}" \
+          --accountkey=${KEYSTONE_ACCOUNT_KEY}
+     
+        ./keystone deploy-jobspecs \
+          --chainid=$chainId \
+          --p2pport=6690
+
+        ./keystone generate-crib --chainid="$chainId" --outpath="${DEVSPACE_TMPDIR}"
+        popd
+
+        create_deployments app --from-file="${DEVSPACE_TMPDIR}/crib-cluster-overrides.yaml" 
+        kubectl delete pod -l "app=app" # restart pods to apply the new configuration changes
+        kubectl wait --for=condition=ready pod -l "app=app" --timeout=2m 
+      fi  
+
   purge:
     run: |-
       kubectl delete ns ${DEVSPACE_NAMESPACE}
@@ -46,7 +78,7 @@ pipelines:
 commands:
   ingress-hosts: |-
     kubectl get ingress -n ${DEVSPACE_NAMESPACE} \
-      -o=jsonpath="{range .items[*].spec.rules[*]}{.host}{'\n'}{end}"
+      -o=jsonpath="{range .items[*].spec.rules[*]}{'https://'}{.host}{'\n'}{end}"
   connect: |-
     sudo kubefwd svc -n $1
   ttl: |-
@@ -100,7 +132,7 @@ deployments:
       releaseName: "app"
       chart:
         name: ${CHAINLINK_CLUSTER_HELM_CHART_URI}
-        version: 0.6.0
+        version: "1.1.0"
       # for simplicity, we define all the values here
       # they can be defined the same way in values.yml
       # devspace merges these "values" with the "values.yaml" before deploy
@@ -158,7 +190,7 @@ deployments:
           # extraEnvVars:
           # "CL_MEDIAN_CMD": "chainlink-feeds"
           nodes:
-            - name: node-1
+            node1:
               image: ${runtime.images.app}
               # default resources are 300m/1Gi
               # first node need more resources to build faster inside container
@@ -209,13 +241,13 @@ deployments:
               #   CollectorTarget = 'app-opentelemetry-collector:4317'
               #   TLSCertPath = ''
               #   Mode = 'unencrypted'
-            - name: node-2
+            node2:
               image: ${runtime.images.app}
-            - name: node-3
+            node3:
               image: ${runtime.images.app}
-            - name: node-4
+            node4:
               image: ${runtime.images.app}
-            - name: node-5
+            node5:
               image: ${runtime.images.app}
 
         # each CL node have a dedicated PostgreSQL 11.15
@@ -307,7 +339,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-1
+                        name: app-node1
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node2.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -316,7 +348,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-2
+                        name: app-node2
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node3.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -325,7 +357,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-3
+                        name: app-node3
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node4.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -334,7 +366,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-4
+                        name: app-node4
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-node5.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -343,7 +375,7 @@ deployments:
                   - path: /
                     backend:
                       service:
-                        name: app-node-5
+                        name: app-node5
                         port:
                           number: 6688
             - host: ${DEVSPACE_NAMESPACE}-geth-1337-http.${DEVSPACE_INGRESS_BASE_DOMAIN}
@@ -419,6 +451,72 @@ profiles:
       # This will be configured via a values file.
       - op: remove
         path: deployments.app.helm.values.chainlink.global.overridesToml
+      - op: remove
+        path: deployments.app.helm.values.chainlink.nodes
       - op: add
         path: deployments.app.helm.valuesFiles
         value: ["./values-profiles/values-dev.yaml"]
+  - name: keystone
+    patches:
+      - op: remove
+        path: deployments.app.helm.values.chainlink.global.overridesToml
+      - op: replace
+        path: deployments.app.helm.values.geth
+        value:
+          enabled: false
+      - op: replace
+        path: deployments.app.helm.values.chainlink.global.toml
+        value: |-
+              RootDir = './clroot'
+
+              [Log]
+              JSONConsole = true
+              Level = 'debug'
+              [Log.File]
+              MaxSize = '0b'
+
+              [WebServer]
+              AllowOrigins = '*'
+              SecureCookies = false
+              SessionTimeout = '999h0m0s'
+              HTTPPort = 6688
+              HTTPWriteTimeout = '1m'
+              [WebServer.RateLimit]
+              Authenticated = 2000
+              Unauthenticated = 1000
+
+              [Database]
+              MaxIdleConns = 50
+              MaxOpenConns = 50
+              MigrateOnStartup = true
+
+              [OCR2]
+              Enabled = true
+              DefaultTransactionQueueDepth = 0
+              [OCR]
+              Enabled = false
+              DefaultTransactionQueueDepth = 0
+
+              [WebServer.TLS]
+              HTTPSPort = 0
+
+              [Feature]
+              FeedsManager = true
+              LogPoller = true
+              UICSAKeys = true
+
+              [P2P]
+              [P2P.V2]
+              Enabled = true
+              ListenAddresses = ['0.0.0.0:6690']
+              AnnounceAddresses = ['0.0.0.0:6690']
+              DeltaDial = '500ms'
+              DeltaReconcile = '5s'
+
+              [[EVM]]
+              ChainID = '11155111'
+
+              [[EVM.Nodes]]
+              Name = 'primary'
+              WSURL = "${KEYSTONE_ETH_WS_URL}"
+              HTTPURL = "${KEYSTONE_ETH_HTTP_URL}"

@@ -171,27 +171,27 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		"ds1_multiply",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1_parse)}},
 		[]pipeline.Task{answer1},
-		0)
+		-1)
 	ds2_multiply.BaseTask = pipeline.NewBaseTask(
 		5,
 		"ds2_multiply",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2_parse)}},
 		[]pipeline.Task{answer1},
-		0)
+		-1)
 	ds1_parse.BaseTask = pipeline.NewBaseTask(
 		1,
 		"ds1_parse",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds1)}},
 		[]pipeline.Task{ds1_multiply},
-		0)
+		-1)
 	ds2_parse.BaseTask = pipeline.NewBaseTask(
 		4,
 		"ds2_parse",
 		[]pipeline.TaskDependency{{PropagateResult: true, InputTask: pipeline.Task(ds2)}},
 		[]pipeline.Task{ds2_multiply},
-		0)
-	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
-	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
+		-1)
+	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, -1)
+	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, -1)
 
 	for i, task := range p.Tasks {
 		// Make sure inputs appear before the task, and outputs don't
