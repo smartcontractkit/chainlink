@@ -105,8 +105,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
   function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
-    // TODO: configSet event
-
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
@@ -126,7 +124,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = uint8(i) + 1;
-      s_configs[configId].signers.push(signer);
     }
     s_configs[configId].f = f;
 
