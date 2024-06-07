@@ -140,7 +140,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
     bytes32 combinedId = keccak256(bytes.concat(bytes20(uint160(address(s_receiver))), executionId, reportId));
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.AlreadyProcessed.selector, combinedId));
+    vm.expectRevert(abi.encodeWithSelector(KeystoneRouter.AlreadyProcessed.selector, combinedId));
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 

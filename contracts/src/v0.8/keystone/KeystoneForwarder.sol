@@ -59,10 +59,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   /// @param signature The signature that was invalid
   error InvalidSignature(bytes signature);
 
-  /// @notice This error is thrown whenever a message has already been processed.
-  /// @param messageId The ID of the message that was already processed
-  error AlreadyProcessed(bytes32 messageId);
-
   /// @notice Contains the signing address of each oracle
   struct OracleSet {
     uint8 f; // Number of faulty nodes allowed
