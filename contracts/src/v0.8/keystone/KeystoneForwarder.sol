@@ -121,14 +121,10 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   }
 
   function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
-    uint64 configId = (uint64(donId) << 32) | configVersion;
-
-    // remove any old signer addresses
-    for (uint256 i = 0; i < s_configs[configId].signers.length; ++i) {
-      delete s_configs[configId]._positions[s_configs[configId].signers[i]];
-    }
-
-    s_configs[configId].f = 0;
+    // We are not removing old signer positions, because it is sufficient to
+    // clear the f value for `report` function. If we decide to restore
+    // the configId in the future, the setConfig function clears the positions.
+    s_configs[(uint64(donId) << 32) | configVersion].f = 0;
 
     emit ConfigSet(donId, configVersion, 0, new address[](0));
   }
