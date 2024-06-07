@@ -8,9 +8,7 @@ import (
 	"math/big"
 	"net/url"
 	"os"
-	"reflect"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -98,12 +96,6 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogStream(ls *logstream.LogStream) ClNodeOption {
-	return func(c *ClNode) {
-		c.LogStream = ls
-	}
-}
-
 func WithImage(image string) ClNodeOption {
 	return func(c *ClNode) {
 		c.ContainerImage = image
@@ -126,40 +118,11 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, logStream *logstream.LogStream, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 
-	// Hack to extract LogStream from opts using runtime & reflection packages
-	extractLogStreamOption := func() test_env.PostgresDbOption {
-		getFunctionName := func(i interface{}) string {
-			pc := reflect.ValueOf(i).Pointer()
-			funcObj := runtime.FuncForPC(pc)
-			if funcObj == nil {
-				return ""
-			}
-
-			fullName := funcObj.Name()
-			parts := strings.Split(fullName, "/")
-			name := parts[len(parts)-1]
-			return name
-		}
-
-		temp := &ClNode{
-			EnvComponent: test_env.EnvComponent{},
-		}
-		for _, opt := range opts {
-			optName := getFunctionName(opt)
-			if strings.Contains(optName, "WithLogStream") {
-				opt(temp)
-				break
-			}
-		}
-
-		return test_env.WithPostgresDbLogStream(temp.LogStream)
-	}
-
-	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), extractLogStreamOption())
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), test_env.WithPostgresDbLogStream(logStream))
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +132,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerImage:   imageName,
 			ContainerVersion: imageVersion,
 			Networks:         networks,
+			LogStream:        logStream,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
