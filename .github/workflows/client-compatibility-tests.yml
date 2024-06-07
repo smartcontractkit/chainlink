@@ -86,8 +86,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: always()
-    # if: needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
