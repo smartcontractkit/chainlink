@@ -111,9 +111,9 @@ func TestAutomationReorg(t *testing.T) {
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
+		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 		// "registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
-		// "registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
+		// "registry_2_2_logtrigger": ethereum.RegistryVersion_2_2, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
 	}
 
 	for n, rv := range registryVersions {
@@ -208,8 +208,18 @@ func TestAutomationReorg(t *testing.T) {
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
 			// Use the name to determine if this is a log trigger or not
-			isLogTrigger := name == "registry_2_1_logtrigger"
+			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, upkeepCount, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
+
+			if isLogTrigger {
+				for i := 0; i < len(upkeepIDs); i++ {
+					if err := consumers[i].Start(); err != nil {
+						l.Error().Msg("Error when starting consumer")
+						return
+					}
+					l.Info().Int("Consumer index", i).Msg("Consumer started")
+				}
+			}
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 
