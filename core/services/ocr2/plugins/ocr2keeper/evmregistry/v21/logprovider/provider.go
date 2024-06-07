@@ -118,19 +118,106 @@ type logEventProvider struct {
 
 	currentIteration int
 	iterations       int
+
+	dequeueCoordinator *dequeueCoordinator
+}
+
+func newDequeueCoordinator() *dequeueCoordinator {
+	return &dequeueCoordinator{
+		dequeuedMinimum: map[int64]bool{},
+		remainingLogs:   map[int64]int{},
+		dequeuedLogs:    map[int64]int{},
+		completeWindows: map[int64]bool{},
+		dequeuedUpkeeps: map[int64]map[string]int{},
+	}
+}
+
+type dequeueCoordinator struct {
+	dequeuedMinimum map[int64]bool
+	remainingLogs   map[int64]int
+	dequeuedLogs    map[int64]int
+	completeWindows map[int64]bool
+	dequeuedUpkeeps map[int64]map[string]int
+}
+
+func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, blockRate int) (int64, int64, bool) {
+	// check if minimum logs have been dequeued
+	for i := start; i < latestBlock; i += int64(blockRate) {
+		startWindow, end := getBlockWindow(start, blockRate)
+		if latestBlock >= end {
+			c.completeWindows[startWindow] = true
+		}
+
+		if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
+			if !hasDequeued {
+				return startWindow, end, true
+			}
+		} else {
+			return startWindow, end, true
+		}
+	}
+
+	// check best effort dequeue
+	for i := start; i < latestBlock; i += int64(blockRate) {
+		startWindow, end := getBlockWindow(start, blockRate)
+
+		if remainingLogs, ok := c.remainingLogs[startWindow]; ok {
+			if remainingLogs > 0 {
+				return startWindow, end, true
+			}
+		}
+	}
+
+	return 0, 0, false
+}
+
+func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, iterations, currentIteration int) func(id *big.Int) bool {
+	return func(id *big.Int) bool {
+		return id.Int64()%int64(iterations) == int64(currentIteration)
+	}
+}
+
+func (c *dequeueCoordinator) trackUpkeeps(startWindow int64, upkeepID *big.Int) {
+	if windowUpkeeps, ok := c.dequeuedUpkeeps[startWindow]; ok {
+		windowUpkeeps[upkeepID.String()] = windowUpkeeps[upkeepID.String()] + 1
+		c.dequeuedUpkeeps[startWindow] = windowUpkeeps
+	} else {
+		c.dequeuedUpkeeps[startWindow] = map[string]int{
+			upkeepID.String(): 1,
+		}
+	}
+}
+
+func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remaining, numberOfUpkeeps, logLimitLow int) {
+	c.remainingLogs[startWindow] = remaining
+	c.dequeuedLogs[startWindow] += logs
+
+	if isComplete, ok := c.completeWindows[startWindow]; ok {
+		if isComplete {
+			// if the window is complete, and there are no more logs, then we have to consider this as min dequeued, even if no logs were dequeued
+			if c.remainingLogs[startWindow] == 0 || c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+				c.dequeuedMinimum[startWindow] = true
+			}
+		} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+			c.dequeuedMinimum[startWindow] = true
+		}
+	} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+		c.dequeuedMinimum[startWindow] = true
+	}
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		packer:      packer,
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
-		poller:      poller,
-		opts:        opts,
-		filterStore: filterStore,
-		chainID:     chainID,
+		threadCtrl:         utils.NewThreadControl(),
+		lggr:               lggr.Named("KeepersRegistry.LogEventProvider"),
+		packer:             packer,
+		buffer:             newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
+		bufferV1:           NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		poller:             poller,
+		opts:               opts,
+		filterStore:        filterStore,
+		chainID:            chainID,
+		dequeueCoordinator: newDequeueCoordinator(),
 	}
 }
 
@@ -311,31 +398,28 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		// upkeep is selected for the dequeuing. This means that, for a given set of upkeeps, a different subset of
 		// upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
 		// dequeued once.
-		upkeepSelectorFn := func(id *big.Int) bool {
-			return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
-		}
+		for len(payloads) < maxResults {
+			startWindow, end, canDequeue := p.dequeueCoordinator.dequeueBlockWindow(start, latestBlock, blockRate)
+			if !canDequeue {
+				p.lggr.Debugw("Nothing to dequeue", "start", start, "latestBlock", latestBlock)
+				break
+			}
 
-		for len(payloads) < maxResults && start <= latestBlock {
-			startWindow, end := getBlockWindow(start, blockRate)
+			upkeepSelectorFn := p.dequeueCoordinator.getUpkeepSelector(startWindow, p.iterations, p.currentIteration)
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
-			}
-			for _, l := range logs {
-				payload, err := p.createPayload(l.ID, l.Log)
-				if err == nil {
-					payloads = append(payloads, payload)
+				for _, l := range logs {
+					payload, err := p.createPayload(l.ID, l.Log)
+					if err == nil {
+						payloads = append(payloads, payload)
+					}
+					p.dequeueCoordinator.trackUpkeeps(startWindow, l.ID)
 				}
 			}
 
-			if remaining > 0 {
-				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
-				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
-				continue
-			}
-
-			start += int64(blockRate)
+			p.dequeueCoordinator.updateBlockWindow(startWindow, len(logs), remaining, numUpkeeps, logLimitLow)
 		}
 		p.currentIteration++
 	default:
