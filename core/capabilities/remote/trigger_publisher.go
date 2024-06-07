@@ -21,7 +21,7 @@ import (
 //
 // TriggerPublisher communicates with corresponding TriggerSubscribers on remote nodes.
 type triggerPublisher struct {
-	config        types.RemoteTriggerConfig
+	config        *types.RemoteTriggerConfig
 	underlying    commoncap.TriggerCapability
 	capInfo       commoncap.CapabilityInfo
 	capDonInfo    commoncap.DON
@@ -48,7 +48,7 @@ type pubRegState struct {
 var _ types.Receiver = &triggerPublisher{}
 var _ services.Service = &triggerPublisher{}
 
-func NewTriggerPublisher(config types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(config *types.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capInfo commoncap.CapabilityInfo, capDonInfo commoncap.DON, workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	config.ApplyDefaults()
 	return &triggerPublisher{
 		config:        config,

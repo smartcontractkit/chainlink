@@ -1,6 +1,17 @@
 package config
 
+import (
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+)
+
+type CapabilitiesRegistry interface {
+	RemoteAddress() string
+	NetworkID() string
+	ChainID() string
+	RelayID() types.RelayID
+}
+
 type Capabilities interface {
 	Peering() P2P
-	// NOTE: RegistrySyncer will need config with relay ID, chain ID and contract address when implemented
+	Registry() CapabilitiesRegistry
 }

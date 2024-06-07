@@ -440,6 +440,14 @@ DeltaReconcile = '1m' # Default
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
+[Capabilities.Registry]
+# RemoteAddress is the address for the capabilities registry contract.
+RemoteAddress = '0x0' # Example
+# NetworkID identifies the target network where the remote registry is located.
+NetworkID = 'evm' # Default
+# ChainID identifies the target chain id where the remote registry is located.
+ChainID = '1' # Default
+
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
 # messages to buffer. Any additional messages received on top of those

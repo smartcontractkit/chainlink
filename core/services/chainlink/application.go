@@ -217,9 +217,27 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
 		}
 
-		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
+
+		rid := cfg.Capabilities().Registry().RelayID()
+		registryAddress := cfg.Capabilities().Registry().RemoteAddress()
+		relayer, err := relayerChainInterops.Get(rid)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		}
+
+		registrySyncer, err := capabilities.NewRegistrySyncer(
+			externalPeerWrapper,
+			opts.CapabilitiesRegistry,
+			dispatcher,
+			globalLogger,
+			networkSetup,
+			relayer,
+			registryAddress,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not configure syncer: %w", err)
+		}
 
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
