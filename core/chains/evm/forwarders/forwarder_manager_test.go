@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
@@ -165,25 +165,25 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
-	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
+	ec := simulated.NewBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
-	}, 10e6)
+	}, simulated.WithBlockGasLimit(10e6))
 	t.Cleanup(func() { ec.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec, linkAddr, owner.From)
+	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 
-	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec, linkAddr, owner.From, operatorAddr, []byte{})
+	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec.Client(), linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
 	ec.Commit()
 
-	accessAddress, _, _, err := testocr2aggregator.DeploySimpleWriteAccessController(owner, ec)
+	accessAddress, _, _, err := testocr2aggregator.DeploySimpleWriteAccessController(owner, ec.Client())
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	ocr2Address, _, ocr2, err := testocr2aggregator.DeployOCR2Aggregator(
 		owner,
-		ec,
+		ec.Client(),
 		linkAddr,
 		big.NewInt(0),
 		big.NewInt(10),

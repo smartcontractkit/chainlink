@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -118,7 +119,11 @@ func (th *TestHarness) assertHaveCanonical(t *testing.T, start, end int) {
 
 // Simulates an RPC failover event to an alternate rpc server. This can also be used to
 // simulate switching back to the primary rpc after it recovers.
-func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, chainFamily evmtypes.ChainFamily) {
+func (th *TestHarness) SetActiveClient(backend evmtypes.Backend, chainType config.ChainType) {
 	th.Backend = backend
-	th.Client.SetBackend(backend, chainFamily)
+	th.Client.SetBackend(backend, chainType)
+}
+
+func (th *TestHarness) finalizeThroughBlock(t *testing.T, blockNumber int64) {
+	client.FinalizeThroughBlock(t, th.Backend, th.Client, blockNumber)
 }

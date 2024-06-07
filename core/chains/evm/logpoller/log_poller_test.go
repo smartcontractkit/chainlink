@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -336,7 +337,7 @@ func Test_BackupLogPoller(t *testing.T) {
 				if n.Int64() != 32 {
 					return nil
 				}
-				th.SetActiveClient(backupRpc, evmtypes.Optimism)
+				th.SetActiveClient(backupRpc, config.ChainOptimismBedrock)
 				return nil
 			})
 
@@ -348,11 +349,11 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 0, len(logs))
 
-			finalizeThroughBlock(t, th, 32)
+			th.finalizeThroughBlock(t, 32)
 
 			b, ok := primaryRpc.(*simulated.Backend)
 			require.True(t, ok)
-			th.SetActiveClient(b, evmtypes.Optimism) // restore primary rpc
+			th.SetActiveClient(b, config.ChainOptimismBedrock) // restore primary rpc
 
 			// Run ordinary poller + backup poller at least once
 			require.NoError(t, err)
@@ -369,7 +370,7 @@ func Test_BackupLogPoller(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 0, len(logs))
 			th.Backend.Commit()
-			finalizeThroughBlock(t, th, 64)
+			th.finalizeThroughBlock(t, 64)
 
 			// Run ordinary poller + backup poller at least once more
 			th.LogPoller.PollAndSaveLogs(ctx, currentBlockNumber)
@@ -447,7 +448,7 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 	require.Len(t, logs, emittedLogs-10)
 
 	// Finalize the rest of the logs emitted, after which Backup Poller should pick them up
-	finalizeThroughBlock(t, th, 42)
+	th.finalizeThroughBlock(t, 42)
 	th.LogPoller.BackupPollAndSaveLogs(ctx)
 
 	// All emitted logs should be backfilled
@@ -548,7 +549,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	firstBatchBlock := th.PollAndSaveLogs(ctx, 1) - 1
 
 	// Mark all blocks from first batch of emitted logs as finalized
-	finalizeThroughBlock(t, th, firstBatchBlock)
+	th.finalizeThroughBlock(t, firstBatchBlock)
 
 	// Emit 2nd batch of block
 	for i := 1; i <= logsBatch; i++ {
@@ -561,7 +562,7 @@ func TestLogPoller_BackupPollAndSaveLogsSkippingLogsThatAreTooOld(t *testing.T) 
 	secondBatchBlock := th.PollAndSaveLogs(ctx, firstBatchBlock) - 1
 
 	// Mark all blocks from second batch of emitted logs as finalized
-	finalizeThroughBlock(t, th, secondBatchBlock)
+	th.finalizeThroughBlock(t, secondBatchBlock)
 
 	// Register filter
 	err := th.LogPoller.RegisterFilter(ctx, logpoller.Filter{
@@ -1071,7 +1072,7 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 
 			// Test scenario
 			// Chain gen <- 1 <- 2 <- ... <- 32 (finalized) <- 33 (L1_1)
-			finalizeThroughBlock(t, th, 32)
+			th.finalizeThroughBlock(t, 32)
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
 			th.Backend.Commit()
@@ -1093,7 +1094,7 @@ func TestLogPoller_ReorgDeeperThanFinality(t *testing.T) {
 			require.NoError(t, err)
 			th.Backend.Commit()
 
-			finalizeThroughBlock(t, th, 32)
+			th.finalizeThroughBlock(t, 32)
 
 			// Create 33' - 34'
 			for i := 33; i < 35; i++ {
@@ -1192,7 +1193,7 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 				require.NoError(t, err)
 				th.Backend.Commit()
 			}
-			finalizeThroughBlock(t, th, 32)
+			th.finalizeThroughBlock(t, 32)
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(36), newStart)
@@ -1657,7 +1658,7 @@ func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
 	h, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
 	assert.NotNil(t, h)
-	finalizeThroughBlock(t, th, h.Number.Int64())
+	th.finalizeThroughBlock(t, h.Number.Int64())
 
 	// Generate next blocks, not marked as finalized
 	for i := 0; i < secondBatchLen; i++ {
@@ -1742,7 +1743,7 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 			}
 
 			if tt.useFinalityTag {
-				finalizeThroughBlock(t, th, tt.expectedFinalizedBlock)
+				th.finalizeThroughBlock(t, tt.expectedFinalizedBlock)
 			}
 
 			th.PollAndSaveLogs(ctx, 1)
@@ -1812,7 +1813,7 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 
 			// Finalize current block, because backup always backfill up to one block before last finalized
 			if tt.finalityTag {
-				finalizeThroughBlock(t, th, currentBlock)
+				th.finalizeThroughBlock(t, currentBlock)
 			} else {
 				for i := 0; i < int(tt.finalityDepth)+1; i++ {
 					th.Backend.Commit()
@@ -1907,27 +1908,6 @@ func Test_PruneOldBlocks(t *testing.T) {
 			assert.Len(t, blocks, tt.blocksLeft)
 		})
 	}
-}
-
-// Commits new blocks until blockNumber is finalized. This requires committing all of
-// the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
-// ends on a 32-block boundary (blockNumber % 32 == 0)
-func finalizeThroughBlock(t *testing.T, th TestHarness, blockNumber int64) {
-	var currentBlock common.Hash
-	ctx := testutils.Context(t)
-	targetBlockNumber := blockNumber
-	if targetBlockNumber%32 != 0 {
-		targetBlockNumber = 32 * (blockNumber/32 + 1)
-	}
-	h, err := th.Client.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	for n := h.Number.Int64(); n < targetBlockNumber; n++ {
-		currentBlock = th.Backend.Commit()
-		require.Len(t, currentBlock, 32)
-	}
-	h, err = th.Client.HeaderByNumber(ctx, nil)
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, h.Number.Int64(), targetBlockNumber)
 }
 
 func TestFindLCA(t *testing.T) {

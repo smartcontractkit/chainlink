@@ -17,8 +17,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -70,7 +73,7 @@ type SimulatedBackendClient struct {
 	client               simulated.Client
 	t                    testing.TB
 	chainId              *big.Int
-	chainFamily          evmtypes.ChainFamily
+	chainType            config.ChainType
 	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
@@ -89,8 +92,8 @@ func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.
 // where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
 // requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
 // and other solutions were designed to recover from.
-func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainFamily evmtypes.ChainFamily) {
-	c.chainFamily = chainFamily
+func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainType config.ChainType) {
+	c.chainType = chainType
 	c.b = backend
 	c.client = backend.Client()
 }
@@ -129,7 +132,7 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	logs, err = c.client.FilterLogs(ctx, q)
-	if c.chainFamily == evmtypes.Optimism {
+	if c.chainType == config.ChainOptimismBedrock {
 		if err != nil && err.Error() == "unknown block" {
 			return []types.Log{}, nil // emulate optimism behavior of returning success instead of "unknown block"
 		}
@@ -942,4 +945,31 @@ func interfaceToHash(value interface{}) (*common.Hash, error) {
 	default:
 		return nil, fmt.Errorf("unrecognized value type: %T for converting value to common.Hash; use hex encoded string or common.Hash", v)
 	}
+}
+
+type HeadReader interface {
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+}
+
+// FinalizeThroughBlock commits new blocks until blockNumber is finalized. This requires committing all of
+// the rest of the blocks in the epoch blockNumber belongs to, where each new epoch
+// ends on a 32-block boundary (blockNumber % 32 == 0)
+func FinalizeThroughBlock(t *testing.T, backend evmtypes.Backend, client HeadReader, blockNumber int64) {
+	ctx := testutils.Context(t)
+	targetBlockNumber := blockNumber
+	if targetBlockNumber%32 != 0 {
+		targetBlockNumber = 32 * (blockNumber/32 + 1)
+	}
+	h, err := client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+
+	var currentBlock common.Hash
+	for n := h.Number.Int64(); n < targetBlockNumber; n++ {
+		currentBlock = backend.Commit()
+		require.Len(t, currentBlock, 32)
+	}
+
+	h, err = client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, h.Number.Int64(), targetBlockNumber)
 }

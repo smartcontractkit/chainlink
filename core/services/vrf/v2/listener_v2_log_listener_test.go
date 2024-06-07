@@ -86,10 +86,9 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
 	// Mark genesis block as finalized to avoid any nulls in the tests
-	//TODO must we do this?
-	//h, err := ec.HeaderByNumber(ctx, nil)
-	//require.NoError(t, err)
-	//esc.Backend().Blockchain().SetFinalized(head)
+	h, err = ec.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	client.FinalizeThroughBlock(t, esc.Backend(), esc, h.Number.Int64())
 
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
