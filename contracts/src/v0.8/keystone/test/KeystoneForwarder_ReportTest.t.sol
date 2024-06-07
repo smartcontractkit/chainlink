@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 import {KeystoneRouter} from "../KeystoneRouter.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
@@ -141,11 +142,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
-  function test_RevertWhen_AlreadyProcessed() public {
+  function test_RevertWhen_AlreadyAttempted() public {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
-    bytes32 combinedId = keccak256(bytes.concat(bytes20(uint160(address(s_receiver))), executionId, reportId));
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneRouter.AlreadyProcessed.selector, combinedId));
+    bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
+    vm.expectRevert(abi.encodeWithSelector(KeystoneRouter.AlreadyAttempted.selector, transmissionId));
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
@@ -158,9 +159,50 @@ contract KeystoneForwarder_ReportTest is BaseTest {
 
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
-    // validate transmitter was recorded
-    address transmitter = s_forwarder.getTransmitter(address(s_receiver), executionId, reportId);
-    assertEq(transmitter, TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      s_forwarder.getTransmitter(address(s_receiver), executionId, reportId),
+      TRANSMITTER,
+      "transmitter mismatch"
+    );
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
+      uint8(IRouter.TransmissionState.SUCCEEDED),
+      "TransmissionState mismatch"
+    );
+  }
+
+  function test_Report_FailedDeliveryWhenReceiverNotContract() public {
+    // Receiver is not a contract
+    address receiver = address(404);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(receiver, executionId, reportId, false);
+
+    s_forwarder.report(receiver, report, reportContext, signatures);
+
+    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
+      uint8(IRouter.TransmissionState.FAILED),
+      "TransmissionState mismatch"
+    );
+  }
+
+  function test_Report_FailedDeliveryWhenReceiverInterfaceNotSupported() public {
+    // Receiver is a contract but doesn't implement the required interface
+    address receiver = address(s_forwarder);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(receiver, executionId, reportId, false);
+
+    s_forwarder.report(receiver, report, reportContext, signatures);
+
+    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
+      uint8(IRouter.TransmissionState.FAILED),
+      "TransmissionState mismatch"
+    );
   }
 
   function test_Report_ConfigVersion() public {

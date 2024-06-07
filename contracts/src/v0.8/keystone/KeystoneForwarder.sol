@@ -173,7 +173,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     }
 
     bool success = IRouter(s_router).route(
-      keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId)),
+      getTransmissionId(receiverAddress, workflowExecutionId, reportId),
       msg.sender,
       receiverAddress,
       rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
@@ -188,8 +188,25 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address) {
-    bytes32 combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
-    return IRouter(s_router).getTransmitter(combinedId);
+    return IRouter(s_router).getTransmitter(getTransmissionId(receiverAddress, workflowExecutionId, reportId));
+  }
+
+  function getTransmissionState(
+    address receiverAddress,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (IRouter.TransmissionState) {
+    return IRouter(s_router).getTransmissionState(getTransmissionId(receiverAddress, workflowExecutionId, reportId));
+  }
+
+  function getTransmissionId(
+    address receiverAddress,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) public pure returns (bytes32) {
+    // This is slightly cheaper compared to
+    // keccak256(abi.encode(receiverAddress, workflowExecutionId, reportId));
+    return keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns

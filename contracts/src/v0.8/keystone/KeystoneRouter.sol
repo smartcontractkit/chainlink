@@ -1,27 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
+
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
   error Unauthorized();
-
-  /// @notice This error is thrown whenever a message has already been processed.
-  /// @param messageId The ID of the message that was already processed
-  error AlreadyProcessed(bytes32 messageId);
+  error AlreadyAttempted(bytes32 transmissionId);
 
   event ForwarderAdded(address indexed forwarder);
   event ForwarderRemoved(address indexed forwarder);
 
   mapping(address forwarder => bool) internal s_forwarders;
-  mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
+  mapping(bytes32 transmissionId => TransmissionInfo) internal s_transmissions;
 
   string public constant override typeAndVersion = "KeystoneRouter 1.0.0";
 
-  struct DeliveryStatus {
+  struct TransmissionInfo {
     address transmitter;
     bool state;
   }
@@ -37,7 +35,7 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
   }
 
   function route(
-    bytes32 id,
+    bytes32 transmissionId,
     address transmitter,
     address receiver,
     bytes calldata metadata,
@@ -47,26 +45,27 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
       revert Unauthorized();
     }
 
-    if (s_reports[id].transmitter != address(0)) revert AlreadyProcessed(id);
-    s_reports[id].transmitter = transmitter;
+    if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);
+    s_transmissions[transmissionId].transmitter = transmitter;
 
-    bool success;
+    if (receiver.code.length == 0) return false;
+
     try IReceiver(receiver).onReport(metadata, report) {
-      success = true;
-      s_reports[id].state = true;
+      s_transmissions[transmissionId].state = true;
+      return true;
     } catch {
-      // Do nothing, success is already false
+      return false;
     }
-    return success;
   }
 
   // @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
-  function getTransmitter(bytes32 id) external view returns (address) {
-    return s_reports[id].transmitter;
+  function getTransmitter(bytes32 transmissionId) external view returns (address) {
+    return s_transmissions[transmissionId].transmitter;
   }
 
   // @notice Get delivery status of a given report
-  function getDeliveryStatus(bytes32 id) external view returns (bool) {
-    return s_reports[id].transmitter != address(0);
+  function getTransmissionState(bytes32 id) external view returns (IRouter.TransmissionState) {
+    if (s_transmissions[id].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
+    return s_transmissions[id].state ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
   }
 }
