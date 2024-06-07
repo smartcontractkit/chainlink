@@ -156,7 +156,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
         if (f == 0) revert InvalidConfig(configId);
         if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
-        combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
+        combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
       }
 
       // validate signatures
@@ -193,16 +193,12 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     emit ReportProcessed(receiverAddress, workflowExecutionId, success);
   }
 
-  function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
-    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
-  }
-
   function getTransmitter(
     address receiverAddress,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address) {
-    bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
+    bytes32 combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
     return IRouter(s_router).getTransmitter(combinedId);
   }
 
