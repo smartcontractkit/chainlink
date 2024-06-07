@@ -185,12 +185,13 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
       // validate signatures
       {
+        uint256 numSignatures = signatures.length;
         bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
 
         address[MAX_ORACLES] memory signed;
         uint8 index;
         bytes calldata signature;
-        for (uint256 i; i < signatures.length; ++i) {
+        for (uint256 i; i < numSignatures; ++i) {
           signature = signatures[i];
           if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
           bytes32 r = bytes32(signature[0:32]);
