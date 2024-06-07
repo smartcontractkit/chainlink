@@ -124,7 +124,7 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
           
   build-chainlink:
-    if: needs.should-run.outputs.should_run == true
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
