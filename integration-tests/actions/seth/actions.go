@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -852,7 +852,7 @@ func SendLinkFundsToDeploymentAddresses(
 	linkToken contracts.LinkToken,
 ) error {
 	var generateCallData = func(receiver common.Address, amount *big.Int) ([]byte, error) {
-		abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+		abi, err := link_token.LinkTokenMetaData.GetAbi()
 		if err != nil {
 			return nil, err
 		}
@@ -864,11 +864,32 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	toTransferToMultiCallContract := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(totalUpkeeps+concurrency)))
-	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
-	err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+
+	link, err := link_token.NewLinkToken(common.HexToAddress(linkToken.Address()), chainClient.Client)
 	if err != nil {
-		return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+		return errors.Wrapf(err, "Error getting LINK contract")
 	}
+
+	_, err = chainClient.Decode(link.GrantMintRole(chainClient.NewTXOpts(), chainClient.Addresses[0]))
+	if err != nil {
+		return errors.Wrapf(err, "Error granting mint role to root address")
+	}
+
+	_, err = chainClient.Decode(link.Mint(chainClient.NewTXOpts(), multicallAddress, toTransferToMultiCallContract))
+	if err != nil {
+		return errors.Wrapf(err, "Error minting LINK to multicall contract")
+	}
+
+	_, err = chainClient.Decode(link.Mint(chainClient.NewTXOpts(), chainClient.Addresses[0], toTransferToMultiCallContract))
+	if err != nil {
+		return errors.Wrapf(err, "Error minting LINK to multicall contract")
+	}
+
+	toTransferPerClient := big.NewInt(0).Mul(linkAmountPerUpkeep, big.NewInt(int64(operationsPerAddress+1)))
+	//err := linkToken.Transfer(multicallAddress.Hex(), toTransferToMultiCallContract)
+	//if err != nil {
+	//	return errors.Wrapf(err, "Error transferring LINK to multicall contract")
+	//}
 
 	balance, err := linkToken.BalanceOf(context.Background(), multicallAddress.Hex())
 	if err != nil {

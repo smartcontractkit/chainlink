@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+
 	"math/big"
 	"strings"
 
@@ -27,13 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -579,22 +580,22 @@ func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*
 // EthereumLinkToken represents a LinkToken address
 type EthereumLinkToken struct {
 	client   *seth.Client
-	instance *link_token_interface.LinkToken
+	instance *link_token.LinkToken
 	address  common.Address
 	l        zerolog.Logger
 }
 
 func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLinkToken, error) {
-	linkTokenAbi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
-	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
 	}
 
-	linkToken, err := link_token_interface.NewLinkToken(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	linkToken, err := link_token.NewLinkToken(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
 	}
@@ -608,15 +609,15 @@ func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLi
 }
 
 func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
-	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	abi, err := link_token.LinkTokenMetaData.GetAbi()
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("LinkToken", *abi)
-	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
+	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token.LinkTokenMetaData.Bin))
 
-	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	linkToken, err := link_token.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
 	}
