@@ -657,23 +657,27 @@ func Test_Service_ProposeJob(t *testing.T) {
 		wfName   = "myworkflow" // len 10
 		specYaml = `
 triggers:
-  - id: "a-trigger"
+  - id: "a-trigger@1.0.0"
+    config: {}
 
 actions:
-  - id: "an-action"
+  - id: "an-action@1.0.0"
     ref: "an-action"
+    config: {}
     inputs:
       trigger_output: $(trigger.outputs)
 
 consensus:
-  - id: "a-consensus"
+  - id: "a-consensus@1.0.0"
     ref: "a-consensus"
+    config: {}
     inputs:
       trigger_output: $(trigger.outputs)
       an-action_output: $(an-action.outputs)
 
 targets:
-  - id: "a-target"
+  - id: "a-target@1.0.0"
+    config: {}
     ref: "a-target"
     inputs: 
       consensus_output: $(a-consensus.outputs)

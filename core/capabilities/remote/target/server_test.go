@@ -117,10 +117,9 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
