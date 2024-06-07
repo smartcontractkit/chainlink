@@ -67,8 +67,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   /// @param messageId The ID of the message that was already processed
   error AlreadyProcessed(bytes32 messageId);
 
-  bool internal s_reentrancyGuard; // guard against reentrancy
-
   /// @notice Contains the signing address of each oracle
   struct OracleSet {
     uint8 f; // Number of faulty nodes allowed
@@ -155,7 +153,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes calldata rawReport,
     bytes calldata reportContext,
     bytes[] calldata signatures
-  ) external nonReentrant {
+  ) external {
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
@@ -258,15 +256,5 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
       reportId := mload(add(rawReport, 139))
     }
-  }
-
-  /**
-   * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
-   */
-  modifier nonReentrant() {
-    if (s_reentrancyGuard) revert ReentrantCall();
-    s_reentrancyGuard = true;
-    _;
-    s_reentrancyGuard = false;
   }
 }

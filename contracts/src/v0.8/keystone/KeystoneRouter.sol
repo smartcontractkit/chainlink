@@ -23,7 +23,7 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
 
   struct DeliveryStatus {
     address transmitter;
-    bool success;
+    bool state;
   }
 
   function addForwarder(address forwarder) external onlyOwner {
@@ -46,14 +46,15 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     if (!s_forwarders[msg.sender]) { revert Unauthorized(); }
 
     if (s_reports[id].transmitter != address(0)) revert AlreadyProcessed(id);
+    s_reports[id].transmitter = transmitter;
 
     bool success;
     try IReceiver(receiver).onReport(metadata, report) {
       success = true;
+      s_reports[id].state = true;
     } catch {
       // Do nothing, success is already false
     }
-    s_reports[id] = DeliveryStatus(transmitter, success);
     return success;
   }
 
