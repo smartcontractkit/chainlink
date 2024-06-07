@@ -77,7 +77,7 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 // that reads the configuration from chain (KS-117).
 func (s *registrySyncer) launch(ctx context.Context) {
 	defer s.wg.Done()
-	capId := "streams-trigger@0.0.1"
+	capId := "streams-trigger@1.0.0"
 	triggerInfo, err := capabilities.NewRemoteCapabilityInfo(
 		capId,
 		capabilities.CapabilityTypeTrigger,
@@ -89,7 +89,7 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		return
 	}
 
-	targetCapId := "write_ethereum-testnet-sepolia@0.0.1"
+	targetCapId := "write_ethereum-testnet-sepolia@1.0.0"
 	targetInfo, err := capabilities.NewRemoteCapabilityInfo(
 		targetCapId,
 		capabilities.CapabilityTypeTarget,
