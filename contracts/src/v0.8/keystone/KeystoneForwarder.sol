@@ -162,16 +162,14 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // validate signatures
     {
       bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
-
       address[MAX_ORACLES] memory signed;
-      uint8 index;
+      uint256 index;
 
       for (uint256 i; i < signatures.length; ++i) {
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(completeHash, v + 27, r, s);
+        address signer = getSigner(signatures[i], completeHash);
 
         // validate signer is trusted and signature is unique
-        index = uint8(s_configs[configId]._positions[signer]);
+        index = s_configs[configId]._positions[signer];
         if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
         index -= 1;
         if (signed[index] != address(0)) revert DuplicateSigner(signer);
@@ -207,9 +205,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     return s_reports[combinedId].transmitter;
   }
 
-  // solhint-disable-next-line chainlink-solidity/explicit-returns
-  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+  function getSigner(bytes memory sig, bytes32 completeHash) internal pure returns (address) {
     if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
+
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
 
     assembly {
       /*
@@ -228,6 +229,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       // final byte (first byte of the next 32 bytes)
       v := byte(0, mload(add(sig, 96)))
     }
+
+    return ecrecover(completeHash, v + 27, r, s);
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns
