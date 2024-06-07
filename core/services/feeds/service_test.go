@@ -681,6 +681,7 @@ targets:
 		wfSpec              = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
 		proposalIDWF        = int64(11)
 		jobProposalSpecIdWF = int64(101)
+		jobIDWF             = int32(1001)
 		remoteUUIDWF        = uuid.New()
 		argsWF              = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
@@ -694,7 +695,21 @@ targets:
 			RemoteUUID:     remoteUUIDWF,
 			Status:         feeds.JobProposalStatusPending,
 		}
+		acceptedjpWF = feeds.JobProposal{
+			ID:             13,
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("test-spec"),
+			RemoteUUID:     remoteUUIDWF,
+			Status:         feeds.JobProposalStatusPending,
+		}
 		proposalSpecWF = feeds.JobProposalSpec{
+			Definition:    wfSpec,
+			Status:        feeds.SpecStatusPending,
+			Version:       1,
+			JobProposalID: proposalIDWF,
+		}
+		autoApprovableProposalSpecWF = feeds.JobProposalSpec{
+			ID:            jobProposalSpecIdWF,
 			Definition:    wfSpec,
 			Status:        feeds.SpecStatusPending,
 			Version:       1,
@@ -710,7 +725,7 @@ targets:
 		wantErr string
 	}{
 		{
-			name: "Auto approve WF spec",
+			name: "Auto approve new WF spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
@@ -723,13 +738,14 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&proposalSpecWF, nil)
-				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
@@ -758,12 +774,63 @@ targets:
 		},
 
 		{
-			name: "Auto approve WF spec: error creating job",
+			name: "Auto approve existing WF spec found by FindJobIDByWorkflow",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
 				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
-				//			svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+				transactCall.Run(func(args mock.Arguments) {
+					fn := args[1].(func(orm feeds.ORM) error)
+					transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+				})
+				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
+				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(jobIDWF, sql.ErrNoRows)
+				svc.orm.On("GetApprovedSpec", mock.Anything, acceptedjpWF.ID).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.On("CancelSpec", mock.Anything, autoApprovableProposalSpecWF.ID).Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, jobIDWF).Return(nil)
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.WorkflowSpec.WorkflowOwner == wfOwner
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					jobProposalSpecIdWF,
+					mock.IsType(uuid.UUID{}),
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jpWF.RemoteUUID.String(),
+						Version: int64(proposalSpecWF.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+			},
+			args:   argsWF,
+			wantID: proposalIDWF,
+		},
+
+		{
+			name: "Auto approve WF spec: error creating job for new spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
 					fn := args[1].(func(orm feeds.ORM) error)
@@ -775,9 +842,10 @@ targets:
 				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
