@@ -17,9 +17,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
 
-  /// @notice This error is returned when the metadata version is not supported.
-  error InvalidVersion(uint8 version);
-
   /// @notice This error is thrown whenever trying to set a config with a fault
   /// tolerance of 0.
   error FaultToleranceMustBePositive();
@@ -251,9 +248,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // workflow_name            // offset 109, size 10
     // workflow_owner           // offset 119, size 20
     // report_name              // offset 139, size  2
-    if (uint8(rawReport[0]) != 1) {
-      revert InvalidVersion(uint8(rawReport[0]));
-    }
+
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
       // shift right by 28 bytes to get the actual value
