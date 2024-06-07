@@ -29,7 +29,8 @@ import (
 )
 
 var (
-	baseTOML = `[Feature]
+	baseTOML = `
+[Feature]
 LogPoller = true
 
 [OCR2]
@@ -38,18 +39,27 @@ Enabled = true
 [P2P]
 [P2P.V2]
 AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-	networkTOML = `Enabled = true
-FinalityDepth = 20
-LogPollInterval = '1s'
+ListenAddresses = ["0.0.0.0:6690"]
+	`
+	finalityDepth   = 20
+	historyDepth    = 30
+	reorgBlockCount = 10 // Number of blocks to reorg (less than finalityDepth)
+	networkTOML     = fmt.Sprintf(`
+Enabled = true
+FinalityDepth = %d
 
 [EVM.HeadTracker]
-HistoryDepth = 40
+HistoryDepth = %d
 
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
-
+LimitDefault = 5_000_000
+	`, finalityDepth, historyDepth)
+	upkeepCount               = 2
+	nodeCount                 = 6
+	nodeFundsAmount           = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
+	defaultUpkeepGasLimit     = uint32(2500000)
+	defaultLinkFunds          = int64(9e18)
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
 		"db": map[string]interface{}{
@@ -67,7 +77,6 @@ LimitDefault = 5_000_000`
 			},
 		},
 	}
-
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -83,14 +92,6 @@ LimitDefault = 5_000_000`
 		MaxPerformDataSize:   uint32(5000),
 		MaxRevertDataSize:    uint32(5000),
 	}
-)
-
-const (
-	defaultUpkeepGasLimit = uint32(2500000)
-	defaultLinkFunds      = int64(9e18)
-	numberOfUpkeeps       = 2
-	automationReorgBlocks = 50
-	numberOfNodes         = 6
 )
 
 /*
@@ -134,7 +135,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
-			defaultAutomationSettings["replicas"] = numberOfNodes
+			defaultAutomationSettings["replicas"] = nodeCount
 			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
 			var overrideFn = func(_ interface{}, target interface{}) {
@@ -142,11 +143,13 @@ func TestAutomationReorg(t *testing.T) {
 				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
+			l.Info().Msgf("Chainlink Node config:\n%s", defaultAutomationSettings["toml"])
+
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
 
 			testEnvironment := environment.
 				New(&environment.Config{
-					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
+					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", reorgBlockCount),
 					TTL:             time.Hour * 1,
 					Test:            t}).
 				// Use Geth blockchain to simulate reorgs
@@ -185,9 +188,7 @@ func TestAutomationReorg(t *testing.T) {
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-			require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, nodeFundsAmount)
 			require.NoError(t, err, "Error funding Chainlink nodes")
 
 			linkToken, err := contractDeployer.DeployLinkTokenContract()
@@ -202,7 +203,7 @@ func TestAutomationReorg(t *testing.T) {
 				chainClient,
 			)
 			// Fund the registry with LINK
-			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(upkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
@@ -220,7 +221,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger"
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, upkeepCount, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 
@@ -241,10 +242,11 @@ func TestAutomationReorg(t *testing.T) {
 
 			l.Info().
 				Str("URL", gethRPCClient.URL).
-				Str("Case", "below finality").
-				Int("BlocksBack", automationReorgBlocks).
-				Msg("Rewinding blocks on src chain")
-			err = gethRPCClient.GethSetHead(automationReorgBlocks)
+				Int("BlocksBack", reorgBlockCount).
+				Int("FinalityDepth", finalityDepth).
+				Int("HistoryDepth", historyDepth).
+				Msg("Rewinding blocks on chain below finality depth")
+			err = gethRPCClient.GethSetHead(reorgBlockCount)
 			require.NoError(t, err, "Error rewinding blocks on chain")
 
 			l.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
