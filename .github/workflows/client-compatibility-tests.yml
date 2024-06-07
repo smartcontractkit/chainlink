@@ -170,10 +170,12 @@ jobs:
           echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
           echo "Nethermind latest images: $nethermind_images"
           
+          # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
           besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }} "24.3.3")
           echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
           echo "Besu latest images: $besu_images"
           
+          # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
           erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }} "v2.60.0,v2.60.1")
           echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
           echo "Erigon latest images: $erigon_images" 
@@ -231,9 +233,14 @@ jobs:
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          # VRFV2 tests are disabled for besu and nethermind until the functionalities they rely on are supported
+          # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
