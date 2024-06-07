@@ -102,7 +102,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     uint64 configId = (uint64(donId) << 32) | configVersion;
 
     // remove any old signer addresses
-    for (uint256 i; i < s_configs[configId].signers.length; ++i) {
+    for (uint256 i = 0; i < s_configs[configId].signers.length; ++i) {
       delete s_configs[configId]._positions[s_configs[configId].signers[i]];
     }
 
@@ -154,7 +154,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       // validate signatures
       bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
       address[MAX_ORACLES + 1] memory signed;
-      for (uint256 i; i < signatures.length; ++i) {
+      for (uint256 i = 0; i < signatures.length; ++i) {
         bytes calldata signature = signatures[i];
         if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
         address signer = ecrecover(
