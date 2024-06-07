@@ -373,10 +373,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		_, err := provider.GetLatestPayloads(ctx)
-		assert.NoError(t, err)
-
-		err = provider.ReadLogs(ctx, upkeepIDs...)
+		err := provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 5, provider.bufferV1.NumOfUpkeeps())
@@ -470,10 +467,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		_, err := provider.GetLatestPayloads(ctx)
-		assert.NoError(t, err)
-
-		err = provider.ReadLogs(ctx, upkeepIDs...)
+		err := provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
@@ -597,10 +591,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		_, err := provider.GetLatestPayloads(ctx)
-		assert.NoError(t, err)
-
-		err = provider.ReadLogs(ctx, upkeepIDs...)
+		err := provider.ReadLogs(ctx, upkeepIDs...)
 		assert.NoError(t, err)
 
 		assert.Equal(t, 200, provider.bufferV1.NumOfUpkeeps())
