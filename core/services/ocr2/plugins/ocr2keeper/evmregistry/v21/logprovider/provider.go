@@ -171,9 +171,26 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 	return 0, 0, false
 }
 
-func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, iterations, currentIteration int) func(id *big.Int) bool {
+func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, logLimitLow, iterations, currentIteration int) func(id *big.Int) bool {
+	bestEffort := false
+
+	if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
+		if hasDequeued {
+			bestEffort = true
+		}
+	}
+
 	return func(id *big.Int) bool {
-		return id.Int64()%int64(iterations) == int64(currentIteration)
+		// query the map of block number to upkeep ID for dequeued count here when the block window is incomplete
+		dequeueUpkeep := true
+		if !bestEffort {
+			if windowUpkeeps, ok := c.dequeuedUpkeeps[startWindow]; ok {
+				if windowUpkeeps[id.String()] >= logLimitLow {
+					dequeueUpkeep = false
+				}
+			}
+		}
+		return dequeueUpkeep && id.Int64()%int64(iterations) == int64(currentIteration)
 	}
 }
 
@@ -410,7 +427,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				break
 			}
 
-			upkeepSelectorFn := p.dequeueCoordinator.getUpkeepSelector(startWindow, p.iterations, p.currentIteration)
+			upkeepSelectorFn := p.dequeueCoordinator.getUpkeepSelector(startWindow, logLimitLow, p.iterations, p.currentIteration)
 
 			p.lggr.With("where", "getLogsFromBuffer").Infow("dequeuing loop", "startWindow", startWindow, "end", end)
 
