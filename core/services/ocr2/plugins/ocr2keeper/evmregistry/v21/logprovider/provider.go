@@ -134,17 +134,18 @@ func newDequeueCoordinator() *dequeueCoordinator {
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+	dequeueCoordinator := newDequeueCoordinator()
 	return &logEventProvider{
 		threadCtrl:         utils.NewThreadControl(),
 		lggr:               lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:             packer,
 		buffer:             newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:           NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		bufferV1:           NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit, dequeueCoordinator),
 		poller:             poller,
 		opts:               opts,
 		filterStore:        filterStore,
 		chainID:            chainID,
-		dequeueCoordinator: newDequeueCoordinator(),
+		dequeueCoordinator: dequeueCoordinator,
 	}
 }
 
