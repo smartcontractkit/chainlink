@@ -131,7 +131,6 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-// pass config here
 func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster

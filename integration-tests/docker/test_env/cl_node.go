@@ -8,7 +8,9 @@ import (
 	"math/big"
 	"net/url"
 	"os"
+	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -127,7 +129,37 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+
+	// Hack to extract LogStream from opts using runtime & reflection packages
+	extractLogStreamOption := func() test_env.PostgresDbOption {
+		getFunctionName := func(i interface{}) string {
+			pc := reflect.ValueOf(i).Pointer()
+			funcObj := runtime.FuncForPC(pc)
+			if funcObj == nil {
+				return ""
+			}
+
+			fullName := funcObj.Name()
+			parts := strings.Split(fullName, "/")
+			name := parts[len(parts)-1]
+			return name
+		}
+
+		temp := &ClNode{
+			EnvComponent: test_env.EnvComponent{},
+		}
+		for _, opt := range opts {
+			optName := getFunctionName(opt)
+			if strings.Contains(optName, "WithLogStream") {
+				opt(temp)
+				break
+			}
+		}
+
+		return test_env.WithPostgresDbLogStream(temp.LogStream)
+	}
+
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), extractLogStreamOption())
 	if err != nil {
 		return nil, err
 	}
