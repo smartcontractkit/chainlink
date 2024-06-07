@@ -157,9 +157,10 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     runs-on: ubuntu-latest
-    needs: [check-ecr-images-exist]
+    needs: [check-ecr-images-exist,should-run]
     permissions:
       id-token: write
       contents: read
@@ -260,13 +261,14 @@ jobs:
 
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [get-latest-available-images]
+    needs: [get-latest-available-images,should-run]
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
@@ -334,13 +336,15 @@ jobs:
           echo $JOB_MATRIX_JSON | jq .        
 
   run-client-compatibility-matrix:
+    name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, prepare-compatibility-matrix]
+    needs: [build-chainlink, prepare-compatibility-matrix,should-run]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -351,7 +355,6 @@ jobs:
       matrix:
         evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
     runs-on: ubuntu-latest
-    name: Client Compatibility Test ${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -438,7 +441,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -448,7 +451,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix]
+    needs: [run-client-compatibility-matrix,should-run]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
@@ -497,7 +500,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
-    if: ${{ needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
     environment: integration
     permissions:
       checks: write
@@ -505,7 +508,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: start-slack-thread
+    needs: []start-slack-thread,should-run]
     strategy:
       fail-fast: false
       matrix:
@@ -521,7 +524,7 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^Client Compatibility Test ${{ matrix.product }}-(?<cap>.*?)$
+          github_job_name_regex: ^${{ matrix.product }} compatibility with (?<cap>.*?)$
           message_title: ${{ matrix.product }}
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
