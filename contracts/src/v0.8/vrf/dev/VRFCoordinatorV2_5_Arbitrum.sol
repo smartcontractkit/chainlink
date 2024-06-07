@@ -21,7 +21,8 @@ contract VRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5, ArbitrumL1Fees {
    * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockHash to get the blockhash.
    */
   function _getBlockhash(uint64 blockNumber) internal view override returns (bytes32) {
-    if ((_getBlockNumber() - blockNumber) > 256 || blockNumber >= _getBlockNumber()) {
+    uint64 currentBlockNumber = uint64(_getBlockNumber());
+    if (blockNumber >= currentBlockNumber || (currentBlockNumber - blockNumber) > 256) {
       return "";
     }
     return ARBSYS.arbBlockHash(blockNumber);
