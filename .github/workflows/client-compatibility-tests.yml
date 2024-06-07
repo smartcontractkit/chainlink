@@ -344,10 +344,7 @@ jobs:
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
           
-          echo "env: ${{ env.ETH_IMPLEMENTATIONS }}"
-          echo "plain: $ETH_IMPLEMENTATIONS"
-          
-          if [[ "geth" == *${ETH_IMPLEMENTATIONS}* ]]; then
+          if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
@@ -356,10 +353,12 @@ jobs:
             go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"          
+            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          else 
+            echo "Will not test compatibility with geth"
           fi
           
-          if [[ "besu" == *${ETH_IMPLEMENTATIONS}* ]]; then
+          if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
@@ -369,10 +368,12 @@ jobs:
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
             # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
             # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"      
+            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          else 
+            echo "Will not test compatibility with besu"
           fi
           
-          if [[ "erigon" == *${ETH_IMPLEMENTATIONS}* ]]; then
+          if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -382,9 +383,11 @@ jobs:
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          else 
+            echo "Will not test compatibility with erigon"
           fi   
           
-          if [[ "nethermind" == *${ETH_IMPLEMENTATIONS}* ]]; then
+          if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
@@ -394,7 +397,9 @@ jobs:
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
             # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
             # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
+            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"    
+          else 
+            echo "Will not test compatibility with nethermind"
           fi          
                     
           cat compatibility_test_list.json
