@@ -106,12 +106,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     // add new signer addresses
+    s_configs[configId].signers = signers;
     for (uint256 i; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = uint8(i) + 1;
-      s_configs[configId].signers.push(signer);
     }
     s_configs[configId].f = f;
   }
