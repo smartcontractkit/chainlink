@@ -213,7 +213,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   }
 
   function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
-    // TODO: gas savings: could we just use a bytes key and avoid another keccak256 call
     return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 
