@@ -508,7 +508,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: []start-slack-thread,should-run]
+    needs: [start-slack-thread,should-run]
     strategy:
       fail-fast: false
       matrix:
