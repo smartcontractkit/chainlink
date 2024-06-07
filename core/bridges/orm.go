@@ -196,27 +196,12 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 }
 
 func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
-	argCnt := 4
-	valueStrings := make([]string, len(responses))
-	valueArgs := make([]interface{}, argCnt*len(responses))
-
-	for idx, resp := range responses {
-		valueStrings[idx] = "(?, ?, ?, ?)"
-
-		pointIdx := argCnt * idx
-
-		valueArgs[pointIdx] = resp.DotId
-		valueArgs[pointIdx+1] = resp.SpecId
-		valueArgs[pointIdx+2] = resp.Response
-		valueArgs[pointIdx+3] = resp.FinishedAt
-	}
-
 	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
-				VALUES %s
+			VALUES (:dot_id, :spec_id, :value, :finished_at)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = excluded.value, finished_at = excluded.finished_at;`
 
-	if _, err := o.ds.ExecContext(ctx, sql, valueArgs...); err != nil {
+	if _, err := o.ds.NamedExecContext(ctx, sql, responses); err != nil {
 		return err
 	}
 

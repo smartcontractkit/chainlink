@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -1072,11 +1073,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	// orm := bridges.NewORM(db)
 	orm := bridges.NewBridgeCache(bridges.NewORM(db), nil, bridges.DefaultUpsertInterval)
 
-	t.Cleanup(func() {
-		require.NoError(t, orm.Close())
-	})
-
-	require.NoError(t, orm.Start(context.Background()))
+	servicetest.Run(t, orm)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 

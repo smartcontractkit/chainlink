@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"sync"
@@ -167,9 +168,8 @@ func (r *runner) Close() error {
 		close(r.chStop)
 		r.wgDone.Wait()
 
-		cache, isCache := r.btORM.(*bridges.BridgeCache)
-		if isCache {
-			return cache.Close()
+		if closer, isCloser := r.btORM.(io.Closer); isCloser {
+			return closer.Close()
 		}
 
 		return nil
@@ -181,14 +181,14 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	cache, isCache := r.btORM.(*bridges.BridgeCache)
-	if !isCache {
+	service, isService := r.btORM.(services.HealthReporter)
+	if !isService {
 		return map[string]error{r.Name(): r.Healthy()}
 	}
 
 	return map[string]error{
-		r.Name():     r.Healthy(),
-		cache.Name(): cache.Healthy(),
+		r.Name():       r.Healthy(),
+		service.Name(): service.Ready(),
 	}
 }
 

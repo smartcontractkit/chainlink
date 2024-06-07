@@ -201,8 +201,8 @@ func (t *BridgeName) Scan(value interface{}) error {
 }
 
 type BridgeResponse struct {
-	DotId      string
-	SpecId     int32
-	Response   []byte
+	DotID      string
+	SpecID     int32
+	Value      []byte
 	FinishedAt time.Time
 }

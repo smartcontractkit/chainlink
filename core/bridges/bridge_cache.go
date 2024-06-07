@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -24,7 +23,7 @@ const (
 
 type BridgeCache struct {
 	// dependencies and configurations
-	orm      ORM
+	ORM
 	lggr     logger.Logger
 	interval time.Duration
 
@@ -44,7 +43,7 @@ var _ services.Service = (*BridgeCache)(nil)
 
 func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *BridgeCache {
 	return &BridgeCache{
-		orm:                  base,
+		ORM:                  base,
 		lggr:                 lggr,
 		interval:             upsertInterval,
 		stop:                 make(chan struct{}, 1),
@@ -61,7 +60,7 @@ func (c *BridgeCache) FindBridge(ctx context.Context, name BridgeName) (BridgeTy
 		return bridgeType.(BridgeType), nil
 	}
 
-	ormResult, err := c.orm.FindBridge(ctx, name)
+	ormResult, err := c.ORM.FindBridge(ctx, name)
 	if err == nil {
 		c.bridgeTypesCache.Store(ormResult.Name, ormResult)
 	}
@@ -93,7 +92,7 @@ func (c *BridgeCache) FindBridges(ctx context.Context, names []BridgeName) ([]Br
 		return allFoundBts, nil
 	}
 
-	bts, err := c.orm.FindBridges(ctx, searchNames)
+	bts, err := c.ORM.FindBridges(ctx, searchNames)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +110,7 @@ func (c *BridgeCache) FindBridges(ctx context.Context, names []BridgeName) ([]Br
 }
 
 func (c *BridgeCache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
-	err := c.orm.DeleteBridgeType(ctx, bt)
+	err := c.ORM.DeleteBridgeType(ctx, bt)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return err
@@ -125,11 +124,11 @@ func (c *BridgeCache) DeleteBridgeType(ctx context.Context, bt *BridgeType) erro
 }
 
 func (c *BridgeCache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
-	return c.orm.BridgeTypes(ctx, offset, limit)
+	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 
 func (c *BridgeCache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
-	err := c.orm.CreateBridgeType(ctx, bt)
+	err := c.ORM.CreateBridgeType(ctx, bt)
 	if err != nil {
 		return err
 	}
@@ -140,7 +139,7 @@ func (c *BridgeCache) CreateBridgeType(ctx context.Context, bt *BridgeType) erro
 }
 
 func (c *BridgeCache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
-	if err := c.orm.UpdateBridgeType(ctx, bt, btr); err != nil {
+	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
 
@@ -156,19 +155,19 @@ func (c *BridgeCache) GetCachedResponse(ctx context.Context, dotId string, specI
 	c.mu.RUnlock()
 
 	if inCache && cached.FinishedAt.After(time.Now().Add(-maxElapsed)) {
-		return cached.Response, nil
+		return cached.Value, nil
 	}
 
-	response, finishedAt, err := c.orm.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
+	response, finishedAt, err := c.ORM.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
 	if err != nil {
 		return nil, err
 	}
 
 	c.mu.Lock()
 	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
-		DotId:      dotId,
-		SpecId:     specId,
-		Response:   response,
+		DotID:      dotId,
+		SpecID:     specId,
+		Value:      response,
 		FinishedAt: finishedAt,
 	}
 	c.mu.Unlock()
@@ -181,41 +180,13 @@ func (c *BridgeCache) UpsertBridgeResponse(ctx context.Context, dotId string, sp
 	defer c.mu.Unlock()
 
 	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
-		DotId:      dotId,
-		SpecId:     specId,
-		Response:   response,
+		DotID:      dotId,
+		SpecID:     specId,
+		Value:      response,
 		FinishedAt: time.Now(),
 	}
 
 	return nil
-}
-
-func (c *BridgeCache) ExternalInitiators(ctx context.Context, offset int, limit int) ([]ExternalInitiator, int, error) {
-	return c.orm.ExternalInitiators(ctx, offset, limit)
-}
-
-func (c *BridgeCache) CreateExternalInitiator(ctx context.Context, externalInitiator *ExternalInitiator) error {
-	return c.orm.CreateExternalInitiator(ctx, externalInitiator)
-}
-
-func (c *BridgeCache) DeleteExternalInitiator(ctx context.Context, name string) error {
-	return c.orm.DeleteExternalInitiator(ctx, name)
-}
-
-func (c *BridgeCache) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*ExternalInitiator, error) {
-	return c.orm.FindExternalInitiator(ctx, eia)
-}
-
-func (c *BridgeCache) FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error) {
-	return c.orm.FindExternalInitiatorByName(ctx, iname)
-}
-
-func (c *BridgeCache) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
-	return c.orm.GetCachedResponseWithFinished(ctx, dotId, specId, maxElapsed)
-}
-
-func (c *BridgeCache) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
-	return c.orm.BulkUpsertBridgeResponse(ctx, responses)
 }
 
 func (c *BridgeCache) Start(context.Context) error {
@@ -280,7 +251,7 @@ func (c *BridgeCache) doBulkUpsert() {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultBulkInsertTimeout)
 	defer cancel()
 
-	if err := c.orm.BulkUpsertBridgeResponse(ctx, values); err != nil {
+	if err := c.ORM.BulkUpsertBridgeResponse(ctx, values); err != nil {
 		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
 }
