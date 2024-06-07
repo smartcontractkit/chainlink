@@ -82,6 +82,13 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   // @param configId keccak256(donId, donConfigVersion)
   mapping(bytes32 configId => OracleSet) internal s_configs;
 
+  event ConfigSet(
+    uint32 indexed donId,
+    uint32 indexed configVersion,
+    uint8 f,
+    address[] signers
+  );
+
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
   /// @param workflowExecutionId The ID of the workflow execution
@@ -122,6 +129,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       s_configs[configId].signers.push(signer);
     }
     s_configs[configId].f = f;
+
+    emit ConfigSet(donId, configVersion, f, signers);
   }
 
   function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
@@ -134,6 +143,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     s_configs[configId].f = 0;
+
+    emit ConfigSet(donId, configVersion, 0, new address[](0));
   }
 
   // send a report to receiver
