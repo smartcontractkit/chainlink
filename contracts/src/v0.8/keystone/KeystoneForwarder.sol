@@ -186,8 +186,13 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
         address[MAX_ORACLES] memory signed;
         uint8 index;
+        bytes calldata signature;
         for (uint256 i; i < signatures.length; ++i) {
-          (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
+          signature = signatures[i];
+          if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
+          bytes32 r = bytes32(signature[0:32]);
+          bytes32 s = bytes32(signature[32:64]);
+          uint8 v = uint8(signature[64]);
           address signer = ecrecover(completeHash, v + 27, r, s);
 
           // validate signer is trusted and signature is unique
@@ -223,29 +228,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   ) external view returns (address) {
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     return IRouter(s_router).getTransmitter(combinedId);
-  }
-
-  // solhint-disable-next-line chainlink-solidity/explicit-returns
-  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-    if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
-
-    assembly {
-      /*
-      First 32 bytes stores the length of the signature
-
-      add(sig, 32) = pointer of sig + 32
-      effectively, skips first 32 bytes of signature
-
-      mload(p) loads next 32 bytes starting at the memory address p into memory
-      */
-
-      // first 32 bytes, after the length prefix
-      r := mload(add(sig, 32))
-      // second 32 bytes
-      s := mload(add(sig, 64))
-      // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(sig, 96)))
-    }
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns
