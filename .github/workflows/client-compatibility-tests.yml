@@ -344,6 +344,9 @@ jobs:
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
           
+          echo "env: ${{ env.ETH_IMPLEMENTATIONS }}"
+          echo "plain: $ETH_IMPLEMENTATIONS"
+          
           if [[ "geth" == *${ETH_IMPLEMENTATIONS}* ]]; then
             echo "Will test compatibility with geth"
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
