@@ -209,7 +209,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       }
     }
 
-    // TODO: make router address a compile time address to save on read from storage?
     bool success = IRouter(s_router).route(
       combinedId,
       msg.sender,
