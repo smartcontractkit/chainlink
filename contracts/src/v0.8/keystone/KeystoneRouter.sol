@@ -43,7 +43,9 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     bytes calldata metadata,
     bytes calldata report
   ) external returns (bool) {
-    if (!s_forwarders[msg.sender]) { revert Unauthorized(); }
+    if (!s_forwarders[msg.sender]) {
+      revert Unauthorized();
+    }
 
     if (s_reports[id].transmitter != address(0)) revert AlreadyProcessed(id);
     s_reports[id].transmitter = transmitter;

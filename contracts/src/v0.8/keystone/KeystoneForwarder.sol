@@ -80,12 +80,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   // @param configId keccak256(donId, donConfigVersion)
   mapping(bytes32 configId => OracleSet) internal s_configs;
 
-  event ConfigSet(
-    uint32 indexed donId,
-    uint32 indexed configVersion,
-    uint8 f,
-    address[] signers
-  );
+  event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
