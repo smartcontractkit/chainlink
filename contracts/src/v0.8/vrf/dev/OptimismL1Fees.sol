@@ -66,7 +66,10 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
   function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
     uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
     if (l1FeeCalculationMode == L1_CALLDATA_GAS_COST_MODE) {
-      return (s_l1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes)) / 100;
+      // estimate based on unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+      return
+        (s_l1FeeCoefficient * _calculateOptimismL1DataFee(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)) /
+        100;
     } else if (l1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
       // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
       return
@@ -80,9 +83,8 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
     // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
     // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
     // we treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas) because accurate estimation is too expensive
-    // we also have to account for the padding data and the signature data
-    uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE) *
-      16;
+    // we also have to account for the signature data size
+    uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16;
     uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() * 16 * OVM_GASPRICEORACLE.l1BaseFee();
     uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() * OVM_GASPRICEORACLE.blobBaseFee();
     uint256 fee = l1GasUsed * (scaledBaseFee + scaledBlobBaseFee);
