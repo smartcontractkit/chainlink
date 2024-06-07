@@ -753,6 +753,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		// check that across all 300 upkeeps, we have only dequeued 700 of the 3000000 logs (7 dequeue calls of 100 logs)
 		assert.Equal(t, 2999300, remainingLogs)
 	})
+
+	// complete windows, dequeues min oldest to newest, then best effort oldest to newest
+	// complete window, no logs, dq min is true after
+	// incomplete window, dequeues but only considered minium dq when correct number of logs dequeued
+	// incomplete window, but with no logs, considered minium dq when window becomes complete
 }
 
 type mockedPacker struct {
