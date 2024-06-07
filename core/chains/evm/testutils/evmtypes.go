@@ -84,3 +84,8 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 	return types.NewTx(&tx)
 }
+
+func NewAddressPtr() *common.Address {
+	a := common.BytesToAddress(randomBytes(20))
+	return &a
+}

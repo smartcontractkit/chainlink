@@ -407,26 +407,33 @@ func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetNodeOperators() (
 	return _CapabilityRegistry.Contract.GetNodeOperators(&_CapabilityRegistry.CallOpts)
 }
 
-func (_CapabilityRegistry *CapabilityRegistryCaller) GetNodes(opts *bind.CallOpts) ([]CapabilityRegistryNodeInfo, []uint32, error) {
+func (_CapabilityRegistry *CapabilityRegistryCaller) GetNodes(opts *bind.CallOpts) (GetNodes,
+
+	error) {
 	var out []interface{}
 	err := _CapabilityRegistry.contract.Call(opts, &out, "getNodes")
 
+	outstruct := new(GetNodes)
 	if err != nil {
-		return *new([]CapabilityRegistryNodeInfo), *new([]uint32), err
+		return *outstruct, err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([]CapabilityRegistryNodeInfo)).(*[]CapabilityRegistryNodeInfo)
-	out1 := *abi.ConvertType(out[1], new([]uint32)).(*[]uint32)
+	outstruct.NodeInfo = *abi.ConvertType(out[0], new([]CapabilityRegistryNodeInfo)).(*[]CapabilityRegistryNodeInfo)
+	outstruct.ConfigCounts = *abi.ConvertType(out[1], new([]uint32)).(*[]uint32)
 
-	return out0, out1, err
+	return *outstruct, err
 
 }
 
-func (_CapabilityRegistry *CapabilityRegistrySession) GetNodes() ([]CapabilityRegistryNodeInfo, []uint32, error) {
+func (_CapabilityRegistry *CapabilityRegistrySession) GetNodes() (GetNodes,
+
+	error) {
 	return _CapabilityRegistry.Contract.GetNodes(&_CapabilityRegistry.CallOpts)
 }
 
-func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetNodes() ([]CapabilityRegistryNodeInfo, []uint32, error) {
+func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetNodes() (GetNodes,
+
+	error) {
 	return _CapabilityRegistry.Contract.GetNodes(&_CapabilityRegistry.CallOpts)
 }
 
@@ -2072,6 +2079,11 @@ func (_CapabilityRegistry *CapabilityRegistryFilterer) ParseOwnershipTransferred
 	return event, nil
 }
 
+type GetNodes struct {
+	NodeInfo     []CapabilityRegistryNodeInfo
+	ConfigCounts []uint32
+}
+
 func (_CapabilityRegistry *CapabilityRegistry) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
 	case _CapabilityRegistry.abi.Events["CapabilityConfigured"].ID:
@@ -2169,7 +2181,9 @@ type CapabilityRegistryInterface interface {
 
 	GetNodeOperators(opts *bind.CallOpts) ([]CapabilityRegistryNodeOperator, error)
 
-	GetNodes(opts *bind.CallOpts) ([]CapabilityRegistryNodeInfo, []uint32, error)
+	GetNodes(opts *bind.CallOpts) (GetNodes,
+
+		error)
 
 	IsCapabilityDeprecated(opts *bind.CallOpts, hashedCapabilityId [32]byte) (bool, error)
 
