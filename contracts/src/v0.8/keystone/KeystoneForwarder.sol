@@ -71,7 +71,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   struct OracleSet {
     uint8 f; // Number of faulty nodes allowed
     address[] signers;
-    mapping(address => uint256) _positions; // 1-indexed to detect unset values
+    mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
 
   address internal s_router;
@@ -113,11 +113,12 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
     // add new signer addresses
     s_configs[configId].signers = signers;
+
     for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
-      s_configs[configId]._positions[signer] = uint8(i) + 1;
+      s_configs[configId]._positions[signer] = i + 1;
     }
     s_configs[configId].f = f;
 
