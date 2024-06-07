@@ -86,7 +86,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: needs.should-run.outputs.should_run-run == 'true'
+    if: needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
@@ -120,7 +120,7 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
           
   build-chainlink:
-    if: needs.should-run.outputs.should_run-run == 'true'
+    if: needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
