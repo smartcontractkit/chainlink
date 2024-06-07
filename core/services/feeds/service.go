@@ -579,6 +579,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	)
 
 	var id int64
+	// we need the specID to auto-approve workflow specs
+	var specID int64
 	err = s.orm.Transact(ctx, func(tx ORM) error {
 		var txerr error
 
@@ -598,7 +600,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 
 		// Create the spec version
-		_, txerr = tx.CreateSpec(ctx, JobProposalSpec{
+		specID, txerr = tx.CreateSpec(ctx, JobProposalSpec{
 			Definition:    args.Spec,
 			Status:        SpecStatusPending,
 			Version:       args.Version,
@@ -616,7 +618,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// auto approve workflow specs
 	if isWFSpec(logger, args.Spec) {
 		promWorkflowRequests.Inc()
-		err = s.ApproveSpec(ctx, id, true)
+		err = s.ApproveSpec(ctx, specID, true)
 		if err != nil {
 			promWorkflowFailures.Inc()
 			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
@@ -1210,7 +1212,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		return nil, err
 	}
 
-	return &pb.ChainConfig{
+	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
 			Type: pb.ChainType_CHAIN_TYPE_EVM,
@@ -1220,7 +1222,13 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		FluxMonitorConfig: s.newFluxMonitorConfigMsg(cfg.FluxMonitorConfig),
 		Ocr1Config:        ocr1Cfg,
 		Ocr2Config:        ocr2Cfg,
-	}, nil
+	}
+
+	if cfg.AccountAddressPublicKey.Valid {
+		pbChainConfig.AccountAddressPublicKey = &cfg.AccountAddressPublicKey.String
+	}
+
+	return &pbChainConfig, nil
 }
 
 // newFluxMonitorConfigMsg generates a FMConfig protobuf message. Flux Monitor does not
