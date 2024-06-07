@@ -11,6 +11,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -165,11 +166,14 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
+	srvcs := make([]services.Service, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout, lggr)
+		require.NoError(t, caller.Start(ctx))
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
+		srvcs[i] = caller
 	}
 
 	executeInputs, err := values.NewMap(
@@ -202,6 +206,9 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	wg.Wait()
+	for i := 0; i < numWorkflowPeers; i++ {
+		require.NoError(t, srvcs[i].Close())
+	}
 }
 
 // Simple client that only responds once it has received a message from each workflow peer

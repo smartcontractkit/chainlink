@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
@@ -26,7 +25,7 @@ type client struct {
 	services.StateMachine
 	lggr                 logger.Logger
 	remoteCapabilityInfo commoncap.CapabilityInfo
-	localDONInfo         capabilities.DON
+	localDONInfo         commoncap.DON
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
@@ -40,7 +39,7 @@ var _ commoncap.TargetCapability = &client{}
 var _ types.Receiver = &client{}
 var _ services.Service = &client{}
 
-func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, lggr logger.Logger) *client {
 	return &client{
 		lggr:                     lggr,

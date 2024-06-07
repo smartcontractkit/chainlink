@@ -130,7 +130,7 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		s.subServices = append(s.subServices, triggerCap)
 
 		s.lggr.Info("member of a workflow DON - starting remote targets")
-		targetCap := target.NewClient(targetInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, time.Duration(60*time.Second), s.lggr)
+		targetCap := target.NewClient(targetInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, 60*time.Second, s.lggr)
 		err = s.registry.Add(ctx, targetCap)
 		if err != nil {
 			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
@@ -199,7 +199,7 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		workflowDONs := map[string]capabilities.DON{
 			s.networkSetup.WorkflowsDonInfo.ID: s.networkSetup.WorkflowsDonInfo,
 		}
-		targetCap := target.NewServer(myId, underlying, targetInfo, *targetInfo.DON, workflowDONs, s.dispatcher, time.Duration(60*time.Second), s.lggr)
+		targetCap := target.NewServer(myId, underlying, targetInfo, *targetInfo.DON, workflowDONs, s.dispatcher, 60*time.Second, s.lggr)
 		err = s.dispatcher.SetReceiver(targetCapId, s.networkSetup.TargetCapabilityDonInfo.ID, targetCap)
 		if err != nil {
 			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TargetCapabilityDonInfo.ID, "error", err)
