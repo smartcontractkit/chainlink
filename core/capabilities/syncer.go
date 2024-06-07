@@ -89,12 +89,11 @@ func (s *registrySyncer) launch(ctx context.Context) {
 		return
 	}
 
-	targetCapId := "write_ethereum-testnet-sepolia"
+	targetCapId := "write_ethereum-testnet-sepolia@0.0.1"
 	targetInfo, err := capabilities.NewRemoteCapabilityInfo(
 		targetCapId,
 		capabilities.CapabilityTypeTarget,
 		"Remote Target",
-		"v0.0.1",
 		&s.networkSetup.TargetCapabilityDonInfo,
 	)
 	if err != nil {

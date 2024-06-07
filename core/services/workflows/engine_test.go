@@ -339,14 +339,13 @@ func mockFailingConsensus() *mockCapability {
 func mockConsensusWithEarlyTermination() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{
-				Err: errors.New(capabilities.ErrStopExecution),
+				Err: capabilities.ErrStopExecution,
 			}, nil
 		},
 	)
@@ -440,7 +439,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
 }
 

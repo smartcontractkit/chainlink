@@ -65,6 +65,7 @@ func (r *server) Start(ctx context.Context) error {
 	return r.StartOnce(r.Name(), func() error {
 		r.wg.Add(1)
 		go func() {
+			defer r.wg.Done()
 			ticker := time.NewTicker(r.requestTimeout)
 			defer ticker.Stop()
 			r.lggr.Info("TargetServer started")
