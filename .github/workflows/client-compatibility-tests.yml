@@ -1,10 +1,12 @@
 name: Client Compatibility Tests
 on:
   schedule:
-    - cron: "30 5 * * *" # Run every night at midnight + 30min EST
+    - cron: "30 5 * * TUE,FRI" # Run every Tuesday and Friday at midnight + 30min EST
   push:
     tags:
       - "*"
+  merge_group:
+  pull_request:
   workflow_dispatch:
 
 env:
@@ -12,15 +14,75 @@ env:
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
 
+# Tag, schedule and workflow dispatch -- always
+# merge queue and pull request -- only if go-ethereum dependency was bumped
+
 jobs:
   # Build Test Dependencies
 
+  check-dependency-bump:
+    name: Check for go-ethereum dependency bump
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_queue'
+    runs-on: ubuntu-latest
+    outputs:
+      dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          fetch-depth: 0
+      - name: Check for go.mod changes
+        id: changes
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          # if no match is found then grep exits with code 1, but if there is a match it exits with code 0
+          # this will return a match if there are any changes on that corresponding line, for example if spacing was changed
+          DEPENDENCY_CHANGED=$(git diff -U0 origin/${{ github.base_ref }}...HEAD -- go.mod | grep -q 'github.com/ethereum/go-ethereum'; echo $?)
+          PR_VERSION=$(grep 'github.com/ethereum/go-ethereum' go.mod | awk '{print $2}')
+
+          # here 0 means a match was found, 1 means no match was found
+          if [ "$DEPENDENCY_CHANGED" -eq 0 ]; then
+            # Dependency was changed in the PR, now compare with the base branch
+            git fetch origin ${{ github.base_ref }}
+            BASE_VERSION=$(git show origin/${{ github.base_ref }}:go.mod | grep 'github.com/ethereum/go-ethereum' | awk '{print $2}')
+
+            echo "Base branch version: $BASE_VERSION"
+            echo "PR branch version: $PR_VERSION"
+
+            echo "Dependency version changed in the PR compared to the base branch."
+            echo "dependency_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No changes to ethereum/go-ethereum dependency in the PR."
+            echo "PR branch version: $PR_VERSION"
+            echo "dependency_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+  should-run:
+    name: Check if the job should run
+    needs: check-dependency-bump
+    runs-on: ubuntu-latest
+    outputs:
+      dependency_changed: ${{ steps.should-run.outputs.should_run }}
+    env:
+      GITHUB_REF_TYPE: ${{ github.ref_type }}
+    steps:
+      - name: Check if the job should run
+        id: should-run
+        run: |
+          if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "GITHUB_REF_TYPE" = "tag" ]; then
+            echo "should_run=true" >> $GITHUB_ENV
+          else
+            echo "should_run=false" >> $GITHUB_ENV
+          fi
+
   check-ecr-images-exist:
+    name: Check images used as test dependencies exist in ECR
+    if: needs.should-run.outputs.should_run-run == 'true'
     environment: integration
     permissions:
       id-token: write
       contents: read
-    name: Check images used as test dependencies exist in ECR
+    needs: [check-dependency-bump, should-run]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -49,12 +111,14 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
           
   build-chainlink:
+    if: needs.should-run.outputs.should_run-run == 'true'
     environment: integration
     permissions:
       id-token: write
       contents: read
     name: Build Chainlink Image
     runs-on: ubuntu-latest
+    needs: [should-run]
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
@@ -233,14 +297,15 @@ jobs:
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          # VRFV2 tests are disabled for besu and nethermind until the functionalities they rely on are supported
+          # VRFv2 tests are disabled for besu and nethermind until the functionalities they rely on are supported
           # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          # VRFv2Plus tests are disabled for besu and nethermind until the functionalities they rely on are supported
+          # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
