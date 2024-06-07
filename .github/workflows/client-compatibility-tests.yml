@@ -86,7 +86,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: needs.should-run.outputs.should_run == 'true'
+    # if: needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
@@ -109,6 +109,9 @@ jobs:
           - name: tofelb/ethereum-genesis-generator
             expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
     steps:
+      - name: test outputs
+        run: |
+          echo "Should run is ${{needs.should-run.outputs.should_run}}"
       - name: Update internal ECR if the latest Ethereum client image does not exist
         uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
         with:
