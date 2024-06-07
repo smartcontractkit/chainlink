@@ -63,7 +63,7 @@ jobs:
     needs: check-dependency-bump
     runs-on: ubuntu-latest
     outputs:
-      dependency_changed: ${{ steps.should-run.outputs.should_run }}
+      should_run: ${{ steps.should-run.outputs.should_run }}
     env:
       GITHUB_REF_TYPE: ${{ github.ref_type }}
     steps:
@@ -285,6 +285,7 @@ jobs:
         run: |
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
+          
           go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
           go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -301,6 +302,10 @@ jobs:
           go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -501,7 +506,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [automation,log_poller,ocr,ocr2,vrf,vrfv2]
+        product: [automation,keeper,log_poller,ocr,ocr2,vrf,vrfv2,vrfv2plus]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
