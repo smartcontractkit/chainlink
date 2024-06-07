@@ -91,7 +91,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    needs: [check-dependency-bump, should-run]
+    needs: [should-run]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
