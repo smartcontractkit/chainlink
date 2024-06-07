@@ -66,6 +66,7 @@ func (c *ContractTransmitter) Transmit(ctx context.Context, configDigest types.C
 	resp := map[string]any{
 		methodHeader:       methodSendResponse,
 		transmissionHeader: signedReport,
+		terminateHeader:    !info.ShouldReport,
 	}
 	inputs, err := values.Wrap(resp)
 	if err != nil {

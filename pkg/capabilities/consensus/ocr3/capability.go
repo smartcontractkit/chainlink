@@ -22,6 +22,7 @@ const (
 	methodSendResponse = "send_response"
 	methodHeader       = "method"
 	transmissionHeader = "transmission"
+	terminateHeader    = "terminate"
 )
 
 var info = capabilities.MustNewCapabilityInfo(
@@ -157,6 +158,7 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 	m := struct {
 		Method       string
 		Transmission map[string]any
+		Terminate    bool
 	}{
 		Method: methodStartRequest,
 	}
@@ -172,11 +174,16 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 			return nil, fmt.Errorf("failed to create map for response inputs: %w", err)
 		}
 		o.lggr.Debugw("Execute - sending response", "workflowExecutionID", r.Metadata.WorkflowExecutionID, "inputs", inputs)
+		var responseErr error
+		if m.Terminate {
+			o.lggr.Debugw("Execute - terminating execution", "workflowExecutionID", r.Metadata.WorkflowExecutionID)
+			responseErr = capabilities.ErrStopExecution
+		}
 		out := &outputs{
 			WorkflowExecutionID: r.Metadata.WorkflowExecutionID,
 			CapabilityResponse: capabilities.CapabilityResponse{
 				Value: inputs,
-				Err:   nil,
+				Err:   responseErr,
 			},
 		}
 		o.transmitCh <- out
