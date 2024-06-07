@@ -11,14 +11,9 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
-  error ReentrantCall();
-
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
-
-  /// @notice This error is returned when the metadata version is not supported.
-  error InvalidVersion(uint8 version);
 
   /// @notice This error is thrown whenever trying to set a config with a fault
   /// tolerance of 0.
@@ -66,8 +61,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param messageId The ID of the message that was already processed
   error AlreadyProcessed(bytes32 messageId);
 
-  bool internal s_reentrancyGuard; // guard against reentrancy
-
   /// @notice Contains the signing address of each oracle
   struct OracleSet {
     uint8 f; // Number of faulty nodes allowed
@@ -81,7 +74,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
   struct DeliveryStatus {
     address transmitter;
-    bool success;
+    bool state;
   }
 
   mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
@@ -89,7 +82,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice Emitted when a report is processed
   /// @param receiver The address of the receiver contract
   /// @param workflowExecutionId The ID of the workflow execution
-  /// @param result The result of the attempted delivery. True if successful.
+  /// @param result The result of the attempted delivery. 1 if successful, 2 if not.
   event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
 
   constructor() ConfirmedOwner(msg.sender) {}
@@ -119,7 +112,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
       s_configs[configId]._positions[signer] = uint8(i) + 1;
-      s_configs[configId].signers.push(signer);
     }
     s_configs[configId].f = f;
   }
@@ -142,7 +134,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     bytes calldata rawReport,
     bytes calldata reportContext,
     bytes[] calldata signatures
-  ) external nonReentrant {
+  ) external {
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
@@ -165,40 +157,36 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
 
     bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
     if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
+    s_reports[combinedId].transmitter = msg.sender;
 
     // validate signatures
     {
       bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
+      address[MAX_ORACLES + 1] memory signed;
+      uint256 index;
 
-      address[MAX_ORACLES] memory signed;
-      uint8 index;
       for (uint256 i; i < signatures.length; ++i) {
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(completeHash, v + 27, r, s);
+        address signer = getSigner(signatures[i], completeHash);
 
         // validate signer is trusted and signature is unique
-        index = uint8(s_configs[configId]._positions[signer]);
+        index = s_configs[configId]._positions[signer];
         if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
-        index -= 1;
         if (signed[index] != address(0)) revert DuplicateSigner(signer);
         signed[index] = signer;
       }
     }
 
-    bool success;
     try
       IReceiver(receiverAddress).onReport(
         rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
         rawReport[METADATA_LENGTH:]
       )
     {
-      success = true;
+      s_reports[combinedId].state = true;
+      emit ReportProcessed(receiverAddress, workflowExecutionId, true);
     } catch {
-      // Do nothing, success is already false
+      emit ReportProcessed(receiverAddress, workflowExecutionId, false);
     }
-
-    s_reports[combinedId] = DeliveryStatus(msg.sender, success);
-    emit ReportProcessed(receiverAddress, workflowExecutionId, success);
   }
 
   function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
@@ -216,9 +204,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     return s_reports[combinedId].transmitter;
   }
 
-  // solhint-disable-next-line chainlink-solidity/explicit-returns
-  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+  function getSigner(bytes memory sig, bytes32 completeHash) internal pure returns (address) {
     if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
+
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
 
     assembly {
       /*
@@ -237,6 +228,8 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
       // final byte (first byte of the next 32 bytes)
       v := byte(0, mload(add(sig, 96)))
     }
+
+    return ecrecover(completeHash, v + 27, r, s);
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns
@@ -253,9 +246,7 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // workflow_name            // offset 109, size 10
     // workflow_owner           // offset 119, size 20
     // report_name              // offset 139, size  2
-    if (uint8(rawReport[0]) != 1) {
-      revert InvalidVersion(uint8(rawReport[0]));
-    }
+
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
       // shift right by 28 bytes to get the actual value
@@ -269,15 +260,5 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
     return "KeystoneForwarder 1.0.0";
-  }
-
-  /**
-   * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
-   */
-  modifier nonReentrant() {
-    if (s_reentrancyGuard) revert ReentrantCall();
-    s_reentrancyGuard = true;
-    _;
-    s_reentrancyGuard = false;
   }
 }
