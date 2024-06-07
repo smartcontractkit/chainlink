@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
+import {KeystoneRouter} from "../KeystoneRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
@@ -28,6 +29,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     BaseTest.setUp();
 
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
+    s_router.addForwarder(address(s_forwarder));
 
     mercuryReports[0] = hex"010203";
     mercuryReports[1] = hex"aabbccdd";
