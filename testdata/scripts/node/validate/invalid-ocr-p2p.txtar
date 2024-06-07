@@ -290,6 +290,11 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.Registry]
+RemoteAddress = ''
+NetworkID = 'evm'
+ChainID = '1'
+
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 
 -- err.txt --
