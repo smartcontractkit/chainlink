@@ -140,41 +140,35 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes32 combinedId;
     {
       uint64 configId;
-      OracleSet storage config;
-      {
-        bytes2 reportId;
-        (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
+      bytes2 reportId;
+      (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
+      OracleSet storage config = s_configs[configId];
 
-        config = s_configs[configId];
+      uint8 f = config.f;
+      // f can never be 0, so this means the config doesn't actually exist
+      if (f == 0) revert InvalidConfig(configId);
+      if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
-        uint8 f = config.f;
-        // f can never be 0, so this means the config doesn't actually exist
-        if (f == 0) revert InvalidConfig(configId);
-        if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
-
-        combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
-      }
+      combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
 
       // validate signatures
-      {
-        bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
-        address[MAX_ORACLES + 1] memory signed;
-        for (uint256 i; i < signatures.length; ++i) {
-          bytes calldata signature = signatures[i];
-          if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
-          address signer = ecrecover(
-            completeHash,
-            uint8(signature[64]) + 27,
-            bytes32(signature[0:32]),
-            bytes32(signature[32:64])
-          );
+      bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
+      address[MAX_ORACLES + 1] memory signed;
+      for (uint256 i; i < signatures.length; ++i) {
+        bytes calldata signature = signatures[i];
+        if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
+        address signer = ecrecover(
+          completeHash,
+          uint8(signature[64]) + 27,
+          bytes32(signature[0:32]),
+          bytes32(signature[32:64])
+        );
 
-          // validate signer is trusted and signature is unique
-          uint256 index = config._positions[signer];
-          if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
-          if (signed[index] != address(0)) revert DuplicateSigner(signer);
-          signed[index] = signer;
-        }
+        // validate signer is trusted and signature is unique
+        uint256 index = config._positions[signer];
+        if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
+        if (signed[index] != address(0)) revert DuplicateSigner(signer);
+        signed[index] = signer;
       }
     }
 
