@@ -215,10 +215,10 @@ func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remainin
 			if c.remainingLogs[startWindow] == 0 || c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
 				c.dequeuedMinimum[startWindow] = true
 			}
-		} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+		} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow { // this assumes we don't dequeue the same upkeeps more than logLimitLow in min commitment
 			c.dequeuedMinimum[startWindow] = true
 		}
-	} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow {
+	} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow { // this assumes we don't dequeue the same upkeeps more than logLimitLow in min commitment
 		c.dequeuedMinimum[startWindow] = true
 	}
 }
