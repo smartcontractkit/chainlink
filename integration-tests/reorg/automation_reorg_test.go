@@ -136,8 +136,6 @@ func TestAutomationReorg(t *testing.T) {
 				ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 			}
 
-			l.Info().Msgf("Chainlink Node config:\n%s", defaultAutomationSettings["toml"])
-
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
 
 			testEnvironment := environment.
