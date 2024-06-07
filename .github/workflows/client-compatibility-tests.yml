@@ -72,16 +72,16 @@ jobs:
         run: |
           if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ]; then
             echo "Will run tests, because go-ethereum dependency was bumped"
-            echo "should_run=true" >> $GITHUB_ENV
+            echo "should_run=true" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
-            echo "should_run=true" >> $GITHUB_ENV
+            echo "should_run=true" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Will run tests, because new tag was created"
-            echo "should_run=true" >> $GITHUB_ENV
+            echo "should_run=true" >> $GITHUB_OUTPUT
           else
             echo "Will not run tests"
-            echo "should_run=false" >> $GITHUB_ENV
+            echo "should_run=false" >> $GITHUB_OUTPUT
           fi
 
   check-ecr-images-exist:
