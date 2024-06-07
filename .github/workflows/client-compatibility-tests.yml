@@ -58,6 +58,7 @@ jobs:
           fi
 
   should-run:
+    if: always()
     name: Check if the job should run
     needs: check-dependency-bump
     runs-on: ubuntu-latest
@@ -421,7 +422,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -480,7 +481,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
+    if: ${{ needs.*.result != 'skipped' && needs.*.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
