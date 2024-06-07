@@ -161,14 +161,10 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
       // validate signatures
       {
-        uint256 numSignatures = signatures.length;
         bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
-
         address[MAX_ORACLES + 1] memory signed;
-        uint256 index;
-        bytes calldata signature;
-        for (uint256 i; i < numSignatures; ++i) {
-          signature = signatures[i];
+        for (uint256 i; i < signatures.length; ++i) {
+          bytes calldata signature = signatures[i];
           if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
           address signer = ecrecover(
             completeHash,
@@ -178,7 +174,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
           );
 
           // validate signer is trusted and signature is unique
-          index = config._positions[signer];
+          uint256 index = config._positions[signer];
           if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
           if (signed[index] != address(0)) revert DuplicateSigner(signer);
           signed[index] = signer;
