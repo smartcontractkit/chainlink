@@ -11,8 +11,6 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
 contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
-  error ReentrantCall();
-
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
@@ -62,8 +60,6 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice This error is thrown whenever a message has already been processed.
   /// @param messageId The ID of the message that was already processed
   error AlreadyProcessed(bytes32 messageId);
-
-  bool internal s_reentrancyGuard; // guard against reentrancy
 
   /// @notice Contains the signing address of each oracle
   struct OracleSet {
