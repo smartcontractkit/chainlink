@@ -59,7 +59,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       rawReports
     );
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, invalidDONId, CONFIG_VERSION));
+    uint64 configId = (uint64(invalidDONId) << 32) | CONFIG_VERSION;
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
@@ -77,7 +78,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       rawReports
     );
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION + 1));
+    uint64 configId = (uint64(DON_ID) << 32) | (CONFIG_VERSION + 1);
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
@@ -176,7 +178,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.prank(ADMIN);
     s_forwarder.clearConfig(DON_ID, CONFIG_VERSION);
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION));
+    uint64 configId = (uint64(DON_ID) << 32) | CONFIG_VERSION;
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 

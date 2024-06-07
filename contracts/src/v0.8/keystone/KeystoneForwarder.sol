@@ -47,9 +47,8 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
   /// @notice This error is thrown whenever a report specifies a configuration that
   /// does not exist.
-  /// @param donId The DON ID that was provided in the report
-  /// @param configVersion The config version that was provided in the report
-  error InvalidConfig(uint32 donId, uint32 configVersion);
+  /// @param configId (uint64(donId) << 32) | configVersion
+  error InvalidConfig(uint64 configId);
 
   /// @notice This error is thrown whenever a signer address is not in the
   /// configuration.
@@ -74,8 +73,8 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   address internal s_router;
 
   /// @notice Contains the configuration for each DON ID
-  // @param configId keccak256(donId, donConfigVersion)
-  mapping(bytes32 configId => OracleSet) internal s_configs;
+  // @param configId (uint64(donId) << 32) | configVersion
+  mapping(uint64 configId => OracleSet) internal s_configs;
 
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
@@ -101,7 +100,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
 
-    bytes32 configId = keccak256(abi.encode(donId, configVersion));
+    uint64 configId = (uint64(donId) << 32) | configVersion;
 
     // remove any old signer addresses
     for (uint256 i; i < s_configs[configId].signers.length; ++i) {
@@ -123,7 +122,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   }
 
   function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
-    bytes32 configId = keccak256(abi.encode(donId, configVersion));
+    uint64 configId = (uint64(donId) << 32) | configVersion;
 
     // remove any old signer addresses
     for (uint256 i = 0; i < s_configs[configId].signers.length; ++i) {
@@ -149,21 +148,17 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes32 workflowExecutionId;
     bytes32 combinedId;
     {
-      bytes32 configId;
+      uint64 configId;
       OracleSet storage config;
       {
-        uint32 donId;
-        uint32 configVersion;
         bytes2 reportId;
-        (workflowExecutionId, donId, configVersion, reportId) = _getMetadata(rawReport);
-
-        configId = keccak256(abi.encode(donId, configVersion));
+        (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
 
         config = s_configs[configId];
 
         uint8 f = config.f;
         // f can never be 0, so this means the config doesn't actually exist
-        if (f == 0) revert InvalidConfig(donId, configVersion);
+        if (f == 0) revert InvalidConfig(configId);
         if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
         combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
@@ -223,7 +218,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _getMetadata(
     bytes memory rawReport
-  ) internal pure returns (bytes32 workflowExecutionId, uint32 donId, uint32 donConfigVersion, bytes2 reportId) {
+  ) internal pure returns (bytes32 workflowExecutionId, uint64 configId, bytes2 reportId) {
     // (first 32 bytes of memory contain length of the report)
     // version                  // offset  32, size  1
     // workflow_execution_id    // offset  33, size 32
@@ -236,10 +231,8 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     // report_id              // offset 139, size  2
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
-      // shift right by 28 bytes to get the actual value
-      donId := shr(mul(28, 8), mload(add(rawReport, 69)))
-      // shift right by 28 bytes to get the actual value
-      donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
+      // shift right by 24 bytes to get the combined don_id and don_config_version
+      configId := shr(mul(24, 8), mload(add(rawReport, 69)))
       reportId := mload(add(rawReport, 139))
     }
   }
