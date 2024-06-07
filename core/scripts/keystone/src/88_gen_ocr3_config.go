@@ -1,13 +1,9 @@
-package main
+package src
 
 import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
-	"flag"
-	"fmt"
-	"io"
-	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +13,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type TopLevelConfigSource struct {
@@ -59,62 +56,50 @@ type NodeKeys struct {
 }
 
 type orc2drOracleConfig struct {
-	Signers               []string `json:"signers"`
-	Transmitters          []string `json:"transmitters"`
-	F                     uint8    `json:"f"`
-	OnchainConfig         string   `json:"onchainConfig"`
-	OffchainConfigVersion uint64   `json:"offchainConfigVersion"`
-	OffchainConfig        string   `json:"offchainConfig"`
+	Signers               []common.Address
+	Transmitters          []common.Address
+	F                     uint8
+	OnchainConfig         []byte
+	OffchainConfigVersion uint64
+	OffchainConfig        []byte
 }
 
-type generateOCR2Config struct {
+func (c orc2drOracleConfig) MarshalJSON() ([]byte, error) {
+	alias := struct {
+		Signers               []string
+		Transmitters          []string
+		F                     uint8
+		OnchainConfig         string
+		OffchainConfigVersion uint64
+		OffchainConfig        string
+	}{
+		Signers:               make([]string, len(c.Signers)),
+		Transmitters:          make([]string, len(c.Transmitters)),
+		F:                     c.F,
+		OnchainConfig:         "0x" + hex.EncodeToString(c.OnchainConfig),
+		OffchainConfigVersion: c.OffchainConfigVersion,
+		OffchainConfig:        "0x" + hex.EncodeToString(c.OffchainConfig),
+	}
+
+	for i, signer := range c.Signers {
+		alias.Signers[i] = signer.Hex()
+	}
+
+	for i, transmitter := range c.Transmitters {
+		alias.Transmitters[i] = transmitter.Hex()
+	}
+
+	return json.Marshal(alias)
 }
 
-func NewGenerateOCR2ConfigCommand() *generateOCR2Config {
-	return &generateOCR2Config{}
-}
-
-func (g *generateOCR2Config) Name() string {
-	return "generate-ocr2config"
-}
-
-func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
+func mustReadConfig(fileName string) (output TopLevelConfigSource) {
 	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
-func mustParseKeysFile(fileName string) (output []NodeKeys) {
-	return mustParseJSON[[]NodeKeys](fileName)
-}
-
-func mustParseJSON[T any](fileName string) (output T) {
-	jsonFile, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	bytes, err := io.ReadAll(jsonFile)
-	if err != nil {
-		panic(err)
-	}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		panic(err)
-	}
-	return
-}
-
-func main() {
-	fs := flag.NewFlagSet("config_gen", flag.ExitOnError)
-	configFile := fs.String("config", "config_example.json", "a file containing JSON config")
-	keysFile := fs.String("keys", "public_keys_example.json", "a file containing node public keys")
-	if err := fs.Parse(os.Args[1:]); err != nil || *keysFile == "" || *configFile == "" {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	topLevelCfg := mustParseJSONConfigFile(*configFile)
+func generateOCR3Config(configFile string, chainID int64, pubKeysPath string) orc2drOracleConfig {
+	topLevelCfg := mustReadConfig(configFile)
 	cfg := topLevelCfg.OracleConfig
-	nca := mustParseKeysFile(*keysFile)
+	nca := downloadNodePubKeys(chainID, pubKeysPath)
 
 	onchainPubKeys := []common.Address{}
 	for _, n := range nca {
@@ -185,23 +170,19 @@ func main() {
 	)
 	helpers.PanicErr(err)
 
-	var signersStr []string
-	var transmittersStr []string
-	for i := range transmitters {
-		signersStr = append(signersStr, "0x"+hex.EncodeToString(signers[i]))
-		transmittersStr = append(transmittersStr, string(transmitters[i]))
-	}
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	PanicErr(err)
+	transmitterAddresses, err := evm.AccountToAddress(transmitters)
+	PanicErr(err)
 
 	config := orc2drOracleConfig{
-		Signers:               signersStr,
-		Transmitters:          transmittersStr,
+		Signers:               signerAddresses,
+		Transmitters:          transmitterAddresses,
 		F:                     f,
-		OnchainConfig:         "0x" + hex.EncodeToString(onchainConfig),
+		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
-		OffchainConfig:        "0x" + hex.EncodeToString(offchainConfig),
+		OffchainConfig:        offchainConfig,
 	}
 
-	js, err := json.MarshalIndent(config, "", " ")
-	helpers.PanicErr(err)
-	fmt.Println("Config:", string(js))
+	return config
 }

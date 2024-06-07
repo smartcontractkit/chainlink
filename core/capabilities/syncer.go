@@ -76,12 +76,11 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 // that reads the configuration from chain (KS-117).
 func (s *registrySyncer) launch(ctx context.Context) {
 	defer s.wg.Done()
-	capId := "streams-trigger"
+	capId := "streams-trigger@0.0.1"
 	triggerInfo, err := capabilities.NewRemoteCapabilityInfo(
 		capId,
 		capabilities.CapabilityTypeTrigger,
 		"Remote Trigger",
-		"v0.0.1",
 		&s.networkSetup.TriggerCapabilityDonInfo,
 	)
 	if err != nil {

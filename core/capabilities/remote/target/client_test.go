@@ -138,10 +138,9 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -257,7 +256,7 @@ func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
 
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
-				CapabilityId:    "cap_id",
+				CapabilityId:    "cap_id@1.0.0",
 				CapabilityDonId: "capability-don",
 				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
