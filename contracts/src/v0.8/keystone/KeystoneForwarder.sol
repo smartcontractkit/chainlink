@@ -164,6 +164,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes32 combinedId;
     {
       bytes32 configId;
+      OracleSet storage config;
       {
         uint32 donId;
         uint32 configVersion;
@@ -172,7 +173,9 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
         configId = keccak256(abi.encode(donId, configVersion));
 
-        uint8 f = s_configs[configId].f;
+        config = s_configs[configId];
+
+        uint8 f = config.f;
         // f can never be 0, so this means the config doesn't actually exist
         if (f == 0) revert InvalidConfig(donId, configVersion);
         if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
@@ -196,7 +199,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
           address signer = ecrecover(completeHash, v + 27, r, s);
 
           // validate signer is trusted and signature is unique
-          index = uint8(s_configs[configId]._positions[signer]);
+          index = uint8(config._positions[signer]);
           if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
           index -= 1;
           if (signed[index] != address(0)) revert DuplicateSigner(signer);
