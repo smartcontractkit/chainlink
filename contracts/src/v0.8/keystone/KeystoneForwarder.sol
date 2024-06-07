@@ -75,10 +75,13 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
   /// @notice Emitted when a report is processed
-  /// @param receiver The address of the receiver contract
-  /// @param workflowExecutionId The ID of the workflow execution
   /// @param result The result of the attempted delivery. True if successful.
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
+  event ReportProcessed(
+    address indexed receiver,
+    bytes32 indexed workflowExecutionId,
+    bytes2 indexed reportId,
+    bool result
+  );
 
   string public constant override typeAndVersion = "KeystoneForwarder 1.0.0";
 
@@ -137,10 +140,9 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     }
 
     bytes32 workflowExecutionId;
-    bytes32 combinedId;
+    bytes2 reportId;
     {
       uint64 configId;
-      bytes2 reportId;
       (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
       OracleSet storage config = s_configs[configId];
 
@@ -148,8 +150,6 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       // f can never be 0, so this means the config doesn't actually exist
       if (f == 0) revert InvalidConfig(configId);
       if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
-
-      combinedId = keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
 
       // validate signatures
       bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
@@ -173,14 +173,14 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     }
 
     bool success = IRouter(s_router).route(
-      combinedId,
+      keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId)),
       msg.sender,
       receiverAddress,
       rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
       rawReport[METADATA_LENGTH:]
     );
 
-    emit ReportProcessed(receiverAddress, workflowExecutionId, success);
+    emit ReportProcessed(receiverAddress, workflowExecutionId, reportId, success);
   }
 
   function getTransmitter(

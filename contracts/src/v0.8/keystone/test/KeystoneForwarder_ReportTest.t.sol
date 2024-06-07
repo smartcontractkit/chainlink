@@ -7,7 +7,12 @@ import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
+  event ReportProcessed(
+    address indexed receiver,
+    bytes32 indexed workflowExecutionId,
+    bytes2 indexed reportId,
+    bool result
+  );
 
   uint8 internal version = 1;
   uint32 internal timestamp = 0;
@@ -149,7 +154,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(metadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), executionId, true);
+    emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
@@ -169,7 +174,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(metadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), executionId, true);
+    emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
@@ -202,7 +207,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(newMetadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), newExecutionId, true);
+    emit ReportProcessed(address(s_receiver), newExecutionId, reportId, true);
 
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), newReport, reportContext, newSignatures);
