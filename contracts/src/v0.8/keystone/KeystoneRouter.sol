@@ -58,14 +58,19 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     }
   }
 
-  // @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
+  /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet
   function getTransmitter(bytes32 transmissionId) external view returns (address) {
     return s_transmissions[transmissionId].transmitter;
   }
 
-  // @notice Get delivery status of a given report
-  function getTransmissionState(bytes32 id) external view returns (IRouter.TransmissionState) {
-    if (s_transmissions[id].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
-    return s_transmissions[id].state ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
+  /// @notice Get delivery status of a given report
+  function getTransmissionState(bytes32 transmissionId) external view returns (IRouter.TransmissionState) {
+    if (s_transmissions[transmissionId].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
+    return
+      s_transmissions[transmissionId].state ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
+  }
+
+  function isForwarder(address forwarder) external view returns (bool) {
+    return s_forwarders[forwarder];
   }
 }

@@ -42,8 +42,11 @@ contract KeystoneRouter_SetConfigTest is Test {
   }
 
   function test_Route_Success() public {
+    assertEq(s_router.isForwarder(FORWARDER), false);
+
     vm.prank(ADMIN);
     s_router.addForwarder(FORWARDER);
+    assertEq(s_router.isForwarder(FORWARDER), true);
 
     vm.prank(FORWARDER);
     vm.mockCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)), abi.encode());

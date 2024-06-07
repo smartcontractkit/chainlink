@@ -209,6 +209,10 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     return keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
   }
 
+  function getRouter() external view returns (address) {
+    return s_router;
+  }
+
   // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _getMetadata(
     bytes memory rawReport
