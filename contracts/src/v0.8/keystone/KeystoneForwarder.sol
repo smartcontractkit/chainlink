@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
-import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
