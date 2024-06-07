@@ -96,31 +96,21 @@ LimitDefault = 5_000_000
 
 /*
  * This test verifies that conditional upkeeps automatically recover from chain reorgs
- * The blockchain is configured to have two separate miners and one geth node. The test starts
- * with happy path where the two miners remain in sync and upkeeps are expected to be performed.
- * Then reorg starts and the connection between the two geth miners is severed. This makes the
- * chain unstable, however all the CL nodes get the same view of the unstable chain through the
- * same geth node.
+ * The test starts with happy path where upkeeps are expected to be performed.
+ * Then reorg below finality depth starts which makes the chain unstable.
  *
- * Upkeeps are expected to be performed during the reorg as there are only two versions of the
- * the chain, on average 1/2 performUpkeeps should go through.
- *
- * The miner nodes are synced back after automationReorgBlocks. The syncing event can cause a
- * large reorg from CL node perspective, causing existing performUpkeeps to become staleUpkeeps.
- * Automation should be able to recover from this and upkeeps should continue to occur at a
- * normal pace after the event.
+ * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0": ethereum.RegistryVersion_2_0,
-		// TODO: enable these tests
-		// "registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		// "registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
-		// "registry_2_2_conditional": ethereum.RegistryVersion_2_2,
-		// "registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
+		"registry_2_0":             ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
 	}
 
 	for n, rv := range registryVersions {
