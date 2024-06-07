@@ -160,7 +160,7 @@ func Test_queryLogger_logTiming(t *testing.T) {
 				for _, l := range ol.All() {
 					assert.LessOrEqual(t, l.Level, zap.WarnLevel, "unexpected log message: %v", l)
 				}
-				logs := ol.FilterMessageSnippet("SLOW SQL QUERY").TakeAll()
+				logs := ol.FilterMessageSnippet(slowMsg).TakeAll()
 				require.Len(t, logs, 1)
 				log := logs[0]
 				assert.Equal(t, zap.WarnLevel, log.Level)
@@ -190,7 +190,7 @@ func Test_queryLogger_logTiming(t *testing.T) {
 				for _, l := range ol.All() {
 					assert.LessOrEqual(t, l.Level, zap.ErrorLevel, "unexpected log message: %v", l)
 				}
-				logs := ol.FilterMessageSnippet("SLOW SQL QUERY").TakeAll()
+				logs := ol.FilterMessageSnippet(slowMsg).TakeAll()
 				require.Len(t, logs, 1)
 				log := logs[0]
 				assert.Equal(t, zap.ErrorLevel, log.Level)
@@ -216,10 +216,16 @@ func Test_queryLogger_logTiming(t *testing.T) {
 				for _, l := range ol.All() {
 					assert.LessOrEqual(t, l.Level, zap.DPanicLevel, "unexpected log message: %v", l)
 				}
-				logs := ol.FilterMessageSnippet("SLOW SQL QUERY").TakeAll()
+				logs := ol.FilterMessageSnippet(slowMsg).TakeAll()
 				require.Len(t, logs, 1)
 				log := logs[0]
 				assert.Equal(t, zap.DPanicLevel, log.Level)
+				assert.Equal(t, "TEST QUERY", log.ContextMap()["sql"])
+
+				logs = ol.FilterMessageSnippet("SQL Deadline Exceeded").TakeAll()
+				require.Len(t, logs, 1)
+				log = logs[0]
+				assert.Equal(t, zap.DebugLevel, log.Level)
 				assert.Equal(t, "TEST QUERY", log.ContextMap()["sql"])
 			})
 
@@ -231,7 +237,7 @@ func Test_queryLogger_logTiming(t *testing.T) {
 				start := time.Now()
 
 				ctx, cancel := context.WithCancel(tests.Context(t))
-				cancel()
+				cancel() // pre-cancel
 				if tt.thresholds != nil {
 					ctx = tt.thresholds.ContextWithValue(ctx)
 				}
@@ -242,7 +248,7 @@ func Test_queryLogger_logTiming(t *testing.T) {
 					assert.LessOrEqual(t, l.Level, zap.DebugLevel, "unexpected log message: %v", l)
 				}
 
-				require.Empty(t, ol.FilterMessageSnippet("SLOW SQL QUERY").TakeAll())
+				require.Empty(t, ol.FilterMessageSnippet(slowMsg).TakeAll())
 
 				logs := ol.FilterMessageSnippet("SQL Context Canceled").TakeAll()
 				require.Len(t, logs, 1)
@@ -251,6 +257,33 @@ func Test_queryLogger_logTiming(t *testing.T) {
 				assert.Equal(t, "TEST QUERY", log.ContextMap()["sql"])
 			})
 
+			t.Run("deadline-before", func(t *testing.T) {
+				lggr, ol := logger.TestObservedSugared(t, zap.DebugLevel)
+				ql := newQueryLogger(lggr, "TEST QUERY", "foo", "bar")
+
+				// >100%
+				start := time.Now()
+
+				ctx, cancel := context.WithDeadline(tests.Context(t), start.Add(-time.Second))
+				defer cancel()
+				if tt.thresholds != nil {
+					ctx = tt.thresholds.ContextWithValue(ctx)
+				}
+				ql.logTiming(ctx, start)
+
+				// debug
+				for _, l := range ol.All() {
+					assert.LessOrEqual(t, l.Level, zap.DebugLevel, "unexpected log message: %v", l)
+				}
+
+				require.Empty(t, ol.FilterMessageSnippet(slowMsg).TakeAll())
+
+				logs := ol.FilterMessageSnippet("SQL Deadline Exceeded").TakeAll()
+				require.Len(t, logs, 1)
+				log := logs[0]
+				assert.Equal(t, zap.DebugLevel, log.Level)
+				assert.Equal(t, "TEST QUERY", log.ContextMap()["sql"])
+			})
 		})
 	}
 }

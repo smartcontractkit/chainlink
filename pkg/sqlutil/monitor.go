@@ -121,15 +121,17 @@ func (q *queryLogger) logError(err error) {
 func (q *queryLogger) logTiming(ctx context.Context, start time.Time) {
 	elapsed := time.Since(start)
 
+	lggr := q.lggr.With("elapsed", elapsed.Round(time.Microsecond), "sql", q)
 	if err := ctx.Err(); err != nil {
 		if errors.Is(err, context.Canceled) {
-			q.lggr.Debugw("SQL Context Canceled", "ms", elapsed.Milliseconds(), "err", context.Cause(ctx), "sql", q)
+			lggr.Debugw("SQL Context Canceled", "err", context.Cause(ctx))
 			return
 		} else if !errors.Is(err, context.DeadlineExceeded) {
-			q.lggr.Debugw("SQL Context Error", "ms", elapsed.Milliseconds(), "err", err, "sql", q)
+			lggr.Debugw("SQL Context Error", "err", err)
 			return
 		}
-		q.lggr.Debugw("SQL Deadline Exceeded", "ms", elapsed.Milliseconds(), "err", err, "sql", q)
+		lggr = lggr.With("err", err)
+		lggr.Debugw("SQL Deadline Exceeded")
 	}
 
 	// Success or Deadline Exceeded, so calculate how much of the timeout was used.
@@ -138,9 +140,10 @@ func (q *queryLogger) logTiming(ctx context.Context, start time.Time) {
 		return
 	}
 	timeout := deadline.Sub(start)
-
-	var thresholds LogThresholds
-	thresholds.FromContextValue(ctx)
+	if timeout <= 0 {
+		// never have a chance to run
+		return
+	}
 
 	var pct float64 // percent of timeout used
 	if timeout > 0 {
@@ -151,14 +154,20 @@ func (q *queryLogger) logTiming(ctx context.Context, start time.Time) {
 		pct = 100
 	}
 
-	kvs := []any{"ms", elapsed.Milliseconds(), "timeout", timeout.Milliseconds(), "percent", strconv.FormatFloat(pct, 'f', 1, 64), "sql", q}
+	lggr = lggr.With(
+		"timeout", timeout.Round(time.Microsecond),
+		"percent", strconv.FormatFloat(pct, 'f', 1, 64),
+	)
+
+	var thresholds LogThresholds
+	thresholds.FromContextValue(ctx)
 
 	if elapsed >= timeout {
-		q.lggr.Criticalw(slowMsg, kvs...)
+		lggr.Criticalw(slowMsg)
 	} else if errThreshold := thresholds.Error(timeout); errThreshold > 0 && elapsed > errThreshold {
-		q.lggr.Errorw(slowMsg, kvs...)
+		lggr.Errorw(slowMsg)
 	} else if warnThreshold := thresholds.Warn(timeout); warnThreshold > 0 && elapsed > warnThreshold {
-		q.lggr.Warnw(slowMsg, kvs...)
+		lggr.Warnw(slowMsg)
 	}
 
 	PromSQLQueryTime.Observe(pct)
