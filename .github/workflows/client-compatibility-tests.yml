@@ -64,6 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       should_run: ${{ steps.should-run.outputs.should_run }}
+      eth_implementations : ${{ steps.should-run.outputs.eth_implementations }}
     env:
       GITHUB_REF_TYPE: ${{ github.ref_type }}
     steps:
@@ -73,15 +74,68 @@ jobs:
           if [ "${{ needs.check-dependency-bump.outputs.dependency_changed }}" == "true" ]; then
             echo "Will run tests, because go-ethereum dependency was bumped"
             echo "should_run=true" >> $GITHUB_OUTPUT
-          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+          elif [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
             echo "should_run=true" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Will run tests, because trigger event was $GITHUB_EVENT_NAME"
+            echo "should_run=true" >> $GITHUB_OUTPUT          
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             echo "Will run tests, because new tag was created"
             echo "should_run=true" >> $GITHUB_OUTPUT
           else
             echo "Will not run tests"
             echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  select-evm-implementations:
+    if: always() && needs.should-run.outputs.should_run == 'true'
+    name: Select EVM Implementations
+    needs: should-run
+    runs-on: ubuntu-latest
+    env:
+      RELEASED_DAYS_AGO: 4
+    outputs:
+      evm_implementations : ${{ steps.select-implementations.outputs.evm_implementations }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }} # TODO add something for scheduled run
+      - name: Select EVM implementations to test
+        id: select-implementations
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Checking for new releases"
+            cd ./integration-tests/scripts/new_release
+            implementations_arr=()
+            new_geth=$(go run main.go "ethereum/go-ethereum" $RELEASED_DAYS_AGO)
+            if [ "$new_geth" = "true" ]; then
+              echo "New geth release found"
+              implementations_arr+=("geth")
+            fi
+            new_besu=$(go run main.go "hyperledger/besu" $RELEASED_DAYS_AGO)
+            if [ "new_besu" = "true" ]; then
+              echo "New besu release found"
+              implementations_arr+=("besu")
+            fi
+            new_erigon=$(go run main.go "ledgerwatch/erigon" $RELEASED_DAYS_AGO)
+            if [ "new_erigon" = "true" ]; then
+              echo "New erigon release found"
+              implementations_arr+=("erigon")
+            fi
+            new_nethermind=$(go run main.go "nethermindEth/nethermind" $RELEASED_DAYS_AGO)
+            if [ "new_nethermind" = "true" ]; then
+              echo "New nethermind release found"
+              implementations_arr+=("nethermind")
+            fi
+            IFS=','
+            eth_implementations="${implementations_arr[*]}"
+            echo "Found new releases for: $eth_implementations"
+            echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
+          else 
+            echo "Will test all EVM implementations"
+            echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
           fi
 
   check-ecr-images-exist:
@@ -109,9 +163,6 @@ jobs:
           - name: tofelb/ethereum-genesis-generator
             expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
     steps:
-      - name: test outputs
-        run: |
-          echo "Should run is ${{needs.should-run.outputs.should_run}}"
       - name: Update internal ECR if the latest Ethereum client image does not exist
         uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
         with:
@@ -268,8 +319,10 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [get-latest-available-images,should-run]
+    needs: [get-latest-available-images,should-run,select-evm-implementations]
     runs-on: ubuntu-latest
+    env:
+      ETH_IMPLEMENTATIONS: ${{ needs.select-evm-implementations.outputs.evm_implementations }}
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
     steps:
@@ -291,40 +344,56 @@ jobs:
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
           
-          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
-          go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
-          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
-          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          # VRFv2 tests are disabled for besu and nethermind until the functionalities they rely on are supported
-          # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-          go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          # VRFv2Plus tests are disabled for besu and nethermind until the functionalities they rely on are supported
-          # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+          if [[ "geth" == *${ETH_IMPLEMENTATIONS}* ]]; then
+            echo "Will test compatibility with geth"
+            go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"          
+          fi
+          
+          if [[ "besu" == *${ETH_IMPLEMENTATIONS}* ]]; then
+            echo "Will test compatibility with besu"
+            go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
+            # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"      
+          fi
+          
+          if [[ "erigon" == *${ETH_IMPLEMENTATIONS}* ]]; then
+            echo "Will test compatibility with erigon"
+            go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+          fi   
+          
+          if [[ "nethermind" == *${ETH_IMPLEMENTATIONS}* ]]; then
+            echo "Will test compatibility with nethermind"
+            go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
+            # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"          
+          fi          
+                    
           cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
       - name: Create Test Matrix
