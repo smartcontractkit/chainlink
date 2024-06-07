@@ -12,7 +12,7 @@ image = "public.ecr.aws/chainlink/chainlink"
 version = "2.12.0"
 
 [Common]
-chainlink_node_funding = 0.1
+chainlink_node_funding = 0.5
 
 [Network]
 selected_networks = ["simulated"]
