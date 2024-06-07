@@ -114,13 +114,12 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
     // remove any old signer addresses
     for (uint256 i; i < s_configs[configId].signers.length; ++i) {
-      address signer = s_configs[configId].signers[i];
-      delete s_configs[configId]._positions[signer];
+      delete s_configs[configId]._positions[s_configs[configId].signers[i]];
     }
 
     // add new signer addresses
     s_configs[configId].signers = signers;
-    for (uint256 i; i < signers.length; ++i) {
+    for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
       if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
@@ -135,9 +134,8 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
     bytes32 configId = keccak256(abi.encode(donId, configVersion));
 
     // remove any old signer addresses
-    for (uint256 i; i < s_configs[configId].signers.length; ++i) {
-      address signer = s_configs[configId].signers[i];
-      delete s_configs[configId]._positions[signer];
+    for (uint256 i = 0; i < s_configs[configId].signers.length; ++i) {
+      delete s_configs[configId]._positions[s_configs[configId].signers[i]];
     }
 
     s_configs[configId].f = 0;
