@@ -158,11 +158,6 @@ func TestAutomationReorg(t *testing.T) {
 					Simulated:   true,
 					WsURLs:      network.URLs,
 				})).
-				// TODO: enable blockscout
-				// AddChart(blockscout.New(&blockscout.Props{
-				// 	Name:    "geth-blockscout",
-				// 	WsURL:   network.URL,
-				// 	HttpURL: network.HTTPURLs[0]})).
 				AddHelm(cd)
 			err = testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
