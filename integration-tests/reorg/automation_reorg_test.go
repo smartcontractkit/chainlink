@@ -98,7 +98,7 @@ LimitDefault = 5_000_000
  * This test verifies that conditional upkeeps automatically recover from chain reorgs.
  *
  * The test starts with happy path where upkeeps are expected to be performed.
- * Then starts reorg below finality depth which makes the chain unstable.
+ * Then reorg below finality depth happens which makes the chain unstable.
  *
  * Upkeeps are expected to be performed during the reorg.
  */
@@ -112,8 +112,8 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
-		// "registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
-		// "registry_2_2_logtrigger": ethereum.RegistryVersion_2_2, // Fails on no upkeeps performed. Expected consumer counter to be greater than 5, but got 0
+		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
 	}
 
 	for n, rv := range registryVersions {
