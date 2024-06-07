@@ -182,10 +182,12 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
         for (uint256 i; i < numSignatures; ++i) {
           signature = signatures[i];
           if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
-          bytes32 r = bytes32(signature[0:32]);
-          bytes32 s = bytes32(signature[32:64]);
-          uint8 v = uint8(signature[64]);
-          address signer = ecrecover(completeHash, v + 27, r, s);
+          address signer = ecrecover(
+            completeHash,
+            uint8(signature[64]) + 27,
+            bytes32(signature[0:32]),
+            bytes32(signature[32:64])
+          );
 
           // validate signer is trusted and signature is unique
           index = config._positions[signer];
