@@ -125,6 +125,7 @@ type logEventProvider struct {
 func newDequeueCoordinator() *dequeueCoordinator {
 	return &dequeueCoordinator{
 		dequeuedMinimum: map[int64]bool{},
+		notReady:        map[int64]bool{},
 		remainingLogs:   map[int64]int{},
 		dequeuedLogs:    map[int64]int{},
 		completeWindows: map[int64]bool{},
@@ -134,6 +135,7 @@ func newDequeueCoordinator() *dequeueCoordinator {
 
 type dequeueCoordinator struct {
 	dequeuedMinimum map[int64]bool
+	notReady        map[int64]bool
 	remainingLogs   map[int64]int
 	dequeuedLogs    map[int64]int
 	completeWindows map[int64]bool
@@ -142,10 +144,12 @@ type dequeueCoordinator struct {
 
 func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, blockRate int) (int64, int64, bool) {
 	// check if minimum logs have been dequeued
-	for i := start; i < latestBlock; i += int64(blockRate) {
-		startWindow, end := getBlockWindow(start, blockRate)
+	for i := start; i <= latestBlock; i += int64(blockRate) {
+		startWindow, end := getBlockWindow(i, blockRate)
 		if latestBlock >= end {
 			c.completeWindows[startWindow] = true
+		} else if c.notReady[startWindow] { // the window is incomplete and has no logs to provide as of yet
+			return 0, 0, false
 		}
 
 		if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
@@ -159,7 +163,7 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 
 	// check best effort dequeue
 	for i := start; i < latestBlock; i += int64(blockRate) {
-		startWindow, end := getBlockWindow(start, blockRate)
+		startWindow, end := getBlockWindow(i, blockRate)
 
 		if remainingLogs, ok := c.remainingLogs[startWindow]; ok {
 			if remainingLogs > 0 {
@@ -220,6 +224,8 @@ func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remainin
 		}
 	} else if c.dequeuedLogs[startWindow] >= numberOfUpkeeps*logLimitLow { // this assumes we don't dequeue the same upkeeps more than logLimitLow in min commitment
 		c.dequeuedMinimum[startWindow] = true
+	} else if logs == 0 && remaining == 0 {
+		c.notReady[startWindow] = true
 	}
 }
 
