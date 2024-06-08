@@ -206,7 +206,24 @@ func (p *PriceRegistry) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chai
 	if err != nil {
 		return nil, err
 	}
+	return p.parseGasPriceUpdatesLogs(logs)
+}
 
+func (p *PriceRegistry) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+	logs, err := p.lp.LogsCreatedAfter(
+		ctx,
+		p.gasUpdated,
+		p.address,
+		ts,
+		logpoller.Confirmations(confs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return p.parseGasPriceUpdatesLogs(logs)
+}
+
+func (p *PriceRegistry) parseGasPriceUpdatesLogs(logs []logpoller.Log) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
 	parsedLogs, err := ccipdata.ParseLogs[cciptypes.GasPriceUpdate](
 		logs,
 		p.lggr,

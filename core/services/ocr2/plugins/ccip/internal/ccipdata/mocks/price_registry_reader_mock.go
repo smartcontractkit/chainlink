@@ -63,6 +63,36 @@ func (_m *PriceRegistryReader) Close() error {
 	return r0
 }
 
+// GetAllGasPriceUpdatesCreatedAfter provides a mock function with given fields: ctx, ts, confirmations
+func (_m *PriceRegistryReader) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confirmations int) ([]ccip.GasPriceUpdateWithTxMeta, error) {
+	ret := _m.Called(ctx, ts, confirmations)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllGasPriceUpdatesCreatedAfter")
+	}
+
+	var r0 []ccip.GasPriceUpdateWithTxMeta
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) ([]ccip.GasPriceUpdateWithTxMeta, error)); ok {
+		return rf(ctx, ts, confirmations)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, int) []ccip.GasPriceUpdateWithTxMeta); ok {
+		r0 = rf(ctx, ts, confirmations)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]ccip.GasPriceUpdateWithTxMeta)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time, int) error); ok {
+		r1 = rf(ctx, ts, confirmations)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetFeeTokens provides a mock function with given fields: ctx
 func (_m *PriceRegistryReader) GetFeeTokens(ctx context.Context) ([]ccip.Address, error) {
 	ret := _m.Called(ctx)
