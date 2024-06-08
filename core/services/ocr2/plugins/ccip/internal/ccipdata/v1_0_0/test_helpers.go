@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -22,7 +23,7 @@ import (
 
 // ApplyPriceRegistryUpdate is a helper function used in tests only.
 func ApplyPriceRegistryUpdate(t *testing.T, user *bind.TransactOpts, addr common.Address, ec client.Client, gasPrice []cciptypes.GasPrice, tokenPrices []cciptypes.TokenPrice) {
-	require.True(t, len(gasPrice) <= 1)
+	require.True(t, len(gasPrice) <= 2)
 	pr, err := price_registry_1_0_0.NewPriceRegistry(addr, ec)
 	require.NoError(t, err)
 	var tps []price_registry_1_0_0.InternalTokenPriceUpdate
@@ -36,7 +37,7 @@ func ApplyPriceRegistryUpdate(t *testing.T, user *bind.TransactOpts, addr common
 	}
 	dest := uint64(0)
 	gas := big.NewInt(0)
-	if len(gasPrice) == 1 {
+	if len(gasPrice) >= 1 {
 		dest = gasPrice[0].DestChainSelector
 		gas = gasPrice[0].Value
 	}
@@ -46,6 +47,17 @@ func ApplyPriceRegistryUpdate(t *testing.T, user *bind.TransactOpts, addr common
 		UsdPerUnitGas:     gas,
 	})
 	require.NoError(t, err)
+
+	for i := 1; i < len(gasPrice); i++ {
+		dest = gasPrice[i].DestChainSelector
+		gas = gasPrice[i].Value
+		_, err = pr.UpdatePrices(user, price_registry_1_0_0.InternalPriceUpdates{
+			TokenPriceUpdates: []price_registry_1_0_0.InternalTokenPriceUpdate{},
+			DestChainSelector: dest,
+			UsdPerUnitGas:     gas,
+		})
+		require.NoError(t, err)
+	}
 }
 
 func CreateExecutionStateChangeEventLog(t *testing.T, seqNr uint64, blockNumber int64, messageID common.Hash) logpoller.Log {

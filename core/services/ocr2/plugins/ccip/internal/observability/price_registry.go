@@ -5,6 +5,7 @@ import (
 	"time"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
@@ -35,6 +36,12 @@ func (o *ObservedPriceRegistryReader) GetTokenPriceUpdatesCreatedAfter(ctx conte
 func (o *ObservedPriceRegistryReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
 	return withObservedInteractionAndResults(o.metric, "GetGasPriceUpdatesCreatedAfter", func() ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
 		return o.PriceRegistryReader.GetGasPriceUpdatesCreatedAfter(ctx, chainSelector, ts, confs)
+	})
+}
+
+func (o *ObservedPriceRegistryReader) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+	return withObservedInteractionAndResults(o.metric, "GetAllGasPriceUpdatesCreatedAfter", func() ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
+		return o.PriceRegistryReader.GetAllGasPriceUpdatesCreatedAfter(ctx, ts, confs)
 	})
 }
 

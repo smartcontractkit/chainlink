@@ -46,7 +46,7 @@ type priceRegReaderTH struct {
 	expectedFeeTokens    []common.Address
 	expectedGasUpdates   map[uint64][]cciptypes.GasPrice
 	expectedTokenUpdates map[uint64][]cciptypes.TokenPrice
-	dest                 uint64
+	destSelectors        []uint64
 }
 
 func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
@@ -82,17 +82,22 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, lpOpts)
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
-	dest := uint64(10)
+	dest1 := uint64(10)
+	dest2 := uint64(11)
 	gasPriceUpdatesBlock1 := []cciptypes.GasPrice{
 		{
-			DestChainSelector: dest,
+			DestChainSelector: dest1,
 			Value:             big.NewInt(11),
 		},
 	}
 	gasPriceUpdatesBlock2 := []cciptypes.GasPrice{
 		{
-			DestChainSelector: dest,           // Reset same gas price
+			DestChainSelector: dest1,          // Reset same gas price
 			Value:             big.NewInt(12), // Intentionally different from block1
+		},
+		{
+			DestChainSelector: dest2, // Set gas price for different chain
+			Value:             big.NewInt(12),
 		},
 	}
 	token1 := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
@@ -154,8 +159,8 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 			b1: tokenPriceUpdatesBlock1,
 			b2: tokenPriceUpdatesBlock2,
 		},
-		blockTs: []uint64{b1, b2},
-		dest:    dest,
+		blockTs:       []uint64{b1, b2},
+		destSelectors: []uint64{dest1, dest2},
 	}
 }
 
@@ -175,14 +180,24 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	for i, ts := range th.blockTs {
 		// Should see all updates >= ts.
 		var expectedGas []cciptypes.GasPrice
+		var expectedDest0Gas []cciptypes.GasPrice
 		var expectedToken []cciptypes.TokenPrice
 		for j := i; j < len(th.blockTs); j++ {
 			expectedGas = append(expectedGas, th.expectedGasUpdates[th.blockTs[j]]...)
+			for _, g := range th.expectedGasUpdates[th.blockTs[j]] {
+				if g.DestChainSelector == th.destSelectors[0] {
+					expectedDest0Gas = append(expectedDest0Gas, g)
+				}
+			}
 			expectedToken = append(expectedToken, th.expectedTokenUpdates[th.blockTs[j]]...)
 		}
-		gasUpdates, err = pr.GetGasPriceUpdatesCreatedAfter(context.Background(), th.dest, time.Unix(int64(ts-1), 0), 0)
+		gasUpdates, err = pr.GetAllGasPriceUpdatesCreatedAfter(context.Background(), time.Unix(int64(ts-1), 0), 0)
 		require.NoError(t, err)
 		assert.Len(t, gasUpdates, len(expectedGas))
+
+		gasUpdates, err = pr.GetGasPriceUpdatesCreatedAfter(context.Background(), th.destSelectors[0], time.Unix(int64(ts-1), 0), 0)
+		require.NoError(t, err)
+		assert.Len(t, gasUpdates, len(expectedDest0Gas))
 
 		tokenUpdates, err2 := pr.GetTokenPriceUpdatesCreatedAfter(context.Background(), time.Unix(int64(ts-1), 0), 0)
 		require.NoError(t, err2)
