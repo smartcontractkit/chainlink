@@ -317,6 +317,14 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 	return cfg, f
 }
 
+func countLogs(logs map[int64][]logpoller.Log) int {
+	count := 0
+	for _, logList := range logs {
+		count += len(logList)
+	}
+	return count
+}
+
 func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 	t.Run("5 upkeeps, 100 logs per upkeep per block for 100 blocks", func(t *testing.T) {
 		upkeepIDs := []*big.Int{
@@ -381,11 +389,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		bufV1 := provider.bufferV1.(*logBuffer)
 
 		// each upkeep should have 100 logs * 100 blocks = 10000 logs
-		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["5"].logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -394,11 +402,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 9980, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9980, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 9980, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 9980, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 9980, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 9980, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9980, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 9980, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 9980, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 9980, countLogs(bufV1.queues["5"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -407,11 +415,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 9960, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9960, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 9960, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 9960, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 9960, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 9960, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9960, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 9960, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 9960, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 9960, countLogs(bufV1.queues["5"].logs))
 	})
 
 	t.Run("200 upkeeps", func(t *testing.T) {
@@ -475,10 +483,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		bufV1 := provider.bufferV1.(*logBuffer)
 
 		// each upkeep should have 100 logs * 100 blocks = 10000 logs
-		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -490,10 +498,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -504,10 +512,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -518,10 +526,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -532,10 +540,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["150"].logs))
 	})
 
 	t.Run("200 upkeeps, increasing to 300 upkeeps midway through the test", func(t *testing.T) {
@@ -599,12 +607,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		bufV1 := provider.bufferV1.(*logBuffer)
 
 		// each upkeep should have 100 logs * 100 blocks = 10000 logs
-		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["9"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["21"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["9"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["21"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -616,12 +624,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps; with 2 iterations this means even upkeep IDs are dequeued first
-		assert.Equal(t, 10000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["40"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["45"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["40"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["45"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -632,12 +640,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps; on the second iteration, odd upkeep IDs are dequeued
-		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["99"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["100"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["99"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["100"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -648,12 +656,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps; on the third iteration, even upkeep IDs are dequeued once again
-		assert.Equal(t, 9999, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["160"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["170"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["150"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["160"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["170"].logs))
 
 		for i := int64(201); i <= 300; i++ {
 			upkeepIDs = append(upkeepIDs, big.NewInt(i))
@@ -689,12 +697,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		// the dequeue is evenly distributed across selected upkeeps; the new iterations
 		// have not yet been recalculated despite the new logs being added; new iterations
 		// are only calculated when current iteration maxes out at the total number of iterations
-		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["51"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["52"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["51"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["52"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -707,12 +715,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 9998, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["11"].logs))
-		assert.Equal(t, 9997, len(bufV1.queues["111"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9997, len(bufV1.queues["150"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["11"].logs))
+		assert.Equal(t, 9997, countLogs(bufV1.queues["111"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9997, countLogs(bufV1.queues["150"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -724,15 +732,15 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// the dequeue is evenly distributed across selected upkeeps
-		assert.Equal(t, 9997, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 9997, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["50"].logs))
-		assert.Equal(t, 9998, len(bufV1.queues["101"].logs))
-		assert.Equal(t, 9997, len(bufV1.queues["150"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["250"].logs))
-		assert.Equal(t, 10000, len(bufV1.queues["299"].logs))
-		assert.Equal(t, 9999, len(bufV1.queues["300"].logs))
+		assert.Equal(t, 9997, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 9997, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["50"].logs))
+		assert.Equal(t, 9998, countLogs(bufV1.queues["101"].logs))
+		assert.Equal(t, 9997, countLogs(bufV1.queues["150"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["250"].logs))
+		assert.Equal(t, 10000, countLogs(bufV1.queues["299"].logs))
+		assert.Equal(t, 9999, countLogs(bufV1.queues["300"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -746,8 +754,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		var remainingLogs int
 		// at this point, every queue should have had at least one log dequeued
 		for _, queue := range bufV1.queues {
-			assert.True(t, len(queue.logs) < 10000)
-			remainingLogs += len(queue.logs)
+			assert.True(t, countLogs(queue.logs) < 10000)
+			remainingLogs += countLogs(queue.logs)
 		}
 
 		// check that across all 300 upkeeps, we have only dequeued 700 of the 3000000 logs (7 dequeue calls of 100 logs)
@@ -823,11 +831,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		bufV1 := provider.bufferV1.(*logBuffer)
 
 		// each upkeep should have 10 logs * 100 blocks = 1000 logs
-		assert.Equal(t, 1000, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 1000, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 1000, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 1000, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 1000, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 1000, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 1000, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 1000, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 1000, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 1000, countLogs(bufV1.queues["5"].logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -836,20 +844,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 998, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 998, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 998, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 998, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 998, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 998, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 998, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 998, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 998, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 998, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts := map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the first block window
 		assert.Equal(t, 40, blockWindowCounts[1])
 		assert.Equal(t, 50, blockWindowCounts[2])
@@ -862,20 +869,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 996, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 996, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 996, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 996, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 996, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 996, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 996, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 996, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 996, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 996, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 40, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -890,20 +896,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		}
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 802, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 802, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 802, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 802, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 802, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 802, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 802, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 802, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 802, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 802, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 40, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -919,11 +924,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 800, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 800, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 800, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 800, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 800, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 800, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 800, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 800, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 800, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 800, countLogs(bufV1.queues["5"].logs))
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -932,20 +937,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 798, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 798, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 798, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 798, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 798, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 798, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 798, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 798, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 798, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 798, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 30, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -959,20 +963,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 796, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 796, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 796, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 796, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 796, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 796, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 796, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 796, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 796, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 796, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 20, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -986,20 +989,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 794, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 794, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 794, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 794, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 794, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 794, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 794, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 794, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 794, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 794, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 10, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -1013,20 +1015,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 792, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 792, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 792, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 792, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 792, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 792, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 792, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 792, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 792, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 792, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 0, blockWindowCounts[1])
 		assert.Equal(t, 40, blockWindowCounts[2])
@@ -1040,20 +1041,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 790, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 790, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 790, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 790, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 790, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 790, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 790, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 790, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 790, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 790, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				blockWindowCounts[l.BlockNumber]++
+			for blockNumber, logs := range q.logs {
+				blockWindowCounts[blockNumber] += len(logs)
 			}
 		}
-
 		// all 10 logs should have been dequeued from the second block window, since the first block window has met it's minimum commitment
 		assert.Equal(t, 0, blockWindowCounts[1])
 		assert.Equal(t, 30, blockWindowCounts[2])
@@ -1137,10 +1137,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		bufV1 := provider.bufferV1.(*logBuffer)
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1151,11 +1151,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 15, blockWindowCounts[100]) // the block window starting at block 100 is only 3/4 complete as of block 102
 
 		// each upkeep should have 10 logs * 102 blocks = 1020 logs
-		assert.Equal(t, 993, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 993, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 993, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 993, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 993, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 993, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 993, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 993, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 993, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 993, countLogs(bufV1.queues["5"].logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -1164,19 +1164,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 991, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 991, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 991, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 991, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 991, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 991, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 991, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 991, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 991, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 991, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1193,19 +1193,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 989, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 989, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 989, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 989, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 989, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 989, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 989, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 989, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 989, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 989, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1223,19 +1223,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		}
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 943, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 943, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 943, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 943, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 943, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 943, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 943, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 943, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 943, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 943, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1253,19 +1253,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 941, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 941, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 941, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 941, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 941, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 941, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 941, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 941, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 941, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 941, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1282,19 +1282,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 939, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 939, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 939, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 939, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 939, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 939, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 939, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 939, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 939, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 939, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1311,19 +1311,19 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 937, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 937, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 937, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 937, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 937, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 937, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 937, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 937, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 937, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 937, countLogs(bufV1.queues["5"].logs))
 
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1349,11 +1349,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 10, len(payloads))
 
 		// the dequeue is evenly distributed across the 5 upkeeps
-		assert.Equal(t, 935, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 935, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 935, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 935, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 935, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 935, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 935, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 935, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 935, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 935, countLogs(bufV1.queues["5"].logs))
 
 		for i := 0; i < 467; i++ {
 			payloads, err = provider.GetLatestPayloads(ctx)
@@ -1363,10 +1363,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1384,10 +1384,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1475,10 +1475,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts := map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1499,10 +1499,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1589,10 +1589,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts := map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1609,10 +1609,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1656,10 +1656,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1674,10 +1674,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1704,10 +1704,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1794,10 +1794,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts := map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1813,10 +1813,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1858,10 +1858,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1879,10 +1879,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
@@ -1897,10 +1897,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		blockWindowCounts = map[int64]int{}
 
 		for _, q := range bufV1.queues {
-			for _, l := range q.logs {
-				startWindow, _ := getBlockWindow(l.BlockNumber, 4)
+			for blockNumber, logs := range q.logs {
+				startWindow, _ := getBlockWindow(blockNumber, 4)
 
-				blockWindowCounts[startWindow]++
+				blockWindowCounts[startWindow] += len(logs)
 			}
 		}
 
