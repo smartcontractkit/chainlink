@@ -120,7 +120,7 @@ func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs comm
 	}
 	var contractTransmitter ContractTransmitter
 	if relayConfig.SendingKeys != nil {
-		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		contractTransmitter, err = newFunctionsContractTransmitter(ctx, pluginConfig.ContractVersion, rargs, configWatcher, ethKeystore, logPollerWrapper, lggr)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +153,7 @@ func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.F
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
 	var relayConfig evmRelayTypes.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -189,12 +189,6 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
-	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
-	if ocr2Limit != nil {
-		gasLimit = uint64(*ocr2Limit)
-	}
-
 	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
 		configWatcher.chain.Client(),
 		OCR2AggregatorTransmissionContractABI,
@@ -203,7 +197,6 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		contractVersion,
 		configWatcher.chain.TxManager(),
 		fromAddresses,
-		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
 		checker,

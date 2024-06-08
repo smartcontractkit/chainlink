@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -58,6 +59,31 @@ const pastBlocksToPollDefault = 50
 const maxLogsToProcess = 1000
 
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
+
+var CommitmentABI = getCommitmentABI()
+
+func getCommitmentABI() abi.Arguments {
+	mustNewType := func(t string) abi.Type {
+		result, err := abi.NewType(t, t, nil)
+		if err != nil {
+			panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
+		}
+		return result
+	}
+	return abi.Arguments([]abi.Argument{
+		{Type: mustNewType("bytes32")}, // RequestId
+		{Type: mustNewType("address")}, // Coordinator
+		{Type: mustNewType("uint96")},  // EstimatedTotalCostJuels
+		{Type: mustNewType("address")}, // Client
+		{Type: mustNewType("uint64")},  // SubscriptionId
+		{Type: mustNewType("uint32")},  // CallbackGasLimit
+		{Type: mustNewType("uint72")},  // AdminFee
+		{Type: mustNewType("uint72")},  // DonFee
+		{Type: mustNewType("uint40")},  // GasOverheadBeforeCallback
+		{Type: mustNewType("uint40")},  // GasOverheadAfterCallback
+		{Type: mustNewType("uint32")},  // TimeoutTimestamp
+	})
+}
 
 func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig config.PluginConfig, client client.Client, logPoller logpoller.LogPoller, lggr logger.Logger) (evmRelayTypes.LogPollerWrapper, error) {
 	routerContract, err := functions_router.NewFunctionsRouter(routerContractAddress, client)
@@ -203,34 +229,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 				continue
 			}
 
-			uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
-			uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
-			uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
-			uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
-			uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
-			addressType, errType6 := abi.NewType("address", "address", nil)
-			bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
-
-			if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
-				l.lggr.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
-					"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
-				)
-				continue
-			}
-			commitmentABI := abi.Arguments{
-				{Type: bytes32Type}, // RequestId
-				{Type: addressType}, // Coordinator
-				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: addressType}, // Client
-				{Type: uint64Type},  // SubscriptionId
-				{Type: uint32Type},  // CallbackGasLimit
-				{Type: uint72Type},  // AdminFee
-				{Type: uint72Type},  // DonFee
-				{Type: uint40Type},  // GasOverheadBeforeCallback
-				{Type: uint40Type},  // GasOverheadAfterCallback
-				{Type: uint32Type},  // TimeoutTimestamp
-			}
-			commitmentBytes, err := commitmentABI.Pack(
+			commitmentBytes, err := CommitmentABI.Pack(
 				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
 				oracleRequest.Commitment.EstimatedTotalCostJuels,

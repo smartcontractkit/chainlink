@@ -52,7 +52,6 @@ type contractTransmitter struct {
 	reportCodec                 encoding.ReportCodec
 	txm                         txManager
 	fromAddresses               []common.Address
-	gasLimit                    uint64
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
@@ -62,6 +61,9 @@ type contractTransmitter struct {
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
 var _ evmRelayTypes.RouteUpdateSubscriber = &contractTransmitter{}
+
+// TODO: Is static overhead per batch enough? Make it configurable? Should we also add "before"/"after" estimates from the commitment?
+const gasOverhead = 200000
 
 func transmitterFilterName(addr common.Address) string {
 	return logpoller.FilterName("FunctionsOCR2ContractTransmitter", addr.String())
@@ -75,7 +77,6 @@ func NewFunctionsContractTransmitter(
 	contractVersion uint32,
 	txm txManager,
 	fromAddresses []common.Address,
-	gasLimit uint64,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
@@ -110,7 +111,6 @@ func NewFunctionsContractTransmitter(
 		reportCodec:                 codec,
 		txm:                         txm,
 		fromAddresses:               fromAddresses,
-		gasLimit:                    gasLimit,
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
 		strategy:                    strategy,
 		checker:                     checker,
@@ -119,17 +119,19 @@ func NewFunctionsContractTransmitter(
 	}, nil
 }
 
-func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
+func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, totalCallbackGas uint64) error {
 	roundRobinFromAddress, err := oc.keystore.GetRoundRobinAddress(ctx, oc.chainID, oc.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	finalGasLimit := totalCallbackGas + gasOverhead
+
 	_, err = oc.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
-		FeeLimit:         oc.gasLimit,
+		FeeLimit:         finalGasLimit,
 		ForwarderAddress: oc.forwarderAddress(),
 		Strategy:         oc.strategy,
 		Checker:          oc.checker,
@@ -167,6 +169,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	var destinationContract common.Address
+	var totalCallbackGas uint64
 	switch oc.contractVersion {
 	case 1:
 		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
@@ -185,6 +188,10 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 			return errors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
 		}
 		// Sanity check - every report should contain requests with the same coordinator contract.
+		totalCallbackGas, err2 = extractGasLimitFromCommitment(requests[0].OnchainMetadata)
+		if err2 != nil {
+			return errors.Wrap(err2, "FunctionsContractTransmitter: extractGasLimitFromCommitment failed")
+		}
 		for _, req := range requests[1:] {
 			if !bytes.Equal(req.CoordinatorContract, destinationContract.Bytes()) {
 				oc.lggr.Errorw("FunctionsContractTransmitter: non-uniform coordinator addresses in a batch - still sending to a single destination",
@@ -193,6 +200,11 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 					"requestCoordinator", hex.EncodeToString(req.CoordinatorContract),
 				)
 			}
+			callbackGas, err3 := extractGasLimitFromCommitment(req.OnchainMetadata)
+			if err3 != nil {
+				return errors.Wrap(err3, "FunctionsContractTransmitter: extractGasLimitFromCommitment failed")
+			}
+			totalCallbackGas += uint64(callbackGas)
 		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
 	default:
@@ -203,8 +215,23 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
-	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", nil, "payloadSize", len(payload))
-	return errors.Wrap(oc.createEthTransaction(ctx, destinationContract, payload), "failed to send Eth transaction")
+	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "payloadSize", len(payload), "totalCallbackGas", totalCallbackGas)
+	return errors.Wrap(oc.createEthTransaction(ctx, destinationContract, payload, totalCallbackGas), "failed to send Eth transaction")
+}
+
+func extractGasLimitFromCommitment(commitment []byte) (uint64, error) {
+	unpacked, err := CommitmentABI.Unpack(commitment)
+	if err != nil {
+		return 0, err
+	}
+	if len(unpacked) < 6 {
+		return 0, errors.New("commitment has too few arguments")
+	}
+	gas, ok := unpacked[5].(uint32)
+	if !ok {
+		return 0, errors.New("commitment has wrong type for gas")
+	}
+	return uint64(gas), nil
 }
 
 type contractReader interface {

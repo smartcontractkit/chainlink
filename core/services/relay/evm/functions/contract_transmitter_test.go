@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -53,7 +54,6 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	require.NoError(t, err)
 	txm := txmmocks.NewMockEvmTxManager(t)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
@@ -67,7 +67,6 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 		1,
 		txm,
 		[]gethcommon.Address{fromAddress},
-		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
@@ -98,7 +97,6 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
@@ -112,7 +110,6 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		contractVersion,
 		txm,
 		[]gethcommon.Address{fromAddress},
-		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
@@ -128,6 +125,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		{
 			RequestID:           reqId,
 			CoordinatorContract: coordinatorAddress.Bytes(),
+			OnchainMetadata:     getCommitmentWithGasLimit(t, 100000),
 		},
 	}
 	codec, err := encoding.NewReportCodec(contractVersion)
@@ -146,7 +144,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		FromAddress:      fromAddress,
 		ToAddress:        coordinatorAddress,
 		EncodedPayload:   payload,
-		FeeLimit:         gasLimit,
+		FeeLimit:         100000 + 200000,
 		ForwarderAddress: gethcommon.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
@@ -176,7 +174,6 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	gasLimit := uint64(1000)
 	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
@@ -190,7 +187,6 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		contractVersion,
 		txm,
 		[]gethcommon.Address{fromAddress},
-		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
@@ -208,10 +204,12 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		{
 			RequestID:           reqId1,
 			CoordinatorContract: coordinatorAddress1.Bytes(),
+			OnchainMetadata:     getCommitmentWithGasLimit(t, 100000),
 		},
 		{
 			RequestID:           reqId2,
 			CoordinatorContract: coordinatorAddress2.Bytes(),
+			OnchainMetadata:     getCommitmentWithGasLimit(t, 200000),
 		},
 	}
 	codec, err := encoding.NewReportCodec(contractVersion)
@@ -229,10 +227,29 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		FromAddress:      fromAddress,
 		ToAddress:        coordinatorAddress1,
 		EncodedPayload:   payload,
-		FeeLimit:         gasLimit,
+		FeeLimit:         100000 + 200000 + 200000,
 		ForwarderAddress: gethcommon.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
+}
+
+func getCommitmentWithGasLimit(t *testing.T, gasLimit uint32) []byte {
+	unused := big.NewInt(0)
+	commitmentBytes, err := functions.CommitmentABI.Pack(
+		[32]byte{},
+		common.Address{},
+		unused,
+		common.Address{},
+		uint64(0),
+		gasLimit,
+		unused,
+		unused,
+		unused,
+		unused,
+		uint32(0),
+	)
+	require.NoError(t, err)
+	return commitmentBytes
 }
