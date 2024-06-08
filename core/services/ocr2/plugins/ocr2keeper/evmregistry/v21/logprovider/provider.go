@@ -140,9 +140,13 @@ type dequeueCoordinator struct {
 	dequeuedLogs    map[int64]int
 	completeWindows map[int64]bool
 	dequeuedUpkeeps map[int64]map[string]int
+	mu              sync.Mutex
 }
 
 func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, blockRate int) (int64, int64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// check if minimum logs have been dequeued
 	for i := start; i <= latestBlock; i += int64(blockRate) {
 		startWindow, end := getBlockWindow(i, blockRate)
@@ -176,6 +180,9 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 }
 
 func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, logLimitLow, iterations, currentIteration int) func(id *big.Int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	bestEffort := false
 
 	if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
@@ -209,7 +216,18 @@ func (c *dequeueCoordinator) trackUpkeeps(startWindow int64, upkeepID *big.Int) 
 	}
 }
 
+func (c *dequeueCoordinator) markReorg(block int64, blockRate uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	startWindow, _ := getBlockWindow(block, int(blockRate))
+	c.dequeuedMinimum[startWindow] = false
+}
+
 func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remaining, numberOfUpkeeps, logLimitLow int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.remainingLogs[startWindow] = remaining
 	c.dequeuedLogs[startWindow] += logs
 
@@ -230,17 +248,18 @@ func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remainin
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
+	dequeueCoordinator := newDequeueCoordinator()
 	return &logEventProvider{
 		threadCtrl:         utils.NewThreadControl(),
 		lggr:               lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:             packer,
 		buffer:             newLogEventBuffer(lggr, int(opts.LookbackBlocks), defaultNumOfLogUpkeeps, defaultFastExecLogsHigh),
-		bufferV1:           NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		bufferV1:           NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit, dequeueCoordinator),
 		poller:             poller,
 		opts:               opts,
 		filterStore:        filterStore,
 		chainID:            chainID,
-		dequeueCoordinator: newDequeueCoordinator(),
+		dequeueCoordinator: dequeueCoordinator,
 	}
 }
 

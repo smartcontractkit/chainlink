@@ -15,7 +15,7 @@ import (
 )
 
 func TestLogEventBufferV1(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -35,7 +35,7 @@ func TestLogEventBufferV1(t *testing.T) {
 }
 
 func TestLogEventBufferV1_SyncFilters(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -87,7 +87,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			},
 		}
 
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, newDequeueCoordinator())
 
 		buf := logBufferV1.(*logBuffer)
 
@@ -118,7 +118,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			},
 		}
 
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1)
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, newDequeueCoordinator())
 
 		buf := logBufferV1.(*logBuffer)
 
@@ -229,7 +229,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit))
+			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit), newDequeueCoordinator())
 			for id, logs := range tc.logsInBuffer {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
@@ -247,7 +247,7 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		lookback := uint32(20)
 		blockRate := uint32(1)
 		logLimit := uint32(1)
-		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit)
+		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit, newDequeueCoordinator())
 
 		upkeepIDs := []*big.Int{
 			big.NewInt(1),
@@ -281,11 +281,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(bufV1.queues))
 
 		// each queue should have 100 logs
-		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["5"].logs))
 
 		maxResults := 5
 		iterations := int(math.Ceil(float64(numUpkeeps*5) / float64(maxResults)))
@@ -302,11 +302,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(logs))
 		assert.Equal(t, 15, remaining)
 
-		assert.Equal(t, 100, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
 		upkeepSelectorFn = func(id *big.Int) bool {
 			return id.Int64()%int64(iterations) == int64(1) // on this dequeue attempt, current iteration will be 1
@@ -318,11 +318,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(logs))
 		assert.Equal(t, 15, remaining)
 
-		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
 		upkeepSelectorFn = func(id *big.Int) bool {
 			return id.Int64()%int64(iterations) == int64(2) // on this dequeue attempt, current iteration will be 2
@@ -334,11 +334,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(logs))
 		assert.Equal(t, 15, remaining)
 
-		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
 		upkeepSelectorFn = func(id *big.Int) bool {
 			return id.Int64()%int64(iterations) == int64(3) // on this dequeue attempt, current iteration will be 3
@@ -350,11 +350,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(logs))
 		assert.Equal(t, 15, remaining)
 
-		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 100, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
 		upkeepSelectorFn = func(id *big.Int) bool {
 			return id.Int64()%int64(iterations) == int64(4) // on this dequeue attempt, current iteration will be 4
@@ -366,11 +366,11 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 5, len(logs))
 		assert.Equal(t, 15, remaining)
 
-		assert.Equal(t, 95, len(bufV1.queues["1"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["2"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["3"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["4"].logs))
-		assert.Equal(t, 95, len(bufV1.queues["5"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["1"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["2"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["3"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["4"].logs))
+		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 	})
 }
 
@@ -474,7 +474,7 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), tc.lookback, tc.blockRate, tc.upkeepLimit)
+			buf := NewLogBuffer(logger.TestLogger(t), tc.lookback, tc.blockRate, tc.upkeepLimit, newDequeueCoordinator())
 			for id, logs := range tc.logsToAdd {
 				added, dropped := buf.Enqueue(id, logs...)
 				sid := id.String()
@@ -562,7 +562,7 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1)
+		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1, newDequeueCoordinator())
 
 		buf.Enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -698,7 +698,7 @@ func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []lo
 }
 
 func Test_trackBlockNumbersForUpkeep(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
 
 	logBuffer := buf.(*logBuffer)
 
