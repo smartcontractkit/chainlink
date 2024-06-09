@@ -222,6 +222,10 @@ func (c *dequeueCoordinator) markReorg(block int64, blockRate uint32) {
 
 	startWindow, _ := getBlockWindow(block, int(blockRate))
 	c.dequeuedMinimum[startWindow] = false
+	// TODO instead of wiping the count for all upkeeps, should we wipe for upkeeps only impacted by the reorg?
+	for upkeepID := range c.dequeuedUpkeeps[startWindow] {
+		c.dequeuedUpkeeps[startWindow][upkeepID] = 0
+	}
 }
 
 func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remaining, numberOfUpkeeps, logLimitLow int) {
