@@ -471,7 +471,7 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 			return "", err
 		}
 		if len(sendingKeys) > 1 {
-			return "", errors.New("only ocr2 vrf should have more than 1 sending key")
+			return "", errors.New("no plugin should have more than 1 sending key")
 		}
 		spec.TransmitterID = null.StringFrom(sendingKeys[0])
 	}
