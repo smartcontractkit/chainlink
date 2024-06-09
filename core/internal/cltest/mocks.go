@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -270,21 +269,6 @@ func (mc *MockCron) RunEntries() {
 type MockCronEntry struct {
 	Schedule string
 	Function func()
-}
-
-// MockHeadTrackable allows you to mock HeadTrackable
-type MockHeadTrackable struct {
-	onNewHeadCount atomic.Int32
-}
-
-// OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *evmtypes.Head) {
-	m.onNewHeadCount.Add(1)
-}
-
-// OnNewLongestChainCount returns the count of new heads, safely.
-func (m *MockHeadTrackable) OnNewLongestChainCount() int32 {
-	return m.onNewHeadCount.Load()
 }
 
 // NeverSleeper is a struct that never sleeps

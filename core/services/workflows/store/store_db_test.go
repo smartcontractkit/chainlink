@@ -153,7 +153,7 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 	require.NoError(t, err)
 
 	stepOne.Inputs = nm
-	stepOne.Outputs = &StepOutput{Err: errors.New("some error")}
+	stepOne.Outputs = StepOutput{Err: errors.New("some error")}
 
 	es, err = store.UpsertStep(tests.Context(t), stepOne)
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 	gotStep := es.Steps[stepOne.Ref]
 	assert.Equal(t, stepOne, gotStep)
 
-	stepTwo.Outputs = &StepOutput{Value: nm}
+	stepTwo.Outputs = StepOutput{Value: nm}
 	es, err = store.UpsertStep(tests.Context(t), stepTwo)
 	require.NoError(t, err)
 

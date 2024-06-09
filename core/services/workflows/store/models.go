@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	StatusStarted   = "started"
-	StatusErrored   = "errored"
-	StatusTimeout   = "timeout"
-	StatusCompleted = "completed"
+	StatusStarted            = "started"
+	StatusErrored            = "errored"
+	StatusTimeout            = "timeout"
+	StatusCompleted          = "completed"
+	StatusCompletedEarlyExit = "completed_early_exit"
 )
 
 type StepOutput struct {
@@ -24,7 +25,7 @@ type WorkflowExecutionStep struct {
 	Status      string
 
 	Inputs  *values.Map
-	Outputs *StepOutput
+	Outputs StepOutput
 
 	UpdatedAt *time.Time
 }

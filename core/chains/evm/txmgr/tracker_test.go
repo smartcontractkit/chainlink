@@ -5,17 +5,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 )
 
 const waitTime = 5 * time.Millisecond
@@ -29,7 +30,7 @@ func newTestEvmTrackerSetup(t *testing.T) (*txmgr.Tracker, txmgr.TestEvmTxStore,
 	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore, *ubig.NewI(chainID.Int64()))
 	enabledAddresses = append(enabledAddresses, addr1, addr2)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	return txmgr.NewEvmTracker(txStore, ethKeyStore, chainID, lggr), txStore, ethKeyStore, enabledAddresses
 }
 
@@ -46,7 +47,7 @@ func TestEvmTracker_Initialization(t *testing.T) {
 	t.Parallel()
 
 	tracker, _, _, _ := newTestEvmTrackerSetup(t)
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	require.NoError(t, tracker.Start(ctx))
 	require.True(t, tracker.IsStarted())
@@ -59,10 +60,10 @@ func TestEvmTracker_Initialization(t *testing.T) {
 
 func TestEvmTracker_AddressTracking(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("track abandoned addresses", func(t *testing.T) {
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)
 		inProgressAddr := cltest.MustGenerateRandomKey(t).Address
 		unstartedAddr := cltest.MustGenerateRandomKey(t).Address
@@ -119,7 +120,7 @@ func TestEvmTracker_AddressTracking(t *testing.T) {
 
 func TestEvmTracker_ExceedingTTL(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("exceeding ttl", func(t *testing.T) {
 		tracker, txStore, _, _ := newTestEvmTrackerSetup(t)

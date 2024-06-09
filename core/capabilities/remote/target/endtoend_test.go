@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -200,10 +201,9 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -226,22 +226,27 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
+	srvcs := []services.Service{}
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout)
+		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout, lggr)
+		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
+		srvcs = append(srvcs, capabilityNode)
 	}
 
 	workflowNodes := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		workflowNode := target.NewClient(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout)
+		workflowNode := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, lggr)
+		require.NoError(t, workflowNode.Start(ctx))
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
 		workflowNodes[i] = workflowNode
+		srvcs = append(srvcs, workflowNode)
 	}
 
 	executeInputs, err := values.NewMap(
@@ -273,6 +278,9 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	}
 
 	wg.Wait()
+	for _, srv := range srvcs {
+		require.NoError(t, srv.Close())
+	}
 }
 
 type testMessageBroker struct {
