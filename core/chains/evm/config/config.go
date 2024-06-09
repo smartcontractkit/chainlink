@@ -2,6 +2,7 @@ package config
 
 import (
 	"math/big"
+	"net/url"
 	"time"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -20,7 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
-	ChainWriter() ChainWriter
+	Workflow() Workflow
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -70,6 +71,8 @@ type HeadTracker interface {
 	HistoryDepth() uint32
 	MaxBufferSize() uint32
 	SamplingInterval() time.Duration
+	FinalityTagBypass() bool
+	MaxAllowedFinalityDepth() uint32
 }
 
 type BalanceMonitor interface {
@@ -100,6 +103,14 @@ type Transactions interface {
 	ReaperThreshold() time.Duration
 	MaxInFlight() uint32
 	MaxQueued() uint64
+	AutoPurge() AutoPurgeConfig
+}
+
+type AutoPurgeConfig interface {
+	Enabled() bool
+	Threshold() uint32
+	MinAttempts() uint32
+	DetectionApiUrl() *url.URL
 }
 
 //go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
@@ -145,7 +156,7 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
-type ChainWriter interface {
+type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
 }

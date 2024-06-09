@@ -2,11 +2,13 @@ package job_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
@@ -19,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -43,6 +47,31 @@ contractConfigConfirmations = 3
 observationSource = """
 	%s
 """
+`
+
+	ocr2Keeper21JobSpecTemplate = `
+type = "offchainreporting2"
+pluginType = "ocr2automation"
+relay = "evm"
+name = "ocr2keeper"
+schemaVersion = 1
+contractID = "%s"
+contractConfigTrackerPollInterval = "15s"
+ocrKeyBundleID = "%s"
+transmitterID = "%s"
+p2pv2Bootstrappers = [
+"%s"
+]
+
+[relayConfig]
+chainID = %d
+
+[pluginConfig]
+maxServiceWorkers = 100
+cacheEvictionInterval = "1s"
+mercuryCredentialName = "%s"
+contractVersion = "v2.1"
+useBufferV1 = %v
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
@@ -235,6 +264,24 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	jb.OCROracleSpec = &ocrspec
 
 	return &jb
+}
+
+func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
+	t.Helper()
+	ctx := testutils.Context(t)
+
+	bootstrapNodePort := freeport.GetOne(t)
+	bootstrapPeerID := "peerId"
+
+	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
+	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
+
+	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,
+		fmt.Sprintf("%s127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), chainID, "mercury cred", false)
+
+	jobSpec := makeOCR2JobSpecFromToml(t, ocr2Keeper21Job)
+
+	return jobSpec
 }
 
 func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {

@@ -23,6 +23,9 @@ ReaperInterval = '1h'
 ReaperThreshold = '168h'
 ResendAfterThreshold = '1m'
 
+[Transactions.AutoPurge]
+Enabled = false
+
 [BalanceMonitor]
 Enabled = true
 
@@ -54,6 +57,8 @@ TransactionPercentile = 60
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+FinalityTagBypass = true
+MaxAllowedFinalityDepth = 10000
 
 [NodePool]
 PollFailureThreshold = 5

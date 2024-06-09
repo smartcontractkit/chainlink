@@ -13,12 +13,34 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+type ChainWriterConfig struct {
+	Contracts    map[string]*ContractConfig
+	SendStrategy txmgrtypes.TxStrategy
+}
+
+type ContractConfig struct {
+	ContractABI string `json:"contractABI" toml:"contractABI"`
+	// key is genericName from config
+	Configs map[string]*ChainWriterDefinition `json:"configs" toml:"configs"`
+}
+
+type ChainWriterDefinition struct {
+	// chain specific contract method name or event type.
+	ChainSpecificName  string                `json:"chainSpecificName"`
+	Checker            string                `json:"checker"`
+	FromAddress        common.Address        `json:"fromAddress"`
+	GasLimit           uint64                `json:"gasLimit"` // TODO(archseer): what if this has to be configured per call?
+	InputModifications codec.ModifiersConfig `json:"inputModifications,omitempty"`
+}
 
 type ChainReaderConfig struct {
 	// Contracts key is contract name
@@ -62,6 +84,9 @@ type chainReaderDefinitionFields struct {
 	// key is a predefined generic name for evm log event data word
 	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
 	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
+	// should be valid float values.
+	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {

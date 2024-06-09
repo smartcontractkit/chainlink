@@ -383,8 +383,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
 		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+		zero := int64(0)
 		if rootBuffer == nil {
-			rootBuffer = big.NewInt(0)
+			rootBuffer = &zero
 		}
 		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
 		if clNodeFunding == nil {
@@ -397,9 +398,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		minRequiredFundsBuffered := big.NewFloat(0).Mul(minRequiredFunds, big.NewFloat(1.2))
 		minRequiredFundsBufferedInt, _ := minRequiredFundsBuffered.Int(nil)
 
-		rootBuffer64, _ := rootBuffer.Float64()
-
-		if big.NewFloat(rootBuffer64).Cmp(minRequiredFundsBuffered) <= 0 {
+		if *rootBuffer < minRequiredFundsBufferedInt.Int64() {
 			msg := `
 The funds allocated to the root key buffer are below the minimum requirement, which could lead to insufficient funds for performing contract deployments. Please review and adjust your TOML configuration file to ensure that the root key buffer has adequate funds. Increase the fund settings as necessary to meet this requirement.
 
@@ -409,7 +408,7 @@ root_key_funds_buffer = 1_000
 `
 
 			logger.Warn().
-				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", rootBuffer.String(), conversions.WeiToEther(rootBuffer).Text('f', -1))).
+				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", fmt.Sprint(rootBuffer), conversions.WeiToEther(big.NewInt(*rootBuffer)).Text('f', -1))).
 				Str("Minimum required funds (wei/ether)", fmt.Sprintf("%s/%s", minRequiredFundsBuffered.String(), conversions.WeiToEther(minRequiredFundsBufferedInt).Text('f', -1))).
 				Msg(msg)
 		}

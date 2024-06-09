@@ -15,5 +15,3 @@ PriceDefault = '1 gwei'
 PriceMax = '500 gwei'
 # 1 Gwei is the minimum accepted by the validators (unless whitelisted)
 PriceMin = '1 gwei'
-# 15s delay since feeds update every minute in volatile situations
-BumpThreshold = 3
