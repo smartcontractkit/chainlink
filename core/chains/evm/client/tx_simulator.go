@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 type simulatorClient interface {
@@ -17,7 +18,7 @@ type simulatorClient interface {
 // ZK chains can return an out-of-counters error
 // This method allows a caller to determine if a tx would fail due to OOC error by simulating the transaction
 // Used as an entry point in case custom simulation is required across different chains
-func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType config.ChainType, msg ethereum.CallMsg) *SendError {
+func SimulateTransaction(ctx context.Context, client simulatorClient, lggr logger.SugaredLogger, chainType chaintype.ChainType, msg ethereum.CallMsg) *SendError {
 	err := simulateTransactionDefault(ctx, client, msg)
 	return NewSendError(err)
 }
