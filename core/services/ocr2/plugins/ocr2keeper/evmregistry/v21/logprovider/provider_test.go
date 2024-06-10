@@ -1356,7 +1356,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 935, len(bufV1.queues["5"].logs))
 
 		for i := 0; i < 467; i++ {
-			payloads, err = provider.GetLatestPayloads(ctx)
+			_, err = provider.GetLatestPayloads(ctx)
 			assert.NoError(t, err)
 		}
 
