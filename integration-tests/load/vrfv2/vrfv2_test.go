@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -37,7 +38,6 @@ func TestVRFV2Performance(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -56,7 +56,11 @@ func TestVRFV2Performance(t *testing.T) {
 		l.Error().Err(err).Msg(ErrLokiClient)
 		return
 	}
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	chainID := network.ChainID
+	sethClient, err := actions_seth.GetChainClient(testConfig, network)
+	require.NoError(t, err, "Error creating seth client")
+
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -71,17 +75,16 @@ func TestVRFV2Performance(t *testing.T) {
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		evmClient, err := testEnv.GetEVMClient(chainID)
-		require.NoError(t, err, "error getting EVM client")
+		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				// cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -90,19 +93,20 @@ func TestVRFV2Performance(t *testing.T) {
 			}
 		}
 	}
-
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: *vrfv2Config.General.NumberOfSendingKeysToCreate,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: testConfig,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          *vrfv2Config.General.NumberOfSendingKeysToCreate,
+		UseVRFOwner:                     true,
+		UseTestCoordinator:              true,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
-
-	evmClient, err := testEnv.GetEVMClient(chainID)
-	require.NoError(t, err, "error getting EVM client")
 
 	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
@@ -125,7 +129,6 @@ func TestVRFV2Performance(t *testing.T) {
 	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 
 	vrfContracts.VRFV2Consumers = consumers
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 performance test", func(t *testing.T) {
@@ -145,6 +148,7 @@ func TestVRFV2Performance(t *testing.T) {
 				subIDs,
 				vrfv2Config,
 				l,
+				sethClient,
 			),
 			Labels:      labels,
 			LokiConfig:  lokiConfig,
@@ -179,7 +183,6 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		testEnv                      *test_env.CLClusterTestEnv
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
-		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 	)
 	l := logging.GetTestLogger(t)
@@ -210,22 +213,21 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		Bool("UseExistingEnv", *vrfv2Config.General.UseExistingEnv).
 		Msg("Performance Test Configuration")
 
-	chainID := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0].ChainID
-
+	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
+	chainID := network.ChainID
+	sethClient, err := actions_seth.GetChainClient(testConfig, network)
+	require.NoError(t, err, "Error creating seth client")
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
 
-		evmClient, err := testEnv.GetEVMClient(chainID)
-		require.NoError(t, err, "error getting EVM client")
-
-		if evmClient.NetworkSimulated() {
+		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
-				Str("Network Name", evmClient.GetNetworkName()).
+				Str("Network Name", sethClient.Cfg.Network.Name).
 				Msg("Network is a simulated network. Skipping fund return for Coordinator Subscriptions.")
 		} else {
 			if *vrfv2Config.General.CancelSubsAfterTestRun {
-				// cancel subs and return funds to sub owner
-				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, defaultWalletAddress, subIDsForCancellingAfterTest, l)
+				//cancel subs and return funds to sub owner
+				vrfv2.CancelSubsAndReturnFunds(testcontext.Get(t), vrfContracts, sethClient.MustGetRootKeyAddress().Hex(), subIDsForCancellingAfterTest, l)
 			}
 		}
 		if !*vrfv2Config.General.UseExistingEnv {
@@ -234,21 +236,21 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			}
 		}
 	}
-
-	newEnvConfig := vrfcommon.NewEnvConfig{
-		NodesToCreate:          []vrfcommon.VRFNodeType{vrfcommon.VRF},
-		NumberOfTxKeysToCreate: *vrfv2Config.General.NumberOfSendingKeysToCreate,
-		UseVRFOwner:            true,
-		UseTestCoordinator:     true,
+	vrfEnvConfig := vrfcommon.VRFEnvConfig{
+		TestConfig: testConfig,
+		ChainID:    chainID,
+		CleanupFn:  cleanupFn,
 	}
-
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, testConfig, chainID, cleanupFn, newEnvConfig, l)
+	newEnvConfig := vrfcommon.NewEnvConfig{
+		NodesToCreate:                   []vrfcommon.VRFNodeType{vrfcommon.VRF},
+		NumberOfTxKeysToCreate:          *vrfv2Config.General.NumberOfSendingKeysToCreate,
+		UseVRFOwner:                     true,
+		UseTestCoordinator:              true,
+		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
+	}
+	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
-	evmClient, err := testEnv.GetEVMClient(chainID)
-	require.NoError(t, err, "error getting EVM client")
-
-	defaultWalletAddress = evmClient.GetDefaultWallet().Address()
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		// Underfund Subscription
@@ -288,6 +290,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 				underfundedSubIDs,
 				configCopy.VRFv2,
 				l,
+				sethClient,
 			),
 			Labels:      labels,
 			LokiConfig:  lokiConfig,
@@ -305,10 +308,17 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
-		// Wait at least 256 blocks
-		latestBlockNumber, err := evmClient.LatestBlockNumber(testcontext.Get(t))
-		require.NoError(t, err, "error getting latest block number")
-		_, err = actions.WaitForBlockNumberToBe(latestBlockNumber+uint64(256), evmClient, &wgBlockNumberTobe, configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration, t)
+		//Wait at least 256 blocks
+		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
+		require.NoError(t, err)
+		_, err = actions.WaitForBlockNumberToBe(
+			latestBlockNumber+uint64(257),
+			sethClient,
+			&wgBlockNumberTobe,
+			configCopy.VRFv2.General.WaitFor256BlocksTimeout.Duration,
+			t,
+			l,
+		)
 		wgBlockNumberTobe.Wait()
 		require.NoError(t, err, "error waiting for block number to be")
 
@@ -323,8 +333,6 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 			Uints64("SubIDs", subIDsString).
 			Msg("Funding Subscriptions with Link and Native Tokens")
 		err = vrfv2.FundSubscriptions(
-			testEnv,
-			chainID,
 			big.NewFloat(*configCopy.VRFv2.General.SubscriptionRefundingAmountLink),
 			vrfContracts.LinkToken,
 			vrfContracts.CoordinatorV2,

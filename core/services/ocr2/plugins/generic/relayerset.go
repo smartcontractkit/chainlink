@@ -20,7 +20,6 @@ type RelayerSet struct {
 }
 
 func NewRelayerSet(relayGetter RelayGetter, externalJobID uuid.UUID, jobID int32, isNew bool) (*RelayerSet, error) {
-
 	wrappedRelayers := map[types.RelayID]core.Relayer{}
 
 	relayers, err := relayGetter.GetIDToRelayerMap()
@@ -44,7 +43,6 @@ func (r *RelayerSet) Get(_ context.Context, id types.RelayID) (core.Relayer, err
 }
 
 func (r *RelayerSet) List(_ context.Context, relayIDs ...types.RelayID) (map[types.RelayID]core.Relayer, error) {
-
 	if len(relayIDs) == 0 {
 		return r.wrappedRelayers, nil
 	}
@@ -72,7 +70,6 @@ type relayerWrapper struct {
 }
 
 func (r relayerWrapper) NewPluginProvider(ctx context.Context, rargs core.RelayArgs, pargs core.PluginArgs) (types.PluginProvider, error) {
-
 	relayArgs := types.RelayArgs{
 		ExternalJobID:      r.ExternalJobID,
 		JobID:              r.JobID,

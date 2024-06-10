@@ -7,18 +7,11 @@ FinalityDepth = 50
 FinalityTagEnabled = true
 LinkContractAddress = '0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06'
 LogPollInterval = '3s'
-MinIncomingConfirmations = 3
 NoNewHeadsThreshold = '30s'
 RPCBlockQueryDelay = 2
-Transactions.ResendAfterThreshold = '1m'
-
-[BalanceMonitor]
-Enabled = true
 
 [GasEstimator]
 PriceDefault = '5 gwei'
-PriceMin = '1 gwei'
-BumpMin = '5 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
 
@@ -28,6 +21,7 @@ BlockHistorySize = 24
 [HeadTracker]
 HistoryDepth = 100
 SamplingInterval = '1s'
+FinalityTagBypass = false
 
 [OCR]
 DatabaseTimeout = '2s'

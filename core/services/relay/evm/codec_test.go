@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,7 +17,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -68,9 +69,75 @@ func TestCodec_SimpleEncode(t *testing.T) {
 	require.NoError(t, err)
 	expected :=
 		"0000000000000000000000000000000000000000000000000000000000000006" + // int32(6)
-			"0000000000000000000000000000000000000000000000000000000000000040" + // total bytes occupied by the string (64)
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of the beginning of second value (64 bytes)
 			"0000000000000000000000000000000000000000000000000000000000000007" + // length of the string (7 chars)
 			"6162636465666700000000000000000000000000000000000000000000000000" // actual string
+
+	require.Equal(t, expected, hexutil.Encode(result)[2:])
+}
+
+func TestCodec_EncodeTuple(t *testing.T) {
+	codecName := "my_codec"
+	input := map[string]any{
+		"Report": int32(6),
+		"Nested": map[string]any{
+			"Meta":  "abcdefg",
+			"Count": int32(14),
+			"Other": "12334",
+		},
+	}
+	evmEncoderConfig := `[{"Name":"Report","Type":"int32"},{"Name":"Nested","Type":"tuple","Components":[{"Name":"Other","Type":"string"},{"Name":"Count","Type":"int32"},{"Name":"Meta","Type":"string"}]}]`
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecName: {TypeABI: evmEncoderConfig},
+	}}
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+
+	result, err := c.Encode(testutils.Context(t), input, codecName)
+	require.NoError(t, err)
+	expected :=
+		"0000000000000000000000000000000000000000000000000000000000000006" + // Report integer (=6)
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of the first dynamic value (tuple, 64 bytes)
+			"0000000000000000000000000000000000000000000000000000000000000060" + // offset of the first nested dynamic value (string, 96 bytes)
+			"000000000000000000000000000000000000000000000000000000000000000e" + // "Count" integer (=14)
+			"00000000000000000000000000000000000000000000000000000000000000a0" + // offset of the second nested dynamic value (string, 160 bytes)
+			"0000000000000000000000000000000000000000000000000000000000000005" + // length of the "Meta" string (5 chars)
+			"3132333334000000000000000000000000000000000000000000000000000000" + // "Other" string (="12334")
+			"0000000000000000000000000000000000000000000000000000000000000007" + // length of the "Other" string (7 chars)
+			"6162636465666700000000000000000000000000000000000000000000000000" // "Meta" string (="abcdefg")
+
+	require.Equal(t, expected, hexutil.Encode(result)[2:])
+}
+
+func TestCodec_EncodeTupleWithLists(t *testing.T) {
+	codecName := "my_codec"
+	input := map[string]any{
+		"Elem": map[string]any{
+			"Prices":     []any{big.NewInt(234), big.NewInt(456)},
+			"Timestamps": []any{int64(111), int64(222)},
+		},
+	}
+	evmEncoderConfig := `[{"Name":"Elem","Type":"tuple","InternalType":"tuple","Components":[{"Name":"Prices","Type":"uint256[]","InternalType":"uint256[]","Components":null,"Indexed":false},{"Name":"Timestamps","Type":"uint32[]","InternalType":"uint32[]","Components":null,"Indexed":false}],"Indexed":false}]`
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecName: {TypeABI: evmEncoderConfig},
+	}}
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+
+	result, err := c.Encode(testutils.Context(t), input, codecName)
+	require.NoError(t, err)
+	expected :=
+		"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Elem tuple
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of Prices array
+			"00000000000000000000000000000000000000000000000000000000000000a0" + // offset of Timestamps array
+			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Prices array
+			"00000000000000000000000000000000000000000000000000000000000000ea" + // Prices[0] = 234
+			"00000000000000000000000000000000000000000000000000000000000001c8" + // Prices[1] = 456
+			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Timestamps array
+			"000000000000000000000000000000000000000000000000000000000000006f" + // Timestamps[0] = 111
+			"00000000000000000000000000000000000000000000000000000000000000de" // Timestamps[1] = 222
 
 	require.Equal(t, expected, hexutil.Encode(result)[2:])
 }
@@ -148,11 +215,11 @@ func encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
 
 	switch request.TestOn {
 	case TestItemArray1Type:
-		args[0] = [1]chain_reader_example.TestStruct{toInternalType(request.TestStructs[0])}
+		args[0] = [1]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0])}
 	case TestItemArray2Type:
-		args[0] = [2]chain_reader_example.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
+		args[0] = [2]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
 	default:
-		tmp := make([]chain_reader_example.TestStruct, len(request.TestStructs))
+		tmp := make([]chain_reader_tester.TestStruct, len(request.TestStructs))
 		for i, ts := range request.TestStructs {
 			tmp[i] = toInternalType(ts)
 		}

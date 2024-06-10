@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon_consumer"
@@ -23,112 +24,146 @@ import (
 
 // EthereumDKG represents DKG contract
 type EthereumDKG struct {
-	address *common.Address
-	client  blockchain.EVMClient
+	address common.Address
+	client  *seth.Client
 	dkg     *dkg.DKG
 }
 
 // EthereumVRFCoordinatorV3 represents VRFCoordinatorV3 contract
 type EthereumVRFCoordinatorV3 struct {
-	address          *common.Address
-	client           blockchain.EVMClient
+	address          common.Address
+	client           *seth.Client
 	vrfCoordinatorV3 *vrf_coordinator.VRFCoordinator
 }
 
 // EthereumVRFBeacon represents VRFBeacon contract
 type EthereumVRFBeacon struct {
-	address   *common.Address
-	client    blockchain.EVMClient
+	address   common.Address
+	client    *seth.Client
 	vrfBeacon *vrf_beacon.VRFBeacon
 }
 
 // EthereumVRFBeaconConsumer represents VRFBeaconConsumer contract
 type EthereumVRFBeaconConsumer struct {
-	address           *common.Address
-	client            blockchain.EVMClient
+	address           common.Address
+	client            *seth.Client
 	vrfBeaconConsumer *vrf_beacon_consumer.BeaconVRFConsumer
 }
 
-// LegacyEthereumVRFCoordinator represents VRF coordinator contract
-type LegacyEthereumVRFCoordinator struct {
-	address     *common.Address
-	client      blockchain.EVMClient
-	coordinator *solidity_vrf_coordinator_interface.VRFCoordinator
-}
-
 // DeployDKG deploys DKG contract
-func (e *EthereumContractDeployer) DeployDKG() (DKG, error) {
-	address, _, instance, err := e.client.DeployContract("DKG", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return dkg.DeployDKG(auth, backend)
-	})
+func DeployDKG(seth *seth.Client) (DKG, error) {
+	abi, err := dkg.DKGMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumDKG{}, fmt.Errorf("failed to get DKG ABI: %w", err)
 	}
+
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"DKG",
+		*abi,
+		common.FromHex(dkg.DKGMetaData.Bin))
+	if err != nil {
+		return &EthereumDKG{}, fmt.Errorf("DKG instance deployment have failed: %w", err)
+	}
+
+	contract, err := dkg.NewDKG(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumDKG{}, fmt.Errorf("failed to instantiate DKG instance: %w", err)
+	}
+
 	return &EthereumDKG{
-		client:  e.client,
-		dkg:     instance.(*dkg.DKG),
-		address: address,
+		client:  seth,
+		dkg:     contract,
+		address: data.Address,
 	}, err
 }
 
 // DeployOCR2VRFCoordinator deploys CR2VRFCoordinator contract
-func (e *EthereumContractDeployer) DeployOCR2VRFCoordinator(beaconPeriodBlocksCount *big.Int, linkAddress string) (VRFCoordinatorV3, error) {
-	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV3", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_coordinator.DeployVRFCoordinator(auth, backend, beaconPeriodBlocksCount, common.HexToAddress(linkAddress))
-	})
+func DeployOCR2VRFCoordinator(seth *seth.Client, beaconPeriodBlocksCount *big.Int, linkAddress string) (VRFCoordinatorV3, error) {
+	abi, err := vrf_coordinator.VRFCoordinatorMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFCoordinatorV3{}, fmt.Errorf("failed to get VRFCoordinatorV3 ABI: %w", err)
 	}
+
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFCoordinatorV3",
+		*abi,
+		common.FromHex(vrf_coordinator.VRFCoordinatorMetaData.Bin),
+		beaconPeriodBlocksCount, common.HexToAddress(linkAddress))
+	if err != nil {
+		return &EthereumVRFCoordinatorV3{}, fmt.Errorf("VRFCoordinatorV3 instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_coordinator.NewVRFCoordinator(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV3{}, fmt.Errorf("failed to instantiate VRFCoordinatorV3 instance: %w", err)
+	}
+
 	return &EthereumVRFCoordinatorV3{
-		client:           e.client,
-		vrfCoordinatorV3: instance.(*vrf_coordinator.VRFCoordinator),
-		address:          address,
+		client:           seth,
+		vrfCoordinatorV3: contract,
+		address:          data.Address,
 	}, err
 }
 
 // DeployVRFBeacon deploys DeployVRFBeacon contract
-func (e *EthereumContractDeployer) DeployVRFBeacon(vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error) {
+func DeployVRFBeacon(seth *seth.Client, vrfCoordinatorAddress string, linkAddress string, dkgAddress string, keyId string) (VRFBeacon, error) {
+	abi, err := vrf_beacon.VRFBeaconMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFBeacon{}, fmt.Errorf("failed to get VRFBeacon ABI: %w", err)
+	}
 	keyIDBytes, err := DecodeHexTo32ByteArray(keyId)
 	if err != nil {
 		return nil, err
 	}
-	address, _, instance, err := e.client.DeployContract("VRFBeacon", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon.DeployVRFBeacon(auth, backend, common.HexToAddress(linkAddress), common.HexToAddress(vrfCoordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
-	})
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFBeacon",
+		*abi,
+		common.FromHex(vrf_beacon.VRFBeaconMetaData.Bin),
+		common.HexToAddress(linkAddress), common.HexToAddress(vrfCoordinatorAddress), common.HexToAddress(dkgAddress), keyIDBytes)
 	if err != nil {
-		return nil, err
+		return &EthereumVRFBeacon{}, fmt.Errorf("VRFBeacon instance deployment have failed: %w", err)
 	}
+
+	contract, err := vrf_beacon.NewVRFBeacon(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFBeacon{}, fmt.Errorf("failed to instantiate VRFBeacon instance: %w", err)
+	}
+
 	return &EthereumVRFBeacon{
-		client:    e.client,
-		vrfBeacon: instance.(*vrf_beacon.VRFBeacon),
-		address:   address,
+		client:    seth,
+		vrfBeacon: contract,
+		address:   data.Address,
 	}, err
 }
 
 // DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
-func (e *EthereumContractDeployer) DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error) {
-	address, _, instance, err := e.client.DeployContract("BatchBlockhashStore", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return batch_blockhash_store.DeployBatchBlockhashStore(auth, backend, common.HexToAddress(blockhashStoreAddr))
-	})
+func DeployBatchBlockhashStore(seth *seth.Client, blockhashStoreAddr string) (BatchBlockhashStore, error) {
+	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("failed to get BatchBlockhashStore ABI: %w", err)
 	}
-	return &LegacyEthereumBatchBlockhashStore{
-		client:              e.client,
-		batchBlockhashStore: instance.(*batch_blockhash_store.BatchBlockhashStore),
-		address:             address,
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"BatchBlockhashStore",
+		*abi,
+		common.FromHex(batch_blockhash_store.BatchBlockhashStoreMetaData.Bin),
+		common.HexToAddress(blockhashStoreAddr))
+	if err != nil {
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("BatchBlockhashStore instance deployment have failed: %w", err)
+	}
+
+	contract, err := batch_blockhash_store.NewBatchBlockhashStore(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("failed to instantiate BatchBlockhashStore instance: %w", err)
+	}
+
+	return &EthereumBatchBlockhashStore{
+		client:              seth,
+		batchBlockhashStore: contract,
+		address:             data.Address,
 	}, err
 }
 
@@ -147,20 +182,30 @@ func DecodeHexTo32ByteArray(val string) ([32]byte, error) {
 }
 
 // DeployVRFBeaconConsumer deploys VRFv@ consumer contract
-func (e *EthereumContractDeployer) DeployVRFBeaconConsumer(vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFBeaconConsumer", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_beacon_consumer.DeployBeaconVRFConsumer(auth, backend, common.HexToAddress(vrfCoordinatorAddress), false, beaconPeriodBlockCount)
-	})
+func DeployVRFBeaconConsumer(seth *seth.Client, vrfCoordinatorAddress string, beaconPeriodBlockCount *big.Int) (VRFBeaconConsumer, error) {
+	abi, err := vrf_beacon_consumer.BeaconVRFConsumerMetaData.GetAbi()
 	if err != nil {
-		return nil, err
+		return &EthereumVRFBeaconConsumer{}, fmt.Errorf("failed to get VRFBeaconConsumer ABI: %w", err)
 	}
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"VRFBeaconConsumer",
+		*abi,
+		common.FromHex(vrf_beacon_consumer.BeaconVRFConsumerMetaData.Bin),
+		common.HexToAddress(vrfCoordinatorAddress), false, beaconPeriodBlockCount)
+	if err != nil {
+		return &EthereumVRFBeaconConsumer{}, fmt.Errorf("VRFBeaconConsumer instance deployment have failed: %w", err)
+	}
+
+	contract, err := vrf_beacon_consumer.NewBeaconVRFConsumer(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFBeaconConsumer{}, fmt.Errorf("failed to instantiate VRFBeaconConsumer instance: %w", err)
+	}
+
 	return &EthereumVRFBeaconConsumer{
-		client:            e.client,
-		vrfBeaconConsumer: instance.(*vrf_beacon_consumer.BeaconVRFConsumer),
-		address:           address,
+		client:            seth,
+		vrfBeaconConsumer: contract,
+		address:           data.Address,
 	}, err
 }
 
@@ -173,20 +218,12 @@ func (dkgContract *EthereumDKG) AddClient(keyID string, clientAddress string) er
 	if err != nil {
 		return err
 	}
-	opts, err := dkgContract.client.TransactionOpts(dkgContract.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := dkgContract.dkg.AddClient(
-		opts,
+	_, err = dkgContract.client.Decode(dkgContract.dkg.AddClient(
+		dkgContract.client.NewTXOpts(),
 		keyIDBytes,
 		common.HexToAddress(clientAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return dkgContract.client.ProcessTransaction(tx)
-
+	))
+	return err
 }
 
 func (dkgContract *EthereumDKG) SetConfig(
@@ -197,23 +234,16 @@ func (dkgContract *EthereumDKG) SetConfig(
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 ) error {
-	opts, err := dkgContract.client.TransactionOpts(dkgContract.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := dkgContract.dkg.SetConfig(
-		opts,
+	_, err := dkgContract.client.Decode(dkgContract.dkg.SetConfig(
+		dkgContract.client.NewTXOpts(),
 		signerAddresses,
 		transmitterAddresses,
 		f,
 		onchainConfig,
 		offchainConfigVersion,
 		offchainConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return dkgContract.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (dkgContract *EthereumDKG) WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error) {
@@ -261,42 +291,28 @@ func (coordinator *EthereumVRFCoordinatorV3) Address() string {
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) SetProducer(producerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.SetProducer(
-		opts,
+	_, err := coordinator.client.Decode(coordinator.vrfCoordinatorV3.SetProducer(
+		coordinator.client.NewTXOpts(),
 		common.HexToAddress(producerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) CreateSubscription() error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.CreateSubscription(
-		opts,
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
+	_, err := coordinator.client.Decode(coordinator.vrfCoordinatorV3.CreateSubscription(
+		coordinator.client.NewTXOpts(),
+	))
+	return err
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, error) {
 	fopts := &bind.FilterOpts{}
-	owner := coordinator.client.GetDefaultWallet().Address()
+	owner := coordinator.client.MustGetRootKeyAddress()
 
 	subscriptionIterator, err := coordinator.vrfCoordinatorV3.FilterSubscriptionCreated(
 		fopts,
 		nil,
-		[]common.Address{common.HexToAddress(owner)},
+		[]common.Address{owner},
 	)
 	if err != nil {
 		return nil, err
@@ -310,37 +326,23 @@ func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, err
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) AddConsumer(subId *big.Int, consumerAddress string) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.AddConsumer(
-		opts,
+	_, err := coordinator.client.Decode(coordinator.vrfCoordinatorV3.AddConsumer(
+		coordinator.client.NewTXOpts(),
 		subId,
 		common.HexToAddress(consumerAddress),
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (coordinator *EthereumVRFCoordinatorV3) SetConfig(maxCallbackGasLimit uint32, maxCallbackArgumentsLength uint32) error {
-	opts, err := coordinator.client.TransactionOpts(coordinator.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := coordinator.vrfCoordinatorV3.SetCallbackConfig(
-		opts,
+	_, err := coordinator.client.Decode(coordinator.vrfCoordinatorV3.SetCallbackConfig(
+		coordinator.client.NewTXOpts(),
 		vrf_coordinator.VRFCoordinatorCallbackConfig{
 			MaxCallbackGasLimit:        maxCallbackGasLimit,
 			MaxCallbackArgumentsLength: maxCallbackArgumentsLength, // 5 EVM words
 		},
-	)
-	if err != nil {
-		return err
-	}
-	return coordinator.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (beacon *EthereumVRFBeacon) Address() string {
@@ -348,20 +350,12 @@ func (beacon *EthereumVRFBeacon) Address() string {
 }
 
 func (beacon *EthereumVRFBeacon) SetPayees(transmitterAddresses []common.Address, payeesAddresses []common.Address) error {
-	opts, err := beacon.client.TransactionOpts(beacon.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-
-	tx, err := beacon.vrfBeacon.SetPayees(
-		opts,
+	_, err := beacon.client.Decode(beacon.vrfBeacon.SetPayees(
+		beacon.client.NewTXOpts(),
 		transmitterAddresses,
 		payeesAddresses,
-	)
-	if err != nil {
-		return err
-	}
-	return beacon.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (beacon *EthereumVRFBeacon) SetConfig(
@@ -372,23 +366,16 @@ func (beacon *EthereumVRFBeacon) SetConfig(
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 ) error {
-	opts, err := beacon.client.TransactionOpts(beacon.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := beacon.vrfBeacon.SetConfig(
-		opts,
+	_, err := beacon.client.Decode(beacon.vrfBeacon.SetConfig(
+		beacon.client.NewTXOpts(),
 		signerAddresses,
 		transmitterAddresses,
 		f,
 		onchainConfig,
 		offchainConfigVersion,
 		offchainConfig,
-	)
-	if err != nil {
-		return err
-	}
-	return beacon.client.ProcessTransaction(tx)
+	))
+	return err
 }
 
 func (beacon *EthereumVRFBeacon) WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error) {
@@ -434,7 +421,7 @@ func (beacon *EthereumVRFBeacon) WaitForNewTransmissionEvent(timeout time.Durati
 func (beacon *EthereumVRFBeacon) LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
 	error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(beacon.client.GetDefaultWallet().Address()),
+		From:    beacon.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return beacon.vrfBeacon.LatestConfigDigestAndEpoch(opts)
@@ -448,58 +435,37 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomness(
 	numWords uint16,
 	subID, confirmationDelayArg *big.Int,
 ) (*types.Receipt, error) {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
-	if err != nil {
-		return nil, fmt.Errorf("TransactionOpts failed, err: %w", err)
-	}
-	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomness(
-		opts,
+	tx, err := consumer.client.Decode(consumer.vrfBeaconConsumer.TestRequestRandomness(
+		consumer.client.NewTXOpts(),
 		numWords,
 		subID,
 		confirmationDelayArg,
-	)
+	))
 	if err != nil {
 		return nil, fmt.Errorf("TestRequestRandomness failed, err: %w", err)
-	}
-	err = consumer.client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
-	}
-	err = consumer.client.WaitForEvents()
-
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
 	log.Info().Interface("Sub ID", subID).
 		Interface("Number of Words", numWords).
 		Interface("Number of Confirmations", confirmationDelayArg).
 		Msg("RequestRandomness called")
-	return receipt, nil
+	return tx.Receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RedeemRandomness(
 	subID, requestID *big.Int,
 ) error {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := consumer.vrfBeaconConsumer.TestRedeemRandomness(
-		opts,
+	_, err := consumer.client.Decode(consumer.vrfBeaconConsumer.TestRedeemRandomness(
+		consumer.client.NewTXOpts(),
 		subID,
 		requestID,
-	)
+	))
 	if err != nil {
 		return err
 	}
 	log.Info().Interface("Sub ID", subID).
 		Interface("Request ID", requestID).
 		Msg("RedeemRandomness called")
-	return consumer.client.ProcessTransaction(tx)
+	return nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
@@ -509,48 +475,32 @@ func (consumer *EthereumVRFBeaconConsumer) RequestRandomnessFulfillment(
 	callbackGasLimit uint32,
 	arguments []byte,
 ) (*types.Receipt, error) {
-	opts, err := consumer.client.TransactionOpts(consumer.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
+	opts := consumer.client.NewTXOpts()
 	// overriding gas limit because gas estimated by TestRequestRandomnessFulfillment
 	// is incorrect
 	opts.GasLimit = uint64(requestGasLimit)
-	tx, err := consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
+	tx, err := consumer.client.Decode(consumer.vrfBeaconConsumer.TestRequestRandomnessFulfillment(
 		opts,
 		subID,
 		numWords,
 		confirmationDelayArg,
 		callbackGasLimit,
 		arguments,
-	)
+	))
 	if err != nil {
 		return nil, fmt.Errorf("TestRequestRandomnessFulfillment failed, err: %w", err)
-	}
-	err = consumer.client.ProcessTransaction(tx)
-	if err != nil {
-		return nil, fmt.Errorf("ProcessTransaction failed, err: %w", err)
-	}
-	err = consumer.client.WaitForEvents()
-
-	if err != nil {
-		return nil, fmt.Errorf("WaitForEvents failed, err: %w", err)
-	}
-	receipt, err := consumer.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("GetTxReceipt failed, err: %w", err)
 	}
 	log.Info().Interface("Sub ID", subID).
 		Interface("Number of Words", numWords).
 		Interface("Number of Confirmations", confirmationDelayArg).
 		Interface("Callback Gas Limit", callbackGasLimit).
 		Msg("RequestRandomnessFulfillment called")
-	return receipt, nil
+	return tx.Receipt, nil
 }
 
 func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.IBeaconPeriodBlocks(opts)
@@ -558,7 +508,7 @@ func (consumer *EthereumVRFBeaconConsumer) IBeaconPeriodBlocks(ctx context.Conte
 
 func (consumer *EthereumVRFBeaconConsumer) GetRequestIdsBy(ctx context.Context, nextBeaconOutputHeight *big.Int, confDelay *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.SRequestsIDs(opts, nextBeaconOutputHeight, confDelay)
@@ -566,7 +516,7 @@ func (consumer *EthereumVRFBeaconConsumer) GetRequestIdsBy(ctx context.Context, 
 
 func (consumer *EthereumVRFBeaconConsumer) GetRandomnessByRequestId(ctx context.Context, requestID *big.Int, numWordIndex *big.Int) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(consumer.client.GetDefaultWallet().Address()),
+		From:    consumer.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}
 	return consumer.vrfBeaconConsumer.SReceivedRandomnessByRequestID(opts, requestID, numWordIndex)

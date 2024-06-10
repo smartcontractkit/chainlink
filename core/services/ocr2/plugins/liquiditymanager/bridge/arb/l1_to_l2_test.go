@@ -18,6 +18,7 @@ import (
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/l2_arbitrum_gateway"
@@ -1189,7 +1190,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1223,7 +1224,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
 					mock.Anything,
@@ -1232,7 +1233,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2LiquidityManagerAddress.Hex())},
 					a.fromTs,
-					logpoller.Finalized,
+					evmtypes.Finalized,
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1267,7 +1268,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
 					mock.Anything,
@@ -1276,7 +1277,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2LiquidityManagerAddress.Hex())},
 					a.fromTs,
-					logpoller.Finalized,
+					evmtypes.Finalized,
 				).Return([]logpoller.Log{{}, {}}, nil)
 				f.l2LogPoller.On("IndexedLogsCreatedAfter",
 					mock.Anything,
@@ -1285,7 +1286,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredFromChainSelectorTopicIndex,
 					[]common.Hash{toHash(localSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return(nil, errors.New("error"))
 			},
 			func(t *testing.T, f fields) {
@@ -1320,7 +1321,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredToChainSelectorTopicIndex,
 					[]common.Hash{toHash(remoteSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return([]logpoller.Log{
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x1")},
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x2")},
@@ -1332,7 +1333,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					DepositFinalizedToAddressTopicIndex,
 					[]common.Hash{common.HexToHash(l2LiquidityManagerAddress.Hex())},
 					a.fromTs,
-					logpoller.Finalized,
+					evmtypes.Finalized,
 				).Return([]logpoller.Log{
 					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x3")},
 					{EventSig: DepositFinalizedTopic, TxHash: common.HexToHash("0x4")},
@@ -1344,7 +1345,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 					LiquidityTransferredFromChainSelectorTopicIndex,
 					[]common.Hash{toHash(localSelector)},
 					a.fromTs,
-					logpoller.Confirmations(1),
+					evmtypes.Confirmations(1),
 				).Return([]logpoller.Log{
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x5")},
 					{EventSig: LiquidityTransferredTopic, TxHash: common.HexToHash("0x6")},

@@ -1,6 +1,6 @@
 {
   "name": "ccip",
-  "version": "2.11.0-ccip1.4.13",
+  "version": "2.13.0-ccip1.4.13",
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,6 @@
     "@changesets/changelog-github": "^0.4.8",
     "@changesets/cli": "~2.26.2",
     "husky": "^9.0.11",
-    "semver": "^7.5.4"
+    "semver": "^7.6.1"
   }
 }

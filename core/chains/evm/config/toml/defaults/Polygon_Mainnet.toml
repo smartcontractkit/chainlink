@@ -13,12 +13,8 @@ RPCDefaultBatchSize = 100
 
 [Transactions]
 # Matic nodes under high mempool pressure are liable to drop txes, we need to ensure we keep sending them
-ResendAfterThreshold = '1m'
 # Since re-orgs on Polygon can be so large, we need a large safety buffer to allow time for the queue to clear down before we start dropping transactions
 MaxQueued = 5000
-
-[BalanceMonitor]
-Enabled = true
 
 [GasEstimator]
 # Many Polygon RPC providers set a minimum of 30 GWei on mainnet to prevent spam
@@ -36,7 +32,6 @@ BlockHistorySize = 24
 [HeadTracker]
 # Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 HistoryDepth = 2000
-SamplingInterval = '1s'
 
 [NodePool]
 SyncThreshold = 10

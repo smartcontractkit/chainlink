@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/abstract_arbitrum_token_gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_gateway_router"
@@ -314,7 +315,7 @@ func (l *l1ToL2Bridge) getLogs(ctx context.Context, fromTs time.Time) (sendLogs 
 			common.HexToHash(l.l2LiquidityManagerAddress.Hex()),
 		},
 		fromTs,
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, nil, fmt.Errorf("get DepositFinalized events from L2 gateway: %w", err)

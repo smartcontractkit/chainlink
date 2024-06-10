@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
@@ -33,10 +34,10 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 	tests := []struct {
 		name          string
 		finalized     bool
-		confirmations logpoller.Confirmations
+		confirmations evmtypes.Confirmations
 	}{
-		{"finalized", true, logpoller.Finalized},
-		{"unfinalized", false, logpoller.Confirmations(0)},
+		{"finalized", true, evmtypes.Finalized},
+		{"unfinalized", false, evmtypes.Confirmations(0)},
 	}
 
 	for _, tt := range tests {

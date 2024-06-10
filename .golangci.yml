@@ -14,6 +14,8 @@ linters:
     - sqlclosecheck
     - noctx
     - depguard
+    - whitespace
+    - containedctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -88,6 +90,10 @@ linters-settings:
             desc: Use the standard library instead
           - pkg: github.com/gofrs/uuid
             desc: Use github.com/google/uuid instead
+          - pkg: github.com/jackc/pgx3
+            desc: Use github.com/jackc/pgx4 instead
+          - pkg: github.com/jackc/pgx5
+            desc: Use github.com/jackc/pgx4 instead
           - pkg: github.com/satori/go.uuid
             desc: Use github.com/google/uuid instead
           - pkg: github.com/test-go/testify/assert

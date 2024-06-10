@@ -309,8 +309,9 @@ fromBlock = %d
 				}))
 				t.Cleanup(servers[s].Close)
 				u, _ := url.Parse(servers[i].URL)
+				bridgeName := fmt.Sprintf("bridge%d", i)
 				require.NoError(t, apps[i].BridgeORM().CreateBridgeType(testutils.Context(t), &bridges.BridgeType{
-					Name: bridges.BridgeName(fmt.Sprintf("bridge%d", i)),
+					Name: bridges.BridgeName(bridgeName),
 					URL:  models.WebURL(*u),
 				}))
 
@@ -488,9 +489,15 @@ juelsPerFeeCoinSource = """
 
 	answer1 [type=median index=0];
 """
+gasPriceSubunitsSource = """
+		// data source
+		dsp          [type=bridge name="%s"];
+		dsp_parse    [type=jsonparse path="data"];
+		dsp -> dsp_parse;
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i), nil)
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], bridgeName, i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), chainReaderSpec, bridgeName, i, slowServers[i].URL, i, bridgeName), nil)
 				require.NoError(t, err)
 				err = apps[i].AddJobV2(testutils.Context(t), &ocrJob)
 				require.NoError(t, err)

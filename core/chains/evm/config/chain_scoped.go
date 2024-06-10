@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -68,8 +68,8 @@ func (e *EVMConfig) OCR2() OCR2 {
 	return &ocr2Config{c: e.C.OCR2}
 }
 
-func (e *EVMConfig) ChainWriter() ChainWriter {
-	return &chainWriterConfig{c: e.C.ChainWriter}
+func (e *EVMConfig) Workflow() Workflow {
+	return &workflowConfig{c: e.C.Workflow}
 }
 
 func (e *EVMConfig) GasEstimator() GasEstimator {
@@ -124,11 +124,11 @@ func (e *EVMConfig) BlockEmissionIdleWarningThreshold() time.Duration {
 	return e.C.NoNewHeadsThreshold.Duration()
 }
 
-func (e *EVMConfig) ChainType() commonconfig.ChainType {
+func (e *EVMConfig) ChainType() chaintype.ChainType {
 	if e.C.ChainType == nil {
 		return ""
 	}
-	return commonconfig.ChainType(*e.C.ChainType)
+	return e.C.ChainType.ChainType()
 }
 
 func (e *EVMConfig) ChainID() *big.Int {

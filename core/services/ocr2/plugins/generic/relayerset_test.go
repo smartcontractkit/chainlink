@@ -15,7 +15,6 @@ import (
 )
 
 func TestRelayerSet_List(t *testing.T) {
-
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -43,7 +42,6 @@ func TestRelayerSet_List(t *testing.T) {
 }
 
 func TestRelayerSet_Get(t *testing.T) {
-
 	testRelayersMap := map[types.RelayID]loop.Relayer{}
 	testRelayersMap[types.RelayID{Network: "N1", ChainID: "C1"}] = &TestRelayer{}
 	testRelayersMap[types.RelayID{Network: "N2", ChainID: "C2"}] = &TestRelayer{}
@@ -151,6 +149,10 @@ func (t *TestRelayer) Close() error { panic("implement me") }
 func (t *TestRelayer) Ready() error { panic("implement me") }
 
 func (t *TestRelayer) HealthReport() map[string]error { panic("implement me") }
+
+func (t *TestRelayer) NewContractReader(_ context.Context, _ []byte) (types.ContractReader, error) {
+	panic("implement me")
+}
 
 func (t *TestRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	panic("implement me")

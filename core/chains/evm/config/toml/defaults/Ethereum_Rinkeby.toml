@@ -4,10 +4,9 @@ MinContractPayment = '0.1 link'
 
 [GasEstimator]
 # TODO: EIP1559 on rinkeby has not been adequately tested, see:
-# https://app.shortcut.com/chainlinklabs/story/34098/kovan-can-emit-blocks-that-violate-assumptions-in-block-history-estimator
+# https://smartcontract-it.atlassian.net/browse/BCF-1420
 EIP1559DynamicFees = false
 
 [GasEstimator.BlockHistory]
-BatchSize = 25
 BlockHistorySize = 4
 TransactionPercentile = 50

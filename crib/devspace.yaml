@@ -7,6 +7,10 @@ vars:
 pipelines:
   deploy:
     flags:
+      - name: clean
+        short: c
+        type: bool
+        description: "If specified, keystone caches will be cleaned before deploying"
       - name: override-image-tag
         short: o
         type: string
@@ -18,7 +22,7 @@ pipelines:
 
       if [[ -n "${tagOverride}" ]]; then
         image=${DEVSPACE_IMAGE}:${tagOverride}
-        echo "Using user provided image: $image" 
+        echo "Using user provided image: $image"
 
         args=""
         for i in {0..5}; do
@@ -28,7 +32,7 @@ pipelines:
         create_deployments app $args
       else
         build_images --all
-        create_deployments app 
+        create_deployments app
       fi
 
       echo
@@ -39,6 +43,34 @@ pipelines:
       kubectl label namespace ${DEVSPACE_NAMESPACE} cleanup.kyverno.io/ttl=${NS_TTL} > /dev/null 2>&1 || true
       kubectl label namespace/${DEVSPACE_NAMESPACE} network=crib > /dev/null 2>&1 || true
 
+      # check if profile is keystone
+      if [[  "${DEVSPACE_PROFILE}" == "keystone" ]]; then
+        echo "Keystone profile detected, provisioning Keystone"
+        pushd ../core/scripts/keystone
+        if [ $(get_flag "clean") == "true" ]; then
+          echo "Cleaning keystone caches"
+          rm -f artefacts/deployed_contracts.json .cache/*
+        fi
+        go build -o keystone main.go
+        chainId=11155111
+        ./keystone deploy-contracts \
+          --ocrfile=ocr_config.json \
+          --chainid=$chainId \
+          --ethurl="${KEYSTONE_ETH_HTTP_URL}" \
+          --accountkey=${KEYSTONE_ACCOUNT_KEY}
+
+        ./keystone deploy-jobspecs \
+          --chainid=$chainId \
+          --p2pport=6690
+
+        ./keystone generate-crib --chainid="$chainId" --outpath="${DEVSPACE_TMPDIR}"
+        popd
+
+        create_deployments app --from-file="${DEVSPACE_TMPDIR}/crib-cluster-overrides.yaml"
+        kubectl delete pod -l "app=app" # restart pods to apply the new configuration changes
+        kubectl wait --for=condition=ready pod -l "app=app" --timeout=2m
+      fi
+
   purge:
     run: |-
       kubectl delete ns ${DEVSPACE_NAMESPACE}
@@ -46,7 +78,7 @@ pipelines:
 commands:
   ingress-hosts: |-
     kubectl get ingress -n ${DEVSPACE_NAMESPACE} \
-      -o=jsonpath="{range .items[*].spec.rules[*]}{.host}{'\n'}{end}"
+      -o=jsonpath="{range .items[*].spec.rules[*]}{'https://'}{.host}{'\n'}{end}"
   connect: |-
     sudo kubefwd svc -n $1
   ttl: |-
@@ -76,7 +108,7 @@ images:
         docker push $image
 hooks:
   - command: ./scripts/check_env_vars.sh
-    events: [ "before:deploy:app" ]
+    events: ["before:deploy:app"]
   - wait:
       running: true
       terminatedWithCode: 0

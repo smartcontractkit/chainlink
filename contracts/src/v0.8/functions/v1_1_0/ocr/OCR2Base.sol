@@ -76,6 +76,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     _;
   }
 
+  // solhint-disable-next-line gas-struct-packing
   struct SetConfigArgs {
     address[] signers;
     address[] transmitters;

@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -40,7 +41,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.solana.On("GetAll").Return([]solkey.Key{k}, nil)
 				f.Mocks.keystore.On("Solana").Return(f.Mocks.solana)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -51,7 +52,7 @@ func TestResolver_SolanaKeys(t *testing.T) {
 		{
 			name:          "generic error on GetAll",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.solana.On("GetAll").Return([]solkey.Key{}, gError)
 				f.Mocks.keystore.On("Solana").Return(f.Mocks.solana)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)

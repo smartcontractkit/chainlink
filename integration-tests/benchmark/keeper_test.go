@@ -13,20 +13,19 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
@@ -143,9 +142,11 @@ func TestAutomationBenchmark(t *testing.T) {
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
+	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
-	require.NoError(t, err, "Error connecting to blockchain")
+	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
+	require.NoError(t, err, "Error getting Seth client")
+
 	registryVersions := addRegistry(&config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
@@ -191,7 +192,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		},
 	)
 	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
+		if err = actions_seth.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
@@ -328,6 +329,10 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		numberOfNodes++
 	}
 
+	networkName := strings.ReplaceAll(testNetwork.Name, " ", "-")
+	networkName = strings.ReplaceAll(networkName, "_", "-")
+	testNetwork.Name = networkName
+
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
@@ -382,20 +387,24 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 						},
 					},
 					"geth": map[string]interface{}{
-						"blocktime": blockTime,
+						"blocktime":      blockTime,
+						"capacity":       "20Gi",
+						"startGaslimit":  "20000000",
+						"targetGasLimit": "30000000",
 					},
 				},
 			}))
 	}
 
+	// TODO we need to update the image in CTF, the old one is not available anymore
 	// deploy blockscout if running on simulated
-	if testNetwork.Simulated {
-		testEnvironment.
-			AddChart(blockscout.New(&blockscout.Props{
-				Name:    "geth-blockscout",
-				WsURL:   testNetwork.URLs[0],
-				HttpURL: testNetwork.HTTPURLs[0]}))
-	}
+	// if testNetwork.Simulated {
+	// 	testEnvironment.
+	// 		AddChart(blockscout.New(&blockscout.Props{
+	// 			Name:    "geth-blockscout",
+	// 			WsURL:   testNetwork.URLs[0],
+	// 			HttpURL: testNetwork.HTTPURLs[0]}))
+	// }
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 

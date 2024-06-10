@@ -107,7 +107,6 @@ func (js *spawner) Start(ctx context.Context) error {
 	return js.StartOnce("JobSpawner", func() error {
 		js.startAllServices(ctx)
 		return nil
-
 	})
 }
 
@@ -116,7 +115,6 @@ func (js *spawner) Close() error {
 		close(js.chStop)
 		js.stopAllServices()
 		return nil
-
 	})
 }
 

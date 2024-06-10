@@ -5,7 +5,7 @@ set -euo pipefail
 #############################
 #                __________
 #               < CRIBbit! >
-#                ----------    
+#                ----------
 #      _    _    /
 #     (o)--(o)  /
 #    /.______.\
@@ -21,14 +21,14 @@ set -euo pipefail
 
 DEVSPACE_NAMESPACE="${1:-}"
 if [[ -z "${DEVSPACE_NAMESPACE}" ]]; then
-    echo "Usage: $0 <DEVSPACE_NAMESPACE>"
-    exit 1
+  echo "Usage: $0 <DEVSPACE_NAMESPACE>"
+  exit 1
 fi
 
 # Bail if $DEVSPACE_NAMESPACE does not begin with a crib- prefix or does not have an override set.
 if [[ ! "${DEVSPACE_NAMESPACE}" =~ ^crib- ]] && [[ -z "${CRIB_IGNORE_NAMESPACE_PREFIX:-}" ]]; then
-    echo "Error: DEVSPACE_NAMESPACE must begin with 'crib-' prefix."
-    exit 1
+  echo "Error: DEVSPACE_NAMESPACE must begin with 'crib-' prefix."
+  exit 1
 fi
 
 # Path to the .env file
@@ -46,19 +46,14 @@ fi
 
 # List of required environment variables
 required_vars=(
-  "AWS_REGION"
-  # Should be the short name and not the full IAM role ARN.
-  "AWS_SSO_ROLE_NAME"
-  # The AWS SSO start URL, e.g. https://<org name>.awsapps.com/start
-  "AWS_SSO_START_URL"
   "DEVSPACE_IMAGE"
   "HOME"
 )
 
-missing_vars=0  # Counter for missing variables
+missing_vars=0 # Counter for missing variables
 
 for var in "${required_vars[@]}"; do
-  if [[ -z "${!var:-}" ]]; then  # If variable is unset or empty
+  if [[ -z "${!var:-}" ]]; then # If variable is unset or empty
     echo "Error: Environment variable ${var} is not set."
     missing_vars=$((missing_vars + 1))
   fi
@@ -81,7 +76,29 @@ aws_profile_name="staging-crib"
 if grep -q "$aws_profile_name" "$path_aws_config"; then
   echo "Info: Skip updating ${path_aws_config}. Profile already set: ${aws_profile_name}"
 else
-  cat <<EOF >> "$path_aws_config"
+  # List of required environment variables
+  required_aws_vars=(
+    "AWS_REGION"
+    # Should be the short name and not the full IAM role ARN.
+    "AWS_SSO_ROLE_NAME"
+    # The AWS SSO start URL, e.g. https://<org name>.awsapps.com/start
+    "AWS_SSO_START_URL"
+  )
+  missing_aws_vars=0 # Counter for missing variables
+  for var in "${required_aws_vars[@]}"; do
+    if [[ -z "${!var:-}" ]]; then # If variable is unset or empty
+      echo "Error: Environment variable ${var} is not set."
+      missing_aws_vars=$((missing_aws_vars + 1))
+    fi
+  done
+
+  # Exit with an error if any variables were missing
+  if [[ $missing_aws_vars -ne 0 ]]; then
+    echo "Error: Total missing environment variables: $missing_aws_vars"
+    exit 1
+  fi
+
+  cat <<EOF >>"$path_aws_config"
 [profile $aws_profile_name]
 region=${AWS_REGION}
 sso_start_url=${AWS_SSO_START_URL}
@@ -95,7 +112,7 @@ fi
 echo "Info: Setting AWS Profile env var: AWS_PROFILE=${aws_profile_name}"
 export AWS_PROFILE=${aws_profile_name}
 
-if aws sts get-caller-identity > /dev/null 2>&1; then
+if aws sts get-caller-identity >/dev/null 2>&1; then
   echo "Info: AWS credentials working."
 else
   echo "Info: AWS credentials not detected. Attempting to login through SSO."
@@ -103,7 +120,7 @@ else
 fi
 
 # Check again and fail this time if not successful
-if ! aws sts get-caller-identity > /dev/null 2>&1; then
+if ! aws sts get-caller-identity >/dev/null 2>&1; then
   echo "Error: AWS credentials still not detected. Exiting."
   exit 1
 fi
@@ -123,16 +140,16 @@ if [[ ! -f "${path_kubeconfig}" ]] || ! grep -q "name: ${eks_alias_name}" "${pat
     --alias "${eks_alias_name}" \
     --region "${AWS_REGION}"
 else
-    echo "Info: Alias '${eks_alias_name}' already exists in kubeconfig. No update needed."
-    echo "Info: Setting kubernetes context to: ${eks_alias_name}"
-    kubectl config use-context "${eks_alias_name}"
+  echo "Info: Alias '${eks_alias_name}' already exists in kubeconfig. No update needed."
+  echo "Info: Setting kubernetes context to: ${eks_alias_name}"
+  kubectl config use-context "${eks_alias_name}"
 fi
 
 ##
 # Check Docker Daemon
 ##
 
-if docker info > /dev/null 2>&1; then
+if docker info >/dev/null 2>&1; then
   echo "Info: Docker daemon is running, authorizing registry"
 else
   echo "Error: Docker daemon is not running. Exiting."
@@ -145,15 +162,15 @@ fi
 
 # Function to extract the host URI of the ECR registry from OCI URI
 extract_ecr_host_uri() {
-    local ecr_uri="$1"
-    # Regex to capture the ECR host URI
-    if [[ $ecr_uri =~ oci:\/\/([0-9]+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com) ]]; then
-        echo "${BASH_REMATCH[1]}"
-    else
-        echo "No valid ECR host URI found in the URI."
-        echo "Have you set CCIP_HELM_CHART_URI env var?"
-        exit 1
-    fi
+  local ecr_uri="$1"
+  # Regex to capture the ECR host URI
+  if [[ $ecr_uri =~ oci:\/\/([0-9]+\.dkr\.ecr\.[a-zA-Z0-9-]+\.amazonaws\.com) ]]; then
+    echo "${BASH_REMATCH[1]}"
+  else
+    echo "No valid ECR host URI found in the URI."
+    echo "Have you set CHAINLINK_CLUSTER_HELM_CHART_URI env var?"
+    exit 1
+  fi
 }
 
 # Set env var CRIB_SKIP_ECR_LOGIN=true to skip ECR login.
@@ -162,9 +179,9 @@ if [[ -n "${CRIB_SKIP_ECR_LOGIN:-}" ]]; then
 else
   echo "Info: Logging docker into AWS ECR registry."
   aws ecr get-login-password \
-    --region "${AWS_REGION}" \
-      | docker login --username AWS \
-        --password-stdin "${aws_account_id_ecr_registry}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+    --region "${AWS_REGION}" |
+    docker login --username AWS \
+      --password-stdin "${aws_account_id_ecr_registry}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
   echo "Info: Logging helm into AWS ECR registry."
   helm_registry_uri=$(extract_ecr_host_uri "${CCIP_HELM_CHART_URI}")

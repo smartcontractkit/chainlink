@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arb_node_interface"
@@ -252,7 +253,7 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 		// todo: this should not be hardcoded
 		// todo: heavy query warning
 		time.Now().Add(-DurationMonth/2),
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("get L2 -> L1 transfers from log poller (on L2): %w", err)
@@ -577,7 +578,7 @@ func (l *l2ToL1Bridge) getLatestNodeConfirmed(ctx context.Context) (*arbitrum_ro
 		ctx,
 		NodeConfirmedTopic,
 		l.rollupCore.Address(),
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get latest node confirmed: %w, topic: %s, address: %s", err, NodeConfirmedTopic, l.rollupCore.Address())

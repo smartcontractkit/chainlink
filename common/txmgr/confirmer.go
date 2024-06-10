@@ -122,19 +122,19 @@ type Confirmer[
 	lggr    logger.SugaredLogger
 	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	resumeCallback ResumeCallback
-	chainConfig    txmgrtypes.ConfirmerChainConfig
-	feeConfig      txmgrtypes.ConfirmerFeeConfig
-	txConfig       txmgrtypes.ConfirmerTransactionsConfig
-	dbConfig       txmgrtypes.ConfirmerDatabaseConfig
-	chainID        CHAIN_ID
+	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	resumeCallback  ResumeCallback
+	chainConfig     txmgrtypes.ConfirmerChainConfig
+	feeConfig       txmgrtypes.ConfirmerFeeConfig
+	txConfig        txmgrtypes.ConfirmerTransactionsConfig
+	dbConfig        txmgrtypes.ConfirmerDatabaseConfig
+	chainID         CHAIN_ID
 
 	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
 	mb        *mailbox.Mailbox[HEAD]
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	stopCh    services.StopChan
 	wg        sync.WaitGroup
 	initSync  sync.Mutex
 	isStarted bool
@@ -163,6 +163,7 @@ func NewConfirmer[
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
+	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -179,6 +180,7 @@ func NewConfirmer[
 		ks:               keystore,
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
+		stuckTxDetector:  stuckTxDetector,
 	}
 }
 
@@ -206,8 +208,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sta
 	if err != nil {
 		return fmt.Errorf("Confirmer: failed to load EnabledAddressesForChain: %w", err)
 	}
+	if err = ec.stuckTxDetector.LoadPurgeBlockNumMap(ctx, ec.enabledAddresses); err != nil {
+		ec.lggr.Debugf("Confirmer: failed to load the last purged block num for enabled addresses. Process can continue as normal but purge rate limiting may be affected.")
+	}
 
-	ec.ctx, ec.ctxCancel = context.WithCancel(context.Background())
+	ec.stopCh = make(chan struct{})
 	ec.wg = sync.WaitGroup{}
 	ec.wg.Add(1)
 	go ec.runLoop()
@@ -228,7 +233,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) clo
 	if !ec.isStarted {
 		return fmt.Errorf("Confirmer is not started: %w", services.ErrAlreadyStopped)
 	}
-	ec.ctxCancel()
+	close(ec.stopCh)
 	ec.wg.Wait()
 	ec.isStarted = false
 	return nil
@@ -248,23 +253,25 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Hea
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	defer ec.wg.Done()
+	ctx, cancel := ec.stopCh.NewCtx()
+	defer cancel()
 	for {
 		select {
 		case <-ec.mb.Notify():
 			for {
-				if ec.ctx.Err() != nil {
+				if ctx.Err() != nil {
 					return
 				}
 				head, exists := ec.mb.Retrieve()
 				if !exists {
 					break
 				}
-				if err := ec.ProcessHead(ec.ctx, head); err != nil {
+				if err := ec.ProcessHead(ctx, head); err != nil {
 					ec.lggr.Errorw("Error processing head", "err", err)
 					continue
 				}
 			}
-		case <-ec.ctx.Done():
+		case <-ctx.Done():
 			return
 		}
 	}
@@ -295,6 +302,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 	}
 
 	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
+	mark = time.Now()
+
+	if err := ec.ProcessStuckTransactions(ctx, head.BlockNumber()); err != nil {
+		return fmt.Errorf("ProcessStuckTransactions failed: %w", err)
+	}
+
+	ec.lggr.Debugw("Finished ProcessStuckTransactions", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
@@ -435,6 +449,57 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	return nil
 }
 
+// Determines if any of the unconfirmed transactions are terminally stuck for each enabled address
+// If any transaction is found to be terminally stuck, this method sends an empty attempt with bumped gas in an attempt to purge the stuck transaction
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessStuckTransactions(ctx context.Context, blockNum int64) error {
+	// Use the detector to find a stuck tx for each enabled address
+	stuckTxs, err := ec.stuckTxDetector.DetectStuckTransactions(ctx, ec.enabledAddresses, blockNum)
+	if err != nil {
+		return fmt.Errorf("failed to detect stuck transactions: %w", err)
+	}
+	if len(stuckTxs) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(stuckTxs))
+	errorList := []error{}
+	var errMu sync.Mutex
+	for _, tx := range stuckTxs {
+		// All stuck transactions will have unique from addresses. It is safe to process separate keys concurrently
+		// NOTE: This design will block one key if another takes a really long time to execute
+		go func(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+			defer wg.Done()
+			lggr := tx.GetLogger(ec.lggr)
+			// Create an purge attempt for tx
+			purgeAttempt, err := ec.TxAttemptBuilder.NewPurgeTxAttempt(ctx, tx, lggr)
+			if err != nil {
+				errMu.Lock()
+				errorList = append(errorList, fmt.Errorf("failed to create a purge attempt: %w", err))
+				errMu.Unlock()
+				return
+			}
+			// Save purge attempt
+			if err := ec.txStore.SaveInProgressAttempt(ctx, &purgeAttempt); err != nil {
+				errMu.Lock()
+				errorList = append(errorList, fmt.Errorf("failed to save purge attempt: %w", err))
+				errMu.Unlock()
+				return
+			}
+			lggr.Warnw("marked transaction as terminally stuck", "etx", tx)
+			// Send purge attempt
+			if err := ec.handleInProgressAttempt(ctx, lggr, tx, purgeAttempt, blockNum); err != nil {
+				errMu.Lock()
+				errorList = append(errorList, fmt.Errorf("failed to send purge attempt: %w", err))
+				errMu.Unlock()
+				return
+			}
+		}(tx)
+	}
+	wg.Wait()
+	return errors.Join(errorList...)
+}
+
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateLikelyConfirmedAttempts(from ADDR, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], minedSequence SEQ) []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	if len(attempts) == 0 {
 		return attempts
@@ -485,7 +550,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 			j = len(attempts)
 		}
 
-		ec.lggr.Debugw(fmt.Sprintf("Batch fetching receipts at indexes %v until (excluded) %v", i, j), "blockNum", blockNum)
+		ec.lggr.Debugw(fmt.Sprintf("Batch fetching receipts at indexes %d until (excluded) %d", i, j), "blockNum", blockNum)
 
 		batch := attempts[i:j]
 
@@ -493,7 +558,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 		if err != nil {
 			return fmt.Errorf("batchFetchReceipts failed: %w", err)
 		}
-		if err := ec.txStore.SaveFetchedReceipts(ctx, receipts, ec.chainID); err != nil {
+		validReceipts, purgeReceipts := ec.separateValidAndPurgeAttemptReceipts(receipts, batch)
+		// Saves the receipts and mark the associated transactions as Confirmed
+		if err := ec.txStore.SaveFetchedReceipts(ctx, validReceipts, TxConfirmed, nil, ec.chainID); err != nil {
+			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
+		}
+		// Save the receipts but mark the associated transactions as Fatal Error since the original transaction was purged
+		if err := ec.txStore.SaveFetchedReceipts(ctx, purgeReceipts, TxFatalError, ec.stuckTxDetector.StuckTxFatalError(), ec.chainID); err != nil {
 			return fmt.Errorf("saveFetchedReceipts failed: %w", err)
 		}
 		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
@@ -504,6 +575,25 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) fet
 	observeUntilTxConfirmed(ec.chainID, attempts, allReceipts)
 
 	return nil
+}
+
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) separateValidAndPurgeAttemptReceipts(receipts []R, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (valid []R, purge []R) {
+	receiptMap := make(map[TX_HASH]R)
+	for _, receipt := range receipts {
+		receiptMap[receipt.GetTxHash()] = receipt
+	}
+	for _, attempt := range attempts {
+		if receipt, ok := receiptMap[attempt.Hash]; ok {
+			if attempt.IsPurgeAttempt {
+				// Setting the purged block num here is ok since we have confirmation the tx has been purged with the receipt
+				ec.stuckTxDetector.SetPurgeBlockNum(attempt.Tx.FromAddress, receipt.GetBlockNumber().Int64())
+				purge = append(purge, receipt)
+			} else {
+				valid = append(valid, receipt)
+			}
+		}
+	}
+	return
 }
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) getMinedSequenceForAddress(ctx context.Context, from ADDR) (SEQ, error) {
@@ -699,7 +789,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Fin
 		lggr.Infow(fmt.Sprintf("Found %d transactions to be re-sent that were previously rejected due to insufficient native token balance", len(etxInsufficientFunds)), "blockNum", blockNum, "address", address)
 	}
 
-	// TODO: Just pass the Q through everything
 	etxBumps, err := ec.txStore.FindTxsRequiringGasBump(ctx, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
 	if ctx.Err() != nil {
 		return nil, nil
@@ -814,7 +903,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.SugaredLogger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
-
 		return fmt.Errorf("invariant violation: expected tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
@@ -941,7 +1029,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 
 	for _, etx := range etxs {
 		if !hasReceiptInLongestChain(*etx, head) {
-			if err := ec.markForRebroadcast(*etx, head); err != nil {
+			if err := ec.markForRebroadcast(ctx, *etx, head); err != nil {
 				return fmt.Errorf("markForRebroadcast failed for etx %v: %w", etx.ID, err)
 			}
 		}
@@ -993,7 +1081,7 @@ func hasReceiptInLongestChain[
 	}
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
 		return fmt.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
 	}
@@ -1028,7 +1116,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 	ec.lggr.Infow(fmt.Sprintf("Re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.String()), logValues...)
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	if err := ec.txStore.UpdateTxForRebroadcast(ec.ctx, etx, attempt); err != nil {
+	if err := ec.txStore.UpdateTxForRebroadcast(ctx, etx, attempt); err != nil {
 		return fmt.Errorf("markForRebroadcast failed: %w", err)
 	}
 
@@ -1049,7 +1137,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 	ec.lggr.Infof("ForceRebroadcast: will rebroadcast transactions for all sequences between %v and %v", seqs[0], seqs[len(seqs)-1])
 
 	for _, seq := range seqs {
-
 		etx, err := ec.txStore.FindTxWithSequence(ctx, address, seq)
 		if err != nil {
 			return fmt.Errorf("ForceRebroadcast failed: %w", err)
@@ -1098,7 +1185,6 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) sen
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ResumePendingTaskRuns(ctx context.Context, head types.Head[BLOCK_HASH]) error {
-
 	receiptsPlus, err := ec.txStore.FindTxesPendingCallback(ctx, head.BlockNumber(), ec.chainID)
 
 	if err != nil {

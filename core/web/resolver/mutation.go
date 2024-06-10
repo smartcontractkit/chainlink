@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -156,6 +157,7 @@ type createFeedsManagerChainConfigInput struct {
 	ChainID              string
 	ChainType            string
 	AccountAddr          string
+	AccountAddrPubKey    *string
 	AdminAddr            string
 	FluxMonitorEnabled   bool
 	OCR1Enabled          bool
@@ -200,6 +202,10 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		FluxMonitorConfig: feeds.FluxMonitorConfig{
 			Enabled: args.Input.FluxMonitorEnabled,
 		},
+	}
+
+	if args.Input.AccountAddrPubKey != nil {
+		params.AccountAddressPublicKey = null.StringFromPtr(args.Input.AccountAddrPubKey)
 	}
 
 	if args.Input.OCR1Enabled {
@@ -291,6 +297,7 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 
 type updateFeedsManagerChainConfigInput struct {
 	AccountAddr          string
+	AccountAddrPubKey    *string
 	AdminAddr            string
 	FluxMonitorEnabled   bool
 	OCR1Enabled          bool
@@ -329,6 +336,10 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		FluxMonitorConfig: feeds.FluxMonitorConfig{
 			Enabled: args.Input.FluxMonitorEnabled,
 		},
+	}
+
+	if args.Input.AccountAddrPubKey != nil {
+		params.AccountAddressPublicKey = null.StringFromPtr(args.Input.AccountAddrPubKey)
 	}
 
 	if args.Input.OCR1Enabled {
@@ -1050,6 +1061,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	case job.Workflow:
 		jb, err = workflows.ValidatedWorkflowSpec(args.Input.TOML)
+	case job.StandardCapabilities:
+		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

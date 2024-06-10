@@ -279,6 +279,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -310,6 +313,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -370,6 +375,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -401,6 +409,8 @@ TransactionPercentile = 50
 HistoryDepth = 100
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -455,6 +465,9 @@ ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
 ResendAfterThreshold = '1m0s'
 
+[EVM.Transactions.AutoPurge]
+Enabled = false
+
 [EVM.BalanceMonitor]
 Enabled = true
 
@@ -486,6 +499,8 @@ TransactionPercentile = 60
 HistoryDepth = 2000
 MaxBufferSize = 3
 SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = true
 
 [EVM.NodePool]
 PollFailureThreshold = 5
@@ -565,6 +580,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
+BlockHistoryPollPeriod = '5s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -587,6 +603,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
+BlockHistoryPollPeriod = '5s'
 
 [[Solana.Nodes]]
 Name = 'secondary'

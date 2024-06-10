@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -90,7 +90,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID(), l1Oracle)
+			return NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, ethClient.ConfiguredChainID(), l1Oracle)
 		}
 	case "FixedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -339,7 +339,7 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 //
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
-	ChainType() config.ChainType
+	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 }
