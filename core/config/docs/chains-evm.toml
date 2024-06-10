@@ -88,6 +88,9 @@ RPCBlockQueryDelay = 1 # Default
 # FinalizedBlockOffset defines the number of blocks by which the latest finalized block will be shifted. E.g if RPC returns block 100 as latest finalized, node will treat block `100 - FinalizedBlockOffset` as the latest finalized block.
 # In case of `FinalityTagEnabled = false` Node will treat block `latest - FinalityDepth - FinalizedBlockOffset` as the latest finalized block.
 # With `EnforceRepeatableRead = true`, RPC is considered healthy only if its most recent finalized block is larger or equal to the highest finalized block observed by the Node minus `FinalizedBlockOffset`.
+# CAUTION: Setting this to values higher than 0 increases the number of RPCs considered healthy but can delay transaction production.
+# PoS chains with FinalityTags enabled (e.g., Ethereum Mainnet) must be handled with special care, as blocks are finalized in batches (epochs).
+# Thus, the `FinalizedBlockOffset=1` configuration will result in larger delays (e.g., 32 blocks for Ethereum Mainnet).
 FinalizedBlockOffset = 0 # Default
 
 [EVM.Transactions]
@@ -378,6 +381,11 @@ FinalizedBlockPollInterval = '5s' # Default
 #
 # Set false to disable
 EnforceRepeatableRead = false # Default
+# DeathDeclarationDelay defines the minimum duration an RPC must be in unhealthy state before producing an error log message.
+# Larger values might be helpful to reduce the noisiness of health checks like `EnforceRepeatableRead = true', which might be falsely
+# trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
+# RPC will not be picked to handle a request even if this option is set to a nonzero value.
+DeathDeclarationDelay = '10s' # Default
 
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.

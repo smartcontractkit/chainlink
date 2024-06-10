@@ -172,6 +172,7 @@ type NodePool interface {
 	FinalizedBlockPollInterval() time.Duration
 	Errors() ClientErrors
 	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?

@@ -44,6 +44,7 @@ type NodeConfig interface {
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
 	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 type ChainConfig interface {

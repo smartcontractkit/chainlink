@@ -138,6 +138,7 @@ func NewMultiNode[
 	chainFamily string,
 	classifySendTxError func(tx TX, err error) SendTxReturnCode,
 	sendTxSoftTimeout time.Duration,
+	deathDeclarationDelay time.Duration,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
@@ -159,7 +160,7 @@ func NewMultiNode[
 		chainFamily:           chainFamily,
 		classifySendTxError:   classifySendTxError,
 		reportInterval:        reportInterval,
-		deathDeclarationDelay: reportInterval,
+		deathDeclarationDelay: deathDeclarationDelay,
 		sendTxSoftTimeout:     sendTxSoftTimeout,
 	}
 

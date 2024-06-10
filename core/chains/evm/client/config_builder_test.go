@@ -25,6 +25,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	chainTypeStr := ""
 	finalizedBlockOffset := ptr[uint32](16)
 	enforceRepeatableRead := ptr(true)
+	deathDeclarationDelay := time.Second * 3
 	nodeConfigs := []client.NodeConfig{
 		{
 			Name:    ptr("foo"),
@@ -37,7 +38,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	noNewHeadsThreshold := time.Second
 	chainCfg, nodePool, nodes, err := client.NewClientConfigs(selectionMode, leaseDuration, chainTypeStr, nodeConfigs,
 		pollFailureThreshold, pollInterval, syncThreshold, nodeIsSyncingEnabled, noNewHeadsThreshold, finalityDepth,
-		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead)
+		finalityTagEnabled, finalizedBlockOffset, enforceRepeatableRead, deathDeclarationDelay)
 	require.NoError(t, err)
 
 	// Validate node pool configs
@@ -48,6 +49,7 @@ func TestClientConfigBuilder(t *testing.T) {
 	require.Equal(t, *syncThreshold, nodePool.SyncThreshold())
 	require.Equal(t, *nodeIsSyncingEnabled, nodePool.NodeIsSyncingEnabled())
 	require.Equal(t, *enforceRepeatableRead, nodePool.EnforceRepeatableRead())
+	require.Equal(t, deathDeclarationDelay, nodePool.DeathDeclarationDelay())
 
 	// Validate node configs
 	require.Equal(t, *nodeConfigs[0].Name, *nodes[0].Name)

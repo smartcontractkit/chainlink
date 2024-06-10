@@ -132,6 +132,7 @@ func NewChainClient(
 	chainID *big.Int,
 	chainType chaintype.ChainType,
 	clientErrors evmconfig.ClientErrors,
+	deathDeclarationDelay time.Duration,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -146,6 +147,7 @@ func NewChainClient(
 			return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
+		deathDeclarationDelay,
 	)
 	return &chainClient{
 		multiNode:    multiNode,

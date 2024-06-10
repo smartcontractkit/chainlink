@@ -40,6 +40,7 @@ func NewClientConfigs(
 	finalityTagEnabled *bool,
 	finalityBlockOffset *uint32,
 	enforceRepeatableRead *bool,
+	deathDeclarationDelay time.Duration,
 
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
@@ -54,6 +55,7 @@ func NewClientConfigs(
 		SyncThreshold:         syncThreshold,
 		NodeIsSyncingEnabled:  nodeIsSyncingEnabled,
 		EnforceRepeatableRead: enforceRepeatableRead,
+		DeathDeclarationDelay: commonconfig.MustNewDuration(deathDeclarationDelay),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{
