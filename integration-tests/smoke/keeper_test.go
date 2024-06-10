@@ -1169,7 +1169,7 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
-		WithFunding(big.NewFloat(.5)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")

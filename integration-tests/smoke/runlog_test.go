@@ -39,7 +39,7 @@ func TestRunLogBasic(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()

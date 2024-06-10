@@ -194,7 +194,7 @@ func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestE
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()

@@ -146,7 +146,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 			node.WithTracing(),
 		)).
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()
