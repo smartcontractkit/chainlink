@@ -242,6 +242,9 @@ TipCapDefault = '1 wei' # Default
 # (Only applies to EIP-1559 transactions)
 TipCapMin = '1 wei' # Default
 
+# CostMax is the maximum gas cost allowed for a single Tx. O means that there is no limit.
+CostMax = '0 wei' # Default
+
 [EVM.GasEstimator.LimitJobType]
 # OCR overrides LimitDefault for OCR jobs.
 OCR = 100_000 # Example

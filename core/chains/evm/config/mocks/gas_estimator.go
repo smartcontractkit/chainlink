@@ -110,6 +110,26 @@ func (_m *GasEstimator) BumpTxDepth() uint32 {
 	return r0
 }
 
+// CostMax provides a mock function with given fields:
+func (_m *GasEstimator) CostMax() *assets.Wei {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for CostMax")
+	}
+
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func() *assets.Wei); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Wei)
+		}
+	}
+
+	return r0
+}
+
 // EIP1559DynamicFees provides a mock function with given fields:
 func (_m *GasEstimator) EIP1559DynamicFees() bool {
 	ret := _m.Called()

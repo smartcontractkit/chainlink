@@ -59,6 +59,10 @@ func (g *gasEstimatorConfig) BumpMin() *assets.Wei {
 	return g.c.BumpMin
 }
 
+func (g *gasEstimatorConfig) CostMax() *assets.Wei {
+	return g.c.CostMax
+}
+
 func (g *gasEstimatorConfig) FeeCapDefault() *assets.Wei {
 	return g.c.FeeCapDefault
 }

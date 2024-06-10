@@ -171,6 +171,33 @@ func (fee EvmFee) ValidDynamic() bool {
 	return fee.DynamicFeeCap != nil && fee.DynamicTipCap != nil
 }
 
+// Helper function to get the minimum of two values
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Utility function to calculate the highest gas price or fee for a given limit
+func getHighestPrice(maxGasCost, gasLimit uint64) uint64 {
+	return maxGasCost / gasLimit
+}
+
+// For legacy transactions
+func getLegacyGasPrice(calculatedGasPrice, maxGasCost, calculatedGasLimit uint64) *assets.Wei {
+	highestPrice := getHighestPrice(maxGasCost, calculatedGasLimit)
+	return assets.NewWei(new(big.Int).SetUint64(min(highestPrice, calculatedGasPrice)))
+}
+
+// For dynamic transactions
+func getDynamicFees(maxGasCost, calculatedGasLimit, estimatedMaxFeePerGas, estimatedMaxPriorityFeePerGas uint64) (*assets.Wei, *assets.Wei) {
+	highestPrice := getHighestPrice(maxGasCost, calculatedGasLimit)
+	maxFeePerGas := min(highestPrice, estimatedMaxFeePerGas)
+	maxPriorityFeePerGas := min(maxFeePerGas, estimatedMaxPriorityFeePerGas)
+	return assets.NewWei(new(big.Int).SetUint64(maxFeePerGas)), assets.NewWei(new(big.Int).SetUint64(maxPriorityFeePerGas))
+}
+
 // evmFeeEstimator provides a struct that wraps the EVM specific dynamic and legacy estimators into one estimator that conforms to the generic FeeEstimator
 type evmFeeEstimator struct {
 	services.StateMachine
@@ -269,16 +296,21 @@ func (e *evmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit 
 		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
+		if e.geCfg.CostMax() != nil {
+			fee.DynamicFeeCap, fee.DynamicTipCap = getDynamicFees(e.geCfg.CostMax().ToInt().Uint64(), dynamicFee.FeeCap.ToInt().Uint64(), chainSpecificFeeLimit, dynamicFee.TipCap.ToInt().Uint64())
+		}
 		return
 	}
-
 	// get legacy fee
 	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	if err != nil {
 		return
 	}
-	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
 
+	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
+	if e.geCfg.CostMax() != nil {
+		fee.Legacy = getLegacyGasPrice(fee.Legacy.ToInt().Uint64(), e.geCfg.CostMax().ToInt().Uint64(), chainSpecificFeeLimit)
+	}
 	return
 }
 
@@ -322,6 +354,9 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 		chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(feeLimit, e.geCfg.LimitMultiplier())
 		bumpedFee.DynamicFeeCap = bumpedDynamic.FeeCap
 		bumpedFee.DynamicTipCap = bumpedDynamic.TipCap
+		if e.geCfg.CostMax() != nil {
+			bumpedFee.DynamicFeeCap, bumpedFee.DynamicTipCap = getDynamicFees(e.geCfg.CostMax().ToInt().Uint64(), bumpedDynamic.FeeCap.ToInt().Uint64(), chainSpecificFeeLimit, bumpedDynamic.TipCap.ToInt().Uint64())
+		}
 		return
 	}
 
@@ -331,6 +366,9 @@ func (e *evmFeeEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLi
 		return
 	}
 	chainSpecificFeeLimit, err = commonfee.ApplyMultiplier(chainSpecificFeeLimit, e.geCfg.LimitMultiplier())
+	if e.geCfg.CostMax() != nil {
+		bumpedFee.Legacy = getLegacyGasPrice(bumpedFee.Legacy.ToInt().Uint64(), e.geCfg.CostMax().ToInt().Uint64(), chainSpecificFeeLimit)
+	}
 	return
 }
 
@@ -348,6 +386,7 @@ type GasEstimatorConfig interface {
 	BumpPercent() uint16
 	BumpThreshold() uint64
 	BumpMin() *assets.Wei
+	CostMax() *assets.Wei
 	FeeCapDefault() *assets.Wei
 	LimitMax() uint64
 	LimitMultiplier() float32
