@@ -62,7 +62,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = INVALID_P2P_ID;
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, INVALID_P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeDoesNotExist.selector, INVALID_P2P_ID));
     s_capabilityRegistry.removeNodes(nodes);
   }
 
@@ -71,7 +71,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     bytes32[] memory nodes = new bytes32[](1);
     nodes[0] = bytes32("");
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes32("")));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeDoesNotExist.selector, bytes32("")));
     s_capabilityRegistry.removeNodes(nodes);
   }
 
