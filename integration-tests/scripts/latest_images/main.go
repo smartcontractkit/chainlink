@@ -141,7 +141,7 @@ func validateInputs() error {
 		return fmt.Errorf("error: count must be an integer, but %s is not an integer", os.Args[3])
 	}
 
-	if os.Args[4] != "" {
+	if len(os.Args) == 5 && os.Args[4] != "" {
 		for _, ignoredTag := range strings.Split(os.Args[4], ",") {
 			if ignoredTag == "" {
 				return errors.New("error: ignored tag cannot be empty")
