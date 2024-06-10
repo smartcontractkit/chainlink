@@ -1,0 +1,27 @@
+ChainID = '296'
+#considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
+#we set the depth to 6/2 = 3 blocks
+FinalityDepth = 3
+#Hedera has high TPS, so polling less often 
+LogPollInterval = '20s'
+MinIncomingConfirmations = 1
+#turning off the liveness detection, since the Websocket connection is not reliable, can be turned on if needed
+NoNewHeadsThreshold = '0'
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+# since Hedera dont have mempool and there's no way for a node to front run or a user to bribe a node to submit the transaction earlier than it's consensus timestamp
+# but they have automated congesting pricing throttling which would mean at high sustained level the gasPrice itself could be increased to prevent malicious behaviour.
+# so wait for 3 blocks before bumping the gas price, the increased gas Price could be adjusted
+BumpThreshold = 3
+BumpMin = '10 gwei'
+BumpPercent = 20
+
+[Transactions]
+# to hit throttling you'd need to maintain 15 m gas /sec over a prolonged period of time.
+# Because our block times are every 2 secs it's less less likely to happen as compared to other chains
+# so setting a gap of 5 blocks to prevent sending transaction during throttling
+ResendAfterThreshold = '10s'
