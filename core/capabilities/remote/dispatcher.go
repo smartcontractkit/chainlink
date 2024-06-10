@@ -42,6 +42,7 @@ var _ services.Service = &dispatcher{}
 
 const supportedVersion = 1
 
+// RANDOM COMMENT TO TRIGGER A BUILD
 func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) *dispatcher {
 	return &dispatcher{
 		peerWrapper: peerWrapper,
