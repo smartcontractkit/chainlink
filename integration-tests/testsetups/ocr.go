@@ -204,18 +204,18 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 			o.rpcNetwork.URLs = []string{anvilChart.ForwardedWSURL}
 		}
 	} else if o.rpcNetwork.Simulated && o.rpcNetwork.Name == blockchain.SimulatedEVMNetwork.Name {
-		o.rpcNetwork.URLs = blockchain.SimulatedEVMNetwork.URLs
-		// if testEnv.Cfg.InsideK8s {
-		// 	// Test is running inside K8s
-		// } else {
-		// 	// Test is running locally, set forwarded URL of Geth blockchain node
-		// 	wsURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal"]
-		// 	httpURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal_http"]
-		// 	require.NotEmpty(o.t, wsURLs, "Forwarded Geth URLs should not be empty")
-		// 	require.NotEmpty(o.t, httpURLs, "Forwarded Geth URLs should not be empty")
-		// 	o.rpcNetwork.URLs = wsURLs
-		// 	o.rpcNetwork.HTTPURLs = httpURLs
-		// }
+		if testEnv.Cfg.InsideK8s {
+			// Test is running inside K8s
+			o.rpcNetwork.URLs = blockchain.SimulatedEVMNetwork.URLs
+		} else {
+			// Test is running locally, set forwarded URL of Geth blockchain node
+			wsURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal"]
+			httpURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal_http"]
+			require.NotEmpty(o.t, wsURLs, "Forwarded Geth URLs should not be empty")
+			require.NotEmpty(o.t, httpURLs, "Forwarded Geth URLs should not be empty")
+			o.rpcNetwork.URLs = wsURLs
+			o.rpcNetwork.HTTPURLs = httpURLs
+		}
 	}
 }
 
