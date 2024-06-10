@@ -464,10 +464,10 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, prepare-compatibility-matrix,should-run]
+    needs: [build-chainlink, prepare-compatibility-matrix, should-run, select-versions]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_COMMIT_SHA: ${{ needs.select-versions.outputs.chainlink_version }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
     strategy:
@@ -480,7 +480,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           repository: smartcontractkit/chainlink
-          ref: ${{ github.sha }}
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@main
         with:
@@ -497,7 +497,7 @@ jobs:
           testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
           selectedNetworks: ${{ env.SELECTED_NETWORKS }}
           chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ github.sha }}
+          chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
           lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           lokiBasicAuth:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -538,7 +538,7 @@ jobs:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
+          cl_image_tag: ${{ needs.select-versions.outputs.chainlink_version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ env.TEST_LOG_NAME }}
           artifacts_location: |
