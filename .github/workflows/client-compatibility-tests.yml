@@ -14,16 +14,19 @@ on:
         required: true
         type: string
       evmImplementations:
-        description: comma separated list of EVM implementations to test
+        description: comma separated list of EVM implementations to test (ignored if base64TestList is used)
         required: true
         type: string
         default: "geth,besu,nethermind,erigon"
       latestVersionsNumber:
-        description: how many of latest images to fetch from the ECR
+        description: how many of latest images of EVM implementations to test with (ignored if base64TestList is used)
         required: true
         type: number
         default: 3
-
+      base64TestList:
+        description: base64 encoded list of tests to run (same as base64-ed output of .integration-tests/scripts/buildEvmClientTestMatrixList.sh)
+        required: false
+        type: string
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -399,23 +402,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
+      BASE64_TEST_LIST: ${{ github.event.inputs.base64TestList }}
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-#      - name: Decode Base64 Test List Input if Set
-#        id: decode-base64-test-list
-#        if: env.BASE64_TEST_LIST != ''
-#        run: |
-#          echo "Decoding base64 test list..."
-#          DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
-#          echo $DECODED_BASE64_TEST_LIST
-#          cd ./integration-tests
-#          echo $DECODED_BASE64_TEST_LIST >> ./evm_node_compatibility_test_list.json
+      - name: Decode Base64 Test List Input if Set
+        if: env.BASE64_TEST_LIST != ''
+        run: |
+          echo "Decoding base64 tests list from the input"
+          DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
+          echo "Decoded input:\n$DECODED_BASE64_TEST_LIST"
+          cd ./integration-tests
+          echo $DECODED_BASE64_TEST_LIST >> ./compatibility_test_list.json
       - name: Prepare matrix input
-#        id: decode-base64-test-list
-#        if: env.BASE64_TEST_LIST != ''
+        if: env.BASE64_TEST_LIST == ''
         run: |
           echo "Preparing matrix input"
           cd ./integration-tests/scripts/compatibility
@@ -478,9 +480,12 @@ jobs:
             echo "Will not test compatibility with nethermind"
           fi          
                     
-          cat compatibility_test_list.json
           cp compatibility_test_list.json ../../.
-      - name: Create Test Matrix
+      - name: Print matrix
+        run: |
+          echo "Input Matrix:"
+          cat ./integration-tests/compatibility_test_list.json
+      - name: Create Final Test Matrix
         id: create-test-matrix-list
         run: |
           cd ./integration-tests
