@@ -79,7 +79,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 	for contractName, chainContractReader := range chainContractReaders {
 		contractAbi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse abi for contract: %s, err: %w", contractName, err)
 		}
 
 		var eventSigsForContractFilter evmtypes.HashArray

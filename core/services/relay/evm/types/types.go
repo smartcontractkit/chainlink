@@ -56,7 +56,7 @@ type CodecConfig struct {
 
 type ChainCodecConfig struct {
 	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
-	ModifierConfigs codec.ModifiersConfig `toml:"modifierConfigs,omitempty"`
+	ModifierConfigs codec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
 }
 
 type ContractPollingFilter struct {

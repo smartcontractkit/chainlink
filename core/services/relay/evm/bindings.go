@@ -12,6 +12,7 @@ import (
 type bindings map[string]*contractBinding
 
 func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
+	// GetReadBindings should only be called after Chain Reader init.
 	cb, cbExists := b[contractName]
 	if !cbExists {
 		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
@@ -25,6 +26,7 @@ func (b bindings) GetReadBinding(contractName, readName string) (readBinding, er
 }
 
 func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) {
+	// Adding read bindings outside of Chain Reader init is not thread safe.
 	cb, cbExists := b[contractName]
 	if !cbExists {
 		cb = &contractBinding{
