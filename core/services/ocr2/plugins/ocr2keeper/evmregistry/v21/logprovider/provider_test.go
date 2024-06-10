@@ -1984,11 +1984,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 1000, countLogs(bufV1.queues["5"].logs))
 
 		for i := 0; i < 100; i++ {
-			payloads, err := provider.GetLatestPayloads(ctx)
+			latestPayloads, err := provider.GetLatestPayloads(ctx)
 			assert.NoError(t, err)
 
 			// we dequeue a maximum of 10 logs
-			assert.Equal(t, 10, len(payloads))
+			assert.Equal(t, 10, len(latestPayloads))
 		}
 
 		// the dequeue is evenly distributed across the 5 upkeeps
