@@ -206,25 +206,26 @@ func (_CapabilityRegistry *CapabilityRegistryTransactorRaw) Transact(opts *bind.
 	return _CapabilityRegistry.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_CapabilityRegistry *CapabilityRegistryCaller) GetCapabilities(opts *bind.CallOpts) ([]CapabilityRegistryCapability, error) {
+func (_CapabilityRegistry *CapabilityRegistryCaller) GetCapabilities(opts *bind.CallOpts) ([][32]byte, []CapabilityRegistryCapability, error) {
 	var out []interface{}
 	err := _CapabilityRegistry.contract.Call(opts, &out, "getCapabilities")
 
 	if err != nil {
-		return *new([]CapabilityRegistryCapability), err
+		return *new([][32]byte), *new([]CapabilityRegistryCapability), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new([]CapabilityRegistryCapability)).(*[]CapabilityRegistryCapability)
+	out0 := *abi.ConvertType(out[0], new([][32]byte)).(*[][32]byte)
+	out1 := *abi.ConvertType(out[1], new([]CapabilityRegistryCapability)).(*[]CapabilityRegistryCapability)
 
-	return out0, err
+	return out0, out1, err
 
 }
 
-func (_CapabilityRegistry *CapabilityRegistrySession) GetCapabilities() ([]CapabilityRegistryCapability, error) {
+func (_CapabilityRegistry *CapabilityRegistrySession) GetCapabilities() ([][32]byte, []CapabilityRegistryCapability, error) {
 	return _CapabilityRegistry.Contract.GetCapabilities(&_CapabilityRegistry.CallOpts)
 }
 
-func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetCapabilities() ([]CapabilityRegistryCapability, error) {
+func (_CapabilityRegistry *CapabilityRegistryCallerSession) GetCapabilities() ([][32]byte, []CapabilityRegistryCapability, error) {
 	return _CapabilityRegistry.Contract.GetCapabilities(&_CapabilityRegistry.CallOpts)
 }
 
@@ -2162,7 +2163,7 @@ func (_CapabilityRegistry *CapabilityRegistry) Address() common.Address {
 }
 
 type CapabilityRegistryInterface interface {
-	GetCapabilities(opts *bind.CallOpts) ([]CapabilityRegistryCapability, error)
+	GetCapabilities(opts *bind.CallOpts) ([][32]byte, []CapabilityRegistryCapability, error)
 
 	GetCapability(opts *bind.CallOpts, hashedId [32]byte) (CapabilityRegistryCapability, error)
 
