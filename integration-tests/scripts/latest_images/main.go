@@ -15,14 +15,12 @@ import (
 )
 
 func getLatestImages(repositoryName, grepString string, count int, ignoredTags string) (string, error) {
-	// Run the AWS CLI command to get the image details
 	cmd := exec.Command("aws", "ecr", "describe-images", "--repository-name", repositoryName, "--region", os.Getenv("AWS_REGION"), "--output", "json", "--query", "imageDetails[?imageTags!=`null` && imageTags!=`[]`]")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to describe images: %w", err)
 	}
 
-	// Parse the JSON output using gojq
 	var imageDetails []interface{}
 	if err := json.Unmarshal(output, &imageDetails); err != nil {
 		return "", fmt.Errorf("failed to unmarshal JSON: %w", err)
@@ -47,44 +45,36 @@ func getLatestImages(repositoryName, grepString string, count int, ignoredTags s
 		}
 	}
 
-	// Sort tags in reverse order
 	sort.Sort(sort.Reverse(sort.StringSlice(tags)))
 
-	// Filter tags based on the regex
 	re, err := regexp.Compile(grepString)
 	if err != nil {
 		return "", fmt.Errorf("failed to compile regex: %w", err)
 	}
 
-	var filteredTags []string
+	ignoredTagsArray := strings.Split(ignoredTags, ",")
+
+	var imagesArr []string
 	for _, tag := range tags {
 		if re.MatchString(tag) {
-			filteredTags = append(filteredTags, tag)
+			ignore := false
+			for _, ignoredTag := range ignoredTagsArray {
+				if tag == ignoredTag {
+					ignore = true
+					break
+				}
+			}
+			if !ignore {
+				imagesArr = append(imagesArr, fmt.Sprintf("%s:%s", repositoryName, tag))
+			}
 		}
-		if len(filteredTags) == count {
+		if len(imagesArr) == count {
 			break
 		}
 	}
 
-	if len(filteredTags) < count {
-		return "", fmt.Errorf("failed to get %d latest tags for %s", count, repositoryName)
-	}
-
-	// Parse ignored tags
-	ignoredTagsArray := strings.Split(ignoredTags, ",")
-
-	var imagesArr []string
-	for _, tag := range filteredTags {
-		ignore := false
-		for _, ignoredTag := range ignoredTagsArray {
-			if tag == ignoredTag {
-				ignore = true
-				break
-			}
-		}
-		if !ignore {
-			imagesArr = append(imagesArr, fmt.Sprintf("%s:%s", repositoryName, tag))
-		}
+	if len(imagesArr) < count {
+		return "", fmt.Errorf("failed to get %d latest tags for %s. found only %d", count, repositoryName, len(imagesArr))
 	}
 
 	images := strings.Join(imagesArr, ",")
@@ -92,7 +82,6 @@ func getLatestImages(repositoryName, grepString string, count int, ignoredTags s
 }
 
 func main() {
-	// Read command line arguments
 	if len(os.Args) < 4 {
 		log.Fatalf("Usage: %s <repository_name> <grep_string> <count> <ignored_tags>", os.Args[0])
 	}

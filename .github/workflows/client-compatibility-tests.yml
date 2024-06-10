@@ -322,27 +322,36 @@ jobs:
         if: ${{ github.event.inputs.base64TestList == '' }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
         run: |
           cd ./integration-tests/scripts/latest_images
           go mod tidy
-                    
-          geth_images=$(go run main.go 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
-          echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
-          echo "Geth latest images: $geth_images"
           
-          nethermind_images=$(go run main.go 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
-          echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
-          echo "Nethermind latest images: $nethermind_images"
+          if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
+            geth_images=$(go run main.go 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
+            echo "Geth latest images: $geth_images"
+          fi
           
-          # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
-          besu_images=$(go run main.go 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} "24.3.3")
-          echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
-          echo "Besu latest images: $besu_images"
+          if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
+            nethermind_images=$(go run main.go 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+            echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
+            echo "Nethermind latest images: $nethermind_images"
+          fi
           
-          # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
-          erigon_images=$(go run main.go 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "v2.60.0,v2.60.1")
-          echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
-          echo "Erigon latest images: $erigon_images" 
+          if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
+            # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
+            besu_images=$(go run main.go 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} "24.3.3")
+            echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
+            echo "Besu latest images: $besu_images"
+          fi
+          
+          if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
+            # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
+            erigon_images=$(go run main.go 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "v2.60.0,v2.60.1")
+            echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
+            echo "Erigon latest images: $erigon_images" 
+          fi
 
   # End Build Test Dependencies
 
@@ -446,7 +455,7 @@ jobs:
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./compatibility_test_list.json ubuntu-latest)
           echo "Generated test matrix:"
-          echo "$JOB_MATRIX_JSON"
+          echo "$JOB_MATRIX_JSON" | jq .
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV      
 
   run-client-compatibility-matrix:
