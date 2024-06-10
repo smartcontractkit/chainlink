@@ -13,6 +13,17 @@ on:
         description: commit SHA or tag of the Chainlink version to test
         required: true
         type: string
+      evmImplementations:
+        description: comma separated list of EVM implementations to test
+        required: true
+        type: string
+        default: "geth,besu,nethermind,erigon"
+      latestVersionsNumber:
+        description: how many of latest images to fetch from the ECR
+        required: true
+        type: number
+        default: 3
+
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -104,6 +115,7 @@ jobs:
     outputs:
       evm_implementations : ${{ steps.select-implementations.outputs.evm_implementations }}
       chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
+      latest_image_count: ${{ steps.get-image-count.outputs.image_count }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -140,6 +152,9 @@ jobs:
             eth_implementations="${implementations_arr[*]}"
             echo "Found new releases for: $eth_implementations"
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
+            echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
           else 
             echo "Will test all EVM implementations"
             echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
@@ -180,6 +195,24 @@ jobs:
             exit 1
           fi
           echo "Will use following Chainlink version: $chainlink_version"
+      - name: Get image count
+        id: get-image-count
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Fetching latest image count from input"
+            if [ -n "${{ github.event.inputs.latestVersionsNumber }}" ]; then
+              image_count="${{ github.event.inputs.latestVersionsNumber }}"              
+              echo "image_count=$image_count" >> $GITHUB_OUTPUT
+            else
+              echo "No image count provided in input"
+              exit 1
+            fi
+          else
+            echo "Fetching default latest image count"
+            image_count=3
+            echo "image_count=$image_count" >> $GITHUB_OUTPUT
+          fi
+          echo "Will use following latest image count: $image_count"
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
@@ -254,12 +287,12 @@ jobs:
     if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     runs-on: ubuntu-latest
-    needs: [check-ecr-images-exist,should-run]
+    needs: [check-ecr-images-exist, should-run, select-versions]
     permissions:
       id-token: write
       contents: read
     env:
-      IMAGE_COUNT: 3
+      LATEST_IMAGE_COUNT: ${{ needs.select-versions.outputs.latest_image_count }}
     outputs:
       geth_images: ${{ env.GETH_IMAGES }}
       nethermind_images: ${{ env.NETHERMIND_IMAGES }}
@@ -333,21 +366,21 @@ jobs:
             echo $images
           }
           
-          geth_images=$(get_latest_images ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          geth_images=$(get_latest_images ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
           echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
           echo "Geth latest images: $geth_images"
           
-          nethermind_images=$(get_latest_images nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }})
+          nethermind_images=$(get_latest_images nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
           echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
           echo "Nethermind latest images: $nethermind_images"
           
           # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
-          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.IMAGE_COUNT }} "24.3.3")
+          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} "24.3.3")
           echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
           echo "Besu latest images: $besu_images"
           
           # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
-          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.IMAGE_COUNT }} "v2.60.0,v2.60.1")
+          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "v2.60.0,v2.60.1")
           echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
           echo "Erigon latest images: $erigon_images" 
 
