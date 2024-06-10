@@ -194,6 +194,12 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 	o.testEnvironment = testEnv
 	o.namespace = testEnv.Cfg.Namespace
 
+	// If the test is using the remote runner, we don't need to set the network URLs
+	// as the remote runner will handle that
+	if o.Environment().WillUseRemoteRunner() {
+		return
+	}
+
 	o.rpcNetwork = nodeNetwork
 	if o.rpcNetwork.Simulated && o.rpcNetwork.Name == "Anvil" {
 		if testEnv.Cfg.InsideK8s {
