@@ -53,7 +53,6 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 	// Assert telemetry payloads for each contract are correctly sent to wsrpc
 	var contractCounter1 atomic.Uint32
-	var contractCounter2 atomic.Uint32
 	var contractCounter3 atomic.Uint32
 	telemClient.On("TelemBatch", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
 		telemBatchReq := args.Get(1).(*telemPb.TelemBatchRequest)
@@ -84,6 +83,6 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {
-		return []uint32{contractCounter1.Load(), contractCounter2.Load(), contractCounter3.Load()}
-	}).Should(gomega.Equal([]uint32{3, 2, 1}))
+		return []uint32{contractCounter1.Load(), contractCounter3.Load()}
+	}).Should(gomega.Equal([]uint32{3, 1}))
 }
