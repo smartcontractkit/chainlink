@@ -6,6 +6,7 @@ import {IRouter} from "./interfaces/IRouter.sol";
 import {IReceiver} from "./interfaces/IReceiver.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
+import {CallWithExactGas} from "../shared/call/CallWithExactGas.sol";
 
 contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
   error Unauthorized();
@@ -39,7 +40,9 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     address transmitter,
     address receiver,
     bytes calldata metadata,
-    bytes calldata report
+    bytes calldata report,
+    uint256 gasLimit,
+    uint16 gasForCallExactCheck
   ) external returns (bool) {
     if (!s_forwarders[msg.sender]) {
       revert Unauthorized();
@@ -50,12 +53,17 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
 
     if (receiver.code.length == 0) return false;
 
-    try IReceiver(receiver).onReport(metadata, report) {
+    bool success = CallWithExactGas._callWithExactGas(
+      abi.encodeWithSelector(IReceiver.onReport.selector, metadata, report),
+      receiver,
+      gasLimit,
+      gasForCallExactCheck
+    );
+
+    if (success) {
       s_transmissions[transmissionId].state = true;
-      return true;
-    } catch {
-      return false;
     }
+    return success;
   }
 
   /// @notice Get transmitter of a given report or 0x0 if it wasn't transmitted yet

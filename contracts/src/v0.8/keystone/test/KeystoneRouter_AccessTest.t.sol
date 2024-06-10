@@ -16,6 +16,9 @@ contract KeystoneRouter_SetConfigTest is Test {
   bytes internal report = hex"9998";
   bytes32 internal id = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
 
+  uint256 internal constant DEFAULT_GAS_LIMIT = 20_000;
+  uint16 internal constant DEFAULT_GAS_FOR_CALL_EXACT_CHECK = 5000;
+
   KeystoneRouter internal s_router;
 
   function setUp() public virtual {
@@ -38,7 +41,7 @@ contract KeystoneRouter_SetConfigTest is Test {
   function test_Route_RevertWhen_Unauthorized() public {
     vm.prank(STRANGER);
     vm.expectRevert(KeystoneRouter.Unauthorized.selector);
-    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
+    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report, DEFAULT_GAS_LIMIT, DEFAULT_GAS_FOR_CALL_EXACT_CHECK);
   }
 
   function test_Route_Success() public {
@@ -51,6 +54,6 @@ contract KeystoneRouter_SetConfigTest is Test {
     vm.prank(FORWARDER);
     vm.mockCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)), abi.encode());
     vm.expectCall(RECEIVER, abi.encodeCall(IReceiver.onReport, (metadata, report)));
-    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
+    s_router.route(id, TRANSMITTER, RECEIVER, metadata, report, DEFAULT_GAS_LIMIT, DEFAULT_GAS_FOR_CALL_EXACT_CHECK);
   }
 }
