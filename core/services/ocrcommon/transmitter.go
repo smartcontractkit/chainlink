@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"slices"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
 
 type roundRobinKeystore interface {
@@ -35,6 +37,7 @@ type transmitter struct {
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
+	statuschecker               statuschecker.TransactionStatusChecker // Used for CCIP's idempotency key generation
 }
 
 // NewTransmitter creates a new eth transmitter
@@ -62,6 +65,39 @@ func NewTransmitter(
 		checker:                     checker,
 		chainID:                     chainID,
 		keystore:                    keystore,
+	}, nil
+}
+
+func NewTransmitterWithStatusChecker(
+	txm txManager,
+	fromAddresses []common.Address,
+	gasLimit uint64,
+	effectiveTransmitterAddress common.Address,
+	strategy types.TxStrategy,
+	checker txmgr.TransmitCheckerSpec,
+	chainID *big.Int,
+	keystore roundRobinKeystore,
+	statuschecker statuschecker.TransactionStatusChecker,
+) (Transmitter, error) {
+	// Ensure that a keystore is provided.
+	if keystore == nil {
+		return nil, errors.New("nil keystore provided to transmitter")
+	}
+
+	if statuschecker == nil {
+		return nil, errors.New("nil statuschecker provided to transmitter")
+	}
+
+	return &transmitter{
+		txm:                         txm,
+		fromAddresses:               fromAddresses,
+		gasLimit:                    gasLimit,
+		effectiveTransmitterAddress: effectiveTransmitterAddress,
+		strategy:                    strategy,
+		checker:                     checker,
+		chainID:                     chainID,
+		keystore:                    keystore,
+		statuschecker:               statuschecker,
 	}, nil
 }
 
@@ -116,7 +152,24 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	var idempotencyKey *string
+
+	// Define idempotency key for CCIP transactions
+	if len(txMeta.MessageIDs) > 0 && t.statuschecker != nil {
+		messageIds := txMeta.MessageIDs
+		_, count, err := t.statuschecker.CheckMessageStatus(ctx, messageIds[0])
+
+		if err != nil {
+			return errors.Wrap(err, "skipped OCR transmission, error getting message status")
+		}
+		idempotencyKey = func() *string {
+			s := fmt.Sprintf("%s-%d", messageIds[0], count+1)
+			return &s
+		}()
+	}
+
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
+		IdempotencyKey:   idempotencyKey,
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
