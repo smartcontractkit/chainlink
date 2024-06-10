@@ -156,6 +156,7 @@ jobs:
             echo "Found new releases for: $eth_implementations"
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            // TODO check if base64 is set and if it is, don't set this variable
             echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
             echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
           else 
@@ -202,6 +203,7 @@ jobs:
         id: get-image-count
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            // TODO check if base64 is set and if it is, don't set this variable
             echo "Fetching latest image count from input"
             if [ -n "${{ github.event.inputs.latestVersionsNumber }}" ]; then
               image_count="${{ github.event.inputs.latestVersionsNumber }}"              
@@ -320,8 +322,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
       - name: Get latest docker images from ECR
+        if: ${{ github.event.inputs.base64TestList == '' }}
         run: |
           cd ./integration-tests/scripts/latest_images
           go mod tidy
@@ -445,11 +448,9 @@ jobs:
         run: |
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./compatibility_test_list.json ubuntu-latest)
-          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
-      - name: Print matrix
-        run: |
-          echo "Input Matrix:"
-          echo "${{ env.JOB_MATRIX_JSON }}" | jq .          
+          echo "Generated test matrix:"
+          echo "$JOB_MATRIX_JSON"
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV      
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
