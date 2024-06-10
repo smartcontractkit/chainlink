@@ -398,7 +398,7 @@ jobs:
             go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'vrfv2plus' '^\QTestVRFv2Plus\E$/^\QLink_Billing\E$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
           else 
             echo "Will not test compatibility with geth"
           fi
@@ -413,7 +413,7 @@ jobs:
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
             # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
             # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            # go run main.go 'vrfv2plus' '^\QTestVRFv2Plus\E$/^\QLink_Billing\E$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
           else 
             echo "Will not test compatibility with besu"
           fi
@@ -427,7 +427,7 @@ jobs:
             go run main.go 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'vrfv2plus' '^\QTestVRFv2Plus\E$/^\QLink_Billing\E$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
           else 
             echo "Will not test compatibility with erigon"
           fi   
@@ -442,7 +442,7 @@ jobs:
             go run main.go 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
             # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
             # go run main.go 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            # go run main.go 'vrfv2plus' '^TestVRFv2Plus/Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"    
+            # go run main.go 'vrfv2plus' '^\QTestVRFv2Plus\E$/^\QLink_Billing\E$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"    
           else 
             echo "Will not test compatibility with nethermind"
           fi          
