@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,24 +17,23 @@ type Release struct {
 	PublishedAt time.Time `json:"published_at"`
 }
 
-const repoURL = "https://api.github.com/repos/%s/releases/latest"
+var repoURL = "https://api.github.com/repos/%s/releases/latest"
+
+var client = &http.Client{}
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("Usage: go run main.go <Github org/repository> <days>")
-		os.Exit(1)
+	if err := validateInputs(); err != nil {
+		panic(err)
 	}
 
-	release, err := getLatestRelease(fmt.Sprintf(repoURL, os.Args[1]))
+	release, err := getLatestRelease(fmt.Sprintf(repoURL, os.Args[1]), client)
 	if err != nil {
-		fmt.Printf("Error fetching release: %v\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("error fetching release: %v\n", err))
 	}
 
 	days, err := strconv.Atoi(os.Args[2])
 	if err != nil {
-		fmt.Printf("Error parsing days: %v\n", err)
-		os.Exit(1)
+		panic(fmt.Errorf("error parsing days: %v\n", err))
 	}
 
 	if isReleaseRecent(release.PublishedAt, days) {
@@ -43,8 +44,8 @@ func main() {
 }
 
 // getLatestRelease fetches the latest release from the given repository URL
-func getLatestRelease(url string) (*Release, error) {
-	resp, err := http.Get(url)
+func getLatestRelease(url string, client *http.Client) (*Release, error) {
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -67,4 +68,24 @@ func getLatestRelease(url string) (*Release, error) {
 func isReleaseRecent(publishedAt time.Time, days int) bool {
 	duration := time.Since(publishedAt)
 	return duration.Hours() <= float64(days*24)
+}
+
+func validateInputs() error {
+	if len(os.Args) < 3 {
+		return errors.New("usage: go run main.go <repository_name> <days>")
+	}
+
+	if os.Args[1] == "" {
+		return errors.New("error: repository_name cannot be empty")
+	}
+
+	if len(strings.Split(os.Args[1], "/")) != 2 {
+		return errors.New("error: repository_name must be in the format <org>/<repo>")
+	}
+
+	if _, err := strconv.Atoi(os.Args[2]); err != nil {
+		return fmt.Errorf("error: days must be an integer, but '%s' is not an integer", os.Args[2])
+	}
+
+	return nil
 }
