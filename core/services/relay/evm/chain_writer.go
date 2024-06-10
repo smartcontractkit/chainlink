@@ -33,14 +33,14 @@ type ChainWriterService interface {
 // Compile-time assertion that chainWriter implements the ChainWriterService interface.
 var _ ChainWriterService = (*chainWriter)(nil)
 
-func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, maxGasPrice *big.Int, config types.ChainWriterConfig) (ChainWriterService, error) {
+func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig) (ChainWriterService, error) {
 	w := chainWriter{
 		logger: logger,
 		client: client,
 		txm:    txm,
 		ge: ExecGasEstimator{
 			estimator:   estimator,
-			maxGasPrice: maxGasPrice,
+			maxGasPrice: config.MaxGasPrice,
 		},
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),

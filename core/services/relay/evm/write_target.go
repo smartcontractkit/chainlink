@@ -70,7 +70,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		},
 	}
 
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), nil, nil, chainWriterConfig)
+	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), nil, chainWriterConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	mathBig "math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -25,6 +26,7 @@ import (
 type ChainWriterConfig struct {
 	Contracts    map[string]*ContractConfig
 	SendStrategy txmgrtypes.TxStrategy
+	MaxGasPrice  *mathBig.Int
 }
 
 type ContractConfig struct {

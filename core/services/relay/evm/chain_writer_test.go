@@ -31,10 +31,8 @@ func TestChainWriter(t *testing.T) {
 	ge := gasmocks.NewEvmFeeEstimator(t)
 	l1Oracle := rollupmocks.NewL1Oracle(t)
 
-	maxGasPrice := big.NewInt(1000000)
-
 	chainWriterConfig := newBaseChainWriterConfig()
-	cw, err := NewChainWriterService(lggr, client, txm, ge, maxGasPrice, chainWriterConfig)
+	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
 
 	require.NoError(t, err)
 
@@ -44,7 +42,7 @@ func TestChainWriter(t *testing.T) {
 			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].ContractABI = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, maxGasPrice, invalidAbiConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig)
 			require.Error(t, err)
 		})
 
@@ -53,7 +51,7 @@ func TestChainWriter(t *testing.T) {
 			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].Configs["report"].ChainSpecificName = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, ge, maxGasPrice, invalidMethodNameConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig)
 			require.Error(t, err)
 		})
 
@@ -159,6 +157,7 @@ func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
 				},
 			},
 		},
+		MaxGasPrice: big.NewInt(1000000),
 	}
 }
 
