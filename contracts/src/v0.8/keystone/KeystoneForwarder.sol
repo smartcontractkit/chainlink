@@ -131,7 +131,7 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
 
   // send a report to receiver
   function report(
-    address receiverAddress,
+    address receiver,
     bytes calldata rawReport,
     bytes calldata reportContext,
     bytes[] calldata signatures
@@ -187,29 +187,29 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   }
 
   function getTransmitter(
-    address receiverAddress,
+    address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address) {
-    return IRouter(s_router).getTransmitter(getTransmissionId(receiverAddress, workflowExecutionId, reportId));
+    return IRouter(s_router).getTransmitter(getTransmissionId(receiver, workflowExecutionId, reportId));
   }
 
   function getTransmissionState(
-    address receiverAddress,
+    address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (IRouter.TransmissionState) {
-    return IRouter(s_router).getTransmissionState(getTransmissionId(receiverAddress, workflowExecutionId, reportId));
+    return IRouter(s_router).getTransmissionState(getTransmissionId(receiver, workflowExecutionId, reportId));
   }
 
   function getTransmissionId(
-    address receiverAddress,
+    address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) public pure returns (bytes32) {
     // This is slightly cheaper compared to
-    // keccak256(abi.encode(receiverAddress, workflowExecutionId, reportId));
-    return keccak256(bytes.concat(bytes20(uint160(receiverAddress)), workflowExecutionId, reportId));
+    // keccak256(abi.encode(receiver, workflowExecutionId, reportId));
+    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
   }
 
   function getRouter() external view returns (address) {
