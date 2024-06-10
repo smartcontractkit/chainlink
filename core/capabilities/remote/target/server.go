@@ -111,7 +111,6 @@ func (r *server) expireRequests() {
 func (r *server) Receive(msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
-	ctx, _ := r.stopCh.NewCtx()
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -137,7 +136,11 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 	req := r.requestIDToRequest[requestID]
 
+	r.wg.Add(1)
 	go func() {
+		defer r.wg.Done()
+		ctx, cancel := r.stopCh.NewCtx()
+		defer cancel()
 		err := req.OnMessage(ctx, msg)
 		if err != nil {
 			r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)

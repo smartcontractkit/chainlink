@@ -131,10 +131,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
 	req := struct {
-		ReceiverAddress string
-		RawReport       []byte
-		ReportContext   []byte
-		Signatures      [][]byte
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
 	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
 
 	if req.RawReport == nil {
