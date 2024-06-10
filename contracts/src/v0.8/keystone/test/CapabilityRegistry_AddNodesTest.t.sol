@@ -121,7 +121,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
     s_capabilityRegistry.addNodes(nodes);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeAlreadyExists.selector, P2P_ID));
     s_capabilityRegistry.addNodes(nodes);
   }
 
