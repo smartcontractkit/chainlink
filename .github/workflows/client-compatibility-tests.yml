@@ -147,8 +147,6 @@ jobs:
       - name: Select Chainlink version
         id: select-chainlink-version
         run: |
-      - name: Set Chainlink Version
-        run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Fetching latest Chainlink stable version"
             cd ./integration-tests/scripts/new_release
