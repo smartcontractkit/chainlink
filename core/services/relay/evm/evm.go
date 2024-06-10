@@ -45,6 +45,7 @@ import (
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -596,6 +597,19 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 			checker,
 			configWatcher.chain.ID(),
 			ethKeystore,
+		)
+	case commontypes.CCIPExecution:
+		transmitter, err = ocrcommon.NewTransmitterWithStatusChecker(
+			configWatcher.chain.TxManager(),
+			fromAddresses,
+			gasLimit,
+			effectiveTransmitterAddress,
+			strategy,
+			checker,
+			configWatcher.chain.ID(),
+			ethKeystore,
+			statuschecker.NewTransactionStatusChecker(nil), // TODO: remove after TXM changes are merged
+			// statuschecker.NewTransactionStatusChecker(configWatcher.chain.TxManager()), // TODO: uncomment after TXM changes are merged
 		)
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
