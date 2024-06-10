@@ -175,6 +175,11 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 	return 0, 0, false
 }
 
+// getUpkeepSelector returns a function that accepts an upkeep ID, and performs a modulus against the number of
+// iterations, and compares the result against the current iteration. When this comparison returns true, the
+// upkeep is selected for the dequeuing. This means that, for a given set of upkeeps, a different subset of
+// upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
+// dequeued once.
 func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, logLimitLow, iterations, currentIteration int) func(id *big.Int) bool {
 	bestEffort := false
 
@@ -416,11 +421,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			}
 		}
 
-		// upkeepSelectorFn is a function that accepts an upkeep ID, and performs a modulus against the number of
-		// iterations, and compares the result against the current iteration. When this comparison returns true, the
-		// upkeep is selected for the dequeuing. This means that, for a given set of upkeeps, a different subset of
-		// upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
-		// dequeued once.
 		for len(payloads) < maxResults {
 			startWindow, end, canDequeue := p.dequeueCoordinator.dequeueBlockWindow(start, latestBlock, blockRate)
 			if !canDequeue {
