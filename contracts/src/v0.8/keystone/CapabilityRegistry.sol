@@ -635,7 +635,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// used by view accessors that are queried without any gas fees.
   /// @return hashedCapabilityIds bytes32[] List of hashed capability Ids
   /// @return capabilities Capability[] List of capabilities
-  function getCapabilities() external view returns (bytes32[] memory hashedCapabilityIds, Capability[] memory capabilities) {
+  function getCapabilities()
+    external
+    view
+    returns (bytes32[] memory hashedCapabilityIds, Capability[] memory capabilities)
+  {
     hashedCapabilityIds = s_hashedCapabilityIds.values();
 
     uint256 numSupportedCapabilities = hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length();

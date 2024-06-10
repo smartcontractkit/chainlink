@@ -158,7 +158,7 @@ func (s *registrySyncer) syncLoop() {
 }
 
 func (s *registrySyncer) sync(ctx context.Context) error {
-	state, err := s.reader.state(ctx)
+	readerState, err := s.reader.state(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to sync with remote registry: %w", err)
 	}
@@ -175,7 +175,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	}
 
 	publicDONs := []kcr.CapabilityRegistryDONInfo{}
-	for _, d := range state.DONs {
+	for _, d := range readerState.DONs {
 		if !d.IsPublic {
 			continue
 		}
@@ -186,7 +186,10 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 			allPeers[nid] = defaultStreamConfig
 		}
 	}
-	s.peerWrapper.GetPeer().UpdateConnections(allPeers)
+	err = s.peerWrapper.GetPeer().UpdateConnections(allPeers)
+	if err != nil {
+		return fmt.Errorf("failed to update peer connections: %w", err)
+	}
 
 	// Next, we need to split the DONs into the following:
 	// - workflow DONs the current node is a part of.
@@ -198,7 +201,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	myWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
 	remoteWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
 	myDONs := map[uint32]bool{}
-	for _, d := range state.DONs {
+	for _, d := range readerState.DONs {
 		for _, peerID := range d.NodeP2PIds {
 			if peerID == myID {
 				myDONs[d.Id] = true
@@ -212,7 +215,6 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 				remoteWorkflowDONs = append(remoteWorkflowDONs, d)
 			}
 		}
-
 	}
 
 	// - remote capability DONs (with IsPublic = true) the current node is a part of.
@@ -240,7 +242,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		}
 
 		for _, rcd := range remoteCapabilityDONs {
-			err := s.addRemoteCapabilities(ctx, myDON, rcd, state)
+			err := s.addRemoteCapabilities(ctx, myDON, rcd, readerState)
 			if err != nil {
 				return err
 			}
@@ -251,7 +253,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	// to the capability.
 	if len(myCapabilityDONs) > 0 {
 		for _, mcd := range myCapabilityDONs {
-			err := s.enableExternalAccess(ctx, myID, mcd, state, remoteWorkflowDONs)
+			err := s.enableExternalAccess(ctx, myID, mcd, readerState, remoteWorkflowDONs)
 			if err != nil {
 				return err
 			}
@@ -302,7 +304,6 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 		// Not found
 		return capabilities.CapabilityType(-1)
 	}
-
 }
 
 func (s *registrySyncer) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilityRegistryDONInfo, remoteDON kcr.CapabilityRegistryDONInfo, state state) error {
