@@ -292,16 +292,25 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
-		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
+		blockRate, logLimitLow, maxResults, numOfUpkeeps := p.getBufferDequeueArgs()
 
+		// when numOfUpkeeps exceeds maxResults, it isn't possible to dequeue a log for every upkeep in a single round,
+		// even if logLimitLow is set to 1. For this reason, we can spread the dequeue process across multiple iterations,
+		// e.g. if we have 200 upkeeps, and maxResults is 100, a single dequeue could only dequeue logs for half
+		// of the upkeeps, whereas a dequeue process of two iterations (two dequeue calls) can dequeue logs for upkeeps.
 		if p.iterations == p.currentIteration {
 			p.currentIteration = 0
-			p.iterations = int(math.Ceil(float64(p.bufferV1.NumOfUpkeeps()*logLimitLow) / float64(maxResults)))
+			p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
 			if p.iterations == 0 {
 				p.iterations = 1
 			}
 		}
 
+		// upkeepSelectorFn is a function that accepts an upkeep ID, and performs a modulus against the number of
+		// iterations, and compares the result against the current iteration. When this comparison returns true, the
+		// upkeep is selected for the dequeuing. This means that, for a given set of upkeeps, a different subset of
+		// upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
+		// dequeued once.
 		upkeepSelectorFn := func(id *big.Int) bool {
 			return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
 		}
