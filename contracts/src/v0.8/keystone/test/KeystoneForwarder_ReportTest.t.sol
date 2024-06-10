@@ -2,11 +2,18 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
+import {KeystoneRouter} from "../KeystoneRouter.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneForwarder_ReportTest is BaseTest {
   event MessageReceived(bytes metadata, bytes[] mercuryReports);
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
+  event ReportProcessed(
+    address indexed receiver,
+    bytes32 indexed workflowExecutionId,
+    bytes2 indexed reportId,
+    bool result
+  );
 
   uint8 internal version = 1;
   uint32 internal timestamp = 0;
@@ -28,6 +35,9 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     BaseTest.setUp();
 
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
+    s_router.addForwarder(address(s_forwarder));
+
+    assertEq(s_forwarder.getRouter(), address(s_router), "router mismatch");
 
     mercuryReports[0] = hex"010203";
     mercuryReports[1] = hex"aabbccdd";
@@ -57,7 +67,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       rawReports
     );
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, invalidDONId, CONFIG_VERSION));
+    uint64 configId = (uint64(invalidDONId) << 32) | CONFIG_VERSION;
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
@@ -75,7 +86,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
       rawReports
     );
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION + 1));
+    uint64 configId = (uint64(DON_ID) << 32) | (CONFIG_VERSION + 1);
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     s_forwarder.report(address(s_receiver), reportWithInvalidDONId, reportContext, signatures);
   }
 
@@ -132,11 +144,11 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
-  function test_RevertWhen_AlreadyProcessed() public {
+  function test_RevertWhen_AlreadyAttempted() public {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
-    bytes32 combinedId = keccak256(bytes.concat(bytes20(uint160(address(s_receiver))), executionId, reportId));
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.AlreadyProcessed.selector, combinedId));
+    bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
+    vm.expectRevert(abi.encodeWithSelector(KeystoneRouter.AlreadyAttempted.selector, transmissionId));
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
@@ -145,13 +157,54 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(metadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), executionId, true);
+    emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
-    // validate transmitter was recorded
-    address transmitter = s_forwarder.getTransmitter(address(s_receiver), executionId, reportId);
-    assertEq(transmitter, TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      s_forwarder.getTransmitter(address(s_receiver), executionId, reportId),
+      TRANSMITTER,
+      "transmitter mismatch"
+    );
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(address(s_receiver), executionId, reportId)),
+      uint8(IRouter.TransmissionState.SUCCEEDED),
+      "TransmissionState mismatch"
+    );
+  }
+
+  function test_Report_FailedDeliveryWhenReceiverNotContract() public {
+    // Receiver is not a contract
+    address receiver = address(404);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(receiver, executionId, reportId, false);
+
+    s_forwarder.report(receiver, report, reportContext, signatures);
+
+    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
+      uint8(IRouter.TransmissionState.FAILED),
+      "TransmissionState mismatch"
+    );
+  }
+
+  function test_Report_FailedDeliveryWhenReceiverInterfaceNotSupported() public {
+    // Receiver is a contract but doesn't implement the required interface
+    address receiver = address(s_forwarder);
+
+    vm.expectEmit(address(s_forwarder));
+    emit ReportProcessed(receiver, executionId, reportId, false);
+
+    s_forwarder.report(receiver, report, reportContext, signatures);
+
+    assertEq(s_forwarder.getTransmitter(receiver, executionId, reportId), TRANSMITTER, "transmitter mismatch");
+    assertEq(
+      uint8(s_forwarder.getTransmissionState(receiver, executionId, reportId)),
+      uint8(IRouter.TransmissionState.FAILED),
+      "TransmissionState mismatch"
+    );
   }
 
   function test_Report_ConfigVersion() public {
@@ -165,7 +218,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(metadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), executionId, true);
+    emit ReportProcessed(address(s_receiver), executionId, reportId, true);
 
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
@@ -174,7 +227,8 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     vm.prank(ADMIN);
     s_forwarder.clearConfig(DON_ID, CONFIG_VERSION);
 
-    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, DON_ID, CONFIG_VERSION));
+    uint64 configId = (uint64(DON_ID) << 32) | CONFIG_VERSION;
+    vm.expectRevert(abi.encodeWithSelector(KeystoneForwarder.InvalidConfig.selector, configId));
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
@@ -197,7 +251,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     emit MessageReceived(newMetadata, mercuryReports);
 
     vm.expectEmit(address(s_forwarder));
-    emit ReportProcessed(address(s_receiver), newExecutionId, true);
+    emit ReportProcessed(address(s_receiver), newExecutionId, reportId, true);
 
     vm.prank(TRANSMITTER);
     s_forwarder.report(address(s_receiver), newReport, reportContext, newSignatures);
