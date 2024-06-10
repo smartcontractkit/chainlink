@@ -581,10 +581,10 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	// Schedule blockchain re-org if needed
 	// Reorg only avaible for Simulated Geth
-	var reorgTimer *time.Timer
-	var reorgDelay time.Duration
+	var reorgCh <-chan time.Time
 	n := o.Config.GetNetworkConfig()
 	if n.IsSimulatedGethSelected() && n.GethReorgConfig.Enabled {
+		var reorgDelay time.Duration
 		if n.GethReorgConfig.DelayCreate.Duration > testDuration {
 			// This may happen when test is resumed and the reorg delay is longer than the time left
 			o.log.Warn().Msg("Reorg delay is longer than test duration, reorg scheduled immediately")
@@ -592,7 +592,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		} else {
 			reorgDelay = n.GethReorgConfig.DelayCreate.Duration
 		}
-		reorgTimer = time.NewTimer(reorgDelay)
+		reorgCh = time.After(reorgDelay)
 	}
 
 	for {
@@ -630,7 +630,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			lastValue = newValue
 
 		// Schedule blockchain re-org if needed
-		case <-reorgTimer.C:
+		case <-reorgCh:
 			if !o.reorgHappened {
 				o.startBlockchainReorg(o.Config.GetNetworkConfig().GethReorgConfig.Depth)
 			}
