@@ -36,9 +36,9 @@ func main() {
 	}
 
 	if isReleaseRecent(release.PublishedAt, days) {
-		fmt.Println("true")
+		fmt.Println(release.TagName)
 	} else {
-		fmt.Println("false")
+		fmt.Println("none")
 	}
 }
 

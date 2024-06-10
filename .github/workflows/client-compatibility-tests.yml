@@ -8,6 +8,11 @@ on:
   merge_group:
   pull_request:
   workflow_dispatch:
+    inputs:
+      chainlinkVersion:
+        description: commit SHA or tag of the Chainlink version to test
+        required: true
+        type: string
 
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
@@ -88,20 +93,21 @@ jobs:
             echo "should_run=false" >> $GITHUB_OUTPUT
           fi
 
-  select-evm-implementations:
+  select-versions:
     if: always() && needs.should-run.outputs.should_run == 'true'
-    name: Select EVM Implementations
+    name: Select Versions
     needs: should-run
     runs-on: ubuntu-latest
     env:
       RELEASED_DAYS_AGO: 4
     outputs:
       evm_implementations : ${{ steps.select-implementations.outputs.evm_implementations }}
+      chainlink_version: ${{ steps.select-chainlink-version.outputs.chainlink_version }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }} # TODO add something for scheduled run
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
       - name: Select EVM implementations to test
         id: select-implementations
         run: |
@@ -110,23 +116,23 @@ jobs:
             cd ./integration-tests/scripts/new_release
             implementations_arr=()
             new_geth=$(go run main.go "ethereum/go-ethereum" $RELEASED_DAYS_AGO)
-            if [ "$new_geth" = "true" ]; then
-              echo "New geth release found"
+            if [ "$new_geth" != "none" ]; then
+              echo "New geth release found: $new_geth"
               implementations_arr+=("geth")
             fi
             new_besu=$(go run main.go "hyperledger/besu" $RELEASED_DAYS_AGO)
-            if [ "new_besu" = "true" ]; then
-              echo "New besu release found"
+            if [ "new_besu" != "none" ]; then
+              echo "New besu release found: $new_besu"
               implementations_arr+=("besu")
             fi
             new_erigon=$(go run main.go "ledgerwatch/erigon" $RELEASED_DAYS_AGO)
-            if [ "new_erigon" = "true" ]; then
-              echo "New erigon release found"
+            if [ "new_erigon" != "none" ]; then
+              echo "New erigon release found: $new_erigon"
               implementations_arr+=("erigon")
             fi
             new_nethermind=$(go run main.go "nethermindEth/nethermind" $RELEASED_DAYS_AGO)
-            if [ "new_nethermind" = "true" ]; then
-              echo "New nethermind release found"
+            if [ "new_nethermind" != "none" ]; then
+              echo "New nethermind release found: $new_nethermind"
               implementations_arr+=("nethermind")
             fi
             IFS=','
@@ -137,6 +143,42 @@ jobs:
             echo "Will test all EVM implementations"
             echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
           fi
+      - name: Select Chainlink version
+        id: select-chainlink-version
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Fetching latest Chainlink stable version"
+            cd ./integration-tests/scripts/new_release
+            implementations_arr=()
+            # we use 100 days since we really want the latest one, and it's highly improbable there won't be a release in last 100 days
+            chainlink_version=$(go run main.go "smartcontractkit/chainlink" 100) 
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Fetching Chainlink version from input"
+            if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
+              chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
+              echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+            else
+              echo "No Chainlink version provided in input"
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "Fetching Chainlink version from PR's head commit"
+            chainlink_version="${{ github.event.pull_request.head.sha }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "merge_queue" ]; then
+            echo "Fetching Chainlink version from merge queue's head commit"
+            chainlink_version="${{ github.event.merge_group.head_sha }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          else if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "Fetching Chainlink version from tag"
+            chainlink_version="${{ github.ref }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported trigger event. It's probably an issue with the pipeline definition. Please reach out to the Test Tooling team."
+            exit 1
+          fi
+          echo "Will use following Chainlink version: $chainlink_version"
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
@@ -196,7 +238,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
         uses: ./.github/actions/build-chainlink-image
         with:
@@ -319,10 +361,10 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [get-latest-available-images,should-run,select-evm-implementations]
+    needs: [get-latest-available-images,should-run,select-versions]
     runs-on: ubuntu-latest
     env:
-      ETH_IMPLEMENTATIONS: ${{ needs.select-evm-implementations.outputs.evm_implementations }}
+      ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
     steps:
