@@ -546,6 +546,36 @@ func (_m *Eth) SignTx(ctx context.Context, fromAddress common.Address, tx *types
 	return r0, r1
 }
 
+
+func (_m *Eth) SignMessage(ctx context.Context, address common.Address, message string) (string, error) {
+	ret := _m.Called(ctx, address, message)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SignTx")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, string) (string, error)); ok {
+		return rf(ctx, address, message)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, string) string); ok {
+		r0 = rf(ctx, address, message)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, string) error); ok {
+		r1 = rf(ctx, address, message)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SubscribeToKeyChanges provides a mock function with given fields: ctx
 func (_m *Eth) SubscribeToKeyChanges(ctx context.Context) (chan struct{}, func()) {
 	ret := _m.Called(ctx)

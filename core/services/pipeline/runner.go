@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -108,7 +109,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks keystore.Eth, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
@@ -308,6 +309,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*HTTPTask).config = r.config
 			task.(*HTTPTask).httpClient = r.httpClient
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
+			task.(*HTTPTask).keyStore = r.ethKeyStore
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).bridgeConfig = r.bridgeConfig

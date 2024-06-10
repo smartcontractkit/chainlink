@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -24,10 +25,12 @@ type HTTPTask struct {
 	RequestData                    string `json:"requestData"`
 	AllowUnrestrictedNetworkAccess string
 	Headers                        string
+	Address                        common.Address
 
 	config                 Config
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
+	keyStore               ETHKeyStore
 }
 
 var _ Task = (*HTTPTask)(nil)
@@ -103,6 +106,16 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	} else {
 		client = t.httpClient
 	}
+
+	// Sign the request data
+	if common.IsHexAddress(t.Address.Hex()) {
+		signature, err := t.keyStore.SignMessage(ctx, t.Address, string(requestDataJSON))
+		if err != nil {
+			return Result{Error: err}, runInfo
+		}
+		reqHeaders = append(reqHeaders, "X-Chainlink-Signature", signature)
+	}
+
 	responseBytes, statusCode, respHeaders, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
 	if err != nil {
 		if errors.Is(errors.Cause(err), clhttp.ErrDisallowedIP) {

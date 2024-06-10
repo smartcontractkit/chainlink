@@ -2,6 +2,8 @@ package keystore
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
@@ -11,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -37,6 +40,7 @@ type Eth interface {
 	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
 
 	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
+	SignMessage(ctx context.Context, address common.Address, message string) (string, error)
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
@@ -321,6 +325,27 @@ func (ks *eth) SignTx(ctx context.Context, address common.Address, tx *types.Tra
 	}
 	signer := types.LatestSignerForChainID(chainID)
 	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
+}
+
+func (ks *eth) SignMessage(ctx context.Context, address common.Address, message string) (string, error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return "", ErrLocked
+	}
+	key, err := ks.getByID(address.String())
+	if err != nil {
+		return "", err
+	}
+
+	privateKeyECDSA := key.ToEcdsaPrivKey()
+	hash := sha256.Sum256([]byte(message))
+	signature, err := crypto.Sign(hash[:], privateKeyECDSA)
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(signature), nil
 }
 
 // EnabledKeysForChain returns all keys that are enabled for the given chain
