@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	config "github.com/smartcontractkit/chainlink/v2/common/config"
+	chaintype "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -13,18 +13,18 @@ type Config struct {
 }
 
 // ChainType provides a mock function with given fields:
-func (_m *Config) ChainType() config.ChainType {
+func (_m *Config) ChainType() chaintype.ChainType {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for ChainType")
 	}
 
-	var r0 config.ChainType
-	if rf, ok := ret.Get(0).(func() config.ChainType); ok {
+	var r0 chaintype.ChainType
+	if rf, ok := ret.Get(0).(func() chaintype.ChainType); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(config.ChainType)
+		r0 = ret.Get(0).(chaintype.ChainType)
 	}
 
 	return r0

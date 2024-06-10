@@ -159,7 +159,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The f value for the DON.  This is the number of faulty nodes
     /// that the DON can tolerate. This can be different from the f value of
     /// the OCR instances that capabilities spawn.
-    uint32 f;
+    uint8 f;
     /// @notice True if the DON is public. A public DON means that it accepts
     /// external capability requests
     bool isPublic;
@@ -177,7 +177,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The f value for the DON.  This is the number of faulty nodes
     /// that the DON can tolerate. This can be different from the f value of
     /// the OCR instances that capabilities spawn.
-    uint32 f;
+    uint8 f;
     /// @notice True if the DON is public.  A public DON means that it accepts
     /// external capability requests
     bool isPublic;
@@ -196,7 +196,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 configCount;
     bool isPublic;
     bool acceptsWorkflows;
-    uint32 f;
+    uint8 f;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -215,7 +215,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error InvalidNodeOperatorAdmin();
 
   /// @notice This error is thrown when trying to add a node with P2P ID that
-  /// is empty bytes or a duplicate.
+  /// is empty bytes
   /// @param p2pId The provided P2P ID
   error InvalidNodeP2PId(bytes32 p2pId);
 
@@ -233,11 +233,16 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// been used by another node
   error InvalidNodeSigner();
 
-  /// @notice This error is thrown when trying add a capability that already
+  /// @notice This error is thrown when trying to add a capability that already
   /// exists.
   /// @param hashedCapabilityId The hashed capability ID of the capability
   /// that already exists
   error CapabilityAlreadyExists(bytes32 hashedCapabilityId);
+
+  /// @notice This error is thrown when trying to add a node that already
+  /// exists.
+  /// @param nodeP2PId The P2P ID of the node that already exists
+  error NodeAlreadyExists(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when trying to add a node to a DON where
   /// the node does not support the capability
@@ -260,7 +265,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// fault tolerance value.
   /// @param f The proposed fault tolerance value
   /// @param nodeCount The proposed number of nodes in the DON
-  error InvalidFaultTolerance(uint32 f, uint256 nodeCount);
+  error InvalidFaultTolerance(uint8 f, uint256 nodeCount);
 
   /// @notice This error is thrown when a capability with the provided hashed ID is
   /// not found.
@@ -271,6 +276,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// is deprecated.
   /// @param hashedCapabilityId The hashed ID of the capability that is deprecated.
   error CapabilityIsDeprecated(bytes32 hashedCapabilityId);
+
+  /// @notice This error is thrown when a node with the provided P2P ID is
+  /// not found.
+  /// @param nodeP2PId The node P2P ID used for the lookup.
+  error NodeDoesNotExist(bytes32 nodeP2PId);
 
   /// @notice This error is thrown when a node operator does not exist
   /// @param nodeOperatorId The ID of the node operator that does not exist
@@ -469,9 +479,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer != bytes32("") || bytes32(node.p2pId) == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      if (storedNode.signer != bytes32("")) revert NodeAlreadyExists(node.p2pId);
+      if (node.p2pId == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
 
-      if (bytes32(node.signer) == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
+      if (node.signer == bytes32("") || s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
 
       bytes32[] memory capabilityIds = node.hashedCapabilityIds;
       if (capabilityIds.length == 0) revert InvalidNodeCapabilities(capabilityIds);
@@ -503,7 +514,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       Node storage node = s_nodes[p2pId];
 
-      if (bytes32(node.signer) == bytes32("")) revert InvalidNodeP2PId(p2pId);
+      if (node.signer == bytes32("")) revert NodeDoesNotExist(p2pId);
       if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
 
       if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
@@ -526,11 +537,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
-      if (storedNode.signer == bytes32("")) revert InvalidNodeP2PId(node.p2pId);
+      if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
 
-      if (
-        bytes32(node.signer) == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer))
-      ) revert InvalidNodeSigner();
+      if (node.signer == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer)))
+        revert InvalidNodeSigner();
 
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
@@ -574,12 +584,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Gets all nodes
-  /// @return NodeInfo[] All nodes in the capability registry
-  /// @return uint32[] All the config counts for the nodes in the capability registry
-  function getNodes() external view returns (NodeInfo[] memory, uint32[] memory) {
+  /// @return nodeInfo NodeInfo[] All nodes in the capability registry
+  /// @return configCounts uint32[] All the config counts for the nodes in the capability registry
+  function getNodes() external view returns (NodeInfo[] memory nodeInfo, uint32[] memory configCounts) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
-    NodeInfo[] memory nodeInfo = new NodeInfo[](p2pIds.length);
-    uint32[] memory configCounts = new uint32[](p2pIds.length);
+    nodeInfo = new NodeInfo[](p2pIds.length);
+    configCounts = new uint32[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
       (nodeInfo[i], configCounts[i]) = getNode(p2pIds[i]);
@@ -623,15 +633,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Returns all capabilities. This operation will copy capabilities
   /// to memory, which can be quite expensive. This is designed to mostly be
   /// used by view accessors that are queried without any gas fees.
-  /// @return Capability[] An array of capabilities
-  function getCapabilities() external view returns (Capability[] memory) {
+  /// @return bytes32[] List of hashed capability Ids
+  /// @return Capability[] List of capabilities
+  function getCapabilities() external view returns (bytes32[] memory, Capability[] memory) {
     bytes32[] memory hashedCapabilityIds = s_hashedCapabilityIds.values();
+
+    uint256 numSupportedCapabilities = hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length();
 
     // Solidity does not support dynamic arrays in memory, so we create a
     // fixed-size array and copy the capabilities into it.
-    Capability[] memory capabilities = new Capability[](
-      hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length()
-    );
+    Capability[] memory capabilities = new Capability[](numSupportedCapabilities);
+    bytes32[] memory supportedHashedCapabilityIds = new bytes32[](numSupportedCapabilities);
 
     // We need to keep track of the new index because we are skipping
     // deprecated capabilities.
@@ -642,11 +654,12 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (!s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) {
         capabilities[newIndex] = s_capabilities[hashedCapabilityId];
-        newIndex++;
+        supportedHashedCapabilityIds[newIndex] = hashedCapabilityId;
+        ++newIndex;
       }
     }
 
-    return capabilities;
+    return (supportedHashedCapabilityIds, capabilities);
   }
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
@@ -676,7 +689,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
     bool acceptsWorkflows,
-    uint32 f
+    uint8 f
   ) external onlyOwner {
     uint32 id = s_nextDONId++;
     s_dons[id].id = id;
@@ -702,7 +715,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
     bool acceptsWorkflows,
-    uint32 f
+    uint8 f
   ) external onlyOwner {
     uint32 configCount = s_dons[donId].configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);

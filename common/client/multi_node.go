@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -73,7 +72,6 @@ type MultiNode[
 
 	BatchCallContextAll(ctx context.Context, b []BATCH_ELEM) error
 	ConfiguredChainID() CHAIN_ID
-	IsL2() bool
 }
 
 type multiNode[
@@ -95,7 +93,6 @@ type multiNode[
 	nodes                 []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	sendonlys             []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID               CHAIN_ID
-	chainType             config.ChainType
 	lggr                  logger.SugaredLogger
 	selectionMode         string
 	noNewHeadsThreshold   time.Duration
@@ -138,7 +135,6 @@ func NewMultiNode[
 	nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT],
 	sendonlys []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID,
-	chainType config.ChainType,
 	chainFamily string,
 	classifySendTxError func(tx TX, err error) SendTxReturnCode,
 	sendTxSoftTimeout time.Duration,
@@ -154,7 +150,6 @@ func NewMultiNode[
 		nodes:                 nodes,
 		sendonlys:             sendonlys,
 		chainID:               chainID,
-		chainType:             chainType,
 		lggr:                  logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
 		selectionMode:         selectionMode,
 		noNewHeadsThreshold:   noNewHeadsThreshold,
@@ -524,10 +519,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().ChainID(ctx)
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) ChainType() config.ChainType {
-	return c.chainType
-}
-
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) (code []byte, err error) {
 	n, err := c.selectNode()
 	if err != nil {
@@ -554,10 +545,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return e, err
 	}
 	return n.RPC().FilterEvents(ctx, query)
-}
-
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) IsL2() bool {
-	return c.ChainType().IsL2()
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) LatestBlockHeight(ctx context.Context) (h *big.Int, err error) {

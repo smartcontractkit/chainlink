@@ -13,8 +13,8 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -153,7 +153,7 @@ func NewChainClientWithTestNode(
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 	clientErrors := NewTestClientErrors()
 	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)
@@ -169,7 +169,7 @@ func NewChainClientWithEmptyNode(
 ) Client {
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
 	t.Cleanup(c.Close)
 	return c
@@ -185,7 +185,7 @@ func NewChainClientWithMockedRpc(
 ) Client {
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 
 	cfg := TestNodePoolConfig{
 		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,

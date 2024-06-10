@@ -10,7 +10,7 @@ import (
 
 	cconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -91,7 +91,7 @@ func Defaults(chainID *big.Big, with ...*Chain) Chain {
 	return c
 }
 
-func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
+func ChainTypeForID(chainID *big.Big) (chaintype.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
 		return d.ChainType.ChainType(), true
