@@ -156,9 +156,12 @@ jobs:
             echo "Found new releases for: $eth_implementations"
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            // TODO check if base64 is set and if it is, don't set this variable
-            echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
-            echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
+            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+              echo "Base64-ed Test Input provided, ignoring EVM implementations"
+            else
+              echo "Will test following EVM implementations: ${{ github.event.inputs.evmImplementations }}"
+              echo "evm_implementations=${{ github.event.inputs.evmImplementations }}" >> $GITHUB_OUTPUT
+            fi
           else 
             echo "Will test all EVM implementations"
             echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
@@ -174,13 +177,11 @@ jobs:
             chainlink_version=$(go run main.go "smartcontractkit/chainlink" 100) 
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "Fetching Chainlink version from input"
-            if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
+            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+              echo "Base64-ed Test Input provided, ignoring latest image count"
+            else
               chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
               echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            else
-              echo "No Chainlink version provided in input"
-              exit 1
             fi
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
