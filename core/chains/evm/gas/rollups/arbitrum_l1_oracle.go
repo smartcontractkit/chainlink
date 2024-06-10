@@ -20,9 +20,9 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 type ArbL1GasOracle interface {
@@ -36,7 +36,7 @@ type arbitrumL1Oracle struct {
 	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
-	chainType  config.ChainType
+	chainType  chaintype.ChainType
 
 	l1GasPriceAddress   string
 	gasPriceMethod      string
@@ -94,7 +94,7 @@ func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *arbit
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(arbitrum)")),
-		chainType:  config.ChainArbitrum,
+		chainType:  chaintype.ChainArbitrum,
 
 		l1GasPriceAddress:   l1GasPriceAddress,
 		gasPriceMethod:      gasPriceMethod,
