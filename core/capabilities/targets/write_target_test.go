@@ -31,7 +31,7 @@ func TestWriteTarget(t *testing.T) {
 	forwarderA := testutils.NewAddress()
 	forwarderAddr := forwarderA.Hex()
 
-	writeTarget := targets.NewWriteTarget(lggr, "Test", cr, cw, forwarderAddr)
+	writeTarget := targets.NewWriteTarget(lggr, "test-write-target@1.0.0", cr, cw, forwarderAddr)
 	require.NotNil(t, writeTarget)
 
 	config, err := values.NewMap(map[string]any{
