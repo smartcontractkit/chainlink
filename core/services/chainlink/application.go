@@ -486,8 +486,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			ocr2DelegateConfig,
 			keyStore.OCR2(),
-			keyStore.DKGSign(),
-			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,

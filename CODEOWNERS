@@ -33,7 +33,6 @@
 /core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
 /core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
-/core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
 
 # Keeper/Automation-related services
 /core/services/keeper @smartcontractkit/keepers

@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -158,24 +156,20 @@ type keyRing struct {
 	Solana     map[string]solkey.Key
 	StarkNet   map[string]starkkey.Key
 	VRF        map[string]vrfkey.KeyV2
-	DKGSign    map[string]dkgsignkey.Key
-	DKGEncrypt map[string]dkgencryptkey.Key
 	LegacyKeys LegacyKeyStorage
 }
 
 func newKeyRing() *keyRing {
 	return &keyRing{
-		CSA:        make(map[string]csakey.KeyV2),
-		Eth:        make(map[string]ethkey.KeyV2),
-		OCR:        make(map[string]ocrkey.KeyV2),
-		OCR2:       make(map[string]ocr2key.KeyBundle),
-		P2P:        make(map[string]p2pkey.KeyV2),
-		Cosmos:     make(map[string]cosmoskey.Key),
-		Solana:     make(map[string]solkey.Key),
-		StarkNet:   make(map[string]starkkey.Key),
-		VRF:        make(map[string]vrfkey.KeyV2),
-		DKGSign:    make(map[string]dkgsignkey.Key),
-		DKGEncrypt: make(map[string]dkgencryptkey.Key),
+		CSA:      make(map[string]csakey.KeyV2),
+		Eth:      make(map[string]ethkey.KeyV2),
+		OCR:      make(map[string]ocrkey.KeyV2),
+		OCR2:     make(map[string]ocr2key.KeyBundle),
+		P2P:      make(map[string]p2pkey.KeyV2),
+		Cosmos:   make(map[string]cosmoskey.Key),
+		Solana:   make(map[string]solkey.Key),
+		StarkNet: make(map[string]starkkey.Key),
+		VRF:      make(map[string]vrfkey.KeyV2),
 	}
 }
 
@@ -236,12 +230,6 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
-	for _, dkgSignKey := range kr.DKGSign {
-		rawKeys.DKGSign = append(rawKeys.DKGSign, dkgSignKey.Raw())
-	}
-	for _, dkgEncryptKey := range kr.DKGEncrypt {
-		rawKeys.DKGEncrypt = append(rawKeys.DKGEncrypt, dkgEncryptKey.Raw())
-	}
 	return rawKeys
 }
 
@@ -283,14 +271,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
 	}
-	var dkgSignIDs []string
-	for _, dkgSignKey := range kr.DKGSign {
-		dkgSignIDs = append(dkgSignIDs, dkgSignKey.ID())
-	}
-	var dkgEncryptIDs []string
-	for _, dkgEncryptKey := range kr.DKGEncrypt {
-		dkgEncryptIDs = append(dkgEncryptIDs, dkgEncryptKey.ID())
-	}
 	if len(csaIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
 	}
@@ -318,12 +298,6 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
-	if len(dkgSignIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d DKGSign keys", len(dkgSignIDs)), "keys", dkgSignIDs)
-	}
-	if len(dkgEncryptIDs) > 0 {
-		lggr.Infow(fmt.Sprintf("Unlocked %d DKGEncrypt keys", len(dkgEncryptIDs)), "keys", dkgEncryptIDs)
-	}
 	if len(kr.LegacyKeys.legacyRawKeys) > 0 {
 		lggr.Infow(fmt.Sprintf("%d keys stored in legacy system", kr.LegacyKeys.legacyRawKeys.len()))
 	}
@@ -342,8 +316,6 @@ type rawKeyRing struct {
 	Solana     []solkey.Raw
 	StarkNet   []starkkey.Raw
 	VRF        []vrfkey.Raw
-	DKGSign    []dkgsignkey.Raw
-	DKGEncrypt []dkgencryptkey.Raw
 	LegacyKeys LegacyKeyStorage `json:"-"`
 }
 
@@ -385,14 +357,6 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()
 		keyRing.VRF[vrfKey.ID()] = vrfKey
-	}
-	for _, rawDKGSignKey := range rawKeys.DKGSign {
-		dkgSignKey := rawDKGSignKey.Key()
-		keyRing.DKGSign[dkgSignKey.ID()] = dkgSignKey
-	}
-	for _, rawDKGEncryptKey := range rawKeys.DKGEncrypt {
-		dkgEncryptKey := rawDKGEncryptKey.Key()
-		keyRing.DKGEncrypt[dkgEncryptKey.ID()] = dkgEncryptKey
 	}
 
 	keyRing.LegacyKeys = rawKeys.LegacyKeys

@@ -108,8 +108,6 @@ type Delegate struct {
 	cfg                   DelegateConfig
 	lggr                  logger.Logger
 	ks                    keystore.OCR2
-	dkgSignKs             keystore.DKGSign
-	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
@@ -218,8 +216,6 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg DelegateConfig,
 	ks keystore.OCR2,
-	dkgSignKs keystore.DKGSign,
-	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
 	relayers RelayGetter,
 	mailMon *mailbox.Monitor,
@@ -238,8 +234,6 @@ func NewDelegate(
 		cfg:                   cfg,
 		lggr:                  lggr.Named("OCR2"),
 		ks:                    ks,
-		dkgSignKs:             dkgSignKs,
-		dkgEncryptKs:          dkgEncryptKs,
 		ethKs:                 ethKs,
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,

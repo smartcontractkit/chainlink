@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -39,8 +37,6 @@ type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
 type Master interface {
 	CSA() CSA
-	DKGSign() DKGSign
-	DKGEncrypt() DKGEncrypt
 	Eth() Eth
 	OCR() OCR
 	OCR2() OCR2
@@ -55,17 +51,15 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	cosmos     *cosmos
-	csa        *csa
-	eth        *eth
-	ocr        *ocr
-	ocr2       ocr2
-	p2p        *p2p
-	solana     *solana
-	starknet   *starknet
-	vrf        *vrf
-	dkgSign    *dkgSign
-	dkgEncrypt *dkgEncrypt
+	cosmos   *cosmos
+	csa      *csa
+	eth      *eth
+	ocr      *ocr
+	ocr2     ocr2
+	p2p      *p2p
+	solana   *solana
+	starknet *starknet
+	vrf      *vrf
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -93,17 +87,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		solana:     newSolanaKeyStore(km),
 		starknet:   newStarkNetKeyStore(km),
 		vrf:        newVRFKeyStore(km),
-		dkgSign:    newDKGSignKeyStore(km),
-		dkgEncrypt: newDKGEncryptKeyStore(km),
 	}
-}
-
-func (ks *master) DKGEncrypt() DKGEncrypt {
-	return ks.dkgEncrypt
-}
-
-func (ks master) DKGSign() DKGSign {
-	return ks.dkgSign
 }
 
 func (ks master) CSA() CSA {
@@ -275,10 +259,6 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "StarkNet", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
-	case dkgsignkey.Key:
-		return "DKGSign", nil
-	case dkgencryptkey.Key:
-		return "DKGEncrypt", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }

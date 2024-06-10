@@ -349,7 +349,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 }
 
-var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2Keeper, types.Functions}
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
