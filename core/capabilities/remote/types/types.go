@@ -9,6 +9,7 @@ const (
 	MethodRegisterTrigger   = "RegisterTrigger"
 	MethodUnRegisterTrigger = "UnregisterTrigger"
 	MethodTriggerEvent      = "TriggerEvent"
+	MethodExecute           = "Execute"
 )
 
 //go:generate mockery --quiet --name Dispatcher --output ./mocks/ --case=underscore

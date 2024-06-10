@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -119,8 +119,8 @@ func NewMockConfig() *MockConfig {
 	return &MockConfig{}
 }
 
-func (m *MockConfig) ChainType() config.ChainType {
-	return config.ChainType(m.ChainTypeF)
+func (m *MockConfig) ChainType() chaintype.ChainType {
+	return chaintype.ChainType(m.ChainTypeF)
 }
 
 func (m *MockConfig) FinalityDepth() uint32 {

@@ -137,8 +137,8 @@ func TestDSLParser(t *testing.T) {
 			query.Timestamp(10, primitives.Eq),
 			query.TxHash(common.HexToHash("0x84").String()),
 			query.Block(99, primitives.Neq),
-			query.Confirmation(primitives.Finalized),
-			query.Confirmation(primitives.Unconfirmed),
+			query.Confidence(primitives.Finalized),
+			query.Confidence(primitives.Unconfirmed),
 		}
 		limiter := query.NewLimitAndSort(query.CursorLimit("10-0x42-20", query.CursorPrevious, 20))
 
@@ -167,7 +167,8 @@ func TestDSLParser(t *testing.T) {
 		t.Run("finalized", func(t *testing.T) {
 			parser := &pgDSLParser{}
 			chainID := big.NewInt(1)
-			expressions := []query.Expression{query.Confirmation(primitives.Finalized)}
+
+			expressions := []query.Expression{query.Confidence(primitives.Finalized)}
 			limiter := query.LimitAndSort{}
 
 			result, args, err := parser.buildQuery(chainID, expressions, limiter)
@@ -185,7 +186,8 @@ func TestDSLParser(t *testing.T) {
 		t.Run("unconfirmed", func(t *testing.T) {
 			parser := &pgDSLParser{}
 			chainID := big.NewInt(1)
-			expressions := []query.Expression{query.Confirmation(primitives.Unconfirmed)}
+
+			expressions := []query.Expression{query.Confidence(primitives.Unconfirmed)}
 			limiter := query.LimitAndSort{}
 
 			result, args, err := parser.buildQuery(chainID, expressions, limiter)
@@ -196,6 +198,30 @@ func TestDSLParser(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, expected, result)
+
+			assertArgs(t, args, 2)
+		})
+
+		t.Run("exact confirmations", func(t *testing.T) {
+			parser := &pgDSLParser{}
+			chainID := big.NewInt(1)
+
+			expressions := []query.Expression{NewConfirmationsFilter(25)}
+			limiter := query.LimitAndSort{}
+
+			result, args, err := parser.buildQuery(chainID, expressions, limiter)
+			expected := "SELECT evm.logs.* " +
+				"FROM evm.logs " +
+				"WHERE evm_chain_id = :evm_chain_id " +
+				"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)"
+
+			require.NoError(t, err)
+			assert.Equal(t, expected, result)
+
+			confirmations, ok := args.args["confs_0"]
+
+			require.True(t, ok)
+			require.Equal(t, uint64(25), confirmations)
 
 			assertArgs(t, args, 2)
 		})
@@ -256,6 +282,7 @@ func TestDSLParser(t *testing.T) {
 
 		parser := &pgDSLParser{}
 		chainID := big.NewInt(1)
+
 		expressions := []query.Expression{
 			{BoolExpression: query.BoolExpression{
 				Expressions: []query.Expression{
@@ -263,7 +290,7 @@ func TestDSLParser(t *testing.T) {
 					{BoolExpression: query.BoolExpression{
 						Expressions: []query.Expression{
 							query.TxHash(common.HexToHash("0x84").Hex()),
-							query.Confirmation(primitives.Unconfirmed),
+							query.Confidence(primitives.Unconfirmed),
 						},
 						BoolOperator: query.OR,
 					}},
@@ -298,6 +325,7 @@ func TestDSLParser(t *testing.T) {
 
 		parser := &pgDSLParser{}
 		chainID := big.NewInt(1)
+
 		expressions := []query.Expression{
 			{BoolExpression: query.BoolExpression{
 				Expressions: []query.Expression{
@@ -307,7 +335,7 @@ func TestDSLParser(t *testing.T) {
 							query.TxHash(common.HexToHash("0x84").Hex()),
 							{BoolExpression: query.BoolExpression{
 								Expressions: []query.Expression{
-									query.Confirmation(primitives.Unconfirmed),
+									query.Confidence(primitives.Unconfirmed),
 									wordFilter,
 								},
 								BoolOperator: query.AND,

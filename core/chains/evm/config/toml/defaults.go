@@ -10,7 +10,7 @@ import (
 
 	cconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -91,7 +91,7 @@ func Defaults(chainID *big.Big, with ...*Chain) Chain {
 	return c
 }
 
-func ChainTypeForID(chainID *big.Big) (config.ChainType, bool) {
+func ChainTypeForID(chainID *big.Big) (chaintype.ChainType, bool) {
 	s := chainID.String()
 	if d, ok := defaults[s]; ok {
 		return d.ChainType.ChainType(), true
@@ -181,5 +181,5 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.NodePool.setFrom(&f.NodePool)
 	c.OCR.setFrom(&f.OCR)
 	c.OCR2.setFrom(&f.OCR2)
-	c.ChainWriter.setFrom(&f.ChainWriter)
+	c.Workflow.setFrom(&f.Workflow)
 }

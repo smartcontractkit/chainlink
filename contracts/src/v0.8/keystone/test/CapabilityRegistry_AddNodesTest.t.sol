@@ -5,17 +5,17 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodesTest is BaseTest {
-  event NodeAdded(bytes32 p2pId, uint256 nodeOperatorId, bytes32 signer);
-
-  uint32 private constant TEST_NODE_OPERATOR_ONE_ID = 1;
-  uint32 private constant TEST_NODE_OPERATOR_TWO_ID = 2;
+  event NodeAdded(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
 
   function setUp() public override {
     BaseTest.setUp();
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+
     changePrank(ADMIN);
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_RevertWhen_CalledByNonNodeOperatorAdminAndNonOwner() public {
@@ -32,7 +32,29 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(CapabilityRegistry.AccessForbidden.selector);
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.AccessForbidden.selector, STRANGER));
+    s_capabilityRegistry.addNodes(nodes);
+  }
+
+  function test_RevertWhen_AddingNodeWithInvalidNodeOperator() public {
+    changePrank(ADMIN);
+    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](1);
+
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    hashedCapabilityIds[0] = s_basicHashedCapabilityId;
+
+    uint32 invalidNodeOperatorId = 10000;
+
+    nodes[0] = CapabilityRegistry.NodeInfo({
+      nodeOperatorId: invalidNodeOperatorId, // Invalid NOP
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(CapabilityRegistry.NodeOperatorDoesNotExist.selector, invalidNodeOperatorId)
+    );
     s_capabilityRegistry.addNodes(nodes);
   }
 
@@ -99,7 +121,7 @@ contract CapabilityRegistry_AddNodesTest is BaseTest {
 
     s_capabilityRegistry.addNodes(nodes);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeAlreadyExists.selector, P2P_ID));
     s_capabilityRegistry.addNodes(nodes);
   }
 
