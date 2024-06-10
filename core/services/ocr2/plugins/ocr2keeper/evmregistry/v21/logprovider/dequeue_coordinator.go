@@ -21,11 +21,7 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 			return 0, 0, false
 		}
 
-		if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
-			if !hasDequeued {
-				return startWindow, end, true
-			}
-		} else {
+		if hasDequeued, ok := c.dequeuedMinimum[startWindow]; !ok || !hasDequeued {
 			return startWindow, end, true
 		}
 	}
