@@ -96,4 +96,9 @@ func TestValidateInputs(t *testing.T) {
 		expectedError := errors.New("error: ignored tag cannot be empty")
 		require.EqualError(t, validateInputs(), expectedError.Error())
 	})
+
+	t.Run("Success", func(t *testing.T) {
+		os.Args = []string{"main", "test-repo", "v1.*", "2"}
+		require.NoError(t, validateInputs())
+	})
 }
