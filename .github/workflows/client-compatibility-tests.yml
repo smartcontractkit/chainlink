@@ -413,9 +413,9 @@ jobs:
         run: |
           echo "Decoding base64 tests list from the input"
           DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
-          echo "Decoded input:\n$DECODED_BASE64_TEST_LIST"
-          cd ./integration-tests
-          echo $DECODED_BASE64_TEST_LIST >> ./compatibility_test_list.json
+          echo "Decoded input:"
+          echo "$DECODED_BASE64_TEST_LIST"
+          echo "JOB_MATRIX_JSON=${$DECODED_BASE64_TEST_LIST}" >> $GITHUB_ENV
       - name: Prepare matrix input
         if: env.BASE64_TEST_LIST == ''
         run: |
@@ -481,17 +481,17 @@ jobs:
           fi          
                     
           cp compatibility_test_list.json ../../.
-      - name: Print matrix
-        run: |
-          echo "Input Matrix:"
-          cat ./integration-tests/compatibility_test_list.json
       - name: Create Final Test Matrix
         id: create-test-matrix-list
+        if: env.BASE64_TEST_LIST == ''
         run: |
           cd ./integration-tests
           JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./compatibility_test_list.json ubuntu-latest)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
-          echo $JOB_MATRIX_JSON | jq .        
+      - name: Print matrix
+        run: |
+          echo "Input Matrix:"
+          echo "${{ env.JOB_MATRIX_JSON }}" | jq .          
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
