@@ -66,18 +66,6 @@ keys csa create # Create a CSA key, encrypted with password from the password fi
 keys csa export # Exports an existing CSA key by its ID.
 keys csa import # Imports a CSA key from a JSON file.
 keys csa list # List available CSA keys
-keys dkgencrypt # Remote commands for administering the node's DKGEncrypt keys
-keys dkgencrypt create # Create a DKGEncrypt key
-keys dkgencrypt delete # Delete DKGEncrypt key if present
-keys dkgencrypt export # Export DKGEncrypt key to keyfile
-keys dkgencrypt import # Import DKGEncrypt key from keyfile
-keys dkgencrypt list # List the DKGEncrypt keys
-keys dkgsign # Remote commands for administering the node's DKGSign keys
-keys dkgsign create # Create a DKGSign key
-keys dkgsign delete # Delete DKGSign key if present
-keys dkgsign export # Export DKGSign key to keyfile
-keys dkgsign import # Import DKGSign key from keyfile
-keys dkgsign list # List the DKGSign keys
 keys eth # Remote commands for administering the node's Ethereum keys
 keys eth chain # Update an EVM key for the given chain
 keys eth create # Create a key in the node's keystore alongside the existing key; to create an original key, just run the node

@@ -240,7 +240,6 @@ const (
 	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
-	OCR2VRF       Product = "ocr2vrf"
 	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"

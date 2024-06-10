@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type delegate struct {
@@ -316,7 +316,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), processConfig)
 
 		d := ocr2.NewDelegate(nil, orm, nil, nil, nil, nil, nil, monitoringEndpoint, legacyChains, lggr, ocr2DelegateConfig,
-			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
+			keyStore.OCR2(), ethKeyStore, testRelayGetter, mailMon, capabilities.NewRegistry(lggr))
 		delegateOCR2 := &delegate{jobOCR2Keeper.Type, []job.ServiceCtx{}, 0, nil, d}
 
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
