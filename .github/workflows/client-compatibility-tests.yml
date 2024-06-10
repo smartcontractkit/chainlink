@@ -320,6 +320,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
       - name: Get latest docker images from ECR
         if: ${{ github.event.inputs.base64TestList == '' }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
           cd ./integration-tests/scripts/latest_images
           go mod tidy

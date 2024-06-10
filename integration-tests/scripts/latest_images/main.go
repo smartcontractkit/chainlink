@@ -16,7 +16,7 @@ import (
 
 func getLatestImages(repositoryName, grepString string, count int, ignoredTags string) (string, error) {
 	// Run the AWS CLI command to get the image details
-	cmd := exec.Command("aws", "ecr", "describe-images", "--repository-name", repositoryName, "--region", os.Getenv("QA_AWS_REGION"), "--output", "json", "--query", "imageDetails[?imageTags!=`null` && imageTags!=`[]`]")
+	cmd := exec.Command("aws", "ecr", "describe-images", "--repository-name", repositoryName, "--region", os.Getenv("AWS_REGION"), "--output", "json", "--query", "imageDetails[?imageTags!=`null` && imageTags!=`[]`]")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to describe images: %w", err)
