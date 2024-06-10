@@ -177,12 +177,8 @@ jobs:
             chainlink_version=$(go run main.go "smartcontractkit/chainlink" 100) 
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
-              echo "Base64-ed Test Input provided, ignoring latest image count"
-            else
-              chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
-              echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
-            fi
+            chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
+            echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
             chainlink_version="${{ github.event.pull_request.head.sha }}"
@@ -204,15 +200,13 @@ jobs:
         id: get-image-count
         run: |
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            // TODO check if base64 is set and if it is, don't set this variable
             echo "Fetching latest image count from input"
-            if [ -n "${{ github.event.inputs.latestVersionsNumber }}" ]; then
-              image_count="${{ github.event.inputs.latestVersionsNumber }}"              
-              echo "image_count=$image_count" >> $GITHUB_OUTPUT
+            if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
+              echo "Base64-ed Test Input provided, ignoring latest image count"
             else
-              echo "No image count provided in input"
-              exit 1
-            fi
+              image_count="${{ github.event.inputs.latestVersionsNumber }}"
+              echo "image_count=$image_count" >> $GITHUB_OUTPUT
+            fi            
           else
             echo "Fetching default latest image count"
             image_count=3
