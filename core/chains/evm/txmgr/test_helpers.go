@@ -7,9 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -63,7 +63,7 @@ func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
 
-func (e *TestEvmConfig) ChainType() commonconfig.ChainType { return "" }
+func (e *TestEvmConfig) ChainType() chaintype.ChainType { return "" }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
@@ -151,12 +151,12 @@ func (c *MockConfig) EVM() evmconfig.EVM {
 	return c.EvmConfig
 }
 
-func (c *MockConfig) NonceAutoSync() bool               { return true }
-func (c *MockConfig) ChainType() commonconfig.ChainType { return "" }
-func (c *MockConfig) FinalityDepth() uint32             { return c.finalityDepth }
-func (c *MockConfig) SetFinalityDepth(fd uint32)        { c.finalityDepth = fd }
-func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEnabled }
-func (c *MockConfig) RPCDefaultBatchSize() uint32       { return c.RpcDefaultBatchSize }
+func (c *MockConfig) NonceAutoSync() bool            { return true }
+func (c *MockConfig) ChainType() chaintype.ChainType { return "" }
+func (c *MockConfig) FinalityDepth() uint32          { return c.finalityDepth }
+func (c *MockConfig) SetFinalityDepth(fd uint32)     { c.finalityDepth = fd }
+func (c *MockConfig) FinalityTagEnabled() bool       { return c.finalityTagEnabled }
+func (c *MockConfig) RPCDefaultBatchSize() uint32    { return c.RpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
 	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}
