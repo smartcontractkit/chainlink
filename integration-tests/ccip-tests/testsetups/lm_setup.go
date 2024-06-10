@@ -236,13 +236,12 @@ func (o *LMTestSetupOutputs) CreateLMEnvironment(
 
 func (o *LMTestSetupOutputs) DeployLMChainContracts(
 	lggr zerolog.Logger,
-	chainClient blockchain.EVMClient,
 	networkCfg blockchain.EVMNetwork,
-	chainSelectors []uint64,
 	lmCommon actions.LMCommon,
 ) error {
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
+	chainClient := lmCommon.ChainClient
 	if ccipEnv != nil {
 		k8Env = ccipEnv.K8Env
 	}
@@ -310,7 +309,7 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 
 	// Deploy Liquidity Manager contract
 	lggr.Info().Msg("Deploying Liquidity Manager contract")
-	liquidityManager, err := cd.DeployLiquidityManager(*lmCommon.WrapperNative, chainSelectors[0], lmCommon.TokenPool.EthAddress, lmCommon.MinimumLiquidity)
+	liquidityManager, err := cd.DeployLiquidityManager(*lmCommon.WrapperNative, lmCommon.ChainSelectror, lmCommon.TokenPool.EthAddress, lmCommon.MinimumLiquidity)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to deploy Liquidity Manager contract: %w", err))
 	}
@@ -339,23 +338,24 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 		return errors.WithStack(fmt.Errorf("onchainRebalancer doesn not match the deployed Liquidity Manager"))
 	}
 
-	// Deploy Bridge Adapter contracts
-	if lmCommon.IsL2 {
-		lggr.Info().Msg("Deploying Mock L2 Bridge Adapter contract")
-		l2bridgeAdapter, err := cd.DeployMockL2BridgeAdapter()
-		if err != nil {
-			return errors.WithStack(fmt.Errorf("failed to deploy Mock L2 Bridge Adapter contract: %w", err))
-		}
-		lggr.Info().Str("Address", l2bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L2 Bridge Adapter contract")
-		lmCommon.BridgeAdapterAddr = l2bridgeAdapter.EthAddress
-	} else {
+	// Deploy Bridge Adapter contracts if simulated chain
+	switch lmCommon.ChainSelectror {
+	case chainselectors.GETH_TESTNET.Selector:
 		lggr.Info().Msg("Deploying Mock L1 Bridge Adapter contract")
-		l1bridgeAdapter, err := cd.DeployMockL1BridgeAdapter(*lmCommon.WrapperNative, true)
+		bridgeAdapter, err := cd.DeployMockL1BridgeAdapter(*lmCommon.WrapperNative, true)
 		if err != nil {
 			return errors.WithStack(fmt.Errorf("failed to deploy Mock L1 Bridge Adapter contract: %w", err))
 		}
-		lggr.Info().Str("Address", l1bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L1 Bridge Adapter contract")
-		lmCommon.BridgeAdapterAddr = l1bridgeAdapter.EthAddress
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L1 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+	case chainselectors.TEST_2337.Selector:
+		lggr.Info().Msg("Deploying Mock L2 Bridge Adapter contract")
+		bridgeAdapter, err := cd.DeployMockL2BridgeAdapter()
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Mock L2 Bridge Adapter contract: %w", err))
+		}
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L2 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
 	}
 
 	lggr.Debug().Interface("lmCommon", lmCommon).Msg("lmCommon")
@@ -659,8 +659,6 @@ func LMDefaultTestSetup(
 		}
 	}
 
-	//TODO: Refactor this to detect if the chain is L1 or L2 based on a config
-	i := 0
 	for _, net := range testConfig.AllNetworks {
 		chain := chainByChainID[net.ChainID]
 		net := net
@@ -675,14 +673,12 @@ func LMDefaultTestSetup(
 		lmCommon, err := actions.DefaultLMModule(
 			chain,
 			big.NewInt(0),
-			i == 1,
 			selectors[0],
 		)
 		require.NoError(t, err)
 		chainAddGrp.Go(func() error {
-			return setUpArgs.DeployLMChainContracts(lggr, chain, net, selectors, *lmCommon)
+			return setUpArgs.DeployLMChainContracts(lggr, net, *lmCommon)
 		})
-		i++
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")
 

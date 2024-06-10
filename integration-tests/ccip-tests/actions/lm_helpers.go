@@ -19,15 +19,13 @@ type LMCommon struct {
 	BridgeAdapterAddr *common.Address
 	WrapperNative     *common.Address
 	MinimumLiquidity  *big.Int
-	IsL2              bool
 	ChainSelectror    uint64
 }
 
-func DefaultLMModule(chainClient blockchain.EVMClient, minimumLiquidity *big.Int, isL2 bool, chainSelector uint64) (*LMCommon, error) {
+func DefaultLMModule(chainClient blockchain.EVMClient, minimumLiquidity *big.Int, chainSelector uint64) (*LMCommon, error) {
 	return &LMCommon{
 		ChainClient:      chainClient,
 		MinimumLiquidity: minimumLiquidity,
-		IsL2:             isL2,
 		ChainSelectror:   chainSelector,
 	}, nil
 }
