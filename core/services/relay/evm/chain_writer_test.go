@@ -157,7 +157,7 @@ func newBaseChainWriterConfig() relayevmtypes.ChainWriterConfig {
 				},
 			},
 		},
-		MaxGasPrice: big.NewInt(1000000),
+		MaxGasPrice: big.NewInt(1000000000000),
 	}
 }
 

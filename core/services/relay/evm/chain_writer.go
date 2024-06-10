@@ -38,7 +38,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		logger: logger,
 		client: client,
 		txm:    txm,
-		ge: ExecGasEstimator{
+		ge: CWGasEstimator{
 			estimator:   estimator,
 			maxGasPrice: config.MaxGasPrice,
 		},
@@ -70,7 +70,7 @@ type chainWriter struct {
 	logger logger.Logger
 	client evmclient.Client
 	txm    evmtxmgr.TxManager
-	ge     ExecGasEstimator
+	ge     CWGasEstimator
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
@@ -79,7 +79,7 @@ type chainWriter struct {
 	encoder commontypes.Encoder
 }
 
-type ExecGasEstimator struct {
+type CWGasEstimator struct {
 	estimator   gas.EvmFeeEstimator
 	maxGasPrice *big.Int
 }
