@@ -12,8 +12,6 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
 contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
-  error ReentrantCall();
-
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
