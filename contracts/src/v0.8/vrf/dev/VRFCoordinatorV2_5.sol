@@ -75,6 +75,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     bool onlyPremium
   );
 
+  event L1GasFee(uint256 fee);
+
   int256 public s_fallbackWeiPerUnitLink;
 
   event ConfigSet(
@@ -529,7 +531,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas,
     bool nativePayment,
     bool onlyPremium
-  ) internal view returns (uint96, bool) {
+  ) internal returns (uint96, bool) {
     if (nativePayment) {
       return (_calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium), false);
     }
@@ -540,13 +542,17 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal view returns (uint96) {
+  ) internal returns (uint96) {
     // Will return non-zero on chains that have this enabled
     uint256 l1CostWei = _getL1CostWei(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (s_config.gasAfterPaymentCalculation + startGas - gasleft());
     // calculate flat fee in native
     uint256 flatFeeWei = 1e12 * uint256(s_config.fulfillmentFlatFeeNativePPM);
+    // emit this event only if this is an L2 chain that needs to cover for L1 gas fees
+    if (l1CostWei > 0) {
+      emit L1GasFee(l1CostWei);
+    }
     if (onlyPremium) {
       return uint96((((l1CostWei + baseFeeWei) * (s_config.nativePremiumPercentage)) / 100) + flatFeeWei);
     } else {
@@ -559,7 +565,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) internal view returns (uint96, bool) {
+  ) internal returns (uint96, bool) {
     (int256 weiPerUnitLink, bool isFeedStale) = _getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
@@ -574,6 +580,10 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 flatFeeWei = 1e12 *
       uint256(s_config.fulfillmentFlatFeeNativePPM - s_config.fulfillmentFlatFeeLinkDiscountPPM);
     uint256 flatFeeJuels = (1e18 * flatFeeWei) / uint256(weiPerUnitLink);
+    // emit this event only if this is an L2 chain that needs to cover for L1 gas fees
+    if (l1CostWei > 0) {
+      emit L1GasFee(l1CostWei);
+    }
     uint256 payment;
     if (onlyPremium) {
       payment = ((paymentNoFee * (s_config.linkPremiumPercentage)) / 100 + flatFeeJuels);

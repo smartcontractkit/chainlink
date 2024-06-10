@@ -9,20 +9,13 @@ import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interfa
 import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
 import {VRFV2PlusWrapperConsumerBase} from "./VRFV2PlusWrapperConsumerBase.sol";
-import {VRFV2PlusWrapperL1Fees} from "./VRFV2PlusWrapperL1Fees.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
 // solhint-disable-next-line max-states-count
-contract VRFV2PlusWrapper is
-  ConfirmedOwner,
-  TypeAndVersionInterface,
-  VRFConsumerBaseV2Plus,
-  IVRFV2PlusWrapper,
-  VRFV2PlusWrapperL1Fees
-{
+contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   // upper bound limit for premium percentages to make sure fee calculations don't overflow
@@ -38,6 +31,7 @@ contract VRFV2PlusWrapper is
   LinkTokenInterface internal immutable i_link;
   AggregatorV3Interface internal immutable i_link_native_feed;
 
+  event FulfillmentTxSizeSet(uint32 size);
   event ConfigSet(
     uint32 wrapperGasOverhead,
     uint32 coordinatorGasOverheadNative,
@@ -111,6 +105,17 @@ contract VRFV2PlusWrapper is
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
 
+  // Configuration fetched from VRFCoordinatorV2_5
+
+  /// @dev this is the size of a VRF v2plus fulfillment's calldata abi-encoded in bytes.
+  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
+  /// @dev commitmentSize = 10 words = 10 * 256 = 2560 bits
+  /// @dev onlyPremiumParameterSize = 256 bits
+  /// @dev dataSize = proofSize + commitmentSize + onlyPremiumParameterSize = 6144 bits
+  /// @dev function selector = 32 bits
+  /// @dev total data size = 6144 bits + 32 bits = 6176 bits = 772 bytes
+  uint32 public s_fulfillmentTxSizeBytes = 772;
+
   // s_coordinatorGasOverheadNative reflects the gas overhead of the coordinator's fulfillRandomWords
   // function for native payment. The cost for this gas is billed to the subscription, and must therefor be included
   // in the pricing for wrapped requests. This includes the gas costs of proof verification and
@@ -179,6 +184,16 @@ contract VRFV2PlusWrapper is
     // Migration of the wrapper's subscription to the new coordinator has to be
     // handled by the external account (owner of the subscription).
     SUBSCRIPTION_ID = _subId;
+  }
+
+  /**
+   * @notice setFulfillmentTxSize sets the size of the fulfillment transaction in bytes.
+   * @param _size is the size of the fulfillment transaction in bytes.
+   */
+  function setFulfillmentTxSize(uint32 _size) external onlyOwner {
+    s_fulfillmentTxSizeBytes = _size;
+
+    emit FulfillmentTxSizeSet(_size);
   }
 
   /**
@@ -396,6 +411,14 @@ contract VRFV2PlusWrapper is
     return _calculateRequestPriceNative(_callbackGasLimit, _numWords, _requestGasPriceWei);
   }
 
+  /**
+   * @notice Returns the L1 fee for the fulfillment calldata payload (always return 0 on L1 chains).
+   * @notice Override this function in chain specific way for L2 chains.
+   */
+  function _getL1CostWei() internal view virtual returns (uint256) {
+    return 0;
+  }
+
   function _calculateRequestPriceNative(
     uint256 _gas,
     uint32 _numWords,
@@ -409,7 +432,7 @@ contract VRFV2PlusWrapper is
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, true)) +
-      VRFV2PlusWrapperL1Fees._getL1CostWei();
+      _getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
@@ -433,7 +456,7 @@ contract VRFV2PlusWrapper is
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, false)) +
-      VRFV2PlusWrapperL1Fees._getL1CostWei();
+      _getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee

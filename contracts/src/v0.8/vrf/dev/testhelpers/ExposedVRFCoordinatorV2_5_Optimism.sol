@@ -19,7 +19,7 @@ contract ExposedVRFCoordinatorV2_5_Optimism is VRFCoordinatorV2_5_Optimism {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) external view returns (uint96) {
+  ) external returns (uint96) {
     return _calculatePaymentAmountNative(startGas, weiPerUnitGas, onlyPremium);
   }
 
@@ -27,7 +27,7 @@ contract ExposedVRFCoordinatorV2_5_Optimism is VRFCoordinatorV2_5_Optimism {
     uint256 startGas,
     uint256 weiPerUnitGas,
     bool onlyPremium
-  ) external view returns (uint96, bool) {
+  ) external returns (uint96, bool) {
     return _calculatePaymentAmountLink(startGas, weiPerUnitGas, onlyPremium);
   }
 }

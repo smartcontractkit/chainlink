@@ -98,14 +98,13 @@ export SOLC_VERSION=$SOLC_VERSION
 # VRF V2 Plus
 compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
-compileContract vrf/dev/ArbitrumL1Fees.sol
-compileContract vrf/dev/OptimismL1Fees.sol
 compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 500
 compileContractAltOpts vrf/dev/VRFCoordinatorV2_5_Arbitrum.sol 500
 compileContractAltOpts vrf/dev/VRFCoordinatorV2_5_Optimism.sol 500
 compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
 compileContract vrf/dev/VRFV2PlusWrapper.sol
-compileContract vrf/dev/VRFV2PlusWrapperL1Fees.sol
+compileContract vrf/dev/VRFV2PlusWrapper_Arbitrum.sol
+compileContract vrf/dev/VRFV2PlusWrapper_Optimism.sol
 compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 compileContract vrf/dev/testhelpers/VRFMaliciousConsumerV2Plus.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
