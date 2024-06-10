@@ -47,6 +47,7 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/merklemulti"
 )
@@ -120,7 +121,7 @@ func NewCommitOnchainConfig(
 }
 
 type ExecOnchainConfig struct {
-	v1_2_0.ExecOnchainConfig
+	v1_5_0.ExecOnchainConfig
 }
 
 func NewExecOnchainConfig(
@@ -130,14 +131,16 @@ func NewExecOnchainConfig(
 	MaxNumberOfTokensPerMsg uint16,
 	MaxDataBytes uint32,
 	MaxPoolReleaseOrMintGas uint32,
+	MaxTokenTransferGas uint32,
 ) ExecOnchainConfig {
-	return ExecOnchainConfig{v1_2_0.ExecOnchainConfig{
+	return ExecOnchainConfig{v1_5_0.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  Router,
 		PriceRegistry:                           PriceRegistry,
 		MaxNumberOfTokensPerMsg:                 MaxNumberOfTokensPerMsg,
 		MaxDataBytes:                            MaxDataBytes,
 		MaxPoolReleaseOrMintGas:                 MaxPoolReleaseOrMintGas,
+		MaxTokenTransferGas:                     MaxTokenTransferGas,
 	}}
 }
 
@@ -1137,7 +1140,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	_, err = destRouter.ApplyRampUpdates(
 		destUser,
 		nil,
-		nil, []router.RouterOffRamp{{SourceChainSelector: sourceChainSelector, OffRamp: offRampAddress}},
+		nil,
+		[]router.RouterOffRamp{{SourceChainSelector: sourceChainSelector, OffRamp: offRampAddress}},
 	)
 	require.NoError(t, err)
 

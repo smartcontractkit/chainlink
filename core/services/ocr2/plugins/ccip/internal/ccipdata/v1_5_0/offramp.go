@@ -3,6 +3,7 @@ package v1_5_0
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,12 +15,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
 var (
@@ -30,6 +34,46 @@ var (
 )
 
 type ExecOnchainConfig evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
+
+func (d ExecOnchainConfig) AbiString() string {
+	return `
+	[
+		{
+			"components": [
+				{"name": "permissionLessExecutionThresholdSeconds", "type": "uint32"},
+				{"name": "maxDataBytes", "type": "uint32"},
+				{"name": "maxNumberOfTokensPerMsg", "type": "uint16"},
+				{"name": "router", "type": "address"},
+				{"name": "priceRegistry", "type": "address"},
+				{"name": "maxPoolReleaseOrMintGas", "type": "uint32"},
+				{"name": "maxTokenTransferGas", "type": "uint32"}
+			],
+			"type": "tuple"
+		}
+	]`
+}
+
+func (d ExecOnchainConfig) Validate() error {
+	if d.PermissionLessExecutionThresholdSeconds == 0 {
+		return errors.New("must set PermissionLessExecutionThresholdSeconds")
+	}
+	if d.Router == (common.Address{}) {
+		return errors.New("must set Router address")
+	}
+	if d.PriceRegistry == (common.Address{}) {
+		return errors.New("must set PriceRegistry address")
+	}
+	if d.MaxNumberOfTokensPerMsg == 0 {
+		return errors.New("must set MaxNumberOfTokensPerMsg")
+	}
+	if d.MaxPoolReleaseOrMintGas == 0 {
+		return errors.New("must set MaxPoolReleaseOrMintGas")
+	}
+	if d.MaxTokenTransferGas == 0 {
+		return errors.New("must set MaxTokenTransferGas")
+	}
+	return nil
+}
 
 type OffRamp struct {
 	*v1_2_0.OffRamp
@@ -86,6 +130,47 @@ func (o *OffRamp) GetSourceToDestTokensMapping(ctx context.Context) (map[cciptyp
 		mapping[sourceToken] = destTokens[i]
 	}
 	return mapping, nil
+}
+
+func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, offchainConfigBytes []byte) (cciptypes.Address, cciptypes.Address, error) {
+	// Same as the v1.2.0 method, except for the ExecOnchainConfig type.
+	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ExecOnchainConfig](onchainConfigBytes)
+	if err != nil {
+		return "", "", err
+	}
+
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[v1_2_0.JSONExecOffchainConfig](offchainConfigBytes)
+	if err != nil {
+		return "", "", err
+	}
+	destRouter, err := router.NewRouter(onchainConfigParsed.Router, o.Client)
+	if err != nil {
+		return "", "", err
+	}
+	destWrappedNative, err := destRouter.GetWrappedNative(nil)
+	if err != nil {
+		return "", "", err
+	}
+	offchainConfig := cciptypes.ExecOffchainConfig{
+		DestOptimisticConfirmations: offchainConfigParsed.DestOptimisticConfirmations,
+		BatchGasLimit:               offchainConfigParsed.BatchGasLimit,
+		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
+		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
+		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
+	}
+	onchainConfig := cciptypes.ExecOnchainConfig{
+		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
+		Router:                                  cciptypes.Address(onchainConfigParsed.Router.String()),
+	}
+	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0)
+
+	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
+
+	o.Logger.Infow("Starting exec plugin",
+		"offchainConfig", onchainConfigParsed,
+		"onchainConfig", offchainConfigParsed)
+	return cciptypes.Address(onchainConfigParsed.PriceRegistry.String()),
+		cciptypes.Address(destWrappedNative.String()), nil
 }
 
 func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int) (*OffRamp, error) {
