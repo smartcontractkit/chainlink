@@ -262,6 +262,9 @@ func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
 		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
 		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWG1AeBnSJH2mdcDusXQVye2jqodZ6pftTH98HH6xvrE97",
+		"12D3KooWBf3PrkhNoPEmp7iV291YnPuuTsgEDHTscLajxoDvwHGA",
+		"12D3KooWP3FrMTFXXRU2tBC8aYvEBgUX6qhcH9q2JZCUi9Wvc2GX",
 	}
 	result.triggerDonPeers = []string{
 		"12D3KooWBaiTbbRwwt2fbNifiL7Ew9tn3vds9AJE3Nf3eaVBX36m",
@@ -301,7 +304,7 @@ func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
 		}
 		return nil
 	}
-	result.WorkflowsDonInfo = capabilities.DON{ID: "workflowDon1", F: 1}
+	result.WorkflowsDonInfo = capabilities.DON{ID: "workflowDon1", F: 2}
 	if err := addPeersToDONInfo(result.workflowDonPeers, &result.WorkflowsDonInfo); err != nil {
 		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to workflow DON info: %w", err)
 	}
