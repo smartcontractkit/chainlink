@@ -7,13 +7,19 @@ import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
-
-    s_capabilityRegistry.addCapability(s_basicCapability);
-    s_capabilityRegistry.addCapability(s_capabilityWithConfigurationContract);
+    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    capabilities[0] = s_basicCapability;
+    capabilities[1] = s_capabilityWithConfigurationContract;
+    s_capabilityRegistry.addCapabilities(capabilities);
   }
 
   function test_ReturnsCapabilities() public view {
-    CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
+    (bytes32[] memory hashedCapabilityIds, CapabilityRegistry.Capability[] memory capabilities) = s_capabilityRegistry
+      .getCapabilities();
+
+    assertEq(hashedCapabilityIds.length, 2);
+    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
+    assertEq(hashedCapabilityIds[1], keccak256(abi.encode(capabilities[1].labelledName, capabilities[1].version)));
 
     assertEq(capabilities.length, 2);
 
@@ -38,9 +44,16 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
       s_basicCapability.labelledName,
       s_basicCapability.version
     );
-    s_capabilityRegistry.deprecateCapability(hashedCapabilityId);
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+    s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
-    CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
+    (bytes32[] memory hashedCapabilityIds, CapabilityRegistry.Capability[] memory capabilities) = s_capabilityRegistry
+      .getCapabilities();
+
+    assertEq(hashedCapabilityIds.length, 1);
+    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
+
     assertEq(capabilities.length, 1);
 
     assertEq(capabilities[0].labelledName, "read-ethereum-mainnet-gas-price");

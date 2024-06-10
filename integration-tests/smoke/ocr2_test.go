@@ -156,7 +156,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		WithMockAdapter().
 		WithCLNodes(clNodeCount).
 		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()

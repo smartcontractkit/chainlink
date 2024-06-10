@@ -14,12 +14,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 )
 
@@ -45,7 +45,7 @@ type stuckTxDetectorConfig interface {
 type stuckTxDetector struct {
 	lggr      logger.Logger
 	chainID   *big.Int
-	chainType config.ChainType
+	chainType chaintype.ChainType
 	maxPrice  *assets.Wei
 	cfg       stuckTxDetectorConfig
 
@@ -58,7 +58,7 @@ type stuckTxDetector struct {
 	purgeBlockNumMap  map[common.Address]int64 // Tracks the last block num a tx was purged for each from address if the PurgeOverflowTxs feature is enabled
 }
 
-func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType config.ChainType, maxPrice *assets.Wei, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore, chainClient stuckTxDetectorClient) *stuckTxDetector {
+func NewStuckTxDetector(lggr logger.Logger, chainID *big.Int, chainType chaintype.ChainType, maxPrice *assets.Wei, cfg stuckTxDetectorConfig, gasEstimator stuckTxDetectorGasEstimator, txStore stuckTxDetectorTxStore, chainClient stuckTxDetectorClient) *stuckTxDetector {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	t.DisableCompression = true
 	httpClient := &http.Client{Transport: t}
@@ -125,9 +125,9 @@ func (d *stuckTxDetector) DetectStuckTransactions(ctx context.Context, enabledAd
 	}
 
 	switch d.chainType {
-	case config.ChainScroll:
+	case chaintype.ChainScroll:
 		return d.detectStuckTransactionsScroll(ctx, txs)
-	case config.ChainZkEvm:
+	case chaintype.ChainZkEvm:
 		return d.detectStuckTransactionsZkEVM(ctx, txs)
 	default:
 		return d.detectStuckTransactionsHeuristic(ctx, txs, blockNum)

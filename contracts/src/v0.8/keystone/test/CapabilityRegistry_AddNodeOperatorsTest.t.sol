@@ -5,7 +5,7 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityRegistry} from "../CapabilityRegistry.sol";
 
 contract CapabilityRegistry_AddNodeOperatorsTest is BaseTest {
-  event NodeOperatorAdded(uint256 nodeOperatorId, address indexed admin, string name);
+  event NodeOperatorAdded(uint32 indexed nodeOperatorId, address indexed admin, string name);
 
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);

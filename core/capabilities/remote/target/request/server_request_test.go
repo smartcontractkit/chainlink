@@ -16,10 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_ServerRequest_MessageValidation(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)
 
@@ -57,7 +59,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send duplicate message", func(t *testing.T) {
 		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -67,7 +69,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
 		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -90,7 +92,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
 		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -115,7 +117,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
 		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -142,7 +144,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	t.Run("Send second valid request", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
 		request := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
