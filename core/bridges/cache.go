@@ -16,12 +16,12 @@ import (
 )
 
 const (
-	BridgeCacheServiceName   = "BridgeCache"
+	CacheServiceName         = "BridgeCache"
 	DefaultUpsertInterval    = 500 * time.Millisecond
 	DefaultBulkInsertTimeout = 250 * time.Millisecond
 )
 
-type BridgeCache struct {
+type Cache struct {
 	// dependencies and configurations
 	ORM
 	lggr     logger.Logger
@@ -38,11 +38,11 @@ type BridgeCache struct {
 	mu                   sync.RWMutex
 }
 
-var _ ORM = (*BridgeCache)(nil)
-var _ services.Service = (*BridgeCache)(nil)
+var _ ORM = (*Cache)(nil)
+var _ services.Service = (*Cache)(nil)
 
-func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *BridgeCache {
-	return &BridgeCache{
+func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
+	return &Cache{
 		ORM:                  base,
 		lggr:                 lggr,
 		interval:             upsertInterval,
@@ -51,11 +51,11 @@ func NewBridgeCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) 
 	}
 }
 
-func (c *BridgeCache) WithDataSource(ds sqlutil.DataSource) ORM {
-	return NewBridgeCache(NewORM(ds), c.lggr, c.interval)
+func (c *Cache) WithDataSource(ds sqlutil.DataSource) ORM {
+	return NewCache(NewORM(ds), c.lggr, c.interval)
 }
 
-func (c *BridgeCache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
+func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
 	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
 		return bridgeType.(BridgeType), nil
 	}
@@ -68,7 +68,7 @@ func (c *BridgeCache) FindBridge(ctx context.Context, name BridgeName) (BridgeTy
 	return ormResult, err
 }
 
-func (c *BridgeCache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType, error) {
+func (c *Cache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType, error) {
 	if len(names) == 0 {
 		return nil, errors.New("at least one bridge name is required")
 	}
@@ -109,7 +109,7 @@ func (c *BridgeCache) FindBridges(ctx context.Context, names []BridgeName) ([]Br
 	return allFoundBts, nil
 }
 
-func (c *BridgeCache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
+func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	err := c.ORM.DeleteBridgeType(ctx, bt)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -123,11 +123,11 @@ func (c *BridgeCache) DeleteBridgeType(ctx context.Context, bt *BridgeType) erro
 	return err
 }
 
-func (c *BridgeCache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
+func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
 	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 
-func (c *BridgeCache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
+func (c *Cache) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 	err := c.ORM.CreateBridgeType(ctx, bt)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func (c *BridgeCache) CreateBridgeType(ctx context.Context, bt *BridgeType) erro
 	return nil
 }
 
-func (c *BridgeCache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
+func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
 	if err := c.ORM.UpdateBridgeType(ctx, bt, btr); err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (c *BridgeCache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr 
 	return nil
 }
 
-func (c *BridgeCache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
+func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
 	// prefer to get latest value from cache
 	c.mu.RLock()
 	cached, inCache := c.bridgeLastValueCache[responseKey(dotId, specId)]
@@ -175,7 +175,7 @@ func (c *BridgeCache) GetCachedResponse(ctx context.Context, dotId string, specI
 	return response, nil
 }
 
-func (c *BridgeCache) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
+func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -189,8 +189,8 @@ func (c *BridgeCache) UpsertBridgeResponse(ctx context.Context, dotId string, sp
 	return nil
 }
 
-func (c *BridgeCache) Start(context.Context) error {
-	return c.StartOnce(BridgeCacheServiceName, func() error {
+func (c *Cache) Start(context.Context) error {
+	return c.StartOnce(CacheServiceName, func() error {
 		c.wg.Add(1)
 
 		go c.run()
@@ -199,8 +199,8 @@ func (c *BridgeCache) Start(context.Context) error {
 	})
 }
 
-func (c *BridgeCache) Close() error {
-	return c.StopOnce(BridgeCacheServiceName, func() error {
+func (c *Cache) Close() error {
+	return c.StopOnce(CacheServiceName, func() error {
 		c.stop <- struct{}{}
 		c.wg.Wait()
 
@@ -208,19 +208,19 @@ func (c *BridgeCache) Close() error {
 	})
 }
 
-func (c *BridgeCache) Ready() error {
+func (c *Cache) Ready() error {
 	return c.StateMachine.Ready()
 }
 
-func (c *BridgeCache) HealthReport() map[string]error {
-	return map[string]error{BridgeCacheServiceName: c.Healthy()}
+func (c *Cache) HealthReport() map[string]error {
+	return map[string]error{CacheServiceName: c.Healthy()}
 }
 
-func (c *BridgeCache) Name() string {
-	return BridgeCacheServiceName
+func (c *Cache) Name() string {
+	return CacheServiceName
 }
 
-func (c *BridgeCache) run() {
+func (c *Cache) run() {
 	defer c.wg.Done()
 
 	for {
@@ -237,7 +237,7 @@ func (c *BridgeCache) run() {
 	}
 }
 
-func (c *BridgeCache) doBulkUpsert() {
+func (c *Cache) doBulkUpsert() {
 	values := make([]BridgeResponse, 0, len(c.bridgeLastValueCache))
 
 	c.mu.RLock()

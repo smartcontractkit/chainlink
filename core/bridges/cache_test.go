@@ -21,7 +21,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewBridgeCache(mORM, nil, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
 
 		bridge := bridges.BridgeName("test")
 		expected := bridges.BridgeType{
@@ -46,7 +46,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewBridgeCache(mORM, nil, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		nameA := bridges.BridgeName("A")
@@ -79,7 +79,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewBridgeCache(mORM, nil, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		bridge := bridges.BridgeName("test")
@@ -131,7 +131,7 @@ func TestBridgeCache_Response(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewBridgeCache(mORM, nil, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		dotId := "test"
@@ -156,7 +156,7 @@ func TestBridgeCache_Response(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewBridgeCache(mORM, nil, bridges.DefaultUpsertInterval)
+		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
 
 		t.Cleanup(func() {
 			require.NoError(t, cache.Close())
