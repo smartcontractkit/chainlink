@@ -44,8 +44,8 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
     return _trialExecute(message, offchainTokenData);
   }
 
-  function report(bytes calldata executableReports) external {
-    _report(executableReports);
+  function reportExec(bytes calldata executableReports) external {
+    _reportExec(executableReports);
   }
 
   function execute(Internal.ExecutionReportSingleChain memory rep, uint256[] memory manualExecGasLimits) external {

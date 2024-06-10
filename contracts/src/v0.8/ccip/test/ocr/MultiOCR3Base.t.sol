@@ -2,122 +2,9 @@
 pragma solidity 0.8.24;
 
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
-import {BaseTest} from "../BaseTest.t.sol";
-import {MultiOCR3Helper} from "../helpers/MultiOCR3Helper.sol";
+import {MultiOCR3BaseSetup} from "./MultiOCR3BaseSetup.t.sol";
 
 import {Vm} from "forge-std/Vm.sol";
-
-contract MultiOCR3BaseSetup is BaseTest {
-  // Signer private keys used for these test
-  uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
-
-  address[] internal s_validSigners;
-  address[] internal s_validTransmitters;
-  uint256[] internal s_validSignerKeys;
-
-  address[] internal s_partialSigners;
-  address[] internal s_partialTransmitters;
-  uint256[] internal s_partialSignerKeys;
-
-  address[] internal s_emptySigners;
-
-  bytes internal constant REPORT = abi.encode("testReport");
-  MultiOCR3Helper internal s_multiOCR3;
-
-  function setUp() public virtual override {
-    BaseTest.setUp();
-
-    uint160 numSigners = 7;
-    s_validSignerKeys = new uint256[](numSigners);
-    s_validSigners = new address[](numSigners);
-    s_validTransmitters = new address[](numSigners);
-
-    for (uint160 i; i < numSigners; ++i) {
-      s_validTransmitters[i] = address(4 + i);
-      s_validSignerKeys[i] = PRIVATE0 + i;
-      s_validSigners[i] = vm.addr(s_validSignerKeys[i]);
-    }
-
-    s_partialSigners = new address[](4);
-    s_partialSignerKeys = new uint256[](4);
-    s_partialTransmitters = new address[](4);
-    for (uint256 i; i < s_partialSigners.length; ++i) {
-      s_partialSigners[i] = s_validSigners[i];
-      s_partialSignerKeys[i] = s_validSignerKeys[i];
-      s_partialTransmitters[i] = s_validTransmitters[i];
-    }
-
-    s_emptySigners = new address[](0);
-
-    s_multiOCR3 = new MultiOCR3Helper();
-  }
-
-  /// @dev returns a mock config digest with config digest computation logic similar to OCR2Base
-  function _getBasicConfigDigest(
-    uint8 F,
-    address[] memory signers,
-    address[] memory transmitters
-  ) internal view returns (bytes32) {
-    bytes memory configBytes = abi.encode("");
-    uint256 configVersion = 1;
-
-    uint256 h = uint256(
-      keccak256(
-        abi.encode(
-          block.chainid, address(s_multiOCR3), signers, transmitters, F, configBytes, configVersion, configBytes
-        )
-      )
-    );
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
-  }
-
-  /// @dev returns a hash value in the same format as the h value on which the signature verified
-  ///      in the _transmit function
-  function _getTestReportDigest(bytes32 configDigest) internal pure returns (bytes32) {
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
-    return keccak256(abi.encodePacked(keccak256(REPORT), reportContext));
-  }
-
-  function _assertOCRConfigEquality(
-    MultiOCR3Base.OCRConfig memory configA,
-    MultiOCR3Base.OCRConfig memory configB
-  ) internal pure {
-    vm.assertEq(configA.configInfo.configDigest, configB.configInfo.configDigest);
-    vm.assertEq(configA.configInfo.F, configB.configInfo.F);
-    vm.assertEq(configA.configInfo.n, configB.configInfo.n);
-    vm.assertEq(configA.configInfo.uniqueReports, configB.configInfo.uniqueReports);
-    vm.assertEq(configA.configInfo.isSignatureVerificationEnabled, configB.configInfo.isSignatureVerificationEnabled);
-
-    vm.assertEq(configA.signers, configB.signers);
-    vm.assertEq(configA.transmitters, configB.transmitters);
-  }
-
-  function _assertOCRConfigUnconfigured(MultiOCR3Base.OCRConfig memory config) internal pure {
-    assertEq(config.configInfo.configDigest, bytes32(""));
-    assertEq(config.signers.length, 0);
-    assertEq(config.transmitters.length, 0);
-  }
-
-  function _getSignaturesForDigest(
-    uint256[] memory signerPrivateKeys,
-    bytes32 configDigest,
-    uint8 signatureCount
-  ) internal pure returns (bytes32[] memory rs, bytes32[] memory ss, uint8[] memory vs, bytes32 rawVs) {
-    rs = new bytes32[](signatureCount);
-    ss = new bytes32[](signatureCount);
-    vs = new uint8[](signatureCount);
-
-    // Calculate signatures
-    for (uint256 i; i < signatureCount; ++i) {
-      (vs[i], rs[i], ss[i]) = vm.sign(signerPrivateKeys[i], _getTestReportDigest(configDigest));
-      rawVs = rawVs | (bytes32(bytes1(vs[i] - 27)) >> (8 * i));
-    }
-
-    return (rs, ss, vs, rawVs);
-  }
-}
 
 contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
   bytes32 internal s_configDigest1;
@@ -499,7 +386,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       configInfo: MultiOCR3Base.ConfigInfo({
         configDigest: ocrConfigs[0].configDigest,
         F: ocrConfigs[0].F,
-        n: uint8(s_validSigners.length),
+        n: uint8(ocrConfigs[0].signers.length),
         uniqueReports: ocrConfigs[0].uniqueReports,
         isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
       }),
@@ -540,7 +427,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       configInfo: MultiOCR3Base.ConfigInfo({
         configDigest: ocrConfigs[0].configDigest,
         F: ocrConfigs[0].F,
-        n: uint8(s_validTransmitters.length),
+        n: uint8(ocrConfigs[0].signers.length),
         uniqueReports: ocrConfigs[0].uniqueReports,
         isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
       }),
@@ -548,6 +435,52 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: s_validTransmitters
     });
     _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
+  }
+
+  function test_SetConfigIgnoreSigners_Success() public {
+    uint8 F = 1;
+
+    _assertOCRConfigUnconfigured(s_multiOCR3.latestConfigDetails(0));
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: 0,
+      configDigest: _getBasicConfigDigest(F, new address[](0), s_validTransmitters),
+      F: F,
+      uniqueReports: false,
+      isSignatureVerificationEnabled: false,
+      signers: s_validSigners,
+      transmitters: s_validTransmitters
+    });
+
+    vm.expectEmit();
+    emit MultiOCR3Base.ConfigSet(
+      ocrConfigs[0].ocrPluginType,
+      ocrConfigs[0].configDigest,
+      s_emptySigners,
+      ocrConfigs[0].transmitters,
+      ocrConfigs[0].F
+    );
+    s_multiOCR3.setOCR3Configs(ocrConfigs);
+
+    MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
+      configInfo: MultiOCR3Base.ConfigInfo({
+        configDigest: ocrConfigs[0].configDigest,
+        F: ocrConfigs[0].F,
+        n: 0,
+        uniqueReports: ocrConfigs[0].uniqueReports,
+        isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
+      }),
+      signers: s_emptySigners,
+      transmitters: s_validTransmitters
+    });
+    _assertOCRConfigEquality(s_multiOCR3.latestConfigDetails(0), expectedConfig);
+
+    // Verify no signer role is set
+    for (uint256 i = 0; i < s_validSigners.length; ++i) {
+      MultiOCR3Base.Oracle memory signerOracle = s_multiOCR3.getOracle(0, s_validSigners[i]);
+      assertEq(uint8(signerOracle.role), uint8(MultiOCR3Base.Role.Unset));
+    }
   }
 
   function test_SetMultipleConfigs_Success() public {
@@ -618,6 +551,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
   function test_Fuzz_SetConfig_Success(MultiOCR3Base.OCRConfigArgs memory ocrConfig, uint64 randomAddressOffset) public {
     // condition: cannot assume max oracle count
     vm.assume(ocrConfig.transmitters.length <= 31);
+    vm.assume(ocrConfig.signers.length <= 31);
 
     // condition: F > 0
     ocrConfig.F = uint8(bound(ocrConfig.F, 1, 3));
@@ -636,16 +570,13 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     } else {
       ocrConfig.isSignatureVerificationEnabled = true;
 
-      // condition: signers length must equal transmitters length
-      if (ocrConfig.signers.length != transmittersLength) {
-        ocrConfig.signers = new address[](transmittersLength);
-      }
-
       // condition: number of signers > 3F
       vm.assume(ocrConfig.signers.length > 3 * ocrConfig.F);
 
+      uint256 signersLength = ocrConfig.signers.length;
+
       // Force addresses to be unique - continuing generation with an offset after the transmitter addresses
-      for (uint160 i = 0; i < transmittersLength; ++i) {
+      for (uint160 i = 0; i < signersLength; ++i) {
         ocrConfig.signers[i] = vm.addr(PRIVATE0 + randomAddressOffset + i + transmittersLength);
         // condition: non-zero oracle address
         vm.assume(ocrConfig.signers[i] != address(0));
@@ -667,7 +598,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       configInfo: MultiOCR3Base.ConfigInfo({
         configDigest: ocrConfig.configDigest,
         F: ocrConfig.F,
-        n: uint8(ocrConfig.transmitters.length),
+        n: ocrConfig.isSignatureVerificationEnabled ? uint8(ocrConfig.signers.length) : 0,
         uniqueReports: ocrConfig.uniqueReports,
         isSignatureVerificationEnabled: ocrConfig.isSignatureVerificationEnabled
       }),
@@ -713,7 +644,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       configInfo: MultiOCR3Base.ConfigInfo({
         configDigest: ocrConfigs[0].configDigest,
         F: ocrConfigs[0].F,
-        n: uint8(newTransmitters.length),
+        n: uint8(ocrConfigs[0].signers.length),
         uniqueReports: ocrConfigs[0].uniqueReports,
         isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
       }),
@@ -774,7 +705,7 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       configInfo: MultiOCR3Base.ConfigInfo({
         configDigest: ocrConfigs[0].configDigest,
         F: ocrConfigs[0].F,
-        n: uint8(newSigners.length),
+        n: uint8(ocrConfigs[0].signers.length),
         uniqueReports: ocrConfigs[0].uniqueReports,
         isSignatureVerificationEnabled: ocrConfigs[0].isSignatureVerificationEnabled
       }),
@@ -822,7 +753,11 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: transmitters
     });
 
-    vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "repeated transmitter address"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS
+      )
+    );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
@@ -842,7 +777,11 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: transmitters
     });
 
-    vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "repeated signer address"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS
+      )
+    );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
@@ -928,27 +867,6 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
-  function test_OracleOutOfRegister_Revert() public {
-    address[] memory signers = new address[](10);
-    address[] memory transmitters = new address[](0);
-
-    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
-    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
-      ocrPluginType: 0,
-      configDigest: _getBasicConfigDigest(2, signers, transmitters),
-      F: 1,
-      uniqueReports: false,
-      isSignatureVerificationEnabled: true,
-      signers: signers,
-      transmitters: transmitters
-    });
-
-    vm.expectRevert(
-      abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "oracle addresses out of registration")
-    );
-    s_multiOCR3.setOCR3Configs(ocrConfigs);
-  }
-
   function test_FTooHigh_Revert() public {
     address[] memory signers = new address[](0);
     address[] memory transmitters = new address[](0);
@@ -964,7 +882,9 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: transmitters
     });
 
-    vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "faulty-oracle F too high"));
+    vm.expectRevert(
+      abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.F_TOO_HIGH)
+    );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
@@ -980,7 +900,11 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: s_validTransmitters
     });
 
-    vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "F must be positive"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.F_MUST_BE_POSITIVE
+      )
+    );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 
@@ -999,7 +923,33 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       transmitters: transmitters
     });
 
-    vm.expectRevert(abi.encodeWithSelector(MultiOCR3Base.InvalidConfig.selector, "too many transmitters"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.TOO_MANY_TRANSMITTERS
+      )
+    );
+    s_multiOCR3.setOCR3Configs(ocrConfigs);
+  }
+
+  function test_TooManySigners_Revert() public {
+    address[] memory signers = new address[](32);
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: 0,
+      configDigest: _getBasicConfigDigest(1, signers, s_validTransmitters),
+      F: 1,
+      uniqueReports: false,
+      isSignatureVerificationEnabled: true,
+      signers: signers,
+      transmitters: s_validTransmitters
+    });
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MultiOCR3Base.InvalidConfig.selector, MultiOCR3Base.InvalidConfigErrorType.TOO_MANY_SIGNERS
+      )
+    );
     s_multiOCR3.setOCR3Configs(ocrConfigs);
   }
 }
