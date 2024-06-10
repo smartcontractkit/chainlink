@@ -92,6 +92,9 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
+  uint256 internal constant GAS_LIMIT = 500_000;
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5000;
+
   function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
@@ -175,7 +178,9 @@ contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
       msg.sender,
       receiverAddress,
       rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
-      rawReport[METADATA_LENGTH:]
+      rawReport[METADATA_LENGTH:],
+      GAS_LIMIT,
+      GAS_FOR_CALL_EXACT_CHECK
     );
 
     emit ReportProcessed(receiverAddress, workflowExecutionId, reportId, success);
