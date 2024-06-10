@@ -317,73 +317,30 @@ jobs:
           mask-password: "true"
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Get latest docker images from ECR
         run: |
-          function get_latest_images() {
-            local repository_name="$1"
-            local grep_string="$2"
-            local count="$3"
-            local ignored_tags="$4"
-            local images
-          
-            # get the list of images with aws cli
-            # jq then filters out only the first tags
-            # sort the semantic tags into order
-            # grep only the versions that fit the regex
-            # then take the first count
-            tags=$(aws ecr describe-images --repository-name ${repository_name} --region ${{ secrets.QA_AWS_REGION }} --output json --query 'imageDetails[?imageTags!=`null` && imageTags!=`[]`]' |\
-              jq -r '.[] | .imageTags[0]' |\
-              sort -rV |\
-              grep -E ${grep_string} |\
-              head -n ${count} |\
-              paste -sd " " -)            
-          
-            IFS=' ' read -r -a tags_array <<< "$tags"
-            
-            if [ ${#tags_array[@]} -lt ${count} ]; then
-              echo "Failed to get ${count} latest tags for ${repository_name}"
-              exit 1
-            fi
-          
-            IFS=',' read -r -a ignored_tags_array <<< "$ignored_tags"
-          
-            images_arr=()
-            for tag in "${tags_array[@]}"; do
-              ignore=false
-                for ignored_tag in "${ignored_tags_array[@]}"; do
-                  echo "Checking tag $tag against ignored tag $ignored_tag" >&2
-                  if [ "$tag" == "$ignored_tag" ]; then
-                    ignore=true
-                    echo "Ignoring tag $tag" >&2
-                    break
-                  fi
-                  echo "Not ignoring tag $tag" >&2
-                done
-            if [ "$ignore" = false ]; then
-              images_arr+=("${repository_name}:${tag}")
-            fi
-            done
-          
-            images=$(IFS=,; echo "${images_arr[*]}")
-          
-            echo $images
-          }
-          
-          geth_images=$(get_latest_images ethereum/client-go '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+          cd ./integration-tests/scripts/latest_images
+          go mod tidy
+                    
+          geth_images=$(go run main.go 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
           echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
           echo "Geth latest images: $geth_images"
           
-          nethermind_images=$(get_latest_images nethermind/nethermind '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
+          nethermind_images=$(go run main.go 'nethermind/nethermind' '^[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
           echo "NETHERMIND_IMAGES=$nethermind_images" >> $GITHUB_ENV
           echo "Nethermind latest images: $nethermind_images"
           
           # 24.3.3 is ignored as it doesn't support data & input fields in eth_call
-          besu_images=$(get_latest_images hyperledger/besu '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} "24.3.3")
+          besu_images=$(go run main.go 'hyperledger/besu' '^[0-9]+\.[0-9]+(\.[0-9]+)?$' ${{ env.LATEST_IMAGE_COUNT }} "24.3.3")
           echo "BESU_IMAGES=$besu_images" >> $GITHUB_ENV
           echo "Besu latest images: $besu_images"
           
           # 2.60.0 and 2.60.1 are ignored as they stopped working with CL node
-          erigon_images=$(get_latest_images thorax/erigon '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "v2.60.0,v2.60.1")
+          erigon_images=$(go run main.go 'thorax/erigon' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }} "v2.60.0,v2.60.1")
           echo "ERIGON_IMAGES=$erigon_images" >> $GITHUB_ENV
           echo "Erigon latest images: $erigon_images" 
 
@@ -415,7 +372,8 @@ jobs:
           DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
           echo "Decoded input:"
           echo "$DECODED_BASE64_TEST_LIST"
-          echo "JOB_MATRIX_JSON=${$DECODED_BASE64_TEST_LIST}" >> $GITHUB_ENV
+          JOB_MATRIX_JSON=$(echo $DECODED_BASE64_TEST_LIST)
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
       - name: Prepare matrix input
         if: env.BASE64_TEST_LIST == ''
         run: |
