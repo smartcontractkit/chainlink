@@ -181,15 +181,16 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
+	runnerHealth := map[string]error{r.Name(): r.Healthy()}
+
 	service, isService := r.btORM.(services.HealthReporter)
 	if !isService {
-		return map[string]error{r.Name(): r.Healthy()}
+		return runnerHealth
 	}
 
-	return map[string]error{
-		r.Name():       r.Healthy(),
-		service.Name(): service.Ready(),
-	}
+	services.CopyHealth(runnerHealth, service.HealthReport())
+
+	return runnerHealth
 }
 
 func (r *runner) destroy() {
