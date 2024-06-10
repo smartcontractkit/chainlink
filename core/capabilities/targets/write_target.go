@@ -31,12 +31,11 @@ type WriteTarget struct {
 	lggr logger.Logger
 }
 
-func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
-		name,
+		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 	)
 
 	logger := lggr.Named("WriteTarget")
@@ -91,7 +90,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, err
 	}
 
-	if inputs.Report == nil {
+	if len(inputs.Report) == 0 {
 		// We received any empty report -- this means we should skip transmission.
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
@@ -132,10 +131,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
 	req := struct {
-		ReceiverAddress string
-		RawReport       []byte
-		ReportContext   []byte
-		Signatures      [][]byte
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
 	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
 
 	if req.RawReport == nil {

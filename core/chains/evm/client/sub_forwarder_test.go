@@ -20,6 +20,13 @@ import (
 func TestChainIDSubForwarder(t *testing.T) {
 	t.Parallel()
 
+	newChainIDSubForwarder := func(chainID *big.Int, ch chan<- *evmtypes.Head) *subForwarder[*evmtypes.Head] {
+		return newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
+			head.EVMChainID = ubig.New(chainID)
+			return head
+		}, nil)
+	}
+
 	chainID := big.NewInt(123)
 
 	t.Run("unsubscribe forwarder", func(t *testing.T) {

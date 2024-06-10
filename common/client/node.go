@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -45,13 +44,13 @@ type NodeConfig interface {
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
 	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
-	ChainType() commonconfig.ChainType
 	FinalizedBlockOffset() uint32
 }
 

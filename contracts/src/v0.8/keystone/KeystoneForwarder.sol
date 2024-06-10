@@ -1,24 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
+import {IRouter} from "./interfaces/IRouter.sol";
 import {IForwarder} from "./interfaces/IForwarder.sol";
-import {IReceiver} from "./interfaces/IReceiver.sol";
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+
+import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 /// @notice This is an entry point for `write_${chain}` Target capability. It
 /// allows nodes to determine if reports have been processed (successfully or
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
-contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterface {
-  error ReentrantCall();
-
+contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
-
-  /// @notice This error is returned when the metadata version is not supported.
-  error InvalidVersion(uint8 version);
 
   /// @notice This error is thrown whenever trying to set a config with a fault
   /// tolerance of 0.
@@ -47,10 +43,10 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param received The number of signatures received
   error InvalidSignatureCount(uint256 expected, uint256 received);
 
-  /// @notice This error is thrown whenever a report specifies a DON ID that
-  /// does not have a configuration.
-  /// @param donId The DON ID that was provided in the report
-  error InvalidDonId(uint32 donId);
+  /// @notice This error is thrown whenever a report specifies a configuration that
+  /// does not exist.
+  /// @param configId (uint64(donId) << 32) | configVersion
+  error InvalidConfig(uint64 configId);
 
   /// @notice This error is thrown whenever a signer address is not in the
   /// configuration.
@@ -61,169 +57,164 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
   /// @param signature The signature that was invalid
   error InvalidSignature(bytes signature);
 
-  /// @notice This error is thrown whenever a message has already been processed.
-  /// @param messageId The ID of the message that was already processed
-  error AlreadyProcessed(bytes32 messageId);
-
-  bool internal s_reentrancyGuard; // guard against reentrancy
-
   /// @notice Contains the signing address of each oracle
   struct OracleSet {
     uint8 f; // Number of faulty nodes allowed
     address[] signers;
-    mapping(address => uint256) _positions; // 1-indexed to detect unset values
+    mapping(address signer => uint256 position) _positions; // 1-indexed to detect unset values
   }
+
+  address internal s_router;
 
   /// @notice Contains the configuration for each DON ID
-  mapping(uint32 donId => OracleSet) internal s_configs;
+  // @param configId (uint64(donId) << 32) | configVersion
+  mapping(uint64 configId => OracleSet) internal s_configs;
 
-  struct DeliveryStatus {
-    address transmitter;
-    bool success;
-  }
-
-  mapping(bytes32 reportId => DeliveryStatus status) internal s_reports;
+  event ConfigSet(uint32 indexed donId, uint32 indexed configVersion, uint8 f, address[] signers);
 
   /// @notice Emitted when a report is processed
-  /// @param receiver The address of the receiver contract
-  /// @param workflowExecutionId The ID of the workflow execution
   /// @param result The result of the attempted delivery. True if successful.
-  event ReportProcessed(address indexed receiver, bytes32 indexed workflowExecutionId, bool result);
+  event ReportProcessed(
+    address indexed receiver,
+    bytes32 indexed workflowExecutionId,
+    bytes2 indexed reportId,
+    bool result
+  );
 
-  constructor() ConfirmedOwner(msg.sender) {}
+  string public constant override typeAndVersion = "KeystoneForwarder 1.0.0";
+
+  constructor(address router) OwnerIsCreator() {
+    s_router = router;
+  }
 
   uint256 internal constant MAX_ORACLES = 31;
   uint256 internal constant METADATA_LENGTH = 109;
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
-  function setConfig(uint32 donId, uint8 f, address[] calldata signers) external onlyOwner {
+  function setConfig(uint32 donId, uint32 configVersion, uint8 f, address[] calldata signers) external onlyOwner {
     if (f == 0) revert FaultToleranceMustBePositive();
     if (signers.length > MAX_ORACLES) revert ExcessSigners(signers.length, MAX_ORACLES);
     if (signers.length <= 3 * f) revert InsufficientSigners(signers.length, 3 * f + 1);
 
-    // TODO: how does setConfig handle expiration? e.g. if the signer set changes
+    uint64 configId = (uint64(donId) << 32) | configVersion;
 
     // remove any old signer addresses
-    for (uint256 i; i < s_configs[donId].signers.length; ++i) {
-      address signer = s_configs[donId].signers[i];
-      delete s_configs[donId]._positions[signer];
+    for (uint256 i = 0; i < s_configs[configId].signers.length; ++i) {
+      delete s_configs[configId]._positions[s_configs[configId].signers[i]];
     }
 
     // add new signer addresses
-    s_configs[donId].signers = signers;
-    for (uint256 i; i < signers.length; ++i) {
+    for (uint256 i = 0; i < signers.length; ++i) {
       // assign indices, detect duplicates
       address signer = signers[i];
-      if (s_configs[donId]._positions[signer] != 0) revert DuplicateSigner(signer);
-      s_configs[donId]._positions[signer] = uint8(i) + 1;
-      s_configs[donId].signers.push(signer);
+      if (s_configs[configId]._positions[signer] != 0) revert DuplicateSigner(signer);
+      s_configs[configId]._positions[signer] = i + 1;
     }
-    s_configs[donId].f = f;
+    s_configs[configId].signers = signers;
+    s_configs[configId].f = f;
+
+    emit ConfigSet(donId, configVersion, f, signers);
+  }
+
+  function clearConfig(uint32 donId, uint32 configVersion) external onlyOwner {
+    // We are not removing old signer positions, because it is sufficient to
+    // clear the f value for `report` function. If we decide to restore
+    // the configId in the future, the setConfig function clears the positions.
+    s_configs[(uint64(donId) << 32) | configVersion].f = 0;
+
+    emit ConfigSet(donId, configVersion, 0, new address[](0));
   }
 
   // send a report to receiver
   function report(
-    address receiverAddress,
+    address receiver,
     bytes calldata rawReport,
     bytes calldata reportContext,
     bytes[] calldata signatures
-  ) external nonReentrant {
+  ) external {
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
 
-    (bytes32 workflowExecutionId, uint32 donId /* uint32 donConfigVersion */, , bytes2 reportId) = _getMetadata(
-      rawReport
-    );
-
-    // f can never be 0, so this means the config doesn't actually exist
-    if (s_configs[donId].f == 0) revert InvalidDonId(donId);
-
-    bytes32 combinedId = _combinedId(receiverAddress, workflowExecutionId, reportId);
-    if (s_reports[combinedId].transmitter != address(0)) revert AlreadyProcessed(combinedId);
-
-    if (s_configs[donId].f + 1 != signatures.length)
-      revert InvalidSignatureCount(s_configs[donId].f + 1, signatures.length);
-
-    // validate signatures
+    bytes32 workflowExecutionId;
+    bytes2 reportId;
     {
-      bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
+      uint64 configId;
+      (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
+      OracleSet storage config = s_configs[configId];
 
-      address[MAX_ORACLES] memory signed;
-      uint8 index;
-      for (uint256 i; i < signatures.length; ++i) {
-        // TODO: is libocr-style multiple bytes32 arrays more optimal, gas-wise?
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signatures[i]);
-        address signer = ecrecover(completeHash, v + 27, r, s);
+      uint8 f = config.f;
+      // f can never be 0, so this means the config doesn't actually exist
+      if (f == 0) revert InvalidConfig(configId);
+      if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
+
+      // validate signatures
+      bytes32 completeHash = keccak256(abi.encodePacked(keccak256(rawReport), reportContext));
+      address[MAX_ORACLES + 1] memory signed;
+      for (uint256 i = 0; i < signatures.length; ++i) {
+        bytes calldata signature = signatures[i];
+        if (signature.length != SIGNATURE_LENGTH) revert InvalidSignature(signature);
+        address signer = ecrecover(
+          completeHash,
+          uint8(signature[64]) + 27,
+          bytes32(signature[0:32]),
+          bytes32(signature[32:64])
+        );
 
         // validate signer is trusted and signature is unique
-        index = uint8(s_configs[donId]._positions[signer]);
+        uint256 index = config._positions[signer];
         if (index == 0) revert InvalidSigner(signer); // index is 1-indexed so we can detect unset signers
-        index -= 1;
         if (signed[index] != address(0)) revert DuplicateSigner(signer);
         signed[index] = signer;
       }
     }
 
-    bool success;
-    try
-      IReceiver(receiverAddress).onReport(
-        rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
-        rawReport[METADATA_LENGTH:]
-      )
-    {
-      success = true;
-    } catch {
-      // Do nothing, success is already false
-    }
+    bool success = IRouter(s_router).route(
+      getTransmissionId(receiver, workflowExecutionId, reportId),
+      msg.sender,
+      receiver,
+      rawReport[FORWARDER_METADATA_LENGTH:METADATA_LENGTH],
+      rawReport[METADATA_LENGTH:]
+    );
 
-    s_reports[combinedId] = DeliveryStatus(msg.sender, success);
-    emit ReportProcessed(receiverAddress, workflowExecutionId, success);
+    emit ReportProcessed(receiver, workflowExecutionId, reportId, success);
   }
 
-  function _combinedId(address receiver, bytes32 workflowExecutionId, bytes2 reportId) internal pure returns (bytes32) {
-    // TODO: gas savings: could we just use a bytes key and avoid another keccak256 call
-    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
-  }
-
-  // get transmitter of a given report or 0x0 if it wasn't transmitted yet
   function getTransmitter(
     address receiver,
     bytes32 workflowExecutionId,
     bytes2 reportId
   ) external view returns (address) {
-    bytes32 combinedId = _combinedId(receiver, workflowExecutionId, reportId);
-    return s_reports[combinedId].transmitter;
+    return IRouter(s_router).getTransmitter(getTransmissionId(receiver, workflowExecutionId, reportId));
   }
 
-  // solhint-disable-next-line chainlink-solidity/explicit-returns
-  function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-    if (sig.length != SIGNATURE_LENGTH) revert InvalidSignature(sig);
+  function getTransmissionState(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (IRouter.TransmissionState) {
+    return IRouter(s_router).getTransmissionState(getTransmissionId(receiver, workflowExecutionId, reportId));
+  }
 
-    assembly {
-      /*
-      First 32 bytes stores the length of the signature
+  function getTransmissionId(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) public pure returns (bytes32) {
+    // This is slightly cheaper compared to
+    // keccak256(abi.encode(receiver, workflowExecutionId, reportId));
+    return keccak256(bytes.concat(bytes20(uint160(receiver)), workflowExecutionId, reportId));
+  }
 
-      add(sig, 32) = pointer of sig + 32
-      effectively, skips first 32 bytes of signature
-
-      mload(p) loads next 32 bytes starting at the memory address p into memory
-      */
-
-      // first 32 bytes, after the length prefix
-      r := mload(add(sig, 32))
-      // second 32 bytes
-      s := mload(add(sig, 64))
-      // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(sig, 96)))
-    }
+  function getRouter() external view returns (address) {
+    return s_router;
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _getMetadata(
     bytes memory rawReport
-  ) internal pure returns (bytes32 workflowExecutionId, uint32 donId, uint32 donConfigVersion, bytes2 reportId) {
+  ) internal pure returns (bytes32 workflowExecutionId, uint64 configId, bytes2 reportId) {
     // (first 32 bytes of memory contain length of the report)
     // version                  // offset  32, size  1
     // workflow_execution_id    // offset  33, size 32
@@ -233,32 +224,12 @@ contract KeystoneForwarder is IForwarder, ConfirmedOwner, TypeAndVersionInterfac
     // workflow_cid             // offset  77, size 32
     // workflow_name            // offset 109, size 10
     // workflow_owner           // offset 119, size 20
-    // report_name              // offset 139, size  2
-    if (uint8(rawReport[0]) != 1) {
-      revert InvalidVersion(uint8(rawReport[0]));
-    }
+    // report_id              // offset 139, size  2
     assembly {
       workflowExecutionId := mload(add(rawReport, 33))
-      // shift right by 28 bytes to get the actual value
-      donId := shr(mul(28, 8), mload(add(rawReport, 69)))
-      // shift right by 28 bytes to get the actual value
-      donConfigVersion := shr(mul(28, 8), mload(add(rawReport, 73)))
+      // shift right by 24 bytes to get the combined don_id and don_config_version
+      configId := shr(mul(24, 8), mload(add(rawReport, 69)))
       reportId := mload(add(rawReport, 139))
     }
-  }
-
-  /// @inheritdoc TypeAndVersionInterface
-  function typeAndVersion() external pure override returns (string memory) {
-    return "KeystoneForwarder 1.0.0";
-  }
-
-  /**
-   * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
-   */
-  modifier nonReentrant() {
-    if (s_reentrancyGuard) revert ReentrantCall();
-    s_reentrancyGuard = true;
-    _;
-    s_reentrancyGuard = false;
   }
 }

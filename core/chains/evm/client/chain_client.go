@@ -12,10 +12,11 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -117,7 +118,7 @@ type chainClient struct {
 		rpc.BatchElem,
 	]
 	logger       logger.SugaredLogger
-	chainType    config.ChainType
+	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
 }
 
@@ -129,8 +130,9 @@ func NewChainClient(
 	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient],
 	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
-	chainType config.ChainType,
+	chainType chaintype.ChainType,
 	clientErrors evmconfig.ClientErrors,
+	deathDeclarationDelay time.Duration,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -140,12 +142,12 @@ func NewChainClient(
 		nodes,
 		sendonlys,
 		chainID,
-		chainType,
 		"EVM",
 		func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
 			return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, chainType.IsL2())
 		},
 		0, // use the default value provided by the implementation
+		deathDeclarationDelay,
 	)
 	return &chainClient{
 		multiNode:    multiNode,
@@ -254,7 +256,7 @@ func (c *chainClient) HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.H
 }
 
 func (c *chainClient) IsL2() bool {
-	return c.multiNode.IsL2()
+	return c.chainType.IsL2()
 }
 
 func (c *chainClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*commonassets.Link, error) {

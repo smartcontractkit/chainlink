@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -124,7 +124,7 @@ func (e *EVMConfig) BlockEmissionIdleWarningThreshold() time.Duration {
 	return e.C.NoNewHeadsThreshold.Duration()
 }
 
-func (e *EVMConfig) ChainType() commonconfig.ChainType {
+func (e *EVMConfig) ChainType() chaintype.ChainType {
 	if e.C.ChainType == nil {
 		return ""
 	}

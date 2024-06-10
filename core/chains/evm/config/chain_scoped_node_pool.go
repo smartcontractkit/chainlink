@@ -43,3 +43,7 @@ func (n *NodePoolConfig) Errors() ClientErrors { return &clientErrorsConfig{c: n
 func (n *NodePoolConfig) EnforceRepeatableRead() bool {
 	return *n.C.EnforceRepeatableRead
 }
+
+func (n *NodePoolConfig) DeathDeclarationDelay() time.Duration {
+	return n.C.DeathDeclarationDelay.Duration()
+}

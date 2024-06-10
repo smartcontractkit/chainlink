@@ -420,7 +420,7 @@ func (r *rpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtyp
 	}()
 	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
 		head.EVMChainID = ubig.New(r.chainID)
-		r.oneNewHead(ctx, chStopInFlight, head)
+		r.onNewHead(ctx, chStopInFlight, head)
 		return head
 	}, r.wrapRPCClientError)
 	err = subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
@@ -581,9 +581,9 @@ func (r *rpcClient) blockByNumber(ctx context.Context, number string) (head *evm
 
 	switch number {
 	case rpc.FinalizedBlockNumber.String():
-		r.oneNewFinalizedHead(ctx, chStopInFlight, head)
+		r.onNewFinalizedHead(ctx, chStopInFlight, head)
 	case rpc.LatestBlockNumber.String():
-		r.oneNewHead(ctx, chStopInFlight, head)
+		r.onNewHead(ctx, chStopInFlight, head)
 	}
 
 	return
@@ -1200,7 +1200,7 @@ func Name(r *rpcClient) string {
 	return r.name
 }
 
-func (r *rpcClient) oneNewHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
+func (r *rpcClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
 	if head == nil {
 		return
 	}
@@ -1220,7 +1220,7 @@ func (r *rpcClient) oneNewHead(ctx context.Context, requestCh <-chan struct{}, h
 	}
 }
 
-func (r *rpcClient) oneNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
+func (r *rpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head *evmtypes.Head) {
 	if head == nil {
 		return
 	}

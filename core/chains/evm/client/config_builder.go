@@ -9,10 +9,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
-
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -41,6 +40,7 @@ func NewClientConfigs(
 	finalityTagEnabled *bool,
 	finalityBlockOffset *uint32,
 	enforceRepeatableRead *bool,
+	deathDeclarationDelay time.Duration,
 
 ) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
@@ -55,12 +55,13 @@ func NewClientConfigs(
 		SyncThreshold:         syncThreshold,
 		NodeIsSyncingEnabled:  nodeIsSyncingEnabled,
 		EnforceRepeatableRead: enforceRepeatableRead,
+		DeathDeclarationDelay: commonconfig.MustNewDuration(deathDeclarationDelay),
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:            config.NewChainTypeConfig(chainType),
+				ChainType:            chaintype.NewChainTypeConfig(chainType),
 				FinalityDepth:        finalityDepth,
 				FinalityTagEnabled:   finalityTagEnabled,
 				NoNewHeadsThreshold:  commonconfig.MustNewDuration(noNewHeadsThreshold),

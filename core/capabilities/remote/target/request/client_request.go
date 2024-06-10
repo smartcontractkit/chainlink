@@ -59,6 +59,8 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
+	lggr.Debugw("sending request to peers", "execID", req.Metadata.WorkflowExecutionID, "schedule", peerIDToTransmissionDelay)
+
 	responseReceived := make(map[p2ptypes.PeerID]bool)
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
@@ -74,8 +76,10 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 			select {
 			case <-ctx.Done():
+				lggr.Debugw("context done, not sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				return
 			case <-time.After(delay):
+				lggr.Debugw("sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
 					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
