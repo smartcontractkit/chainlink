@@ -14,7 +14,9 @@ interface IRouter {
     address transmitter,
     address receiver,
     bytes calldata metadata,
-    bytes calldata report
+    bytes calldata report,
+    uint256 gasLimit,
+    uint16 gasForCallExactCheck
   ) external returns (bool);
 
   function getTransmitter(bytes32 transmissionId) external view returns (address);
