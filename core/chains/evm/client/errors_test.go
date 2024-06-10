@@ -166,6 +166,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"max fee per gas less than block base fee", true, "zkSync"},
 			{"virtual machine entered unexpected state. please contact developers and provide transaction details that caused this error. Error description: The operator included transaction with an unacceptable gas price", true, "zkSync"},
 			{"client error terminally underpriced", true, "tomlConfig"},
+			{"[Request ID: e4d09e44-19a4-4eb7-babe-270db4c2ebc9] Gas price '830000000000' is below configured minimum gas price '950000000000'", true, "hedera"},
 		}
 
 		for _, test := range tests {
@@ -214,6 +215,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"insufficient funds for gas + value. balance: 42719769622667482000, fee: 48098250000000, value: 42719769622667482000", true, "celo"},
 			{"client error insufficient eth", true, "tomlConfig"},
 			{"transaction would cause overdraft", true, "Geth"},
+			{"[Request ID: 9dd78806-58c8-4e6d-89a8-a60962abe705] Error invoking RPC: transaction 0.0.3041916@1717691931.680570179 failed precheck with status INSUFFICIENT_PAYER_BALANCE", true, "hedera"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
