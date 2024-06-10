@@ -1,6 +1,9 @@
 package logprovider
 
-import "math/big"
+import (
+	"math/big"
+	"sync"
+)
 
 type dequeueCoordinator struct {
 	dequeuedMinimum map[int64]bool
@@ -9,9 +12,13 @@ type dequeueCoordinator struct {
 	dequeuedLogs    map[int64]int
 	completeWindows map[int64]bool
 	dequeuedUpkeeps map[int64]map[string]int
+	mu              sync.Mutex
 }
 
 func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, blockRate int) (int64, int64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// check if minimum logs have been dequeued
 	for i := start; i <= latestBlock; i += int64(blockRate) {
 		startWindow, end := getBlockWindow(i, blockRate)
@@ -46,6 +53,9 @@ func (c *dequeueCoordinator) dequeueBlockWindow(start int64, latestBlock int64, 
 // upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
 // dequeued once.
 func (c *dequeueCoordinator) getUpkeepSelector(startWindow int64, logLimitLow, iterations, currentIteration int) func(id *big.Int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	bestEffort := false
 
 	if hasDequeued, ok := c.dequeuedMinimum[startWindow]; ok {
@@ -79,7 +89,22 @@ func (c *dequeueCoordinator) trackUpkeeps(startWindow int64, upkeepID *big.Int) 
 	}
 }
 
+func (c *dequeueCoordinator) markReorg(block int64, blockRate uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	startWindow, _ := getBlockWindow(block, int(blockRate))
+	c.dequeuedMinimum[startWindow] = false
+	// TODO instead of wiping the count for all upkeeps, should we wipe for upkeeps only impacted by the reorg?
+	for upkeepID := range c.dequeuedUpkeeps[startWindow] {
+		c.dequeuedUpkeeps[startWindow][upkeepID] = 0
+	}
+}
+
 func (c *dequeueCoordinator) updateBlockWindow(startWindow int64, logs, remaining, numberOfUpkeeps, logLimitLow int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.remainingLogs[startWindow] = remaining
 	c.dequeuedLogs[startWindow] += logs
 
