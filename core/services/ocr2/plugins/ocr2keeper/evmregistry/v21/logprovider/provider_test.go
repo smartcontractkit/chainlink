@@ -1396,7 +1396,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 0, blockWindowCounts[8])
 		assert.Equal(t, 0, blockWindowCounts[96])
 		assert.Equal(t, 0, blockWindowCounts[100])
-
 	})
 
 	t.Run("a complete window with no logs present is immediately marked as having the min logs dequeued, logs are dequeued from the next window", func(t *testing.T) {
@@ -1718,7 +1717,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[0])
 		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[4])
 		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[8])
-
 	})
 
 	t.Run("an incomplete window with minimum logs already present is marked as min dequeued", func(t *testing.T) {
@@ -1907,7 +1905,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 70, blockWindowCounts[0])
 		assert.Equal(t, 190, blockWindowCounts[4])
 	})
-
 }
 
 type mockedPacker struct {
