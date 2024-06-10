@@ -69,14 +69,13 @@ abstract contract LegacyPoolWrapper is TokenPool {
   /// @notice This call converts the arguments from a >=1.5 pool call to those of a <1.5 pool call, and uses these
   /// to call the previous pool.
   /// @param releaseOrMintIn The 1.5 style release or mint arguments.
+  /// @dev Overwrites the receiver so the previous pool sends the tokens to the sender of this call, which is the
+  /// offRamp. This is due to the older pools sending funds directly to the receiver, while the new pools do a hop
+  /// through the offRamp to ensure the correct tokens are sent.
   /// @dev Since extraData has never been used in LockRelease or MintBurn token pools, we can safely ignore it.
   function _releaseOrMintLegacy(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
     s_previousPool.releaseOrMint(
-      releaseOrMintIn.originalSender,
-      releaseOrMintIn.receiver,
-      releaseOrMintIn.amount,
-      releaseOrMintIn.remoteChainSelector,
-      ""
+      releaseOrMintIn.originalSender, msg.sender, releaseOrMintIn.amount, releaseOrMintIn.remoteChainSelector, ""
     );
   }
 }

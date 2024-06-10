@@ -17,6 +17,8 @@ pragma solidity ^0.8.0;
 
 import {IMessageTransmitterWithRelay} from "./interfaces/IMessageTransmitterWithRelay.sol";
 
+import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
+
 contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
   // Indicated whether the receiveMessage() call should succeed.
   bool public s_shouldSucceed;
@@ -25,19 +27,39 @@ contract MockE2EUSDCTransmitter is IMessageTransmitterWithRelay {
   // Next available nonce from this source domain
   uint64 public nextAvailableNonce;
 
+  BurnMintERC677 internal immutable i_token;
+
   /**
    * @notice Emitted when a new message is dispatched
    * @param message Raw bytes of message
    */
   event MessageSent(bytes message);
 
-  constructor(uint32 _version, uint32 _localDomain) {
+  constructor(uint32 _version, uint32 _localDomain, address token) {
     i_version = _version;
     i_localDomain = _localDomain;
     s_shouldSucceed = true;
+
+    i_token = BurnMintERC677(token);
   }
 
-  function receiveMessage(bytes calldata, bytes calldata) external view returns (bool success) {
+  /// @param message The original message on the source chain
+  ///     * Message format:
+  ///     * Field                 Bytes      Type       Index
+  ///     * version               4          uint32     0
+  ///     * sourceDomain          4          uint32     4
+  ///     * destinationDomain     4          uint32     8
+  ///     * nonce                 8          uint64     12
+  ///     * sender                32         bytes32    20
+  ///     * recipient             32         bytes32    52
+  ///     * destinationCaller     32         bytes32    84
+  ///     * messageBody           dynamic    bytes      116
+  function receiveMessage(bytes calldata message, bytes calldata) external returns (bool success) {
+    address recipient = address(bytes20(message[64:84]));
+
+    // We always mint 1000e18 tokens to not complicate the test.
+    i_token.mint(recipient, 1000e18);
+
     return s_shouldSucceed;
   }
 

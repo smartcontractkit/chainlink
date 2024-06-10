@@ -615,6 +615,38 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 	return pool.client.ProcessTransaction(tx)
 }
 
+func SendUSDCToUSDCPool(destTokenTransmitter *TokenTransmitter, destPoolAddr common.Address) error {
+	// Send usdc tokens to the offRamp because the mocked USDC contracts don't release them to the offRamo
+	// then they should.
+	destClient := destTokenTransmitter.client
+
+	destPool, err := usdc_token_pool.NewUSDCTokenPool(destPoolAddr, destClient.Backend())
+	if err != nil {
+		return fmt.Errorf("failed to get dest usdc pool: %w", err)
+	}
+
+	usdcToken, err := destPool.GetToken(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get dest usdc token: %w", err)
+	}
+
+	usdcInstance, err := burn_mint_erc677.NewBurnMintERC677(usdcToken, destClient.Backend())
+	if err != nil {
+		return fmt.Errorf("failed to get dest usdc token instance: %w", err)
+	}
+
+	destOpts, err := destClient.TransactionOpts(destClient.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("failed to get transaction opts: %w", err)
+	}
+
+	tx, err := usdcInstance.Mint(destOpts, destPoolAddr, HundredCoins)
+	if err != nil {
+		return fmt.Errorf("failed to mint usdc tokens to offRamp: %w", err)
+	}
+	return destClient.ProcessTransaction(tx)
+}
+
 func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
 	if !pool.IsLockRelease() {
 		return fmt.Errorf("pool is not a lock release pool, cannot remove liquidity")
@@ -789,6 +821,10 @@ func (pool *TokenPool) SetRouter(routerAddr common.Address) error {
 
 func (pool *TokenPool) GetRouter() (common.Address, error) {
 	return pool.Instance.GetRouter(nil)
+}
+
+func (pool *TokenPool) GetToken() (common.Address, error) {
+	return pool.Instance.Latest.PoolInterface.GetToken(nil)
 }
 
 func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {

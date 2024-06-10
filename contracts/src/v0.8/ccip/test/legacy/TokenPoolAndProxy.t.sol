@@ -471,7 +471,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
     vm.startPrank(address(s_fakeOffRamp));
 
     vm.expectEmit(address(s_legacyPool));
-    emit Minted(address(s_pool), OWNER, amount);
+    emit Minted(address(s_pool), s_fakeOffRamp, amount);
 
     s_pool.releaseOrMint(
       Pool.ReleaseOrMintInV1({

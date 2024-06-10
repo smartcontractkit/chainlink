@@ -18,6 +18,7 @@ import {Internal} from "../libraries/Internal.sol";
 import {Pool} from "../libraries/Pool.sol";
 import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 /// @notice EVM2EVMOffRamp enables OCR networks to execute multiple messages
@@ -85,7 +86,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, OCR2BaseN
     // TODO: re-evaluate on removing this (can be controlled by CommitStore)
     //       if used - pack together with onRamp to localise storage slot reads
     bool isEnabled; // ─────────╮  Flag whether the source chain is enabled or not
-    address prevOffRamp; // ────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
+    address prevOffRamp; // ────╯  Address of previous-version per-lane OffRamp. Used to be able to provide sequencing continuity during a zero downtime upgrade.
     address onRamp; //             OnRamp address on the source chain
     /// @dev Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
     /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
@@ -97,7 +98,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, OCR2BaseN
   struct SourceChainConfigArgs {
     uint64 sourceChainSelector; //  ───╮  Source chain selector of the config to update
     bool isEnabled; //                 │  Flag whether the source chain is enabled or not
-    address prevOffRamp; // ───────────╯  Address of previous-version per-lane OffRamp. Used to be able to provide seequencing continuity during a zero downtime upgrade.
+    address prevOffRamp; // ───────────╯  Address of previous-version per-lane OffRamp. Used to be able to provide sequencing continuity during a zero downtime upgrade.
     address onRamp; //                    OnRamp address on the source chain
   }
 
@@ -105,11 +106,12 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, OCR2BaseN
   /// @dev since OffRampConfig is part of OffRampConfigChanged event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
     uint32 permissionLessExecutionThresholdSeconds; // ─╮ Waiting time before manual execution is enabled
-    address router; // ─────────────────────────────────╯ Router address
-    uint16 maxNumberOfTokensPerMsg; // ──╮ Maximum number of ERC20 token transfers that can be included per message
-    uint32 maxDataBytes; //              │ Maximum payload data size in bytes
-    uint32 maxPoolReleaseOrMintGas; //   │ Maximum amount of gas passed on to token pool when calling releaseOrMint
-    address messageValidator; // ────────╯ Optional message validator to validate incoming messages (zero address = no validator)
+    uint32 maxDataBytes; //                             │ Maximum payload data size in bytes
+    uint16 maxNumberOfTokensPerMsg; //                  │ Maximum number of ERC20 token transfers that can be included per message
+    address router; // ─────────────────────────────────╯ Router address\
+    address messageValidator; // ───────╮ Optional message validator to validate incoming messages (zero address = no validator)
+    uint32 maxPoolReleaseOrMintGas; //  │ Maximum amount of gas passed on to token pool when calling releaseOrMint
+    uint32 maxTokenTransferGas; // ─────╯ Maximum amount of gas passed on to token `transfer` call
   }
 
   /// @notice Struct that represents a message route (sender -> receiver and source chain)
@@ -473,7 +475,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, OCR2BaseN
     uint256 dataLength,
     uint256 offchainTokenDataLength
   ) private view {
-    // TODO: move maxNumberOfTokens & data lnegth validation offchain
+    // TODO: move maxNumberOfTokens & data length validation offchain
     if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg)) {
       revert UnsupportedNumberOfTokens(sourceChainSelector, sequenceNumber);
     }
@@ -739,7 +741,23 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, OCR2BaseN
         revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
       }
       (uint256 decodedAddress, uint256 amount) = abi.decode(returnData, (uint256, uint256));
-      destTokenAmounts[i].token = Internal._validateEVMAddressFromUint256(decodedAddress);
+      address destTokenAddress = Internal._validateEVMAddressFromUint256(decodedAddress);
+
+      (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
+        abi.encodeWithSelector(IERC20.transfer.selector, messageRoute.receiver, amount),
+        destTokenAddress,
+        s_dynamicConfig.maxTokenTransferGas,
+        Internal.GAS_FOR_CALL_EXACT_CHECK,
+        Internal.MAX_RET_BYTES
+      );
+
+      // This is the same check SafeERC20 does. We validate the optional boolean return value of the transfer function.
+      // If nothing is returned, we assume success, if something is returned, it should be `true`.
+      if (!success || (returnData.length > 0 && !abi.decode(returnData, (bool)))) {
+        revert TokenHandlingError(returnData);
+      }
+
+      destTokenAmounts[i].token = destTokenAddress;
       destTokenAmounts[i].amount = amount;
     }
 

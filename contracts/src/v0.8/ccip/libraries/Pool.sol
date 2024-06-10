@@ -45,7 +45,7 @@ library Pool {
   struct ReleaseOrMintOutV1 {
     address localToken; // The address of the local token
     // The number of tokens released or minted on the destination chain, denominated in  the local token's  decimals.
-    // This value is expected to be equal to the ReleaseOrMintInV1.amount in  the case where the source and destination
+    // This value is expected to be equal to the ReleaseOrMintInV1.amount in the case where the source and destination
     // chain have the same number of decimals
     uint256 destinationAmount;
   }

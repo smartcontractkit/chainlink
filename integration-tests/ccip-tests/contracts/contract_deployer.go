@@ -141,17 +141,21 @@ func (e *CCIPContractsDeployer) NewTokenTransmitter(addr common.Address) (*Token
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployTokenTransmitter(domain uint32) (*TokenTransmitter, error) {
+func (e *CCIPContractsDeployer) DeployTokenTransmitter(domain uint32, usdcToken common.Address) (*TokenTransmitter, error) {
 	address, _, instance, err := e.evmClient.DeployContract("Mock Token Transmitter", func(
 		auth *bind.TransactOpts,
 		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		address, tx, contract, err := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), 0, domain)
+		address, tx, contract, err := mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(auth, wrappers.MustNewWrappedContractBackend(e.evmClient, nil), 0, domain, usdcToken)
 		if err != nil {
 			return common.Address{}, nil, nil, err
 		}
 		return address, tx, contract, err
 	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error in deploying usdc token transmitter: %w", err)
+	}
 
 	return &TokenTransmitter{
 		client:          e.evmClient,

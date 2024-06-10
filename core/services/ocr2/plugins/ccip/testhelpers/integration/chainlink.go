@@ -65,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -219,7 +220,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 	return log
 }
 
-func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_2_0.ExecOnchainConfig) logpoller.Log {
+func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_5_0.ExecOnchainConfig) logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
@@ -233,7 +234,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 			0,
 		)
 		require.NoError(t, err)
-		var latestCfg v1_2_0.ExecOnchainConfig
+		var latestCfg v1_5_0.ExecOnchainConfig
 		if log != nil {
 			latestCfg, err = DecodeExecOnChainConfig(log.Data)
 			require.NoError(t, err)
@@ -975,14 +976,14 @@ func DecodeCommitOnChainConfig(encoded []byte) (ccipdata.CommitOnchainConfig, er
 	return onchainConfig, nil
 }
 
-func DecodeExecOnChainConfig(encoded []byte) (v1_2_0.ExecOnchainConfig, error) {
-	var onchainConfig v1_2_0.ExecOnchainConfig
+func DecodeExecOnChainConfig(encoded []byte) (v1_5_0.ExecOnchainConfig, error) {
+	var onchainConfig v1_5_0.ExecOnchainConfig
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)
 	if err != nil {
 		return onchainConfig, errors.Wrap(err, "failed to unpack log data")
 	}
 	onChainCfg := unpacked.OnchainConfig
-	onchainConfig, err = abihelpers.DecodeAbiStruct[v1_2_0.ExecOnchainConfig](onChainCfg)
+	onchainConfig, err = abihelpers.DecodeAbiStruct[v1_5_0.ExecOnchainConfig](onChainCfg)
 	if err != nil {
 		return onchainConfig, err
 	}

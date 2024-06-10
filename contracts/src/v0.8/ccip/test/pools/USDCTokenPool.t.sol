@@ -14,15 +14,15 @@ import {TokenPool} from "../../pools/TokenPool.sol";
 import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BaseTest} from "../BaseTest.t.sol";
 import {USDCTokenPoolHelper} from "../helpers/USDCTokenPoolHelper.sol";
+import {MockE2EUSDCTransmitter} from "../mocks/MockE2EUSDCTransmitter.sol";
 import {MockUSDCTokenMessenger} from "../mocks/MockUSDCTokenMessenger.sol";
-import {MockUSDCTransmitter} from "../mocks/MockUSDCTransmitter.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;
   MockUSDCTokenMessenger internal s_mockUSDC;
-  MockUSDCTransmitter internal s_mockUSDCTransmitter;
+  MockE2EUSDCTransmitter internal s_mockUSDCTransmitter;
 
   struct USDCMessage {
     uint32 version;
@@ -52,17 +52,19 @@ contract USDCTokenPoolSetup is BaseTest {
 
   function setUp() public virtual override {
     BaseTest.setUp();
-    BurnMintERC677 linkToken = new BurnMintERC677("LINK", "LNK", 18, 0);
-    s_token = linkToken;
+    BurnMintERC677 usdcToken = new BurnMintERC677("LINK", "LNK", 18, 0);
+    s_token = usdcToken;
     deal(address(s_token), OWNER, type(uint256).max);
     setUpRamps();
 
-    s_mockUSDCTransmitter = new MockUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER);
+    s_mockUSDCTransmitter = new MockE2EUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER, address(s_token));
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
+
+    usdcToken.grantMintAndBurnRoles(address(s_mockUSDCTransmitter));
 
     s_usdcTokenPool =
       new USDCTokenPoolHelper(s_mockUSDC, s_token, new address[](0), address(s_mockRMN), address(s_router));
-    linkToken.grantMintAndBurnRoles(address(s_mockUSDC));
+    usdcToken.grantMintAndBurnRoles(address(s_mockUSDC));
 
     s_allowedList.push(USER_1);
     s_usdcTokenPoolWithAllowList =
@@ -145,7 +147,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       address(s_token),
       amount,
       address(s_usdcTokenPool),
-      receiver,
+      expectedDomain.allowedCaller,
       expectedDomain.domainIdentifier,
       s_mockUSDC.DESTINATION_TOKEN_MESSENGER(),
       expectedDomain.allowedCaller
@@ -185,7 +187,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       address(s_token),
       amount,
       address(s_usdcTokenPool),
-      destinationReceiver,
+      expectedDomain.allowedCaller,
       expectedDomain.domainIdentifier,
       s_mockUSDC.DESTINATION_TOKEN_MESSENGER(),
       expectedDomain.allowedCaller
@@ -225,7 +227,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
       address(s_token),
       amount,
       address(s_usdcTokenPoolWithAllowList),
-      destinationReceiver,
+      expectedDomain.allowedCaller,
       expectedDomain.domainIdentifier,
       s_mockUSDC.DESTINATION_TOKEN_MESSENGER(),
       expectedDomain.allowedCaller
@@ -335,6 +337,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
 contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
+    vm.assume(recipient != address(0));
     amount = bound(amount, 0, getInboundRateLimiterConfig().capacity);
 
     USDCMessage memory usdcMessage = USDCMessage({
@@ -362,12 +365,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     bytes memory offchainTokenData =
       abi.encode(USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation}));
 
+    // The mocked receiver does not release the token to the pool, so we manually do it here
+    deal(address(s_token), address(s_usdcTokenPool), amount);
+
     vm.expectEmit();
     emit TokenPool.Minted(s_routerAllowedOffRamp, recipient, amount);
 
     vm.expectCall(
       address(s_mockUSDCTransmitter),
-      abi.encodeWithSelector(MockUSDCTransmitter.receiveMessage.selector, message, attestation)
+      abi.encodeWithSelector(MockE2EUSDCTransmitter.receiveMessage.selector, message, attestation)
     );
 
     vm.startPrank(s_routerAllowedOffRamp);
@@ -392,6 +398,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     uint32 nonce = 4730;
     uint32 sourceDomain = 3;
+    uint256 amount = 100;
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
@@ -399,12 +406,15 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain}))
     });
 
+    // The mocked receiver does not release the token to the pool, so we manually do it here
+    deal(address(s_token), address(s_usdcTokenPool), amount);
+
     bytes memory offchainTokenData =
       abi.encode(USDCTokenPool.MessageAndAttestation({message: encodedUsdcMessage, attestation: attestation}));
 
     vm.expectCall(
       address(s_mockUSDCTransmitter),
-      abi.encodeWithSelector(MockUSDCTransmitter.receiveMessage.selector, encodedUsdcMessage, attestation)
+      abi.encodeWithSelector(MockE2EUSDCTransmitter.receiveMessage.selector, encodedUsdcMessage, attestation)
     );
 
     vm.startPrank(s_routerAllowedOffRamp);
@@ -412,7 +422,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       Pool.ReleaseOrMintInV1({
         originalSender: abi.encode(OWNER),
         receiver: OWNER,
-        amount: 100,
+        amount: amount,
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
         sourcePoolData: sourceTokenData.extraData,
