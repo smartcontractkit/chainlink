@@ -6,6 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 )
 
+// Note: this corresponds to a database enum; any update here
+// needs to be reflected in an update to the `workflow_status` enum
 const (
 	StatusStarted            = "started"
 	StatusErrored            = "errored"

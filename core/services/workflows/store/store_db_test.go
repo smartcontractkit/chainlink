@@ -119,6 +119,9 @@ func Test_StoreDB_UpdateStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, gotEs.Status, completedStatus)
+
+	err = store.UpdateStatus(tests.Context(t), es.ExecutionID, StatusCompletedEarlyExit)
+	require.NoError(t, err)
 }
 
 func Test_StoreDB_UpdateStep(t *testing.T) {
@@ -167,6 +170,39 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 
 	gotStep = es.Steps[stepTwo.Ref]
 	assert.Equal(t, stepTwo, gotStep)
+}
+
+func Test_StoreDB_UpsertStep_Status(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	store := &DBStore{db: db, clock: clockwork.NewFakeClock()}
+
+	id := randomID()
+	stepOne := &WorkflowExecutionStep{
+		ExecutionID: id,
+		Ref:         "step1",
+		Status:      "completed",
+	}
+	stepTwo := &WorkflowExecutionStep{
+		ExecutionID: id,
+		Ref:         "step2",
+		Status:      "started",
+	}
+	es := WorkflowExecution{
+		Steps: map[string]*WorkflowExecutionStep{
+			"step1": stepOne,
+			"step2": stepTwo,
+		},
+		ExecutionID: id,
+		Status:      "started",
+	}
+
+	err := store.Add(tests.Context(t), &es)
+	require.NoError(t, err)
+
+	stepOne.Status = "completed_early_exit"
+
+	es, err = store.UpsertStep(tests.Context(t), stepOne)
+	require.NoError(t, err)
 }
 
 func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
