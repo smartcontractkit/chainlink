@@ -126,12 +126,17 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
       revert InvalidReceiver(lockOrBurnIn.receiver);
     }
 
-    bytes32 receiver = abi.decode(lockOrBurnIn.receiver, (bytes32));
     // Since this pool is the msg sender of the CCTP transaction, only this contract
     // is able to call replaceDepositForBurn. Since this contract does not implement
     // replaceDepositForBurn, the tokens cannot be maliciously re-routed to another address.
     uint64 nonce = i_tokenMessenger.depositForBurnWithCaller(
-      lockOrBurnIn.amount, domain.domainIdentifier, receiver, address(i_token), domain.allowedCaller
+      // We set the domain.allowedCaller as the receiver of the funds, as this is the token pool. Since 1.5 the
+      // token pools receiver the funds to hop them through the offRamps.
+      lockOrBurnIn.amount,
+      domain.domainIdentifier,
+      domain.allowedCaller,
+      address(i_token),
+      domain.allowedCaller
     );
 
     emit Burned(msg.sender, lockOrBurnIn.amount);
@@ -169,6 +174,9 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
+    // Since the tokens are minted to the pool, the pool has to send it to the offRamp
+    getToken().safeTransfer(msg.sender, releaseOrMintIn.amount);
+
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
     return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
   }

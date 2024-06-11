@@ -2,13 +2,16 @@
 pragma solidity 0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
+
+import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IMultiCommitStore} from "../../interfaces/IMultiCommitStore.sol";
 
 import {Router} from "../../Router.sol";
-import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
+
+import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
 import {LockReleaseTokenPool} from "../../pools/LockReleaseTokenPool.sol";
@@ -22,12 +25,12 @@ import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol"
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
 import {MockMultiCommitStore} from "../mocks/MockMultiCommitStore.sol";
-import {OCR2BaseSetup} from "../ocr/OCR2Base.t.sol";
+import {MultiOCR3BaseSetup} from "../ocr/MultiOCR3BaseSetup.t.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
-contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
+contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup {
   uint64 internal constant SOURCE_CHAIN_SELECTOR_1 = SOURCE_CHAIN_SELECTOR;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_2 = 6433500567565415381;
   uint64 internal constant SOURCE_CHAIN_SELECTOR_3 = 4051577828743386545;
@@ -47,10 +50,15 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
   MessageInterceptorHelper internal s_messageValidator;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
-  function setUp() public virtual override(TokenSetup, PriceRegistrySetup, OCR2BaseSetup) {
+  bytes32 internal s_configDigest;
+  // Used for single-lane offramp
+  uint64 internal constant s_offchainConfigVersion = 3;
+  uint8 internal constant s_F = 1;
+
+  function setUp() public virtual override(TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup) {
     TokenSetup.setUp();
     PriceRegistrySetup.setUp();
-    OCR2BaseSetup.setUp();
+    MultiOCR3BaseSetup.setUp();
 
     s_messageValidator = new MessageInterceptorHelper();
     s_mockCommitStore = new MockMultiCommitStore();
@@ -75,14 +83,22 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       }),
       sourceChainConfigs
     );
-    s_offRamp.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
-      abi.encode(generateDynamicMultiOffRampConfig(address(router))),
-      s_offchainConfigVersion,
-      abi.encode("")
-    );
+
+    s_configDigest = _getBasicConfigDigest(1, s_emptySigners, s_validTransmitters);
+
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: uint8(Internal.OCRPluginType.Execution),
+      configDigest: s_configDigest,
+      F: s_F,
+      uniqueReports: false,
+      isSignatureVerificationEnabled: false,
+      signers: s_emptySigners,
+      transmitters: s_validTransmitters
+    });
+
+    s_offRamp.setDynamicConfig(generateDynamicMultiOffRampConfig(address(router)));
+    s_offRamp.setOCR3Configs(ocrConfigs);
   }
 
   // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
@@ -105,9 +121,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       getInboundRateLimiterConfig()
     );
     offRamp.setOCR2Config(
-      s_valid_signers,
-      s_valid_transmitters,
-      s_f,
+      s_validSigners,
+      s_validTransmitters,
+      s_F,
       abi.encode(generateDynamicOffRampConfig(address(router), address(s_priceRegistry))),
       s_offchainConfigVersion,
       abi.encode("")
@@ -196,7 +212,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       priceRegistry: priceRegistry,
       maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
       maxDataBytes: MAX_DATA_SIZE,
-      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+      maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS,
+      maxTokenTransferGas: MAX_TOKEN_POOL_TRANSFER_GAS
     });
   }
 
@@ -210,8 +227,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
       router: router,
       maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
       maxDataBytes: MAX_DATA_SIZE,
+      messageValidator: address(0),
       maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS,
-      messageValidator: address(0)
+      maxTokenTransferGas: MAX_TOKEN_POOL_TRANSFER_GAS
     });
   }
 
@@ -392,6 +410,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
     assertEq(a.maxNumberOfTokensPerMsg, b.maxNumberOfTokensPerMsg);
     assertEq(a.maxDataBytes, b.maxDataBytes);
     assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
+    assertEq(a.maxTokenTransferGas, b.maxTokenTransferGas);
     assertEq(a.messageValidator, b.messageValidator);
   }
 
@@ -426,9 +445,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSet
   function _enableMessageValidator() internal {
     EVM2EVMMultiOffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
     dynamicConfig.messageValidator = address(s_messageValidator);
-    bytes memory onchainConfig = abi.encode(dynamicConfig);
-    s_offRamp.setOCR2Config(
-      s_valid_signers, s_valid_transmitters, s_f, onchainConfig, s_offchainConfigVersion, abi.encode("")
-    );
+    s_offRamp.setDynamicConfig(dynamicConfig);
   }
 }

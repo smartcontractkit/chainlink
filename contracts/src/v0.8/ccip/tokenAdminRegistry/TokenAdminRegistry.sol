@@ -50,11 +50,8 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   // All tokens that have been configured
   EnumerableSet.AddressSet internal s_tokens;
 
-  // All permissioned tokens
-  EnumerableSet.AddressSet internal s_permissionedTokens;
-
   // Registry modules are allowed to register administrators for tokens
-  EnumerableSet.AddressSet internal s_RegistryModules;
+  EnumerableSet.AddressSet internal s_registryModules;
 
   /// @notice Returns all pools for the given tokens.
   /// @dev Will return address(0) for tokens that do not have a pool.
@@ -241,13 +238,13 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   /// @param module The address to check.
   /// @return True if the address is a registry module, false otherwise.
   function isRegistryModule(address module) public view returns (bool) {
-    return s_RegistryModules.contains(module);
+    return s_registryModules.contains(module);
   }
 
   /// @notice Adds a new registry module to the list of allowed modules.
   /// @param module The module to add.
   function addRegistryModule(address module) external onlyOwner {
-    if (s_RegistryModules.add(module)) {
+    if (s_registryModules.add(module)) {
       emit RegistryModuleAdded(module);
     }
   }
@@ -255,7 +252,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   /// @notice Removes a registry module from the list of allowed modules.
   /// @param module The module to remove.
   function removeRegistryModule(address module) external onlyOwner {
-    if (s_RegistryModules.remove(module)) {
+    if (s_registryModules.remove(module)) {
       emit RegistryModuleRemoved(module);
     }
   }

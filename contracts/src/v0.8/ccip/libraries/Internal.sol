@@ -181,4 +181,10 @@ library Internal {
     SUCCESS,
     FAILURE
   }
+
+  /// @notice CCIP OCR plugin type, used to separate execution & commit transmissions and configs
+  enum OCRPluginType {
+    Commit,
+    Execution
+  }
 }

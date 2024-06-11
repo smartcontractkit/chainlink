@@ -60,6 +60,7 @@ contract BaseTest is Test {
   uint32 internal constant MAX_DATA_SIZE = 30_000;
   uint16 internal constant MAX_TOKENS_LENGTH = 5;
   uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
+  uint32 internal constant MAX_TOKEN_POOL_TRANSFER_GAS = 50_000;
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5000;
   uint32 internal constant PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS = 500;
   uint32 internal constant MAX_GAS_LIMIT = 4_000_000;

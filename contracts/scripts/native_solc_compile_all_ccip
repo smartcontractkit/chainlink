@@ -8,7 +8,8 @@ echo " └───────────────────────�
 
 SOLC_VERSION="0.8.24"
 OPTIMIZE_RUNS=26000
-OPTIMIZE_RUNS_LOW=3600
+OPTIMIZE_RUNS_OFFRAMP=21000
+OPTIMIZE_RUNS_ONRAMP=3600
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -23,23 +24,26 @@ compileContract () {
   local contract
   contract=$(basename "$1" ".sol")
 
-  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+  local optimize_runs=$OPTIMIZE_RUNS
+
+  case $1 in
+    "ccip/offRamp/EVM2EVMOffRamp.sol" | "ccip/offRamp/EVM2EVMMultiOffRamp.sol")
+    echo "OffRamp uses $OPTIMIZE_RUNS_OFFRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_OFFRAMP
+      ;;
+    "ccip/onRamp/EVM2EVMMultiOnRamp.sol" | "ccip/onRamp/EVM2EVMOnRamp.sol")
+    echo "OnRamp uses $OPTIMIZE_RUNS_ONRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_ONRAMP
+      ;;
+  esac
+
+  solc --overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
       -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
       --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
       --evm-version paris \
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-compileContractLowOpts () {
-  local contract
-  contract=$(basename "$1" ".sol")
-
-  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS_LOW --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
-      --evm-version paris \
-      "$ROOT"/contracts/src/v0.8/"$1"
-}
 
 # Solc produces and overwrites intermediary contracts.
 # Contracts should be ordered in reverse-import-complexity-order to minimize overwrite risks.
@@ -48,8 +52,8 @@ compileContract ccip/offRamp/EVM2EVMMultiOffRamp.sol
 compileContract ccip/applications/PingPongDemo.sol
 compileContract ccip/applications/SelfFundedPingPong.sol
 compileContract ccip/applications/EtherSenderReceiver.sol
-compileContractLowOpts ccip/onRamp/EVM2EVMMultiOnRamp.sol
-compileContractLowOpts ccip/onRamp/EVM2EVMOnRamp.sol
+compileContract ccip/onRamp/EVM2EVMMultiOnRamp.sol
+compileContract ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
 compileContract ccip/MultiCommitStore.sol
 compileContract ccip/MultiAggregateRateLimiter.sol

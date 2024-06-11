@@ -55,7 +55,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   struct ChainUpdate {
     uint64 remoteChainSelector; // ──╮ Remote chain selector
     bool allowed; // ────────────────╯ Whether the chain is allowed
-    bytes remotePoolAddress; //        Address of the remote pool
+    bytes remotePoolAddress; //        Address of the remote pool, ABI encoded in the case of an EVM pool.
     RateLimiter.Config outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
     RateLimiter.Config inboundRateLimiterConfig; // Inbound rate limited config, meaning the rate limits for all of the offRamps for the given chain
   }

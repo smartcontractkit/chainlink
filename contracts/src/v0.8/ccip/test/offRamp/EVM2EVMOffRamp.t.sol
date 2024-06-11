@@ -1342,6 +1342,9 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     bytes[] memory encodedSourceTokenData = _getDefaultSourceTokenData(srcTokenAmounts);
     Internal.SourceTokenData memory sourceTokenData = abi.decode(encodedSourceTokenData[0], (Internal.SourceTokenData));
 
+    // Since the pool call is mocked, we manually release funds to the offRamp
+    deal(destToken, address(s_offRamp), amount * destinationDenominationMultiplier);
+
     vm.mockCall(
       s_destPoolBySourceToken[srcTokenAmounts[0].token],
       abi.encodeWithSelector(

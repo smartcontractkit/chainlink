@@ -6,9 +6,7 @@ import {IGetCCIPAdmin} from "../interfaces/IGetCCIPAdmin.sol";
 import {IOwner} from "../interfaces/IOwner.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
-import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
-
-contract RegistryModuleOwnerCustom is ITypeAndVersion, OwnerIsCreator {
+contract RegistryModuleOwnerCustom is ITypeAndVersion {
   error CanOnlySelfRegister(address admin, address token);
 
   event AdministratorRegistered(address indexed token, address indexed administrator);

@@ -16,6 +16,7 @@ contract TokenPoolHelper is TokenPool {
 
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
     external
+    view
     override
     returns (Pool.LockOrBurnOutV1 memory)
   {
@@ -24,6 +25,7 @@ contract TokenPoolHelper is TokenPool {
 
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
+    view
     override
     returns (Pool.ReleaseOrMintOutV1 memory)
   {
