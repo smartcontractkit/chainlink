@@ -44,6 +44,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"call failed: OldNonce, Current nonce: 22, nonce of rejected tx: 17", true, "Nethermind"},
 			{"nonce too low. allowed nonce range: 427 - 447, actual: 426", true, "zkSync"},
 			{"client error nonce too low", true, "tomlConfig"},
+			{"[Request ID: 2e952947-ffad-408b-aed9-35f3ed152001] Nonce too low. Provided nonce: 15, current nonce: 15", true, "hedera"},
 		}
 
 		for _, test := range tests {
@@ -65,6 +66,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"nonce too high", true, "Erigon"},
 			{"nonce too high. allowed nonce range: 427 - 477, actual: 527", true, "zkSync"},
 			{"client error nonce too high", true, "tomlConfig"},
+			{"[Request ID: 3ec591b4-9396-49f4-a03f-06c415a7cc6a] Nonce too high. Provided nonce: 16, current nonce: 15", true, "hedera"},
 		}
 
 		for _, test := range tests {
