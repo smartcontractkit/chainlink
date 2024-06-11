@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
@@ -63,7 +62,7 @@ func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chai
 		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
 		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
-	case config.ChainZkSync:
+	case chaintype.ChainZkSync:
 		l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
