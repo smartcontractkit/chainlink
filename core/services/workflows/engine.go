@@ -248,6 +248,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	// need to calculate the dependents of a step once since
 	// they won't change.
 	refToDeps := map[string][]*step{}
+	e.logger.Debugf("resuming %d executions", len(wipExecutions))
 	for _, execution := range wipExecutions {
 		for _, step := range execution.Steps {
 			// NOTE: In order to determine what tasks need to be enqueued,
