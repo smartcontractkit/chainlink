@@ -617,13 +617,13 @@ func (ccipModule *CCIPCommon) UpdateTokenPricesAtRegularInterval(ctx context.Con
 // SyncUSDCDomain makes domain updates to Source usdc pool domain with -
 // 1. USDC domain from destination chain's token transmitter contract
 // 2. Destination pool address as allowed caller
-func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTransmitter, destPoolAddr []common.Address, destChainID uint64) error {
+func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTransmitter, destPools []*contracts.TokenPool, destChainID uint64) error {
 	// if not USDC new deployment, return
 	// if existing deployment, consider that no syncing is required and return
 	if ccipModule.ExistingDeployment || !ccipModule.IsUSDCDeployment() {
 		return nil
 	}
-	if destTransmitter == nil || len(destPoolAddr) == 0 {
+	if destTransmitter == nil {
 		return fmt.Errorf("invalid address")
 	}
 	destChainSelector, err := chainselectors.SelectorFromChainId(destChainID)
@@ -636,11 +636,18 @@ func (ccipModule *CCIPCommon) SyncUSDCDomain(destTransmitter *contracts.TokenTra
 		if !pool.IsUSDC() {
 			continue
 		}
-		err = pool.SyncUSDCDomain(destTransmitter, destPoolAddr[i], destChainSelector)
+		if destPools[i] == nil {
+			return fmt.Errorf("invalid pool address")
+		}
+		if !destPools[i].IsUSDC() {
+			return fmt.Errorf("corresponding dest pool is not USDC pool")
+		}
+		err = pool.SyncUSDCDomain(destTransmitter, destPools[i].EthAddress, destChainSelector)
 		if err != nil {
 			return err
 		}
-		err = contracts.SendUSDCToUSDCPool(destTransmitter, destPoolAddr[i])
+
+		err = destPools[i].MintUSDCToUSDCPool()
 		if err != nil {
 			return err
 		}
@@ -3465,16 +3472,8 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	if err != nil {
 		return fmt.Errorf("failed to deploy destination contracts: %w", err)
 	}
-
 	// if it's a new USDC deployment, sync the USDC domain
-	var destPools []common.Address
-	for _, pool := range lane.Dest.Common.BridgeTokenPools {
-		if !pool.IsUSDC() {
-			continue
-		}
-		destPools = append(destPools, pool.EthAddress)
-	}
-	err = lane.Source.Common.SyncUSDCDomain(lane.Dest.Common.TokenTransmitter, destPools, lane.Source.DestinationChainId)
+	err = lane.Source.Common.SyncUSDCDomain(lane.Dest.Common.TokenTransmitter, lane.Dest.Common.BridgeTokenPools, lane.Source.DestinationChainId)
 	if err != nil {
 		return fmt.Errorf("failed to sync USDC domain: %w", err)
 	}
