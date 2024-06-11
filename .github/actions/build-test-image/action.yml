@@ -81,7 +81,7 @@ runs:
       if: steps.version.outputs.is_semantic == 'false' && steps.check-base-image.outputs.exists == 'false'
       uses: smartcontractkit/chainlink-github-actions/docker/build-push@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       env:
-        BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:${{ steps.long_sha.outputs.long_sha }}
+        BASE_IMAGE_NAME: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image:65293bacf78d9bbe555811d181695f18c994da36
       with:
         tags: ${{ env.BASE_IMAGE_NAME }}
         file: ctf/k8s/Dockerfile.base
