@@ -10,10 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestGasExperiment(t *testing.T) {
@@ -25,9 +26,9 @@ func TestGasExperiment(t *testing.T) {
 	readSethCfg := config.GetSethConfig()
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
 	require.NoError(t, err, "Error merging seth and evm network configs")
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(t, err, "Error validating seth network config")
 
 	seth, err := seth.NewClientWithConfig(&sethCfg)

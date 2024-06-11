@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -25,7 +26,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 type CleanUpType string
@@ -327,11 +327,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			if b.hasSeth {
 				readSethCfg := b.testConfig.GetSethConfig()
-				sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+				sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
 				if err != nil {
 					return nil, err
 				}
-				err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+				err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 				if err != nil {
 					return nil, err
 				}
@@ -428,11 +428,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
 			readSethCfg := b.testConfig.GetSethConfig()
-			sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
+			sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(networkConfig, *readSethCfg)
 			if err != nil {
 				return nil, err
 			}
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+			err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 			if err != nil {
 				return nil, err
 			}

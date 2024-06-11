@@ -8,11 +8,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCRSoak(t *testing.T) {
@@ -33,9 +33,9 @@ func TestOCRSoak(t *testing.T) {
 	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	sethCfg, err := utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
+	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
 	require.NoError(t, err, "Error merging seth and evm network configs")
-	err = utils.ValidateSethNetworkConfig(sethCfg.Network)
+	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 	require.NoError(t, err, "Error validating seth network config")
 
 	_, err = seth.NewClientWithConfig(&sethCfg)

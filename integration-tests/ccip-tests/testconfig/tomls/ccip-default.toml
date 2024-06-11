@@ -27,7 +27,7 @@ ethereum_version = "eth1"
 # geth, besu, erigon or nethermind
 execution_layer = "geth"
 # eth2-only, if set to true environment startup will wait until at least 1 epoch has been finalised
-#wait_for_finalization=false
+wait_for_finalization=false
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.EthereumChainConfig]
 # eth2-only, the lower the value the faster the block production (3 is minimum)
@@ -49,11 +49,11 @@ addresses_to_fund = [
 # eth2-only, epoch at which chain will upgrade do Dencun or Deneb/Cancun (1 is minimum)
 Deneb = 500
 
-# [PrivateEthereumNetwork.CustomDockerImages]
+#[CCIP.Env.PrivateEthereumNetworks.SIMULATED_1.CustomDockerImages]
 # custom docker image that will be used for execution layer client. It has to be one of: hyperledger/besu, nethermind/nethermind, thorax/erigon or ethereum/client-go.
 # instead of using a specific tag you can also use "latest_available" to use latest published tag in Github or "latest_stable" to use latest stable release from Github
 # (if corresponding Docker image on Docker Hub has not been published environment creation will fail).
-# execution_layer="hyperledger/besu:24.2.0-RC2"
+#execution_layer="hyperledger/besu:latest_stable"
 
 [CCIP.Env.PrivateEthereumNetworks.SIMULATED_2]
 ethereum_version = "eth1"

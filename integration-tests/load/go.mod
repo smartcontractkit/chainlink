@@ -11,17 +11,17 @@ require (
 	github.com/K-Phoen/grabana v0.22.1
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/go-resty/resty/v2 v2.11.0
-	github.com/pelletier/go-toml/v2 v2.1.1
+	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240607202129-4cef984f109f
-	github.com/smartcontractkit/chainlink-testing-framework v1.28.13
+	github.com/smartcontractkit/chainlink-testing-framework v1.29.1
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
-	github.com/smartcontractkit/seth v0.1.6-0.20240429143720-cacb8160ecec
+	github.com/smartcontractkit/seth v1.0.11
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wasp v0.4.6
 	github.com/stretchr/testify v1.9.0
