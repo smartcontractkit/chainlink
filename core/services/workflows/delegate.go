@@ -69,7 +69,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	keyString := "44fb5c1ee8ee48846c808a383da3aba3"
 	k, err := hex.DecodeString(keyString)
 	if err != nil {
-		lggr.Errorf("could not decode key %s: %w", keyString, err)
+		lggr.Errorf("could not decode key %s: %v", keyString, err)
 	}
 	key = [16]byte(k)
 

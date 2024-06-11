@@ -215,7 +215,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 				defer cancel()
 				err := f(ctx)
 				if err != nil {
-					lggr.Errorf("failed to initialize upkeeps", err)
+					lggr.Errorf("failed to initialize upkeeps; error %v", err)
 				}
 
 				for {
@@ -223,7 +223,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 					case <-tmr.C:
 						err = f(ctx)
 						if err != nil {
-							lggr.Errorf("failed to re-initialize upkeeps", err)
+							lggr.Errorf("failed to re-initialize upkeeps; error %v", err)
 						}
 						tmr.Reset(reInitializationDelay)
 					case <-ctx.Done():
@@ -245,7 +245,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 					case <-ticker.C:
 						err := f(ctx)
 						if err != nil {
-							lggr.Errorf("failed to poll logs for upkeeps", err)
+							lggr.Errorf("failed to poll logs for upkeeps; error %v", err)
 						}
 					case <-ctx.Done():
 						ticker.Stop()
@@ -265,7 +265,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 					case l := <-ch:
 						err := f(ctx, l)
 						if err != nil {
-							lggr.Errorf("failed to process log for upkeep", err)
+							lggr.Errorf("failed to process log for upkeep; error %v", err)
 						}
 					case <-ctx.Done():
 						return
@@ -447,7 +447,7 @@ func (r *EvmRegistry) addToActive(ctx context.Context, id *big.Int, force bool) 
 	if _, ok := r.active[id.String()]; !ok || force {
 		actives, err := r.getUpkeepConfigs(ctx, []*big.Int{id})
 		if err != nil {
-			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %w", err)
+			r.lggr.Errorf("failed to get upkeep configs during adding active upkeep: %v", err)
 			return
 		}
 
