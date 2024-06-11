@@ -42,7 +42,11 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
 
   event L1FeeCalculationSet(uint8 mode, uint8 coefficient);
 
-  function setL1FeeCalculation(uint8 mode, uint8 coefficient) external onlyOwner {
+  function setL1FeeCalculation(uint8 mode, uint8 coefficient) external virtual onlyOwner {
+    _setL1FeeCalculationInternal(mode, coefficient);
+  }
+
+  function _setL1FeeCalculationInternal(uint8 mode, uint8 coefficient) internal {
     if (mode >= 3) {
       revert InvalidL1FeeCalculationMode(mode);
     }

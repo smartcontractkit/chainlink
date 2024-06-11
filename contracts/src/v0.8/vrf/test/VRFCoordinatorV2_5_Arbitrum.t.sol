@@ -91,7 +91,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
       );
   }
 
-  function _checkRecordedLogs(uint256 expectedL1GasFee) internal {
+  function _checkL1GasFeeEmittedLogs(uint256 expectedL1GasFee) internal {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries.length, 1);
     assertEq(entries[0].topics.length, 1);
@@ -129,7 +129,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(10 gwei));
+    _checkL1GasFeeEmittedLogs(uint256(10 gwei));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -141,7 +141,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(10 gwei));
+    _checkL1GasFeeEmittedLogs(uint256(10 gwei));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -158,7 +158,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(10 gwei));
+    _checkL1GasFeeEmittedLogs(uint256(10 gwei));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -170,7 +170,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(10 gwei));
+    _checkL1GasFeeEmittedLogs(uint256(10 gwei));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy

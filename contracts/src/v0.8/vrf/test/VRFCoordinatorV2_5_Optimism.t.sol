@@ -4,6 +4,7 @@ import "./BaseTest.t.sol";
 import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5_Optimism} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5_Optimism.sol";
+import {OptimismL1Fees} from "../dev/OptimismL1Fees.sol";
 import {BlockhashStore} from "../dev/BlockhashStore.sol";
 import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
 import {VmSafe} from "forge-std/Vm.sol";
@@ -101,6 +102,8 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
   }
 
   function _mockGasOraclePriceGetL1FeeUpperBoundCall() internal {
+    // 171 bytes is the size of tx.data we are sending in this test
+    // this is not expected fulfillment tx size!
     vm.mockCall(
       OVM_GASPRICEORACLE_ADDR,
       abi.encodeWithSelector(OVM_GasPriceOracle.getL1FeeUpperBound.selector, 171),
@@ -141,7 +144,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     );
   }
 
-  function _checkRecordedLogs(uint256 expectedL1GasFee) internal {
+  function _checkL1GasFeeEmittedLogs(uint256 expectedL1GasFee) internal {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries.length, 1);
     assertEq(entries[0].topics.length, 1);
@@ -151,20 +154,45 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     assertApproxEqAbs(expectedL1GasFee, actualL1GasFee, 1e15);
   }
 
+  function _checkL1FeeCalculationSetEmittedLogs(uint8 expectedMode, uint8 expectedCoefficient) internal {
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries.length, 1);
+    assertEq(entries[0].topics.length, 1);
+    assertEq(entries[0].topics[0], keccak256("L1FeeCalculationSet(uint8,uint8)"));
+    (uint8 actualMode, uint8 actualCoefficient) = abi.decode(entries[0].data, (uint8, uint8));
+    assertEq(expectedMode, actualMode);
+    assertEq(expectedCoefficient, actualCoefficient);
+  }
+
   function test_setL1FeePaymentMethod() public {
     // check default settings after contract deployment
     assertEq(uint256(L1_GAS_FEES_MODE), uint256(s_testCoordinator.s_l1FeeCalculationMode()));
     assertEq(100, uint256(s_testCoordinator.s_l1FeeCoefficient()));
+    vm.recordLogs();
 
     s_testCoordinator.setL1FeeCalculation(L1_CALLDATA_GAS_COST_MODE, 70);
 
+    _checkL1FeeCalculationSetEmittedLogs(L1_CALLDATA_GAS_COST_MODE, 70);
     assertEq(uint256(L1_CALLDATA_GAS_COST_MODE), uint256(s_testCoordinator.s_l1FeeCalculationMode()));
     assertEq(70, uint256(s_testCoordinator.s_l1FeeCoefficient()));
 
     s_testCoordinator.setL1FeeCalculation(L1_GAS_FEES_UPPER_BOUND_MODE, 30);
 
+    _checkL1FeeCalculationSetEmittedLogs(L1_GAS_FEES_UPPER_BOUND_MODE, 30);
     assertEq(uint256(L1_GAS_FEES_UPPER_BOUND_MODE), uint256(s_testCoordinator.s_l1FeeCalculationMode()));
     assertEq(30, uint256(s_testCoordinator.s_l1FeeCoefficient()));
+
+    // should revert if invalid L1 fee calculation mode is used
+    vm.expectRevert(abi.encodeWithSelector(OptimismL1Fees.InvalidL1FeeCalculationMode.selector, 4));
+    s_testCoordinator.setL1FeeCalculation(4, 100);
+
+    // should revert if invalid coefficient is used (equal to zero, this would disable L1 fees completely)
+    vm.expectRevert(abi.encodeWithSelector(OptimismL1Fees.InvalidL1FeeCoefficient.selector, 0));
+    s_testCoordinator.setL1FeeCalculation(L1_GAS_FEES_UPPER_BOUND_MODE, 0);
+
+    // should revert if invalid coefficient is used (larger than 100%)
+    vm.expectRevert(abi.encodeWithSelector(OptimismL1Fees.InvalidL1FeeCoefficient.selector, 150));
+    s_testCoordinator.setL1FeeCalculation(L1_GAS_FEES_UPPER_BOUND_MODE, 150);
   }
 
   function test_getBlockNumber() public {
@@ -199,7 +227,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.001 ether));
+    _checkL1GasFeeEmittedLogs(uint256(0.001 ether));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -212,7 +240,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.001 ether));
+    _checkL1GasFeeEmittedLogs(uint256(0.001 ether));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -231,7 +259,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.001 ether));
+    _checkL1GasFeeEmittedLogs(uint256(0.001 ether));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -244,7 +272,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.001 ether));
+    _checkL1GasFeeEmittedLogs(uint256(0.001 ether));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -264,7 +292,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
+    _checkL1GasFeeEmittedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -277,7 +305,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
+    _checkL1GasFeeEmittedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -297,7 +325,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
+    _checkL1GasFeeEmittedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -310,7 +338,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
+    _checkL1GasFeeEmittedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -330,7 +358,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
+    _checkL1GasFeeEmittedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -343,7 +371,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
+    _checkL1GasFeeEmittedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -363,7 +391,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
+    _checkL1GasFeeEmittedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -376,7 +404,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
-    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
+    _checkL1GasFeeEmittedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
