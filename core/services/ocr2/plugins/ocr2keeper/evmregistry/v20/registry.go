@@ -420,16 +420,16 @@ func (r *EvmRegistry) processUpkeepStateLog(ctx context.Context, l logpoller.Log
 
 	switch l := abilog.(type) {
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered:
-		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s in transaction %s", l.Id, hash)
 		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived:
-		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id, hash)
 		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepUnpaused:
-		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id, hash)
 		r.addToActive(ctx, l.Id, false)
 	case *keeper_registry_wrapper2_0.KeeperRegistryUpkeepGasLimitSet:
-		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id, hash)
 		r.addToActive(ctx, l.Id, true)
 	}
 
