@@ -172,17 +172,17 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, fmt.Errorf("not implemented")
 	}
 
-	gasPriceWei, _, err := w.ge.GetFee(ctx, nil, 0, assets.NewWei(w.maxGasPrice))
+	fee, _, err := w.ge.GetFee(ctx, nil, 0, assets.NewWei(w.maxGasPrice))
 	if err != nil {
 		return nil, err
 	}
 	// Use legacy if no dynamic is available.
-	gasPrice := gasPriceWei.Legacy.ToInt()
-	if gasPriceWei.DynamicFeeCap != nil {
-		gasPrice = gasPriceWei.DynamicFeeCap.ToInt()
+	gasPrice := fee.Legacy.ToInt()
+	if fee.DynamicFeeCap != nil {
+		gasPrice = fee.DynamicFeeCap.ToInt()
 	}
 	if gasPrice == nil {
-		return nil, fmt.Errorf("missing gas price %+v", gasPriceWei)
+		return nil, fmt.Errorf("missing gas price %+v", fee)
 	}
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
