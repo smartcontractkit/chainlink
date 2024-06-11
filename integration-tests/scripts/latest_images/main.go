@@ -96,7 +96,7 @@ func getLatestImages(fetchFunc func(string) ([]byte, error), repositoryName, gre
 	}
 
 	if count > len(tags) {
-		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to find %d tags given the version constraints '%s'. Found only %d tags\n", count, constraintsText, len(tags))
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to find %d tags given the version constraints '%s'. Found only %d tag(s)\n", count, constraintsText, len(tags))
 		count = len(tags)
 	}
 
