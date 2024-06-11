@@ -137,6 +137,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
+	l.Warn().Msgf("[3] Is network simulated? %v", benchmarkNetwork.Simulated)
 	networkName := strings.ReplaceAll(benchmarkNetwork.Name, " ", "")
 	testName := fmt.Sprintf("%s%s", networkName, *config.Keeper.Common.RegistryToTest)
 	l.Info().Str("Test Name", testName).Msg("Running Benchmark Test")
@@ -144,6 +145,7 @@ func TestAutomationBenchmark(t *testing.T) {
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
+	l.Warn().Msgf("[4] Is network simulated? %v", testNetwork.Simulated)
 
 	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
 	require.NoError(t, err, "Error getting Seth client")
@@ -321,6 +323,7 @@ var networkConfig = map[string]NetworkConfig{
 func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenchmarkTestConfig) (*environment.Environment, blockchain.EVMNetwork) {
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
+	l.Warn().Msgf("[1] Is network simulated? %v", testNetwork.Simulated)
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
 
@@ -396,6 +399,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 				},
 			}))
 	}
+	l.Warn().Msgf("[2] Is network simulated? %v", testNetwork.Simulated)
 
 	// TODO we need to update the image in CTF, the old one is not available anymore
 	// deploy blockscout if running on simulated
