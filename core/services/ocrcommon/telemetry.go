@@ -458,7 +458,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
+		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d", e.job.ID)
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
