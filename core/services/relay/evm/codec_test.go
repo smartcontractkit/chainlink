@@ -32,6 +32,33 @@ func TestCodec(t *testing.T) {
 
 	anyN := 10
 	c := tester.GetCodec(t)
+	t.Run("Decode works with multiple unnamed return values", func(t *testing.T) {
+		encode := &struct {
+			F0 int32
+			F1 int32
+		}{F0: 1, F1: 2}
+		codecName := "my_codec"
+		evmEncoderConfig := `[{"Name":"","Type":"int32"},{"Name":"","Type":"int32"}]`
+
+		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+			codecName: {TypeABI: evmEncoderConfig},
+		}}
+		c, err := evm.NewCodec(codecConfig)
+		require.NoError(t, err)
+
+		result, err := c.Encode(testutils.Context(t), encode, codecName)
+		require.NoError(t, err)
+
+		decode := &struct {
+			F0 int32
+			F1 int32
+		}{}
+		err = c.Decode(testutils.Context(t), result, decode, codecName)
+		require.NoError(t, err)
+		require.Equal(t, encode.F0, decode.F0)
+		require.Equal(t, encode.F1, decode.F1)
+	})
+
 	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
 		actual, err := c.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
