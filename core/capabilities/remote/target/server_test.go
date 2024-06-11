@@ -19,8 +19,7 @@ import (
 )
 
 func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -47,8 +46,7 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -75,8 +73,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
