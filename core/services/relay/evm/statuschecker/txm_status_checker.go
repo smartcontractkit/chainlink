@@ -41,9 +41,10 @@ func NewTransactionStatusChecker(txManager TxManager) *TxmStatusChecker {
 	return &TxmStatusChecker{txManager: txManager}
 }
 
-// CheckMessageStatus checks the status of a message by checking the status of all transactions
-// associated with the message ID.
+// CheckMessageStatus checks the status of a message by checking the status of all transactions associated with the message ID.
 // It returns a slice of all statuses and the number of transactions found (-1 if none).
+// The key will follow the format: <msgID>-<counter>. TXM will be queried for each key until a NotFound error is returned.
+// The goal is to find all transactions associated with a message ID and snooze messages if they are fatal in the Execution Plugin.
 func (tsc *TxmStatusChecker) CheckMessageStatus(ctx context.Context, msgID string) ([]TransactionStatus, int, error) {
 	var allStatuses []TransactionStatus
 	var counter int
