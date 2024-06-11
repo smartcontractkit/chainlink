@@ -19,6 +19,8 @@ import (
 
 // Plugin implements the main ocr3 ccip commit plugin logic.
 // To learn more about the plugin lifecycle, see the ocr3types.ReportingPlugin interface.
+//
+// NOTE: If you are changing core plugin logic, you should also update the commit plugin python spec.
 type Plugin struct {
 	nodeID            commontypes.OracleID
 	cfg               cciptypes.CommitPluginConfig
