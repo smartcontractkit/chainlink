@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -201,7 +202,7 @@ func TestReader_Integration(t *testing.T) {
 	}, s.DONs[0])
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[[32]byte]kcr.CapabilityRegistryNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
 		nodeSet[0]: nodes[0],
 		nodeSet[1]: nodes[1],
 		nodeSet[2]: nodes[2],

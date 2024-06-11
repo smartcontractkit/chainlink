@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -15,10 +16,12 @@ type remoteRegistryReader struct {
 
 var _ reader = (*remoteRegistryReader)(nil)
 
+type capabilityID [32]byte
+
 type state struct {
 	DONs              []kcr.CapabilityRegistryDONInfo
-	IDsToNodes        map[[32]byte]kcr.CapabilityRegistryNodeInfo
-	IDsToCapabilities map[[32]byte]kcr.CapabilityRegistryCapability
+	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo
+	IDsToCapabilities map[capabilityID]kcr.CapabilityRegistryCapability
 }
 
 func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
@@ -34,7 +37,7 @@ func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
 		return state{}, err
 	}
 
-	idsToCapabilities := map[[32]byte]kcr.CapabilityRegistryCapability{}
+	idsToCapabilities := map[capabilityID]kcr.CapabilityRegistryCapability{}
 	for i, c := range caps.Capabilities {
 		idsToCapabilities[caps.HashedCapabilityIds[i]] = c
 	}
@@ -45,7 +48,7 @@ func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
 		return state{}, err
 	}
 
-	idsToNodes := map[[32]byte]kcr.CapabilityRegistryNodeInfo{}
+	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{}
 	for _, node := range nodes.NodeInfo {
 		idsToNodes[node.P2pId] = node
 	}

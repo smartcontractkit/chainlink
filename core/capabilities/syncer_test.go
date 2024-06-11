@@ -18,6 +18,7 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 )
 
@@ -156,7 +157,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[[32]byte]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[capabilityID]kcr.CapabilityRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -168,7 +169,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[[32]byte]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -257,7 +258,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[[32]byte]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[capabilityID]kcr.CapabilityRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -269,7 +270,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[[32]byte]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -375,7 +376,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[[32]byte]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[capabilityID]kcr.CapabilityRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -387,7 +388,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[[32]byte]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
 				capabilityDonNodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -528,7 +529,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					},
 				},
 			},
-			IDsToCapabilities: map[[32]byte]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[capabilityID]kcr.CapabilityRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -540,7 +541,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[[32]byte]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
 				capabilityDonNodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
