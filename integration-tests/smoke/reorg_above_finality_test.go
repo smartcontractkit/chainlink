@@ -7,11 +7,12 @@ import (
 
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/stretchr/testify/require"
 )
 
 func TestReorgAboveFinality(t *testing.T) {
