@@ -51,7 +51,7 @@ type registrySyncer struct {
 var _ services.Service = &registrySyncer{}
 
 var (
-	defaultTickInterval = time.Duration(12 * time.Second)
+	defaultTickInterval = 12 * time.Second
 )
 
 var defaultStreamConfig = p2ptypes.StreamConfig{
@@ -196,7 +196,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	// These will need remote shims to all remote capabilities on other DONs.
 	//
 	// We'll also construct a set to record what DONs the current node is a part of,
-	// regardless of any modifiers (public/accetptsWorkflows etc).
+	// regardless of any modifiers (public/acceptsWorkflows etc).
 	myID := s.peerWrapper.GetPeer().ID()
 	myWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
 	remoteWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
