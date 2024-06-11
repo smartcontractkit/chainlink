@@ -182,7 +182,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		gasPrice = fee.DynamicFeeCap.ToInt()
 	}
 	if gasPrice == nil {
-		return nil, fmt.Errorf("missing gas price %+v", fee)
+		return nil, fmt.Errorf("Dynamic fee and legacy gas price missing %+v", fee)
 	}
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
