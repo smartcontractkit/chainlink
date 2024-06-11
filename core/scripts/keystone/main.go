@@ -19,6 +19,7 @@ func main() {
 		src.NewDeployJobSpecsCommand(),
 		src.NewGenerateCribClusterOverridesCommand(),
 		src.NewDeleteJobsCommand(),
+		src.NewDeployAndInitializeCapabilityRegistryCommand(),
 	}
 
 	commandsList := func(commands []command) string {
