@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Fix verb formatting in the log outputs.
+#updated Fix verb formatting in the log outputs.
