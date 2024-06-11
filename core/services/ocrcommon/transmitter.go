@@ -157,9 +157,9 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 	// Define idempotency key for CCIP transactions
 	if len(txMeta.MessageIDs) > 0 && t.statuschecker != nil {
 		messageIds := txMeta.MessageIDs
-		_, count, err := t.statuschecker.CheckMessageStatus(ctx, messageIds[0])
+		_, count, err1 := t.statuschecker.CheckMessageStatus(ctx, messageIds[0])
 
-		if err != nil {
+		if err1 != nil {
 			return errors.Wrap(err, "skipped OCR transmission, error getting message status")
 		}
 		idempotencyKey = func() *string {

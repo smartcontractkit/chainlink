@@ -5,9 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 // MockTxManager is a mock implementation of TxManager
