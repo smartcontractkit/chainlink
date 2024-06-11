@@ -1,5 +1,23 @@
 # Changelog Chainlink Core
 
+## 2.12.1-automation
+
+### Patch Changes
+
+- [#13486](https://github.com/smartcontractkit/chainlink/pull/13486) [`d87b24c00d`](https://github.com/smartcontractkit/chainlink/commit/d87b24c00dcd86a22fb84d6b18cd3a71f54b3c5f) Thanks [@infiloop2](https://github.com/infiloop2)! - #changed:
+  AUTO-10539: adjust logging for offchain config and gas control
+
+- [#13486](https://github.com/smartcontractkit/chainlink/pull/13486) [`d87b24c00d`](https://github.com/smartcontractkit/chainlink/commit/d87b24c00dcd86a22fb84d6b18cd3a71f54b3c5f) Thanks [@infiloop2](https://github.com/infiloop2)! - #added
+  compare user-defined max gas price with current gas price in automation simulation pipeline
+
+- [#13486](https://github.com/smartcontractkit/chainlink/pull/13486) [`d87b24c00d`](https://github.com/smartcontractkit/chainlink/commit/d87b24c00dcd86a22fb84d6b18cd3a71f54b3c5f) Thanks [@infiloop2](https://github.com/infiloop2)! - #bugfix
+  fix an automation smoke test flake
+
+- [#13486](https://github.com/smartcontractkit/chainlink/pull/13486) [`d87b24c00d`](https://github.com/smartcontractkit/chainlink/commit/d87b24c00dcd86a22fb84d6b18cd3a71f54b3c5f) Thanks [@infiloop2](https://github.com/infiloop2)! - #added
+  pass a gas estimator to registry 2.1 pipeline
+
+- [#13486](https://github.com/smartcontractkit/chainlink/pull/13486) [`d87b24c00d`](https://github.com/smartcontractkit/chainlink/commit/d87b24c00dcd86a22fb84d6b18cd3a71f54b3c5f) Thanks [@infiloop2](https://github.com/infiloop2)! - #added an integration test for max gas price check
+
 ## 2.12.0 - 2024-06-05
 
 ### Minor Changes
@@ -65,7 +83,6 @@
 
 - [#12747](https://github.com/smartcontractkit/chainlink/pull/12747) [`2729ef76f3`](https://github.com/smartcontractkit/chainlink/commit/2729ef76f34877a2e6e8644b2e67f3e5dfb0c2b6) Thanks [@friedemannf](https://github.com/friedemannf)! - Add support for X Layer (X1) #added
 
-
 - [#12680](https://github.com/smartcontractkit/chainlink/pull/12680) [`f55d8be495`](https://github.com/smartcontractkit/chainlink/commit/f55d8be495a83c97ac5439672563400e12ec2ee7) Thanks [@samsondav](https://github.com/samsondav)! - #added
 
   Add configurability to mercury transmitter
@@ -93,6 +110,7 @@
 ## 2.11.1 - 2024-05-20
 
 ### Patch Changes
+
 - [#13254](https://github.com/smartcontractkit/chainlink/pull/13254) [`c0d201a9a8`](https://github.com/smartcontractkit/chainlink/commit/c0d201a9a85b66718c5102427c34276e0b61c84e) Thanks [@samsondav!] - Fix panic if mercury server returns error #bugfix
 
 ## 2.11.0 - 2024-04-30
