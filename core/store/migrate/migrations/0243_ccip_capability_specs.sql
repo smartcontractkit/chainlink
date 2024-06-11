@@ -1,26 +1,60 @@
 -- +goose Up
 -- +goose StatementBegin
+
+-- The ccip_specs table will hold the CCIP capability job specs.
+-- For each new CCIP capability version, we will create a new CCIP capability job.
+-- A single CCIP capability job manages all CCIP OCR instances across all chains.
 CREATE TABLE ccip_specs(
     id BIGSERIAL PRIMARY KEY,
+
+    -- The CCIP capability version, specified in the capability registry.
     capability_version TEXT NOT NULL,
+
+    -- The CCIP capability labelled name, specified in the capability registry.
     capability_labelled_name TEXT NOT NULL,
+
+    -- A mapping of chain family to OCR key bundle ID.
+    -- Every chain family will have its own OCR key bundle.
     ocr_key_bundle_ids JSONB NOT NULL,
-    transmitter_ids JSONB NOT NULL,
+
+    -- The P2P ID for the node.
+    -- The same P2P ID can be used across many chain families and OCR DONs.
     p2p_key_id TEXT NOT NULL,
+
+    -- The P2P V2 bootstrappers, used to bootstrap the DON network.
+    -- These are of the form nodeP2PID@nodeIP:nodePort.
     p2pv2_bootstrappers TEXT[] NOT NULL,
+
+    -- A mapping of chain family to relay configuration for that family.
+    -- Relay configuration typically consists of contract reader and contract writer
+    -- configurations.
     relay_configs JSONB NOT NULL,
+
+    -- A mapping of ccip plugin type to plugin configuration for that plugin.
+    -- For example, the token price pipeline can live in the plugin config of
+    -- the commit plugin.
     plugin_config JSONB NOT NULL,
+
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+-- The ccip_bootstrap_specs table will hold the CCIP capability bootstrap job specs.
+-- Similar to the CCIP capability job specs, these specs are scoped to a single CCIP
+-- capability version.
+-- A single CCIP bootstrap job will be able to bootstrap all CCIP OCR instances across all chains.
 CREATE TABLE ccip_bootstrap_specs(
   id BIGSERIAL PRIMARY KEY,
-  capability_version TEXT NOT NULL,
+
+  -- The CCIP capability version, specified in the capability registry.
+    capability_version TEXT NOT NULL,
+
+  -- The CCIP capability labelled name, specified in the capability registry.
   capability_labelled_name TEXT NOT NULL,
+
+  -- Relay config of the home chain.
   relay_config JSONB NOT NULL,
-  monitoring_endpoint TEXT,
-  blockchain_timeout BIGINT,
+
   created_at TIMESTAMP WITH TIME ZONE NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
