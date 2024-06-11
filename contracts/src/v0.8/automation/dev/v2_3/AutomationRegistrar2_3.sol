@@ -131,7 +131,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
     bytes triggerConfig,
     bytes offchainConfig,
     bytes checkData,
-    uint96 amount
+    uint96 amount,
+    IERC20 billingToken
   );
 
   event RegistrationApproved(bytes32 indexed hash, string displayName, uint256 indexed upkeepId);
@@ -372,7 +373,8 @@ contract AutomationRegistrar2_3 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.triggerConfig,
       params.offchainConfig,
       params.checkData,
-      params.amount
+      params.amount,
+      params.billingToken
     );
 
     uint256 upkeepId;
