@@ -3,6 +3,7 @@ package actions_seth
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -1007,6 +1008,11 @@ func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network bloc
 	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error validating seth network config")
+	}
+
+	asJson, err := json.MarshalIndent(sethCfg, "", "  ")
+	if err == nil {
+		fmt.Printf("Using Seth Config: %s\n", string(asJson))
 	}
 
 	chainClient, err := seth.NewClientWithConfig(&sethCfg)

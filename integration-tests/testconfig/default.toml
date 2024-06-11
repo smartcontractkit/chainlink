@@ -365,7 +365,6 @@ gas_price_estimation_blocks = 30
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
 gas_price_estimation_tx_priority = "standard"
 
-
 [[Seth.networks]]
 name = "Base Sepolia"
 transaction_timeout = "3m"

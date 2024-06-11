@@ -309,6 +309,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 			if testConfig.Seth != nil {
 				logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+				logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
 			}
 		}
 	}
@@ -338,6 +339,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 		if testConfig.Seth != nil {
 			logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+			logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
 		}
 	}
 
@@ -360,9 +362,10 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	if testConfig.Seth != nil {
 		logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+		logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
 	}
 
-	// it neede some custom logic, so we do it separately
+	// it needs some custom logic, so we do it separately
 	err := testConfig.readNetworkConfiguration()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading network config")
