@@ -101,7 +101,6 @@ func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 }
 
 func test_CLOSpecApprovalFlow(t *testing.T, ccipTH integrationtesthelpers.CCIPIntegrationTestHarness, tokenPricesUSDPipeline string, priceGetterConfiguration string) {
-
 	jobParams := ccipTH.SetUpNodesAndJobs(t, tokenPricesUSDPipeline, priceGetterConfiguration, "http://blah.com")
 	ccipTH.SetupFeedsManager(t)
 

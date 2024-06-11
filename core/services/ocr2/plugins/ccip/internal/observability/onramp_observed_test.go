@@ -30,7 +30,6 @@ const expectedWrapper = "core/services/ocr2/plugins/ccip/internal/observability.
 // TestOnRampObservedMethods tests that all methods of OnRampReader are observed by a wrapper.
 // It uses the runtime to detect if the call stack contains the wrapper class.
 func TestOnRampObservedMethods(t *testing.T) {
-
 	// Methods not expected to be observed.
 	// Add a method name here to exclude it from the test.
 	excludedMethods := []string{
@@ -83,7 +82,6 @@ func TestOnRampObservedMethods(t *testing.T) {
 
 func testMethod(t *testing.T, method reflect.Method, methodCalls map[string]MethodCall, excludedMethods []string, reader *mocks.OnRampReader, observed ObservedOnRampReader) {
 	t.Run(fmt.Sprintf("observability_wrapper_%s", method.Name), func(t *testing.T) {
-
 		// Skip excluded methods.
 		for _, em := range excludedMethods {
 			if method.Name == em {

@@ -27,14 +27,16 @@ type CommitObservation struct {
 
 // Marshal MUST be used instead of raw json.Marshal(o) since it contains backwards compatibility related changes.
 func (o CommitObservation) Marshal() ([]byte, error) {
+	obsCopy := o
+
 	// Similar to: commitObservationJSONBackComp but for commit observation marshaling.
-	tokenPricesUSD := make(map[cciptypes.Address]*big.Int, len(o.TokenPricesUSD))
-	for k, v := range o.TokenPricesUSD {
+	tokenPricesUSD := make(map[cciptypes.Address]*big.Int, len(obsCopy.TokenPricesUSD))
+	for k, v := range obsCopy.TokenPricesUSD {
 		tokenPricesUSD[cciptypes.Address(strings.ToLower(string(k)))] = v
 	}
-	o.TokenPricesUSD = tokenPricesUSD
+	obsCopy.TokenPricesUSD = tokenPricesUSD
 
-	return json.Marshal(&o)
+	return json.Marshal(&obsCopy)
 }
 
 // ExecutionObservation stores messages as a map pointing from a sequence number (uint) to the message payload (MsgData)
@@ -121,7 +123,6 @@ func GetParsableObservations[O CommitObservation | ExecutionObservation](l logge
 		"Parsed observations",
 		"observers", observers,
 		"observersLength", len(observers),
-		"observations", parseableObservations,
 		"observationsLength", len(parseableObservations),
 		"rawObservationLength", len(observations),
 	)

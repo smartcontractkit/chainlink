@@ -72,5 +72,4 @@ func withObservedInteractionAndResults[T any](metric metricDetails, function str
 		).Set(float64(len(results)))
 	}
 	return results, err
-
 }

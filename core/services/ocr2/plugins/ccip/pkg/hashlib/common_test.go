@@ -36,7 +36,6 @@ func TestBytesOfBytesKeccak(t *testing.T) {
 
 		assert.NotEqual(t, h1, h2)
 	})
-
 }
 
 func TestBytesOfBytesEncoding(t *testing.T) {

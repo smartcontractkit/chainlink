@@ -124,7 +124,6 @@ func TestExecOnchainConfig120(t *testing.T) {
 }
 
 func TestOffRampReaderInit(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		version string
@@ -239,7 +238,6 @@ func setupOffRampV1_0_0(t *testing.T, user *bind.TransactOpts, bc *client.Simula
 }
 
 func setupOffRampV1_2_0(t *testing.T, user *bind.TransactOpts, bc *client.SimulatedBackendClient) common.Address {
-
 	onRampAddr := utils.RandomAddress()
 	armAddr := deployMockArm(t, user, bc)
 	csAddr := deployCommitStore(t, user, bc, onRampAddr, armAddr)
