@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	StatusStarted   = "started"
-	StatusErrored   = "errored"
-	StatusTimeout   = "timeout"
-	StatusCompleted = "completed"
+	StatusStarted            = "started"
+	StatusErrored            = "errored"
+	StatusTimeout            = "timeout"
+	StatusCompleted          = "completed"
+	StatusCompletedEarlyExit = "completed_early_exit"
 )
 
 type StepOutput struct {

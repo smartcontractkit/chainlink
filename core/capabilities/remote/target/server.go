@@ -8,11 +8,11 @@ import (
 	"time"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -23,11 +23,12 @@ import (
 //
 // server communicates with corresponding client on remote nodes.
 type server struct {
+	services.StateMachine
 	lggr         logger.Logger
 	peerID       p2ptypes.PeerID
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
-	localDonInfo capabilities.DON
+	localDonInfo commoncap.DON
 	workflowDONs map[string]commoncap.DON
 	dispatcher   types.Dispatcher
 
@@ -35,13 +36,16 @@ type server struct {
 	requestTimeout     time.Duration
 
 	receiveLock sync.Mutex
+	stopCh      services.StopChan
+	wg          sync.WaitGroup
 }
 
 var _ types.Receiver = &server{}
+var _ services.Service = &server{}
 
-func NewReceiver(ctx context.Context, lggr logger.Logger, peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration) *server {
-	r := &server{
+func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
+	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
+	return &server{
 		underlying:   underlying,
 		peerID:       peerID,
 		capInfo:      capInfo,
@@ -52,23 +56,39 @@ func NewReceiver(ctx context.Context, lggr logger.Logger, peerID p2ptypes.PeerID
 		requestIDToRequest: map[string]*request.ServerRequest{},
 		requestTimeout:     requestTimeout,
 
-		lggr: lggr,
+		lggr:   lggr,
+		stopCh: make(services.StopChan),
 	}
+}
 
-	go func() {
-		ticker := time.NewTicker(requestTimeout)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				r.expireRequests()
+func (r *server) Start(ctx context.Context) error {
+	return r.StartOnce(r.Name(), func() error {
+		r.wg.Add(1)
+		go func() {
+			defer r.wg.Done()
+			ticker := time.NewTicker(r.requestTimeout)
+			defer ticker.Stop()
+			r.lggr.Info("TargetServer started")
+			for {
+				select {
+				case <-r.stopCh:
+					return
+				case <-ticker.C:
+					r.expireRequests()
+				}
 			}
-		}
-	}()
+		}()
+		return nil
+	})
+}
 
-	return r
+func (r *server) Close() error {
+	return r.StopOnce(r.Name(), func() error {
+		close(r.stopCh)
+		r.wg.Wait()
+		r.lggr.Info("TargetServer closed")
+		return nil
+	})
 }
 
 func (r *server) expireRequests() {
@@ -91,8 +111,6 @@ func (r *server) expireRequests() {
 func (r *server) Receive(msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
-	// TODO should the dispatcher be passing in a context?
-	ctx := context.Background()
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -113,12 +131,16 @@ func (r *server) Receive(msg *types.MessageBody) {
 		}
 
 		r.requestIDToRequest[requestID] = request.NewServerRequest(r.underlying, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-			callingDon, messageId, r.dispatcher, r.requestTimeout)
+			callingDon, messageId, r.dispatcher, r.requestTimeout, r.lggr)
 	}
 
 	req := r.requestIDToRequest[requestID]
 
+	r.wg.Add(1)
 	go func() {
+		defer r.wg.Done()
+		ctx, cancel := r.stopCh.NewCtx()
+		defer cancel()
 		err := req.OnMessage(ctx, msg)
 		if err != nil {
 			r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
@@ -128,4 +150,16 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 func GetMessageID(msg *types.MessageBody) string {
 	return string(msg.MessageId)
+}
+
+func (r *server) Ready() error {
+	return nil
+}
+
+func (r *server) HealthReport() map[string]error {
+	return nil
+}
+
+func (r *server) Name() string {
+	return "TargetServer"
 }

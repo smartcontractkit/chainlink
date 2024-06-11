@@ -15,8 +15,8 @@ import (
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
@@ -47,7 +47,7 @@ func TestDoc(t *testing.T) {
 		fallbackDefaults := evmcfg.Defaults(nil)
 		docDefaults := defaults.EVM[0].Chain
 
-		require.Equal(t, commonconfig.ChainType(""), docDefaults.ChainType.ChainType())
+		require.Equal(t, chaintype.ChainType(""), docDefaults.ChainType.ChainType())
 		docDefaults.ChainType = nil
 
 		// clean up KeySpecific as a special case

@@ -294,7 +294,14 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 				WorkflowName:  "ten bytes!",
 			},
 		},
-
+		{
+			name: "valid 0x prefix hex owner",
+			fields: fields{
+				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner: "0x00000000000000000000000000000000000000ff",
+				WorkflowName:  "ten bytes!",
+			},
+		},
 		{
 			name: "not hex owner",
 			fields: fields{
@@ -304,7 +311,6 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			},
 			expectedErr: ErrInvalidWorkflowOwner,
 		},
-
 		{
 			name: "not len 40 owner",
 			fields: fields{
@@ -314,7 +320,6 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			},
 			expectedErr: ErrInvalidWorkflowOwner,
 		},
-
 		{
 			name: "not len 10 name",
 			fields: fields{

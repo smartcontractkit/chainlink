@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -37,7 +36,6 @@ type multiNodeOpts struct {
 	nodes               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]
 	sendonlys           []SendOnlyNode[types.ID, multiNodeRPCClient]
 	chainID             types.ID
-	chainType           config.ChainType
 	chainFamily         string
 	classifySendTxError func(tx any, err error) SendTxReturnCode
 	sendTxSoftTimeout   time.Duration
@@ -51,7 +49,7 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	result := NewMultiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any](opts.logger,
 		opts.selectionMode, opts.leaseDuration, opts.noNewHeadsThreshold, opts.nodes, opts.sendonlys,
-		opts.chainID, opts.chainType, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout)
+		opts.chainID, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout)
 	return testMultiNode{
 		result.(*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any]),

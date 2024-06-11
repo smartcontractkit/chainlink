@@ -14,10 +14,12 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/router"
 )
 
 type deployedContracts struct {
 	OCRContract       common.Address `json:"ocrContract"`
+	RouterContract    common.Address `json:"routerContract"`
 	ForwarderContract common.Address `json:"forwarderContract"`
 	// The block number of the transaction that set the config on the OCR3 contract. We use this to replay blocks from this point on
 	// when we load the OCR3 job specs on the nodes.
@@ -107,12 +109,15 @@ func deploy(
 
 	fmt.Println("Deploying keystone ocr3 contract...")
 	ocrContract := DeployKeystoneOCR3Capability(env)
+	fmt.Println("Deploying keystone router contract...")
+	routerContract := DeployRouter(env)
 	fmt.Println("Deploying keystone forwarder contract...")
-	forwarderContract := DeployForwarder(env)
+	forwarderContract := DeployForwarder(env, routerContract.Address())
 
 	fmt.Println("Writing deployed contract addresses to file...")
 	contracts := deployedContracts{
 		OCRContract:       ocrContract.Address(),
+		RouterContract:    routerContract.Address(),
 		ForwarderContract: forwarderContract.Address(),
 	}
 	jsonBytes, err := json.Marshal(contracts)
@@ -120,6 +125,11 @@ func deploy(
 
 	err = os.WriteFile(DeployedContractsFilePath(), jsonBytes, 0600)
 	PanicErr(err)
+
+	// Add forwarder to router allow list
+	tx, err := routerContract.AddForwarder(env.Owner, forwarderContract.Address())
+	PanicErr(err)
+	_ = helpers.ConfirmTXMined(context.Background(), env.Ec, tx, env.ChainID)
 
 	setOCR3Config(env, ocrConfig)
 
@@ -189,8 +199,16 @@ func DeployedContractsFilePath() string {
 	return filepath.Join(artefactsDir, deployedContractsJSON)
 }
 
-func DeployForwarder(e helpers.Environment) *forwarder.KeystoneForwarder {
-	_, tx, contract, err := forwarder.DeployKeystoneForwarder(e.Owner, e.Ec)
+func DeployRouter(e helpers.Environment) *router.KeystoneRouter {
+	_, tx, contract, err := router.DeployKeystoneRouter(e.Owner, e.Ec)
+	PanicErr(err)
+	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+
+	return contract
+}
+
+func DeployForwarder(e helpers.Environment, routerAddress common.Address) *forwarder.KeystoneForwarder {
+	_, tx, contract, err := forwarder.DeployKeystoneForwarder(e.Owner, e.Ec, routerAddress)
 	PanicErr(err)
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 
