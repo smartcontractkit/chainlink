@@ -96,12 +96,6 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogStream(ls *logstream.LogStream) ClNodeOption {
-	return func(c *ClNode) {
-		c.LogStream = ls
-	}
-}
-
 func WithImage(image string) ClNodeOption {
 	return func(c *ClNode) {
 		c.ContainerImage = image
@@ -124,10 +118,11 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, logStream *logstream.LogStream, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), test_env.WithPostgresDbLogStream(logStream))
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +132,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerImage:   imageName,
 			ContainerVersion: imageVersion,
 			Networks:         networks,
+			LogStream:        logStream,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
