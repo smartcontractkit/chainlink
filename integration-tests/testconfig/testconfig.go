@@ -306,6 +306,10 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
 			}
+
+			if testConfig.Seth != nil {
+				logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+			}
 		}
 	}
 
@@ -331,6 +335,10 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 		}
+
+		if testConfig.Seth != nil {
+			logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+		}
 	}
 
 	logger.Info().Msg("Reading configs from Base64 override env var")
@@ -348,6 +356,10 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		}
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
+	}
+
+	if testConfig.Seth != nil {
+		logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
 	}
 
 	// it neede some custom logic, so we do it separately

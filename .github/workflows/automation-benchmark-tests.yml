@@ -76,7 +76,8 @@ jobs:
           TEST_TYPE: ${{ github.event.inputs.testType }}
           TEST_TEST_TYPE: ${{ github.event.inputs.testType }}
           RR_MEM: 4Gi
-          TEST_LOG_LEVEL: info
+          TEST_LOG_LEVEL: debug
+          TEST_SETH_LOG_LEVEL: debug
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
