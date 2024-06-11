@@ -40,6 +40,9 @@
         "report_id": {
           "type": "string",
           "pattern": "^[a-f0-9]{4}$"
+        },
+        "request_timeout_ms": {
+          "type": "integer"
         }
       },
       "additionalProperties": false,
@@ -49,7 +52,8 @@
         "aggregation_config",
         "encoder",
         "encoder_config",
-        "report_id"
+        "report_id",
+        "request_timeout_ms"
       ]
     },
     "inputs": {

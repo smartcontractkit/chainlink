@@ -34,7 +34,7 @@ type Config struct {
 }
 
 const (
-	defaultRequestExpiry  time.Duration = 5 * time.Minute
+	defaultRequestExpiry  time.Duration = 20 * time.Second
 	defaultBatchSize                    = 20
 	defaultSendBufferSize               = 10
 )

@@ -186,6 +186,58 @@ func TestOCR3Capability_Eviction(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestOCR3Capability_EvictionUsingConfig(t *testing.T) {
+	n := time.Now()
+	fc := clockwork.NewFakeClockAt(n)
+	lggr := logger.Test(t)
+
+	ctx := tests.Context(t)
+	// This is the default expired at
+	rea := time.Hour
+	s := newStore()
+	cp := newCapability(s, fc, rea, mockAggregatorFactory, mockEncoderFactory, lggr, 10)
+	require.NoError(t, cp.Start(ctx))
+
+	config, err := values.NewMap(
+		map[string]any{
+			"aggregation_method": "data_feeds",
+			"aggregation_config": map[string]any{},
+			"encoder_config":     map[string]any{},
+			"encoder":            "evm",
+			"report_id":          "aaaa",
+			"request_timeout_ms": 10000,
+		},
+	)
+	require.NoError(t, err)
+
+	ethUsdValue, err := decimal.NewFromString("1.123456")
+	require.NoError(t, err)
+	inputs, err := values.NewMap(map[string]any{"observations": []any{map[string]any{"ETH_USD": ethUsdValue}}})
+	require.NoError(t, err)
+
+	rid := uuid.New().String()
+	executeReq := capabilities.CapabilityRequest{
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID:          workflowTestID,
+			WorkflowExecutionID: rid,
+		},
+		Config: config,
+		Inputs: inputs,
+	}
+
+	callback, err := cp.Execute(ctx, executeReq)
+	require.NoError(t, err)
+
+	// 1 minute is more than the config timeout we provided, but less than
+	// the hardcoded timeout.
+	fc.Advance(1 * time.Minute)
+	resp := <-callback
+	assert.ErrorContains(t, resp.Err, "timeout exceeded: could not process request before expiry")
+
+	_, ok := s.requests[rid]
+	assert.False(t, ok)
+}
+
 func TestOCR3Capability_Registration(t *testing.T) {
 	n := time.Now()
 	fc := clockwork.NewFakeClockAt(n)

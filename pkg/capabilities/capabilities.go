@@ -302,7 +302,12 @@ var maximumExecuteTimeout = 60 * time.Second
 // There is default timeout of 10 seconds. If a capability takes longer than
 // that then it should be executed asynchronously.
 func ExecuteSync(ctx context.Context, c CallbackExecutable, request CapabilityRequest) (*values.List, error) {
-	ctxWithT, cancel := context.WithTimeout(ctx, maximumExecuteTimeout)
+	return ExecuteSyncWithTimeout(ctx, c, request, maximumExecuteTimeout)
+}
+
+// ExecuteSyncWithTimeout allows explicitly passing in a timeout to customise the desired duration.
+func ExecuteSyncWithTimeout(ctx context.Context, c CallbackExecutable, request CapabilityRequest, timeout time.Duration) (*values.List, error) {
+	ctxWithT, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	responseCh, err := c.Execute(ctxWithT, request)

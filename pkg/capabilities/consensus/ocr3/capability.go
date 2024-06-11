@@ -226,8 +226,19 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 func (o *capability) queueRequestForProcessing(
 	ctx context.Context,
 	metadata capabilities.RequestMetadata,
-	i *inputs, c *config) (<-chan capabilities.CapabilityResponse, error) {
+	i *inputs,
+	c *config,
+) (<-chan capabilities.CapabilityResponse, error) {
 	callbackCh := make(chan capabilities.CapabilityResponse, o.callbackChannelBufferSize)
+
+	// Use the capability-level request timeout unless the request's config specifies
+	// its own timeout, in which case we'll use that instead. This allows the workflow spec
+	// to configure more granular timeouts depending on the circumstances.
+	requestTimeout := o.requestTimeout
+	if c.RequestTimeoutMS != 0 {
+		requestTimeout = time.Duration(c.RequestTimeoutMS) * time.Millisecond
+	}
+
 	r := &request{
 		StopCh:              make(chan struct{}),
 		CallbackCh:          callbackCh,
@@ -238,7 +249,7 @@ func (o *capability) queueRequestForProcessing(
 		ReportID:            c.ReportID,
 		WorkflowDonID:       metadata.WorkflowDonID,
 		Observations:        i.Observations,
-		ExpiresAt:           o.clock.Now().Add(o.requestTimeout),
+		ExpiresAt:           o.clock.Now().Add(requestTimeout),
 	}
 
 	o.lggr.Debugw("Execute - adding to store", "workflowID", r.WorkflowID, "workflowExecutionID", r.WorkflowExecutionID, "observations", r.Observations)

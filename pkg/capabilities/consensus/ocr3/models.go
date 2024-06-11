@@ -14,6 +14,7 @@ type config struct {
 	Encoder           string      `mapstructure:"encoder" json:"encoder"`
 	EncoderConfig     *values.Map `mapstructure:"encoder_config" json:"encoder_config"`
 	ReportID          string      `mapstructure:"report_id" json:"report_id" jsonschema:"required,pattern=^[a-f0-9]{4}$"`
+	RequestTimeoutMS  int64       `mapstructure:"request_timeout_ms" json:"request_timeout_ms"`
 }
 
 type inputs struct {
