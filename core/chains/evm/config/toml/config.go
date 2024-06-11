@@ -17,8 +17,8 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -341,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *config.ChainTypeConfig
+	ChainType                 *chaintype.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -373,7 +373,7 @@ type Chain struct {
 func (c *Chain) ValidateConfig() (err error) {
 	if !c.ChainType.ChainType().IsValid() {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-			Msg: config.ErrInvalidChainType.Error()})
+			Msg: chaintype.ErrInvalidChainType.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
@@ -397,7 +397,7 @@ func (c *Chain) ValidateConfig() (err error) {
 	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
 		chainType := c.ChainType.ChainType()
 		switch chainType {
-		case config.ChainScroll:
+		case chaintype.ChainScroll:
 			if c.Transactions.AutoPurge.DetectionApiUrl == nil {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.DetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
 			} else if c.Transactions.AutoPurge.DetectionApiUrl.IsZero() {
@@ -409,7 +409,7 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case config.ChainZkEvm:
+		case chaintype.ChainZkEvm:
 			// No other configs are needed
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist

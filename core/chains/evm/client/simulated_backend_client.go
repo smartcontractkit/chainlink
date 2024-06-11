@@ -19,16 +19,15 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func init() {
@@ -73,7 +72,7 @@ type SimulatedBackendClient struct {
 	client               simulated.Client
 	t                    testing.TB
 	chainId              *big.Int
-	chainType            config.ChainType
+	chainType            chaintype.ChainType
 	headByNumberCallback func(ctx context.Context, c *SimulatedBackendClient, n *big.Int) error
 }
 
@@ -92,7 +91,7 @@ func NewSimulatedBackendClient(t testing.TB, b *simulated.Backend, chainId *big.
 // where success rather than an error code is returned when a call to FilterLogs() fails to find the block hash
 // requested. This combined with a failover event can lead to the "eventual consistency" behavior that Backup LogPoller
 // and other solutions were designed to recover from.
-func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainType config.ChainType) {
+func (c *SimulatedBackendClient) SetBackend(backend evmtypes.Backend, chainType chaintype.ChainType) {
 	c.chainType = chainType
 	c.b = backend
 	c.client = backend.Client()
@@ -132,7 +131,7 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	logs, err = c.client.FilterLogs(ctx, q)
-	if c.chainType == config.ChainOptimismBedrock {
+	if c.chainType == chaintype.ChainOptimismBedrock {
 		if err != nil && err.Error() == "unknown block" {
 			return []types.Log{}, nil // emulate optimism behavior of returning success instead of "unknown block"
 		}

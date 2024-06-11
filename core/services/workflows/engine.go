@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -19,11 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-)
-
-const (
-	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
-	mockedTriggerID = "cccccccccc0000000000000000000000"
 )
 
 type donInfo struct {
@@ -216,8 +212,8 @@ func (e *Engine) init(ctx context.Context) {
 	}
 
 	e.logger.Debug("registering triggers")
-	for _, t := range e.workflow.triggers {
-		err := e.registerTrigger(ctx, t)
+	for idx, t := range e.workflow.triggers {
+		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
 			e.logger.Errorf("failed to register trigger: %s", err)
 		}
@@ -276,11 +272,15 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	return nil
 }
 
+func generateTriggerId(workflowID string, triggerIdx int) string {
+	return fmt.Sprintf("wf_%s_trigger_%d", workflowID, triggerIdx)
+}
+
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
-func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -475,7 +475,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 				}
 
 				switch step.Status {
-				case store.StatusCompleted, store.StatusErrored:
+				case store.StatusCompleted, store.StatusErrored, store.StatusCompletedEarlyExit:
 				default:
 					workflowCompleted = false
 				}
@@ -493,6 +493,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// We haven't completed the workflow, but should we continue?
 		// If we've been executing for too long, let's time the workflow out and stop here.
 		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
+			e.logger.Infow("execution timed out", "executionID", state.ExecutionID)
 			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
 		}
 
@@ -501,7 +502,18 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		for _, sd := range stepDependents {
 			e.queueIfReady(state, sd)
 		}
+	case store.StatusCompletedEarlyExit:
+		e.logger.Infow("execution terminated early", "executionID", state.ExecutionID)
+		// NOTE: even though this marks the workflow as completed, any branches of the DAG
+		// that don't depend on the step that signaled for an early exit will still complete.
+		// This is to ensure that any side effects are executed consistently, since otherwise
+		// the async nature of the workflow engine would provide no guarantees.
+		err := e.finishExecution(ctx, state.ExecutionID, store.StatusCompletedEarlyExit)
+		if err != nil {
+			return err
+		}
 	case store.StatusErrored:
+		e.logger.Infow("execution errored", "executionID", state.ExecutionID)
 		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
 		if err != nil {
 			return err
@@ -568,16 +580,22 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
-	if err != nil {
+	var stepStatus string
+	switch {
+	case errors.Is(err, capabilities.ErrStopExecution):
+		l.Infow("step executed successfully with a termination")
+		stepStatus = store.StatusCompletedEarlyExit
+	case err != nil:
 		l.Errorf("error executing step request: %s", err)
-		stepState.Outputs.Err = err
-		stepState.Status = store.StatusErrored
-	} else {
+		stepStatus = store.StatusErrored
+	default:
 		l.Infow("step executed successfully", "outputs", outputs)
-		stepState.Outputs.Value = outputs
-		stepState.Status = store.StatusCompleted
+		stepStatus = store.StatusCompleted
 	}
 
+	stepState.Status = stepStatus
+	stepState.Outputs.Value = outputs
+	stepState.Outputs.Err = err
 	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
@@ -630,10 +648,10 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 	return inputs, output, err
 }
 
-func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -668,8 +686,8 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
-		for _, t := range e.workflow.triggers {
-			err := e.deregisterTrigger(ctx, t)
+		for idx, t := range e.workflow.triggers {
+			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
 				return err
 			}
