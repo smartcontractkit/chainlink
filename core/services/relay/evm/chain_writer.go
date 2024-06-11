@@ -162,9 +162,7 @@ func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uu
 	return commontypes.Unknown, fmt.Errorf("not implemented")
 }
 
-// SubmitTransaction
-//
-// Returns the execution and data availability (L1Oracle) fees for the chain.
+// GetFeeComponents the execution and data availability (L1Oracle) fees for the chain.
 // Dynamic fees (introduced in EIP-1559) include a fee cap and a tip cap. If the dyanmic fee is not available,
 // (if the chain doesn't support dynamic TXs) the legacy GasPrice is used.
 func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainFeeComponents, error) {
