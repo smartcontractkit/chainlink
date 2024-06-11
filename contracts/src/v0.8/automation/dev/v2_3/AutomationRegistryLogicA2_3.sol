@@ -157,13 +157,14 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
   }
 
   /**
-   * @notice migrates upkeeps from one registry to another
+   * @notice migrates upkeeps from one registry to another.
    * @param ids the upkeepIDs to migrate
    * @param destination the destination registry address
    * @dev a transcoder must be set in order to enable migration
    * @dev migration permissions must be set on *both* sending and receiving registries
    * @dev only an upkeep admin can migrate their upkeeps
    * @dev this function is most gas-efficient if upkeepIDs are sorted by billing token
+   * @dev s_billingOverrides and s_upkeepPrivilegeConfig are not migrated in this function
    */
   function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
@@ -246,6 +247,7 @@ contract AutomationRegistryLogicA2_3 is AutomationRegistryBase2_3, Chainable, IE
    * @notice received upkeeps migrated from another registry
    * @param encodedUpkeeps the raw upkeep data to import
    * @dev this function is never called directly, it is only called by another registry's migrate function
+   * @dev s_billingOverrides and s_upkeepPrivilegeConfig are not handled in this function
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (

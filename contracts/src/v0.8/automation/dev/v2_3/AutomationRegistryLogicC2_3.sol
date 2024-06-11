@@ -286,6 +286,10 @@ contract AutomationRegistryLogicC2_3 is AutomationRegistryBase2_3 {
     return s_billingConfigs[token];
   }
 
+  function getBillingOverridesEnabled(uint256 upkeepID) external view returns (bool) {
+    return s_upkeep[upkeepID].overridesEnabled;
+  }
+
   function getPayoutMode() external view returns (PayoutMode) {
     return s_payoutMode;
   }
