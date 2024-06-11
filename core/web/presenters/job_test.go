@@ -909,6 +909,8 @@ func TestJob(t *testing.T) {
 							"workflowId": "<test-workflow-id>",
 							"workflowOwner": "<test-workflow-owner>",
 							"workflowName": "<test-workflow-name>",
+							"maxExecutionDuration": null,
+							"maxStepDuration": null,
 							"createdAt":"0001-01-01T00:00:00Z",
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},

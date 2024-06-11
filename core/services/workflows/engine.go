@@ -53,6 +53,7 @@ type Engine struct {
 	stopCh               services.StopChan
 	newWorkerTimeout     time.Duration
 	maxExecutionDuration time.Duration
+	maxStepDuration      time.Duration
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -641,7 +642,7 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		},
 	}
 
-	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
+	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr, e.maxStepDuration)
 	if err != nil {
 		return inputs, nil, err
 	}
@@ -742,6 +743,7 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
+	MaxStepDuration      time.Duration
 	DONInfo              *capabilities.DON
 	PeerID               func() *p2ptypes.PeerID
 	Store                store.Store
@@ -759,6 +761,7 @@ const (
 	defaultQueueSize            = 100000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
+	defaultMaxStepDuration      = 60 * time.Second
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
@@ -776,6 +779,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.MaxExecutionDuration == 0 {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
+	}
+
+	if cfg.MaxStepDuration == 0 {
+		cfg.MaxStepDuration = defaultMaxStepDuration
 	}
 
 	if cfg.Store == nil {
@@ -837,6 +844,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		stopCh:               make(chan struct{}),
 		newWorkerTimeout:     cfg.NewWorkerTimeout,
 		maxExecutionDuration: cfg.MaxExecutionDuration,
+		maxStepDuration:      cfg.MaxStepDuration,
 
 		onExecutionFinished: cfg.onExecutionFinished,
 		afterInit:           cfg.afterInit,
@@ -849,8 +857,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 // ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
 // result if it is a single value otherwise returns the list.
-func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
-	l, err := capabilities.ExecuteSync(ctx, cap, req)
+func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest, stepTimeout time.Duration) (values.Value, error) {
+	l, err := capabilities.ExecuteSyncWithTimeout(ctx, cap, req, stepTimeout)
 	if err != nil {
 		return nil, err
 	}

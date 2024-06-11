@@ -55,6 +55,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		PeerID:        d.peerID,
 		Store:         d.store,
 	}
+	if spec.WorkflowSpec.MaxExecutionDuration != nil {
+		cfg.MaxExecutionDuration = *spec.WorkflowSpec.MaxExecutionDuration
+	}
+	if spec.WorkflowSpec.MaxStepDuration != nil {
+		cfg.MaxStepDuration = *spec.WorkflowSpec.MaxStepDuration
+	}
+
 	engine, err := NewEngine(cfg)
 	if err != nil {
 		return nil, err
