@@ -1,6 +1,8 @@
 package testutils
 
 import (
+	"testing"
+
 	test "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/relayer/pluginprovider/chainreader/test"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests"
 )
@@ -10,7 +12,7 @@ import (
 // can dog food the same testers without creating a circular dependency.
 
 // WrapChainReaderTesterForLoop allows you to test a [types.ContractReader] implementation behind a LOOP server
-func WrapChainReaderTesterForLoop(wrapped interfacetests.ChainReaderInterfaceTester) interfacetests.ChainReaderInterfaceTester {
+func WrapChainReaderTesterForLoop(wrapped interfacetests.ChainReaderInterfaceTester[*testing.T]) interfacetests.ChainReaderInterfaceTester[*testing.T] {
 	return test.WrapChainReaderTesterForLoop(wrapped)
 }
 

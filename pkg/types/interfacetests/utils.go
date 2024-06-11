@@ -3,25 +3,32 @@ package interfacetests
 import (
 	"fmt"
 	"math/big"
-	"testing"
 
 	"github.com/smartcontractkit/libocr/commontypes"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
-type BasicTester interface {
-	Setup(t *testing.T)
+type BasicTester[T any] interface {
+	Setup(t T)
 	Name() string
 	GetAccountBytes(i int) []byte
 }
 
-type testcase struct {
+type testcase[T any] struct {
 	name string
-	test func(t *testing.T)
+	test func(t T)
 }
 
-func runTests(t *testing.T, tester BasicTester, tests []testcase) {
+type TestingT[T any] interface {
+	tests.TestingT
+	Failed() bool
+	Run(name string, f func(t T)) bool
+}
+
+func runTests[T TestingT[T]](t T, tester BasicTester[T], tests []testcase[T]) {
 	for _, test := range tests {
-		t.Run(test.name+" for "+tester.Name(), func(t *testing.T) {
+		t.Run(test.name+" for "+tester.Name(), func(t T) {
 			tester.Setup(t)
 			test.test(t)
 		})
@@ -84,7 +91,7 @@ type FilterEventParams struct {
 	Field int32
 }
 
-func CreateTestStruct(i int, tester BasicTester) TestStruct {
+func CreateTestStruct[T any](i int, tester BasicTester[T]) TestStruct {
 	s := fmt.Sprintf("field%v", i)
 	fv := int32(i)
 	return TestStruct{
