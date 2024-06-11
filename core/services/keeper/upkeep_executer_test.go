@@ -275,7 +275,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := newHead()
 		executer.OnNewLongestChain(testutils.Context(t), &head)
 		// TODO we want to see an errored run result once this is completed
-		// https://app.shortcut.com/chainlinklabs/story/25397/remove-failearly-flag-from-eth-call-task
+		// https://smartcontract-it.atlassian.net/browse/ARCHIVE-22186
 		cltest.AssertPipelineRunsStays(t, jb.PipelineSpecID, db, 0)
 	})
 

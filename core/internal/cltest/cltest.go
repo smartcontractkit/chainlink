@@ -1421,31 +1421,6 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	}
 }
 
-// HeadBuffer - stores heads in sequence, with increasing timestamps
-type HeadBuffer struct {
-	t     *testing.T
-	Heads []*evmtypes.Head
-}
-
-func NewHeadBuffer(t *testing.T) *HeadBuffer {
-	return &HeadBuffer{
-		t:     t,
-		Heads: make([]*evmtypes.Head, 0),
-	}
-}
-
-func (hb *HeadBuffer) Append(head *evmtypes.Head) {
-	cloned := &evmtypes.Head{
-		Number:     head.Number,
-		Hash:       head.Hash,
-		ParentHash: head.ParentHash,
-		Parent:     head.Parent,
-		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
-		EVMChainID: head.EVMChainID,
-	}
-	hb.Heads = append(hb.Heads, cloned)
-}
-
 type HeadTrackableFunc func(context.Context, *evmtypes.Head)
 
 func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {

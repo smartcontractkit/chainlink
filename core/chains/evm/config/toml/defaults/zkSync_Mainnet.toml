@@ -1,6 +1,6 @@
 ChainID = '324'
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 LogPollInterval = '5s'
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '1m'
@@ -11,4 +11,4 @@ PriceMax = 18446744073709551615
 PriceMin = 0
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50

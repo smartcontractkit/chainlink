@@ -2,6 +2,7 @@ package capabilities_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -36,13 +37,11 @@ func TestRegistry(t *testing.T) {
 
 	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
-		"v1.0.0",
-		nil,
 	)
 	require.NoError(t, err)
 
@@ -65,13 +64,11 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	ctx := testutils.Context(t)
 	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
-		"v1.0.0",
-		nil,
 	)
 	require.NoError(t, err)
 
@@ -83,14 +80,12 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		id,
 		capabilities.CapabilityTypeConsensus,
 		"capability-2-description",
-		"v1.0.0",
-		nil,
 	)
 	require.NoError(t, err)
 	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
-	assert.ErrorContains(t, err, "capability with id: capability-1 already exists")
+	assert.ErrorContains(t, err, "capability with id: capability-1@1.0.0 already exists")
 }
 
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
@@ -103,13 +98,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "action",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeAction,
 					"capability-1-description",
-					"v1.0.0",
-					nil,
 				)
 				require.NoError(t, err)
 
@@ -124,13 +117,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "target",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeTarget,
 					"capability-1-description",
-					"v1.0.0",
-					nil,
 				)
 				require.NoError(t, err)
 
@@ -158,13 +149,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "consensus",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeConsensus,
 					"capability-1-description",
-					"v1.0.0",
-					nil,
 				)
 				require.NoError(t, err)
 

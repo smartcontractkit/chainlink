@@ -15,8 +15,6 @@ BlockBackfillDepth = 10 # Default
 BlockBackfillSkip = false # Default
 # ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 # Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
-#
-# `xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
 ChainType = 'arbitrum' # Example
 # FinalityDepth is the number of blocks after which an ethereum transaction is considered "final". Note that the default is automatically set based on chain ID, so it should not be necessary to change this under normal operation.
 # BlocksConsideredFinal determines how deeply we look back to ensure that transactions are confirmed onto the longest chain
@@ -437,7 +435,7 @@ Order = 100 # Default
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 GasLimit = 5400000 # Default
 
-[EVM.ChainWriter]
+[EVM.Workflow]
 # FromAddress is Address of the transmitter key to use for workflow writes.
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 # ForwarderAddress is the keystone forwarder contract address on chain.

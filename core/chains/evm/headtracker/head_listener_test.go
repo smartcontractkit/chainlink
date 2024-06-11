@@ -14,14 +14,13 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_HeadListener_HappyPath(t *testing.T) {
@@ -37,12 +36,10 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	// - ethClient methods are invoked
 
 	lggr := logger.Test(t)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		// no need to test head timeouts here
-		c.EVM[0].NoNewHeadsThreshold = &commonconfig.Duration{}
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.NoNewHeadsThreshold = &commonconfig.Duration{}
 	})
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
 	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
 
@@ -52,8 +49,8 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 		return nil
 	}
 
-	subscribeAwaiter := cltest.NewAwaiter()
-	unsubscribeAwaiter := cltest.NewAwaiter()
+	subscribeAwaiter := testutils.NewAwaiter()
+	unsubscribeAwaiter := testutils.NewAwaiter()
 	chHeads := make(chan *evmtypes.Head)
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
@@ -68,18 +65,18 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 		close(chErr)
 	})
 
-	doneAwaiter := cltest.NewAwaiter()
+	doneAwaiter := testutils.NewAwaiter()
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
 	go hl.ListenForNewHeads(handler, done)
 
-	subscribeAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
-	require.Eventually(t, hl.Connected, testutils.WaitTimeout(t), testutils.TestInterval)
+	subscribeAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
+	require.Eventually(t, hl.Connected, tests.WaitTimeout(t), tests.TestInterval)
 
-	chHeads <- cltest.Head(0)
-	chHeads <- cltest.Head(1)
-	chHeads <- cltest.Head(2)
+	chHeads <- testutils.Head(0)
+	chHeads <- testutils.Head(1)
+	chHeads <- testutils.Head(2)
 
 	require.True(t, hl.ReceivingHeads())
 
@@ -98,23 +95,22 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	// - do not send any heads within BlockEmissionIdleWarningThreshold and check ReceivingHeads() is false
 
 	lggr := logger.Test(t)
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].NoNewHeadsThreshold = commonconfig.MustNewDuration(time.Second)
+	evmcfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.NoNewHeadsThreshold = commonconfig.MustNewDuration(time.Second)
 	})
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
 	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
 
-	firstHeadAwaiter := cltest.NewAwaiter()
+	firstHeadAwaiter := testutils.NewAwaiter()
 	handler := func(context.Context, *evmtypes.Head) error {
 		firstHeadAwaiter.ItHappened()
 		return nil
 	}
 
-	subscribeAwaiter := cltest.NewAwaiter()
 	chHeads := make(chan *evmtypes.Head)
+	subscribeAwaiter := testutils.NewAwaiter()
 	var chErr = make(chan error)
 	var chSubErr <-chan error = chErr
 	sub := commonmocks.NewSubscription(t)
@@ -127,15 +123,15 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 		close(chErr)
 	})
 
-	doneAwaiter := cltest.NewAwaiter()
+	doneAwaiter := testutils.NewAwaiter()
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
 	go hl.ListenForNewHeads(handler, done)
 
-	subscribeAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
+	subscribeAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 
-	chHeads <- cltest.Head(0)
+	chHeads <- testutils.Head(0)
 	firstHeadAwaiter.AwaitOrFail(t)
 
 	require.True(t, hl.ReceivingHeads())
@@ -150,7 +146,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 
 func Test_HeadListener_SubscriptionErr(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
+	cases := []struct {
 		name     string
 		err      error
 		closeErr bool
@@ -160,13 +156,12 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 		{"close Err channel", nil, true},
 	}
 
-	for _, test := range tests {
+	for _, test := range cases {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			l := logger.Test(t)
-			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-			cfg := configtest.NewGeneralConfig(t, nil)
-			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+			ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+			evmcfg := testutils.NewTestChainScopedConfig(t, nil)
 			chStop := make(chan struct{})
 			hl := headtracker.NewHeadListener(l, ethClient, evmcfg.EVM(), chStop)
 
@@ -175,7 +170,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				hnhCalled <- header
 				return nil
 			}
-			doneAwaiter := cltest.NewAwaiter()
+			doneAwaiter := testutils.NewAwaiter()
 			done := doneAwaiter.ItHappened
 
 			chSubErrTest := make(chan error)
@@ -185,8 +180,8 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			// initially and once again after exactly one head has been received
 			sub.On("Err").Return(chSubErr).Twice()
 
-			subscribeAwaiter := cltest.NewAwaiter()
 			headsCh := make(chan *evmtypes.Head)
+			subscribeAwaiter := testutils.NewAwaiter()
 			// Initial subscribe
 			ethClient.On("SubscribeNewHead", mock.Anything).Return((<-chan *evmtypes.Head)(headsCh), sub, nil).Once().Run(func(args mock.Arguments) {
 				subscribeAwaiter.ItHappened()
@@ -196,8 +191,8 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			}()
 
 			// Put a head on the channel to ensure we test all code paths
-			subscribeAwaiter.AwaitOrFail(t, testutils.WaitTimeout(t))
-			head := cltest.Head(0)
+			subscribeAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
+			head := testutils.Head(0)
 			headsCh <- head
 
 			h := <-hnhCalled
@@ -216,7 +211,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			var chSubErr2 <-chan error = chSubErrTest2
 			sub2 := commonmocks.NewSubscription(t)
 			sub2.On("Err").Return(chSubErr2)
-			subscribeAwaiter2 := cltest.NewAwaiter()
+			subscribeAwaiter2 := testutils.NewAwaiter()
 
 			headsCh2 := make(chan *evmtypes.Head)
 			ethClient.On("SubscribeNewHead", mock.Anything).Return((<-chan *evmtypes.Head)(headsCh2), sub2, nil).Once().Run(func(args mock.Arguments) {
@@ -231,9 +226,9 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			}
 
 			// Wait for it to resubscribe
-			subscribeAwaiter2.AwaitOrFail(t, testutils.WaitTimeout(t))
+			subscribeAwaiter2.AwaitOrFail(t, tests.WaitTimeout(t))
 
-			head2 := cltest.Head(1)
+			head2 := testutils.Head(1)
 			headsCh2 <- head2
 
 			h2 := <-hnhCalled

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -51,7 +50,6 @@ type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
-	ChainType() commonconfig.ChainType
 }
 
 // ChainInfo - represents RPC’s view of the chain

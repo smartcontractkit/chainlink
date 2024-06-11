@@ -45,13 +45,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	}
 
 	cfg := Config{
-		Lggr:       d.logger,
-		Spec:       spec.WorkflowSpec.Workflow,
-		WorkflowID: spec.WorkflowSpec.WorkflowID,
-		Registry:   d.registry,
-		DONInfo:    dinfo,
-		PeerID:     d.peerID,
-		Store:      d.store,
+		Lggr:          d.logger,
+		Spec:          spec.WorkflowSpec.Workflow,
+		WorkflowID:    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:  spec.WorkflowSpec.WorkflowName,
+		Registry:      d.registry,
+		DONInfo:       dinfo,
+		PeerID:        d.peerID,
+		Store:         d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -76,6 +78,9 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
 		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
 		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWG1AeBnSJH2mdcDusXQVye2jqodZ6pftTH98HH6xvrE97",
+		"12D3KooWBf3PrkhNoPEmp7iV291YnPuuTsgEDHTscLajxoDvwHGA",
+		"12D3KooWP3FrMTFXXRU2tBC8aYvEBgUX6qhcH9q2JZCUi9Wvc2GX",
 	}
 
 	p2pIDs := []p2ptypes.PeerID{}
@@ -90,6 +95,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}
 
 	return &capabilities.DON{
+		ID:      "00010203",
 		Members: p2pIDs,
 		Config: capabilities.DONConfig{
 			SharedSecret: key,

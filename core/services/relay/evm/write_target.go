@@ -17,14 +17,14 @@ import (
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
+	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
+		id = fmt.Sprintf("write_%v@1.0.0", chainName)
 	}
 
 	// EVM-specific init
-	config := chain.Config().EVM().ChainWriter()
+	config := chain.Config().EVM().Workflow()
 
 	// Initialize a reader to check whether a value was already transmitted on chain
 	contractReaderConfigEncoded, err := json.Marshal(relayevmtypes.ChainReaderConfig{
@@ -55,7 +55,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
-		Contracts: map[string]relayevmtypes.ChainWriter{
+		Contracts: map[string]*relayevmtypes.ContractConfig{
 			"forwarder": {
 				ContractABI: forwarder.KeystoneForwarderABI,
 				Configs: map[string]*relayevmtypes.ChainWriterDefinition{
@@ -69,7 +69,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-	cw := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	return targets.NewWriteTarget(lggr, name, cr, cw, config.ForwarderAddress().String()), nil
+	return targets.NewWriteTarget(lggr, id, cr, cw, config.ForwarderAddress().String()), nil
 }

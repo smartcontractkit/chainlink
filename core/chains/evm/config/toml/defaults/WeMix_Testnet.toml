@@ -1,6 +1,6 @@
 ChainID = '1112'
 ChainType = 'wemix'
-FinalityDepth = 1
+FinalityDepth = 10
 MinIncomingConfirmations = 1
 # WeMix emits a block every 1 second, regardless of transactions
 LogPollInterval = '3s'

@@ -9,8 +9,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -21,7 +21,7 @@ type EVM interface {
 	GasEstimator() GasEstimator
 	OCR() OCR
 	OCR2() OCR2
-	ChainWriter() ChainWriter
+	Workflow() Workflow
 	NodePool() NodePool
 
 	AutoCreateKey() bool
@@ -29,7 +29,7 @@ type EVM interface {
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
-	ChainType() commonconfig.ChainType
+	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FlagsContractAddress() string
@@ -156,7 +156,7 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
-type ChainWriter interface {
+type Workflow interface {
 	FromAddress() *types.EIP55Address
 	ForwarderAddress() *types.EIP55Address
 }
