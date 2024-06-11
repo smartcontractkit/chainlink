@@ -121,7 +121,6 @@ func GetParsableObservations[O CommitObservation | ExecutionObservation](l logge
 		"Parsed observations",
 		"observers", observers,
 		"observersLength", len(observers),
-		"observations", parseableObservations,
 		"observationsLength", len(parseableObservations),
 		"rawObservationLength", len(observations),
 	)
