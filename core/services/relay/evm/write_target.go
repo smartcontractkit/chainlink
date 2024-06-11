@@ -17,10 +17,10 @@ import (
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
-	id := fmt.Sprintf("write_%v@0.0.1", chain.ID())
+	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		id = fmt.Sprintf("write_%v@0.0.1", chainName)
+		id = fmt.Sprintf("write_%v@1.0.0", chainName)
 	}
 
 	// EVM-specific init

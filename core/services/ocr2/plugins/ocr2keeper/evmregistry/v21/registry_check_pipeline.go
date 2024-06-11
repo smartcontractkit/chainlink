@@ -188,6 +188,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	indices := map[int]int{}
 
 	for i, p := range payloads {
+		if ctx.Err() != nil {
+			return nil, context.Cause(ctx)
+		}
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {

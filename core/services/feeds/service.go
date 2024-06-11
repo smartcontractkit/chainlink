@@ -803,7 +803,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					}
 				}
 			case job.Workflow:
-				existingJobID, txerr = findExistingWorkflowJob(ctx, *j.WorkflowSpec, tx.jobORM)
+				existingJobID, txerr = tx.jobORM.FindJobIDByWorkflow(ctx, *j.WorkflowSpec)
 				if txerr != nil {
 					// Return an error if the repository errors. If there is a not found
 					// error we want to continue with approving the job.
@@ -1106,11 +1106,6 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// TODO KS-205 implement this. Need to figure out how exactly how we want to handle this.
-func findExistingWorkflowJob(ctx context.Context, wfSpec job.WorkflowSpec, tx job.ORM) (int32, error) {
-	return 0, nil
 }
 
 // findExistingJobForOCR2 looks for existing job for OCR2
