@@ -159,7 +159,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The f value for the DON.  This is the number of faulty nodes
     /// that the DON can tolerate. This can be different from the f value of
     /// the OCR instances that capabilities spawn.
-    uint32 f;
+    uint8 f;
     /// @notice True if the DON is public. A public DON means that it accepts
     /// external capability requests
     bool isPublic;
@@ -177,7 +177,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The f value for the DON.  This is the number of faulty nodes
     /// that the DON can tolerate. This can be different from the f value of
     /// the OCR instances that capabilities spawn.
-    uint32 f;
+    uint8 f;
     /// @notice True if the DON is public.  A public DON means that it accepts
     /// external capability requests
     bool isPublic;
@@ -196,7 +196,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 configCount;
     bool isPublic;
     bool acceptsWorkflows;
-    uint32 f;
+    uint8 f;
   }
 
   /// @notice This error is thrown when a caller is not allowed
@@ -265,7 +265,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// fault tolerance value.
   /// @param f The proposed fault tolerance value
   /// @param nodeCount The proposed number of nodes in the DON
-  error InvalidFaultTolerance(uint32 f, uint256 nodeCount);
+  error InvalidFaultTolerance(uint8 f, uint256 nodeCount);
 
   /// @notice This error is thrown when a capability with the provided hashed ID is
   /// not found.
@@ -689,7 +689,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
     bool acceptsWorkflows,
-    uint32 f
+    uint8 f
   ) external onlyOwner {
     uint32 id = s_nextDONId++;
     s_dons[id].id = id;
@@ -715,7 +715,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     CapabilityConfiguration[] calldata capabilityConfigurations,
     bool isPublic,
     bool acceptsWorkflows,
-    uint32 f
+    uint8 f
   ) external onlyOwner {
     uint32 configCount = s_dons[donId].configCount;
     if (configCount == 0) revert DONDoesNotExist(donId);
