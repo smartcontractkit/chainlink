@@ -62,7 +62,7 @@ contract BatchVRFCoordinatorV2 {
 // solhint-disable-next-line interface-starts-with-i
 interface VRFCoordinatorV2 {
   function fulfillRandomWords(
-    VRFTypes.Proof memory proof,
+    VRFTypes.Proof calldata proof,
     VRFTypes.RequestCommitment memory rc
   ) external returns (uint96);
 }
