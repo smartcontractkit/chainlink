@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -25,8 +25,7 @@ import (
 )
 
 func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -46,8 +45,7 @@ func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -69,8 +67,7 @@ func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -102,8 +99,7 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -138,8 +134,7 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -159,8 +154,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_RandomCapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -226,27 +220,24 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
-	srvcs := []services.Service{}
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
 			capabilityNodeResponseTimeout, lggr)
-		require.NoError(t, capabilityNode.Start(ctx))
+		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
-		srvcs = append(srvcs, capabilityNode)
 	}
 
 	workflowNodes := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, lggr)
-		require.NoError(t, workflowNode.Start(ctx))
+		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
 		workflowNodes[i] = workflowNode
-		srvcs = append(srvcs, workflowNode)
 	}
 
 	executeInputs, err := values.NewMap(
@@ -262,6 +253,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 	for _, caller := range workflowNodes {
 		go func(caller commoncap.TargetCapability) {
+			defer wg.Done()
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
@@ -273,14 +265,10 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 				})
 
 			responseTest(t, responseCh, err)
-			wg.Done()
 		}(caller)
 	}
 
 	wg.Wait()
-	for _, srv := range srvcs {
-		require.NoError(t, srv.Close())
-	}
 }
 
 type testMessageBroker struct {
