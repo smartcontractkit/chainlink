@@ -7,7 +7,7 @@ inputs:
     default: chainlink-tests
     required: false
   tag:
-    description: The tag to use by default and to use for checking image existance
+    description: The tag to use by default and to use for checking image existence
     default: ${{ github.sha }}
     required: false
   other_tags:

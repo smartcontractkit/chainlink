@@ -312,34 +312,34 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
 			}
 		}
-	}
+	} else {
+		logger.Info().Msg("Reading configs from file system")
+		for _, fileName := range fileNames {
+			logger.Debug().Msgf("Looking for config file %s", fileName)
+			filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
 
-	logger.Info().Msg("Reading configs from file system")
-	for _, fileName := range fileNames {
-		logger.Debug().Msgf("Looking for config file %s", fileName)
-		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				logger.Debug().Msgf("Config file %s not found", fileName)
+				continue
+			} else if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
+			}
+			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
 
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			logger.Debug().Msgf("Config file %s not found", fileName)
-			continue
-		} else if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
-		}
-		logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
+			content, err := readFile(filePath)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			}
 
-		content, err := readFile(filePath)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
-		}
+			err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			}
 
-		err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
-		}
-
-		if testConfig.Seth != nil {
-			logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
-			logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
+			if testConfig.Seth != nil {
+				logger.Warn().Msgf("Ephemeral keys: %d", *testConfig.Seth.EphemeralAddrs)
+				logger.Warn().Msgf("Number of Seth networks: %d", len(testConfig.Seth.Networks))
+			}
 		}
 	}
 
