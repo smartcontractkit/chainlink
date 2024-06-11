@@ -149,8 +149,8 @@ func Test_ChainReaderConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var config ChainReaderConfig
 			config.Contracts = make(map[string]ChainContractReader)
-			assert.Nil(t, json.Unmarshal([]byte(tt.jsonInput), &config))
-			assert.Equal(t, tt.expected, config)
+			require.Nil(t, json.Unmarshal([]byte(tt.jsonInput), &config))
+			require.Equal(t, tt.expected, config)
 		})
 	}
 }
