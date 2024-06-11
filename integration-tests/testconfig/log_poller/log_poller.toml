@@ -179,3 +179,4 @@ FinalityTagEnabled = false
 """
 [TestLogPollerReplayFixedDepth.LogPoller.General]
 use_finality_tag = false
+
