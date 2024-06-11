@@ -138,7 +138,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice Returns the proving key hash key associated with this public key
    * @param publicKey the key to return the hash of
    */
-  function hashOfKey(uint256[2] memory publicKey) public pure returns (bytes32) {
+  function hashOfKey(uint256[2] calldata publicKey) public pure returns (bytes32) {
     return keccak256(abi.encode(publicKey));
   }
 
@@ -358,8 +358,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function _getRandomnessFromProof(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     ProvingKey memory key = s_provingKeys[keyHash];
@@ -408,7 +408,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
   function _deliverRandomness(
     uint256 requestId,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     uint256[] memory randomWords
   ) internal returns (bool success) {
     VRFConsumerBaseV2Plus v;
@@ -434,8 +434,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillRandomWords(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     bool onlyPremium
   ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();
