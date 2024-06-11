@@ -5,9 +5,9 @@ import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5_Arbitrum} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5_Arbitrum.sol";
 import {BlockhashStore} from "../dev/BlockhashStore.sol";
-
 import {ArbGasInfo} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
   /// @dev ARBGAS_ADDR is the address of the ArbGasInfo precompile on Arbitrum.
@@ -91,6 +91,16 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
       );
   }
 
+  function _checkRecordedLogs(uint256 expectedL1GasFee) internal {
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries.length, 1);
+    assertEq(entries[0].topics.length, 1);
+    assertEq(entries[0].topics[0], keccak256("L1GasFee(uint256)"));
+    // 1e15 is less than 1 percent discrepancy
+    uint256 actualL1GasFee = abi.decode(entries[0].data, (uint256));
+    assertApproxEqAbs(expectedL1GasFee, actualL1GasFee, 1e15);
+  }
+
   function test_getBlockNumber() public {
     // sanity check that Arbitrum will use ArbSys to get the block number
     vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ARBSYS.arbBlockNumber.selector), abi.encode(33691));
@@ -114,10 +124,12 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountNativeExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     vm.mockCall(ARBGAS_ADDR, abi.encodeWithSelector(ARBGAS.getCurrentTxL1GasFees.selector), abi.encode(10 gwei));
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(10 gwei));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -129,6 +141,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(10 gwei));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -140,10 +153,12 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountLinkExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     vm.mockCall(ARBGAS_ADDR, abi.encodeWithSelector(ARBGAS.getCurrentTxL1GasFees.selector), abi.encode(10 gwei));
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(10 gwei));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -155,6 +170,7 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(10 gwei));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy

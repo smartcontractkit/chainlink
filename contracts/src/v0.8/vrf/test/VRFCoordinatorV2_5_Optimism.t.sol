@@ -5,8 +5,8 @@ import {MockLinkToken} from "../../mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2_5_Optimism} from "../dev/testhelpers/ExposedVRFCoordinatorV2_5_Optimism.sol";
 import {BlockhashStore} from "../dev/BlockhashStore.sol";
-
 import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
@@ -141,6 +141,16 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     );
   }
 
+  function _checkRecordedLogs(uint256 expectedL1GasFee) internal {
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries.length, 1);
+    assertEq(entries[0].topics.length, 1);
+    assertEq(entries[0].topics[0], keccak256("L1GasFee(uint256)"));
+    // 1e15 is less than 1 percent discrepancy
+    uint256 actualL1GasFee = abi.decode(entries[0].data, (uint256));
+    assertApproxEqAbs(expectedL1GasFee, actualL1GasFee, 1e15);
+  }
+
   function test_setL1FeePaymentMethod() public {
     // check default settings after contract deployment
     assertEq(uint256(L1_GAS_FEES_MODE), uint256(s_testCoordinator.s_l1FeeCalculationMode()));
@@ -184,10 +194,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountNativeExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceGetL1FeeCall(txMsgData);
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.001 ether));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -200,6 +212,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.001 ether));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -213,10 +226,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountLinkExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceGetL1FeeCall(txMsgData);
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.001 ether));
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -229,6 +244,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.001 ether));
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -243,10 +259,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountNativeExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceFeeMethods();
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -259,6 +277,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -273,10 +292,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountLinkExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceFeeMethods();
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -289,13 +310,14 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.0002352 ether)); // 3.36e14 actual price times the coefficient (0.7)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
     assertApproxEqAbs(payment, 8.0004929 * 1e17, 1e15);
   }
 
-  function test_calculatePaymentAmountNativeUsingL1GasFeesUpperBoundtMode() public {
+  function test_calculatePaymentAmountNativeUsingL1GasFeesUpperBoundMode() public {
     // for this type of cost calculation we are applying coefficient to reduce the inflated gas price
     s_testCoordinator.setL1FeeCalculation(L1_GAS_FEES_UPPER_BOUND_MODE, 50);
 
@@ -303,10 +325,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountNativeExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceGetL1FeeUpperBoundCall();
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -319,13 +343,14 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
     assertApproxEqAbs(payment, 5.015017 * 1e17, 1e15);
   }
 
-  function test_calculatePaymentAmountLinkUsingL1GasFeesUpperBoundtMode() public {
+  function test_calculatePaymentAmountLinkUsingL1GasFeesUpperBoundMode() public {
     // for this type of cost calculation we are applying coefficient to reduce the inflated gas price
     s_testCoordinator.setL1FeeCalculation(L1_GAS_FEES_UPPER_BOUND_MODE, 50);
 
@@ -333,10 +358,12 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
     bool onlyPremium = false;
     bytes memory txMsgData = _encodeCalculatePaymentAmountLinkExternal(s_startGas, s_weiPerUnitGas, onlyPremium);
     _mockGasOraclePriceGetL1FeeUpperBoundCall();
+    vm.recordLogs();
 
     uint256 gasLimit = 0.0001 gwei; // needed because gasleft() is used in the payment calculation
     (bool success, bytes memory returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     uint96 payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
@@ -349,6 +376,7 @@ contract VRFV2CoordinatorV2_5_Optimism is BaseTest {
 
     (success, returnData) = address(s_testCoordinator).call{gas: gasLimit}(txMsgData);
     assertTrue(success);
+    _checkRecordedLogs(uint256(0.01 ether)); // 2e16 actual price times the coefficient (0.5)
 
     payment = abi.decode(returnData, (uint96));
     // 1e15 is less than 1 percent discrepancy
