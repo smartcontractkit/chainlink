@@ -187,6 +187,39 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 
 		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
 	})
+
+	t.Run("Calling GasPrice on started zkSync L1Oracle returns ZkSync l1GasPrice", func(t *testing.T) {
+		gasPerPubByteL2 := big.NewInt(1100)
+		gasPriceL2 := big.NewInt(25000000)
+
+		ethClient := mocks.NewL1OracleClient(t)
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			var payload []byte
+			payload = common.Hex2Bytes("0x7cb9357e")
+			require.Equal(t, payload, callMsg.Data)
+			assert.Nil(t, blockNumber)
+		}).Return(common.BigToHash(gasPerPubByteL2), nil)
+
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			var payload []byte
+			payload = common.Hex2Bytes("0xfe173b97")
+			require.Equal(t, payload, callMsg.Data)
+			assert.Nil(t, blockNumber)
+		}).Return(common.BigToHash(gasPriceL2).Bytes(), nil)
+
+		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll)
+		require.NoError(t, oracle.Start(tests.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
+
+		gasPrice, err := oracle.GasPrice(tests.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, assets.NewWei(new(big.Int).Mul(gasPriceL2, gasPerPubByteL2)), gasPrice)
+	})
 }
 
 func TestL1Oracle_GetGasCost(t *testing.T) {
