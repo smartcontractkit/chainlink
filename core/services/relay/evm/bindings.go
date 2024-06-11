@@ -25,8 +25,8 @@ func (b bindings) GetReadBinding(contractName, readName string) (readBinding, er
 	return rb, nil
 }
 
+// AddReadBinding adds read bindings. Calling this outside of Chain Reader init is not thread safe.
 func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) {
-	// Adding read bindings outside of Chain Reader init is not thread safe.
 	cb, cbExists := b[contractName]
 	if !cbExists {
 		cb = &contractBinding{
