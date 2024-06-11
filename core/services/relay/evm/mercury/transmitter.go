@@ -6,7 +6,6 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/metadata"
 	"io"
 	"math/big"
 	"sort"
@@ -235,10 +234,6 @@ func (s *server) runQueueLoop(stopCh services.StopChan, wg *sync.WaitGroup, feed
 		}
 
 		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(s.transmitTimeout))
-		kv := make(map[string]string)
-		kv["peer-id"] = fromAccount
-		md := metadata.New(kv)
-		ctx = metadata.NewOutgoingContext(ctx, md)
 		res, err := s.c.Transmit(ctx, t.Req)
 		cancel()
 		if runloopCtx.Err() != nil {
@@ -553,15 +548,6 @@ func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte)
 	for _, s := range mt.servers {
 		s := s
 		g.Go(func() error {
-			// TODO: wire through grpc metadata here?
-			// or set as part of pb.LatestReportRequest?
-			// It might make sense to set the PeerId in the request, but also
-			// setting the signature would be overkill. (both ID + sig in request and HTTP headers)
-			// peerID = mt.FromAccount
-			kv := make(map[string]string)
-			kv["peer-id"] = mt.fromAccount
-			md := metadata.New(kv)
-			ctx = metadata.NewOutgoingContext(ctx, md)
 			resp, err := s.c.LatestReport(ctx, req)
 			if err != nil {
 				s.lggr.Warnw("latestReport failed", "err", err)
