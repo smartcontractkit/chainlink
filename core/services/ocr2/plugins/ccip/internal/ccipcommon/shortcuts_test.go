@@ -124,7 +124,6 @@ func TestGetFilteredChainTokens(t *testing.T) {
 	ctx := testutils.Context(t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			priceRegistry := ccipdatamocks.NewPriceRegistryReader(t)
 			priceRegistry.On("GetFeeTokens", ctx).Return(tc.feeTokens, nil).Once()
 

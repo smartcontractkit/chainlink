@@ -9,14 +9,12 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 
-	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
-
-	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	ctfK8config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 
 	ccipcontracts "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
+	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
@@ -403,6 +401,5 @@ func (c *CCIP) ApplyOverrides(fromCfg *CCIP) error {
 	if err != nil {
 		return err
 	}
-	lggr := zerolog.Logger{}
-	return ctfconfig.BytesToAnyTomlStruct(lggr, "", "", c, logBytes)
+	return ctfconfig.BytesToAnyTomlStruct(zerolog.Logger{}, "", "", c, logBytes)
 }

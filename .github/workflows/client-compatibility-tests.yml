@@ -36,10 +36,10 @@ jobs:
           - name: nethermind/nethermind
             expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
           - name: tofelb/ethereum-genesis-generator
-            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
-        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
         with:
           aws_region: ${{ secrets.QA_AWS_REGION }}
           role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -47,7 +47,7 @@ jobs:
           image_name: ${{matrix.mirror.name}}
           expression: ${{matrix.mirror.expression}}
           page_size: ${{matrix.mirror.page_size}}
-          
+
   build-chainlink:
     environment: integration
     permissions:
@@ -216,18 +216,18 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key_secret="$PYROSCOPE_KEY"
-          
+
           [Logging]
           run_id="$RUN_ID"
-        
+
           [Logging.LogStream]
           log_targets=["file","loki"]
-  
+
           [Logging.Loki]
           tenant_id="$LOKI_TENANT_ID"
           endpoint="$LOKI_ENDPOINT"
           basic_auth_secret="$LOKI_BASIC_AUTH"
-        
+
           [Logging.Grafana]
           base_url="$GRAFANA_URL"
           dashboard_url="$GRAFANA_DASHBOARD_URL"

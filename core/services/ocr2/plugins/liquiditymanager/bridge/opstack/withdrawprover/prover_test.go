@@ -23,7 +23,7 @@ func Test_prover_getFPAC(t *testing.T) {
 		optimismPortal *mock_optimism_portal.OptimismPortalInterface
 	}
 	type args struct {
-		ctx context.Context
+		ctx context.Context //nolint:containedctx
 	}
 	tests := []struct {
 		name    string
@@ -109,7 +109,7 @@ func Test_prover_makeStateTrieProof(t *testing.T) {
 		l2Client *evmclientmocks.Client
 	}
 	type args struct {
-		ctx           context.Context
+		ctx           context.Context //nolint:containedctx
 		l2BlockNumber *big.Int
 		address       common.Address
 		slot          [32]byte
@@ -218,7 +218,7 @@ func Test_prover_getMessageBedrockOutput(t *testing.T) {
 		l2OutputOracle *mock_optimism_l2_output_oracle.OptimismL2OutputOracleInterface
 	}
 	type args struct {
-		ctx           context.Context
+		ctx           context.Context //nolint:containedctx
 		l2BlockNumber *big.Int
 	}
 	tests := []struct {

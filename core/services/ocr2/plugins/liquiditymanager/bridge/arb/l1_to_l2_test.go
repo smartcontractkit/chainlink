@@ -108,7 +108,7 @@ func Test_l1ToL2Bridge_Close(t *testing.T) {
 		l2FilterName string
 	}
 	type args struct {
-		ctx context.Context
+		ctx context.Context //nolint:containedctx
 	}
 	tests := []struct {
 		name       string
@@ -210,7 +210,7 @@ func Test_l1ToL2Bridge_estimateMaxFeePerGasOnL2(t *testing.T) {
 		l2Client *evmclientmocks.Client
 	}
 	type args struct {
-		ctx context.Context
+		ctx context.Context //nolint:containedctx
 	}
 	tests := []struct {
 		name       string
@@ -282,7 +282,7 @@ func Test_l1ToL2Bridge_estimateRetryableGasLimit(t *testing.T) {
 		l2Client *evmclientmocks.Client
 	}
 	type args struct {
-		ctx context.Context
+		ctx context.Context //nolint:containedctx
 		rd  RetryableData
 	}
 	tests := []struct {
@@ -375,7 +375,7 @@ func Test_l1ToL2Bridge_estimateMaxSubmissionFee(t *testing.T) {
 		l1Inbox *mock_arbitrum_inbox.ArbitrumInboxInterface
 	}
 	type args struct {
-		ctx        context.Context
+		ctx        context.Context //nolint:containedctx
 		l1BaseFee  *big.Int
 		dataLength int
 	}
@@ -1142,7 +1142,7 @@ func Test_l1ToL2Bridge_getLogs(t *testing.T) {
 		l2LogPoller               *lpmocks.LogPoller
 	}
 	type args struct {
-		ctx    context.Context
+		ctx    context.Context //nolint:containedctx
 		fromTs time.Time
 	}
 	var (

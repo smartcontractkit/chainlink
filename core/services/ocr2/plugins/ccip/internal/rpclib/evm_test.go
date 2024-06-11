@@ -101,7 +101,6 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 			assert.Equal(t, tc.expectedBatchSizesOnEachRetry, batchSizes)
 		})
 	}
-
 }
 
 func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {

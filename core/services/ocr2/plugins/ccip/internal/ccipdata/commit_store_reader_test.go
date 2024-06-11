@@ -277,7 +277,6 @@ func TestCommitStoreReaders(t *testing.T) {
 	for v, cr := range crs {
 		cr := cr
 		t.Run("CommitStoreReader "+v, func(t *testing.T) {
-
 			// Static config.
 			cfg, err := cr.GetCommitStoreStaticConfig(context.Background())
 			require.NoError(t, err)
