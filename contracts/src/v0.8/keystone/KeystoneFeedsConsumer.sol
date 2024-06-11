@@ -5,7 +5,7 @@ import {IReceiver} from "./interfaces/IReceiver.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator {
-  event FeedReceived(bytes32 indexed feedId, int192 price, uint32 timestamp);
+  event FeedReceived(bytes32 indexed feedId, uint224 price, uint32 timestamp);
 
   error UnauthorizedSender(address sender);
   error UnauthorizedWorkflowOwner(address workflowOwner);
@@ -13,12 +13,12 @@ contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator {
 
   struct ReceivedFeedReport {
     bytes32 FeedId;
-    int192 Price;
+    uint224 Price;
     uint32 Timestamp;
   }
 
   struct StoredFeedReport {
-    int192 Price;
+    uint224 Price;
     uint32 Timestamp;
   }
 
@@ -93,7 +93,7 @@ contract KeystoneFeedsConsumer is IReceiver, OwnerIsCreator {
     }
   }
 
-  function getPrice(bytes32 feedId) external view returns (int192, uint32) {
+  function getPrice(bytes32 feedId) external view returns (uint224, uint32) {
     StoredFeedReport memory report = s_feedReports[feedId];
     return (report.Price, report.Timestamp);
   }
