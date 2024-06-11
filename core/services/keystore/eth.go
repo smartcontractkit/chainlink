@@ -40,7 +40,7 @@ type Eth interface {
 	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
 
 	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
-	SignMessage(ctx context.Context, address common.Address, message string) (string, error)
+	SignMessage(ctx context.Context, address string, message string) (string, error)
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
@@ -327,13 +327,13 @@ func (ks *eth) SignTx(ctx context.Context, address common.Address, tx *types.Tra
 	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
 }
 
-func (ks *eth) SignMessage(ctx context.Context, address common.Address, message string) (string, error) {
+func (ks *eth) SignMessage(ctx context.Context, address string, message string) (string, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
 		return "", ErrLocked
 	}
-	key, err := ks.getByID(address.String())
+	key, err := ks.getByID(address)
 	if err != nil {
 		return "", err
 	}

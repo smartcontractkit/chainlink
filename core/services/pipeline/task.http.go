@@ -25,7 +25,7 @@ type HTTPTask struct {
 	RequestData                    string `json:"requestData"`
 	AllowUnrestrictedNetworkAccess string
 	Headers                        string
-	Address                        common.Address
+	Address                        string
 
 	config                 Config
 	httpClient             *http.Client
@@ -66,11 +66,13 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		requestData                    MapParam
 		allowUnrestrictedNetworkAccess BoolParam
 		reqHeaders                     StringSliceParam
+		address                        StringParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
 		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&address, From(NonemptyString(t.Address), "0x0000000000000000000000000000000000000000")), "address"),
 		// Any hardcoded strings used for URL uses the unrestricted HTTP adapter
 		// Interpolated variable URLs use restricted HTTP adapter by default
 		// You must set allowUnrestrictedNetworkAccess=true on the task to enable variable-interpolated URLs to make restricted network requests
@@ -95,6 +97,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		"method", method,
 		"reqHeaders", reqHeaders,
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
+		"address", address,
 	)
 
 	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
@@ -108,7 +111,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 	}
 
 	// Sign the request data
-	if common.IsHexAddress(t.Address.Hex()) {
+	if common.IsHexAddress(t.Address) {
 		signature, err := t.keyStore.SignMessage(ctx, t.Address, string(requestDataJSON))
 		if err != nil {
 			return Result{Error: err}, runInfo

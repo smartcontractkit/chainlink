@@ -48,7 +48,7 @@ type ETHTxTask struct {
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addrs ...common.Address) (common.Address, error)
-	SignMessage(ctx context.Context, address common.Address, message string) (string, error)
+	SignMessage(ctx context.Context, address string, message string) (string, error)
 }
 
 var _ Task = (*ETHTxTask)(nil)

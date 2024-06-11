@@ -547,7 +547,7 @@ func (_m *Eth) SignTx(ctx context.Context, fromAddress common.Address, tx *types
 }
 
 
-func (_m *Eth) SignMessage(ctx context.Context, address common.Address, message string) (string, error) {
+func (_m *Eth) SignMessage(ctx context.Context, address string, message string) (string, error) {
 	ret := _m.Called(ctx, address, message)
 
 	if len(ret) == 0 {
@@ -556,10 +556,10 @@ func (_m *Eth) SignMessage(ctx context.Context, address common.Address, message 
 
 	var r0 string
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, string) (string, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (string, error)); ok {
 		return rf(ctx, address, message)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, string) string); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
 		r0 = rf(ctx, address, message)
 	} else {
 		if ret.Get(0) != nil {
@@ -567,7 +567,7 @@ func (_m *Eth) SignMessage(ctx context.Context, address common.Address, message 
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, address, message)
 	} else {
 		r1 = ret.Error(1)
