@@ -3,6 +3,7 @@ module github.com/smartcontractkit/chainlink/integration-tests/latest-images
 go 1.21.7
 
 require (
+	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/itchyny/gojq v0.12.16
 	github.com/stretchr/testify v1.9.0
 )

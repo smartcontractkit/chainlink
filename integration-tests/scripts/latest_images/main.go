@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Masterminds/semver/v3"
 	"os"
 	"os/exec"
 	"regexp"
@@ -19,7 +20,7 @@ func fetchImageDetails(repositoryName string) ([]byte, error) {
 	return cmd.Output()
 }
 
-func parseImageTags(output []byte, grepString string, ignoredTags []string) ([]string, error) {
+func parseImageTags(output []byte, grepString string, constraints *semver.Constraints) ([]string, error) {
 	var imageDetails []interface{}
 	if err := json.Unmarshal(output, &imageDetails); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
@@ -55,12 +56,16 @@ func parseImageTags(output []byte, grepString string, ignoredTags []string) ([]s
 	for _, tag := range tags {
 		if re.MatchString(tag) {
 			ignore := false
-			for _, ignoredTag := range ignoredTags {
-				if tag == ignoredTag {
+			if constraints != nil {
+				version, err := semver.NewVersion(tag)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse version: %w", err)
+				}
+				if !constraints.Check(version) {
 					ignore = true
-					break
 				}
 			}
+
 			if !ignore {
 				filteredTags = append(filteredTags, tag)
 			}
@@ -70,20 +75,29 @@ func parseImageTags(output []byte, grepString string, ignoredTags []string) ([]s
 	return filteredTags, nil
 }
 
-func getLatestImages(fetchFunc func(string) ([]byte, error), repositoryName, grepString string, count int, ignoredTags string) (string, error) {
+func getLatestImages(fetchFunc func(string) ([]byte, error), repositoryName, grepString string, count int, constraints *semver.Constraints) (string, error) {
 	output, err := fetchFunc(repositoryName)
 	if err != nil {
 		return "", fmt.Errorf("failed to describe images: %w", err)
 	}
 
-	ignoredTagsArray := strings.Split(ignoredTags, ",")
-	tags, err := parseImageTags(output, grepString, ignoredTagsArray)
+	tags, err := parseImageTags(output, grepString, constraints)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse image tags: %w", err)
 	}
 
-	if len(tags) < count {
-		return "", fmt.Errorf("failed to get %d latest tags for %s. found only %d", count, repositoryName, len(tags))
+	constraintsText := "(none)"
+	if constraints != nil {
+		constraintsText = constraints.String()
+	}
+
+	if len(tags) == 0 {
+		panic(fmt.Errorf("error: no tags found for repository '%s' given the version constraints '%s'", repositoryName, constraintsText))
+	}
+
+	if count > len(tags) {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to find %d tags given the version constraints '%s'. Found only %d tags\n", count, constraintsText, len(tags))
+		count = len(tags)
 	}
 
 	var imagesArr []string
@@ -107,12 +121,15 @@ func main() {
 		panic(fmt.Errorf("error: count must be an integer, but %s is not an integer", os.Args[3]))
 	}
 
-	var ignoredTags string
+	var constraints *semver.Constraints
 	if len(os.Args) == 5 {
-		ignoredTags = os.Args[4]
+		constraints, err = semver.NewConstraint(os.Args[4])
+		if err != nil {
+			panic(fmt.Errorf("error: invalid semver constraint: %v", err))
+		}
 	}
 
-	images, err := getLatestImages(fetchImageDetails, repositoryName, grepString, count, ignoredTags)
+	images, err := getLatestImages(fetchImageDetails, repositoryName, grepString, count, constraints)
 	if err != nil {
 		panic(fmt.Errorf("error getting latest images: %v", err))
 	}
@@ -142,9 +159,13 @@ func validateInputs() error {
 	}
 
 	if len(os.Args) == 5 && os.Args[4] != "" {
-		for _, ignoredTag := range strings.Split(os.Args[4], ",") {
-			if ignoredTag == "" {
-				return errors.New("error: ignored tag cannot be empty")
+		for _, semVerConstraint := range strings.Split(os.Args[4], ",") {
+			if semVerConstraint == "" {
+				return errors.New("error: semver constraint cannot be empty")
+			}
+			_, err := semver.NewConstraint(semVerConstraint)
+			if err != nil {
+				return fmt.Errorf("error: invalid semver constraint: %v", err)
 			}
 		}
 	}
