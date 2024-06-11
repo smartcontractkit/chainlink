@@ -122,7 +122,7 @@ func NewRunner(
 ) *runner {
 	r := &runner{
 		orm:                    orm,
-		btORM:                  bridges.NewBridgeCache(btORM, lggr, bridges.DefaultUpsertInterval),
+		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
@@ -154,7 +154,7 @@ func (r *runner) Start(ctx context.Context) error {
 			go r.runReaperLoop()
 		}
 
-		cache, isCache := r.btORM.(*bridges.BridgeCache)
+		cache, isCache := r.btORM.(*bridges.Cache)
 		if isCache {
 			return cache.Start(ctx)
 		}
