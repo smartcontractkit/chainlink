@@ -39,7 +39,7 @@ type TxStore[
 	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
 	// Update tx to mark that its callback has been signaled
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
-	SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) (err error)
+	SaveFetchedReceipts(ctx context.Context, r []R, state TxState, errorMsg *string, chainID CHAIN_ID) error
 
 	// additional methods for tx store management
 	CheckTxQueueCapacity(ctx context.Context, fromAddress ADDR, maxQueuedTransactions uint64, chainID CHAIN_ID) (err error)

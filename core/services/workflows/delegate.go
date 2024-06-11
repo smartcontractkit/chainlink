@@ -10,8 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -19,11 +17,10 @@ import (
 )
 
 type Delegate struct {
-	registry        core.CapabilitiesRegistry
-	logger          logger.Logger
-	legacyEVMChains legacyevm.LegacyChainContainer
-	peerID          func() *p2ptypes.PeerID
-	store           store.Store
+	registry core.CapabilitiesRegistry
+	logger   logger.Logger
+	peerID   func() *p2ptypes.PeerID
+	store    store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -42,25 +39,21 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	// NOTE: we temporarily do registration inside ServicesForSpec, this will be moved out of job specs in the future
-	err := targets.InitializeWrite(d.registry, d.legacyEVMChains, d.logger)
-	if err != nil {
-		d.logger.Errorw("could not initialize writes", err)
-	}
-
 	dinfo, err := initializeDONInfo(d.logger)
 	if err != nil {
 		d.logger.Errorw("could not add initialize don info", err)
 	}
 
 	cfg := Config{
-		Lggr:       d.logger,
-		Spec:       spec.WorkflowSpec.Workflow,
-		WorkflowID: spec.WorkflowSpec.WorkflowID,
-		Registry:   d.registry,
-		DONInfo:    dinfo,
-		PeerID:     d.peerID,
-		Store:      d.store,
+		Lggr:          d.logger,
+		Spec:          spec.WorkflowSpec.Workflow,
+		WorkflowID:    spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:  spec.WorkflowSpec.WorkflowName,
+		Registry:      d.registry,
+		DONInfo:       dinfo,
+		PeerID:        d.peerID,
+		Store:         d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -85,6 +78,9 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
 		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
 		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWG1AeBnSJH2mdcDusXQVye2jqodZ6pftTH98HH6xvrE97",
+		"12D3KooWBf3PrkhNoPEmp7iV291YnPuuTsgEDHTscLajxoDvwHGA",
+		"12D3KooWP3FrMTFXXRU2tBC8aYvEBgUX6qhcH9q2JZCUi9Wvc2GX",
 	}
 
 	p2pIDs := []p2ptypes.PeerID{}
@@ -99,6 +95,7 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}
 
 	return &capabilities.DON{
+		ID:      "00010203",
 		Members: p2pIDs,
 		Config: capabilities.DONConfig{
 			SharedSecret: key,
@@ -106,8 +103,8 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	}, nil
 }
 
-func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, legacyEVMChains legacyevm.LegacyChainContainer, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
-	return &Delegate{logger: logger, registry: registry, legacyEVMChains: legacyEVMChains, store: store, peerID: peerID}
+func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, store store.Store, peerID func() *p2ptypes.PeerID) *Delegate {
+	return &Delegate{logger: logger, registry: registry, store: store, peerID: peerID}
 }
 
 func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {

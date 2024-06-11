@@ -520,6 +520,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	// Start Chainlink Nodes
 	if b.clNodesCount > 0 {
+		// needed for live networks
+		if len(b.te.EVMNetworks) == 0 {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+		}
+
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
 		for _, en := range b.te.EVMNetworks {
 			network := *en
@@ -558,7 +563,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if len(b.privateEthereumNetworks) > 0 && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.clNodesCount > 0 && b.ETHFunds != nil {
 		if b.hasEVMClient {
 			b.te.ParallelTransactions(true)
 			defer b.te.ParallelTransactions(false)

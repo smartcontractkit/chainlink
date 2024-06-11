@@ -15,8 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 // L1Oracle provides interface for fetching L1-specific fee components if the chain is an L2.
@@ -46,21 +46,21 @@ const (
 	PollPeriod = 6 * time.Second
 )
 
-var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll}
+var supportedChainTypes = []chaintype.ChainType{chaintype.ChainArbitrum, chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll}
 
-func IsRollupWithL1Support(chainType config.ChainType) bool {
+func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) L1Oracle {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) L1Oracle {
 	if !IsRollupWithL1Support(chainType) {
 		return nil
 	}
 	var l1Oracle L1Oracle
 	switch chainType {
-	case config.ChainOptimismBedrock, config.ChainKroma, config.ChainScroll:
+	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll:
 		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
-	case config.ChainArbitrum:
+	case chaintype.ChainArbitrum:
 		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
