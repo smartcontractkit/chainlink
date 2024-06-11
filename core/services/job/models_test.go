@@ -272,14 +272,18 @@ func TestOCR2OracleSpec(t *testing.T) {
 }
 
 func TestWorkflowSpec_Validate(t *testing.T) {
+	duration := 10 * time.Second
+
 	type fields struct {
-		ID            int32
-		WorkflowID    string
-		Workflow      string
-		WorkflowOwner string
-		WorkflowName  string
-		CreatedAt     time.Time
-		UpdatedAt     time.Time
+		ID                   int32
+		WorkflowID           string
+		Workflow             string
+		WorkflowOwner        string
+		WorkflowName         string
+		MaxStepDuration      *time.Duration
+		MaxExecutionDuration *time.Duration
+		CreatedAt            time.Time
+		UpdatedAt            time.Time
 	}
 	tests := []struct {
 		name        string
@@ -338,17 +342,37 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			},
 			expectedErr: ErrInvalidWorkflowID,
 		},
+		{
+			name: "non-zero step duration",
+			fields: fields{
+				WorkflowID:      "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner:   "00000000000000000000000000000000000000aa",
+				WorkflowName:    "ten bytes!",
+				MaxStepDuration: &duration,
+			},
+		},
+		{
+			name: "non-zero execution duration",
+			fields: fields{
+				WorkflowID:           "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
+				WorkflowOwner:        "00000000000000000000000000000000000000aa",
+				WorkflowName:         "ten bytes!",
+				MaxExecutionDuration: &duration,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &WorkflowSpec{
-				ID:            tt.fields.ID,
-				WorkflowID:    tt.fields.WorkflowID,
-				Workflow:      tt.fields.Workflow,
-				WorkflowOwner: tt.fields.WorkflowOwner,
-				WorkflowName:  tt.fields.WorkflowName,
-				CreatedAt:     tt.fields.CreatedAt,
-				UpdatedAt:     tt.fields.UpdatedAt,
+				ID:                   tt.fields.ID,
+				WorkflowID:           tt.fields.WorkflowID,
+				Workflow:             tt.fields.Workflow,
+				WorkflowOwner:        tt.fields.WorkflowOwner,
+				WorkflowName:         tt.fields.WorkflowName,
+				MaxExecutionDuration: tt.fields.MaxExecutionDuration,
+				MaxStepDuration:      tt.fields.MaxStepDuration,
+				CreatedAt:            tt.fields.CreatedAt,
+				UpdatedAt:            tt.fields.UpdatedAt,
 			}
 			err := w.Validate()
 			assert.ErrorIs(t, err, tt.expectedErr)

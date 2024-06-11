@@ -1944,11 +1944,15 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 		}
 		wantJobID2 := mustInsertWFJob(t, o, s2)
 
+		med := 10 * time.Second
+		msd := 1 * time.Second
 		s3 := job.WorkflowSpec{
-			WorkflowID:    "xworkflowid",
-			Workflow:      "anything",
-			WorkflowOwner: "someone else",
-			WorkflowName:  "a_common_name",
+			WorkflowID:           "xworkflowid",
+			Workflow:             "anything",
+			WorkflowOwner:        "someone else",
+			WorkflowName:         "a_common_name",
+			MaxExecutionDuration: &med,
+			MaxStepDuration:      &msd,
 		}
 		wantJobID3 := mustInsertWFJob(t, o, s3)
 
@@ -1965,6 +1969,8 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
+			assert.EqualValues(t, j.WorkflowSpec.MaxExecutionDuration, s.MaxExecutionDuration)
+			assert.EqualValues(t, j.WorkflowSpec.MaxStepDuration, s.MaxStepDuration)
 		}
 	})
 }

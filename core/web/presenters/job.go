@@ -431,22 +431,26 @@ func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
 }
 
 type WorkflowSpec struct {
-	Workflow      string    `json:"workflow"`
-	WorkflowID    string    `json:"workflowId"`
-	WorkflowOwner string    `json:"workflowOwner"`
-	WorkflowName  string    `json:"workflowName"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	Workflow             string         `json:"workflow"`
+	WorkflowID           string         `json:"workflowId"`
+	WorkflowOwner        string         `json:"workflowOwner"`
+	WorkflowName         string         `json:"workflowName"`
+	MaxExecutionDuration *time.Duration `json:"maxExecutionDuration"`
+	MaxStepDuration      *time.Duration `json:"maxStepDuration"`
+	CreatedAt            time.Time      `json:"createdAt"`
+	UpdatedAt            time.Time      `json:"updatedAt"`
 }
 
 func NewWorkflowSpec(spec *job.WorkflowSpec) *WorkflowSpec {
 	return &WorkflowSpec{
-		Workflow:      spec.Workflow,
-		WorkflowID:    spec.WorkflowID,
-		WorkflowOwner: spec.WorkflowOwner,
-		WorkflowName:  spec.WorkflowName,
-		CreatedAt:     spec.CreatedAt,
-		UpdatedAt:     spec.UpdatedAt,
+		Workflow:             spec.Workflow,
+		WorkflowID:           spec.WorkflowID,
+		WorkflowOwner:        spec.WorkflowOwner,
+		WorkflowName:         spec.WorkflowName,
+		MaxExecutionDuration: spec.MaxExecutionDuration,
+		MaxStepDuration:      spec.MaxStepDuration,
+		CreatedAt:            spec.CreatedAt,
+		UpdatedAt:            spec.UpdatedAt,
 	}
 }
 

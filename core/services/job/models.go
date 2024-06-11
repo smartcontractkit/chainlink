@@ -850,12 +850,15 @@ type LiquidityBalancerSpec struct {
 type WorkflowSpec struct {
 	ID int32 `toml:"-"`
 	// TODO it may be possible to compute the workflow id from the hash(yaml, owner, name) and remove this field
-	WorkflowID    string    `toml:"workflowId"` // globally unique identifier for the workflow, specified by the user
-	Workflow      string    `toml:"workflow"`
-	WorkflowOwner string    `toml:"workflowOwner"` // hex string representation of 20 bytes
-	WorkflowName  string    `toml:"workflowName"`  // 10 byte plain text name
-	CreatedAt     time.Time `toml:"-"`
-	UpdatedAt     time.Time `toml:"-"`
+	WorkflowID           string         `toml:"workflowId"` // globally unique identifier for the workflow, specified by the user
+	Workflow             string         `toml:"workflow"`
+	WorkflowOwner        string         `toml:"workflowOwner"` // hex string representation of 20 bytes
+	WorkflowName         string         `toml:"workflowName"`  // 10 byte plain text name
+	MaxExecutionDuration *time.Duration `toml:"maxExecutionDuration"`
+	MaxStepDuration      *time.Duration `toml:"maxStepDuration"`
+
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
 }
 
 var (
