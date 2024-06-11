@@ -305,13 +305,12 @@ jobs:
             os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
-# This test will be fixed in a follow-up PR
-#          - name: ccip-smoke-multicall
-#            nodes: 1
-#            dir: ccip-tests/smoke
-#            os: ubuntu-latest
-#            file: ccip
-#            run: -run ^TestSmokeCCIPMulticall$
+          - name: ccip-smoke-multicall
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPMulticall$
           - name: ccip-smoke-manual-exec
             nodes: 1
             dir: ccip-tests/smoke

@@ -42,7 +42,9 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 
 	t.Cleanup(func() {
 		// If we are running a test that is a token transfer, we need to verify the balance.
-		// For USDC deployment, the mock contracts cannot mint the token in destination, therefore skip the balance check.
+		// skip the balance check for existing deployment, there can be multiple external requests in progress for existing deployments
+		// other than token transfer initiated by the test, which can affect the balance check
+		// therefore we check the balance only for the ccip environment created by the test
 		if TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer() &&
 			!pointer.GetBool(TestCfg.TestGroupInput.USDCMockDeployment) &&
 			!pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {

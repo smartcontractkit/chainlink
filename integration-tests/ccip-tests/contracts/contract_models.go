@@ -615,36 +615,29 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 	return pool.client.ProcessTransaction(tx)
 }
 
-func SendUSDCToUSDCPool(destTokenTransmitter *TokenTransmitter, destPoolAddr common.Address) error {
-	// Send usdc tokens to the offRamp because the mocked USDC contracts don't release them to the offRamo
-	// then they should.
-	destClient := destTokenTransmitter.client
-
-	destPool, err := usdc_token_pool.NewUSDCTokenPool(destPoolAddr, destClient.Backend())
-	if err != nil {
-		return fmt.Errorf("failed to get dest usdc pool: %w", err)
+func (pool *TokenPool) MintUSDCToUSDCPool() error {
+	if !pool.IsUSDC() {
+		return fmt.Errorf("pool is not a USDC pool, cannot send USDC")
 	}
-
-	usdcToken, err := destPool.GetToken(nil)
+	usdcToken, err := pool.GetToken()
 	if err != nil {
 		return fmt.Errorf("failed to get dest usdc token: %w", err)
 	}
-
-	usdcInstance, err := burn_mint_erc677.NewBurnMintERC677(usdcToken, destClient.Backend())
+	usdcInstance, err := burn_mint_erc677.NewBurnMintERC677(usdcToken, pool.client.Backend())
 	if err != nil {
 		return fmt.Errorf("failed to get dest usdc token instance: %w", err)
 	}
 
-	destOpts, err := destClient.TransactionOpts(destClient.GetDefaultWallet())
+	opts, err := pool.client.TransactionOpts(pool.client.GetDefaultWallet())
 	if err != nil {
 		return fmt.Errorf("failed to get transaction opts: %w", err)
 	}
 
-	tx, err := usdcInstance.Mint(destOpts, destPoolAddr, HundredCoins)
+	tx, err := usdcInstance.Mint(opts, pool.EthAddress, HundredCoins)
 	if err != nil {
-		return fmt.Errorf("failed to mint usdc tokens to offRamp: %w", err)
+		return fmt.Errorf("failed to mint usdc tokens to destPool: %w", err)
 	}
-	return destClient.ProcessTransaction(tx)
+	return pool.client.ProcessTransaction(tx)
 }
 
 func (pool *TokenPool) RemoveLiquidity(amount *big.Int) error {
@@ -824,7 +817,13 @@ func (pool *TokenPool) GetRouter() (common.Address, error) {
 }
 
 func (pool *TokenPool) GetToken() (common.Address, error) {
-	return pool.Instance.Latest.PoolInterface.GetToken(nil)
+	if pool.Instance.V1_4_0 != nil && pool.Instance.V1_4_0.PoolInterface != nil {
+		return pool.Instance.V1_4_0.PoolInterface.GetToken(nil)
+	}
+	if pool.Instance.Latest != nil && pool.Instance.Latest.PoolInterface != nil {
+		return pool.Instance.Latest.PoolInterface.GetToken(nil)
+	}
+	return common.Address{}, fmt.Errorf("no pool found to get token")
 }
 
 func (pool *TokenPool) SetRebalancer(rebalancerAddress common.Address) error {
