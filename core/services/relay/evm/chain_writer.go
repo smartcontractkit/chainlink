@@ -35,13 +35,11 @@ var _ ChainWriterService = (*chainWriter)(nil)
 
 func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig) (ChainWriterService, error) {
 	w := chainWriter{
-		logger: logger,
-		client: client,
-		txm:    txm,
-		ge: CWGasEstimator{
-			estimator:   estimator,
-			maxGasPrice: config.MaxGasPrice,
-		},
+		logger:      logger,
+		client:      client,
+		txm:         txm,
+		ge:          estimator,
+		maxGasPrice: config.MaxGasPrice,
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
@@ -67,21 +65,17 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 type chainWriter struct {
 	commonservices.StateMachine
 
-	logger logger.Logger
-	client evmclient.Client
-	txm    evmtxmgr.TxManager
-	ge     CWGasEstimator
+	logger      logger.Logger
+	client      evmclient.Client
+	txm         evmtxmgr.TxManager
+	ge          gas.EvmFeeEstimator
+	maxGasPrice *big.Int
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
 	parsedContracts *parsedTypes
 
 	encoder commontypes.Encoder
-}
-
-type CWGasEstimator struct {
-	estimator   gas.EvmFeeEstimator
-	maxGasPrice *big.Int
 }
 
 // SubmitTransaction ...
@@ -168,12 +162,17 @@ func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uu
 	return commontypes.Unknown, fmt.Errorf("not implemented")
 }
 
+// SubmitTransaction
+//
+// Returns the execution and data availability (L1Oracle) fees for the chain.
+// Dynamic fees (introduced in EIP-1559) include a fee cap and a tip cap. If the dyanmic fee is not available,
+// (if the chain doesn't support dynamic TXs) the legacy GasPrice is used.
 func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainFeeComponents, error) {
-	if w.ge.estimator == nil {
+	if w.ge == nil {
 		return nil, fmt.Errorf("not implemented")
 	}
 
-	gasPriceWei, _, err := w.ge.estimator.GetFee(ctx, nil, 0, assets.NewWei(w.ge.maxGasPrice))
+	gasPriceWei, _, err := w.ge.GetFee(ctx, nil, 0, assets.NewWei(w.maxGasPrice))
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +184,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	if gasPrice == nil {
 		return nil, fmt.Errorf("missing gas price %+v", gasPriceWei)
 	}
-	l1Oracle := w.ge.estimator.L1Oracle()
+	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
 		return &commontypes.ChainFeeComponents{
 			ExecutionFee:        *gasPrice,
