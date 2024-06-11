@@ -1,7 +1,6 @@
 package transmission
 
 import (
-	"encoding/hex"
 	"fmt"
 	"testing"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -26,7 +26,6 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 	testCases := []struct {
 		name                string
 		peerName            string
-		sharedSecret        string
 		schedule            string
 		deltaStage          string
 		workflowExecutionID string
@@ -35,21 +34,19 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 		{
 			"TestOneAtATime",
 			"one",
-			"fb13ca015a9ec60089c7141e9522de79",
 			"oneAtATime",
 			"100ms",
 			"mock-execution-id",
 			map[string]time.Duration{
 				"one":   300 * time.Millisecond,
-				"two":   200 * time.Millisecond,
+				"two":   100 * time.Millisecond,
 				"three": 0 * time.Millisecond,
-				"four":  100 * time.Millisecond,
+				"four":  200 * time.Millisecond,
 			},
 		},
 		{
 			"TestAllAtOnce",
 			"one",
-			"fb13ca015a9ec60089c7141e9522de79",
 			"allAtOnce",
 			"100ms",
 			"mock-execution-id",
@@ -63,33 +60,35 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 		{
 			"TestOneAtATimeWithDifferentExecutionID",
 			"one",
-			"fb13ca015a9ec60089c7141e9522de79",
 			"oneAtATime",
 			"100ms",
 			"mock-execution-id2",
 			map[string]time.Duration{
 				"one":   0 * time.Millisecond,
-				"two":   300 * time.Millisecond,
+				"two":   200 * time.Millisecond,
 				"three": 100 * time.Millisecond,
-				"four":  200 * time.Millisecond,
+				"four":  300 * time.Millisecond,
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			sharedSecret, err := hex.DecodeString(tc.sharedSecret)
-			require.NoError(t, err)
-
-			m, err := values.NewMap(map[string]any{
+			transmissionCfg, err := values.NewMap(map[string]any{
 				"schedule":   tc.schedule,
 				"deltaStage": tc.deltaStage,
 			})
 			require.NoError(t, err)
-			transmissionCfg, err := ExtractTransmissionConfig(m)
-			require.NoError(t, err)
 
-			peerIdToDelay, err := GetPeerIDToTransmissionDelay(ids, [16]byte(sharedSecret), "mock-workflow-id"+tc.workflowExecutionID, transmissionCfg)
+			capabilityRequest := capabilities.CapabilityRequest{
+				Config: transmissionCfg,
+				Metadata: capabilities.RequestMetadata{
+					WorkflowID:          "mock-workflow-id",
+					WorkflowExecutionID: tc.workflowExecutionID,
+				},
+			}
+
+			peerIdToDelay, err := GetPeerIDToTransmissionDelay(ids, capabilityRequest)
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.expectedDelays["one"], peerIdToDelay[peer1])
