@@ -34,13 +34,7 @@ func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.Ca
 		return l.TargetCapability.Execute(ctx, req)
 	}
 
-	tc, err := ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
-
-	peerIDToTransmissionDelay, err := GetPeerIDToTransmissionDelay(l.don.Members, l.don.Config.SharedSecret,
-		req.Metadata.WorkflowID+req.Metadata.WorkflowExecutionID, tc)
+	peerIDToTransmissionDelay, err := GetPeerIDToTransmissionDelay(l.don.Members, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
 	}
