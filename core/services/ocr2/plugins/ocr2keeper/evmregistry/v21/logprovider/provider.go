@@ -119,22 +119,11 @@ type logEventProvider struct {
 	currentIteration int
 	iterations       int
 
-	dequeueCoordinator *dequeueCoordinator
-}
-
-func newDequeueCoordinator() *dequeueCoordinator {
-	return &dequeueCoordinator{
-		dequeuedMinimum: map[int64]bool{},
-		notReady:        map[int64]bool{},
-		remainingLogs:   map[int64]int{},
-		dequeuedLogs:    map[int64]int{},
-		completeWindows: map[int64]bool{},
-		dequeuedUpkeeps: map[int64]map[string]int{},
-	}
+	dequeueCoordinator DequeueCoordinator
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
-	dequeueCoordinator := newDequeueCoordinator()
+	dequeueCoordinator := NewDequeueCoordinator()
 	return &logEventProvider{
 		threadCtrl:         utils.NewThreadControl(),
 		lggr:               lggr.Named("KeepersRegistry.LogEventProvider"),
@@ -322,13 +311,13 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		}
 
 		for len(payloads) < maxResults {
-			startWindow, end, canDequeue := p.dequeueCoordinator.dequeueBlockWindow(start, latestBlock, blockRate)
+			startWindow, end, canDequeue := p.dequeueCoordinator.DequeueBlockWindow(start, latestBlock, blockRate)
 			if !canDequeue {
 				p.lggr.Debugw("Nothing to dequeue", "start", start, "latestBlock", latestBlock)
 				break
 			}
 
-			upkeepSelectorFn := p.dequeueCoordinator.getUpkeepSelector(startWindow, logLimitLow, p.iterations, p.currentIteration)
+			upkeepSelectorFn := p.dequeueCoordinator.GetUpkeepSelector(startWindow, logLimitLow, p.iterations, p.currentIteration)
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
 			if len(logs) > 0 {
@@ -338,11 +327,11 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 					if err == nil {
 						payloads = append(payloads, payload)
 					}
-					p.dequeueCoordinator.trackUpkeeps(startWindow, l.ID)
+					p.dequeueCoordinator.TrackUpkeeps(startWindow, l.ID)
 				}
 			}
 
-			p.dequeueCoordinator.updateBlockWindow(startWindow, len(logs), remaining, numOfUpkeeps, logLimitLow)
+			p.dequeueCoordinator.UpdateBlockWindow(startWindow, len(logs), remaining, numOfUpkeeps, logLimitLow)
 		}
 		p.currentIteration++
 	default:

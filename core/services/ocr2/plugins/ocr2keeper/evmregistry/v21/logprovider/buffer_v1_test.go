@@ -15,7 +15,7 @@ import (
 )
 
 func TestLogEventBufferV1(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, NewDequeueCoordinator())
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -35,7 +35,7 @@ func TestLogEventBufferV1(t *testing.T) {
 }
 
 func TestLogEventBufferV1_SyncFilters(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, NewDequeueCoordinator())
 
 	buf.Enqueue(big.NewInt(1),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -56,12 +56,17 @@ func TestLogEventBufferV1_SyncFilters(t *testing.T) {
 type readableLogger struct {
 	logger.Logger
 	DebugwFn func(msg string, keysAndValues ...interface{})
+	WarnwFn  func(msg string, keysAndValues ...interface{})
 	NamedFn  func(name string) logger.Logger
 	WithFn   func(args ...interface{}) logger.Logger
 }
 
 func (l *readableLogger) Debugw(msg string, keysAndValues ...interface{}) {
 	l.DebugwFn(msg, keysAndValues...)
+}
+
+func (l *readableLogger) Warnw(msg string, keysAndValues ...interface{}) {
+	l.WarnwFn(msg, keysAndValues...)
 }
 
 func (l *readableLogger) Named(name string) logger.Logger {
@@ -74,20 +79,26 @@ func (l *readableLogger) With(args ...interface{}) logger.Logger {
 
 func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 	t.Run("enqueuing logs for a block older than latest seen logs a message", func(t *testing.T) {
-		logReceived := false
+		warnLogReceived := false
+		debugLogReceived := false
 		readableLogger := &readableLogger{
-			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+			WarnwFn: func(msg string, keysAndValues ...interface{}) {
 				if msg == "enqueuing logs from a block older than latest seen block" {
-					logReceived = true
+					warnLogReceived = true
 					assert.Equal(t, "logBlock", keysAndValues[0])
 					assert.Equal(t, int64(1), keysAndValues[1])
 					assert.Equal(t, "lastBlockSeen", keysAndValues[2])
 					assert.Equal(t, int64(2), keysAndValues[3])
 				}
 			},
+			DebugwFn: func(msg string, keysAndValues ...interface{}) {
+				if msg == "Enqueued logs" {
+					debugLogReceived = true
+				}
+			},
 		}
 
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, newDequeueCoordinator())
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, NewDequeueCoordinator())
 
 		buf := logBufferV1.(*logBuffer)
 
@@ -101,7 +112,8 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 
 		assert.Equal(t, 1, buf.enqueuedBlocks[2]["1"])
 		assert.Equal(t, 1, buf.enqueuedBlocks[1]["2"])
-		assert.True(t, true, logReceived)
+		assert.True(t, true, warnLogReceived)
+		assert.True(t, true, debugLogReceived)
 	})
 
 	t.Run("enqueuing logs for the same block over multiple calls logs a message", func(t *testing.T) {
@@ -118,7 +130,7 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			},
 		}
 
-		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, newDequeueCoordinator())
+		logBufferV1 := NewLogBuffer(readableLogger, 10, 20, 1, NewDequeueCoordinator())
 
 		buf := logBufferV1.(*logBuffer)
 
@@ -229,7 +241,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit), newDequeueCoordinator())
+			buf := NewLogBuffer(logger.TestLogger(t), uint32(tc.lookback), uint32(tc.args.blockRate), uint32(tc.args.upkeepLimit), NewDequeueCoordinator())
 			for id, logs := range tc.logsInBuffer {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
@@ -247,7 +259,7 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		lookback := uint32(20)
 		blockRate := uint32(1)
 		logLimit := uint32(1)
-		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit, newDequeueCoordinator())
+		buf := NewLogBuffer(logger.TestLogger(t), lookback, blockRate, logLimit, NewDequeueCoordinator())
 
 		upkeepIDs := []*big.Int{
 			big.NewInt(1),
@@ -474,7 +486,7 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewLogBuffer(logger.TestLogger(t), tc.lookback, tc.blockRate, tc.upkeepLimit, newDequeueCoordinator())
+			buf := NewLogBuffer(logger.TestLogger(t), tc.lookback, tc.blockRate, tc.upkeepLimit, NewDequeueCoordinator())
 			for id, logs := range tc.logsToAdd {
 				added, dropped := buf.Enqueue(id, logs...)
 				sid := id.String()
@@ -562,7 +574,7 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 	})
 
 	t.Run("happy path", func(t *testing.T) {
-		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1, newDequeueCoordinator())
+		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1, NewDequeueCoordinator())
 
 		buf.Enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -698,7 +710,7 @@ func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []lo
 }
 
 func Test_trackBlockNumbersForUpkeep(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, newDequeueCoordinator())
+	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, NewDequeueCoordinator())
 
 	logBuffer := buf.(*logBuffer)
 

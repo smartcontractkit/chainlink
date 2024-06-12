@@ -114,7 +114,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
-		b.lggr.Debugw("enqueuing logs with a latest block older older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
+		b.lggr.Warnw("enqueuing logs with a latest block older older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
 
 	b.trackBlockNumbersForUpkeep(uid, uniqueBlocks)
@@ -129,14 +129,44 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	return buf.enqueue(blockThreshold, logs...)
 }
 
-func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
-	for _, queue := range b.queues {
-		for blockNumber := range reorgBlocks {
-			if _, ok := queue.logs[blockNumber]; ok {
-				queue.logs[blockNumber] = []logpoller.Log{}
-				b.dequeueCoordinator.markReorg(blockNumber, b.opts.blockRate.Load())
+// blockStatistics returns the latest block number, a set of unique block numbers, and a set of reorgd blocks
+// from the given logs
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool, map[int64]bool) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	var latest int64
+	uniqueBlocks := map[int64]bool{}
+	reorgBlocks := map[int64]bool{}
+
+	for _, l := range logs {
+		if l.BlockNumber > latest {
+			latest = l.BlockNumber
+		}
+		uniqueBlocks[l.BlockNumber] = true
+		if hash, ok := b.blockHashes[l.BlockNumber]; ok {
+			if hash != l.BlockHash.String() {
+				reorgBlocks[l.BlockNumber] = true
+				b.lggr.Debugw("encountered reorgd block", "blockNumber", l.BlockNumber)
 			}
 		}
+		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
+	}
+
+	return latest, uniqueBlocks, reorgBlocks
+}
+
+func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	for blockNumber := range reorgBlocks {
+		for _, queue := range b.queues {
+			if _, ok := queue.logs[blockNumber]; ok {
+				queue.logs[blockNumber] = []logpoller.Log{}
+			}
+		}
+		b.dequeueCoordinator.MarkReorg(blockNumber, b.opts.blockRate.Load())
 	}
 }
 
@@ -408,7 +438,6 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	logs := q.logs
 	var added int
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
@@ -428,9 +457,9 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		} else {
 			q.logs[log.BlockNumber] = []logpoller.Log{log}
 			q.blockNumbers = append(q.blockNumbers, log.BlockNumber)
+			sort.Slice(q.blockNumbers, func(i, j int) bool { return q.blockNumbers[i] < q.blockNumbers[j] })
 		}
 	}
-	q.logs = logs
 
 	var dropped int
 	if added > 0 {
@@ -469,7 +498,8 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	windowLimit := int(q.opts.windowLimit.Load())
 	// helper variables to keep track of the current window capacity
 	currentWindowCapacity, currentWindowStart := 0, int64(0)
-	for blockNumber, logs := range q.logs {
+	for _, blockNumber := range q.blockNumbers {
+		logs := q.logs[blockNumber]
 		updated := make([]logpoller.Log, 0)
 
 		for _, l := range logs {
