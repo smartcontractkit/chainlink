@@ -1,9 +1,9 @@
 ChainID = '296'
 #considering the 3-5 (6 including a buffer) seconds of finality and 2 seconds block production
-#we set the depth to 6/2 = 3 blocks
-FinalityDepth = 3
+#we set the depth to 6/2 = 3 blocks, setting to 10 for safety
+FinalityDepth = 10
 #Hedera has high TPS, so polling less often 
-LogPollInterval = '20s'
+LogPollInterval = '10s'
 MinIncomingConfirmations = 1
 #turning off the liveness detection, since the Websocket connection is not reliable, can be turned on if needed
 NoNewHeadsThreshold = '0'
@@ -29,4 +29,4 @@ ResendAfterThreshold = '10s'
 
 [NodePool]
 #increasing to 3x the default polling interval to allow some buffer before decalring out-of-sync & since Hedera has high TPS
-SyncThreshold = 30
+SyncThreshold = 0
