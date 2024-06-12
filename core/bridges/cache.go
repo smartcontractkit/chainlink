@@ -238,9 +238,8 @@ func (c *Cache) run() {
 }
 
 func (c *Cache) doBulkUpsert() {
-	values := make([]BridgeResponse, 0, len(c.bridgeLastValueCache))
-
 	c.mu.RLock()
+	values := make([]BridgeResponse, 0, len(c.bridgeLastValueCache))
 
 	for _, value := range c.bridgeLastValueCache {
 		values = append(values, value)
