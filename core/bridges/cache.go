@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -235,12 +236,7 @@ func (c *Cache) run() {
 
 func (c *Cache) doBulkUpsert() {
 	c.mu.RLock()
-	values := make([]BridgeResponse, 0, len(c.bridgeLastValueCache))
-
-	for _, value := range c.bridgeLastValueCache {
-		values = append(values, value)
-	}
-
+	values := maps.Values(c.bridgeLastValueCache)
 	c.mu.RUnlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultBulkInsertTimeout)
