@@ -51,8 +51,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
   bytes32 internal s_configDigest;
-  // Used for single-lane offramp
-  uint64 internal constant s_offchainConfigVersion = 3;
   uint8 internal constant s_F = 1;
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup) {
@@ -68,10 +66,10 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
 
-    deployOffRamp(s_mockCommitStore, s_destRouter);
+    _deployOffRamp(s_mockCommitStore, s_destRouter);
   }
 
-  function deployOffRamp(IMultiCommitStore commitStore, Router router) internal {
+  function _deployOffRamp(IMultiCommitStore commitStore, Router router) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
@@ -97,7 +95,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       transmitters: s_validTransmitters
     });
 
-    s_offRamp.setDynamicConfig(generateDynamicMultiOffRampConfig(address(router)));
+    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(router)));
     s_offRamp.setOCR3Configs(ocrConfigs);
   }
 
@@ -124,7 +122,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       s_validSigners,
       s_validTransmitters,
       s_F,
-      abi.encode(generateDynamicOffRampConfig(address(router), address(s_priceRegistry))),
+      abi.encode(_generateDynamicOffRampConfig(address(router), address(s_priceRegistry))),
       s_offchainConfigVersion,
       abi.encode("")
     );
@@ -196,13 +194,13 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       EVM2EVMMultiOffRamp.SourceChainConfigArgs memory sourceChainConfig = sourceChainConfigs[i];
       s_mockCommitStore.setSourceChainConfig(
         sourceChainConfig.sourceChainSelector,
-        IMultiCommitStore.SourceChainConfig({isEnabled: true, minSeqNr: 0, onRamp: sourceChainConfig.onRamp})
+        IMultiCommitStore.SourceChainConfig({isEnabled: true, minSeqNr: 1, onRamp: sourceChainConfig.onRamp})
       );
       s_mockCommitStore.setVerifyResult(sourceChainConfig.sourceChainSelector, true);
     }
   }
 
-  function generateDynamicOffRampConfig(
+  function _generateDynamicOffRampConfig(
     address router,
     address priceRegistry
   ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
@@ -217,7 +215,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
   }
 
-  function generateDynamicMultiOffRampConfig(address router)
+  function _generateDynamicMultiOffRampConfig(address router)
     internal
     pure
     returns (EVM2EVMMultiOffRamp.DynamicConfig memory)
