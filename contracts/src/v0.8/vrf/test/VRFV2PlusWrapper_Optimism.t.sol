@@ -10,7 +10,7 @@ import {OptimismL1Fees} from "../dev/OptimismL1Fees.sol";
 import {GasPriceOracle as OVM_GasPriceOracle} from "../../vendor/@eth-optimism/contracts-bedrock/v0.17.3/src/L2/GasPriceOracle.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
-contract VRFV2PlusWrapperTest is BaseTest {
+contract VRFV2PlusWrapperOptimismAndBaseTest is BaseTest {
   /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
   /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
   address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);

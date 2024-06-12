@@ -37,7 +37,6 @@ contract VRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5, ArbitrumL1Fees {
   }
 
   /// @notice Override getL1CostWei function from VRFCoordinatorV2_5 to activate Arbitrum getL1Fee computation
-  // solhint-disable-next-line no-unused-vars
   function _getL1CostWei(bytes calldata /* data */) internal view override returns (uint256) {
     return _getL1CostWeiForCalldata();
   }

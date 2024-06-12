@@ -16,14 +16,14 @@ abstract contract ArbitrumL1Fees {
    * @notice for the current transaction. It uses ArbGas.getCurrentTxL1GasFees to get the fees.
    * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
    */
-  function _getL1CostWeiForCalldata() internal view virtual returns (uint256) {
+  function _getL1CostWeiForCalldata() internal view returns (uint256) {
     return ARBGAS.getCurrentTxL1GasFees();
   }
 
   /**
    * @notice Returns the gas cost in wei of calldataSizeBytes of calldata being posted to L1
    */
-  function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
+  function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view returns (uint256) {
     (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
     // see https://developer.arbitrum.io/devs-how-tos/how-to-estimate-gas#where-do-we-get-all-this-information-from
     // for the justification behind the 140 number.

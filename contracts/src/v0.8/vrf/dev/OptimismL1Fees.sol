@@ -60,14 +60,14 @@ abstract contract OptimismL1Fees is ConfirmedOwner {
     emit L1FeeCalculationSet(mode, coefficient);
   }
 
-  function _getL1CostWeiForCalldata(bytes calldata data) internal view virtual returns (uint256) {
+  function _getL1CostWeiForCalldata(bytes calldata data) internal view returns (uint256) {
     if (s_l1FeeCalculationMode == L1_GAS_FEES_MODE) {
       return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(data, L1_FEE_DATA_PADDING));
     }
     return _getL1CostWeiForCalldataSize(data.length);
   }
 
-  function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view virtual returns (uint256) {
+  function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view returns (uint256) {
     uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
     if (l1FeeCalculationMode == L1_CALLDATA_GAS_COST_MODE) {
       // estimate based on unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well

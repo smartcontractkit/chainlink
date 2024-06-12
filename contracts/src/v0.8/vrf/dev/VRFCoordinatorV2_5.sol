@@ -629,7 +629,6 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @notice Returns the L1 fee for the calldata payload (always return 0 on L1 chains).
    * @notice Override this function in chain specific way for L2 chains.
    */
-  // solhint-disable-next-line no-unused-vars
   function _getL1CostWei(bytes calldata /* data */) internal view virtual returns (uint256) {
     return 0;
   }
