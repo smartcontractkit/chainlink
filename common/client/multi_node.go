@@ -75,7 +75,7 @@ type multiNode[
 
 func NewMultiNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT any, //RPCClient[CHAIN_ID, HEAD],
+	RPC_CLIENT any,
 ](
 	lggr logger.Logger,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)

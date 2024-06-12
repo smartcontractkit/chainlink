@@ -745,8 +745,8 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 }
 */
 
-func newMockRpc(t *testing.T) *client.MockEvmRpcClient {
-	mockRpc := client.NewMockEvmRpcClient(t)
+func newMockRpc(t *testing.T) *client.MockChainClientRPC {
+	mockRpc := client.NewMockChainClientRPC(t)
 	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
 	mockRpc.On("Close").Return(nil).Once()
 	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()

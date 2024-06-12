@@ -273,7 +273,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		//node.On("SubscribersCount").Return(int32(2))
 		node.On("UnsubscribeAll")
 		bestNode := newHealthyNode(t, chainID)
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(bestNode)
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -347,7 +347,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[types.ID, multiNodeRPCClient]{node1, node2},
 		})
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(node1).Once()
 		mn.nodeSelector = nodeSelector
 		prevActiveNode, err := mn.selectNode()
@@ -369,7 +369,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[types.ID, multiNodeRPCClient]{oldBest, newBest},
 		})
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(oldBest).Once()
 		mn.nodeSelector = nodeSelector
 		activeNode, err := mn.selectNode()
@@ -391,7 +391,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 			chainID:       chainID,
 			logger:        lggr,
 		})
-		nodeSelector := newMockNodeSelector[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector

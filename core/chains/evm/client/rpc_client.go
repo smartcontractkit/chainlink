@@ -34,8 +34,8 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-//go:generate mockery --quiet --name EvmRpcClient --structname MockEvmRpcClient --filename "mock_evm_rpc_client_test.go" --inpackage --case=underscore
-type EvmRpcClient interface {
+//go:generate mockery --quiet --name ChainClientRPC --structname MockChainClientRPC --filename "mock_chain_client_rpc_test.go" --inpackage --case=underscore
+type ChainClientRPC interface {
 	commonclient.RPCClient[*big.Int, *evmtypes.Head]
 	BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -189,7 +189,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier commonclient.NodeTier,
-) EvmRpcClient {
+) ChainClientRPC {
 	r := new(RpcClient)
 	r.cfg = cfg
 	r.name = name
