@@ -329,7 +329,8 @@ func mockConsensusWithEarlyTermination() *mockCapability {
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{
-				Err: capabilities.ErrStopExecution,
+				// copy error object to make sure message comparison works as expected
+				Err: errors.New(capabilities.ErrStopExecution.Error()),
 			}, nil
 		},
 	)
