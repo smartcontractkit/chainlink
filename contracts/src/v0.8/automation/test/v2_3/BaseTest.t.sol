@@ -8,18 +8,18 @@ import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
-import {UpkeepTranscoder5_0 as Transcoder} from "../v2_3/UpkeepTranscoder5_0.sol";
-import {AutomationRegistry2_3} from "../v2_3/AutomationRegistry2_3.sol";
-import {AutomationRegistryBase2_3 as AutoBase} from "../v2_3/AutomationRegistryBase2_3.sol";
-import {AutomationRegistryLogicA2_3} from "../v2_3/AutomationRegistryLogicA2_3.sol";
-import {AutomationRegistryLogicB2_3} from "../v2_3/AutomationRegistryLogicB2_3.sol";
-import {AutomationRegistryLogicC2_3} from "../v2_3/AutomationRegistryLogicC2_3.sol";
-import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
-import {AutomationRegistrar2_3} from "../v2_3/AutomationRegistrar2_3.sol";
+import {UpkeepTranscoder5_0 as Transcoder} from "../../v2_3/UpkeepTranscoder5_0.sol";
+import {AutomationRegistry2_3} from "../../v2_3/AutomationRegistry2_3.sol";
+import {AutomationRegistryBase2_3 as AutoBase} from "../../v2_3/AutomationRegistryBase2_3.sol";
+import {AutomationRegistryLogicA2_3} from "../../v2_3/AutomationRegistryLogicA2_3.sol";
+import {AutomationRegistryLogicB2_3} from "../../v2_3/AutomationRegistryLogicB2_3.sol";
+import {AutomationRegistryLogicC2_3} from "../../v2_3/AutomationRegistryLogicC2_3.sol";
+import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
+import {AutomationRegistrar2_3} from "../../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
 import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
-import {IWrappedNative} from "../interfaces/v2_3/IWrappedNative.sol";
+import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
 import {WETH9} from "./WETH9.sol";
 
 /**

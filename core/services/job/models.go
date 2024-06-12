@@ -173,6 +173,8 @@ type Job struct {
 	WorkflowSpec                  *WorkflowSpec
 	StandardCapabilitiesSpecID    *int32
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPBootstrapSpecID           *int32
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
