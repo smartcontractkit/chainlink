@@ -31,7 +31,7 @@ chainlink:
       ChainID = "43113"
       MinContractPayment = '0'
       AutoCreateKey = true
-      FinalityDepth = 1
+      FinalityDepth = 10
       [[EVM.Nodes]]
       Name = 'avax-fuji-testnet-official'
       WSURL = 'wss://api.avax-test.network/ext/bc/C/ws'
@@ -41,7 +41,7 @@ chainlink:
       ChainID = "97"
       MinContractPayment = '0'
       AutoCreateKey = true
-      FinalityDepth = 1
+      FinalityDepth = 10
       [[EVM.Nodes]]
       Name = 'bsc-testnet-official'
       HTTPURL = 'https://data-seed-prebsc-1-s.bnbchain.org:8545'

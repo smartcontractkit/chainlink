@@ -8,10 +8,10 @@ import (
 	"go.uber.org/multierr"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -56,7 +56,7 @@ func NewClientConfigs(
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:           config.NewChainTypeConfig(chainType),
+				ChainType:           chaintype.NewChainTypeConfig(chainType),
 				FinalityDepth:       finalityDepth,
 				FinalityTagEnabled:  finalityTagEnabled,
 				NoNewHeadsThreshold: commonconfig.MustNewDuration(noNewHeadsThreshold),

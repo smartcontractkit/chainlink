@@ -960,6 +960,10 @@ func main() {
 		fastestResponseTimeInSeconds, err := consumer.SFastestResponseTimeInBlocks(nil)
 		helpers.PanicErr(err)
 		fmt.Println("Fastest Response Time In Seconds: ", fastestResponseTimeInSeconds)
+		p90FulfillmentBlockTime, p95FulfillmentBlockTime, err := v2plusscripts.CalculateFulfillmentResponseTimePercentiles(e, consumer)
+		helpers.PanicErr(err)
+		fmt.Println("P90 Fulfillment Block Time: ", p90FulfillmentBlockTime)
+		fmt.Println("P95 Fulfillment Block Time: ", p95FulfillmentBlockTime)
 	case "eoa-load-test-reset-metrics":
 		request := flag.NewFlagSet("eoa-load-test-reset-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")

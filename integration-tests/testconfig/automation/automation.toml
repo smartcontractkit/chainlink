@@ -1,6 +1,6 @@
 # product defaults
 [Common]
-chainlink_node_funding = 0.5
+chainlink_node_funding = 2.0
 
 [NodeConfig]
 BaseConfigTOML = """
@@ -98,11 +98,11 @@ max_revert_data_size=5_000
 
 [Reorg.NodeConfig]
 CommonChainConfigTOML = """
-FinalityDepth = 200
+FinalityDepth = 20
 LogPollInterval = '1s'
 
 [HeadTracker]
-HistoryDepth = 400
+HistoryDepth = 30
 
 [GasEstimator]
 Mode = 'FixedPrice'

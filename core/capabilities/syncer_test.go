@@ -32,7 +32,7 @@ func TestSyncer_CleanStartClose(t *testing.T) {
 	dispatcher := remoteMocks.NewDispatcher(t)
 	dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	networkSetup, err := coreCapabilities.NewHardcodedDonNetworkSetup(wrapper)
+	networkSetup, err := coreCapabilities.NewHardcodedDonNetworkSetup()
 	require.NoError(t, err)
 	syncer := coreCapabilities.NewRegistrySyncer(wrapper, registry, dispatcher, lggr, networkSetup)
 	require.NoError(t, syncer.Start(ctx))

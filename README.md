@@ -64,6 +64,7 @@ Ethereum node versions currently tested and supported:
 
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+- [Besu](https://github.com/hyperledger/besu)
 
 [Supported but broken]
 These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
@@ -71,11 +72,6 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
   - ~https://github.com/NethermindEth/nethermind/issues/4384~
-- [Besu](https://github.com/hyperledger/besu)
-  Blocking issues:
-  - https://github.com/hyperledger/besu/issues/4212
-  - ~https://github.com/hyperledger/besu/issues/4192~
-  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946

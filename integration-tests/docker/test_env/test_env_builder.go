@@ -73,7 +73,6 @@ type CLTestEnvBuilder struct {
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
 	testreporters.NewAllowedLogMessage("Failed to get LINK balance", "Happens only when we deploy LINK token for test purposes. Harmless.", zapcore.ErrorLevel, testreporters.WarnAboutAllowedMsgs_No),
 	testreporters.NewAllowedLogMessage("Error stopping job service", "It's a known issue with lifecycle. There's ongoing work that will fix it.", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
-	testreporters.NewAllowedLogMessage("SLOW SQL QUERY", "Known issue in Automation Node Upgrade Test - https://smartcontract-it.atlassian.net/browse/BCF-3245", zapcore.DPanicLevel, testreporters.WarnAboutAllowedMsgs_No),
 }
 
 var DefaultChainlinkNodeLogScannerSettings = ChainlinkNodeLogScannerSettings{
@@ -521,6 +520,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	// Start Chainlink Nodes
 	if b.clNodesCount > 0 {
+		// needed for live networks
+		if len(b.te.EVMNetworks) == 0 {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+		}
+
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
 		for _, en := range b.te.EVMNetworks {
 			network := *en
@@ -559,7 +563,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if len(b.privateEthereumNetworks) > 0 && b.clNodesCount > 0 && b.ETHFunds != nil {
+	if b.clNodesCount > 0 && b.ETHFunds != nil {
 		if b.hasEVMClient {
 			b.te.ParallelTransactions(true)
 			defer b.te.ParallelTransactions(false)

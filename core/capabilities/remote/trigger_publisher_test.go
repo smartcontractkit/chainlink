@@ -20,10 +20,9 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1",
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
-		Version:        "0.0.1",
 	}
 	p1 := p2ptypes.PeerID{}
 	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))

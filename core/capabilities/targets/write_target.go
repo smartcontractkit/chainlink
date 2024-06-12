@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,6 +20,7 @@ var (
 	_ capabilities.ActionCapability = &WriteTarget{}
 )
 
+// required field of target's config in the workflow spec
 const signedReportField = "signed_report"
 
 type WriteTarget struct {
@@ -29,12 +31,11 @@ type WriteTarget struct {
 	lggr logger.Logger
 }
 
-func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
-		name,
+		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 	)
 
 	logger := lggr.Named("WriteTarget")
@@ -84,22 +85,16 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, fmt.Errorf("missing required field %s", signedReportField)
 	}
 
-	var inputs struct {
-		Report     []byte
-		Context    []byte
-		Signatures [][]byte
-	}
+	inputs := types.SignedReport{}
 	if err = signedReport.UnwrapTo(&inputs); err != nil {
 		return nil, err
 	}
 
-	if inputs.Report == nil {
+	if len(inputs.Report) == 0 {
 		// We received any empty report -- this means we should skip transmission.
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
 	}
-	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
-
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
@@ -110,20 +105,23 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	queryInputs := struct {
 		Receiver            string
 		WorkflowExecutionID []byte
+		ReportId            []byte
 	}{
 		Receiver:            reqConfig.Address,
 		WorkflowExecutionID: rawExecutionID,
+		ReportId:            inputs.ID,
 	}
 	var transmitter common.Address
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
-		// report already transmitted, early return
+		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	}
 
-	txID, err := uuid.NewUUID() // TODO(archseer): it seems odd that CW expects us to generate an ID, rather than return one
+	cap.lggr.Infow("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +130,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
 	req := struct {
-		ReceiverAddress string
-		RawReport       []byte
-		ReportContext   []byte
-		Signatures      [][]byte
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
 	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
 
 	if req.RawReport == nil {
@@ -149,6 +147,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if req.Signatures == nil {
 		req.Signatures = make([][]byte, 0)
 	}
+	cap.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
 
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)

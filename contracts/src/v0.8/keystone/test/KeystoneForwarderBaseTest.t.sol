@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
 import {Receiver} from "./mocks/Receiver.sol";
+import {KeystoneRouter} from "../KeystoneRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract BaseTest is Test {
@@ -11,6 +12,7 @@ contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
   uint32 internal DON_ID = 0x01020304;
   uint8 internal F = 1;
+  uint32 internal CONFIG_VERSION = 1;
 
   struct Signer {
     uint256 mockPrivateKey;
@@ -19,11 +21,14 @@ contract BaseTest is Test {
 
   Signer[MAX_ORACLES] internal s_signers;
   KeystoneForwarder internal s_forwarder;
+  KeystoneRouter internal s_router;
   Receiver internal s_receiver;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
-    s_forwarder = new KeystoneForwarder();
+    s_router = new KeystoneRouter();
+    s_forwarder = new KeystoneForwarder(address(s_router));
+    s_router.addForwarder(address(s_forwarder));
     s_receiver = new Receiver();
 
     uint256 seed = 0;
@@ -49,5 +54,21 @@ contract BaseTest is Test {
       signerAddrs[i] = s_signers[i].signerAddress;
     }
     return signerAddrs;
+  }
+
+  function _signReport(
+    bytes memory report,
+    bytes memory reportContext,
+    uint256 requiredSignatures
+  ) internal view returns (bytes[] memory signatures) {
+    signatures = new bytes[](requiredSignatures);
+    for (uint256 i = 0; i < requiredSignatures; i++) {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+        s_signers[i].mockPrivateKey,
+        keccak256(abi.encodePacked(keccak256(report), reportContext))
+      );
+      signatures[i] = bytes.concat(r, s, bytes1(v - 27));
+    }
+    return signatures;
   }
 }

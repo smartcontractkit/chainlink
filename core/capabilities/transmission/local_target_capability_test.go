@@ -3,7 +3,6 @@ package transmission
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"testing"
 	"time"
 
@@ -33,10 +32,9 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	// schedule.
 	mt := newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai",
+			"write_polygon-testnet-mumbai@1.0.0",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
-			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			gotTime = time.Now()
@@ -44,11 +42,6 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			return capabilities.CapabilityResponse{}, nil
 		},
 	)
-
-	// The combination of this key and the metadata above
-	// will yield the permutation [3, 2, 0, 1]
-	key, err := hex.DecodeString("fb13ca015a9ec60089c7141e9522de79")
-	require.NoError(t, err)
 
 	testCases := []struct {
 		name     string
@@ -68,7 +61,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			name:     "position 1; oneAtATime",
 			position: 1,
 			schedule: "oneAtATime",
-			low:      200 * time.Millisecond,
+			low:      100 * time.Millisecond,
 			high:     300 * time.Millisecond,
 		},
 		{
@@ -83,7 +76,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			position: 3,
 			schedule: "oneAtATime",
 			low:      100 * time.Millisecond,
-			high:     200 * time.Millisecond,
+			high:     300 * time.Millisecond,
 		},
 		{
 			name:     "position 0; allAtOnce",
@@ -129,7 +122,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 				Config: m,
 				Metadata: capabilities.RequestMetadata{
 					WorkflowID:          "mock-workflow-id",
-					WorkflowExecutionID: "mock-execution-id",
+					WorkflowExecutionID: "mock-execution-id-1",
 				},
 			}
 
@@ -141,9 +134,6 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			}
 			don := capabilities.DON{
 				Members: ids,
-				Config: capabilities.DONConfig{
-					SharedSecret: [16]byte(key),
-				},
 			}
 			peerID := ids[tc.position]
 			localTargetCapability := NewLocalTargetCapability(log, peerID, don, mt)
