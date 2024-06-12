@@ -125,11 +125,11 @@ jobs:
         shell: bash
         run: |
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/ghlatestreleasechecker@v1.0.0
-          PATH=$PATH:$(go env GOPATH)/bin
-          export PATH
       - name: Select EVM implementations to test
         id: select-implementations
         run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Checking for new releases"
             implementations_arr=()
@@ -171,6 +171,8 @@ jobs:
       - name: Select Chainlink version
         id: select-chainlink-version
         run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Fetching latest Chainlink stable version"
             implementations_arr=()
@@ -321,14 +323,14 @@ jobs:
         shell: bash
         run: |
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
-          PATH=$PATH:$(go env GOPATH)/bin
-          export PATH
       - name: Get latest docker images from ECR
         if: ${{ github.event.inputs.base64TestList == '' }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           ETH_IMPLEMENTATIONS: ${{ needs.select-versions.outputs.evm_implementations }}
         run: |
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH          
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             geth_images=$(ecrimagefetcher 'ethereum/client-go' '^v[0-9]+\.[0-9]+\.[0-9]+$' ${{ env.LATEST_IMAGE_COUNT }})
             echo "GETH_IMAGES=$geth_images" >> $GITHUB_ENV
@@ -391,12 +393,12 @@ jobs:
         shell: bash
         run: |
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.0.1
-          PATH=$PATH:$(go env GOPATH)/bin
-          export PATH
       - name: Prepare matrix input
         if: env.BASE64_TEST_LIST == ''
         run: |
           cd integration-tests
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
