@@ -151,7 +151,9 @@ func (o *zkSyncL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	return
 }
 
-// For zkSync l1_price_per_pubdata ~= gas_price_on_l2 * l2_gas_PerPubdataByte
+// For zkSync l2_gas_PerPubdataByte = (blob_byte_price_on_l1 + part_of_l1_verification_cost) / (gas_price_on_l2)
+// l2_gas_PerPubdataByte = blob_gas_price_on_l1 * gas_per_byte / gas_price_on_l2
+// blob_gas_price_on_l1 * gas_per_byte ~= gas_price_on_l2 * l2_gas_PerPubdataByte
 func (o *zkSyncL1Oracle) CalculateL1GasPrice(ctx context.Context) (price *big.Int, err error) {
 	l2GasPrice, err := o.GetL2GasPrice(ctx)
 	if err != nil {
@@ -191,8 +193,8 @@ func (o *zkSyncL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, er
 // If block num is not provided, the value on the latest block num is used
 func (o *zkSyncL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	//Unused method, so not implemented
-	l1GasCost := common.Big0
-	return assets.NewWei(l1GasCost), nil
+	// And its not possible to know gas consumption of a transaction before its executed, since zkSync only posts the state difference
+	panic("unimplemented")
 }
 
 // GetL2GasPrice calls SystemContract.gasPrice()  on the zksync system precompile contract.
