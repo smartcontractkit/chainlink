@@ -761,6 +761,10 @@ const (
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
+	if cfg.Store == nil {
+		return nil, errors.New("must provide store")
+	}
+
 	if cfg.MaxWorkerLimit == 0 {
 		cfg.MaxWorkerLimit = defaultWorkerLimit
 	}
@@ -775,10 +779,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.MaxExecutionDuration == 0 {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
-	}
-
-	if cfg.Store == nil {
-		cfg.Store = store.NewInMemoryStore()
 	}
 
 	if cfg.retryMs == 0 {

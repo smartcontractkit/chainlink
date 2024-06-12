@@ -183,69 +183,51 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	t.Parallel()
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	testCases := []struct {
-		name  string
-		store store.Store
-	}{
-		{
-			name:  "db-engine",
-			store: store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock()),
+	trigger, cr := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	target1 := mockTarget()
+	require.NoError(t, reg.Add(ctx, target1))
+
+	target2 := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"write_ethereum-testnet-sepolia@1.0.0",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			m := req.Inputs.Underlying["report"].(*values.Map)
+			return capabilities.CapabilityResponse{
+				Value: m,
+			}, nil
 		},
-		{
-			name:  "in-memory-engine",
-			store: store.NewInMemoryStore(),
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
-			reg := coreCap.NewRegistry(logger.TestLogger(t))
+	)
+	require.NoError(t, reg.Add(ctx, target2))
 
-			trigger, cr := mockTrigger(t)
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		hardcodedWorkflow,
+		func(c *Config) { c.Store = dbstore },
+	)
 
-			require.NoError(t, reg.Add(ctx, trigger))
-			require.NoError(t, reg.Add(ctx, mockConsensus()))
-			target1 := mockTarget()
-			require.NoError(t, reg.Add(ctx, target1))
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
 
-			target2 := newMockCapability(
-				capabilities.MustNewCapabilityInfo(
-					"write_ethereum-testnet-sepolia@1.0.0",
-					capabilities.CapabilityTypeTarget,
-					"a write capability targeting ethereum sepolia testnet",
-				),
-				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-					m := req.Inputs.Underlying["report"].(*values.Map)
-					return capabilities.CapabilityResponse{
-						Value: m,
-					}, nil
-				},
-			)
-			require.NoError(t, reg.Add(ctx, target2))
+	eid := getExecutionId(t, eng, testHooks)
+	assert.Equal(t, cr, <-target1.response)
+	assert.Equal(t, cr, <-target2.response)
 
-			eng, testHooks := newTestEngine(
-				t,
-				reg,
-				hardcodedWorkflow,
-				func(c *Config) { c.Store = tc.store },
-			)
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
 
-			err := eng.Start(ctx)
-			require.NoError(t, err)
-			defer eng.Close()
-
-			eid := getExecutionId(t, eng, testHooks)
-			assert.Equal(t, cr, <-target1.response)
-			assert.Equal(t, cr, <-target2.response)
-
-			state, err := eng.executionStates.Get(ctx, eid)
-			require.NoError(t, err)
-
-			assert.Equal(t, state.Status, store.StatusCompleted)
-		})
-	}
+	assert.Equal(t, state.Status, store.StatusCompleted)
 }
 
 const (
