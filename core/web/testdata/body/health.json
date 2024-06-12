@@ -92,6 +92,15 @@
     },
     {
       "type": "checks",
+      "id": "EVM.0.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.0.Txm.Finalizer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0.Txm.WrappedEvmEstimator",
       "attributes": {
         "name": "EVM.0.Txm.WrappedEvmEstimator",

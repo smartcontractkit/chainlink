@@ -110,6 +110,7 @@ type Txm[
 	broadcaster        *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	confirmer          *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	tracker            *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	finalizer          *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]
 	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	newErrorClassifier NewErrorClassifier
@@ -145,6 +146,7 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	finalizer *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD],
 	newErrorClassifierFunc NewErrorClassifier,
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -167,6 +169,7 @@ func NewTxm[
 		resender:           resender,
 		tracker:            tracker,
 		newErrorClassifier: newErrorClassifierFunc,
+		finalizer:          finalizer,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -199,6 +202,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
+		}
+
+		if err := ms.Start(ctx, b.finalizer); err != nil {
+			return fmt.Errorf("Txm: Finalizer failed to start: %w", err)
 		}
 
 		b.logger.Info("Txm starting runLoop")
@@ -295,6 +302,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 		services.CopyHealth(report, b.broadcaster.HealthReport())
 		services.CopyHealth(report, b.confirmer.HealthReport())
 		services.CopyHealth(report, b.txAttemptBuilder.HealthReport())
+		services.CopyHealth(report, b.finalizer.HealthReport())
 	})
 
 	if b.txConfig.ForwardersEnabled() {
@@ -417,6 +425,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
 			b.tracker.mb.Deliver(head.BlockNumber())
+			b.finalizer.mb.Deliver(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
@@ -447,6 +456,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			err = b.tracker.Close()
 			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
 				b.logger.Errorw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+			}
+			err = b.finalizer.Close()
+			if err != nil && (!errors.Is(err, services.ErrAlreadyStopped) || !errors.Is(err, services.ErrCannotStopUnstarted)) {
+				b.logger.Errorw(fmt.Sprintf("Failed to Close Finalizer: %v", err), "err", err)
 			}
 			return
 		case <-keysChanged:
@@ -646,7 +659,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
 		return commontypes.Unconfirmed, nil
 	case TxConfirmed:
-		// TODO: Check for finality and return finalized status
+		if tx.Finalized {
+			// Return finalized if tx receipt's block is equal or older than the latest finalized block
+			return commontypes.Finalized, nil
+		}
 		// Return unconfirmed if tx receipt's block is newer than the latest finalized block
 		return commontypes.Unconfirmed, nil
 	case TxFatalError:

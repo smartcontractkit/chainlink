@@ -9,6 +9,7 @@ ok EVM.0.Txm
 ok EVM.0.Txm.BlockHistoryEstimator
 ok EVM.0.Txm.Broadcaster
 ok EVM.0.Txm.Confirmer
+ok EVM.0.Txm.Finalizer
 ok EVM.0.Txm.WrappedEvmEstimator
 ok JobSpawner
 ok Mailbox.Monitor

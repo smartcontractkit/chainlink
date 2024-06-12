@@ -310,6 +310,36 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUns
 	return r0, r1
 }
 
+// FindTransactionsByState provides a mock function with given fields: ctx, state, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, state, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindTransactionsByState")
+	}
+
+	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, state, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, state, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.TxState, CHAIN_ID) error); ok {
+		r1 = rf(ctx, state, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
@@ -848,34 +878,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, etx)
@@ -1223,6 +1225,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxUns
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
 		r0 = rf(ctx, etx, attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateTxesFinalized provides a mock function with given fields: ctx, etxs, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxesFinalized(ctx context.Context, etxs []int64, chainId CHAIN_ID) error {
+	ret := _m.Called(ctx, etxs, chainId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxesFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, CHAIN_ID) error); ok {
+		r0 = rf(ctx, etxs, chainId)
 	} else {
 		r0 = ret.Error(0)
 	}
