@@ -166,7 +166,6 @@ func NewExecOffchainConfig(
 		InflightCacheExpiry:         InflightCacheExpiry,
 		RootSnoozeTime:              RootSnoozeTime,
 	}}
-
 }
 
 type MaybeRevertReceiver struct {

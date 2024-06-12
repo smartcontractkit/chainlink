@@ -1551,7 +1551,6 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func Test_commitReportSize(t *testing.T) {

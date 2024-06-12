@@ -312,7 +312,6 @@ func DecodeExecReport(ctx context.Context, args abi.Arguments, report []byte) (c
 		Proofs:            erStruct.Proofs,
 		ProofFlagBits:     new(big.Int).SetBytes(erStruct.ProofFlagBits.Bytes()),
 	}, nil
-
 }
 
 func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {
