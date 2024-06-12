@@ -312,14 +312,14 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		expectedResult := map[string]NodeState{}
 		for name, state := range nodes {
 			node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-			node.On("State").Return(state)
-			node.On("String").Return(name)
+			node.On("State").Return(state).Once()
+			node.On("String").Return(name).Once()
 			opts.nodes = append(opts.nodes, node)
 
 			sendOnly := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
 			sendOnlyName := "send_only_" + name
-			sendOnly.On("State").Return(state)
-			sendOnly.On("String").Return(sendOnlyName)
+			sendOnly.On("State").Return(state).Once()
+			sendOnly.On("String").Return(sendOnlyName).Once()
 			opts.sendonlys = append(opts.sendonlys, sendOnly)
 
 			expectedResult[name] = state
