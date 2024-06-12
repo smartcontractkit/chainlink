@@ -139,20 +139,24 @@ func decompressTgzSubpath(file io.Reader, destPath string, subPath string) error
 			}
 			fmt.Println("Creating directory", target)
 		case tar.TypeReg: // Regular file
-			// Wrap the file creation in a closure to ensure the file is closed even during a panic
-			return func() error {
-				f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-				if err != nil {
-					return fmt.Errorf("failed to open file: %w", err)
-				}
-				defer f.Close()
-				/* #nosec G110 */
-				if _, err := io.Copy(f, tr); err != nil {
-					return fmt.Errorf("failed to write file: %w", err)
-				}
-				fmt.Println("Creating file", target)
-				return nil
-			}()
+			if err := writeFile(target, header, tr); err != nil {
+				return err
+			}
 		}
 	}
+}
+
+func writeFile(target string, header *tar.Header, tr *tar.Reader) error {
+	/* #nosec G110 */
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, tr); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	fmt.Println("Creating file", target)
+	return nil
 }
