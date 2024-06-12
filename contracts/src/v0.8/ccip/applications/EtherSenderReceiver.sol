@@ -12,6 +12,7 @@ import {CCIPReceiver} from "./CCIPReceiver.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
+//solhint-disable interface-starts-with-i
 interface CCIPRouter {
   function getWrappedNative() external view returns (address);
 }

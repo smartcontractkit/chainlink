@@ -41,6 +41,7 @@ library Types {
   /// @custom:field data        Data of the transaction.
   /// @custom:field l1BlockHash Hash of the block the transaction was submitted in.
   /// @custom:field logIndex    Index of the log in the block the transaction was submitted in.
+  //solhint-disable gas-struct-packing
   struct UserDepositTransaction {
     address from;
     address to;
