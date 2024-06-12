@@ -44,7 +44,7 @@ var _ services.Service = (*Cache)(nil)
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
 	return &Cache{
 		ORM:                  base,
-		lggr:                 lggr,
+		lggr:                 lggr.Named(CacheServiceName),
 		interval:             upsertInterval,
 		stop:                 make(chan struct{}, 1),
 		bridgeLastValueCache: make(map[string]BridgeResponse),
@@ -201,23 +201,19 @@ func (c *Cache) Start(context.Context) error {
 
 func (c *Cache) Close() error {
 	return c.StopOnce(CacheServiceName, func() error {
-		c.stop <- struct{}{}
+		close(c.stop)
 		c.wg.Wait()
 
 		return nil
 	})
 }
 
-func (c *Cache) Ready() error {
-	return c.StateMachine.Ready()
-}
-
 func (c *Cache) HealthReport() map[string]error {
-	return map[string]error{CacheServiceName: c.Healthy()}
+	return map[string]error{c.Name(): c.Healthy()}
 }
 
 func (c *Cache) Name() string {
-	return CacheServiceName
+	return c.lggr.Name()
 }
 
 func (c *Cache) run() {
