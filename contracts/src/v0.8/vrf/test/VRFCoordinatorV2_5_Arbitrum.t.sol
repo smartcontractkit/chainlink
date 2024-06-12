@@ -111,8 +111,8 @@ contract VRFV2CoordinatorV2_5_Arbitrum is BaseTest {
     // for blocks within 256 blocks from the current block return the blockhash using ArbSys
     bytes32 testBlockHash = bytes32(keccak256("testBlock"));
     vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ARBSYS.arbBlockNumber.selector), abi.encode(45830));
-    vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ARBSYS.arbBlockHash.selector, 33691), abi.encode(testBlockHash));
-    assertEq(testBlockHash, s_testCoordinator.getBlockhashExternal(33691));
+    vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ARBSYS.arbBlockHash.selector, 45825), abi.encode(testBlockHash));
+    assertEq(testBlockHash, s_testCoordinator.getBlockhashExternal(45825));
     // for blocks outside 256 blocks from the current block return nothing
     assertEq("", s_testCoordinator.getBlockhashExternal(33830));
     // for blocks greater than the current block return nothing
