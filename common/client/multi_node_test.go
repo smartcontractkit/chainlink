@@ -22,7 +22,7 @@ import (
 type multiNodeRPCClient RPCClient[types.ID, types.Head[Hashable]]
 
 type testMultiNode struct {
-	*multiNode[types.ID, multiNodeRPCClient]
+	*MultiNode[types.ID, multiNodeRPCClient]
 }
 
 type multiNodeOpts struct {
@@ -43,7 +43,7 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	result := NewMultiNode[types.ID, multiNodeRPCClient](
 		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily)
 	return testMultiNode{
-		result.(*multiNode[types.ID, multiNodeRPCClient]),
+		result,
 	}
 }
 
@@ -640,7 +640,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, mn.Close())
 		err = mn.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "aborted while broadcasting tx - multiNode is stopped: context canceled")
+		require.EqualError(t, err, "aborted while broadcasting tx - MultiNode is stopped: context canceled")
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
 		mn := newStartedMultiNode(t, multiNodeOpts{

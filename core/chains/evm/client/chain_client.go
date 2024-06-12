@@ -101,7 +101,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 }
 
 type chainClient struct {
-	multiNode commonclient.MultiNode[
+	multiNode *commonclient.MultiNode[
 		*big.Int,
 		ChainClientRPC,
 	]
