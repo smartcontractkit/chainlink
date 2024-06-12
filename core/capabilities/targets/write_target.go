@@ -95,8 +95,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
 	}
-	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
-
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
@@ -118,11 +116,12 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
-		// report already transmitted, early return
+		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	}
 
-	txID, err := uuid.NewUUID() // TODO(archseer): it seems odd that CW expects us to generate an ID, rather than return one
+	cap.lggr.Infow("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
 		return nil, err
 	}
@@ -131,10 +130,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
 	req := struct {
-		ReceiverAddress string
-		RawReport       []byte
-		ReportContext   []byte
-		Signatures      [][]byte
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
 	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
 
 	if req.RawReport == nil {
