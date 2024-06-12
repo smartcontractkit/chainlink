@@ -83,7 +83,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	go generate ./core/web
+	go run operator_ui/install.go .
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
