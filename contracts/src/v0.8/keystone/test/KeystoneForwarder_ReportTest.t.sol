@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
-import {KeystoneRouter} from "../KeystoneRouter.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
 import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
