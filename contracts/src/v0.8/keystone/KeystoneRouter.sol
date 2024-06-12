@@ -13,11 +13,6 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
 
   string public constant override typeAndVersion = "KeystoneRouter 1.0.0";
 
-  struct TransmissionInfo {
-    address transmitter;
-    bool state;
-  }
-
   function addForwarder(address forwarder) external onlyOwner {
     s_forwarders[forwarder] = true;
     emit ForwarderAdded(forwarder);
@@ -45,7 +40,7 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     if (receiver.code.length == 0) return false;
 
     try IReceiver(receiver).onReport(metadata, report) {
-      s_transmissions[transmissionId].state = true;
+      s_transmissions[transmissionId].success = true;
       return true;
     } catch {
       return false;
@@ -61,7 +56,7 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
   function getTransmissionState(bytes32 transmissionId) external view returns (IRouter.TransmissionState) {
     if (s_transmissions[transmissionId].transmitter == address(0)) return IRouter.TransmissionState.NOT_ATTEMPTED;
     return
-      s_transmissions[transmissionId].state ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
+      s_transmissions[transmissionId].success ? IRouter.TransmissionState.SUCCEEDED : IRouter.TransmissionState.FAILED;
   }
 
   function isForwarder(address forwarder) external view returns (bool) {

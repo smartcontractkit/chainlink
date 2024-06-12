@@ -15,6 +15,11 @@ interface IRouter {
     FAILED
   }
 
+  struct TransmissionInfo {
+    address transmitter;
+    bool success;
+  }
+
   function addForwarder(address forwarder) external;
   function removeForwarder(address forwarder) external;
 
