@@ -25,3 +25,8 @@ BumpPercent = 20
 # Because our block times are every 2 secs it's less less likely to happen as compared to other chains
 # so setting a gap of 5 blocks to prevent sending transaction during throttling
 ResendAfterThreshold = '10s'
+
+
+[NodePool]
+#increasing to 3x the default polling interval to allow some buffer before decalring out-of-sync & since Hedera has high TPS
+SyncThreshold = 30
