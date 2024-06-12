@@ -1,6 +1,8 @@
 package types
 
 import (
+	"strings"
+
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -21,6 +23,16 @@ type Metadata struct {
 	ReportID         string //  2 hex bytes
 }
 
+// the contract requires exactly 10 bytes for the workflow name
+// the json schema allows for a variable length string <= len(10)
+// pad with trailing spaces to meet the contract requirements
+func (m *Metadata) padWorkflowName() {
+	if len(m.WorkflowName) < 10 {
+		suffix := strings.Repeat(" ", 10-len(m.WorkflowName))
+		m.WorkflowName += suffix
+	}
+}
+
 type Aggregator interface {
 	// Called by the Outcome() phase of OCR reporting.
 	// The inner array of observations corresponds to elements listed in "inputs.observations" section.
@@ -28,6 +40,7 @@ type Aggregator interface {
 }
 
 func AppendMetadata(outcome *AggregationOutcome, meta *Metadata) (*AggregationOutcome, error) {
+	meta.padWorkflowName()
 	metaWrapped, err := values.Wrap(meta)
 	if err != nil {
 		return nil, err

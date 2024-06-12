@@ -27,7 +27,6 @@ func yamlFixtureReaderObj(t *testing.T, testCase string) func(name string) any {
 		var testFileYaml any
 		err := yaml.Unmarshal(testFileBytes, &testFileYaml)
 		require.NoError(t, err)
-
 		return testFileYaml
 	}
 }
@@ -143,11 +142,8 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 		expectedSpecPath := fixtureDir + "marshalling/" + "workflow_2_spec.json"
 		workflowBytes := fixtureReader("workflow_2")
 
-		workflowYaml := &workflowSpecYaml{}
-		err := yaml.Unmarshal(workflowBytes, workflowYaml)
+		workflowSpec, err := ParseWorkflowSpecYaml(string(workflowBytes))
 		require.NoError(t, err)
-
-		workflowSpec := workflowYaml.toWorkflowSpec()
 		workflowSpecBytes, err := json.MarshalIndent(workflowSpec, "", "  ")
 		require.NoError(t, err)
 
@@ -176,7 +172,7 @@ func TestJsonSchema(t *testing.T) {
 		require.NoError(t, err)
 
 		// change this to update golden file
-		shouldUpdateSchema := false
+		shouldUpdateSchema := true
 		if shouldUpdateSchema {
 			err = os.WriteFile(expectedSchemaPath, generatedSchema, 0600)
 			require.NoError(t, err)
@@ -194,6 +190,8 @@ func TestJsonSchema(t *testing.T) {
 	t.Run("ValidateJsonSchema", func(t *testing.T) {
 		generatedSchema, err := GenerateJSONSchema()
 		require.NoError(t, err)
+		jsonSchema, err := jsonschema.CompileString("github.com/smartcontractkit/chainlink", string(generatedSchema))
+		require.NoError(t, err)
 
 		t.Run("version", func(t *testing.T) {
 			readVersionFixture := yamlFixtureReaderObj(t, "versioning")
@@ -201,8 +199,6 @@ func TestJsonSchema(t *testing.T) {
 			failingFixture2 := readVersionFixture("failing_2")
 			failingFixture3 := readVersionFixture("failing_3")
 			passingFixture1 := readVersionFixture("passing_1")
-			jsonSchema, err := jsonschema.CompileString("github.com/smartcontractkit/chainlink", string(generatedSchema))
-			require.NoError(t, err)
 
 			err = jsonSchema.Validate(failingFixture1)
 			require.Error(t, err)
@@ -222,8 +218,6 @@ func TestJsonSchema(t *testing.T) {
 			readRefFixture := yamlFixtureReaderObj(t, "references")
 			failingFixture1 := readRefFixture("failing_1")
 			passingFixture1 := readRefFixture("passing_1")
-			jsonSchema, err := jsonschema.CompileString("github.com/smartcontractkit/chainlink", string(generatedSchema))
-			require.NoError(t, err)
 
 			err = jsonSchema.Validate(failingFixture1)
 			require.Error(t, err)
@@ -231,6 +225,87 @@ func TestJsonSchema(t *testing.T) {
 			err = jsonSchema.Validate(passingFixture1)
 			require.NoError(t, err)
 		})
+		// name, owner tests
+		type testCase = struct {
+			testName string
+			name     string
+			owner    string
+			wantErr  bool
+		}
+
+		var testCases = []testCase{
+			{
+				testName: "valid",
+				name:     "ten_digits",
+				owner:    "0x0123456789abcdef0123456789abcdef01234567",
+			},
+			{
+				testName: "valid: no name",
+				// the helper function will omit the name field, which not the same as an empty string for a name
+				owner: "0x0123456789abcdef0123456789abcdef01234567",
+			},
+			{
+				testName: "valid: short name",
+				name:     "abc",
+				owner:    "0x0123456789abcdef0123456789abcdef01234567",
+			},
+			{
+				testName: "invalid: name too long",
+				name:     "wf_name_too_long_for_schema_validation",
+				owner:    "0x0123456789abcdef0123456789abcdef01234567",
+				wantErr:  true,
+			},
+			{
+				testName: "invalid: name characters",
+				name:     "abc def",
+				owner:    "0x0123456789abcdef0123456789abcdef01234567",
+				wantErr:  true,
+			},
+			{
+				testName: "valid: no owner",
+				name:     "ten_digits",
+				// the helper function will omit the owner field, which not the same as an empty string for an owner
+			},
+			{
+				testName: "valid: capital letters",
+				name:     "ten_digits",
+				owner:    "0x0123456789ABCDEF0123456789ABCDEF01234567",
+			},
+			{
+				testName: "invalid: owner too short",
+				name:     "ten_digits",
+				owner:    "0x0123456789abcdef0123456789abcdef",
+				wantErr:  true,
+			},
+			{
+				testName: "invalid: owner too long",
+				name:     "ten_digits",
+				owner:    "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+				wantErr:  true,
+			},
+			{
+				testName: "invalid: wrong prefix",
+				name:     "ten_digits",
+				owner:    "1z0123456789abcdef0123456789abcdef01234567",
+				wantErr:  true,
+			},
+			{
+				testName: "invalid: no 0x prefix",
+				name:     "ten_digits",
+				owner:    "0123456789abcdef0123456789abcdef01234567",
+				wantErr:  true,
+			},
+		}
+		for _, tt := range testCases {
+			t.Run(tt.testName, func(t *testing.T) {
+				err := jsonSchema.Validate(wfSpec(t, tt.name, tt.owner))
+				if tt.wantErr {
+					require.Error(t, err, "%s: expected error but got nil", tt.testName)
+				} else {
+					require.NoError(t, err, "%s: expected no error but got %v", tt.testName, err)
+				}
+			})
+		}
 	})
 }
 
@@ -248,4 +323,14 @@ func TestMappingCustomType(t *testing.T) {
 	assert.Equal(t, int64(100), m["foo"], m)
 	assert.Equal(t, decimal.NewFromFloat(100.00), m["bar"], m)
 	assert.Equal(t, decimal.NewFromFloat(11.10), m["baz"].(map[string]any)["gnat"], m)
+}
+
+func wfSpec(t *testing.T, name, owner string) any {
+	t.Helper()
+	yamlSpec := WFYamlSpec(t, name, owner)
+
+	var wf any
+	err := yaml.Unmarshal([]byte(yamlSpec), &wf)
+	require.NoError(t, err)
+	return wf
 }

@@ -1,3 +1,5 @@
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567
 triggers:
   - id: trigger_test@1.0.0
     config: {}

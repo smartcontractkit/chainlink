@@ -20,6 +20,8 @@ func TestParseDependencyGraph(t *testing.T) {
 		{
 			name: "basic example",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567      
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -63,6 +65,8 @@ targets:
 		{
 			name: "circular relationship",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -100,6 +104,8 @@ targets:
 		{
 			name: "indirect circular relationship",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -142,6 +148,8 @@ targets:
 		{
 			name: "relationship doesn't exist",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -173,6 +181,8 @@ targets:
 		{
 			name: "two trigger nodes",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -216,6 +226,8 @@ targets:
 		{
 			name: "non-trigger step with no dependent refs",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
@@ -246,6 +258,8 @@ targets:
 		{
 			name: "duplicate refs in a step",
 			yaml: `
+name: length_ten # exactly 10 characters
+owner: 0x0123456789abcdef0123456789abcdef01234567  
 triggers:
   - id: "a-trigger@1.0.0"
     config: {}
