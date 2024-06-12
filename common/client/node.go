@@ -71,6 +71,7 @@ type Node[
 	State() NodeState
 	// StateAndLatest returns health state with the latest received block number & total difficulty.
 	StateAndLatest() (NodeState, ChainInfo)
+	SetPoolChainInfoProvider(PoolChainInfoProvider)
 	// Name is a unique identifier for this node.
 	Name() string
 	// String - returns string representation of the node, useful for debugging (name + URLS used to connect to the RPC)
@@ -110,6 +111,9 @@ type node[
 
 	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
+
+	poolInfoProvider PoolChainInfoProvider
+
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber          int64
 	stateLatestTotalDifficulty      *big.Int
@@ -171,6 +175,10 @@ func NewNode[
 	n.rpc = rpc
 	n.chainFamily = chainFamily
 	return n
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) SetPoolChainInfoProvider(poolInfoProvider PoolChainInfoProvider) {
+	n.poolInfoProvider = poolInfoProvider
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {

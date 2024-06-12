@@ -58,6 +58,7 @@ func newNodeWithState(t *testing.T, chainID types.ID, state NodeState) *mockNode
 	node.On("Close").Return(nil).Once()
 	node.On("State").Return(state).Maybe()
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
+	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 	return node
 }
 func TestMultiNode_Dial(t *testing.T) {
@@ -98,6 +99,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		node.On("ConfiguredChainID").Return(chainID).Once()
 		expectedError := errors.New("failed to start node")
 		node.On("Start", mock.Anything).Return(expectedError).Once()
+		node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
@@ -115,6 +117,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		node2.On("ConfiguredChainID").Return(chainID).Once()
 		expectedError := errors.New("failed to start node")
 		node2.On("Start", mock.Anything).Return(expectedError).Once()
+		node2.On("SetPoolChainInfoProvider", mock.Anything).Once()
 
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
@@ -270,7 +273,6 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newHealthyNode(t, chainID)
-		//node.On("SubscribersCount").Return(int32(2))
 		node.On("UnsubscribeAll")
 		bestNode := newHealthyNode(t, chainID)
 		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)

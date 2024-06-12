@@ -104,6 +104,11 @@ func (_m *mockNode[CHAIN_ID, RPC_CLIENT]) RPC() RPC_CLIENT {
 	return r0
 }
 
+// SetPoolChainInfoProvider provides a mock function with given fields: _a0
+func (_m *mockNode[CHAIN_ID, RPC_CLIENT]) SetPoolChainInfoProvider(_a0 PoolChainInfoProvider) {
+	_m.Called(_a0)
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *mockNode[CHAIN_ID, RPC_CLIENT]) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)

@@ -134,6 +134,39 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) NodeStates() map[string]NodeState {
 	return states
 }
 
+// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
+// Return highest ChainInfo most recently received by the alive nodes.
+// E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) LatestChainInfo() (int, ChainInfo) {
+	var nLiveNodes int
+	ch := ChainInfo{
+		BlockDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.primaryNodes {
+		if s, nodeChainInfo := n.StateAndLatest(); s == NodeStateAlive {
+			nLiveNodes++
+			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+			ch.LatestFinalizedBlock = max(ch.LatestFinalizedBlock, nodeChainInfo.LatestFinalizedBlock)
+			ch.BlockDifficulty = nodeChainInfo.BlockDifficulty
+		}
+	}
+	return nLiveNodes, ch
+}
+
+// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
+	ch := ChainInfo{
+		BlockDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.primaryNodes {
+		_, nodeChainInfo := n.StateAndLatest()
+		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+		ch.LatestFinalizedBlock = max(ch.LatestFinalizedBlock, nodeChainInfo.LatestFinalizedBlock)
+		ch.BlockDifficulty = nodeChainInfo.BlockDifficulty
+	}
+	return ch
+}
+
 // Dial starts every node in the pool
 //
 // Nodes handle their own redialing and runloops, so this function does not
@@ -148,16 +181,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Dial(ctx context.Context) error {
 			if n.ConfiguredChainID().String() != c.chainID.String() {
 				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
-			/* TODO: Dmytro's PR on local finality handles this better.
-			rawNode, ok := n.(*node[CHAIN_ID, *evmtypes.Head, RPC_CLIENT])
-			if ok {
-				// This is a bit hacky but it allows the node to be aware of
-				// pool state and prevent certain state transitions that might
-				// otherwise leave no primaryNodes available. It is better to have one
-				// node in a degraded state than no primaryNodes at all.
-				rawNode.nLiveNodes = c.nLiveNodes
-			}
-			*/
+			n.SetPoolChainInfoProvider(c)
 			// node will handle its own redialing and automatic recovery
 			if err := ms.Start(ctx, n); err != nil {
 				return err

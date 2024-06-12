@@ -10,6 +10,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
+// PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo
+//
+//go:generate mockery --quiet --name PoolChainInfoProvider --structname mockPoolChainInfoProvider --filename "mock_pool_chain_info_provider_test.go" --inpackage --case=underscore
+type PoolChainInfoProvider interface {
+	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being.
+	// Return highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
+	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
+	LatestChainInfo() (int, ChainInfo)
+	// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
+	HighestChainInfo() ChainInfo
+}
+
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
 //
 //go:generate mockery --quiet --name RPCClient --structname MockRPCClient --filename "mock_rpc_client_test.go" --inpackage --case=underscore
