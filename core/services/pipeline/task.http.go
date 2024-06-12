@@ -112,11 +112,14 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 
 	// Sign the request data
 	if common.IsHexAddress(t.Address) {
-		signature, err := t.keyStore.SignMessage(ctx, t.Address, string(requestDataJSON))
+		message := string(requestDataJSON)
+		signature, err := t.keyStore.SignMessage(ctx, t.Address, message)
 		if err != nil {
 			return Result{Error: err}, runInfo
 		}
 		reqHeaders = append(reqHeaders, "X-Chainlink-Signature", signature)
+		// Add the message to the headers for debugging purposes
+		reqHeaders = append(reqHeaders, "X-Chainlink-Message", message)
 	}
 
 	responseBytes, statusCode, respHeaders, elapsed, err := makeHTTPRequest(requestCtx, lggr, method, url, reqHeaders, requestData, client, t.config.DefaultHTTPLimit())
