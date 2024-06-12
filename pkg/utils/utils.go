@@ -3,27 +3,16 @@ package utils
 import (
 	"context"
 	"fmt"
-	"math"
-	mrand "math/rand"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 )
 
-// WithJitter adds +/- 10% to a duration
-func WithJitter(d time.Duration) time.Duration {
-	// #nosec
-	if d == 0 {
-		return 0
-	}
-	// ensure non-zero arg to Intn to avoid panic
-	max := math.Max(float64(d.Abs())/5.0, 1.)
-	// #nosec - non critical randomness
-	jitter := mrand.Intn(int(max))
-	jitter = jitter - (jitter / 2)
-	return time.Duration(int(d) + jitter)
-}
+// WithJitter adds +/- 10% to a duration.
+// Deprecated: use timeutil.WithJitter
+func WithJitter(d time.Duration) time.Duration { return timeutil.JitterPct(0.1).Apply(d) }
 
 // ContextFromChan creates a context that finishes when the provided channel
 // receives or is closed.

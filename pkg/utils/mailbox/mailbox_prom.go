@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
 var mailboxLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -30,33 +29,26 @@ type Monitor struct {
 	lggr  logger.Logger
 
 	mailboxes sync.Map
-	stop      func()
+	stopCh    services.StopChan
 	done      chan struct{}
 }
 
 func NewMonitor(appID string, lggr logger.Logger) *Monitor {
-	return &Monitor{appID: appID, lggr: logger.Named(lggr, "Monitor")}
+	return &Monitor{appID: appID, lggr: logger.Named(lggr, "Monitor"), stopCh: make(services.StopChan), done: make(chan struct{})}
 }
 
 func (m *Monitor) Name() string { return m.lggr.Name() }
 
 func (m *Monitor) Start(context.Context) error {
 	return m.StartOnce("Monitor", func() error {
-		t := time.NewTicker(utils.WithJitter(mailboxPromInterval))
-		ctx, cancel := context.WithCancel(context.Background())
-		m.stop = func() {
-			t.Stop()
-			cancel()
-		}
-		m.done = make(chan struct{})
-		go m.monitorLoop(ctx, t.C)
+		go m.monitorLoop()
 		return nil
 	})
 }
 
 func (m *Monitor) Close() error {
 	return m.StopOnce("Monitor", func() error {
-		m.stop()
+		close(m.stopCh)
 		<-m.done
 		return nil
 	})
@@ -66,13 +58,15 @@ func (m *Monitor) HealthReport() map[string]error {
 	return map[string]error{m.Name(): m.Healthy()}
 }
 
-func (m *Monitor) monitorLoop(ctx context.Context, c <-chan time.Time) {
+func (m *Monitor) monitorLoop() {
 	defer close(m.done)
+	t := services.NewTicker(mailboxPromInterval)
+	defer t.Stop()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-m.stopCh:
 			return
-		case <-c:
+		case <-t.C:
 			m.mailboxes.Range(func(k, v any) bool {
 				name, mb := k.(string), v.(mailbox)
 				c, p := mb.load()
