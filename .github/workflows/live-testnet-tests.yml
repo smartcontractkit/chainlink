@@ -248,7 +248,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -331,7 +331,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -414,7 +414,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -497,7 +497,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -576,7 +576,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -659,7 +659,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -742,7 +742,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -825,7 +825,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -904,7 +904,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -983,7 +983,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -1062,7 +1062,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
