@@ -53,11 +53,12 @@ func NewTxm(
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
+	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), txStore, txmClient)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
-	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker)
+	txm = NewEvmTxm(chainID, txmCfg, txConfig, keyStore, lggr, checker, fwdMgr, txAttemptBuilder, txStore, evmBroadcaster, evmConfirmer, evmResender, evmTracker, evmFinalizer)
 	return txm, nil
 }
 
@@ -76,8 +77,9 @@ func NewEvmTxm(
 	confirmer *Confirmer,
 	resender *Resender,
 	tracker *Tracker,
+	finalizer *Finalizer,
 ) *Txm {
-	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, client.NewTxError)
+	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, broadcaster, confirmer, resender, tracker, finalizer, client.NewTxError)
 }
 
 // NewEvmResender creates a new concrete EvmResender
@@ -141,4 +143,13 @@ func NewEvmBroadcaster(
 ) *Broadcaster {
 	nonceTracker := NewNonceTracker(logger, txStore, client)
 	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, txAttemptBuilder, nonceTracker, logger, checkerFactory, autoSyncNonce)
+}
+
+func NewEvmFinalizer(
+	logger logger.Logger,
+	chainId *big.Int,
+	txStore TransactionStore,
+	client TxmClient,
+) *Finalizer {
+	return txmgr.NewFinalizer(logger, chainId, txStore, client)
 }

@@ -313,6 +313,36 @@ func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Contex
 	return r0, r1
 }
 
+// FindTransactionsByState provides a mock function with given fields: ctx, state, chainID
+func (_m *EvmTxStore) FindTransactionsByState(ctx context.Context, state types.TxState, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, state, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindTransactionsByState")
+	}
+
+	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, state, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxState, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, state, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.TxState, *big.Int) error); ok {
+		r1 = rf(ctx, state, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
 func (_m *EvmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
@@ -999,34 +1029,6 @@ func (_m *EvmTxStore) HasInProgressTransaction(ctx context.Context, account comm
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *EvmTxStore) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID *big.Int) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, etx)
@@ -1485,6 +1487,24 @@ func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *ty
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
 		r0 = rf(ctx, etx, attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateTxesFinalized provides a mock function with given fields: ctx, etxs, chainId
+func (_m *EvmTxStore) UpdateTxesFinalized(ctx context.Context, etxs []int64, chainId *big.Int) error {
+	ret := _m.Called(ctx, etxs, chainId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxesFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, *big.Int) error); ok {
+		r0 = rf(ctx, etxs, chainId)
 	} else {
 		r0 = ret.Error(0)
 	}

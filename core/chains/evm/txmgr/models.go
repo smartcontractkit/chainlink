@@ -39,9 +39,10 @@ type (
 	Receipt                = dbReceipt // EvmReceipt is the exported DB table model for receipts
 	ReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
 	StuckTxDetector        = txmgrtypes.StuckTxDetector[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	TxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	TxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, *evmtypes.Head]
 	TransactionClient      = txmgrtypes.TransactionClient[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	ChainReceipt           = txmgrtypes.ChainReceipt[common.Hash, common.Hash]
+	Finalizer              = txmgr.Finalizer[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Head]
 )
 
 var _ KeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
