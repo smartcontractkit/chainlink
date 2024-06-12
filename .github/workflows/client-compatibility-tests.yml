@@ -279,6 +279,7 @@ jobs:
           tag_suffix: ""
           dockerfile: core/chainlink.Dockerfile
           git_commit_sha: ${{ needs.select-versions.outputs.chainlink_version }}
+          check_image_exists: 'true'
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
@@ -391,6 +392,9 @@ jobs:
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
+            go run main.go 'cron' 'TestCronBasic' './smoke/cron_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
+            go run main.go 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"                    
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
             go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
@@ -405,6 +409,9 @@ jobs:
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
+            go run main.go 'cron' 'TestCronBasic' './smoke/cron_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            go run main.go 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"               
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
             go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
@@ -420,6 +427,9 @@ jobs:
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
+            go run main.go 'cron' 'TestCronBasic' './smoke/cron_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
+            go run main.go 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"               
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
             go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
@@ -434,6 +444,9 @@ jobs:
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
+            go run main.go 'cron' 'TestCronBasic' './smoke/cron_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            go run main.go 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"               
             go run main.go 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
             go run main.go 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
             go run main.go 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
