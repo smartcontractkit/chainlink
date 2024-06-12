@@ -1,6 +1,5 @@
 package reader
 
-import "C"
 import (
 	"context"
 	"errors"
@@ -11,15 +10,27 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
-	ErrChainReaderNotFound = errors.New("chain reader not found")
+	ErrContractReaderNotFound = errors.New("contract reader not found")
+	ErrContractWriterNotFound = errors.New("contract writer not found")
 )
 
+// TODO: unit test the implementation when the actual contract reader and writer interfaces are finalized and mocks can be generated.
 type CCIPChainReader struct {
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader
+	contractWriters map[cciptypes.ChainSelector]types.ChainWriter
 	destChain       cciptypes.ChainSelector
+}
+
+func NewCCIPChainReader(contractReaders map[cciptypes.ChainSelector]types.ContractReader, contractWriters map[cciptypes.ChainSelector]types.ChainWriter, destChain cciptypes.ChainSelector) *CCIPChainReader {
+	return &CCIPChainReader{
+		contractReaders: contractReaders,
+		contractWriters: contractWriters,
+		destChain:       destChain,
+	}
 }
 
 func (r *CCIPChainReader) CommitReportsGTETimestamp(ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int) ([]cciptypes.CommitPluginReportWithMeta, error) {
@@ -121,10 +132,28 @@ func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []cciptypes.Cha
 }
 
 func (r *CCIPChainReader) GasPrices(ctx context.Context, chains []cciptypes.ChainSelector) ([]cciptypes.BigInt, error) {
-	if err := r.validateReaderExistence(chains...); err != nil {
+	if err := r.validateWriterExistence(chains...); err != nil {
 		return nil, err
 	}
-	panic("implement me")
+
+	eg := new(errgroup.Group)
+	gasPrices := make([]cciptypes.BigInt, len(chains))
+	for i, chain := range chains {
+		i, chain := i, chain
+		eg.Go(func() error {
+			gasPrice, err := r.contractWriters[chain].GetFeeComponents(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get gas price: %w", err)
+			}
+			gasPrices[i] = cciptypes.NewBigInt(&gasPrice.ExecutionFee)
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return gasPrices, nil
 }
 
 func (r *CCIPChainReader) Close(ctx context.Context) error {
@@ -135,7 +164,17 @@ func (r *CCIPChainReader) validateReaderExistence(chains ...cciptypes.ChainSelec
 	for _, ch := range chains {
 		_, exists := r.contractReaders[ch]
 		if !exists {
-			return fmt.Errorf("chain %d: %w", ch, ErrChainReaderNotFound)
+			return fmt.Errorf("chain %d: %w", ch, ErrContractReaderNotFound)
+		}
+	}
+	return nil
+}
+
+func (r *CCIPChainReader) validateWriterExistence(chains ...cciptypes.ChainSelector) error {
+	for _, ch := range chains {
+		_, exists := r.contractWriters[ch]
+		if !exists {
+			return fmt.Errorf("chain %d: %w", ch, ErrContractWriterNotFound)
 		}
 	}
 	return nil
