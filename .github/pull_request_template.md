@@ -1,13 +1,25 @@
-<!--- Does this work have a corresponding ticket? --> 
+## Ticket
+<!---
+  Does this work have a corresponding ticket?
 
-https://smartcontract-it.atlassian.net/browse/...
+  Please link your Jira ticket by including it in one of the following reference:
+    - the PR title
+    - branch name
+    - commit message
+  
+  By referencing it, it will let the QA team to know what to watch out for when creating a new release.
+--> 
 
-<!--- Does this work depend on other open PRs? -->
+## Requires Dependencies
+<!---
+  Does this work depend on other open PRs?
 
-Requires:
-- https://github.com/smartcontractkit/chainlink-common/pull/123456
+  Please list other PRs that are blocking this PR.
+-->
 
-<!--- Does this work support other open PRs? -->
+## Resolves Dependencies
+<!---
+  Does this work support other open PRs? 
 
-Supports:
-- https://github.com/smartcontractkit/ccip/pull/456789
+  Please list other PRs that are waiting for this PR to be merged.
+-->
