@@ -464,39 +464,39 @@ func (r *EvmRegistry) processUpkeepStateLog(ctx context.Context, l logpoller.Log
 
 	switch l := abilog.(type) {
 	case *ac.IAutomationV21PlusCommonUpkeepPaused:
-		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		r.removeFromActive(ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepCanceled:
-		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		r.removeFromActive(ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepMigrated:
-		r.lggr.Debugf("AutomationV2CommonUpkeepMigrated log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("AutomationV2CommonUpkeepMigrated log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		r.removeFromActive(ctx, l.Id)
 	case *ac.IAutomationV21PlusCommonUpkeepTriggerConfigSet:
-		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		if err := r.updateTriggerConfig(ctx, l.Id, l.TriggerConfig, rawLog.BlockNumber); err != nil {
-			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepTriggerConfigSet for upkeep ID %s: %s", l.Id.String(), err)
+			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepTriggerConfigSet for upkeep ID %s: %s", l.Id, err)
 		}
 	case *ac.IAutomationV21PlusCommonUpkeepRegistered:
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(l.Id)
 		trigger := core.GetUpkeepType(*uid)
-		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id, trigger, txHash)
 		r.active.Add(l.Id)
 		if err := r.updateTriggerConfig(ctx, l.Id, nil, rawLog.BlockNumber); err != nil {
-			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepRegistered for upkeep ID %s: %s", l.Id.String(), err)
+			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepRegistered for upkeep ID %s: %s", l.Id, err)
 		}
 	case *ac.IAutomationV21PlusCommonUpkeepReceived:
-		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		r.active.Add(l.Id)
 		if err := r.updateTriggerConfig(ctx, l.Id, nil, rawLog.BlockNumber); err != nil {
-			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepReceived for upkeep ID %s: %s", l.Id.String(), err)
+			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepReceived for upkeep ID %s: %s", l.Id, err)
 		}
 	case *ac.IAutomationV21PlusCommonUpkeepUnpaused:
-		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
+		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id, txHash)
 		r.active.Add(l.Id)
 		if err := r.updateTriggerConfig(ctx, l.Id, nil, rawLog.BlockNumber); err != nil {
-			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepUnpaused for upkeep ID %s: %s", l.Id.String(), err)
+			r.lggr.Warnf("failed to update trigger config upon AutomationV2CommonUpkeepUnpaused for upkeep ID %s: %s", l.Id, err)
 		}
 	default:
 		r.lggr.Debugf("Unknown log detected for log %+v in transaction %s", l, txHash)
