@@ -35,11 +35,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	integrationactions "github.com/smartcontractkit/ccip/integration-tests/actions"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+
+	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -238,6 +239,7 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 	lggr zerolog.Logger,
 	networkCfg blockchain.EVMNetwork,
 	lmCommon actions.LMCommon,
+	l2ChainID int64,
 ) error {
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
@@ -262,6 +264,88 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 		return errors.WithStack(fmt.Errorf("failed to create contract deployer: %w", err))
 	}
 
+	// Deploy Wrapped Native contract only on private geth networks
+	if lmCommon.ChainSelectror == chainselectors.GETH_TESTNET.Selector ||
+		lmCommon.ChainSelectror == chainselectors.TEST_2337.Selector {
+		lggr.Info().Msg("Deploying Wrapped Native contract")
+		wrapperNative, err := cd.DeployWrappedNative()
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Wrapped Native contract: %w", err))
+		}
+		lggr.Info().Str("Address", wrapperNative.String()).Msg("Deployed Wrapped Native contract")
+		lmCommon.WrapperNative = wrapperNative
+	}
+
+	// Deploy Bridge Adapter contracts
+	switch lmCommon.ChainSelectror {
+	case chainselectors.GETH_TESTNET.Selector:
+		lggr.Info().Msg("Deploying Mock L1 Bridge Adapter contract")
+		bridgeAdapter, err := cd.DeployMockL1BridgeAdapter(*lmCommon.WrapperNative, true)
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Mock L1 Bridge Adapter contract: %w", err))
+		}
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L1 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+	case chainselectors.TEST_2337.Selector:
+		lggr.Info().Msg("Deploying Mock L2 Bridge Adapter contract")
+		bridgeAdapter, err := cd.DeployMockL2BridgeAdapter()
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Mock L2 Bridge Adapter contract: %w", err))
+		}
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L2 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+	case chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector:
+		if l2ChainID == int64(chainselectors.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.EvmChainID) {
+			wethAddress := common.HexToAddress("0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9")
+			lmCommon.WrapperNative = &wethAddress
+			lggr.Info().Msg("Deploying Arbitrum L1 Bridge Adapter contract")
+			bridgeAdapter, err := cd.DeployArbitrumL1BridgeAdapter(
+				common.HexToAddress("0xcE18836b233C83325Cc8848CA4487e94C6288264"),
+				common.HexToAddress("0x65f07C7D521164a4d5DaC6eB8Fac8DA067A3B78F"),
+			)
+			if err != nil {
+				return errors.WithStack(fmt.Errorf("failed to deploy Arbitrum L1 Bridge Adapter contract: %w", err))
+			}
+			lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Arbitrum L1 Bridge Adapter contract")
+			lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+		}
+		if l2ChainID == int64(chainselectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.EvmChainID) {
+			wethAddress := common.HexToAddress("0x7b79995e5f793a07bc00c21412e50ecae098e7f9")
+			lmCommon.WrapperNative = &wethAddress
+			lggr.Info().Msg("Deploying Optimism L1 Bridge Adapter contract")
+			bridgeAdapter, err := cd.DeployOptimismL1BridgeAdapter(
+				common.HexToAddress("0xFBb0621E0B23b5478B630BD55a5f21f67730B0F1"),
+				*lmCommon.WrapperNative,
+				common.HexToAddress("0x16Fc5058F25648194471939df75CF27A2fdC48BC"),
+			)
+			if err != nil {
+				return errors.WithStack(fmt.Errorf("failed to deploy Optimism L1 Bridge Adapter contract: %w", err))
+			}
+			lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Optimism L1 Bridge Adapter contract")
+			lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+		}
+	case chainselectors.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector:
+		wethAddress := common.HexToAddress("0x980B62Da83eFf3D4576C647993b0c1D7faf17c73")
+		lmCommon.WrapperNative = &wethAddress
+		lggr.Info().Msg("Deploying Arbitrum L2 Bridge Adapter contract")
+		bridgeAdapter, err := cd.DeployArbitrumL2BridgeAdapter(common.HexToAddress("0x9fDD1C4E4AA24EEc1d913FABea925594a20d43C7"))
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Arbitrum L2 Bridge Adapter contract: %w", err))
+		}
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Arbitrum L2 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+	case chainselectors.ETHEREUM_TESTNET_SEPOLIA_OPTIMISM_1.Selector:
+		wethAddress := common.HexToAddress("0x4200000000000000000000000000000000000006")
+		lmCommon.WrapperNative = &wethAddress
+		lggr.Info().Msg("Deploying Optimism L2 Bridge Adapter contract")
+		bridgeAdapter, err := cd.DeployOptimismL2BridgeAdapter(*lmCommon.WrapperNative)
+		if err != nil {
+			return errors.WithStack(fmt.Errorf("failed to deploy Optimism L2 Bridge Adapter contract: %w", err))
+		}
+		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Optimism L2 Bridge Adapter contract")
+		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
+	}
+
 	// Deploy Mock ARM contract
 	lggr.Info().Msg("Deploying Mock ARM contract")
 	mockARMContract, err := cd.DeployMockARMContract()
@@ -279,15 +363,6 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 	}
 	lggr.Info().Str("Address", armProxyContract.EthAddress.String()).Msg("Deployed ARM Proxy contract")
 	lmCommon.ArmProxy = armProxyContract
-
-	// Deploy Wrapped Native contract
-	lggr.Info().Msg("Deploying Wrapped Native contract")
-	wrapperNative, err := cd.DeployWrappedNative()
-	if err != nil {
-		return errors.WithStack(fmt.Errorf("failed to deploy Wrapped Native contract: %w", err))
-	}
-	lggr.Info().Str("Address", wrapperNative.String()).Msg("Deployed Wrapped Native contract")
-	lmCommon.WrapperNative = wrapperNative
 
 	// Deploy CCIP Router contract
 	lggr.Info().Msg("Deploying CCIP Router contract")
@@ -336,26 +411,6 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 	}
 	if onchainRebalancer != *liquidityManager.EthAddress {
 		return errors.WithStack(fmt.Errorf("onchainRebalancer doesn not match the deployed Liquidity Manager"))
-	}
-
-	// Deploy Bridge Adapter contracts if simulated chain
-	switch lmCommon.ChainSelectror {
-	case chainselectors.GETH_TESTNET.Selector:
-		lggr.Info().Msg("Deploying Mock L1 Bridge Adapter contract")
-		bridgeAdapter, err := cd.DeployMockL1BridgeAdapter(*lmCommon.WrapperNative, true)
-		if err != nil {
-			return errors.WithStack(fmt.Errorf("failed to deploy Mock L1 Bridge Adapter contract: %w", err))
-		}
-		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L1 Bridge Adapter contract")
-		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
-	case chainselectors.TEST_2337.Selector:
-		lggr.Info().Msg("Deploying Mock L2 Bridge Adapter contract")
-		bridgeAdapter, err := cd.DeployMockL2BridgeAdapter()
-		if err != nil {
-			return errors.WithStack(fmt.Errorf("failed to deploy Mock L2 Bridge Adapter contract: %w", err))
-		}
-		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L2 Bridge Adapter contract")
-		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
 	}
 
 	lggr.Debug().Interface("lmCommon", lmCommon).Msg("lmCommon")
@@ -659,6 +714,9 @@ func LMDefaultTestSetup(
 		}
 	}
 
+	l1ChainId := testConfig.SelectedNetworks[0].ChainID
+	l2ChainId := testConfig.SelectedNetworks[1].ChainID
+
 	for _, net := range testConfig.AllNetworks {
 		chain := chainByChainID[net.ChainID]
 		net := net
@@ -677,15 +735,12 @@ func LMDefaultTestSetup(
 		)
 		require.NoError(t, err)
 		chainAddGrp.Go(func() error {
-			return setUpArgs.DeployLMChainContracts(lggr, net, *lmCommon)
+			return setUpArgs.DeployLMChainContracts(lggr, net, *lmCommon, l2ChainId)
 		})
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")
 
 	lggr.Debug().Interface("lmModules", lmModules).Msg("lmModules")
-
-	l1ChainId := testConfig.SelectedNetworks[0].ChainID
-	l2ChainId := testConfig.SelectedNetworks[1].ChainID
 
 	//Set Cross Chain Rebalancer on L1 Rebalancer
 	err = lmModules[l1ChainId].LM.SetCrossChainRebalancer(
