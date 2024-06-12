@@ -80,12 +80,15 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   );
 
   string public constant override typeAndVersion = "Forwarder and Router 1.0.0";
+
+  constructor() OwnerIsCreator() {
+    s_forwarders[address(this)] = true;
+  }
+
   uint256 internal constant MAX_ORACLES = 31;
   uint256 internal constant METADATA_LENGTH = 109;
   uint256 internal constant FORWARDER_METADATA_LENGTH = 45;
   uint256 internal constant SIGNATURE_LENGTH = 65;
-
-  constructor() OwnerIsCreator() {}
 
   // ================================================================
   // │                          IRouter                             │
@@ -111,7 +114,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata metadata,
     bytes calldata validatedReport
   ) public returns (bool) {
-    if (msg.sender != address(this) && !s_forwarders[msg.sender]) {
+    if (!s_forwarders[msg.sender]) {
       revert UnauthorizedForwarder();
     }
 
