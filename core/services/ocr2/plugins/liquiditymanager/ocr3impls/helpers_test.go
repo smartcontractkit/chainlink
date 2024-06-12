@@ -255,7 +255,6 @@ func Test_TransmitterCombiner(t *testing.T) {
 		require.Equal(t, contractConfigs[masterChain].Signers, combined.Signers)
 		require.Equal(t, expectedTransmitters, combined.Transmitters)
 	})
-
 }
 
 func Test_SplitMultiTransmitter(t *testing.T) {

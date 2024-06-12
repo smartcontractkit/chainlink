@@ -37,7 +37,7 @@ func Test_l2ToL1Bridge_getLatestNodeConfirmed(t *testing.T) {
 		rollupCore  *mock_arbitrum_rollup_core.ArbRollupCoreInterface
 	}
 	type args struct {
-		ctx context.Context
+		ctx context.Context //nolint:containedctx
 	}
 	tests := []struct {
 		name       string

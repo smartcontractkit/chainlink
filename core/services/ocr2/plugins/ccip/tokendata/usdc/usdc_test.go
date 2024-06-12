@@ -106,7 +106,6 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
-
 			},
 			parentTimeoutSeconds: 60,
 			expectedError:        tokendata.ErrTimeout,
@@ -142,7 +141,6 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
-
 			},
 			parentTimeoutSeconds: 60,
 			expectedError:        nil,
@@ -160,7 +158,6 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
-
 			},
 			parentTimeoutSeconds: 60,
 			expectedError:        nil,
@@ -181,7 +178,6 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					time.Sleep(defaultAttestationTimeout + time.Second)
 				}))
-
 			},
 			parentTimeoutSeconds: 1,
 			expectedError:        nil,

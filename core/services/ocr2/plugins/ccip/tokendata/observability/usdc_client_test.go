@@ -65,7 +65,6 @@ func TestUSDCClientMonitoring(t *testing.T) {
 			testMonitoring(t, test.name, test.server, test.requests, test.expected, logger.TestLogger(t))
 		})
 	}
-
 }
 
 func testMonitoring(t *testing.T, name string, server *httptest.Server, requests int, expected []expected, log logger.Logger) {

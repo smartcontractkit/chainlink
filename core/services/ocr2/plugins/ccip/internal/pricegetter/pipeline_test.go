@@ -86,7 +86,6 @@ func TestDataSource(t *testing.T) {
 	assert.Equal(t, prices, map[cciptypes.Address]*big.Int{
 		linkTokenAddress: big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1000000000000000000)),
 	})
-
 }
 
 func TestParsingDifferentFormats(t *testing.T) {
