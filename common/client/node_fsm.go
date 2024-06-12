@@ -11,31 +11,31 @@ import (
 var (
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_alive",
-		Help: transitionString(nodeStateAlive),
+		Help: transitionString(NodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_in_sync",
-		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
+		Help: fmt.Sprintf("%s to %s", transitionString(NodeStateOutOfSync), NodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
-		Help: transitionString(nodeStateOutOfSync),
+		Help: transitionString(NodeStateOutOfSync),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unreachable",
-		Help: transitionString(nodeStateUnreachable),
+		Help: transitionString(NodeStateUnreachable),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
-		Help: transitionString(nodeStateInvalidChainID),
+		Help: transitionString(NodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: transitionString(nodeStateUnusable),
+		Help: transitionString(NodeStateUnusable),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_syncing",
-		Help: transitionString(nodeStateSyncing),
+		Help: transitionString(NodeStateSyncing),
 	}, []string{"chainID", "nodeName"})
 )
 
@@ -45,23 +45,23 @@ type NodeState int
 
 func (n NodeState) String() string {
 	switch n {
-	case nodeStateUndialed:
+	case NodeStateUndialed:
 		return "Undialed"
-	case nodeStateDialed:
+	case NodeStateDialed:
 		return "Dialed"
-	case nodeStateInvalidChainID:
+	case NodeStateInvalidChainID:
 		return "InvalidChainID"
-	case nodeStateAlive:
+	case NodeStateAlive:
 		return "Alive"
-	case nodeStateUnreachable:
+	case NodeStateUnreachable:
 		return "Unreachable"
-	case nodeStateUnusable:
+	case NodeStateUnusable:
 		return "Unusable"
-	case nodeStateOutOfSync:
+	case NodeStateOutOfSync:
 		return "OutOfSync"
-	case nodeStateClosed:
+	case NodeStateClosed:
 		return "Closed"
-	case nodeStateSyncing:
+	case NodeStateSyncing:
 		return "Syncing"
 	default:
 		return fmt.Sprintf("NodeState(%d)", n)
@@ -74,39 +74,39 @@ func (n NodeState) GoString() string {
 }
 
 const (
-	// nodeStateUndialed is the first state of a virgin node
-	nodeStateUndialed = NodeState(iota)
-	// nodeStateDialed is after a node has successfully dialed but before it has verified the correct chain ID
-	nodeStateDialed
-	// nodeStateInvalidChainID is after chain ID verification failed
-	nodeStateInvalidChainID
-	// nodeStateAlive is a healthy node after chain ID verification succeeded
-	nodeStateAlive
-	// nodeStateUnreachable is a node that cannot be dialed or has disconnected
-	nodeStateUnreachable
-	// nodeStateOutOfSync is a node that is accepting connections but exceeded
+	// NodeStateUndialed is the first state of a virgin node
+	NodeStateUndialed = NodeState(iota)
+	// NodeStateDialed is after a node has successfully dialed but before it has verified the correct chain ID
+	NodeStateDialed
+	// NodeStateInvalidChainID is after chain ID verification failed
+	NodeStateInvalidChainID
+	// NodeStateAlive is a healthy node after chain ID verification succeeded
+	NodeStateAlive
+	// NodeStateUnreachable is a node that cannot be dialed or has disconnected
+	NodeStateUnreachable
+	// NodeStateOutOfSync is a node that is accepting connections but exceeded
 	// the failure threshold without sending any new heads. It will be
 	// disconnected, then put into a revive loop and re-awakened after redial
 	// if a new head arrives
-	nodeStateOutOfSync
-	// nodeStateUnusable is a sendonly node that has an invalid URL that can never be reached
-	nodeStateUnusable
-	// nodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
-	nodeStateClosed
-	// nodeStateSyncing is a node that is actively back-filling blockchain. Usually, it's a newly set up node that is
-	// still syncing the chain. The main difference from `nodeStateOutOfSync` is that it represents state relative
-	// to other primary nodes configured in the MultiNode. In contrast, `nodeStateSyncing` represents the internal state of
+	NodeStateOutOfSync
+	// NodeStateUnusable is a sendonly node that has an invalid URL that can never be reached
+	NodeStateUnusable
+	// NodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
+	NodeStateClosed
+	// NodeStateSyncing is a node that is actively back-filling blockchain. Usually, it's a newly set up node that is
+	// still syncing the chain. The main difference from `NodeStateOutOfSync` is that it represents state relative
+	// to other primary nodes configured in the MultiNode. In contrast, `NodeStateSyncing` represents the internal state of
 	// the node (RPC).
-	nodeStateSyncing
-	// nodeStateLen tracks the number of states
-	nodeStateLen
+	NodeStateSyncing
+	// NodeStateLen tracks the number of states
+	NodeStateLen
 )
 
 // allNodeStates represents all possible states a node can be in
 var allNodeStates []NodeState
 
 func init() {
-	for s := NodeState(0); s < nodeStateLen; s++ {
+	for s := NodeState(0); s < NodeStateLen; s++ {
 		allNodeStates = append(allNodeStates, s)
 	}
 }
@@ -158,14 +158,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing:
-		n.state = nodeStateAlive
+	case NodeStateDialed, NodeStateInvalidChainID, NodeStateSyncing:
+		n.state = NodeStateAlive
 	default:
-		panic(transitionFail(n.state, nodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -185,14 +185,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 	promPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateOutOfSync, nodeStateSyncing:
-		n.state = nodeStateAlive
+	case NodeStateOutOfSync, NodeStateSyncing:
+		n.state = NodeStateAlive
 	default:
-		panic(transitionFail(n.state, nodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -211,15 +211,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	promPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateAlive:
+	case NodeStateAlive:
 		n.UnsubscribeAll()
-		n.state = nodeStateOutOfSync
+		n.state = NodeStateOutOfSync
 	default:
-		panic(transitionFail(n.state, nodeStateOutOfSync))
+		panic(transitionFail(n.state, NodeStateOutOfSync))
 	}
 	fn()
 }
@@ -236,31 +236,31 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
+	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID, NodeStateSyncing:
 		n.UnsubscribeAll()
-		n.state = nodeStateUnreachable
+		n.state = NodeStateUnreachable
 	default:
-		panic(transitionFail(n.state, nodeStateUnreachable))
+		panic(transitionFail(n.state, NodeStateUnreachable))
 	}
 	fn()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state NodeState) {
-	if n.State() == nodeStateClosed {
+	if n.State() == NodeStateClosed {
 		return
 	}
 	switch state {
-	case nodeStateInvalidChainID:
+	case NodeStateInvalidChainID:
 		n.declareInvalidChainID()
-	case nodeStateUnreachable:
+	case NodeStateUnreachable:
 		n.declareUnreachable()
-	case nodeStateSyncing:
+	case NodeStateSyncing:
 		n.declareSyncing()
-	case nodeStateAlive:
+	case NodeStateAlive:
 		n.declareAlive()
 	default:
 		panic(fmt.Sprintf("%#v state declaration is not implemented", state))
@@ -279,15 +279,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
+	case NodeStateDialed, NodeStateOutOfSync, NodeStateSyncing:
 		n.UnsubscribeAll()
-		n.state = nodeStateInvalidChainID
+		n.state = NodeStateInvalidChainID
 	default:
-		panic(transitionFail(n.state, nodeStateInvalidChainID))
+		panic(transitionFail(n.state, NodeStateInvalidChainID))
 	}
 	fn()
 }
@@ -304,19 +304,19 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	promPoolRPCNodeTransitionsToSyncing.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
+	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
 		n.UnsubscribeAll()
-		n.state = nodeStateSyncing
+		n.state = NodeStateSyncing
 	default:
-		panic(transitionFail(n.state, nodeStateSyncing))
+		panic(transitionFail(n.state, NodeStateSyncing))
 	}
 
 	if !n.nodePoolCfg.NodeIsSyncingEnabled() {
-		panic("unexpected transition to nodeStateSyncing, while it's disabled")
+		panic("unexpected transition to NodeStateSyncing, while it's disabled")
 	}
 	fn()
 }

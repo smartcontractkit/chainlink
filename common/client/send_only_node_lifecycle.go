@@ -26,7 +26,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 		chainID, err := s.rpc.ChainID(ctx)
 		if err != nil {
 			ok := s.IfStarted(func() {
-				if changed := s.setState(nodeStateUnreachable); changed {
+				if changed := s.setState(NodeStateUnreachable); changed {
 					promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 				}
 			})
@@ -37,7 +37,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 			continue
 		} else if chainID.String() != s.chainID.String() {
 			ok := s.IfStarted(func() {
-				if changed := s.setState(nodeStateInvalidChainID); changed {
+				if changed := s.setState(NodeStateInvalidChainID); changed {
 					promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
 				}
 			})
@@ -54,7 +54,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 			continue
 		}
 		ok := s.IfStarted(func() {
-			if changed := s.setState(nodeStateAlive); changed {
+			if changed := s.setState(NodeStateAlive); changed {
 				promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
 			}
 		})

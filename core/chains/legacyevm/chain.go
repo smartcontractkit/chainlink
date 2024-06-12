@@ -421,7 +421,6 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	for _, n := range nodes[start:end] {
 		var (
 			nodeState string
-			exists    bool
 		)
 		toml, err := gotoml.Marshal(n)
 		if err != nil {
@@ -430,10 +429,11 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 		if states == nil {
 			nodeState = "Unknown"
 		} else {
-			nodeState, exists = states[*n.Name]
-			if !exists {
-				// The node is in the DB and the chain is enabled but it's not running
-				nodeState = "NotLoaded"
+			// The node is in the DB and the chain is enabled but it's not running
+			nodeState = "NotLoaded"
+			s, exists := states[*n.Name]
+			if exists {
+				nodeState = s.String()
 			}
 		}
 		stats = append(stats, types.NodeStatus{

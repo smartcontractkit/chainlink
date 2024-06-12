@@ -29,13 +29,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
 
-		node.setState(nodeStateDialed)
+		node.setState(NodeStateDialed)
 		return node
 	}
 
 	t.Run("returns on closed", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
-		node.setState(nodeStateClosed)
+		node.setState(NodeStateClosed)
 		node.wg.Add(1)
 		node.aliveLoop()
 	})
@@ -54,7 +54,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
-		assert.Equal(t, nodeStateUnreachable, node.State())
+		assert.Equal(t, NodeStateUnreachable, node.State())
 	})
 
 	newSubscribedNode := func(t *testing.T, opts testNodeOpts) testNode {
@@ -103,7 +103,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Head liveness checking disabled")
 		tests.AssertLogEventually(t, observedLogs, "Polling disabled")
-		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, NodeStateAlive, node.State())
 	})
 	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
 		t.Parallel()
@@ -128,7 +128,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		// 1. Return error several times, but below threshold
 		rpc.On("Ping", mock.Anything).Return(pollError).Run(func(_ mock.Arguments) {
 			// stays healthy while below threshold
-			assert.Equal(t, nodeStateAlive, node.State())
+			assert.Equal(t, NodeStateAlive, node.State())
 		}).Times(pollFailureThreshold)
 		// 2. Successful call that is expected to reset counter
 		rpc.On("Ping", mock.Anything).Return(nil).Once()
@@ -141,7 +141,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				return
 			}
 			ensuredAlive.Store(true)
-			assert.Equal(t, nodeStateAlive, node.State())
+			assert.Equal(t, NodeStateAlive, node.State())
 		}).Once()
 		// redundant call to stay in alive state
 		rpc.On("Ping", mock.Anything).Return(nil)
@@ -173,7 +173,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertEventually(t, func() bool {
-			return nodeStateUnreachable == node.State()
+			return NodeStateUnreachable == node.State()
 		})
 	})
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Ping", mock.Anything).Return(pollError)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
-		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, NodeStateAlive, node.State())
 	})
 	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
@@ -221,13 +221,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Ping", mock.Anything).Return(nil)
 		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateOutOfSync, node.State())
+			assert.Equal(t, NodeStateOutOfSync, node.State())
 		}).Once()
 		// disconnects all on transfer to unreachable or outOfSync
 		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Run(func(_ mock.Arguments) {
-			require.Equal(t, nodeStateOutOfSync, node.State())
+			require.Equal(t, NodeStateOutOfSync, node.State())
 		}).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
@@ -276,7 +276,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Ping", mock.Anything).Return(nil)
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, "Ping successful", 2)
-		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, NodeStateAlive, node.State())
 	})
 
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
@@ -292,7 +292,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateOutOfSync, node.State())
+			assert.Equal(t, NodeStateOutOfSync, node.State())
 		}).Once()
 		// disconnects all on transfer to unreachable or outOfSync
 		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
@@ -302,7 +302,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			// right after outOfSync we'll transfer to unreachable due to returned error on Dial
 			// we check that we were in out of sync state on first Dial call
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
@@ -323,7 +323,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		}
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
-		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, NodeStateAlive, node.State())
 	})
 
 	t.Run("rpc closed head channel", func(t *testing.T) {
@@ -352,7 +352,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
-		assert.Equal(t, nodeStateUnreachable, node.State())
+		assert.Equal(t, NodeStateUnreachable, node.State())
 	})
 	t.Run("updates block number and difficulty on new head", func(t *testing.T) {
 		t.Parallel()
@@ -374,7 +374,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
 			state, chainInfo := node.StateAndLatest()
-			return state == nodeStateAlive && chainInfo.BlockNumber == expectedBlockNumber
+			return state == NodeStateAlive && chainInfo.BlockNumber == expectedBlockNumber
 		})
 	})
 	t.Run("If finality tag is not enabled updates finalized block metric using finality depth and latest head", func(t *testing.T) {
@@ -545,7 +545,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		opts.rpc.On("Close").Return(nil).Once()
 		// disconnects all on transfer to unreachable or outOfSync
 		opts.rpc.On("UnsubscribeAllExcept", nil, nil)
-		node.setState(nodeStateAlive)
+		node.setState(NodeStateAlive)
 		return node
 	}
 
@@ -556,7 +556,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	t.Run("returns on closed", func(t *testing.T) {
 		t.Parallel()
 		node := newTestNode(t, testNodeOpts{})
-		node.setState(nodeStateClosed)
+		node.setState(NodeStateClosed)
 		node.wg.Add(1)
 		node.outOfSyncLoop(stubIsOutOfSync)
 	})
@@ -590,7 +590,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			return true
 		})
 		tests.AssertLogCountEventually(t, observedLogs, msgReceivedBlock, len(heads))
-		assert.Equal(t, nodeStateOutOfSync, node.State())
+		assert.Equal(t, NodeStateOutOfSync, node.State())
 	})
 	t.Run("if initial dial fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -605,7 +605,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(expectedError)
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("if fail to get chainID, transitions to unreachable", func(t *testing.T) {
@@ -625,7 +625,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(types.NewIDFromInt(0), expectedError)
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("if chainID does not match, transitions to invalidChainID", func(t *testing.T) {
@@ -645,7 +645,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateInvalidChainID
+			return node.State() == NodeStateInvalidChainID
 		})
 	})
 	t.Run("if syncing, transitions to syncing", func(t *testing.T) {
@@ -665,7 +665,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateSyncing
+			return node.State() == NodeStateSyncing
 		})
 	})
 	t.Run("if fails to fetch syncing status, transitions to unreachable", func(t *testing.T) {
@@ -688,7 +688,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing"))
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("if fails to subscribe, becomes unreachable", func(t *testing.T) {
@@ -708,7 +708,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on subscription termination becomes unreachable", func(t *testing.T) {
@@ -736,7 +736,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("becomes unreachable if head channel is closed", func(t *testing.T) {
@@ -765,7 +765,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 
@@ -800,7 +800,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, msgReceivedBlock)
 		tests.AssertLogEventually(t, observedLogs, msgInSync)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 	t.Run("becomes alive if there is no other nodes", func(t *testing.T) {
@@ -833,7 +833,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 }
@@ -847,13 +847,13 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		// disconnects all on transfer to unreachable
 		opts.rpc.On("UnsubscribeAllExcept", nil, nil)
 
-		node.setState(nodeStateAlive)
+		node.setState(NodeStateAlive)
 		return node
 	}
 	t.Run("returns on closed", func(t *testing.T) {
 		t.Parallel()
 		node := newTestNode(t, testNodeOpts{})
-		node.setState(nodeStateClosed)
+		node.setState(NodeStateClosed)
 		node.wg.Add(1)
 		node.unreachableLoop()
 	})
@@ -887,7 +887,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateDialed, node.State())
+			assert.Equal(t, NodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		node.declareUnreachable()
 		tests.AssertLogCountEventually(t, observedLogs, "Failed to verify chain ID for node", 2)
@@ -907,7 +907,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		node.declareUnreachable()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateInvalidChainID
+			return node.State() == NodeStateInvalidChainID
 		})
 	})
 	t.Run("on syncing status check failure, keeps trying", func(t *testing.T) {
@@ -925,7 +925,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateDialed, node.State())
+			assert.Equal(t, NodeStateDialed, node.State())
 		}).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		node.declareUnreachable()
@@ -950,7 +950,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		node.declareUnreachable()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateSyncing
+			return node.State() == NodeStateSyncing
 		})
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
@@ -976,7 +976,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		node.declareUnreachable()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
@@ -996,7 +996,7 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 
 		node.declareUnreachable()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 }
@@ -1007,13 +1007,13 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
 
-		node.setState(nodeStateDialed)
+		node.setState(NodeStateDialed)
 		return node
 	}
 	t.Run("returns on closed", func(t *testing.T) {
 		t.Parallel()
 		node := newTestNode(t, testNodeOpts{})
-		node.setState(nodeStateClosed)
+		node.setState(NodeStateClosed)
 		node.wg.Add(1)
 		node.invalidChainIDLoop()
 	})
@@ -1032,7 +1032,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 
 		node.declareInvalidChainID()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on failed chainID call becomes unreachable", func(t *testing.T) {
@@ -1055,7 +1055,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node.declareInvalidChainID()
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on chainID mismatch keeps trying", func(t *testing.T) {
@@ -1077,7 +1077,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node.declareInvalidChainID()
 		tests.AssertLogCountEventually(t, observedLogs, "Failed to verify RPC node; remote endpoint returned the wrong chain ID", 2)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateInvalidChainID
+			return node.State() == NodeStateInvalidChainID
 		})
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
@@ -1105,7 +1105,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 
 		node.declareInvalidChainID()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
@@ -1133,7 +1133,7 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 
 		node.declareInvalidChainID()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 }
@@ -1166,7 +1166,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("if chainID verification fails, becomes unreachable", func(t *testing.T) {
@@ -1183,7 +1183,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateDialed, node.State())
+			assert.Equal(t, NodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		// disconnects all on transfer to unreachable
 		rpc.On("UnsubscribeAllExcept", nil, nil)
@@ -1191,7 +1191,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on chain ID mismatch transitions to invalidChainID", func(t *testing.T) {
@@ -1212,7 +1212,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateInvalidChainID
+			return node.State() == NodeStateInvalidChainID
 		})
 	})
 	t.Run("if syncing verification fails, becomes unreachable", func(t *testing.T) {
@@ -1230,7 +1230,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
-			assert.Equal(t, nodeStateDialed, node.State())
+			assert.Equal(t, NodeStateDialed, node.State())
 		}).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		// disconnects all on transfer to unreachable
@@ -1241,7 +1241,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node synchronization status")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on isSyncing transitions to syncing", func(t *testing.T) {
@@ -1263,7 +1263,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateSyncing
+			return node.State() == NodeStateSyncing
 		})
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
@@ -1289,7 +1289,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
@@ -1314,7 +1314,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 }
@@ -1461,13 +1461,13 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		opts.rpc.On("Close").Return(nil).Once()
 		opts.rpc.On("UnsubscribeAllExcept", nil, nil)
 
-		node.setState(nodeStateDialed)
+		node.setState(NodeStateDialed)
 		return node
 	}
 	t.Run("returns on closed", func(t *testing.T) {
 		t.Parallel()
 		node := newTestNode(t, testNodeOpts{})
-		node.setState(nodeStateClosed)
+		node.setState(NodeStateClosed)
 		node.wg.Add(1)
 		node.syncingLoop()
 	})
@@ -1484,7 +1484,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
 		node.declareSyncing()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on failed chainID call becomes unreachable", func(t *testing.T) {
@@ -1506,7 +1506,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.declareSyncing()
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on chainID mismatch transitions to invalidChainID", func(t *testing.T) {
@@ -1527,7 +1527,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.declareSyncing()
 		tests.AssertLogCountEventually(t, observedLogs, "Failed to verify RPC node; remote endpoint returned the wrong chain ID", 2)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateInvalidChainID
+			return node.State() == NodeStateInvalidChainID
 		})
 	})
 	t.Run("on failed Syncing check - becomes unreachable", func(t *testing.T) {
@@ -1551,7 +1551,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.declareSyncing()
 		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node synchronization status")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateUnreachable
+			return node.State() == NodeStateUnreachable
 		})
 	})
 	t.Run("on IsSyncing - keeps trying", func(t *testing.T) {
@@ -1572,7 +1572,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.declareSyncing()
 		tests.AssertLogCountEventually(t, observedLogs, "Verification failed: Node is syncing", 2)
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateSyncing
+			return node.State() == NodeStateSyncing
 		})
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
@@ -1598,7 +1598,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 
 		node.declareSyncing()
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == NodeStateAlive
 		})
 	})
 }

@@ -221,7 +221,7 @@ func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 }
 
 // NodeStates implements evmclient.Client
-func (nc *NullClient) NodeStates() map[string]string { return nil }
+func (nc *NullClient) NodeStates() map[string]commonclient.NodeState { return nil }
 
 func (nc *NullClient) IsL2() bool {
 	nc.lggr.Debug("IsL2")

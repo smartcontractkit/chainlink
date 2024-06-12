@@ -92,8 +92,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateAlive:
-		case nodeStateClosed:
+		case NodeStateAlive:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("aliveLoop can only run for node in Alive state, got: %s", state))
@@ -325,8 +325,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateOutOfSync:
-		case nodeStateClosed:
+		case NodeStateOutOfSync:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("outOfSyncLoop can only run for node in OutOfSync state, got: %s", state))
@@ -340,7 +340,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != nodeStateAlive {
+	if state != NodeStateAlive {
 		n.declareState(state)
 		return
 	}
@@ -398,8 +398,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateUnreachable:
-		case nodeStateClosed:
+		case NodeStateUnreachable:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("unreachableLoop can only run for node in Unreachable state, got: %s", state))
@@ -426,14 +426,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 				continue
 			}
 
-			n.setState(nodeStateDialed)
+			n.setState(NodeStateDialed)
 
 			state := n.verifyConn(ctx, lggr)
 			switch state {
-			case nodeStateUnreachable:
-				n.setState(nodeStateUnreachable)
+			case NodeStateUnreachable:
+				n.setState(NodeStateUnreachable)
 				continue
-			case nodeStateAlive:
+			case NodeStateAlive:
 				lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Node was offline for %s", n.String(), time.Since(unreachableAt)), "nodeState", n.State())
 				fallthrough
 			default:
@@ -453,8 +453,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateInvalidChainID:
-		case nodeStateClosed:
+		case NodeStateInvalidChainID:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("invalidChainIDLoop can only run for node in InvalidChainID state, got: %s", state))
@@ -469,7 +469,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 	// Need to redial since invalid chain ID nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != nodeStateInvalidChainID {
+	if state != NodeStateInvalidChainID {
 		n.declareState(state)
 		return
 	}
@@ -485,9 +485,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		case <-time.After(chainIDRecheckBackoff.Duration()):
 			state := n.verifyConn(ctx, lggr)
 			switch state {
-			case nodeStateInvalidChainID:
+			case NodeStateInvalidChainID:
 				continue
-			case nodeStateAlive:
+			case NodeStateAlive:
 				lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was offline for %s", time.Since(invalidAt)), "nodeState", n.State())
 				fallthrough
 			default:
@@ -507,11 +507,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateSyncing:
-		case nodeStateClosed:
+		case NodeStateSyncing:
+		case NodeStateClosed:
 			return
 		default:
-			panic(fmt.Sprintf("syncingLoop can only run for node in nodeStateSyncing state, got: %s", state))
+			panic(fmt.Sprintf("syncingLoop can only run for node in NodeStateSyncing state, got: %s", state))
 		}
 	}
 
@@ -521,7 +521,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with syncing status", n.String()), "nodeState", n.State())
 	// Need to redial since syncing nodes are automatically disconnected
 	state := n.createVerifiedConn(ctx, lggr)
-	if state != nodeStateSyncing {
+	if state != NodeStateSyncing {
 		n.declareState(state)
 		return
 	}
