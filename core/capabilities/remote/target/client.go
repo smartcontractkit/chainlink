@@ -134,11 +134,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 		return nil, fmt.Errorf("request for message ID %s already exists", messageID)
 	}
 
-	// TODO confirm reasons for below workaround and see if can be resolved
-	// The context passed in by the workflow engine is cancelled prior to the results being read from the response channel
-	// The wrapping of the context with 'WithoutCancel' is a workaround for that behaviour.
-	requestCtx := context.WithoutCancel(ctx)
-	req, err := request.NewClientRequest(requestCtx, c.lggr, capReq, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
+	req, err := request.NewClientRequest(ctx, c.lggr, capReq, messageID, c.remoteCapabilityInfo, c.localDONInfo, c.dispatcher,
 		c.requestTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client request: %w", err)
@@ -149,10 +145,9 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	return req.ResponseChan(), nil
 }
 
-func (c *client) Receive(msg *types.MessageBody) {
+func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	ctx, _ := c.stopCh.NewCtx()
 
 	messageID := GetMessageID(msg)
 
