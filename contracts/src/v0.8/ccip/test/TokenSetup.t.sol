@@ -109,19 +109,8 @@ contract TokenSetup is RouterSetup {
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
       address token = s_sourceTokens[i];
       address pool = s_sourcePoolByToken[token];
-      s_tokenAdminRegistry.registerAdministratorPermissioned(token, OWNER);
-      s_tokenAdminRegistry.setPool(token, pool);
 
-      TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-      chainUpdates[0] = TokenPool.ChainUpdate({
-        remoteChainSelector: DEST_CHAIN_SELECTOR,
-        remotePoolAddress: abi.encode(s_destPoolByToken[s_destTokens[i]]),
-        allowed: true,
-        outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-        inboundRateLimiterConfig: getInboundRateLimiterConfig()
-      });
-
-      TokenPool(pool).applyChainUpdates(chainUpdates);
+      _setPool(s_tokenAdminRegistry, token, pool, DEST_CHAIN_SELECTOR, s_destPoolByToken[s_destTokens[i]]);
     }
 
     for (uint256 i = 0; i < s_destTokens.length; ++i) {
@@ -130,16 +119,7 @@ contract TokenSetup is RouterSetup {
       s_tokenAdminRegistry.registerAdministratorPermissioned(token, OWNER);
       s_tokenAdminRegistry.setPool(token, pool);
 
-      TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
-      chainUpdates[0] = TokenPool.ChainUpdate({
-        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
-        remotePoolAddress: abi.encode(s_sourcePoolByToken[s_sourceTokens[i]]),
-        allowed: true,
-        outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
-        inboundRateLimiterConfig: getInboundRateLimiterConfig()
-      });
-
-      TokenPool(pool).applyChainUpdates(chainUpdates);
+      _setPool(s_tokenAdminRegistry, token, pool, SOURCE_CHAIN_SELECTOR, s_sourcePoolByToken[s_sourceTokens[i]]);
     }
   }
 
@@ -152,5 +132,30 @@ contract TokenSetup is RouterSetup {
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
       tokenAmounts[i].token = s_sourceTokens[i];
     }
+  }
+
+  function _setPool(
+    TokenAdminRegistry tokenAdminRegistry,
+    address token,
+    address pool,
+    uint64 remoteChainSelector,
+    address remotePoolAddress
+  ) internal {
+    if (!tokenAdminRegistry.isAdministrator(token, OWNER)) {
+      tokenAdminRegistry.registerAdministratorPermissioned(token, OWNER);
+    }
+
+    tokenAdminRegistry.setPool(token, pool);
+
+    TokenPool.ChainUpdate[] memory chainUpdates = new TokenPool.ChainUpdate[](1);
+    chainUpdates[0] = TokenPool.ChainUpdate({
+      remoteChainSelector: remoteChainSelector,
+      remotePoolAddress: abi.encode(remotePoolAddress),
+      allowed: true,
+      outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
+      inboundRateLimiterConfig: getInboundRateLimiterConfig()
+    });
+
+    TokenPool(pool).applyChainUpdates(chainUpdates);
   }
 }

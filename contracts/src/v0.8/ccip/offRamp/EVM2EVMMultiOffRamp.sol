@@ -637,7 +637,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
         // Ensures we can never deploy a new offRamp that points to a commitStore that
         // already has roots committed for the target source chain. Also ensures that the onRamps are in sync.
         // TODO: revisit this on commit store / ramp merge
-        if (commitStoreConfig.onRamp != sourceConfigUpdate.onRamp || commitStoreConfig.minSeqNr != 0) {
+        if (commitStoreConfig.onRamp != sourceConfigUpdate.onRamp || commitStoreConfig.minSeqNr > 1) {
           revert InvalidStaticConfig(sourceChainSelector);
         }
 

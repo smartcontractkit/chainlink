@@ -6,9 +6,6 @@ import {BaseTest} from "../BaseTest.t.sol";
 import {MultiOCR3Helper} from "../helpers/MultiOCR3Helper.sol";
 
 contract MultiOCR3BaseSetup is BaseTest {
-  // Signer private keys used for these test
-  uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
-
   address[] internal s_validSigners;
   address[] internal s_validTransmitters;
   uint256[] internal s_validSignerKeys;
@@ -19,7 +16,6 @@ contract MultiOCR3BaseSetup is BaseTest {
 
   address[] internal s_emptySigners;
 
-  bytes internal constant REPORT = abi.encode("testReport");
   MultiOCR3Helper internal s_multiOCR3;
 
   function setUp() public virtual override {
