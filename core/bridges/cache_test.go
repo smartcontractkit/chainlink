@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestBridgeCache_Type(t *testing.T) {
@@ -21,7 +22,8 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
+		lggr, _ := logger.NewLogger()
+		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		bridge := bridges.BridgeName("test")
 		expected := bridges.BridgeType{
@@ -46,7 +48,8 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
+		lggr, _ := logger.NewLogger()
+		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		nameA := bridges.BridgeName("A")
@@ -79,7 +82,8 @@ func TestBridgeCache_Type(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
+		lggr, _ := logger.NewLogger()
+		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		bridge := bridges.BridgeName("test")
@@ -131,7 +135,8 @@ func TestBridgeCache_Response(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
+		lggr, _ := logger.NewLogger()
+		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		ctx := context.Background()
 		dotId := "test"
@@ -156,7 +161,8 @@ func TestBridgeCache_Response(t *testing.T) {
 		t.Parallel()
 
 		mORM := new(mocks.ORM)
-		cache := bridges.NewCache(mORM, nil, bridges.DefaultUpsertInterval)
+		lggr, _ := logger.NewLogger()
+		cache := bridges.NewCache(mORM, lggr, bridges.DefaultUpsertInterval)
 
 		t.Cleanup(func() {
 			require.NoError(t, cache.Close())
