@@ -114,7 +114,7 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, EvmRpcClient],
+	nodes []commonclient.Node[*big.Int, EvmRpcClient],
 	sendonlys []commonclient.SendOnlyNode[*big.Int, EvmRpcClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,

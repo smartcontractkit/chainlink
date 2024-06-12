@@ -31,19 +31,19 @@ func (_m *mockNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
 }
 
 // Select provides a mock function with given fields:
-func (_m *mockNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
+func (_m *mockNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Select")
 	}
 
-	var r0 Node[CHAIN_ID, HEAD, RPC]
-	if rf, ok := ret.Get(0).(func() Node[CHAIN_ID, HEAD, RPC]); ok {
+	var r0 Node[CHAIN_ID, RPC]
+	if rf, ok := ret.Get(0).(func() Node[CHAIN_ID, RPC]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(Node[CHAIN_ID, HEAD, RPC])
+			r0 = ret.Get(0).(Node[CHAIN_ID, RPC])
 		}
 	}
 

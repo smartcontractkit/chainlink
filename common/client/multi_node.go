@@ -57,7 +57,7 @@ type multiNode[
 	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
-	primaryNodes   []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	primaryNodes   []Node[CHAIN_ID, RPC_CLIENT]
 	sendOnlyNodes  []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID        CHAIN_ID
 	lggr           logger.SugaredLogger
@@ -69,7 +69,7 @@ type multiNode[
 	reportInterval time.Duration
 
 	activeMu   sync.RWMutex
-	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	activeNode Node[CHAIN_ID, RPC_CLIENT]
 
 	chStop services.StopChan
 	wg     sync.WaitGroup
@@ -84,7 +84,7 @@ func NewMultiNode[
 	lggr logger.Logger,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
-	primaryNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT],
+	primaryNodes []Node[CHAIN_ID, RPC_CLIENT],
 	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
@@ -226,7 +226,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) SelectRPC() (rpc RPC
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, HEAD, RPC_CLIENT], err error) {
+func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_CLIENT], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()

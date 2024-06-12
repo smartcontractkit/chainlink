@@ -10,19 +10,19 @@ type highestHeadNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-] []Node[CHAIN_ID, HEAD, RPC]
+] []Node[CHAIN_ID, RPC]
 
 func NewHighestHeadNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return highestHeadNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
+func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
 	var highestHeadNumber int64 = math.MinInt64
-	var highestHeadNodes []Node[CHAIN_ID, HEAD, RPC]
+	var highestHeadNodes []Node[CHAIN_ID, RPC]
 	for _, n := range s {
 		state, chainInfo := n.StateAndLatest()
 		currentHeadNumber := chainInfo.BlockNumber

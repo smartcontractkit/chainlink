@@ -618,19 +618,19 @@ func (_m *Client) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, err
 }
 
 // NodeStates provides a mock function with given fields:
-func (_m *Client) NodeStates() map[string]string {
+func (_m *Client) NodeStates() map[string]commonclient.NodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for NodeStates")
 	}
 
-	var r0 map[string]string
-	if rf, ok := ret.Get(0).(func() map[string]string); ok {
+	var r0 map[string]commonclient.NodeState
+	if rf, ok := ret.Get(0).(func() map[string]commonclient.NodeState); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]string)
+			r0 = ret.Get(0).(map[string]commonclient.NodeState)
 		}
 	}
 

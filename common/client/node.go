@@ -65,7 +65,6 @@ type ChainInfo struct {
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
 type Node[
 	CHAIN_ID types.ID,
-	HEAD Head,
 	RPC_CLIENT any,
 ] interface {
 	// State returns health state of the underlying RPC
@@ -145,7 +144,7 @@ func NewNode[
 	nodeOrder int32,
 	rpc RPC_CLIENT,
 	chainFamily string,
-) Node[CHAIN_ID, HEAD, RPC_CLIENT] {
+) Node[CHAIN_ID, RPC_CLIENT] {
 	n := new(node[CHAIN_ID, HEAD, RPC_CLIENT])
 	n.name = name
 	n.id = id

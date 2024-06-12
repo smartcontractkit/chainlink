@@ -13,7 +13,7 @@ type priorityLevelNodeSelector[
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
-	nodes           []Node[CHAIN_ID, HEAD, RPC]
+	nodes           []Node[CHAIN_ID, RPC]
 	roundRobinCount []atomic.Uint32
 }
 
@@ -22,7 +22,7 @@ type nodeWithPriority[
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
-	node     Node[CHAIN_ID, HEAD, RPC]
+	node     Node[CHAIN_ID, RPC]
 	priority int32
 }
 
@@ -30,14 +30,14 @@ func NewPriorityLevelNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return &priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]{
 		nodes:           nodes,
 		roundRobinCount: make([]atomic.Uint32, nrOfPriorityTiers(nodes)),
 	}
 }
 
-func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
+func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
 	nodes := s.getHighestPriorityAliveTier()
 
 	if len(nodes) == 0 {
@@ -100,7 +100,7 @@ func nrOfPriorityTiers[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) int32 {
+](nodes []Node[CHAIN_ID, RPC]) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
 		priority := n.Order()
@@ -116,9 +116,9 @@ func firstOrHighestPriority[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) Node[CHAIN_ID, HEAD, RPC] {
+](nodes []Node[CHAIN_ID, RPC]) Node[CHAIN_ID, RPC] {
 	hp := int32(math.MaxInt32)
-	var node Node[CHAIN_ID, HEAD, RPC]
+	var node Node[CHAIN_ID, RPC]
 	for _, n := range nodes {
 		if n.Order() < hp {
 			hp = n.Order()

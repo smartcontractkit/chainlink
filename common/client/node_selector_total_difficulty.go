@@ -10,21 +10,21 @@ type totalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-] []Node[CHAIN_ID, HEAD, RPC]
+] []Node[CHAIN_ID, RPC]
 
 func NewTotalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
+func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
 	var highestTD *big.Int
-	var nodes []Node[CHAIN_ID, HEAD, RPC]
-	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
+	var nodes []Node[CHAIN_ID, RPC]
+	var aliveNodes []Node[CHAIN_ID, RPC]
 
 	for _, n := range s {
 		state, chainInfo := n.StateAndLatest()

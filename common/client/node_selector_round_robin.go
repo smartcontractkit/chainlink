@@ -11,7 +11,7 @@ type roundRobinSelector[
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
-	nodes           []Node[CHAIN_ID, HEAD, RPC]
+	nodes           []Node[CHAIN_ID, RPC]
 	roundRobinCount atomic.Uint32
 }
 
@@ -19,14 +19,14 @@ func NewRoundRobinSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	return &roundRobinSelector[CHAIN_ID, HEAD, RPC]{
 		nodes: nodes,
 	}
 }
 
-func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
-	var liveNodes []Node[CHAIN_ID, HEAD, RPC]
+func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
+	var liveNodes []Node[CHAIN_ID, RPC]
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
 			liveNodes = append(liveNodes, n)

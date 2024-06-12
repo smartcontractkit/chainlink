@@ -21,7 +21,7 @@ type NodeSelector[
 ] interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
-	Select() Node[CHAIN_ID, HEAD, RPC]
+	Select() Node[CHAIN_ID, RPC]
 	// Name returns the strategy name, e.g. "HighestHead" or "RoundRobin"
 	Name() string
 }
@@ -30,7 +30,7 @@ func newNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
-](selectionMode string, nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+](selectionMode string, nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
 	switch selectionMode {
 	case NodeSelectionModeHighestHead:
 		return NewHighestHeadNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
