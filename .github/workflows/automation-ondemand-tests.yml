@@ -155,7 +155,7 @@ jobs:
             os: ubuntu-latest
             enabled: ${{ inputs.enableReorg }}
             pyroscope_env: ci-automation-on-demand-reorg
-            network: SIMULATED_NONDEV
+            network: SIMULATED
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade 2.0
             id: upgrade-2.0
