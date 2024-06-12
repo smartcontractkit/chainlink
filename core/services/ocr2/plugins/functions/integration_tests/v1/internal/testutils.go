@@ -234,6 +234,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		OperationFeeCentsUsd:                uint16(0),
 		FallbackUsdPerUnitLink:              uint64(1_400_000_000),
 		FallbackUsdPerUnitLinkDecimals:      uint8(8),
+		TransmitTxSizeBytes:                 uint16(1764),
 	}
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr, linkUsdFeedAddr)

@@ -2,6 +2,7 @@ package capabilities_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,12 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type mockCapability struct {
@@ -37,14 +35,13 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 func TestRegistry(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	r := coreCapabilities.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
-		"v1.0.0",
 	)
 	require.NoError(t, err)
 
@@ -65,14 +62,13 @@ func TestRegistry(t *testing.T) {
 
 func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	ctx := testutils.Context(t)
-	r := coreCapabilities.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	r := coreCapabilities.NewRegistry(logger.TestLogger(t))
 
-	id := "capability-1"
+	id := "capability-1@1.0.0"
 	ci, err := capabilities.NewCapabilityInfo(
 		id,
 		capabilities.CapabilityTypeAction,
 		"capability-1-description",
-		"v1.0.0",
 	)
 	require.NoError(t, err)
 
@@ -84,13 +80,12 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 		id,
 		capabilities.CapabilityTypeConsensus,
 		"capability-2-description",
-		"v1.0.0",
 	)
 	require.NoError(t, err)
 	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
-	assert.ErrorContains(t, err, "capability with id: capability-1 already exists")
+	assert.ErrorContains(t, err, "capability with id: capability-1@1.0.0 already exists")
 }
 
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
@@ -103,12 +98,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "action",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeAction,
 					"capability-1-description",
-					"v1.0.0",
 				)
 				require.NoError(t, err)
 
@@ -123,12 +117,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "target",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeTarget,
 					"capability-1-description",
-					"v1.0.0",
 				)
 				require.NoError(t, err)
 
@@ -156,12 +149,11 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 		{
 			name: "consensus",
 			newCapability: func(ctx context.Context, reg *coreCapabilities.Registry) (string, error) {
-				id := uuid.New().String()
+				id := fmt.Sprintf("%s@%s", uuid.New().String(), "1.0.0")
 				ci, err := capabilities.NewCapabilityInfo(
 					id,
 					capabilities.CapabilityTypeConsensus,
 					"capability-1-description",
-					"v1.0.0",
 				)
 				require.NoError(t, err)
 
@@ -176,7 +168,7 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
-	reg := coreCapabilities.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
+	reg := coreCapabilities.NewRegistry(logger.TestLogger(t))
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			id, err := tc.newCapability(ctx, reg)
@@ -186,48 +178,4 @@ func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-}
-
-func TestRegistry_ReturnsLocalTargetCapabilityForLocalTargets(t *testing.T) {
-	ctx := testutils.Context(t)
-	r := coreCapabilities.NewRegistry(logger.TestLogger(t), p2ptypes.PeerID{}, capabilities.DON{})
-
-	id := "capability-1"
-	ci, err := capabilities.NewRemoteCapabilityInfo(
-		id,
-		capabilities.CapabilityTypeTarget,
-		"capability-1-description",
-		"v1.0.0",
-		nil,
-	)
-	require.NoError(t, err)
-
-	c := &mockCapability{CapabilityInfo: ci}
-	err = r.Add(ctx, c)
-	require.NoError(t, err)
-
-	targetCapability, err := r.GetTarget(ctx, id)
-	require.NoError(t, err)
-
-	duffTransmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10banana",
-	})
-	require.NoError(t, err)
-
-	_, err = targetCapability.Execute(ctx, capabilities.CapabilityRequest{
-		Config: duffTransmissionSchedule,
-	})
-	assert.NotNil(t, err)
-
-	validTransmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	_, err = targetCapability.Execute(ctx, capabilities.CapabilityRequest{
-		Config: validTransmissionSchedule,
-	})
-	assert.NoError(t, err)
 }

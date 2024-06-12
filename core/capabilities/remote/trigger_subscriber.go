@@ -44,7 +44,7 @@ type triggerEventKey struct {
 }
 
 type subRegState struct {
-	callback   chan<- commoncap.CapabilityResponse
+	callback   chan commoncap.CapabilityResponse
 	rawRequest []byte
 }
 
@@ -103,14 +103,20 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	callback := make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize)
-	s.registeredWorkflows[request.Metadata.WorkflowID] = &subRegState{
-		callback:   callback,
-		rawRequest: rawRequest,
+	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
+	regState, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
+	if !ok {
+		regState = &subRegState{
+			callback:   make(chan commoncap.CapabilityResponse, defaultSendChannelBufferSize),
+			rawRequest: rawRequest,
+		}
+		s.registeredWorkflows[request.Metadata.WorkflowID] = regState
+	} else {
+		regState.rawRequest = rawRequest
+		s.lggr.Warnw("RegisterTrigger re-registering trigger", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
 	}
 
-	s.lggr.Infow("RegisterTrigger called", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID)
-	return callback, nil
+	return regState.callback, nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -124,6 +130,9 @@ func (s *triggerSubscriber) registrationLoop() {
 		case <-ticker.C:
 			s.mu.RLock()
 			s.lggr.Infow("register trigger for remote capability", "capabilityId", s.capInfo.ID, "donId", s.capDonInfo.ID, "nMembers", len(s.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
+			if len(s.registeredWorkflows) == 0 {
+				s.lggr.Infow("no workflows to register")
+			}
 			for _, registration := range s.registeredWorkflows {
 				// NOTE: send to all by default, introduce different strategies later (KS-76)
 				for _, peerID := range s.capDonInfo.Members {
@@ -149,7 +158,10 @@ func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commo
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	close(s.registeredWorkflows[request.Metadata.WorkflowID].callback)
+	state := s.registeredWorkflows[request.Metadata.WorkflowID]
+	if state != nil && state.callback != nil {
+		close(state.callback)
+	}
 	delete(s.registeredWorkflows, request.Metadata.WorkflowID)
 	// Registrations will quickly expire on all remote nodes.
 	// Alternatively, we could send UnregisterTrigger messages right away.

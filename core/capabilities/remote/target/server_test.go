@@ -10,6 +10,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -18,12 +19,11 @@ import (
 )
 
 func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -42,15 +42,15 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 			assert.Equal(t, remotetypes.Error_OK, msg.Error)
 		}
 	}
+	closeServices(t, srvcs)
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &TestCapability{}, 10, 10, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -69,15 +69,15 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 			assert.Equal(t, remotetypes.Error_TIMEOUT, msg.Error)
 		}
 	}
+	closeServices(t, srvcs)
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
-	callers := testRemoteTargetServer(ctx, t, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
+	callers, srvcs := testRemoteTargetServer(ctx, t, &TestErrorCapability{}, 10, 9, numCapabilityPeers, 3, 100*time.Millisecond)
 
 	for _, caller := range callers {
 		_, err := caller.Execute(context.Background(),
@@ -96,12 +96,13 @@ func Test_Server_CapabilityError(t *testing.T) {
 			assert.Equal(t, remotetypes.Error_INTERNAL_ERROR, msg.Error)
 		}
 	}
+	closeServices(t, srvcs)
 }
 
 func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	underlying commoncap.TargetCapability,
 	numWorkflowPeers int, workflowDonF uint8,
-	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration) []*serverTestClient {
+	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration) ([]*serverTestClient, []services.Service) {
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -117,10 +118,9 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -142,13 +142,16 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
+	srvcs := make([]services.Service, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout)
+		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout, lggr)
+		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
+		srvcs[i] = capabilityNode
 	}
 
 	workflowNodes := make([]*serverTestClient, numWorkflowPeers)
@@ -159,7 +162,13 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 		workflowNodes[i] = workflowNode
 	}
 
-	return workflowNodes
+	return workflowNodes, srvcs
+}
+
+func closeServices(t *testing.T, srvcs []services.Service) {
+	for _, srv := range srvcs {
+		require.NoError(t, srv.Close())
+	}
 }
 
 type serverTestClient struct {

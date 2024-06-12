@@ -17,9 +17,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -27,6 +30,48 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+)
+
+var (
+	promEVMPoolRPCNodeDials = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_total",
+		Help: "The total number of dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeDialsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_failed",
+		Help: "The total number of failed dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeDialsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_dials_success",
+		Help: "The total number of successful dials for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+
+	promEVMPoolRPCNodeCalls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_total",
+		Help: "The approximate total number of RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeCallsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_failed",
+		Help: "The approximate total number of failed RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCNodeCallsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "evm_pool_rpc_node_calls_success",
+		Help: "The approximate total number of successful RPC calls for the given RPC node",
+	}, []string{"evmChainID", "nodeName"})
+	promEVMPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "evm_pool_rpc_node_rpc_call_time",
+		Help: "The duration of an RPC call in nanoseconds",
+		Buckets: []float64{
+			float64(50 * time.Millisecond),
+			float64(100 * time.Millisecond),
+			float64(200 * time.Millisecond),
+			float64(500 * time.Millisecond),
+			float64(1 * time.Second),
+			float64(2 * time.Second),
+			float64(4 * time.Second),
+			float64(8 * time.Second),
+		},
+	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
@@ -56,6 +101,12 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
+}
+
+type rawclient struct {
+	rpc  *rpc.Client
+	geth *ethclient.Client
+	uri  url.URL
 }
 
 type rpcClient struct {
@@ -837,6 +888,15 @@ func (r *rpcClient) BalanceAt(ctx context.Context, account common.Address, block
 	return
 }
 
+// CallArgs represents the data used to call the balance method of a contract.
+// "To" is the address of the ERC contract. "Data" is the message sent
+// to the contract. "From" is the sender address.
+type CallArgs struct {
+	From common.Address `json:"from"`
+	To   common.Address `json:"to"`
+	Data hexutil.Bytes  `json:"data"`
+}
+
 // TokenBalance returns the balance of the given address for the token contract address.
 func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
@@ -1014,6 +1074,21 @@ func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context)
 	return
 }
 
+// makeQueryCtx returns a context that cancels if:
+// 1. Passed in ctx cancels
+// 2. Passed in channel is closed
+// 3. Default timeout is reached (queryTimeout)
+func makeQueryCtx(ctx context.Context, ch services.StopChan) (context.Context, context.CancelFunc) {
+	var chCancel, timeoutCancel context.CancelFunc
+	ctx, chCancel = ch.Ctx(ctx)
+	ctx, timeoutCancel = context.WithTimeout(ctx, queryTimeout)
+	cancel := func() {
+		chCancel()
+		timeoutCancel()
+	}
+	return ctx, cancel
+}
+
 func (r *rpcClient) makeQueryCtx(ctx context.Context) (context.Context, context.CancelFunc) {
 	return makeQueryCtx(ctx, r.getChStopInflight())
 }
@@ -1057,4 +1132,11 @@ func (r *rpcClient) Name() string {
 
 func Name(r *rpcClient) string {
 	return r.name
+}
+
+func ToBlockNumArg(number *big.Int) string {
+	if number == nil {
+		return "latest"
+	}
+	return hexutil.EncodeBig(number)
 }

@@ -34,16 +34,16 @@ func Test_StoreDB(t *testing.T) {
 			"step1": {
 				ExecutionID: id,
 				Ref:         "step1",
-				Status:      "completed",
+				Status:      StatusCompleted,
 			},
 			"step2": {
 				ExecutionID: id,
 				Ref:         "step2",
-				Status:      "started",
+				Status:      StatusStarted,
 			},
 		},
 		ExecutionID: id,
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 
 	err := store.Add(tests.Context(t), &es)
@@ -67,16 +67,16 @@ func Test_StoreDB_DuplicateEntry(t *testing.T) {
 			"step1": {
 				ExecutionID: id,
 				Ref:         "step1",
-				Status:      "completed",
+				Status:      StatusCompleted,
 			},
 			"step2": {
 				ExecutionID: id,
 				Ref:         "step2",
-				Status:      "started",
+				Status:      StatusStarted,
 			},
 		},
 		ExecutionID: id,
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 
 	err := store.Add(tests.Context(t), &es)
@@ -96,23 +96,23 @@ func Test_StoreDB_UpdateStatus(t *testing.T) {
 			"step1": {
 				ExecutionID: id,
 				Ref:         "step1",
-				Status:      "completed",
+				Status:      StatusCompleted,
 			},
 			"step2": {
 				ExecutionID: id,
 				Ref:         "step2",
-				Status:      "started",
+				Status:      StatusStarted,
 			},
 		},
 		ExecutionID: id,
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 
 	err := store.Add(tests.Context(t), &es)
 	require.NoError(t, err)
 
-	completedStatus := "completed"
-	err = store.UpdateStatus(tests.Context(t), es.ExecutionID, "completed")
+	completedStatus := StatusCompleted
+	err = store.UpdateStatus(tests.Context(t), es.ExecutionID, StatusCompleted)
 	require.NoError(t, err)
 
 	gotEs, err := store.Get(tests.Context(t), es.ExecutionID)
@@ -129,12 +129,12 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 	stepOne := &WorkflowExecutionStep{
 		ExecutionID: id,
 		Ref:         "step1",
-		Status:      "completed",
+		Status:      StatusCompleted,
 	}
 	stepTwo := &WorkflowExecutionStep{
 		ExecutionID: id,
 		Ref:         "step2",
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 	es := WorkflowExecution{
 		Steps: map[string]*WorkflowExecutionStep{
@@ -142,18 +142,18 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 			"step2": stepTwo,
 		},
 		ExecutionID: id,
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 
 	err := store.Add(tests.Context(t), &es)
 	require.NoError(t, err)
 
-	stepOne.Status = "completed"
+	stepOne.Status = StatusCompleted
 	nm, err := values.NewMap(map[string]any{"hello": "world"})
 	require.NoError(t, err)
 
 	stepOne.Inputs = nm
-	stepOne.Outputs = &StepOutput{Err: errors.New("some error")}
+	stepOne.Outputs = StepOutput{Err: errors.New("some error")}
 
 	es, err = store.UpsertStep(tests.Context(t), stepOne)
 	require.NoError(t, err)
@@ -161,12 +161,76 @@ func Test_StoreDB_UpdateStep(t *testing.T) {
 	gotStep := es.Steps[stepOne.Ref]
 	assert.Equal(t, stepOne, gotStep)
 
-	stepTwo.Outputs = &StepOutput{Value: nm}
+	stepTwo.Outputs = StepOutput{Value: nm}
 	es, err = store.UpsertStep(tests.Context(t), stepTwo)
 	require.NoError(t, err)
 
 	gotStep = es.Steps[stepTwo.Ref]
 	assert.Equal(t, stepTwo, gotStep)
+}
+
+func Test_StoreDB_WorkflowStatus(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	store := &DBStore{db: db, clock: clockwork.NewFakeClock()}
+
+	for s := range ValidStatuses {
+		id := randomID()
+		stepOne := &WorkflowExecutionStep{
+			ExecutionID: id,
+			Ref:         "step1",
+			Status:      StatusCompleted,
+		}
+		stepTwo := &WorkflowExecutionStep{
+			ExecutionID: id,
+			Ref:         "step2",
+			Status:      StatusStarted,
+		}
+		es := WorkflowExecution{
+			Steps: map[string]*WorkflowExecutionStep{
+				"step1": stepOne,
+				"step2": stepTwo,
+			},
+			ExecutionID: id,
+			Status:      s,
+		}
+
+		err := store.Add(tests.Context(t), &es)
+		require.NoError(t, err)
+	}
+}
+
+func Test_StoreDB_WorkflowStepStatus(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	store := &DBStore{db: db, clock: clockwork.NewFakeClock()}
+
+	id := randomID()
+	stepOne := &WorkflowExecutionStep{
+		ExecutionID: id,
+		Ref:         "step1",
+		Status:      StatusCompleted,
+	}
+	stepTwo := &WorkflowExecutionStep{
+		ExecutionID: id,
+		Ref:         "step2",
+		Status:      StatusStarted,
+	}
+	es := WorkflowExecution{
+		Steps: map[string]*WorkflowExecutionStep{
+			"step1": stepOne,
+			"step2": stepTwo,
+		},
+		ExecutionID: id,
+		Status:      StatusStarted,
+	}
+
+	err := store.Add(tests.Context(t), &es)
+	require.NoError(t, err)
+
+	for s := range ValidStatuses {
+		stepOne.Status = s
+		_, err := store.UpsertStep(tests.Context(t), stepOne)
+		require.NoError(t, err)
+	}
 }
 
 func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
@@ -177,12 +241,12 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 	stepOne := &WorkflowExecutionStep{
 		ExecutionID: id,
 		Ref:         "step1",
-		Status:      "completed",
+		Status:      StatusCompleted,
 	}
 	stepTwo := &WorkflowExecutionStep{
 		ExecutionID: id,
 		Ref:         "step2",
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 	es := WorkflowExecution{
 		Steps: map[string]*WorkflowExecutionStep{
@@ -190,7 +254,7 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 			"step2": stepTwo,
 		},
 		ExecutionID: id,
-		Status:      "started",
+		Status:      StatusStarted,
 	}
 
 	err := store.Add(tests.Context(t), &es)
@@ -199,7 +263,7 @@ func Test_StoreDB_GetUnfinishedSteps(t *testing.T) {
 	id = randomID()
 	esTwo := WorkflowExecution{
 		ExecutionID: id,
-		Status:      "completed",
+		Status:      StatusCompleted,
 		Steps:       map[string]*WorkflowExecutionStep{},
 	}
 	err = store.Add(tests.Context(t), &esTwo)
