@@ -27,7 +27,7 @@ contract BaseTest is Test {
   function setUp() public virtual {
     vm.startPrank(ADMIN);
     s_router = new KeystoneRouter();
-    s_forwarder = new KeystoneForwarder(address(s_router));
+    s_forwarder = new KeystoneForwarder();
     s_router.addForwarder(address(s_forwarder));
     s_receiver = new Receiver();
 

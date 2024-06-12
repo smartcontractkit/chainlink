@@ -31,7 +31,20 @@ interface IRouter {
     bytes calldata report
   ) external returns (bool);
 
-  function getTransmitter(bytes32 transmissionId) external view returns (address);
-  function getTransmissionState(bytes32 transmissionId) external view returns (TransmissionState);
+  function getTransmissionId(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external pure returns (bytes32);
+  function getTransmitter(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (address);
+  function getTransmissionState(
+    address receiver,
+    bytes32 workflowExecutionId,
+    bytes2 reportId
+  ) external view returns (TransmissionState);
   function isForwarder(address forwarder) external view returns (bool);
 }

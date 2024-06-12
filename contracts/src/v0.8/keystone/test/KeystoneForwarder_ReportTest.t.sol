@@ -36,8 +36,6 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.setConfig(DON_ID, CONFIG_VERSION, F, _getSignerAddresses());
     s_router.addForwarder(address(s_forwarder));
 
-    assertEq(s_forwarder.getRouter(), address(s_router), "router mismatch");
-
     mercuryReports[0] = hex"010203";
     mercuryReports[1] = hex"aabbccdd";
 
