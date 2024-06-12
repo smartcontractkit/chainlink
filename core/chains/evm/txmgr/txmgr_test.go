@@ -591,7 +591,7 @@ func TestTxm_Reset(t *testing.T) {
 func TestTxm_GetTransactionStatus(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 	db := pgtest.NewSqlxDB(t)
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -685,7 +685,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
-	t.Run("returns unconfirmed for confirmed state newer than finalized block", func(t *testing.T) {
+	t.Run("returns unconfirmed for confirmed state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -707,100 +707,11 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
 		err = txStore.InsertTxAttempt(ctx, &attempt)
 		require.NoError(t, err)
-		// Insert receipt for unfinalized block num
-		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt.Hash)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.ParentHash, attempt.Hash)
 		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
 		require.NoError(t, err)
 		require.Equal(t, commontypes.Unconfirmed, state)
-	})
-
-	t.Run("returns finalized for confirmed state older than finalized block", func(t *testing.T) {
-		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
-		broadcast := time.Now()
-		tx := &txmgr.Tx{
-			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKey,
-			FromAddress:        fromAddress,
-			EncodedPayload:     []byte{1, 2, 3},
-			FeeLimit:           feeLimit,
-			State:              txmgrcommon.TxConfirmed,
-			BroadcastAt:        &broadcast,
-			InitialBroadcastAt: &broadcast,
-		}
-		err := txStore.InsertTx(ctx, tx)
-		require.NoError(t, err)
-		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
-		require.NoError(t, err)
-		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
-		err = txStore.InsertTxAttempt(ctx, &attempt)
-		require.NoError(t, err)
-		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attempt.Hash)
-		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, commontypes.Finalized, state)
-	})
-
-	t.Run("returns unconfirmed for tx with receipt re-org'd out", func(t *testing.T) {
-		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
-		broadcast := time.Now()
-		tx := &txmgr.Tx{
-			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKey,
-			FromAddress:        fromAddress,
-			EncodedPayload:     []byte{1, 2, 3},
-			FeeLimit:           feeLimit,
-			State:              txmgrcommon.TxConfirmed,
-			BroadcastAt:        &broadcast,
-			InitialBroadcastAt: &broadcast,
-		}
-		err := txStore.InsertTx(ctx, tx)
-		require.NoError(t, err)
-		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
-		require.NoError(t, err)
-		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
-		err = txStore.InsertTxAttempt(ctx, &attempt)
-		require.NoError(t, err)
-		// Insert receipt for finalized block num
-		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attempt.Hash)
-		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, commontypes.Unconfirmed, state)
-	})
-
-	t.Run("returns finalized for tx with receipt older than block history depth", func(t *testing.T) {
-		idempotencyKey := uuid.New().String()
-		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-		nonce := evmtypes.Nonce(0)
-		broadcast := time.Now()
-		tx := &txmgr.Tx{
-			Sequence:           &nonce,
-			IdempotencyKey:     &idempotencyKey,
-			FromAddress:        fromAddress,
-			EncodedPayload:     []byte{1, 2, 3},
-			FeeLimit:           feeLimit,
-			State:              txmgrcommon.TxConfirmed,
-			BroadcastAt:        &broadcast,
-			InitialBroadcastAt: &broadcast,
-		}
-		err := txStore.InsertTx(ctx, tx)
-		require.NoError(t, err)
-		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
-		require.NoError(t, err)
-		attempt := cltest.NewLegacyEthTxAttempt(t, tx.ID)
-		err = txStore.InsertTxAttempt(ctx, &attempt)
-		require.NoError(t, err)
-		// Insert receipt for finalized block num
-		receiptHash := utils.NewHash()
-		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash, attempt.Hash)
-		ethClient.On("HeadByHash", mock.Anything, receiptHash).Return(&evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash}, nil)
-		state, err := txm.GetTransactionStatus(ctx, idempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, commontypes.Finalized, state)
 	})
 
 	t.Run("returns unconfirmed for confirmed missing receipt state", func(t *testing.T) {
