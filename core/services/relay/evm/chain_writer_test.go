@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commonLggr "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -23,39 +22,17 @@ import (
 	relayevmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type MockGasEstimatorConfig struct {
-	EIP1559DynamicFeesF bool
-	BumpPercentF        uint16
-	BumpThresholdF      uint64
-	BumpMinF            *assets.Wei
-	LimitMultiplierF    float32
-	TipCapDefaultF      *assets.Wei
-	TipCapMinF          *assets.Wei
-	PriceMaxF           *assets.Wei
-	PriceMinF           *assets.Wei
-	PriceDefaultF       *assets.Wei
-	FeeCapDefaultF      *assets.Wei
-	LimitMaxF           uint64
-	ModeF               string
-}
-
 func TestChainWriter(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 
 	txm := txmmocks.NewMockEvmTxManager(t)
 	client := evmclimocks.NewClient(t)
-	ge := gasmocks.NewEvmEstimator(t)
-
-	geCfg := gas.NewMockGasConfig()
-
-	getEst := func(commonLggr.Logger) gas.EvmEstimator { return ge }
-
-	feeEstimator := gas.NewEvmFeeEstimator(commonLggr.Test(t), getEst, true, geCfg)
+	ge := gasmocks.NewEvmFeeEstimator(t)
 	l1Oracle := rollupmocks.NewL1Oracle(t)
 
 	chainWriterConfig := newBaseChainWriterConfig()
-	cw, err := NewChainWriterService(lggr, client, txm, feeEstimator, chainWriterConfig)
+	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
 
 	require.NoError(t, err)
 
@@ -65,7 +42,7 @@ func TestChainWriter(t *testing.T) {
 			invalidAbiConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].ContractABI = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, feeEstimator, invalidAbiConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidAbiConfig)
 			require.Error(t, err)
 		})
 
@@ -74,7 +51,7 @@ func TestChainWriter(t *testing.T) {
 			invalidMethodNameConfig := modifyChainWriterConfig(baseConfig, func(cfg *relayevmtypes.ChainWriterConfig) {
 				cfg.Contracts["forwarder"].Configs["report"].ChainSpecificName = ""
 			})
-			_, err = NewChainWriterService(lggr, client, txm, feeEstimator, invalidMethodNameConfig)
+			_, err = NewChainWriterService(lggr, client, txm, ge, invalidMethodNameConfig)
 			require.Error(t, err)
 		})
 	})
@@ -84,10 +61,11 @@ func TestChainWriter(t *testing.T) {
 	})
 
 	t.Run("GetFeeComponents", func(t *testing.T) {
-		ge.On("GetDynamicFee", mock.Anything, mock.Anything).Return(gas.DynamicFee{
-			FeeCap: assets.NewWei(big.NewInt(1000000002)),
-			TipCap: assets.NewWei(big.NewInt(1000000003)),
-		}, nil).Twice()
+		ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+			Legacy:        assets.NewWei(big.NewInt(1000000001)),
+			DynamicFeeCap: assets.NewWei(big.NewInt(1000000002)),
+			DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),
+		}, uint64(0), nil).Twice()
 
 		l1Oracle.On("GasPrice", mock.Anything).Return(assets.NewWei(big.NewInt(1000000004)), nil).Once()
 		ge.On("L1Oracle", mock.Anything).Return(l1Oracle).Once()
@@ -108,23 +86,24 @@ func TestChainWriter(t *testing.T) {
 			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
 		})
 
-		t.Run("Returns Legacy Fee for non-EIP1559 enabled gas estimator", func(t *testing.T) {
-			noDynamicFeeEstimator := gas.NewEvmFeeEstimator(commonLggr.Test(t), getEst, false, geCfg)
-			var noDyanmicCW ChainWriterService
-			noDyanmicCW, err = NewChainWriterService(lggr, client, txm, noDynamicFeeEstimator, chainWriterConfig)
-			ge.On("GetLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(assets.NewWei(big.NewInt(1000000001)), uint64(0), nil).Once()
-
-			feeComponents, err = noDyanmicCW.GetFeeComponents(ctx)
+		t.Run("Returns Legacy Fee in absence of Dynamic Fee", func(t *testing.T) {
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+				Legacy:        assets.NewWei(big.NewInt(1000000001)),
+				DynamicFeeCap: nil,
+				DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),
+			}, uint64(0), nil).Once()
+			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, big.NewInt(1000000001), &feeComponents.ExecutionFee)
 			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
 		})
 
 		t.Run("Fails when neither legacy or dynamic fee is available", func(t *testing.T) {
-			ge.On("GetDynamicFee", mock.Anything, mock.Anything).Return(gas.DynamicFee{
-				FeeCap: nil,
-				TipCap: nil,
-			}, nil).Once()
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+				Legacy:        nil,
+				DynamicFeeCap: nil,
+				DynamicTipCap: nil,
+			}, uint64(0), nil).Once()
 
 			_, err = cw.GetFeeComponents(ctx)
 			require.Error(t, err)
@@ -132,20 +111,21 @@ func TestChainWriter(t *testing.T) {
 
 		t.Run("Fails when GetFee returns an error", func(t *testing.T) {
 			expectedErr := fmt.Errorf("GetFee error")
-			ge.On("GetDynamicFee", mock.Anything, mock.Anything).Return(gas.DynamicFee{
-				FeeCap: nil,
-				TipCap: nil,
-			}, expectedErr).Once()
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+				Legacy:        nil,
+				DynamicFeeCap: nil,
+				DynamicTipCap: nil,
+			}, uint64(0), expectedErr).Once()
 			_, err = cw.GetFeeComponents(ctx)
 			require.Equal(t, expectedErr, err)
 		})
 
 		t.Run("Fails when L1Oracle returns error", func(t *testing.T) {
-			ge.On("GetDynamicFee", mock.Anything, mock.Anything).Return(gas.DynamicFee{
-				FeeCap: assets.NewWei(big.NewInt(1000000002)),
-				TipCap: assets.NewWei(big.NewInt(1000000003)),
-			}, nil).Once()
-
+			ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
+				Legacy:        assets.NewWei(big.NewInt(1000000001)),
+				DynamicFeeCap: assets.NewWei(big.NewInt(1000000002)),
+				DynamicTipCap: assets.NewWei(big.NewInt(1000000003)),
+			}, uint64(0), nil).Once()
 			ge.On("L1Oracle", mock.Anything).Return(l1Oracle).Once()
 
 			expectedErr := fmt.Errorf("l1Oracle error")
