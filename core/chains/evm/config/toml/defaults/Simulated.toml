@@ -3,6 +3,10 @@ FinalityDepth = 10
 MinIncomingConfirmations = 1
 MinContractPayment = '100'
 NoNewHeadsThreshold = '0s'
+FinalizedBlockOffset = 5
+
+[NodePool]
+EnforceRepeatableRead = true
 
 [Transactions]
 ReaperThreshold = '0s'
