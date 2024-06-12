@@ -2,6 +2,15 @@
   "data": [
     {
       "type": "checks",
+      "id": "BridgeCache",
+      "attributes": {
+        "name": "BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "EVM.0",
       "attributes": {
         "name": "EVM.0",

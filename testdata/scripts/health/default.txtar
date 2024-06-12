@@ -31,6 +31,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
+ok BridgeCache
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -43,6 +44,15 @@ ok TelemetryManager
 -- out.json --
 {
   "data": [
+    {
+      "type": "checks",
+      "id": "BridgeCache",
+      "attributes": {
+        "name": "BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
     {
       "type": "checks",
       "id": "JobSpawner",

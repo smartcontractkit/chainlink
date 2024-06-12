@@ -60,6 +60,7 @@ Name = 'primary'
 URL = 'http://stark.node'
 
 -- out.txt --
+ok BridgeCache
 ok Cosmos.Foo.Chain
 ok Cosmos.Foo.Relayer
 ok Cosmos.Foo.Txm
@@ -89,6 +90,15 @@ ok TelemetryManager
 -- out.json --
 {
   "data": [
+    {
+      "type": "checks",
+      "id": "BridgeCache",
+      "attributes": {
+        "name": "BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
     {
       "type": "checks",
       "id": "Cosmos.Foo.Chain",
