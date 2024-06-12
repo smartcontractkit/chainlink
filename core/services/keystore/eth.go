@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -339,7 +338,7 @@ func (ks *eth) SignMessage(ctx context.Context, address string, message string) 
 	}
 
 	privateKeyECDSA := key.ToEcdsaPrivKey()
-	hash := sha256.Sum256([]byte(message))
+	hash := crypto.Keccak256Hash([]byte(message))
 	signature, err := crypto.Sign(hash[:], privateKeyECDSA)
 	if err != nil {
 		return "", err
