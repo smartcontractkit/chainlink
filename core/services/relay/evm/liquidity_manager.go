@@ -142,7 +142,7 @@ func (r *rebalancerProvider) Codec() commontypes.Codec {
 }
 
 // ChainReader implements RebalancerProvider.
-func (*rebalancerProvider) ChainReader() commontypes.ChainReader {
+func (*rebalancerProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 

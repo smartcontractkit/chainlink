@@ -156,7 +156,6 @@ var myAbiCache = newAbiCache()
 // operationType is used to differentiate between encoding and decoding
 // encoding uses a definition with `inputs` and decoding uses a definition with `outputs` (check inDef)
 func getABI(abiStr string, operationType uint8) (*abi.ABI, error) {
-
 	var operationStr string
 	switch operationType {
 	case ENCODE:

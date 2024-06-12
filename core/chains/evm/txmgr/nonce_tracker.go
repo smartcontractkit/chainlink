@@ -77,7 +77,6 @@ func (s *nonceTracker) getSequenceForAddr(ctx context.Context, address common.Ad
 	}
 	s.lggr.Criticalw("failed to retrieve next sequence from on-chain for address: ", "address", address.String())
 	return seq, err
-
 }
 
 // syncSequence tries to sync the key sequence, retrying indefinitely until success or stop signal is sent

@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/pointer" //nolint:staticcheck
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"

@@ -337,7 +337,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
 contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   function test_Fuzz_ReleaseOrMint_Success(address recipient, uint256 amount) public {
-    vm.assume(recipient != address(0));
+    vm.assume(recipient != address(0) && recipient != address(s_token));
     amount = bound(amount, 0, getInboundRateLimiterConfig().capacity);
 
     USDCMessage memory usdcMessage = USDCMessage({

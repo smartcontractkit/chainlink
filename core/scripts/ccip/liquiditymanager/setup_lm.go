@@ -212,7 +212,6 @@ func fundPoolAndLiquidityManager(
 				int64(chainID),
 				"Depositing", tokenPoolFunding.String(), "to WETH token at", tokenAddress.Hex())
 		} else {
-
 			helpers.PanicErr(
 				fmt.Errorf("not enough balance to fund token pool, please get more tokens (address: %s)",
 					tokenAddress.Hex()))

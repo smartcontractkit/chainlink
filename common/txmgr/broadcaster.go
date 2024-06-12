@@ -598,7 +598,6 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// trying to send the transaction over again.
 		return fmt.Errorf("retryable error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), etx.ID, err), true
 	}
-
 }
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.

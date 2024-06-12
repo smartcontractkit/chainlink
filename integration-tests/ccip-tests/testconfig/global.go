@@ -177,7 +177,11 @@ type Common struct {
 }
 
 func (p *Common) GetNodeConfig() *ctfconfig.NodeConfig {
-	return nil
+	return &ctfconfig.NodeConfig{
+		BaseConfigTOML:           p.NewCLCluster.Common.BaseConfigTOML,
+		CommonChainConfigTOML:    p.NewCLCluster.Common.CommonChainConfigTOML,
+		ChainConfigTOMLByChainID: p.NewCLCluster.Common.ChainConfigTOMLByChain,
+	}
 }
 
 func (p *Common) GetSethConfig() *seth.Config {

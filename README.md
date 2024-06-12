@@ -32,9 +32,9 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21.1](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
@@ -64,6 +64,7 @@ Ethereum node versions currently tested and supported:
 
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+- [Besu](https://github.com/hyperledger/besu)
 
 [Supported but broken]
 These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
@@ -71,11 +72,6 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
   - ~https://github.com/NethermindEth/nethermind/issues/4384~
-- [Besu](https://github.com/hyperledger/besu)
-  Blocking issues:
-  - https://github.com/hyperledger/besu/issues/4212
-  - ~https://github.com/hyperledger/besu/issues/4192~
-  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946
@@ -272,18 +268,21 @@ Go generate is used to generate mocks in this project. Mocks are generated with 
 
 ### Nix
 
-A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), with optional [flakes](https://nixos.wiki/wiki/Flakes) support. It defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies, while non-flakes shell will use your channel's packages versions.
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+
+Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
+gain more consistency/reproducibility on the built artifacts.
 
 To use it:
 
 1. Install [nix package manager](https://nixos.org/download.html) in your system.
 
-- Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+- Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
 
-2. Run `nix-shell`. You will be put in shell containing all the dependencies.
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
 
-- To use the flakes version, run `nix develop` instead of `nix-shell`. Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
-- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use nix` or `use flake` on it.
+- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
 
 3. Create a local postgres database:
 

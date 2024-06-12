@@ -48,7 +48,6 @@ func (bdc *LCAController) FindLCA(c *gin.Context) {
 		EVMChainID:  big.New(chainID),
 	}
 	jsonAPIResponse(c, &response, "response")
-
 }
 
 type LCAResponse struct {

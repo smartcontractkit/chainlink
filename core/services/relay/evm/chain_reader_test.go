@@ -32,7 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -46,9 +46,10 @@ const (
 	triggerWithAllTopics    = "TriggeredWithFourTopics"
 )
 
-func TestChainReader(t *testing.T) {
+func TestChainReaderInterfaceTests(t *testing.T) {
 	t.Parallel()
 	it := &chainReaderInterfaceTester{}
+
 	RunChainReaderInterfaceTests(t, it)
 	RunChainReaderInterfaceTests(t, commontestutils.WrapChainReaderTesterForLoop(it))
 
@@ -61,7 +62,7 @@ func TestChainReader(t *testing.T) {
 		require.NoError(t, cr.Bind(ctx, it.GetBindings(t)))
 
 		anyString := "foo"
-		tx, err := it.evmTest.LatestValueHolderTransactor.TriggerEventWithDynamicTopic(it.auth, anyString)
+		tx, err := it.evmTest.TriggerEventWithDynamicTopic(it.auth, anyString)
 		require.NoError(t, err)
 		it.sim.Commit()
 		it.incNonce()
@@ -110,7 +111,7 @@ func TestChainReader(t *testing.T) {
 }
 
 func triggerFourTopics(t *testing.T, it *chainReaderInterfaceTester, i1, i2, i3 int32) {
-	tx, err := it.evmTest.LatestValueHolderTransactor.TriggerWithFourTopics(it.auth, i1, i2, i3)
+	tx, err := it.evmTest.ChainReaderTesterTransactor.TriggerWithFourTopics(it.auth, i1, i2, i3)
 	require.NoError(t, err)
 	require.NoError(t, err)
 	it.sim.Commit()
@@ -126,7 +127,7 @@ type chainReaderInterfaceTester struct {
 	auth        *bind.TransactOpts
 	sim         *backends.SimulatedBackend
 	pk          *ecdsa.PrivateKey
-	evmTest     *chain_reader_example.LatestValueHolder
+	evmTest     *chain_reader_tester.ChainReaderTester
 	cr          evm.ChainReaderService
 }
 
@@ -168,7 +169,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 	it.chainConfig = types.ChainReaderConfig{
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
-				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
+				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "getElementAtIndex",
@@ -191,11 +192,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					EventWithFilterName: {
-						ChainSpecificName: "Triggered",
-						ReadType:          types.Event,
-						EventInputFields:  []string{"Field"},
+						ChainSpecificName:       "Triggered",
+						ReadType:                types.Event,
+						EventInputFields:        []string{"Field"},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -204,11 +207,13 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName: triggerWithAllTopics,
-						ReadType:          types.Event,
-						EventInputFields:  []string{"Field1", "Field2", "Field3"},
+						ChainSpecificName:       triggerWithAllTopics,
+						ReadType:                types.Event,
+						EventInputFields:        []string{"Field1", "Field2", "Field3"},
+						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -229,7 +234,7 @@ func (it *chainReaderInterfaceTester) Setup(t *testing.T) {
 				},
 			},
 			AnySecondContractName: {
-				ContractABI: chain_reader_example.LatestValueHolderMetaData.ABI,
+				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodReturningUint64: {
 						ChainSpecificName: "getDifferentPrimitiveValue",
@@ -253,7 +258,7 @@ func (it *chainReaderInterfaceTester) GetAccountBytes(i int) []byte {
 	return account[:]
 }
 
-func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ChainReader {
+func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes.ContractReader {
 	ctx := testutils.Context(t)
 	if it.cr != nil {
 		return it.cr
@@ -270,6 +275,20 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 	}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
+
+	// TODO  uncomment this after this is fixed BCF-3242
+	//chain := mocks.NewChain(t)
+	//chain.Mock.On("LogPoller").Return(lp)
+	//chain.Mock.On("ID").Return(it.client.ConfiguredChainID())
+	//
+	//keyStore := cltest.NewKeyStore(t, db)
+	//relayer, err := evm.NewRelayer(lggr, chain, evm.RelayerOpts{DS: db, CSAETHKeystore: keyStore, CapabilitiesRegistry: capabilities.NewRegistry(lggr)})
+	//require.NoError(t, err)
+	//
+	//cfgBytes, err := cbor.Marshal(it.chainConfig)
+	//require.NoError(t, err)
+	//cr, err := relayer.NewContractReader(cfgBytes)
+
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
@@ -278,11 +297,11 @@ func (it *chainReaderInterfaceTester) GetChainReader(t *testing.T) clcommontypes
 }
 
 func (it *chainReaderInterfaceTester) SetLatestValue(t *testing.T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_example.LatestValueHolderTransactor).AddTestStruct)
+	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
 }
 
 func (it *chainReaderInterfaceTester) TriggerEvent(t *testing.T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_example.LatestValueHolderTransactor).TriggerEvent)
+	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
 }
 
 func (it *chainReaderInterfaceTester) GetBindings(_ *testing.T) []clcommontypes.BoundContract {
@@ -292,11 +311,11 @@ func (it *chainReaderInterfaceTester) GetBindings(_ *testing.T) []clcommontypes.
 	}
 }
 
-type testStructFn = func(*chain_reader_example.LatestValueHolderTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_example.MidLevelTestStruct) (*evmtypes.Transaction, error)
+type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*evmtypes.Transaction, error)
 
 func (it *chainReaderInterfaceTester) sendTxWithTestStruct(t *testing.T, testStruct *TestStruct, fn testStructFn) {
 	tx, err := fn(
-		&it.evmTest.LatestValueHolderTransactor,
+		&it.evmTest.ChainReaderTesterTransactor,
 		it.auth,
 		*testStruct.Field,
 		testStruct.DifferentField,
@@ -356,7 +375,7 @@ func (it *chainReaderInterfaceTester) deployNewContract(t *testing.T) string {
 	// Not sure if there's a better way to get it.
 	it.auth.GasLimit = 10552800
 
-	address, tx, ts, err := chain_reader_example.DeployLatestValueHolder(it.auth, it.sim)
+	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.auth, it.sim)
 
 	require.NoError(t, err)
 	it.sim.Commit()
@@ -412,8 +431,8 @@ func getOracleIDs(first TestStruct) [32]byte {
 	return oracleIDs
 }
 
-func toInternalType(testStruct TestStruct) chain_reader_example.TestStruct {
-	return chain_reader_example.TestStruct{
+func toInternalType(testStruct TestStruct) chain_reader_tester.TestStruct {
+	return chain_reader_tester.TestStruct{
 		Field:          *testStruct.Field,
 		DifferentField: testStruct.DifferentField,
 		OracleId:       byte(testStruct.OracleID),
@@ -425,10 +444,10 @@ func toInternalType(testStruct TestStruct) chain_reader_example.TestStruct {
 	}
 }
 
-func midToInternalType(m MidLevelTestStruct) chain_reader_example.MidLevelTestStruct {
-	return chain_reader_example.MidLevelTestStruct{
+func midToInternalType(m MidLevelTestStruct) chain_reader_tester.MidLevelTestStruct {
+	return chain_reader_tester.MidLevelTestStruct{
 		FixedBytes: m.FixedBytes,
-		Inner: chain_reader_example.InnerTestStruct{
+		Inner: chain_reader_tester.InnerTestStruct{
 			IntVal: int64(m.Inner.I),
 			S:      m.Inner.S,
 		},

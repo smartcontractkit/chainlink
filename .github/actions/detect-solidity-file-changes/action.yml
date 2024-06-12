@@ -1,0 +1,21 @@
+name: 'Detect Solidity File Changes Composite Action'
+description: 'Detects changes in solidity files and outputs the result.'
+outputs:
+  changes:
+    description: 'Whether or not changes were detected'
+    value: ${{ steps.changed_files.outputs.src }}
+runs:
+  using: 'composite'
+  steps:
+
+    - name: Filter paths
+      uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      id: changed_files
+      with:
+        list-files: 'csv'
+        filters: |
+          src:
+            - 'contracts/**/*'
+            - '.github/workflows/solidity.yml'
+            - '.github/workflows/solidity-foundry.yml'
+            - '.github/workflows/solidity-wrappers.yml'

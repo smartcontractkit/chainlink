@@ -3,8 +3,11 @@
 
 # Ignore frozen Automation code
 ./src/v0.8/automation/v1_2
+./src/v0.8/automation/interfaces/v1_2
 ./src/v0.8/automation/v1_3
+./src/v0.8/automation/interfaces/v1_3
 ./src/v0.8/automation/v2_0
+./src/v0.8/automation/interfaces/v2_0
 ./src/v0.8/automation/v2_1
 ./src/v0.8/automation/interfaces/v2_1/
 ./src/v0.8/automation/interfaces/MigratableKeeperRegistryInterface.sol
@@ -18,6 +21,8 @@
 ./src/v0.8/automation/libraries/internal/Cron.sol
 ./src/v0.8/automation/AutomationForwarder.sol
 ./src/v0.8/automation/AutomationForwarderLogic.sol
+./src/v0.8/automation/interfaces/v2_2/IAutomationRegistryMaster.sol
+./src/v0.8/automation/dev/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
 
 
 # Ignore tests / test helpers (for now)

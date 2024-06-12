@@ -1,20 +1,11 @@
 package mocks
 
-import (
-	"time"
-
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
-)
+import "time"
 
 type ChainConfig struct {
 	IsFinalityTagEnabled   bool
 	FinalityDepthVal       uint32
 	NoNewHeadsThresholdVal time.Duration
-	ChainTypeVal           commonconfig.ChainType
-}
-
-func (t ChainConfig) ChainType() commonconfig.ChainType {
-	return t.ChainTypeVal
 }
 
 func (t ChainConfig) NodeNoNewHeadsThreshold() time.Duration {

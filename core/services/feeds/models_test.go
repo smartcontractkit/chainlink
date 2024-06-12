@@ -24,6 +24,11 @@ func Test_NewChainType(t *testing.T) {
 			want: ChainTypeEVM,
 		},
 		{
+			name: "Starknet Chain Type",
+			give: "STARKNET",
+			want: ChainTypeStarknet,
+		},
+		{
 			name:    "Invalid Chain Type",
 			give:    "",
 			want:    ChainTypeUnknown,

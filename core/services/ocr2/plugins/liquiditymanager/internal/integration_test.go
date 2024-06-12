@@ -120,7 +120,6 @@ func setupNodeOCR3(
 		}
 		c.EVM = chains
 		c.OCR2.ContractPollInterval = config.MustNewDuration(5 * time.Second)
-
 	})
 
 	lggr := logger.TestLogger(t)

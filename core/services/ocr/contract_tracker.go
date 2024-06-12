@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -217,7 +217,7 @@ func (t *OCRContractTracker) processLogs() {
 		select {
 		case <-t.configsMB.Notify():
 			// NOTE: libocr could take an arbitrary amount of time to process a
-			// new config. To avoid blocking the log broadcaster, we use this
+			// new chaintype. To avoid blocking the log broadcaster, we use this
 			// background thread to deliver them and a mailbox as the buffer.
 			for {
 				cc, exists := t.configsMB.Retrieve()
@@ -395,12 +395,12 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
-	case config.ChainMetis:
+	case chaintype.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainGnosis, config.ChainKroma, config.ChainOptimismBedrock, config.ChainScroll, config.ChainWeMix, config.ChainXDai, config.ChainXLayer, config.ChainZkSync:
+	case "", chaintype.ChainArbitrum, chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainKroma, chaintype.ChainOptimismBedrock, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

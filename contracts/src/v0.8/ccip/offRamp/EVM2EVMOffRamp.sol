@@ -72,6 +72,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
+  //solhint-disable gas-struct-packing
   struct StaticConfig {
     address commitStore; // ────────╮  CommitStore address on the destination chain
     uint64 chainSelector; // ───────╯  Destination chainSelector

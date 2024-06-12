@@ -7,9 +7,11 @@ FinalityTagEnabled = true
 EIP1559DynamicFees = true
 
 [GasEstimator.BlockHistory]
-BatchSize = 25
 BlockHistorySize = 4
 TransactionPercentile = 50
 
 [OCR2.Automation]
 GasLimit = 10500000
+
+[HeadTracker]
+FinalityTagBypass = false

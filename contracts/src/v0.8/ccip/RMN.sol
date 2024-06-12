@@ -15,6 +15,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   uint256 private constant MAX_NUM_VOTERS = 128;
 
   // DYNAMIC CONFIG
+  //solhint-disable gas-struct-packing
   struct Voter {
     // This is the address the voter should use to call voteToBless.
     address blessVoteAddr;
@@ -108,6 +109,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   CurseVoteProgress private s_curseVoteProgress;
 
   // AUXILLARY STRUCTS
+  //solhint-disable gas-struct-packing
   struct UnvoteToCurseRecord {
     address curseVoteAddr;
     bytes32 cursesHash;

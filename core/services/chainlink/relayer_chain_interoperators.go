@@ -212,7 +212,6 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() LegacyCosmosConta
 
 // ChainStatus gets [types.ChainStatus]
 func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error) {
-
 	lr, err := rs.Get(id)
 	if err != nil {
 		return types.ChainStatus{}, fmt.Errorf("%w: error getting chain status: %w", chains.ErrNotFound, err)
@@ -222,7 +221,6 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id ty
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-
 	var (
 		stats    []types.ChainStatus
 		totalErr error
@@ -332,7 +330,6 @@ func FilterRelayersByType(network string) func(id types.RelayID) bool {
 // A typical usage pattern to use [List] with [FilterByType] to obtain a set of [RelayerChainInteroperators]
 // for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
-
 	matches := make(map[types.RelayID]loop.Relayer)
 	rs.mu.Lock()
 	for id, relayer := range rs.loopRelayers {

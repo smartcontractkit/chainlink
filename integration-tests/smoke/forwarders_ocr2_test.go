@@ -18,8 +18,6 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -40,11 +38,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
-			node.WithOCR2(),
-			node.WithP2Pv2(),
-		)).
-		WithForwarders().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
@@ -74,6 +67,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
 
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
+
 	for i := range workerNodes {
 		actions_seth.AcceptAuthorizedReceiversOperator(
 			t, l, sethClient, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]},
@@ -92,15 +87,15 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	ocrInstances, err := actions_seth.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(lt.Address()), transmitters, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
-	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
-
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
 	require.NoError(t, err, "Error building OCRv2 config")
 	ocrv2Config.Transmitters = authorizedForwarders
 
 	err = actions_seth.ConfigureOCRv2AggregatorContracts(ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), true, false)
+	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 
 	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCRv2 round")

@@ -10,18 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestWrappedEvmEstimator(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := tests.Context(t)
 
 	// fee values
 	gasLimit := uint64(10)
@@ -64,7 +65,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		oracle := rollups.NewL1GasOracle(lggr, nil, config.ChainOptimismBedrock)
+		oracle := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock)
 		// cast oracle to L1Oracle interface
 		estimator = gas.NewEvmFeeEstimator(lggr, getEst, false, geCfg)
 

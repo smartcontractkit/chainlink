@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -23,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -218,12 +218,15 @@ func TestAutomationChaos(t *testing.T) {
 							Test:            t,
 						}).
 						AddHelm(testCase.networkChart).
-						AddHelm(testCase.clChart).
-						AddChart(blockscout.New(&blockscout.Props{
-							Name:    "geth-blockscout",
-							WsURL:   network.URL,
-							HttpURL: network.HTTPURLs[0],
-						}))
+						AddHelm(testCase.clChart)
+					// TODO we need to update the image in CTF, the old one is not available anymore
+					// deploy blockscout if running on simulated
+					// AddHelm(testCase.clChart).
+					// AddChart(blockscout.New(&blockscout.Props{
+					// 	Name:    "geth-blockscout",
+					// 	WsURL:   network.URL,
+					// 	HttpURL: network.HTTPURLs[0],
+					// })
 					err = testEnvironment.Run()
 					require.NoError(t, err, "Error setting up test environment")
 					if testEnvironment.WillUseRemoteRunner() {
@@ -237,39 +240,34 @@ func TestAutomationChaos(t *testing.T) {
 					err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 2, 5, ChaosGroupMajorityPlus)
 					require.NoError(t, err)
 
-					chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
-					require.NoError(t, err, "Error connecting to blockchain")
-					contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-					require.NoError(t, err, "Error building contract deployer")
-
 					chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 					require.NoError(t, err, "Error connecting to Chainlink nodes")
-					chainClient.ParallelTransactions(true)
+
+					network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+
+					chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, network, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
+					require.NoError(t, err, "Error creating seth client")
 
 					// Register cleanup for any test
 					t.Cleanup(func() {
-						if chainClient != nil {
-							chainClient.GasStats().PrintStats()
-						}
-						err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
+						err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 						require.NoError(t, err, "Error tearing down environment")
 					})
 
-					txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
+					txCost, err := actions_seth.EstimateCostForChainlinkOperations(l, chainClient, network, 1000)
 					require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-					err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+					err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), txCost)
 					require.NoError(t, err, "Error funding Chainlink nodes")
 
-					linkToken, err := contractDeployer.DeployLinkTokenContract()
+					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 					require.NoError(t, err, "Error deploying LINK token")
 
-					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+					registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
 						t,
+						chainClient,
 						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
-						contractDeployer,
-						chainClient,
 					)
 
 					// Fund the registry with LINK
@@ -287,11 +285,10 @@ func TestAutomationChaos(t *testing.T) {
 					} else {
 						err = registry.SetConfigTypeSafe(ocrConfig)
 					}
-					require.NoError(t, err, "Registry config should be be set successfully")
-					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
+					require.NoError(t, err, "Error setting OCR config")
 
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions_seth.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
+					consumersLogtrigger, upkeepidsLogtrigger := actions_seth.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
 
 					consumers := append(consumersConditional, consumersLogtrigger...)
 					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)

@@ -15,6 +15,39 @@ env:
 jobs:
   # Build Test Dependencies
 
+  check-ecr-images-exist:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Check images used as test dependencies exist in ECR
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mirror:
+          - name: ethereum/client-go
+            expression: '^(alltools-v|v)[0-9]\.[0-9]+\.[0-9]+$'
+          - name: hyperledger/besu
+            expression: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+            page_size: 300
+          - name: thorax/erigon
+            expression: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: nethermind/nethermind
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
+          - name: tofelb/ethereum-genesis-generator
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'
+    steps:
+      - name: Update internal ECR if the latest Ethereum client image does not exist
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
+        with:
+          aws_region: ${{ secrets.QA_AWS_REGION }}
+          role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          aws_account_number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          image_name: ${{matrix.mirror.name}}
+          expression: ${{matrix.mirror.expression}}
+          page_size: ${{matrix.mirror.page_size}}
+
   build-chainlink:
     environment: integration
     permissions:
@@ -25,7 +58,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: client-compatablility-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -46,39 +79,6 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  build-tests:
-    environment: integration
-    permissions:
-      id-token: write
-      contents: read
-    name: Build Tests Binary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-        with:
-          id: client-compatablility-build-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Tests Binary
-        continue-on-error: true
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          go_tags: embed
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          binary_name: tests
-
   # End Build Test Dependencies
 
   client-compatibility-matrix:
@@ -88,7 +88,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-tests]
+    needs: [build-chainlink, check-ecr-images-exist]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -111,13 +111,12 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-ocr-nethermind-simulated
-          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
-          # - name: ocr-besu
-          #   test: TestOCRBasic
-          #   file: ocr
-          #   client: besu
-          #   timeout: 30m
-          #   pyroscope_env: ci-smoke-ocr-besu-simulated
+          - name: ocr-besu
+            test: TestOCRBasic
+            file: ocr
+            client: besu
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr-besu-simulated
           - name: ocr-erigon
             test: TestOCRBasic
             file: ocr
@@ -136,13 +135,12 @@ jobs:
             client: nethermind
             timeout: 30m
             pyroscope_env: ci-smoke-nethermind-evm-simulated
-          # Will fail until https://github.com/hyperledger/besu/pull/6702 is merged and released
-          # - name: ocr2-besu
-          #   test: "^TestOCRv2Basic/plugins$"
-          #   file: ocr2
-          #   client: besu
-          #   timeout: 30m
-            # pyroscope_env: ci-smoke-ocr2-besu-simulated
+          - name: ocr2-besu
+            test: "^TestOCRv2Basic/plugins$"
+            file: ocr2
+            client: besu
+            timeout: 30m
+            pyroscope_env: ci-smoke-ocr2-besu-simulated
           - name: ocr2-erigon
             test: "^TestOCRv2Basic/plugins$"
             file: ocr2
@@ -152,18 +150,26 @@ jobs:
     runs-on: ubuntu-latest
     name: Client Compatibility Test ${{ matrix.name }}
     steps:
-      - name: Download Tests Binary
-        uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          name: tests
+          repository: smartcontractkit/chainlink
+          ref: ${{ github.sha }}
       - name: Prepare Base64 TOML config
         env:
+          RUN_ID: ${{ github.run_id }}
           SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
           PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.client }}-testnet
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           ETH2_EL_CLIENT: ${{matrix.client}}
           CHAINLINK_VERSION: ${{ github.sha }}
+          GRAFANA_URL: "http://localhost:8080/primary"
+          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
         run: |
           convert_to_toml_array() {
               local IFS=','
@@ -192,6 +198,11 @@ jobs:
             pyroscope_enabled=false
           fi
 
+          grafana_bearer_token=""
+          if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+            grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+          fi
+
           cat << EOF > config.toml
           [Network]
           selected_networks=$selected_networks
@@ -205,6 +216,22 @@ jobs:
           server_url="$PYROSCOPE_SERVER"
           environment="$PYROSCOPE_ENVIRONMENT"
           key_secret="$PYROSCOPE_KEY"
+
+          [Logging]
+          run_id="$RUN_ID"
+
+          [Logging.LogStream]
+          log_targets=["file","loki"]
+
+          [Logging.Loki]
+          tenant_id="$LOKI_TENANT_ID"
+          endpoint="$LOKI_ENDPOINT"
+          basic_auth_secret="$LOKI_BASIC_AUTH"
+
+          [Logging.Grafana]
+          base_url="$GRAFANA_URL"
+          dashboard_url="$GRAFANA_DASHBOARD_URL"
+          $grafana_bearer_token
 
           [PrivateEthereumNetwork]
           ethereum_version="eth2"
@@ -226,22 +253,31 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests-binary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
-          test_command_to_run: ./tests -test.timeout ${{ matrix.timeout }} -test.run ${{ matrix.test }}
-          binary_name: tests
+          test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          artifacts_location: ./logs
+          artifacts_name: ${{ matrix.name }}-test-logs
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            /tmp/gotest.log
+          publish_check_name: ${{ matrix.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          QA_KUBECONFIG: ""
+          should_tidy: "false"
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
 
   start-slack-thread:
     name: Start Slack Thread

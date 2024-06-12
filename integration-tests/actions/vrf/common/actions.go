@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/seth"
+
+	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -21,13 +24,14 @@ import (
 )
 
 func CreateFundAndGetSendingKeys(
-	client blockchain.EVMClient,
+	l zerolog.Logger,
+	client *seth.Client,
 	node *VRFNode,
 	chainlinkNodeFunding float64,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
 ) ([]string, []common.Address, error) {
-	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(client, node, chainlinkNodeFunding, numberOfTxKeysToCreate, chainID)
+	newNativeTokenKeyAddresses, err := CreateAndFundSendingKeys(l, client, node, chainlinkNodeFunding, numberOfTxKeysToCreate, chainID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -44,7 +48,8 @@ func CreateFundAndGetSendingKeys(
 }
 
 func CreateAndFundSendingKeys(
-	client blockchain.EVMClient,
+	l zerolog.Logger,
+	client *seth.Client,
 	node *VRFNode,
 	chainlinkNodeFunding float64,
 	numberOfNativeTokenAddressesToCreate int,
@@ -60,7 +65,11 @@ func CreateAndFundSendingKeys(
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
-		err = actions.FundAddress(client, newTxKey.Data.Attributes.Address, big.NewFloat(chainlinkNodeFunding))
+		_, err = actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+			ToAddress:  common.HexToAddress(newTxKey.Data.Attributes.Address),
+			Amount:     conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)),
+			PrivateKey: client.PrivateKeys[0],
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -79,13 +88,14 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID.Int64())
+	sethClient, err := env.GetSethClient(chainID.Int64())
 	if err != nil {
 		return err
 	}
 
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		evmClient,
+		l,
+		sethClient,
 		bhsNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,
@@ -158,12 +168,13 @@ func SetupBHFNode(
 	l zerolog.Logger,
 	bhfNode *VRFNode,
 ) error {
-	evmClient, err := env.GetEVMClient(chainID.Int64())
+	sethClient, err := env.GetSethClient(chainID.Int64())
 	if err != nil {
 		return err
 	}
 	bhfTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
-		evmClient,
+		l,
+		sethClient,
 		bhfNode,
 		txKeyFunding,
 		numberOfTxKeysToCreate,
@@ -306,26 +317,30 @@ func CreateVRFKeyOnVRFNode(vrfNode *VRFNode, l zerolog.Logger) (*client.VRFKey, 
 	return vrfKey, pubKeyCompressed, nil
 }
 
-func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client blockchain.EVMClient, l zerolog.Logger) error {
+func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config.ExistingEnvConfig, client *seth.Client, l zerolog.Logger) error {
 	if *existingEnvConfig.NodeSendingKeyFundingMin > 0 {
 		for _, sendingKey := range existingEnvConfig.NodeSendingKeys {
 			address := common.HexToAddress(sendingKey)
-			sendingKeyBalance, err := client.BalanceAt(ctx, address)
+			sendingKeyBalance, err := client.Client.BalanceAt(ctx, address, nil)
 			if err != nil {
 				return err
 			}
 			fundingAtLeast := conversions.EtherToWei(big.NewFloat(*existingEnvConfig.NodeSendingKeyFundingMin))
 			fundingToSendWei := new(big.Int).Sub(fundingAtLeast, sendingKeyBalance)
-			fundingToSendEth := conversions.WeiToEther(fundingToSendWei)
 			log := l.Info().
 				Str("Sending Key", sendingKey).
 				Str("Sending Key Current Balance", sendingKeyBalance.String()).
 				Str("Should have at least", fundingAtLeast.String())
 			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
 				log.
-					Str("Funding Amount in ETH", fundingToSendEth.String()).
+					Str("Funding Amount in wei", fundingToSendWei.String()).
+					Str("Funding Amount in ETH", conversions.WeiToEther(fundingToSendWei).String()).
 					Msg("Funding Node's Sending Key")
-				err := actions.FundAddress(client, sendingKey, fundingToSendEth)
+				_, err := actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+					ToAddress:  common.HexToAddress(sendingKey),
+					Amount:     fundingToSendWei,
+					PrivateKey: client.PrivateKeys[0],
+				})
 				if err != nil {
 					return err
 				}
@@ -336,4 +351,21 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 		}
 	}
 	return nil
+}
+
+func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv, error) {
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestInstance(t).
+		WithTestConfig(&envConfig.TestConfig).
+		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
+		WithCLNodes(len(newEnvConfig.NodesToCreate)).
+		WithFunding(big.NewFloat(*envConfig.TestConfig.Common.ChainlinkNodeFunding)).
+		WithChainlinkNodeLogScanner(newEnvConfig.ChainlinkNodeLogScannerSettings).
+		WithCustomCleanup(envConfig.CleanupFn).
+		WithSeth().
+		Build()
+	if err != nil {
+		return nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+	}
+	return env, nil
 }

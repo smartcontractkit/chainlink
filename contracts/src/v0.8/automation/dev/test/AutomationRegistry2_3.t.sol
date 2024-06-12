@@ -136,26 +136,86 @@ contract CheckUpkeep is SetUp {
   }
 }
 
+contract WithdrawFunds is SetUp {
+  event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+
+  function test_RevertsWhen_CalledByNonAdmin() external {
+    vm.expectRevert(Registry.OnlyCallableByAdmin.selector);
+    vm.prank(STRANGER);
+    registry.withdrawFunds(linkUpkeepID, STRANGER);
+  }
+
+  function test_RevertsWhen_InvalidRecipient() external {
+    vm.expectRevert(Registry.InvalidRecipient.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, ZERO_ADDRESS);
+  }
+
+  function test_RevertsWhen_UpkeepNotCanceled() external {
+    vm.expectRevert(Registry.UpkeepNotCanceled.selector);
+    vm.prank(UPKEEP_ADMIN);
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+  }
+
+  function test_Happy_Link() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(linkUpkeepID);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = linkToken.balanceOf(UPKEEP_ADMIN);
+    uint256 startLinkReserveAmountBalance = registry.getReserveAmount(address(linkToken));
+
+    uint256 upkeepBalance = registry.getBalance(linkUpkeepID);
+    vm.expectEmit();
+    emit FundsWithdrawn(linkUpkeepID, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(linkUpkeepID, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(linkUpkeepID), 0);
+    assertEq(linkToken.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(linkToken)), startLinkReserveAmountBalance - upkeepBalance);
+  }
+
+  function test_Happy_USDToken() external {
+    vm.startPrank(UPKEEP_ADMIN);
+    registry.cancelUpkeep(usdUpkeepID6);
+    vm.roll(100 + block.number);
+
+    uint256 startUpkeepAdminBalance = usdToken6.balanceOf(UPKEEP_ADMIN);
+    uint256 startUSDToken6ReserveAmountBalance = registry.getReserveAmount(address(usdToken6));
+
+    uint256 upkeepBalance = registry.getBalance(usdUpkeepID6);
+    vm.expectEmit();
+    emit FundsWithdrawn(usdUpkeepID6, upkeepBalance, address(UPKEEP_ADMIN));
+    registry.withdrawFunds(usdUpkeepID6, UPKEEP_ADMIN);
+
+    assertEq(registry.getBalance(usdUpkeepID6), 0);
+    assertEq(usdToken6.balanceOf(UPKEEP_ADMIN), startUpkeepAdminBalance + upkeepBalance);
+    assertEq(registry.getReserveAmount(address(usdToken6)), startUSDToken6ReserveAmountBalance - upkeepBalance);
+  }
+}
+
 contract AddFunds is SetUp {
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
 
   // when msg.value is 0, it uses the ERC20 payment path
-  function testNative_msgValue0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValue0() external {
     vm.startPrank(OWNER);
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
     registry.addFunds(nativeUpkeepID, 1);
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // when msg.value is not 0, it uses the native payment path
-  function testNative_msgValueNot0() external {
+  function test_HappyWhen_NativeUpkeep_WithMsgValueNot0() external {
     uint256 startRegistryBalance = registry.getBalance(nativeUpkeepID);
     uint256 startTokenBalance = registry.getBalance(nativeUpkeepID);
     registry.addFunds{value: 1}(nativeUpkeepID, 1000); // parameter amount should be ignored
     assertEq(registry.getBalance(nativeUpkeepID), startRegistryBalance + 1);
     assertEq(weth.balanceOf(address(registry)), startTokenBalance + 1);
+    assertEq(registry.getAvailableERC20ForPayment(address(weth)), 0);
   }
 
   // it fails when the billing token is not native, but trying to pay with native
@@ -287,15 +347,41 @@ contract Withdraw is SetUp {
     registry.withdrawLink(FINANCE_ADMIN, 1); // but using link withdraw functions succeeds
   }
 
+  // default is ON_CHAIN mode
   function test_WithdrawERC20Fees_RevertsWhen_LinkAvailableForPaymentIsNegative() public {
     _transmit(usdUpkeepID18, registry); // adds USD token to finance withdrawable, and gives NOPs a LINK balance
     require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
     vm.expectRevert(Registry.InsufficientLinkLiquidity.selector);
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // should revert
     _mintLink(address(registry), uint256(registry.linkAvailableForPayment() * -10)); // top up LINK liquidity pool
     vm.prank(FINANCE_ADMIN);
     registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, 1); // now finance can withdraw
+  }
+
+  function test_WithdrawERC20Fees_InOffChainMode_Happy() public {
+    // deploy and configure a registry with OFF_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 id = registry.registerUpkeep(address(TARGET1), 1000000, UPKEEP_ADMIN, 0, address(usdToken18), "", "", "");
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken18.approve(address(registry), 1e20);
+    registry.addFunds(id, 1e20);
+
+    // manually create a transmit so transmitters earn some rewards
+    _transmit(id, registry);
+    require(registry.linkAvailableForPayment() < 0, "linkAvailableForPayment should be negative");
+    vm.prank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken18), aMockAddress, 1); // finance can withdraw
+
+    // recipient should get the funds
+    assertEq(usdToken18.balanceOf(address(aMockAddress)), 1);
   }
 
   function testWithdrawERC20FeeSuccess() public {
@@ -901,7 +987,8 @@ contract NOPsSettlement is SetUp {
     registry.settleNOPsOffchain();
   }
 
-  function testSettleNOPsOffchainSuccessTransmitterBalanceZeroed() public {
+  // 1. transmitter balance zeroed after settlement, 2. admin can withdraw ERC20, 3. switch to onchain mode, 4. link amount owed to NOPs stays the same
+  function testSettleNOPsOffchainSuccessWithERC20MultiSteps() public {
     // deploy and configure a registry with OFF_CHAIN payout
     (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.OFF_CHAIN);
 
@@ -943,6 +1030,42 @@ contract NOPsSettlement is SetUp {
 
     // after the offchain settlement, the total reserve amount of LINK should be 0
     assertEq(registry.getReserveAmount(address(linkToken)), 0);
+    // should have some ERC20s in registry after transmit
+    uint256 erc20ForPayment1 = registry.getAvailableERC20ForPayment(address(usdToken18));
+    require(erc20ForPayment1 > 0, "ERC20AvailableForPayment should be positive");
+
+    vm.startPrank(UPKEEP_ADMIN);
+    vm.roll(100 + block.number);
+    // manually create a transmit so transmitters earn some rewards
+    _transmit(id, registry);
+
+    uint256 erc20ForPayment2 = registry.getAvailableERC20ForPayment(address(usdToken18));
+    require(erc20ForPayment2 > erc20ForPayment1, "ERC20AvailableForPayment should be greater after another transmit");
+
+    // finance admin comes to withdraw all available ERC20s
+    vm.startPrank(FINANCE_ADMIN);
+    registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, erc20ForPayment2);
+
+    uint256 erc20ForPayment3 = registry.getAvailableERC20ForPayment(address(usdToken18));
+    require(erc20ForPayment3 == 0, "ERC20AvailableForPayment should be 0 now after withdrawal");
+
+    uint256 reservedLink = registry.getReserveAmount(address(linkToken));
+    require(reservedLink > 0, "Reserve amount of LINK should be positive since there was another transmit");
+
+    // owner comes to disable offchain mode
+    vm.startPrank(registry.owner());
+    registry.disableOffchainPayments();
+
+    // finance admin comes to withdraw all available ERC20s, should revert bc of insufficient link liquidity
+    vm.startPrank(FINANCE_ADMIN);
+    uint256 erc20ForPayment4 = registry.getAvailableERC20ForPayment(address(usdToken18));
+    vm.expectRevert(abi.encodeWithSelector(Registry.InsufficientLinkLiquidity.selector));
+    registry.withdrawERC20Fees(address(usdToken18), FINANCE_ADMIN, erc20ForPayment4);
+
+    // reserved link amount to NOPs should stay the same after switching to onchain mode
+    assertEq(registry.getReserveAmount(address(linkToken)), reservedLink);
+    // available ERC20 for payment should be 0 since finance admin withdrew all already
+    assertEq(erc20ForPayment4, 0);
   }
 
   function testSettleNOPsOffchainForDeactivatedTransmittersSuccess() public {
@@ -1488,6 +1611,43 @@ contract BillingOverrides is SetUp {
 }
 
 contract Transmit is SetUp {
+  function test_transmitRevertWithExtraBytes() external {
+    bytes32[3] memory exampleReportContext = [
+      bytes32(0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef),
+      bytes32(0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890),
+      bytes32(0x7890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123456)
+    ];
+
+    bytes memory exampleRawReport = hex"deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+    bytes32[] memory exampleRs = new bytes32[](3);
+    exampleRs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleRs[2] = bytes32(0x7890789078907890789078907890789078907890789078907890789078907890);
+
+    bytes32[] memory exampleSs = new bytes32[](3);
+    exampleSs[0] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[1] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+    exampleSs[2] = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes32 exampleRawVs = bytes32(0x1234561234561234561234561234561234561234561234561234561234561234);
+
+    bytes memory transmitData = abi.encodeWithSelector(
+      registry.transmit.selector,
+      exampleReportContext,
+      exampleRawReport,
+      exampleRs,
+      exampleSs,
+      exampleRawVs
+    );
+    bytes memory badTransmitData = bytes.concat(transmitData, bytes1(0x00)); // add extra data
+    vm.startPrank(TRANSMITTERS[0]);
+    (bool success, bytes memory returnData) = address(registry).call(badTransmitData); // send the bogus transmit
+    assertFalse(success, "Call did not revert as expected");
+    assertEq(returnData, abi.encodePacked(Registry.InvalidDataLength.selector));
+    vm.stopPrank();
+  }
+
   function test_handlesMixedBatchOfBillingTokens() external {
     uint256[] memory prevUpkeepBalances = new uint256[](3);
     prevUpkeepBalances[0] = registry.getBalance(linkUpkeepID);
@@ -1505,8 +1665,21 @@ contract Transmit is SetUp {
     upkeepIDs[0] = linkUpkeepID;
     upkeepIDs[1] = usdUpkeepID18;
     upkeepIDs[2] = nativeUpkeepID;
+
+    // withdraw-able by finance team should be 0
+    require(registry.getAvailableERC20ForPayment(address(usdToken18)) == 0, "ERC20AvailableForPayment should be 0");
+    require(registry.getAvailableERC20ForPayment(address(weth)) == 0, "ERC20AvailableForPayment should be 0");
+
     // do the thing
     _transmit(upkeepIDs, registry);
+
+    // withdraw-able by the finance team should be positive
+    require(
+      registry.getAvailableERC20ForPayment(address(usdToken18)) > 0,
+      "ERC20AvailableForPayment should be positive"
+    );
+    require(registry.getAvailableERC20ForPayment(address(weth)) > 0, "ERC20AvailableForPayment should be positive");
+
     // assert upkeep balances have decreased
     require(prevUpkeepBalances[0] > registry.getBalance(linkUpkeepID), "link upkeep balance should have decreased");
     require(prevUpkeepBalances[1] > registry.getBalance(usdUpkeepID18), "usd upkeep balance should have decreased");
@@ -1528,6 +1701,104 @@ contract Transmit is SetUp {
       prevReserveBalances[2] > registry.getReserveAmount(address(weth)),
       "native reserve amount should have decreased"
     );
+  }
+
+  function test_handlesInsufficientBalanceWithUSDToken18() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken18),
+      "",
+      "",
+      ""
+    );
+    _mintERC20_18Decimals(UPKEEP_ADMIN, 1e20);
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken18.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 1); // smaller than gasCharge
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(gasChargeInBillingToken, balance);
+    assertEq(gasReimbursementInJuels, (balance * billingUSD) / linkUSD);
+    assertEq(premiumInJuels, 0);
+    assertEq(premiumInBillingToken, 0);
+  }
+
+  function test_handlesInsufficientBalanceWithUSDToken6() external {
+    // deploy and configure a registry with ON_CHAIN payout
+    (Registry registry, ) = deployAndConfigureRegistryAndRegistrar(AutoBase.PayoutMode.ON_CHAIN);
+
+    // register an upkeep and add funds
+    uint256 upkeepID = registry.registerUpkeep(
+      address(TARGET1),
+      1000000,
+      UPKEEP_ADMIN,
+      0,
+      address(usdToken6),
+      "",
+      "",
+      ""
+    );
+    vm.prank(OWNER);
+    usdToken6.mint(UPKEEP_ADMIN, 1e20);
+
+    vm.startPrank(UPKEEP_ADMIN);
+    usdToken6.approve(address(registry), 1e20);
+    registry.addFunds(upkeepID, 100); // this is greater than gasCharge but less than (gasCharge + premium)
+    uint256 balance = registry.getBalance(upkeepID);
+
+    // manually create a transmit
+    vm.recordLogs();
+    _transmit(upkeepID, registry);
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+
+    assertEq(entries.length, 3);
+    Vm.Log memory l1 = entries[1];
+    assertEq(
+      l1.topics[0],
+      keccak256("UpkeepCharged(uint256,(uint96,uint96,uint96,uint96,address,uint96,uint96,uint96))")
+    );
+    (
+      uint96 gasChargeInBillingToken,
+      uint96 premiumInBillingToken,
+      uint96 gasReimbursementInJuels,
+      uint96 premiumInJuels,
+      address billingToken,
+      uint96 linkUSD,
+      uint96 nativeUSD,
+      uint96 billingUSD
+    ) = abi.decode(l1.data, (uint96, uint96, uint96, uint96, address, uint96, uint96, uint96));
+
+    assertEq(premiumInJuels, (balance * billingUSD * 1e12) / linkUSD - gasReimbursementInJuels); // scale to 18 decimals
+    assertEq(premiumInBillingToken, (premiumInJuels * linkUSD + (billingUSD * 1e12 - 1)) / (billingUSD * 1e12));
   }
 }
 

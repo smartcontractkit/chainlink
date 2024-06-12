@@ -44,7 +44,6 @@ func TestNewOnRampReader_noContractAtAddress(t *testing.T) {
 }
 
 func TestOnRampReaderInit(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		version string

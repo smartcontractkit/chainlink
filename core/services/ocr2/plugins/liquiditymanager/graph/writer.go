@@ -18,7 +18,6 @@ func (g *liquidityGraph) Add(from, to Data) error {
 		return fmt.Errorf("add connection %d -> %d: %w", from.NetworkSelector, to.NetworkSelector, err)
 	}
 	return nil
-
 }
 
 func (g *liquidityGraph) AddEdges(edges []models.Edge) error {

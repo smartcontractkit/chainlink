@@ -3,26 +3,40 @@
 # List of required environment variables
 required_vars=(
   "DEVSPACE_IMAGE"
+  "DEVSPACE_PROFILE"
   "DEVSPACE_INGRESS_CIDRS"
   "DEVSPACE_INGRESS_BASE_DOMAIN"
   "DEVSPACE_INGRESS_CERT_ARN"
   "DEVSPACE_K8S_POD_WAIT_TIMEOUT"
   "CCIP_HELM_CHART_URI"
   "NS_TTL"
-  "DEVSPACE_CCIP_SCRIPTS_IMAGE"
-  "DEVSPACE_CCIP_SCRIPTS_OIDC_ROLE_ARN"
-  "DEVSPACE_CCIP_SCRIPTS_OUTPUT_BUCKET_NAME"
-  )
+)
 
-missing_vars=0  # Counter for missing variables
+missing_vars=0 # Counter for missing variables
 
 # Check each variable
 for var in "${required_vars[@]}"; do
-  if [ -z "${!var}" ]; then  # If variable is unset or empty
+  if [ -z "${!var}" ]; then # If variable is unset or empty
     echo "Error: Environment variable $var is not set."
     missing_vars=$((missing_vars + 1))
   fi
 done
+
+# Check for keystone specific profiles
+if [[ "${DEVSPACE_PROFILE}" == "keystone" ]]; then
+  keystone_vars=(
+    "KEYSTONE_ETH_WS_URL"
+    "KEYSTONE_ETH_HTTP_URL"
+    "KEYSTONE_ACCOUNT_KEY"
+  )
+
+  for var in "${keystone_vars[@]}"; do
+    if [ -z "${!var}" ]; then # If variable is unset or empty
+      echo "Error: Environment variable $var is not set."
+      missing_vars=$((missing_vars + 1))
+    fi
+  done
+fi
 
 # Exit with an error if any variables were missing
 if [ $missing_vars -ne 0 ]; then

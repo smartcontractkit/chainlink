@@ -80,7 +80,7 @@ func (c *ccipCommitProvider) ContractTransmitter() ocrtypes.ContractTransmitter 
 	return c.contractTransmitter
 }
 
-func (c *ccipCommitProvider) ChainReader() commontypes.ChainReader {
+func (c *ccipCommitProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (c *ccipExecutionProvider) ContractTransmitter() ocrtypes.ContractTransmitt
 	return c.contractTransmitter
 }
 
-func (c *ccipExecutionProvider) ChainReader() commontypes.ChainReader {
+func (c *ccipExecutionProvider) ChainReader() commontypes.ContractReader {
 	return nil
 }
 

@@ -3,12 +3,9 @@ package soak
 import (
 	"testing"
 
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -27,19 +24,6 @@ func TestOCRSoak(t *testing.T) {
 
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
-
-	// validate Seth config before anything else
-	readSethCfg := config.GetSethConfig()
-	require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
-
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
-	require.NoError(t, err, "Error merging seth and evm network configs")
-	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
-	require.NoError(t, err, "Error validating seth network config")
-
-	_, err = seth.NewClientWithConfig(&sethCfg)
-	require.NoError(t, err, "Error creating seth client")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
 	require.NoError(t, err, "Error creating soak test")

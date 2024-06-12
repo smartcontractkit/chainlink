@@ -40,7 +40,7 @@ func TestNewGraphFromEdges(t *testing.T) {
 
 func TestNewGraphWithData(t *testing.T) {
 	type args struct {
-		ctx           context.Context
+		ctx           context.Context //nolint:containedctx
 		startNetwork  models.NetworkSelector
 		startAddress  models.Address
 		getVertexInfo DataGetter

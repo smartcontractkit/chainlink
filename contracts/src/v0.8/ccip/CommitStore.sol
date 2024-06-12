@@ -28,6 +28,7 @@ contract CommitStore is ICommitStore, ITypeAndVersion, OCR2Base {
 
   /// @notice Static commit store config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
+  //solhint-disable gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ───────╮  Destination chainSelector
     uint64 sourceChainSelector; // ─╯  Source chainSelector

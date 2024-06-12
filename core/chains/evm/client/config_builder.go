@@ -11,6 +11,7 @@ import (
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
@@ -55,7 +56,7 @@ func NewClientConfigs(
 	chainConfig := &evmconfig.EVMConfig{
 		C: &toml.EVMConfig{
 			Chain: toml.Chain{
-				ChainType:           &chainType,
+				ChainType:           chaintype.NewChainTypeConfig(chainType),
 				FinalityDepth:       finalityDepth,
 				FinalityTagEnabled:  finalityTagEnabled,
 				NoNewHeadsThreshold: commonconfig.MustNewDuration(noNewHeadsThreshold),

@@ -540,7 +540,6 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) (
 // computeMedianGraph computes a graph with the provided median liquidities per chain and edges that quorum agreed on.
 func (p *Plugin) computeMedianGraph(
 	edges []models.Edge, medianLiquidities []models.NetworkLiquidity) (graph.Graph, error) {
-
 	g, err := graph.NewGraphFromEdges(edges)
 	if err != nil {
 		return nil, fmt.Errorf("new graph from edges: %w", err)

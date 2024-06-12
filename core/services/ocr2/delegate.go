@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
@@ -25,23 +26,26 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+
+	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
+	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
+	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
+
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
-	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
-	"github.com/smartcontractkit/chainlink-vrf/ocr2vrf"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -306,7 +310,7 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 	spec := jb.OCR2OracleSpec
 	chain, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
-		d.lggr.Error("cleanupEVM: failed to chain get chain %s", "err", relayID.ChainID, err)
+		d.lggr.Errorw("cleanupEVM: failed to get chain id", "chainId", relayID.ChainID, "err", err)
 		return nil
 	}
 	lp := chain.LogPoller()
@@ -319,10 +323,17 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
 	case types.OCR2Keeper:
+		// Not worth the effort to validate and parse the job spec config to figure out whether this is v2.0 or v2.1,
+		// simpler and faster to just Unregister them both
 		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
+		filters21, err2 := ocr2keeper.FilterNamesFromSpec21(spec)
+		if err2 != nil {
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+		}
+		filters = append(filters, filters21...)
 	case types.CCIPCommit:
 		err = ccipcommit.UnregisterCommitPluginLpFilters(context.Background(), d.lggr, jb, d.legacyChains)
 		if err != nil {
@@ -401,7 +412,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
 		}
-		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
@@ -415,10 +426,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-
-	ocrLogger := commonlogger.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
-	})
 
 	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
@@ -457,22 +464,22 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	ctx = lggrCtx.ContextWithValues(ctx)
 	switch spec.PluginType {
 	case types.Mercury:
-		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.LLO:
-		return d.newServicesLLO(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesLLO(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.Median:
-		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc, ocrLogger)
+		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, kvStore, ocrDB, lc)
 
 	case types.DKG:
-		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2VRF:
 		return d.newServicesOCR2VRF(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.OCR2Keeper:
-		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
 
 	case types.Functions:
 		const (
@@ -482,10 +489,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		)
 		thresholdPluginDB := NewDB(d.ds, spec.ID, thresholdPluginId, lggr)
 		s4PluginDB := NewDB(d.ds, spec.ID, s4PluginId, lggr)
-		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
+		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc)
 
 	case types.GenericPlugin:
-		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, d.capabilitiesRegistry,
+		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry,
 			kvStore)
 
 	case types.CCIPCommit:
@@ -499,7 +506,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 }
 
-func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == types.Mercury || spec.PluginType == types.LLO {
 		return spec.TransmitterID.String, nil
@@ -525,14 +532,22 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logge
 		if chain == nil {
 			return "", fmt.Errorf("job forwarding requires non-nil chain")
 		}
-		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
+
+		var err error
+		var effectiveTransmitterID common.Address
+		// Median forwarders need special handling because of OCR2Aggregator transmitters whitelist.
+		if spec.PluginType == types.Median {
+			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOAOCR2Feeds(ctx, common.HexToAddress(spec.TransmitterID.String), common.HexToAddress(spec.ContractID))
+		} else {
+			effectiveTransmitterID, err = chain.TxManager().GetForwarderForEOA(ctx, common.HexToAddress(spec.TransmitterID.String))
+		}
+
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if !spec.TransmitterID.Valid {
 			return "", errors.New("failed to get forwarder address and transmitterID is not set")
 		}
 		lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
-		// this shouldn't happen unless behaviour above was changed
 	}
 
 	return spec.TransmitterID.String, nil
@@ -550,7 +565,6 @@ func (d *Delegate) newServicesGenericPlugin(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	keyValueStore core.KeyValueStore,
 ) (srvs []job.ServiceCtx, err error) {
@@ -680,6 +694,11 @@ func (d *Delegate) newServicesGenericPlugin(
 		synchronization.TelemetryType(pCfg.TelemetryType),
 	)
 
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+	srvs = append(srvs, ocrLogger)
+
 	switch pCfg.OCRVersion {
 	case 2:
 		plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta,
@@ -700,17 +719,59 @@ func (d *Delegate) newServicesGenericPlugin(
 		}
 		oracleArgs.ReportingPluginFactory = plugin
 		srvs = append(srvs, plugin)
-		oracle, err := libocr2.NewOracle(oracleArgs)
-		if err != nil {
-			return nil, err
+		oracle, oracleErr := libocr2.NewOracle(oracleArgs)
+		if oracleErr != nil {
+			return nil, oracleErr
 		}
 		srvs = append(srvs, job.NewServiceAdapter(oracle))
 
 	case 3:
-		// OCR3 with OCR2 OnchainKeyring and ContractTransmitter
-		plugin := ocr3.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerClientConn, pr, ta, errorLog,
-			capabilitiesRegistry, keyValueStore, relayerSet)
-		contractTransmitter := ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter())
+		//OCR3 with OCR2 OnchainKeyring and ContractTransmitter
+		plugin := ocr3.NewLOOPPService(
+			pluginLggr,
+			grpcOpts,
+			cmdFn,
+			pluginConfig,
+			providerClientConn,
+			pr,
+			ta,
+			errorLog,
+			capabilitiesRegistry,
+			keyValueStore,
+			relayerSet,
+		)
+
+		// Adapt the provider's contract transmitter for OCR3, unless
+		// the provider exposes an OCR3ContractTransmitter interface, in which case
+		// we'll use that instead.
+		contractTransmitter := ocr3types.ContractTransmitter[[]byte](
+			ocrcommon.NewOCR3ContractTransmitterAdapter(provider.ContractTransmitter()),
+		)
+		if ocr3Provider, ok := provider.(types.OCR3ContractTransmitter); ok {
+			contractTransmitter = ocr3Provider.OCR3ContractTransmitter()
+		}
+		var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+		if onchainSigningStrategy.IsMultiChain() {
+			// We are extracting the config beforehand
+			keyBundles := map[string]ocr2key.KeyBundle{}
+			for name := range onchainSigningStrategy.ConfigCopy() {
+				kbID, ostErr := onchainSigningStrategy.KeyBundleID(name)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				os, ostErr := d.ks.Get(kbID)
+				if ostErr != nil {
+					return nil, ostErr
+				}
+				keyBundles[name] = os
+			}
+			onchainKeyringAdapter, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(keyBundles, lggr)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
+		}
 		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
@@ -722,7 +783,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			MonitoringEndpoint:           oracleEndpoint,
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
-			OnchainKeyring:               ocrcommon.NewOCR3OnchainKeyringAdapter(kb),
+			OnchainKeyring:               onchainKeyringAdapter,
 			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin
@@ -748,7 +809,6 @@ func (d *Delegate) newServicesMercury(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	if jb.OCR2OracleSpec.FeedID == nil || (*jb.OCR2OracleSpec.FeedID == (common.Hash{})) {
 		return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID")
@@ -800,6 +860,10 @@ func (d *Delegate) newServicesMercury(
 	// https://smartcontract-it.atlassian.net/browse/MERC-3386
 	lc.ContractConfigTrackerPollInterval = 1 * time.Second // Mercury requires a fast poll interval, this is the fastest that libocr supports. See: https://github.com/smartcontractkit/offchain-reporting/pull/520
 
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -828,6 +892,8 @@ func (d *Delegate) newServicesMercury(
 		lggr.Infow("Enhanced telemetry is disabled for mercury job", "job", jb.Name)
 	}
 
+	mercuryServices = append(mercuryServices, ocrLogger)
+
 	return mercuryServices, err2
 }
 
@@ -839,7 +905,6 @@ func (d *Delegate) newServicesLLO(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	lggr = logger.Sugared(lggr.Named("LLO"))
 	spec := jb.OCR2OracleSpec
@@ -931,6 +996,10 @@ func (d *Delegate) newServicesLLO(
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
 	kr := llo.NewOnchainKeyring(lggr, kbm)
 
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+
 	cfg := llo.DelegateConfig{
 		Logger:     lggr,
 		DataSource: d.ds,
@@ -959,7 +1028,7 @@ func (d *Delegate) newServicesLLO(
 	if err != nil {
 		return nil, err
 	}
-	return []job.ServiceCtx{provider, oracle}, nil
+	return []job.ServiceCtx{provider, ocrLogger, oracle}, nil
 }
 
 func (d *Delegate) newServicesMedian(
@@ -971,7 +1040,6 @@ func (d *Delegate) newServicesMedian(
 	kvStore job.KVStore,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
@@ -979,6 +1047,10 @@ func (d *Delegate) newServicesMedian(
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
 	}
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
 
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1013,6 +1085,8 @@ func (d *Delegate) newServicesMedian(
 		lggr.Infow("Enhanced telemetry is disabled for job", "job", jb.Name)
 	}
 
+	medianServices = append(medianServices, ocrLogger)
+
 	return medianServices, err2
 }
 
@@ -1023,7 +1097,6 @@ func (d *Delegate) newServicesDKG(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	rid, err := spec.RelayID()
@@ -1053,6 +1126,9 @@ func (d *Delegate) newServicesDKG(
 	if err2 != nil {
 		return nil, err2
 	}
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
 	noopMonitoringEndpoint := telemetry.NoopAgent{}
 	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1069,7 +1145,12 @@ func (d *Delegate) newServicesDKG(
 		OnchainKeyring:         kb,
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	return dkg.NewDKGServices(jb, dkgProvider, lggr, ocrLogger, d.dkgSignKs, d.dkgEncryptKs, chain.Client(), oracleArgsNoPlugin, d.ds, chain.ID(), spec.Relay)
+	services, err := dkg.NewDKGServices(jb, dkgProvider, lggr, ocrLogger, d.dkgSignKs, d.dkgEncryptKs, chain.Client(), oracleArgsNoPlugin, d.ds, chain.ID(), spec.Relay)
+	if err != nil {
+		return nil, err
+	}
+	services = append(services, ocrLogger)
+	return services, nil
 }
 
 func (d *Delegate) newServicesOCR2VRF(
@@ -1192,12 +1273,10 @@ func (d *Delegate) newServicesOCR2VRF(
 		"jobName", jb.Name.ValueOrZero(),
 		"jobID", jb.ID,
 	)
-	vrfLogger := commonlogger.NewOCRWrapper(l.With(
-		"vrfContractID", spec.ContractID), d.cfg.OCR2().TraceLogging(), func(msg string) {
+	vrfLogger := ocrcommon.NewOCRWrapper(l.With("vrfContractID", spec.ContractID), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
-	dkgLogger := commonlogger.NewOCRWrapper(l.With(
-		"dkgContractID", cfg.DKGContractAddress), d.cfg.OCR2().TraceLogging(), func(msg string) {
+	dkgLogger := ocrcommon.NewOCRWrapper(l.With("dkgContractID", cfg.DKGContractAddress), d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
 	})
 	dkgReportingPluginFactoryDecorator := func(wrapped ocrtypes.ReportingPluginFactory) ocrtypes.ReportingPluginFactory {
@@ -1258,7 +1337,6 @@ func (d *Delegate) newServicesOCR2Keepers(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	var cfg ocr2keeper.PluginConfig
@@ -1272,14 +1350,14 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	switch cfg.ContractVersion {
 	case "v2.1":
-		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
 	case "v2.1+":
 		// Future contracts of v2.1 (v2.x) will use the same job spec as v2.1
-		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers21(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
+		return d.newServicesOCR2Keepers20(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, cfg, spec)
 	}
 }
 
@@ -1291,7 +1369,6 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
@@ -1373,6 +1450,9 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	if cfg.ServiceQueueLength != 0 {
 		conf.ServiceQueueLength = cfg.ServiceQueueLength
 	}
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
 
 	dConf := ocr2keepers21.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1419,6 +1499,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		keeperProvider.UpkeepStateStore(),
 		keeperProvider.TransmitEventProvider(),
 		pluginService,
+		ocrLogger,
 	}
 
 	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
@@ -1447,7 +1528,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
@@ -1523,6 +1603,10 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		CacheClean: conf.CacheEvictionInterval,
 	}
 
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
+
 	dConf := ocr2keepers20.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -1557,6 +1641,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		keeperProvider,
 		rgstry,
 		logProvider,
+		ocrLogger,
 		pluginService,
 	}, nil
 }
@@ -1571,7 +1656,6 @@ func (d *Delegate) newServicesOCR2Functions(
 	thresholdOcrDB *db,
 	s4OcrDB *db,
 	lc ocrtypes.LocalConfig,
-	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
@@ -1621,6 +1705,10 @@ func (d *Delegate) newServicesOCR2Functions(
 	if err != nil {
 		return nil, err
 	}
+
+	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(ctx, jb.ID, msg), "unable to record error")
+	})
 
 	functionsOracleArgs := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
@@ -1707,7 +1795,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}
 
-	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
+	return append([]job.ServiceCtx{functionsProvider, thresholdProvider, s4Provider, ocrLogger}, functionsServices...), nil
 }
 
 func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {

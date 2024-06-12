@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-nightly-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -87,6 +87,15 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ github.head_ref || github.ref_name }}
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@main
+        with:
+          # aws inputs
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          # other inputs
+          duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-upgrade-config
         with:
@@ -101,19 +110,21 @@ jobs:
           lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: ${{ vars.GRAFANA_URL }}
+          grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: 'public.ecr.aws/chainlink/chainlink'
           cl_image_tag: 'latest'
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
+          artifacts_name: testcontainers-logs-${{ matrix.tests.name }}
           publish_check_name: Automation Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
@@ -124,14 +135,14 @@ jobs:
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: failure()
         with:
-          name: test-log-${{ matrix.tests.name }}
+          name: gotest-logs-${{ matrix.tests.name }}
           path: /tmp/gotest.log
           retention-days: 7
         continue-on-error: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-nightly-upgrade-tests-${{ matrix.tests.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -140,6 +151,9 @@ jobs:
           this-job-name: Automation ${{ matrix.tests.name }} Test
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
 
   test-notify:
     name: Start Slack Thread

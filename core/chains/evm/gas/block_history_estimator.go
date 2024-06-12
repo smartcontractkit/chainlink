@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -80,7 +80,7 @@ const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current bl
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
 type chainConfig interface {
-	ChainType() config.ChainType
+	ChainType() chaintype.ChainType
 }
 
 type estimatorGasEstimatorConfig interface {
@@ -98,19 +98,18 @@ type estimatorGasEstimatorConfig interface {
 type BlockHistoryEstimator struct {
 	services.StateMachine
 	ethClient feeEstimatorClient
-	chainID   big.Int
+	chainID   *big.Int
 	config    chainConfig
 	eConfig   estimatorGasEstimatorConfig
 	bhConfig  BlockHistoryConfig
 	// NOTE: it is assumed that blocks will be kept sorted by
 	// block number ascending
-	blocks    []evmtypes.Block
-	blocksMu  sync.RWMutex
-	size      int64
-	mb        *mailbox.Mailbox[*evmtypes.Head]
-	wg        *sync.WaitGroup
-	ctx       context.Context
-	ctxCancel context.CancelFunc
+	blocks   []evmtypes.Block
+	blocksMu sync.RWMutex
+	size     int64
+	mb       *mailbox.Mailbox[*evmtypes.Head]
+	wg       *sync.WaitGroup
+	stopCh   services.StopChan
 
 	gasPrice     *assets.Wei
 	tipCap       *assets.Wei
@@ -127,10 +126,8 @@ type BlockHistoryEstimator struct {
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	b := &BlockHistoryEstimator{
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID *big.Int, l1Oracle rollups.L1Oracle) EvmEstimator {
+	return &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
@@ -138,16 +135,13 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient feeEstimatorClient, 
 		bhConfig:  bhCfg,
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
-		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
-		mb:        mailbox.NewSingle[*evmtypes.Head](),
-		wg:        new(sync.WaitGroup),
-		ctx:       ctx,
-		ctxCancel: cancel,
-		logger:    logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
-		l1Oracle:  l1Oracle,
+		size:     int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
+		mb:       mailbox.NewSingle[*evmtypes.Head](),
+		wg:       new(sync.WaitGroup),
+		stopCh:   make(chan struct{}),
+		logger:   logger.Sugared(logger.Named(lggr, "BlockHistoryEstimator")),
+		l1Oracle: l1Oracle,
 	}
-
-	return b
 }
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
@@ -240,7 +234,7 @@ func (b *BlockHistoryEstimator) L1Oracle() rollups.L1Oracle {
 
 func (b *BlockHistoryEstimator) Close() error {
 	return b.StopOnce("BlockHistoryEstimator", func() error {
-		b.ctxCancel()
+		close(b.stopCh)
 		b.wg.Wait()
 		return nil
 	})
@@ -482,9 +476,12 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 
 func (b *BlockHistoryEstimator) runLoop() {
 	defer b.wg.Done()
+	ctx, cancel := b.stopCh.NewCtx()
+	defer cancel()
+
 	for {
 		select {
-		case <-b.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-b.mb.Notify():
 			head, exists := b.mb.Retrieve()
@@ -492,7 +489,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Debug("No head to retrieve")
 				continue
 			}
-			b.FetchBlocksAndRecalculate(b.ctx, head)
+			b.FetchBlocksAndRecalculate(ctx, head)
 		}
 	}
 }
@@ -846,7 +843,7 @@ func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 
 // isUsable returns true if the tx is usable both generally and specifically for
 // this Config.
-func (b *BlockHistoryEstimator) IsUsable(tx evmtypes.Transaction, block evmtypes.Block, chainType config.ChainType, minGasPrice *assets.Wei, lggr logger.Logger) bool {
+func (b *BlockHistoryEstimator) IsUsable(tx evmtypes.Transaction, block evmtypes.Block, chainType chaintype.ChainType, minGasPrice *assets.Wei, lggr logger.Logger) bool {
 	// GasLimit 0 is impossible on Ethereum official, but IS possible
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.

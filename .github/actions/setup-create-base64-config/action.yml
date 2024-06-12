@@ -111,6 +111,11 @@ runs:
           else
             execution_layer="geth"
         fi
+        
+        grafana_bearer_token=""
+        if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
+          grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
+        fi 
 
         grafana_bearer_token=""
         if [ -n "$GRAFANA_BEARER_TOKEN" ]; then

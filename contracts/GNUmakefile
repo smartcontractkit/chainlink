@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
 # profile defined and use the Foundry snapshots.
-ALL_FOUNDRY_PRODUCTS = l2ep llo-feeds functions keystone shared ccip liquiditymanager transmission
+ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared transmission
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -447,7 +448,7 @@ func (o *OffRamp) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, se
 		o.eventIndex,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
-		logpoller.Confirmations(confs),
+		evmtypes.Confirmations(confs),
 	)
 	if err != nil {
 		return nil, err
@@ -613,7 +614,6 @@ func DecodeExecReport(ctx context.Context, args abi.Arguments, report []byte) (c
 		Proofs:            erStruct.Proofs,
 		ProofFlagBits:     new(big.Int).SetBytes(erStruct.ProofFlagBits.Bytes()),
 	}, nil
-
 }
 
 func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {

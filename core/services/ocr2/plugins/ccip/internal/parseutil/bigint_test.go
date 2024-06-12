@@ -39,5 +39,4 @@ func TestParseBigIntFromAny(t *testing.T) {
 			assert.Equal(t, tc.res, res)
 		})
 	}
-
 }

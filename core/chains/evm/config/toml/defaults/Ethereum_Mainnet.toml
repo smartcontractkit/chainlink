@@ -8,7 +8,6 @@ FinalityTagEnabled = true
 EIP1559DynamicFees = true
 
 [GasEstimator.BlockHistory]
-BatchSize = 25
 # EIP-1559 does well on a smaller block history size
 BlockHistorySize = 4
 TransactionPercentile = 50

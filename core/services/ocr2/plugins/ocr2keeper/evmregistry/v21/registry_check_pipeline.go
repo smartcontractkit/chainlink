@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 )
 
 const (
@@ -95,8 +96,8 @@ func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier,
 	return block, common.BytesToHash(trigger.BlockHash[:]), upkeepID.BigInt()
 }
 
-func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
-	blocks, err := r.poller.GetBlocksRange(r.ctx, []uint64{blockNumber.Uint64()})
+func (r *EvmRegistry) getBlockHash(ctx context.Context, blockNumber *big.Int) (common.Hash, error) {
+	blocks, err := r.poller.GetBlocksRange(ctx, []uint64{blockNumber.Uint64()})
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -108,7 +109,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number and hash are valid
 	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
 	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
@@ -118,7 +119,7 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 		return encoding.NoPipelineError, false
 	}
 	r.lggr.Warnf("check block %s does not exist in block subscriber or hash does not match for upkeepId %s. this may be caused by block subscriber outdated due to re-org, querying eth client to confirm", checkBlock, upkeepId)
-	b, err := r.getBlockHash(checkBlock)
+	b, err := r.getBlockHash(ctx, checkBlock)
 	if err != nil {
 		r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
 		return encoding.RpcFlakyFailure, true
@@ -131,7 +132,7 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 }
 
 // verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
-func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
+func (r *EvmRegistry) verifyLogExists(ctx context.Context, upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
@@ -157,7 +158,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, bh, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
+	bn, bh, err := core.GetTxBlock(ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
@@ -187,6 +188,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	indices := map[int]int{}
 
 	for i, p := range payloads {
+		if ctx.Err() != nil {
+			return nil, context.Cause(ctx)
+		}
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
@@ -201,7 +205,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case types.LogTrigger:
-			reason, state, retryable := r.verifyLogExists(upkeepId, p)
+			reason, state, retryable := r.verifyLogExists(ctx, upkeepId, p)
 			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
 				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
 				continue
@@ -305,7 +309,19 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
-		opts := r.buildCallOpts(ctx, block)
+		oc, err := r.fetchUpkeepOffchainConfig(ctx, upkeepId)
+		if err != nil {
+			// this is mostly caused by RPC flakiness
+			r.lggr.Errorw("failed get offchain config, gas price check will be disabled", "err", err, "upkeepId", upkeepId, "block", block)
+		}
+		fr := gasprice.CheckGasPrice(ctx, upkeepId, oc, r.ge, r.lggr)
+		if uint8(fr) == uint8(encoding.UpkeepFailureReasonGasPriceTooHigh) {
+			r.lggr.Debugf("upkeep %s upkeep failure reason is %d", upkeepId, fr)
+			checkResults[i].Eligible = false
+			checkResults[i].Retryable = false
+			checkResults[i].IneligibilityReason = uint8(fr)
+			continue
+		}
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
@@ -317,6 +333,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
+		opts := r.buildCallOpts(ctx, block)
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",

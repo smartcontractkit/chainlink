@@ -14,13 +14,14 @@ import (
 	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 type FunctionsTest struct {
@@ -52,16 +53,7 @@ type S4SecretsCfg struct {
 
 func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	readSethCfg := globalConfig.GetSethConfig()
-	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(selectedNetwork, *readSethCfg)
-	if err != nil {
-		return nil, err
-	}
-	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
-	if err != nil {
-		return nil, err
-	}
-	seth, err := seth.NewClientWithConfig(&sethCfg)
+	seth, err := actions_seth.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}

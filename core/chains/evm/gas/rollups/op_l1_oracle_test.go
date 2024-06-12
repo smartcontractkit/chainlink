@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
@@ -87,8 +87,8 @@ func TestDAPriceReader_ReadV1GasPrice(t *testing.T) {
 				}).Return(common.BigToHash(l1BaseFee).Bytes(), nil).Once()
 			}
 
-			oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
-			gasPrice, err := oracle.GetDAGasPrice(testutils.Context(t))
+			oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+			gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 
 			if tc.returnBadData {
 				assert.Error(t, err)
@@ -155,8 +155,8 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 			rpcElements[1].Result = &res2
 		}).Return(nil).Once()
 
-		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
-		gasPrice, err := oracle.GetDAGasPrice(testutils.Context(t))
+		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		gasPrice, err := oracle.GetDAGasPrice(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, l1BaseFee, gasPrice)
 	})
@@ -170,8 +170,8 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 			rpcElements[1].Result = &badData
 		}).Return(nil).Once()
 
-		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
-		_, err := oracle.GetDAGasPrice(testutils.Context(t))
+		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		_, err := oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
 	})
 
@@ -179,8 +179,8 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 		ethClient := setupIsEcotone(t, oracleAddress)
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Return(fmt.Errorf("revert")).Once()
 
-		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
-		_, err := oracle.GetDAGasPrice(testutils.Context(t))
+		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		_, err := oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
 	})
 
@@ -193,8 +193,8 @@ func TestDAPriceReader_ReadEcotoneGasPrice(t *testing.T) {
 			rpcElements[1].Error = fmt.Errorf("revert")
 		}).Return(nil).Once()
 
-		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, config.ChainOptimismBedrock, oracleAddress)
-		_, err := oracle.GetDAGasPrice(testutils.Context(t))
+		oracle := newOpStackL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock, oracleAddress)
+		_, err := oracle.GetDAGasPrice(tests.Context(t))
 		assert.Error(t, err)
 	})
 }

@@ -11,6 +11,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINKTOKEN;
 
+  // solhint-disable-next-line gas-struct-packing
   struct RequestConfig {
     uint256 subId;
     uint32 callbackGasLimit;
