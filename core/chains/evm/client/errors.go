@@ -259,7 +259,7 @@ var internal = ClientErrors{
 
 var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal, hedera}
 
-var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:`)
+var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
 var hedera = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
 	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),

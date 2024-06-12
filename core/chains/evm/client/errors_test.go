@@ -385,6 +385,7 @@ func Test_Eth_Errors_Fatal(t *testing.T) {
 		{"Failed to serialize transaction: oversized data. max: 1000000; actual: 1000000", true, "zkSync"},
 
 		{"client error fatal", true, "tomlConfig"},
+		{"[Request ID: d9711488-4c1e-4af2-bc1f-7969913d7b60] Error invoking RPC: transaction 0.0.4425573@1718213476.914320044 failed precheck with status INVALID_SIGNATURE", true, "hedera"},
 	}
 
 	for _, test := range tests {
