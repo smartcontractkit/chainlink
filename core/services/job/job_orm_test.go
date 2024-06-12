@@ -1807,6 +1807,8 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	var addr1 = "0x0123456789012345678901234567890123456789"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 	t.Parallel()
 	type fields struct {
 		ds sqlutil.DataSource
@@ -1831,7 +1833,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 				// before is nil, so no job is inserted
 				spec: &job.WorkflowSpec{
 					ID:       1,
-					Workflow: pkgworkflows.WFYamlSpec(t, "workflow00", "0x0123456789012345678901234567890123456789"),
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow00", addr1),
 				},
 			},
 			wantErr: true,
@@ -1845,7 +1847,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			args: args{
 				spec: &job.WorkflowSpec{
 					ID:       1,
-					Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", "0x0123456789012345678901234567890123456789"),
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", addr1),
 				},
 				before: mustInsertWFJob,
 			},
@@ -1860,12 +1862,12 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			args: args{
 				spec: &job.WorkflowSpec{
 					ID:       1,
-					Workflow: pkgworkflows.WFYamlSpec(t, "workflow02", "0x0123456789012345678901234567890123456789"),
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow02", addr1),
 				},
 				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
 					var c job.WorkflowSpec
 					c.ID = s.ID
-					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", "0x0123456789012345678901234567890123456789") // insert with name "workflow99" instead of "workflow02"
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", addr1) // insert with mismatched name
 					return mustInsertWFJob(t, o, &c)
 				},
 			},
@@ -1879,12 +1881,12 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			args: args{
 				spec: &job.WorkflowSpec{
 					ID:       1,
-					Workflow: pkgworkflows.WFYamlSpec(t, "workflow03", "0x0123456789012345678901234567890123456789"),
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow03", addr1),
 				},
 				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
 					var c job.WorkflowSpec
 					c.ID = s.ID
-					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow03", "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd") // insert with owner "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd" instead of "0x0123456789012345678901234567890123456789"
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow03", addr2) // insert with mismatched owner
 					return mustInsertWFJob(t, o, &c)
 				},
 			},
@@ -1916,6 +1918,8 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
+	var addr1 = "0x012345678901234567890123456789012345ffff"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
 	t.Parallel()
 	t.Run("multiple jobs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -1928,19 +1932,19 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			cltest.NewKeyStore(t, db))
 		ctx := testutils.Context(t)
 
-		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", "0x0123456789012345678901234567890123456fff")
+		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", addr1)
 		s1 := job.WorkflowSpec{
 			Workflow: wfYaml1,
 		}
 		wantJobID1 := mustInsertWFJob(t, o, &s1)
 
-		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", "0x0123456789012345678901234567890123456fff")
+		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", addr1)
 		s2 := job.WorkflowSpec{
 			Workflow: wfYaml2,
 		}
 		wantJobID2 := mustInsertWFJob(t, o, &s2)
 
-		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", "0xabababbaababbaaababaababababababaabbaaba")
+		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", addr2)
 		s3 := job.WorkflowSpec{
 			Workflow: wfYaml3,
 		}

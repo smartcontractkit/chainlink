@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -863,35 +862,23 @@ type WorkflowSpec struct {
 }
 
 var (
-	ErrInvalidWorkflowID = errors.New("invalid workflow id")
+	ErrInvalidWorkflowID       = errors.New("invalid workflow id")
+	ErrInvalidWorkflowYAMLSpec = errors.New("invalid workflow yaml spec")
 )
 
 const (
-	workflowIDLen = 64 // conveniently the same length as a sha256 hash
+	workflowIDLen = 64 // sha256 hash
 )
-
-// init initializes the workflow spec by parsing the yaml and setting the id, owner and name
-func (w *WorkflowSpec) init() error {
-	f := sync.OnceValue(func() error {
-		s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
-		if err != nil {
-			return fmt.Errorf("failed to parse workflow spec %s: %w", w.Workflow, err)
-		}
-		w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
-		w.WorkflowName = s.Name
-		w.WorkflowID = s.CID
-
-		return nil
-	})
-	return f()
-}
 
 // Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate() error {
-	err := w.init()
+	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
 	}
+	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
+	w.WorkflowName = s.Name
+	w.WorkflowID = s.CID
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))

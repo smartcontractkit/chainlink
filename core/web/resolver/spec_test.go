@@ -1008,9 +1008,9 @@ func TestResolver_WorkflowSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Workflow,
 					WorkflowSpec: &job.WorkflowSpec{
-						ID: id,
-						//WorkflowID: "<test workflow id>",
-						Workflow: "<test workflow spec>",
+						ID:         id,
+						WorkflowID: "<test workflow id>",
+						Workflow:   "<test workflow spec>",
 					},
 				}, nil)
 			},

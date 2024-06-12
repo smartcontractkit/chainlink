@@ -868,11 +868,11 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				WorkflowSpec: &job.WorkflowSpec{
-					ID: 3,
-					//WorkflowID:    "<test-workflow-id>",
-					Workflow: `<test-workflow-spec>`,
-					//		WorkflowOwner: "<test-workflow-owner>",
-					//		WorkflowName:  "<test-workflow-name>",
+					ID:            3,
+					WorkflowID:    "<test-workflow-id>",
+					Workflow:      `<test-workflow-spec>`,
+					WorkflowOwner: "<test-workflow-owner>",
+					WorkflowName:  "<test-workflow-name>",
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,

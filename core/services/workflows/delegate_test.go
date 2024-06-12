@@ -22,7 +22,7 @@ func TestDelegate_JobSpecValidator(t *testing.T) {
 			"valid full spec",
 			func() string {
 				workflow := `
-name: "ten bytes!"
+name: "wf-name"
 owner: "0x00000000000000000000000000000000000000aa"
 triggers:
   - id: "mercury-trigger@1.0.0"
