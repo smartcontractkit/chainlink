@@ -1179,7 +1179,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

@@ -11,93 +11,19 @@ import (
 
 func TestDelegate_JobSpecValidator(t *testing.T) {
 	t.Parallel()
-	validName := "ten bytes!"
 	var tt = []struct {
 		name           string
 		workflowTomlFn func() string
 		valid          bool
 	}{
-		{
-			"not a hex owner",
-			func() string {
-				workflowId := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				workflowOwner := "00000000000000000000000000000000000000aZ"
-				return testspecs.GenerateWorkflowSpec(workflowId, workflowOwner, "1234567890", "").Toml()
-			},
-			false,
-		},
-		{
-			"missing workflow field",
-			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				return testspecs.GenerateWorkflowSpec(id, owner, validName, "").Toml()
-			},
-			false,
-		},
-
-		{
-			"null workflow",
-			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				return testspecs.GenerateWorkflowSpec(id, owner, validName, "{}").Toml()
-			},
-			false,
-		},
-
-		{
-			"missing name",
-			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				wf := `
-triggers: []
-consensus: []
-targets: []
-`
-				return testspecs.GenerateWorkflowSpec(id, owner, "", wf).Toml()
-			},
-			false,
-		},
-
-		{
-			"minimal passing workflow",
-			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				wf := `
-triggers: []
-consensus: []
-targets: []
-`
-				return testspecs.GenerateWorkflowSpec(id, owner, validName, wf).Toml()
-			},
-			true,
-		},
-
-		{
-			"name too long",
-			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
-				wf := `
-triggers: []
-consensus: []
-targets: []
-`
-				return testspecs.GenerateWorkflowSpec(id, owner, validName+"1", wf).Toml()
-			},
-			false,
-		},
 
 		// Taken from jobs controller test, as we want to fail early without a db / slow test dependency
 		{
 			"valid full spec",
 			func() string {
-				id := "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-				owner := "00000000000000000000000000000000000000aa"
 				workflow := `
+name: "ten bytes!"
+owner: "0x00000000000000000000000000000000000000aa"
 triggers:
   - id: "mercury-trigger@1.0.0"
     config:
@@ -144,7 +70,7 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-				return testspecs.GenerateWorkflowSpec(id, owner, validName, workflow).Toml()
+				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
 			},
 			true,
 		},
@@ -173,7 +99,7 @@ schemaVersion = 1
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := workflows.ValidatedWorkflowSpec(tc.workflowTomlFn())
+			_, err := workflows.ValidatedWorkflowJobSpec(tc.workflowTomlFn())
 			if tc.valid {
 				require.NoError(t, err)
 			} else {
