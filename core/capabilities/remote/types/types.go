@@ -1,4 +1,7 @@
-//go:generate protoc --go_out=. --go_opt=paths=source_relative messages.proto
+// Note: the proto_path below directive ensures the generated protobuf's file descriptor has a fully
+// qualified path, ensuring we avoid conflicts with other files called messages.proto
+//
+//go:generate protoc --proto_path=../../../../ --go_out=../../../../ --go_opt=paths=source_relative core/capabilities/remote/types/messages.proto
 package types
 
 import (
