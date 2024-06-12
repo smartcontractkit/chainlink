@@ -121,8 +121,8 @@ func IsTxRevertError(err error) bool {
 	return strings.Contains(err.Error(), "execution reverted") || strings.Contains(err.Error(), "VM execution error")
 }
 
-func SelectorToBytes(chainSelector uint64) [32]byte {
-	var b [32]byte
+func SelectorToBytes(chainSelector uint64) [16]byte {
+	var b [16]byte
 	binary.BigEndian.PutUint64(b[:], chainSelector)
 	return b
 }

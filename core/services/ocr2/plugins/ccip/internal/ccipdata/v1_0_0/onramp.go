@@ -186,7 +186,7 @@ func (o *OnRamp) IsSourceCursed(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("intializing Arm contract through the ArmProxy: %w", err)
 	}
 
-	cursed, err := arm.IsCursed(&bind.CallOpts{Context: ctx})
+	cursed, err := arm.IsCursed0(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return false, fmt.Errorf("checking if source Arm is cursed: %w", err)
 	}
