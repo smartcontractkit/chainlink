@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {Test} from "forge-std/Test.sol";
 import {IReceiver} from "../interfaces/IReceiver.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
-import {KeystoneRouter} from "../KeystoneRouter.sol";
+import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneRouter_SetConfigTest is Test {
   address internal ADMIN = address(1);
@@ -17,11 +17,11 @@ contract KeystoneRouter_SetConfigTest is Test {
   bytes internal report = hex"9998";
   bytes32 internal id = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
 
-  KeystoneRouter internal s_router;
+  KeystoneForwarder internal s_router;
 
   function setUp() public virtual {
     vm.prank(ADMIN);
-    s_router = new KeystoneRouter();
+    s_router = new KeystoneForwarder();
   }
 
   function test_AddForwarder_RevertWhen_NotOwner() public {

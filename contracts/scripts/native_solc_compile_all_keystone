@@ -30,5 +30,4 @@ compileContract () {
 
 compileContract keystone/CapabilityRegistry.sol
 compileContract keystone/KeystoneForwarder.sol
-compileContract keystone/KeystoneRouter.sol
 compileContract keystone/OCR3Capability.sol

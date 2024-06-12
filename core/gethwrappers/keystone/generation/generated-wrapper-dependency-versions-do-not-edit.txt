@@ -1,5 +1,4 @@
 GETH_VERSION: 1.13.8
-forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin eb51d0a17d036385b840872d73022269a26ce79f3515a7f4adeefe07bdf4bdcd
+forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin 552df530b9e263c1356315f8bd075c7883a1bcdfe3d0ecf9f35f32475a81250d
 keystone_capability_registry: ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.abi ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.bin 334fdeb3953509130edeeb3db63ed0c82e3ff0f86a884f2a11368963a617812b
 ocr3_capability: ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.bin 144f23145878b95d1672e4919874eddeeaa38ce520d0edbe72c6677e39bb4741
-router: ../../../contracts/solc/v0.8.19/KeystoneRouter/KeystoneRouter.abi ../../../contracts/solc/v0.8.19/KeystoneRouter/KeystoneRouter.bin d579702bbbe3c03caf2336a9d097f691e3c9033139480e97945b1e4c5f989523
