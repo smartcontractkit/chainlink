@@ -8,19 +8,17 @@ import (
 
 type totalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
+	RPC any,
 ] []Node[CHAIN_ID, RPC]
 
 func NewTotalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
-	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
+	RPC any,
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
+	return totalDifficultyNodeSelector[CHAIN_ID, RPC](nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
+func (s totalDifficultyNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
 	var highestTD *big.Int
 	var nodes []Node[CHAIN_ID, RPC]
@@ -51,6 +49,6 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID
 	return firstOrHighestPriority(nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
+func (s totalDifficultyNodeSelector[CHAIN_ID, RPC]) Name() string {
 	return NodeSelectionModeTotalDifficulty
 }

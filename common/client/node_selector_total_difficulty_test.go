@@ -1,7 +1,7 @@
 package client
 
 import (
-	big "math/big"
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestTotalDifficultyNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, RPCClient[types.ID, Head]](NodeSelectionModeTotalDifficulty, nil)
+	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModeTotalDifficulty, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeTotalDifficulty)
 }
 

@@ -16,7 +16,6 @@ const (
 //go:generate mockery --quiet --name NodeSelector --structname mockNodeSelector --filename "mock_node_selector_test.go" --inpackage --case=underscore
 type NodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
 	RPC any,
 ] interface {
 	// Select returns a Node, or nil if none can be selected.
@@ -28,18 +27,17 @@ type NodeSelector[
 
 func newNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
-](selectionMode string, nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+	RPC any, //RPCClient[CHAIN_ID, HEAD],
+](selectionMode string, nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	switch selectionMode {
 	case NodeSelectionModeHighestHead:
-		return NewHighestHeadNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
+		return NewHighestHeadNodeSelector[CHAIN_ID, RPC](nodes)
 	case NodeSelectionModeRoundRobin:
-		return NewRoundRobinSelector[CHAIN_ID, HEAD, RPC](nodes)
+		return NewRoundRobinSelector[CHAIN_ID, RPC](nodes)
 	case NodeSelectionModeTotalDifficulty:
-		return NewTotalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
+		return NewTotalDifficultyNodeSelector[CHAIN_ID, RPC](nodes)
 	case NodeSelectionModePriorityLevel:
-		return NewPriorityLevelNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
+		return NewPriorityLevelNodeSelector[CHAIN_ID, RPC](nodes)
 	default:
 		panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
 	}

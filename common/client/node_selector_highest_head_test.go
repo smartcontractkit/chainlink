@@ -9,7 +9,7 @@ import (
 )
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, RPCClient[types.ID, Head]](NodeSelectionModeHighestHead, nil)
+	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModeHighestHead, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
 }
 
@@ -36,7 +36,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	selector := newNodeSelector[types.ID, Head, nodeClient](NodeSelectionModeHighestHead, nodes)
+	selector := newNodeSelector[types.ID, nodeClient](NodeSelectionModeHighestHead, nodes)
 	assert.Same(t, nodes[2], selector.Select())
 
 	t.Run("stick to the same node", func(t *testing.T) {

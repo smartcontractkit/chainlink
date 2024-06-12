@@ -9,7 +9,7 @@ import (
 )
 
 func TestRoundRobinNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, RPCClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
+	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeRoundRobin)
 }
 

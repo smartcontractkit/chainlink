@@ -52,9 +52,7 @@ type MultiNode[
 
 type multiNode[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
+	RPC_CLIENT any,
 ] struct {
 	services.StateMachine
 	primaryNodes   []Node[CHAIN_ID, RPC_CLIENT]
@@ -62,7 +60,7 @@ type multiNode[
 	chainID        CHAIN_ID
 	lggr           logger.SugaredLogger
 	selectionMode  string
-	nodeSelector   NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
+	nodeSelector   NodeSelector[CHAIN_ID, RPC_CLIENT]
 	leaseDuration  time.Duration
 	leaseTicker    *time.Ticker
 	chainFamily    string
@@ -77,9 +75,7 @@ type multiNode[
 
 func NewMultiNode[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	RPC_CLIENT RPCClient[CHAIN_ID, HEAD],
+	RPC_CLIENT any, //RPCClient[CHAIN_ID, HEAD],
 ](
 	lggr logger.Logger,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
@@ -93,7 +89,7 @@ func NewMultiNode[
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
-	c := &multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]{
+	c := &multiNode[CHAIN_ID, RPC_CLIENT]{
 		primaryNodes:   primaryNodes,
 		sendOnlyNodes:  sendOnlyNodes,
 		chainID:        chainID,
@@ -111,11 +107,11 @@ func NewMultiNode[
 	return c
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) ChainID() CHAIN_ID {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) ChainID() CHAIN_ID {
 	return c.chainID
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {
 	callsCompleted := 0
 	for _, n := range c.primaryNodes {
 		if ctx.Err() != nil {
@@ -144,7 +140,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) DoAll(ctx context.Co
 	return nil
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[string]NodeState {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) NodeStates() map[string]NodeState {
 	states := map[string]NodeState{}
 	for _, n := range c.primaryNodes {
 		states[n.String()] = n.State()
@@ -159,7 +155,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) NodeStates() map[str
 //
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Dial(ctx context.Context) error {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) Dial(ctx context.Context) error {
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.primaryNodes) == 0 {
 			return fmt.Errorf("no available nodes for chain %s", c.chainID.String())
@@ -169,7 +165,8 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Dial(ctx context.Con
 			if n.ConfiguredChainID().String() != c.chainID.String() {
 				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
-			rawNode, ok := n.(*node[CHAIN_ID, HEAD, RPC_CLIENT])
+			/* TODO: Dmytro's PR on local finality handles this better.
+			rawNode, ok := n.(*node[CHAIN_ID, *evmtypes.Head, RPC_CLIENT])
 			if ok {
 				// This is a bit hacky but it allows the node to be aware of
 				// pool state and prevent certain state transitions that might
@@ -177,6 +174,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Dial(ctx context.Con
 				// node in a degraded state than no primaryNodes at all.
 				rawNode.nLiveNodes = c.nLiveNodes
 			}
+			*/
 			// node will handle its own redialing and automatic recovery
 			if err := ms.Start(ctx, n); err != nil {
 				return err
@@ -206,7 +204,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Dial(ctx context.Con
 }
 
 // Close tears down the MultiNode and closes all nodes
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Close() error {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) Close() error {
 	return c.StopOnce("MultiNode", func() error {
 		close(c.chStop)
 		c.wg.Wait()
@@ -217,7 +215,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) Close() error {
 
 // SelectRPC returns an RPC of an active node. If there are no active nodes it returns an error.
 // Call this method from your chain-specific client implementation to access any chain-specific rpc calls.
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) SelectRPC() (rpc RPC_CLIENT, err error) {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) SelectRPC() (rpc RPC_CLIENT, err error) {
 	n, err := c.selectNode()
 	if err != nil {
 		return rpc, err
@@ -226,7 +224,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) SelectRPC() (rpc RPC
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_CLIENT], err error) {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_CLIENT], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -256,7 +254,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) selectNode() (node N
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
 	totalDifficulty = big.NewInt(0)
 	for _, n := range c.primaryNodes {
 		if s, chainInfo := n.StateAndLatest(); s == NodeStateAlive {
@@ -272,7 +270,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) nLiveNodes() (nLiveN
 	return
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) checkLease() {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) checkLease() {
 	bestNode := c.nodeSelector.Select()
 	for _, n := range c.primaryNodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
@@ -290,7 +288,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) checkLease() {
 	c.activeMu.Unlock()
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) checkLeaseLoop() {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) checkLeaseLoop() {
 	defer c.wg.Done()
 	c.leaseTicker = time.NewTicker(c.leaseDuration)
 	defer c.leaseTicker.Stop()
@@ -305,7 +303,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) checkLeaseLoop() {
 	}
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) runLoop() {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) runLoop() {
 	defer c.wg.Done()
 
 	c.report()
@@ -323,7 +321,7 @@ func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) runLoop() {
 	}
 }
 
-func (c *multiNode[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT]) report() {
+func (c *multiNode[CHAIN_ID, RPC_CLIENT]) report() {
 	type nodeWithState struct {
 		Node  string
 		State string

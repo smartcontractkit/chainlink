@@ -22,7 +22,7 @@ import (
 type multiNodeRPCClient RPCClient[types.ID, types.Head[Hashable]]
 
 type testMultiNode struct {
-	*multiNode[types.ID, Hashable, types.Head[Hashable], multiNodeRPCClient]
+	*multiNode[types.ID, multiNodeRPCClient]
 }
 
 type multiNodeOpts struct {
@@ -40,10 +40,10 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 		opts.logger = logger.Test(t)
 	}
 
-	result := NewMultiNode[types.ID, Hashable, types.Head[Hashable], multiNodeRPCClient](
+	result := NewMultiNode[types.ID, multiNodeRPCClient](
 		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily)
 	return testMultiNode{
-		result.(*multiNode[types.ID, Hashable, types.Head[Hashable], multiNodeRPCClient]),
+		result.(*multiNode[types.ID, multiNodeRPCClient]),
 	}
 }
 

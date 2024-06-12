@@ -8,19 +8,17 @@ import (
 
 type highestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
+	RPC any, //RPCClient[CHAIN_ID, HEAD],
 ] []Node[CHAIN_ID, RPC]
 
 func NewHighestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD Head,
-	RPC RPCClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
-	return highestHeadNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
+	RPC any, //RPCClient[CHAIN_ID, HEAD],
+](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
+	return highestHeadNodeSelector[CHAIN_ID, RPC](nodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RPC] {
+func (s highestHeadNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 	var highestHeadNumber int64 = math.MinInt64
 	var highestHeadNodes []Node[CHAIN_ID, RPC]
 	for _, n := range s {
@@ -37,6 +35,6 @@ func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, RP
 	return firstOrHighestPriority(highestHeadNodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
+func (s highestHeadNodeSelector[CHAIN_ID, RPC]) Name() string {
 	return NodeSelectionModeHighestHead
 }
