@@ -123,7 +123,10 @@ jobs:
       # ghlatestreleasechecker is a tool to check if new release is available for a given repo
       - name: Set Up ghlatestreleasechecker
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/ghlatestreleasechecker@v1.0.0
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ghlatestreleasechecker@v1.0.0
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
       - name: Select EVM implementations to test
         id: select-implementations
         run: |
@@ -316,7 +319,10 @@ jobs:
       # ecrimagefetcher is a tool to get latest images from ECR
       - name: Set Up ecrimagefetcher
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/ecrimagefetcher@v1.0.1
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
       - name: Get latest docker images from ECR
         if: ${{ github.event.inputs.base64TestList == '' }}
         env:
@@ -383,7 +389,10 @@ jobs:
       - name: Set Up testlistgenerator
         if: env.BASE64_TEST_LIST == ''
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.0.1
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.0.1
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
       - name: Prepare matrix input
         if: env.BASE64_TEST_LIST == ''
         run: |
