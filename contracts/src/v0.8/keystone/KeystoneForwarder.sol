@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
-import {IForwarder} from "./interfaces/IForwarder.sol";
 
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
@@ -11,7 +10,7 @@ import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 /// allows nodes to determine if reports have been processed (successfully or
 /// not) in a decentralized and product-agnostic way by recording processed
 /// reports.
-contract KeystoneForwarder is IForwarder, OwnerIsCreator, ITypeAndVersion {
+contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion {
   /// @notice This error is returned when the report is shorter than
   /// REPORT_METADATA_LENGTH, which is the minimum length of a report.
   error InvalidReport();
