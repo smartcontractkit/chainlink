@@ -54,7 +54,7 @@ jobs:
           this-job-name: ${{ inputs.network }} VRFV2 Plus Performance Test
         continue-on-error: true
       - name: Checkout code
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@a5ac7e51b41094c92402da3b24376905380afc29 # v4.1.6
         with:
           fetch-depth: 0
       - name: Mask base64 config
