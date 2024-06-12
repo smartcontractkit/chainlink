@@ -80,6 +80,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	peerID := p2ptypes.PeerID{}
 	initFailed := make(chan struct{})
 	executionFinished := make(chan string, 100)
+	clock := clockwork.NewFakeClock()
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
@@ -98,7 +99,8 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		clock: clockwork.NewFakeClock(),
+		clock: clock,
+		Store: store.NewDBStore(pgtest.NewSqlxDB(t), clock),
 	}
 	for _, o := range opts {
 		o(&cfg)
