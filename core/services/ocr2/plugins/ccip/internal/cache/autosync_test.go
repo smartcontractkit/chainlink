@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -116,7 +117,7 @@ func TestLogpollerEventsBased(t *testing.T) {
 				round.stateLatestBlock,
 				observedEvents,
 				[]common.Address{contractAddress},
-				logpoller.Finalized,
+				evmtypes.Finalized,
 			).Return(round.latestEventBlock, nil).Once()
 		}
 

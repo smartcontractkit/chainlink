@@ -8,6 +8,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -43,11 +44,11 @@ type Event[T any] struct {
 	cciptypes.TxMeta
 }
 
-func LogsConfirmations(finalized bool) logpoller.Confirmations {
+func LogsConfirmations(finalized bool) evmtypes.Confirmations {
 	if finalized {
-		return logpoller.Finalized
+		return evmtypes.Finalized
 	}
-	return logpoller.Unconfirmed
+	return evmtypes.Unconfirmed
 }
 
 func ParseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {

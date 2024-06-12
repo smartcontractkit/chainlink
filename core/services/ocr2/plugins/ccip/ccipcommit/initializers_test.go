@@ -78,5 +78,4 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 			chainSet.AssertExpectations(t)
 		})
 	}
-
 }

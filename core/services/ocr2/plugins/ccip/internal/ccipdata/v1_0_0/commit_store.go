@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -275,7 +276,7 @@ func (c *CommitStore) GetCommitReportMatchingSeqNum(ctx context.Context, seqNr u
 		c.reportAcceptedMaxSeqIndex-1,
 		c.reportAcceptedMaxSeqIndex,
 		logpoller.EvmWord(seqNr),
-		logpoller.Confirmations(confs),
+		evmtypes.Confirmations(confs),
 	)
 	if err != nil {
 		return nil, err
@@ -311,7 +312,7 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 		c.reportAcceptedSig,
 		c.address,
 		ts,
-		logpoller.Confirmations(confs),
+		evmtypes.Confirmations(confs),
 	)
 	if err != nil {
 		return nil, err

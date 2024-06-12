@@ -91,6 +91,28 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
+func TestCommitObservationMarshal(t *testing.T) {
+	obs := CommitObservation{
+		Interval: cciptypes.CommitStoreInterval{
+			Min: 1,
+			Max: 12,
+		},
+		TokenPricesUSD:    map[cciptypes.Address]*big.Int{"0xAaAaAa": big.NewInt(1)},
+		SourceGasPriceUSD: big.NewInt(3),
+	}
+
+	b, err := obs.Marshal()
+	require.NoError(t, err)
+	assert.Equal(t, `{"interval":{"Min":1,"Max":12},"tokensPerFeeCoin":{"0xaaaaaa":1},"sourceGasPrice":3}`, string(b))
+
+	// Make sure that the call to Marshal did not alter the original observation object.
+	assert.Len(t, obs.TokenPricesUSD, 1)
+	_, exists := obs.TokenPricesUSD["0xAaAaAa"]
+	assert.True(t, exists)
+	_, exists = obs.TokenPricesUSD["0xaaaaaa"]
+	assert.False(t, exists)
+}
+
 func TestExecutionObservationJsonDeserialization(t *testing.T) {
 	expectedObservation := ExecutionObservation{Messages: map[uint64]MsgData{
 		2: {TokenData: tokenData("c")},
@@ -268,5 +290,4 @@ func TestAddressEncodingBackwardsCompatibility(t *testing.T) {
 		)
 		assert.Equal(t, exp, fields)
 	})
-
 }

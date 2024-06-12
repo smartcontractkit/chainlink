@@ -141,5 +141,4 @@ func TestFilters(t *testing.T) {
 		assert.True(t, lp.HasFilter(f1))
 		assert.False(t, lp.HasFilter(f2))
 	})
-
 }

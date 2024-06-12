@@ -14,7 +14,6 @@ import (
 )
 
 func TestGetChainFromSpec(t *testing.T) {
-
 	testChainID := int64(1337)
 
 	tests := []struct {
@@ -59,7 +58,6 @@ func TestGetChainFromSpec(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestGetChainByChainSelector_success(t *testing.T) {

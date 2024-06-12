@@ -213,7 +213,6 @@ func (d *DynamicPriceGetter) preparePricesAndBatchCallsPerChain(tokens []cciptyp
 				aggCfg.AggregatorContractAddress,
 			))
 			chainCalls.tokenOrder = append(chainCalls.tokenOrder, tk)
-
 		} else if staticCfg, isStatic := d.cfg.StaticPrices[tk]; isStatic {
 			// Fill static prices.
 			prices[ccipcalc.EvmAddrToGeneric(tk)] = staticCfg.Price

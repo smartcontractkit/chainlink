@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type AutoSync[T any] interface {
@@ -109,7 +110,7 @@ func (c *LogpollerEventsBased[T]) hasExpired(ctx context.Context) (expired bool,
 		blockOfCurrentValue,
 		c.observedEvents,
 		[]common.Address{c.address},
-		logpoller.Finalized,
+		evmtypes.Finalized,
 	)
 	if err != nil {
 		return false, 0, fmt.Errorf("get latest events form lp: %w", err)

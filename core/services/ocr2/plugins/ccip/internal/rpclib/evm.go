@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -24,6 +23,10 @@ type EvmBatchCaller interface {
 	// BatchCall executes all the provided EvmCall and returns the results in the same order
 	// of the calls. Pass blockNumber=0 to use the latest block.
 	BatchCall(ctx context.Context, blockNumber uint64, calls []EvmCall) ([]DataAndErr, error)
+}
+
+type BatchSender interface {
+	BatchCallContext(ctx context.Context, calls []rpc.BatchElem) error
 }
 
 const (
@@ -47,7 +50,7 @@ type DynamicLimitedBatchCaller struct {
 }
 
 func NewDynamicLimitedBatchCaller(
-	lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+	lggr logger.Logger, batchSender BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
 ) *DynamicLimitedBatchCaller {
 	return &DynamicLimitedBatchCaller{
 		bc: newDefaultEvmBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit),
@@ -60,7 +63,7 @@ func (c *DynamicLimitedBatchCaller) BatchCall(ctx context.Context, blockNumber u
 
 type defaultEvmBatchCaller struct {
 	lggr                  logger.Logger
-	batchSender           client.BatchSender
+	batchSender           BatchSender
 	batchSizeLimit        uint
 	parallelRpcCallsLimit uint
 	backOffMultiplier     uint
@@ -70,7 +73,7 @@ type defaultEvmBatchCaller struct {
 // batchCallLimit defines the maximum number of calls for BatchCallLimit method, pass 0 to keep the default.
 // backOffMultiplier defines the back-off strategy for retries on BatchCallDynamicLimitRetries method, pass 0 to keep the default.
 func newDefaultEvmBatchCaller(
-	lggr logger.Logger, batchSender client.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+	lggr logger.Logger, batchSender BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
 ) *defaultEvmBatchCaller {
 	batchSize := uint(DefaultRpcBatchSizeLimit)
 	if batchSizeLimit > 0 {

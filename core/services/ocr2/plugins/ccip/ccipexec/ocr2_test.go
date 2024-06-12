@@ -287,7 +287,6 @@ func TestExecutionReportingPlugin_Report(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
-
 }
 
 func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
@@ -1601,7 +1600,6 @@ func generateExecutionReport(t *testing.T, numMsgs, tokensPerMsg, bytesPerMsg in
 }
 
 func Test_selectReportsToFillBatch(t *testing.T) {
-
 	tests := []struct {
 		name            string
 		messagesLimit   uint64 // maximum number of messages that can be included in a batch.
@@ -1648,7 +1646,6 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			nbCommitStoreReports := 10
 			nbMsgPerRoot := 200
 

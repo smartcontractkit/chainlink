@@ -25,7 +25,6 @@ import (
 )
 
 func TestIntegration_legacy_CCIP(t *testing.T) {
-
 	// Run the batches of tests for both pipeline and dynamic price getter setups.
 	// We will remove the pipeline batch once the feature is deleted from the code.
 	tests := []struct {
@@ -44,7 +43,6 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
 			ccipTH := testhelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 
 			tokenPricesUSDPipeline := ""
@@ -596,7 +594,6 @@ func TestIntegration_legacy_CCIP(t *testing.T) {
 				}
 				currentSeqNum = endSeq
 			})
-
 		})
 	}
 }
