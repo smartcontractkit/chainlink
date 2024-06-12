@@ -61,26 +61,17 @@ const (
 )
 
 func NewZkSyncL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *zkSyncL1Oracle {
-	var systemContextAddress, gasPerPubdataMethod, gasPerPubdataSelector, l2GasPriceMethod, l2GasPriceSelector string
-
-	systemContextAddress = SystemContextAddress
-	gasPerPubdataMethod = SystemContext_gasPerPubdataByteMethod
-	gasPerPubdataSelector = ZksyncGasInfo_getGasPerPubdataByteL2
-
-	l2GasPriceMethod = SystemContext_gasPriceMethod
-	l2GasPriceSelector = ZksyncGasInfo_getGasPriceL2
-
 	return &zkSyncL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, "L1GasOracle(zkSync)")),
 		chainType:  chaintype.ChainZkSync,
 
-		systemContextAddress:  systemContextAddress,
-		gasPerPubdataMethod:   gasPerPubdataMethod,
-		gasPerPubdataSelector: gasPerPubdataSelector,
-		l2GasPriceMethod:      l2GasPriceMethod,
-		l2GasPriceSelector:    l2GasPriceSelector,
+		systemContextAddress:  SystemContextAddress,
+		gasPerPubdataMethod:   SystemContext_gasPerPubdataByteMethod,
+		gasPerPubdataSelector: ZksyncGasInfo_getGasPerPubdataByteL2,
+		l2GasPriceMethod:      SystemContext_gasPriceMethod,
+		l2GasPriceSelector:    ZksyncGasInfo_getGasPriceL2,
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
