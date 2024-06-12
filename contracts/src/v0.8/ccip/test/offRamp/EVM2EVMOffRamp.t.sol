@@ -503,7 +503,7 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     vm.expectRevert(EVM2EVMOffRamp.CursedByRMN.selector);
     s_offRamp.execute(_generateReportFromMessages(_generateMessagesWithTokens()), new uint256[](0));
     // Uncurse should succeed

@@ -262,7 +262,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint256 feeTokenAmount,
     address originalSender
   ) external returns (bytes32) {
-    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(destChainSelector)))) revert CursedByRMN();
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(destChainSelector)))) revert CursedByRMN();
     // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
     // Router address may be zero intentionally to pause.

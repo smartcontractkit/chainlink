@@ -592,7 +592,7 @@ contract MultiCommitStore_report is MultiCommitStoreSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     MultiCommitStore.MerkleRoot[] memory roots = new MultiCommitStore.MerkleRoot[](1);
     roots[0] = MultiCommitStore.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
@@ -808,13 +808,13 @@ contract MultiCommitStore_isUnpausedAndRMNHealthy is MultiCommitStoreSetup {
     assertFalse(s_multiCommitStore.paused());
     assertTrue(s_multiCommitStore.isUnpausedAndNotCursed(SOURCE_CHAIN_SELECTOR));
     // Test rmn
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     assertFalse(s_multiCommitStore.isUnpausedAndNotCursed(SOURCE_CHAIN_SELECTOR));
     RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
     records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
     s_mockRMN.ownerUnvoteToCurse(records);
     assertTrue(s_multiCommitStore.isUnpausedAndNotCursed(SOURCE_CHAIN_SELECTOR));
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     s_multiCommitStore.pause();
     assertFalse(s_multiCommitStore.isUnpausedAndNotCursed(SOURCE_CHAIN_SELECTOR));
   }

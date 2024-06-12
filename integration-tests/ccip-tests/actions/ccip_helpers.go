@@ -231,7 +231,7 @@ func (ccipModule *CCIPCommon) IsCursed() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error instantiating arm %w", err)
 	}
-	return arm.IsCursed(nil)
+	return arm.IsCursed0(nil)
 }
 
 func (ccipModule *CCIPCommon) CurseARM() (*types.Transaction, error) {

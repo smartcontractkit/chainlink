@@ -226,7 +226,7 @@ contract MultiCommitStore is IMultiCommitStore, ITypeAndVersion, OCR2Base {
       MerkleRoot memory root = report.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
+      if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
 
       SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
 
@@ -335,7 +335,7 @@ contract MultiCommitStore is IMultiCommitStore, ITypeAndVersion, OCR2Base {
 
   /// @notice Single function to check the status of the commitStore.
   function isUnpausedAndNotCursed(uint64 sourceChainSelector) external view returns (bool) {
-    return !IRMN(i_rmnProxy).isCursed(bytes32(uint256(sourceChainSelector))) && !s_paused;
+    return !IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector))) && !s_paused;
   }
 
   /// @notice Modifier to make a function callable only when the contract is not paused.

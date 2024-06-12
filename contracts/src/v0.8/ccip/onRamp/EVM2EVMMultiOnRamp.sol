@@ -349,7 +349,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     uint256 feeTokenAmount,
     address originalSender
   ) internal returns (Internal.EVM2EVMMessage memory) {
-    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(destChainSelector)))) revert CursedByRMN(destChainSelector);
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(destChainSelector)))) revert CursedByRMN(destChainSelector);
     // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
     // Router address may be zero intentionally to pause.

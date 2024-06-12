@@ -149,7 +149,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
 
   function test_PoolBurnRevertNotHealthy_Revert() public {
     // Should not burn tokens if cursed.
-    s_mockRMN.voteToCurse(bytes32(0));
+    s_mockRMN.voteToCurse(bytes16(0));
     uint256 before = s_token.balanceOf(address(s_lockReleaseTokenPoolWithAllowList));
 
     vm.startPrank(s_allowedOnRamp);
@@ -281,7 +281,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
 
   function test_PoolMintNotHealthy_Revert() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.voteToCurse(bytes32(0));
+    s_mockRMN.voteToCurse(bytes16(0));
     uint256 before = s_token.balanceOf(OWNER);
     vm.startPrank(s_allowedOffRamp);
     vm.expectRevert(TokenPool.CursedByRMN.selector);

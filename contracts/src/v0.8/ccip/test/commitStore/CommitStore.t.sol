@@ -418,7 +418,7 @@ contract CommitStore_report is CommitStoreSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     vm.expectRevert(CommitStore.CursedByRMN.selector);
     bytes memory report;
     s_commitStore.report(report, ++s_latestEpochAndRound);
@@ -581,14 +581,14 @@ contract CommitStore_isUnpausedAndRMNHealthy is CommitStoreSetup {
     assertTrue(s_commitStore.isUnpausedAndNotCursed());
 
     // Test rmn
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     assertFalse(s_commitStore.isUnpausedAndNotCursed());
     RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
     records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
     s_mockRMN.ownerUnvoteToCurse(records);
     assertTrue(s_commitStore.isUnpausedAndNotCursed());
 
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     s_commitStore.pause();
     assertFalse(s_commitStore.isUnpausedAndNotCursed());
   }

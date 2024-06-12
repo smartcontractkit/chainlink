@@ -401,7 +401,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
     return s_curseVoteProgress.curseActive;
   }
 
-  function isCursed(bytes32) external view override returns (bool) {
+  function isCursed(bytes16) external view override returns (bool) {
     return s_curseVoteProgress.curseActive;
   }
 

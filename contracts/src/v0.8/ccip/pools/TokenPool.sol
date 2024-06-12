@@ -152,7 +152,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   /// for various exploits.
   function _validateLockOrBurn(Pool.LockOrBurnInV1 memory lockOrBurnIn) internal {
     if (lockOrBurnIn.localToken != address(i_token)) revert InvalidToken(lockOrBurnIn.localToken);
-    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(lockOrBurnIn.remoteChainSelector)))) revert CursedByRMN();
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(lockOrBurnIn.remoteChainSelector)))) revert CursedByRMN();
     _checkAllowList(lockOrBurnIn.originalSender);
 
     _onlyOnRamp(lockOrBurnIn.remoteChainSelector);
@@ -168,7 +168,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   /// @dev This function should always be called before executing a lock or burn. Not doing so would allow
   /// for various exploits.
   function _validateReleaseOrMint(Pool.ReleaseOrMintInV1 memory releaseOrMintIn) internal {
-    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(releaseOrMintIn.remoteChainSelector)))) revert CursedByRMN();
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(releaseOrMintIn.remoteChainSelector)))) revert CursedByRMN();
     _onlyOffRamp(releaseOrMintIn.remoteChainSelector);
 
     // Validates that the source pool address is configured on this pool.

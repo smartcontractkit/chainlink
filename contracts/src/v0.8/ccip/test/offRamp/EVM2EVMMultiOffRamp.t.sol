@@ -565,7 +565,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
 
   function test_WithCurseOnAnotherSourceChain_Success() public {
     s_mockRMN.voteToCurse(
-      0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, bytes32(uint256(SOURCE_CHAIN_SELECTOR_2))
+      0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, bytes16(uint128(SOURCE_CHAIN_SELECTOR_2))
     );
     s_offRamp.execute(
       _generateReportFromMessages(
@@ -609,7 +609,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.execute(
       _generateReportFromMessages(
@@ -630,7 +630,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
   }
 
   function test_UnhealthySingleChainCurse_Revert() public {
-    bytes32 subject = bytes32(uint256(SOURCE_CHAIN_SELECTOR_1));
+    bytes16 subject = bytes16(uint128(SOURCE_CHAIN_SELECTOR_1));
     s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, subject);
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.execute(
@@ -1377,7 +1377,7 @@ contract EVM2EVMMultiOffRamp_batchExecute is EVM2EVMMultiOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.batchExecute(
       _generateBatchReportFromMessages(

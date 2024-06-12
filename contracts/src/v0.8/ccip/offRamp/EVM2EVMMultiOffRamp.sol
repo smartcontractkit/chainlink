@@ -321,7 +321,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// @dev If called from manual execution, this array is always same length as messages.
   function _execute(Internal.ExecutionReportSingleChain memory report, uint256[] memory manualExecGasLimits) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
-    if (IRMN(i_rmnProxy).isCursed(bytes32(uint256(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
 
     uint256 numMsgs = report.messages.length;
     if (numMsgs == 0) revert EmptyReport();

@@ -581,7 +581,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
     vm.expectRevert(EVM2EVMOnRamp.CursedByRMN.selector);
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, _generateEmptyMessage(), 0, OWNER);
   }
