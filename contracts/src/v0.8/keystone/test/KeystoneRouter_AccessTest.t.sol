@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
 import {IReceiver} from "../interfaces/IReceiver.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
 import {KeystoneRouter} from "../KeystoneRouter.sol";
 
 contract KeystoneRouter_SetConfigTest is Test {
@@ -35,9 +36,9 @@ contract KeystoneRouter_SetConfigTest is Test {
     s_router.removeForwarder(FORWARDER);
   }
 
-  function test_Route_RevertWhen_Unauthorized() public {
+  function test_Route_RevertWhen_UnauthorizedForwarder() public {
     vm.prank(STRANGER);
-    vm.expectRevert(KeystoneRouter.Unauthorized.selector);
+    vm.expectRevert(IRouter.UnauthorizedForwarder.selector);
     s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
   }
 

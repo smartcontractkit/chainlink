@@ -8,12 +8,6 @@ import {IReceiver} from "./interfaces/IReceiver.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
 contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
-  error Unauthorized();
-  error AlreadyAttempted(bytes32 transmissionId);
-
-  event ForwarderAdded(address indexed forwarder);
-  event ForwarderRemoved(address indexed forwarder);
-
   mapping(address forwarder => bool) internal s_forwarders;
   mapping(bytes32 transmissionId => TransmissionInfo) internal s_transmissions;
 
@@ -42,7 +36,7 @@ contract KeystoneRouter is IRouter, OwnerIsCreator, ITypeAndVersion {
     bytes calldata report
   ) external returns (bool) {
     if (!s_forwarders[msg.sender]) {
-      revert Unauthorized();
+      revert UnauthorizedForwarder();
     }
 
     if (s_transmissions[transmissionId].transmitter != address(0)) revert AlreadyAttempted(transmissionId);

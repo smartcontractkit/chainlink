@@ -148,7 +148,7 @@ contract KeystoneForwarder_ReportTest is BaseTest {
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
 
     bytes32 transmissionId = s_forwarder.getTransmissionId(address(s_receiver), executionId, reportId);
-    vm.expectRevert(abi.encodeWithSelector(KeystoneRouter.AlreadyAttempted.selector, transmissionId));
+    vm.expectRevert(abi.encodeWithSelector(IRouter.AlreadyAttempted.selector, transmissionId));
     s_forwarder.report(address(s_receiver), report, reportContext, signatures);
   }
 
