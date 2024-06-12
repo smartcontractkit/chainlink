@@ -2,9 +2,11 @@ package evm_test
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -31,6 +34,33 @@ func TestCodec(t *testing.T) {
 
 	anyN := 10
 	c := tester.GetCodec(t)
+	t.Run("Decode works with multiple unnamed return values", func(t *testing.T) {
+		encode := &struct {
+			F0 int32
+			F1 int32
+		}{F0: 1, F1: 2}
+		codecName := "my_codec"
+		evmEncoderConfig := `[{"Name":"","Type":"int32"},{"Name":"","Type":"int32"}]`
+
+		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+			codecName: {TypeABI: evmEncoderConfig},
+		}}
+		c, err := evm.NewCodec(codecConfig)
+		require.NoError(t, err)
+
+		result, err := c.Encode(testutils.Context(t), encode, codecName)
+		require.NoError(t, err)
+
+		decode := &struct {
+			F0 int32
+			F1 int32
+		}{}
+		err = c.Decode(testutils.Context(t), result, decode, codecName)
+		require.NoError(t, err)
+		require.Equal(t, encode.F0, decode.F0)
+		require.Equal(t, encode.F1, decode.F1)
+	})
+
 	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
 		actual, err := c.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
@@ -68,9 +98,75 @@ func TestCodec_SimpleEncode(t *testing.T) {
 	require.NoError(t, err)
 	expected :=
 		"0000000000000000000000000000000000000000000000000000000000000006" + // int32(6)
-			"0000000000000000000000000000000000000000000000000000000000000040" + // total bytes occupied by the string (64)
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of the beginning of second value (64 bytes)
 			"0000000000000000000000000000000000000000000000000000000000000007" + // length of the string (7 chars)
 			"6162636465666700000000000000000000000000000000000000000000000000" // actual string
+
+	require.Equal(t, expected, hexutil.Encode(result)[2:])
+}
+
+func TestCodec_EncodeTuple(t *testing.T) {
+	codecName := "my_codec"
+	input := map[string]any{
+		"Report": int32(6),
+		"Nested": map[string]any{
+			"Meta":  "abcdefg",
+			"Count": int32(14),
+			"Other": "12334",
+		},
+	}
+	evmEncoderConfig := `[{"Name":"Report","Type":"int32"},{"Name":"Nested","Type":"tuple","Components":[{"Name":"Other","Type":"string"},{"Name":"Count","Type":"int32"},{"Name":"Meta","Type":"string"}]}]`
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecName: {TypeABI: evmEncoderConfig},
+	}}
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+
+	result, err := c.Encode(testutils.Context(t), input, codecName)
+	require.NoError(t, err)
+	expected :=
+		"0000000000000000000000000000000000000000000000000000000000000006" + // Report integer (=6)
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of the first dynamic value (tuple, 64 bytes)
+			"0000000000000000000000000000000000000000000000000000000000000060" + // offset of the first nested dynamic value (string, 96 bytes)
+			"000000000000000000000000000000000000000000000000000000000000000e" + // "Count" integer (=14)
+			"00000000000000000000000000000000000000000000000000000000000000a0" + // offset of the second nested dynamic value (string, 160 bytes)
+			"0000000000000000000000000000000000000000000000000000000000000005" + // length of the "Meta" string (5 chars)
+			"3132333334000000000000000000000000000000000000000000000000000000" + // "Other" string (="12334")
+			"0000000000000000000000000000000000000000000000000000000000000007" + // length of the "Other" string (7 chars)
+			"6162636465666700000000000000000000000000000000000000000000000000" // "Meta" string (="abcdefg")
+
+	require.Equal(t, expected, hexutil.Encode(result)[2:])
+}
+
+func TestCodec_EncodeTupleWithLists(t *testing.T) {
+	codecName := "my_codec"
+	input := map[string]any{
+		"Elem": map[string]any{
+			"Prices":     []any{big.NewInt(234), big.NewInt(456)},
+			"Timestamps": []any{int64(111), int64(222)},
+		},
+	}
+	evmEncoderConfig := `[{"Name":"Elem","Type":"tuple","InternalType":"tuple","Components":[{"Name":"Prices","Type":"uint256[]","InternalType":"uint256[]","Components":null,"Indexed":false},{"Name":"Timestamps","Type":"uint32[]","InternalType":"uint32[]","Components":null,"Indexed":false}],"Indexed":false}]`
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		codecName: {TypeABI: evmEncoderConfig},
+	}}
+	c, err := evm.NewCodec(codecConfig)
+	require.NoError(t, err)
+
+	result, err := c.Encode(testutils.Context(t), input, codecName)
+	require.NoError(t, err)
+	expected :=
+		"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Elem tuple
+			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of Prices array
+			"00000000000000000000000000000000000000000000000000000000000000a0" + // offset of Timestamps array
+			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Prices array
+			"00000000000000000000000000000000000000000000000000000000000000ea" + // Prices[0] = 234
+			"00000000000000000000000000000000000000000000000000000000000001c8" + // Prices[1] = 456
+			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Timestamps array
+			"000000000000000000000000000000000000000000000000000000000000006f" + // Timestamps[0] = 111
+			"00000000000000000000000000000000000000000000000000000000000000de" // Timestamps[1] = 222
 
 	require.Equal(t, expected, hexutil.Encode(result)[2:])
 }
@@ -100,7 +196,7 @@ func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeReques
 
 func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{}}
-	testStruct := CreateTestStruct(0, it)
+	testStruct := CreateTestStruct[*testing.T](0, it)
 	for k, v := range codecDefs {
 		defBytes, err := json.Marshal(v)
 		require.NoError(t, err)
@@ -148,13 +244,13 @@ func encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
 
 	switch request.TestOn {
 	case TestItemArray1Type:
-		args[0] = [1]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0])}
+		args[0] = [1]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0])}
 	case TestItemArray2Type:
-		args[0] = [2]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
+		args[0] = [2]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0]), evmtesting.ToInternalType(request.TestStructs[1])}
 	default:
 		tmp := make([]chain_reader_tester.TestStruct, len(request.TestStructs))
 		for i, ts := range request.TestStructs {
-			tmp[i] = toInternalType(ts)
+			tmp[i] = evmtesting.ToInternalType(ts)
 		}
 		args[0] = tmp
 	}
@@ -232,4 +328,33 @@ func parseDefs(t *testing.T) map[string]abi.Arguments {
 	var results map[string]abi.Arguments
 	require.NoError(t, json.Unmarshal(bytes, &results))
 	return results
+}
+
+func getAccounts(first TestStruct) []common.Address {
+	accountBytes := make([]common.Address, len(first.Accounts))
+	for i, account := range first.Accounts {
+		accountBytes[i] = common.Address(account)
+	}
+	return accountBytes
+}
+
+func getOracleIDs(first TestStruct) [32]byte {
+	oracleIDs := [32]byte{}
+	for i, oracleID := range first.OracleIDs {
+		oracleIDs[i] = byte(oracleID)
+	}
+	return oracleIDs
+}
+
+func argsFromTestStruct(ts TestStruct) []any {
+	return []any{
+		ts.Field,
+		ts.DifferentField,
+		uint8(ts.OracleID),
+		getOracleIDs(ts),
+		common.Address(ts.Account),
+		getAccounts(ts),
+		ts.BigField,
+		evmtesting.MidToInternalType(ts.NestedStruct),
+	}
 }

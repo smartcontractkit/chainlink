@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"slices"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -25,12 +27,14 @@ import (
 )
 
 type registrySyncer struct {
-	peerWrapper p2ptypes.PeerWrapper
-	registry    core.CapabilitiesRegistry
-	dispatcher  remotetypes.Dispatcher
-	subServices []services.Service
-	wg          sync.WaitGroup
-	lggr        logger.Logger
+	peerWrapper  p2ptypes.PeerWrapper
+	registry     core.CapabilitiesRegistry
+	dispatcher   remotetypes.Dispatcher
+	subServices  []services.Service
+	networkSetup HardcodedDonNetworkSetup
+
+	wg   sync.WaitGroup
+	lggr logger.Logger
 }
 
 var _ services.Service = &registrySyncer{}
@@ -52,18 +56,20 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 const maxRetryCount = 60
 
 // RegistrySyncer updates local Registry to match its onchain counterpart
-func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger) *registrySyncer {
+func NewRegistrySyncer(peerWrapper p2ptypes.PeerWrapper, registry core.CapabilitiesRegistry, dispatcher remotetypes.Dispatcher, lggr logger.Logger,
+	networkSetup HardcodedDonNetworkSetup) *registrySyncer {
 	return &registrySyncer{
-		peerWrapper: peerWrapper,
-		registry:    registry,
-		dispatcher:  dispatcher,
-		lggr:        lggr,
+		peerWrapper:  peerWrapper,
+		registry:     registry,
+		dispatcher:   dispatcher,
+		networkSetup: networkSetup,
+		lggr:         lggr,
 	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	s.wg.Add(1)
-	go s.launch(ctx)
+	go s.launch(context.Background())
 	return nil
 }
 
@@ -71,92 +77,73 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 // that reads the configuration from chain (KS-117).
 func (s *registrySyncer) launch(ctx context.Context) {
 	defer s.wg.Done()
-	// NOTE: temporary hard-coded DONs
-	workflowDONPeers := []string{
-		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
-		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
-		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
-		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
-	}
-	triggerDONPeers := []string{
-		"12D3KooWBaiTbbRwwt2fbNifiL7Ew9tn3vds9AJE3Nf3eaVBX36m",
-		"12D3KooWS7JSY9fzSfWgbCE1S3W2LNY6ZVpRuun74moVBkKj6utE",
-		"12D3KooWMMTDXcWhpVnwrdAer1jnVARTmnr3RyT3v7Djg8ZuoBh9",
-		"12D3KooWGzVXsKxXsF4zLgxSDM8Gzx1ywq2pZef4PrHMKuVg4K3P",
-		"12D3KooWSyjmmzjVtCzwN7bXzZQFmWiJRuVcKBerNjVgL7HdLJBW",
-		"12D3KooWLGz9gzhrNsvyM6XnXS3JRkZoQdEzuAvysovnSChNK5ZK",
-		"12D3KooWAvZnvknFAfSiUYjATyhzEJLTeKvAzpcLELHi4ogM3GET",
-	}
-	triggerDONSigners := []string{
-		"0x9CcE7293a4Cc2621b61193135A95928735e4795F",
-		"0x3c775F20bCB2108C1A818741Ce332Bb5fe0dB925",
-		"0x50314239e2CF05555ceeD53E7F47eB2A8Eab0dbB",
-		"0xd76A4f98898c3b9A72b244476d7337b50D54BCd8",
-		"0x656A873f6895b8a03Fb112dE927d43FA54B2c92A",
-		"0x5d1e87d87bF2e0cD4Ea64F381a2dbF45e5f0a553",
-		"0x91d9b0062265514f012Eb8fABA59372fD9520f56",
-	}
-	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
-		for _, peerID := range peers {
-			var p ragetypes.PeerID
-			err := p.UnmarshalText([]byte(peerID))
-			if err != nil {
-				return err
-			}
-			allPeers[p] = defaultStreamConfig
-			donInfo.Members = append(donInfo.Members, p)
-		}
-		return nil
-	}
-	workflowDonInfo := capabilities.DON{ID: "workflowDon1", F: 1}
-	if err := addPeersToDONInfo(workflowDONPeers, &workflowDonInfo); err != nil {
-		s.lggr.Errorw("failed to add peers to workflow DON info", "error", err)
+	capId := "streams-trigger@1.0.0"
+	triggerInfo, err := capabilities.NewRemoteCapabilityInfo(
+		capId,
+		capabilities.CapabilityTypeTrigger,
+		"Remote Trigger",
+		&s.networkSetup.TriggerCapabilityDonInfo,
+	)
+	if err != nil {
+		s.lggr.Errorw("failed to create capability info for streams-trigger", "error", err)
 		return
 	}
-	triggerCapabilityDonInfo := capabilities.DON{ID: "capabilityDon1", F: 1} // NOTE: misconfiguration - should be 2
-	if err := addPeersToDONInfo(triggerDONPeers, &triggerCapabilityDonInfo); err != nil {
-		s.lggr.Errorw("failed to add peers to trigger DON info", "error", err)
+
+	targetCapId := "write_ethereum-testnet-sepolia@1.0.0"
+	targetInfo, err := capabilities.NewRemoteCapabilityInfo(
+		targetCapId,
+		capabilities.CapabilityTypeTarget,
+		"Remote Target",
+		&s.networkSetup.TargetCapabilityDonInfo,
+	)
+	if err != nil {
+		s.lggr.Errorw("failed to create capability info for write_ethereum-testnet-sepolia", "error", err)
 		return
 	}
-	err := s.peerWrapper.GetPeer().UpdateConnections(allPeers)
+
+	myId := s.peerWrapper.GetPeer().ID()
+	config := remotetypes.RemoteTriggerConfig{
+		RegistrationRefreshMs:   20000,
+		RegistrationExpiryMs:    60000,
+		MinResponsesToAggregate: uint32(s.networkSetup.TriggerCapabilityDonInfo.F) + 1,
+	}
+	err = s.peerWrapper.GetPeer().UpdateConnections(s.networkSetup.allPeers)
 	if err != nil {
 		s.lggr.Errorw("failed to update connections", "error", err)
 		return
 	}
-	// NOTE: temporary hard-coded capabilities
-	capId := "streams-trigger"
-	triggerInfo := capabilities.CapabilityInfo{
-		ID:             capId,
-		CapabilityType: capabilities.CapabilityTypeTrigger,
-		Description:    "Remote Trigger",
-		Version:        "0.0.1",
-		DON:            &triggerCapabilityDonInfo,
-	}
-	myId := s.peerWrapper.GetPeer().ID().String()
-	config := remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs:   20000,
-		RegistrationExpiryMs:    60000,
-		MinResponsesToAggregate: uint32(triggerCapabilityDonInfo.F) + 1,
-	}
-	if slices.Contains(workflowDONPeers, myId) {
+	if s.networkSetup.IsWorkflowDon(myId) {
 		s.lggr.Info("member of a workflow DON - starting remote subscribers")
 		codec := streams.NewCodec(s.lggr)
-		aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(triggerDONSigners), int(triggerCapabilityDonInfo.F+1), s.lggr)
-		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, triggerCapabilityDonInfo, workflowDonInfo, s.dispatcher, aggregator, s.lggr)
+		aggregator := triggers.NewMercuryRemoteAggregator(codec, hexStringsToBytes(s.networkSetup.triggerDonSigners), int(s.networkSetup.TriggerCapabilityDonInfo.F+1), s.lggr)
+		triggerCap := remote.NewTriggerSubscriber(config, triggerInfo, s.networkSetup.TriggerCapabilityDonInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, aggregator, s.lggr)
 		err = s.registry.Add(ctx, triggerCap)
+		if err != nil {
+			s.lggr.Errorw("failed to add remote trigger capability to registry", "error", err)
+			return
+		}
+		err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo.ID, triggerCap)
+		if err != nil {
+			s.lggr.Errorw("workflow DON failed to set receiver for trigger", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
+			return
+		}
+		s.subServices = append(s.subServices, triggerCap)
+
+		s.lggr.Info("member of a workflow DON - starting remote targets")
+		targetCap := target.NewClient(targetInfo, s.networkSetup.WorkflowsDonInfo, s.dispatcher, 60*time.Second, s.lggr)
+		err = s.registry.Add(ctx, targetCap)
 		if err != nil {
 			s.lggr.Errorw("failed to add remote target capability to registry", "error", err)
 			return
 		}
-		err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
+		err = s.dispatcher.SetReceiver(targetCapId, s.networkSetup.TargetCapabilityDonInfo.ID, targetCap)
 		if err != nil {
-			s.lggr.Errorw("workflow DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
+			s.lggr.Errorw("workflow DON failed to set receiver for target", "capabilityId", capId, "donId", s.networkSetup.TargetCapabilityDonInfo.ID, "error", err)
 			return
 		}
-		s.subServices = append(s.subServices, triggerCap)
+		s.subServices = append(s.subServices, targetCap)
 	}
-	if slices.Contains(triggerDONPeers, myId) {
+	if s.networkSetup.IsTriggerDon(myId) {
 		s.lggr.Info("member of a capability DON - starting remote publishers")
 
 		/*{
@@ -190,17 +177,35 @@ func (s *registrySyncer) launch(ctx context.Context) {
 				continue
 			}
 			workflowDONs := map[string]capabilities.DON{
-				workflowDonInfo.ID: workflowDonInfo,
+				s.networkSetup.WorkflowsDonInfo.ID: s.networkSetup.WorkflowsDonInfo,
 			}
-			triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, triggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
-			err = s.dispatcher.SetReceiver(capId, triggerCapabilityDonInfo.ID, triggerCap)
+			triggerCap := remote.NewTriggerPublisher(config, underlying, triggerInfo, s.networkSetup.TriggerCapabilityDonInfo, workflowDONs, s.dispatcher, s.lggr)
+			err = s.dispatcher.SetReceiver(capId, s.networkSetup.TriggerCapabilityDonInfo.ID, triggerCap)
 			if err != nil {
-				s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", triggerCapabilityDonInfo.ID, "error", err)
+				s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TriggerCapabilityDonInfo.ID, "error", err)
 				return
 			}
 			s.subServices = append(s.subServices, triggerCap)
 			break
 		}
+	}
+	if s.networkSetup.IsTargetDon(myId) {
+		s.lggr.Info("member of a target DON - starting remote shims")
+		underlying, err2 := s.registry.GetTarget(ctx, targetCapId)
+		if err2 != nil {
+			s.lggr.Errorw("target not found yet", "capabilityId", targetCapId, "error", err2)
+			return
+		}
+		workflowDONs := map[string]capabilities.DON{
+			s.networkSetup.WorkflowsDonInfo.ID: s.networkSetup.WorkflowsDonInfo,
+		}
+		targetCap := target.NewServer(myId, underlying, targetInfo, *targetInfo.DON, workflowDONs, s.dispatcher, 60*time.Second, s.lggr)
+		err = s.dispatcher.SetReceiver(targetCapId, s.networkSetup.TargetCapabilityDonInfo.ID, targetCap)
+		if err != nil {
+			s.lggr.Errorw("capability DON failed to set receiver", "capabilityId", capId, "donId", s.networkSetup.TargetCapabilityDonInfo.ID, "error", err)
+			return
+		}
+		s.subServices = append(s.subServices, targetCap)
 	}
 	// NOTE: temporary service start - should be managed by capability creation
 	for _, srv := range s.subServices {
@@ -234,6 +239,98 @@ func (s *registrySyncer) HealthReport() map[string]error {
 
 func (s *registrySyncer) Name() string {
 	return "RegistrySyncer"
+}
+
+// HardcodedDonNetworkSetup is a temporary setup for testing purposes
+type HardcodedDonNetworkSetup struct {
+	workflowDonPeers  []string
+	triggerDonPeers   []string
+	targetDonPeers    []string
+	triggerDonSigners []string
+	allPeers          map[ragetypes.PeerID]p2ptypes.StreamConfig
+
+	WorkflowsDonInfo         capabilities.DON
+	TriggerCapabilityDonInfo capabilities.DON
+	TargetCapabilityDonInfo  capabilities.DON
+}
+
+func NewHardcodedDonNetworkSetup() (HardcodedDonNetworkSetup, error) {
+	result := HardcodedDonNetworkSetup{}
+
+	result.workflowDonPeers = []string{
+		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
+		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
+		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
+		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWG1AeBnSJH2mdcDusXQVye2jqodZ6pftTH98HH6xvrE97",
+		"12D3KooWBf3PrkhNoPEmp7iV291YnPuuTsgEDHTscLajxoDvwHGA",
+		"12D3KooWP3FrMTFXXRU2tBC8aYvEBgUX6qhcH9q2JZCUi9Wvc2GX",
+	}
+	result.triggerDonPeers = []string{
+		"12D3KooWBaiTbbRwwt2fbNifiL7Ew9tn3vds9AJE3Nf3eaVBX36m",
+		"12D3KooWS7JSY9fzSfWgbCE1S3W2LNY6ZVpRuun74moVBkKj6utE",
+		"12D3KooWMMTDXcWhpVnwrdAer1jnVARTmnr3RyT3v7Djg8ZuoBh9",
+		"12D3KooWGzVXsKxXsF4zLgxSDM8Gzx1ywq2pZef4PrHMKuVg4K3P",
+		"12D3KooWSyjmmzjVtCzwN7bXzZQFmWiJRuVcKBerNjVgL7HdLJBW",
+		"12D3KooWLGz9gzhrNsvyM6XnXS3JRkZoQdEzuAvysovnSChNK5ZK",
+		"12D3KooWAvZnvknFAfSiUYjATyhzEJLTeKvAzpcLELHi4ogM3GET",
+	}
+	result.triggerDonSigners = []string{
+		"0x9CcE7293a4Cc2621b61193135A95928735e4795F",
+		"0x3c775F20bCB2108C1A818741Ce332Bb5fe0dB925",
+		"0x50314239e2CF05555ceeD53E7F47eB2A8Eab0dbB",
+		"0xd76A4f98898c3b9A72b244476d7337b50D54BCd8",
+		"0x656A873f6895b8a03Fb112dE927d43FA54B2c92A",
+		"0x5d1e87d87bF2e0cD4Ea64F381a2dbF45e5f0a553",
+		"0x91d9b0062265514f012Eb8fABA59372fD9520f56",
+	}
+	result.targetDonPeers = []string{ // "cap-one"
+		"12D3KooWJrthXtnPHw7xyHFAxo6NxifYTvc8igKYaA6wRRRqtsMb",
+		"12D3KooWFQekP9sGex4XhqEJav5EScjTpDVtDqJFg1JvrePBCEGJ",
+		"12D3KooWFLEq4hYtdyKWwe47dXGEbSiHMZhmr5xLSJNhpfiEz8NF",
+		"12D3KooWN2hztiXNNS1jMQTTvvPRYcarK1C7T3Mdqk4x4gwyo5WS",
+	}
+
+	result.allPeers = make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
+	addPeersToDONInfo := func(peers []string, donInfo *capabilities.DON) error {
+		for _, peerID := range peers {
+			var p ragetypes.PeerID
+			err := p.UnmarshalText([]byte(peerID))
+			if err != nil {
+				return err
+			}
+			result.allPeers[p] = defaultStreamConfig
+			donInfo.Members = append(donInfo.Members, p)
+		}
+		return nil
+	}
+	result.WorkflowsDonInfo = capabilities.DON{ID: "workflowDon1", F: 2}
+	if err := addPeersToDONInfo(result.workflowDonPeers, &result.WorkflowsDonInfo); err != nil {
+		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to workflow DON info: %w", err)
+	}
+	result.TriggerCapabilityDonInfo = capabilities.DON{ID: "capabilityDon1", F: 1} // NOTE: misconfiguration - should be 2
+	if err := addPeersToDONInfo(result.triggerDonPeers, &result.TriggerCapabilityDonInfo); err != nil {
+		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to trigger DON info: %w", err)
+	}
+
+	result.TargetCapabilityDonInfo = capabilities.DON{ID: "targetDon1", F: 1}
+	if err := addPeersToDONInfo(result.targetDonPeers, &result.TargetCapabilityDonInfo); err != nil {
+		return HardcodedDonNetworkSetup{}, fmt.Errorf("failed to add peers to target DON info: %w", err)
+	}
+
+	return result, nil
+}
+
+func (h HardcodedDonNetworkSetup) IsWorkflowDon(id p2ptypes.PeerID) bool {
+	return slices.Contains(h.workflowDonPeers, id.String())
+}
+
+func (h HardcodedDonNetworkSetup) IsTriggerDon(id p2ptypes.PeerID) bool {
+	return slices.Contains(h.triggerDonPeers, id.String())
+}
+
+func (h HardcodedDonNetworkSetup) IsTargetDon(id p2ptypes.PeerID) bool {
+	return slices.Contains(h.targetDonPeers, id.String())
 }
 
 type mockMercuryDataProducer struct {

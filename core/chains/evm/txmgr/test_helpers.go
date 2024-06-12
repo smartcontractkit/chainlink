@@ -1,14 +1,15 @@
 package txmgr
 
 import (
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
@@ -48,15 +49,21 @@ type TestEvmConfig struct {
 	ResendAfterThreshold time.Duration
 	BumpThreshold        uint64
 	MaxQueued            uint64
+	Enabled              bool
+	Threshold            uint32
+	MinAttempts          uint32
+	DetectionApiUrl      *url.URL
 }
 
 func (e *TestEvmConfig) Transactions() evmconfig.Transactions {
-	return &transactionsConfig{e: e}
+	return &transactionsConfig{e: e, autoPurge: &autoPurgeConfig{}}
 }
 
 func (e *TestEvmConfig) NonceAutoSync() bool { return true }
 
 func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
+
+func (e *TestEvmConfig) ChainType() chaintype.ChainType { return "" }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
@@ -115,15 +122,23 @@ func (b *TestBlockHistoryConfig) TransactionPercentile() uint16     { return 42 
 
 type transactionsConfig struct {
 	evmconfig.Transactions
-	e *TestEvmConfig
+	e         *TestEvmConfig
+	autoPurge evmconfig.AutoPurgeConfig
 }
 
-func (*transactionsConfig) ForwardersEnabled() bool               { return true }
-func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.MaxInFlight }
-func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.MaxQueued }
-func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.ReaperInterval }
-func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.ReaperThreshold }
-func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.ResendAfterThreshold }
+func (*transactionsConfig) ForwardersEnabled() bool                { return true }
+func (t *transactionsConfig) MaxInFlight() uint32                  { return t.e.MaxInFlight }
+func (t *transactionsConfig) MaxQueued() uint64                    { return t.e.MaxQueued }
+func (t *transactionsConfig) ReaperInterval() time.Duration        { return t.e.ReaperInterval }
+func (t *transactionsConfig) ReaperThreshold() time.Duration       { return t.e.ReaperThreshold }
+func (t *transactionsConfig) ResendAfterThreshold() time.Duration  { return t.e.ResendAfterThreshold }
+func (t *transactionsConfig) AutoPurge() evmconfig.AutoPurgeConfig { return t.autoPurge }
+
+type autoPurgeConfig struct {
+	evmconfig.AutoPurgeConfig
+}
+
+func (a *autoPurgeConfig) Enabled() bool { return false }
 
 type MockConfig struct {
 	EvmConfig           *TestEvmConfig
@@ -136,12 +151,12 @@ func (c *MockConfig) EVM() evmconfig.EVM {
 	return c.EvmConfig
 }
 
-func (c *MockConfig) NonceAutoSync() bool               { return true }
-func (c *MockConfig) ChainType() commonconfig.ChainType { return "" }
-func (c *MockConfig) FinalityDepth() uint32             { return c.finalityDepth }
-func (c *MockConfig) SetFinalityDepth(fd uint32)        { c.finalityDepth = fd }
-func (c *MockConfig) FinalityTagEnabled() bool          { return c.finalityTagEnabled }
-func (c *MockConfig) RPCDefaultBatchSize() uint32       { return c.RpcDefaultBatchSize }
+func (c *MockConfig) NonceAutoSync() bool            { return true }
+func (c *MockConfig) ChainType() chaintype.ChainType { return "" }
+func (c *MockConfig) FinalityDepth() uint32          { return c.finalityDepth }
+func (c *MockConfig) SetFinalityDepth(fd uint32)     { c.finalityDepth = fd }
+func (c *MockConfig) FinalityTagEnabled() bool       { return c.finalityTagEnabled }
+func (c *MockConfig) RPCDefaultBatchSize() uint32    { return c.RpcDefaultBatchSize }
 
 func MakeTestConfigs(t *testing.T) (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
 	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -15,14 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-)
-
-const (
-	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
-	mockedTriggerID = "cccccccccc0000000000000000000000"
 )
 
 type donInfo struct {
@@ -119,10 +116,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to initialize capability for step %s: %w", s.Ref, err)
 		}
 
-		return e.initializeExecutionStrategy(s)
+		return nil
 	})
 
 	return capabilityRegistrationErr
@@ -137,6 +134,20 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
+	}
+
+	// Special treatment for local targets - wrap into a transmission capability
+	target, isTarget := cp.(capabilities.TargetCapability)
+	if isTarget {
+		capInfo, err2 := target.Info(ctx)
+		if err2 != nil {
+			return fmt.Errorf("failed to get info of target capability: %w", err2)
+		}
+
+		// If the DON is nil this is a local target
+		if capInfo.DON == nil {
+			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
+		}
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -201,8 +212,8 @@ func (e *Engine) init(ctx context.Context) {
 	}
 
 	e.logger.Debug("registering triggers")
-	for _, t := range e.workflow.triggers {
-		err := e.registerTrigger(ctx, t)
+	for idx, t := range e.workflow.triggers {
+		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
 			e.logger.Errorf("failed to register trigger: %s", err)
 		}
@@ -261,64 +272,15 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	return nil
 }
 
-// initializeExecutionStrategy for `step`.
-// Broadly speaking, we'll use `immediateExecution` for non-target steps
-// and `scheduledExecution` for targets. If we don't have the necessary
-// config to initialize a scheduledExecution for a target, we'll fallback to
-// using `immediateExecution`.
-func (e *Engine) initializeExecutionStrategy(s *step) error {
-	if s.executionStrategy != nil {
-		return nil
-	}
-
-	// If donInfo has no peerID, then the peer wrapper hasn't been initialized.
-	// Let's error and try again next time around.
-	if e.donInfo.PeerID() == nil {
-		return fmt.Errorf("failed to initialize execution strategy: peer ID %s has not been initialized", e.donInfo.PeerID())
-	}
-
-	ie := immediateExecution{}
-	if s.CapabilityType != capabilities.CapabilityTypeTarget {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: not a target", s)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	dinfo := e.donInfo
-	if dinfo.DON == nil {
-		e.logger.Debugf("initializing target step with immediate execution strategy: donInfo %+v", e.donInfo)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	var position *int
-	for i, w := range dinfo.Members {
-		if w == *dinfo.PeerID() {
-			idx := i
-			position = &idx
-		}
-	}
-
-	if position == nil {
-		e.logger.Debugf("initializing step %+v with immediate execution strategy: position not found in donInfo %+v", s, e.donInfo)
-		s.executionStrategy = ie
-		return nil
-	}
-
-	s.executionStrategy = scheduledExecution{
-		DON:      e.donInfo.DON,
-		Position: *position,
-		PeerID:   e.donInfo.PeerID(),
-	}
-	e.logger.Debugf("initializing step %+v with scheduled execution strategy", s)
-	return nil
+func generateTriggerId(workflowID string, triggerIdx int) string {
+	return fmt.Sprintf("wf_%s_trigger_%d", workflowID, triggerIdx)
 }
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
-func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -334,7 +296,10 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) erro
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -448,7 +413,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event v
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
-				Outputs: &store.StepOutput{
+				Outputs: store.StepOutput{
 					Value: event,
 				},
 				Status:      store.StatusCompleted,
@@ -510,7 +475,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 				}
 
 				switch step.Status {
-				case store.StatusCompleted, store.StatusErrored:
+				case store.StatusCompleted, store.StatusErrored, store.StatusCompletedEarlyExit:
 				default:
 					workflowCompleted = false
 				}
@@ -528,6 +493,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// We haven't completed the workflow, but should we continue?
 		// If we've been executing for too long, let's time the workflow out and stop here.
 		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
+			e.logger.Infow("execution timed out", "executionID", state.ExecutionID)
 			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
 		}
 
@@ -536,7 +502,18 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		for _, sd := range stepDependents {
 			e.queueIfReady(state, sd)
 		}
+	case store.StatusCompletedEarlyExit:
+		e.logger.Infow("execution terminated early", "executionID", state.ExecutionID)
+		// NOTE: even though this marks the workflow as completed, any branches of the DAG
+		// that don't depend on the step that signaled for an early exit will still complete.
+		// This is to ensure that any side effects are executed consistently, since otherwise
+		// the async nature of the workflow engine would provide no guarantees.
+		err := e.finishExecution(ctx, state.ExecutionID, store.StatusCompletedEarlyExit)
+		if err != nil {
+			return err
+		}
 	case store.StatusErrored:
+		e.logger.Infow("execution errored", "executionID", state.ExecutionID)
 		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
 		if err != nil {
 			return err
@@ -597,22 +574,28 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	l.Debugw("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
-		Outputs:     &store.StepOutput{},
+		Outputs:     store.StepOutput{},
 		ExecutionID: msg.state.ExecutionID,
 		Ref:         msg.stepRef,
 	}
 
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
-	if err != nil {
+	var stepStatus string
+	switch {
+	case errors.Is(err, capabilities.ErrStopExecution):
+		l.Infow("step executed successfully with a termination")
+		stepStatus = store.StatusCompletedEarlyExit
+	case err != nil:
 		l.Errorf("error executing step request: %s", err)
-		stepState.Outputs.Err = err
-		stepState.Status = store.StatusErrored
-	} else {
+		stepStatus = store.StatusErrored
+	default:
 		l.Infow("step executed successfully", "outputs", outputs)
-		stepState.Outputs.Value = outputs
-		stepState.Status = store.StatusCompleted
+		stepStatus = store.StatusCompleted
 	}
 
+	stepState.Status = stepStatus
+	stepState.Outputs.Value = outputs
+	stepState.Outputs.Err = err
 	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
@@ -651,10 +634,13 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
 			WorkflowExecutionID: msg.state.ExecutionID,
+			WorkflowOwner:       e.workflow.owner,
+			WorkflowName:        e.workflow.name,
+			WorkflowDonID:       e.donInfo.ID,
 		},
 	}
 
-	output, err := step.executionStrategy.Apply(ctx, l, step.capability, tr)
+	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
 	if err != nil {
 		return inputs, nil, err
 	}
@@ -662,10 +648,10 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 	return inputs, output, err
 }
 
-func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -673,7 +659,10 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) er
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: e.workflow.id,
+			WorkflowID:    e.workflow.id,
+			WorkflowDonID: e.donInfo.ID,
+			WorkflowName:  e.workflow.name,
+			WorkflowOwner: e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
@@ -697,8 +686,8 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
-		for _, t := range e.workflow.triggers {
-			err := e.deregisterTrigger(ctx, t)
+		for idx, t := range e.workflow.triggers {
+			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
 				return err
 			}
@@ -744,6 +733,8 @@ func (e *Engine) Close() error {
 type Config struct {
 	Spec                 string
 	WorkflowID           string
+	WorkflowOwner        string
+	WorkflowName         string
 	Lggr                 logger.Logger
 	Registry             core.CapabilitiesRegistry
 	MaxWorkerLimit       int
@@ -770,6 +761,10 @@ const (
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
+	if cfg.Store == nil {
+		return nil, errors.New("must provide store")
+	}
+
 	if cfg.MaxWorkerLimit == 0 {
 		cfg.MaxWorkerLimit = defaultWorkerLimit
 	}
@@ -784,10 +779,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.MaxExecutionDuration == 0 {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
-	}
-
-	if cfg.Store == nil {
-		cfg.Store = store.NewInMemoryStore()
 	}
 
 	if cfg.retryMs == 0 {
@@ -820,6 +811,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	workflow.id = cfg.WorkflowID
+	workflow.owner = cfg.WorkflowOwner
+	workflow.name = hex.EncodeToString([]byte(cfg.WorkflowName))
 
 	// Instantiate semaphore to put a limit on the number of workers
 	newWorkerCh := make(chan struct{}, cfg.MaxWorkerLimit)
@@ -851,4 +844,22 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		clock:               cfg.clock,
 	}
 	return engine, nil
+}
+
+// ExecuteSyncAndUnwrapSingleValue is a convenience method that executes a capability synchronously and unwraps the
+// result if it is a single value otherwise returns the list.
+func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.CallbackCapability, req capabilities.CapabilityRequest) (values.Value, error) {
+	l, err := capabilities.ExecuteSync(ctx, cap, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// `ExecuteSync` returns a `values.List` even if there was
+	// just one return value. If that is the case, let's unwrap the
+	// single value to make it easier to use in -- for example -- variable interpolation.
+	if len(l.Underlying) > 1 {
+		return l, nil
+	}
+
+	return l.Underlying[0], nil
 }

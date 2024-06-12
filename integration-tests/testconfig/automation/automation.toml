@@ -1,6 +1,6 @@
 # product defaults
 [Common]
-chainlink_node_funding = 0.5
+chainlink_node_funding = 2.0
 
 [NodeConfig]
 BaseConfigTOML = """
@@ -20,7 +20,7 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
-HTTPWriteTimeout = '1m'
+HTTPWriteTimeout = '3m'
 SessionTimeout = '999h0m0s'
 
 [WebServer.RateLimit]
@@ -102,13 +102,15 @@ block_time=1
 spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
+remove_namespace = true
 
 # load test specific overrides
 [Load.Seth]
 ephemeral_addresses_number = 100
+root_key_funds_buffer = 1_000_000
 
 [Load.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 1000
 
 [Load.Automation]
 [Load.Automation.General]
@@ -118,6 +120,7 @@ block_time=1
 spec_type="minimum"
 chainlink_node_log_level="info"
 use_prometheus=false
+remove_namespace = true
 
 [Load.Automation.DataStreams]
 enabled=false

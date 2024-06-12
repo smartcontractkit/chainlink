@@ -27,11 +27,12 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -44,11 +45,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	tt "github.com/smartcontractkit/chainlink/integration-tests/types"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 const (
@@ -72,7 +71,7 @@ type OCRSoakTest struct {
 	log              zerolog.Logger
 	bootstrapNode    *client.ChainlinkK8sClient
 	workerNodes      []*client.ChainlinkK8sClient
-	mockServer       *ctfClient.MockserverClient
+	mockServer       *ctf_client.MockserverClient
 	filterQuery      geth.FilterQuery
 
 	ocrRoundStates []*testreporters.OCRRoundState
@@ -83,6 +82,9 @@ type OCRSoakTest struct {
 
 	ocrV2Instances   []contracts.OffchainAggregatorV2
 	ocrV2InstanceMap map[string]contracts.OffchainAggregatorV2 // address : instance
+
+	rpcNetwork    blockchain.EVMNetwork // network configuration for the blockchain node
+	reorgHappened bool                  // flag to indicate if a reorg happened during the test
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -107,18 +109,62 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
-	network := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
+	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
 	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
 	if o.OperatorForwarderFlow {
 		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
-	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
 	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
 		NamespacePrefix:    nsPre,
 		Test:               o.t,
 		PreventPodEviction: true,
+	}
+
+	testEnv := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil))
+
+	var anvilChart *foundry.Chart
+	if nodeNetwork.Name == "Anvil" {
+		anvilConfig := ocrTestConfig.GetNetworkConfig().AnvilConfigs["ANVIL"]
+		anvilChart = foundry.New(&foundry.Props{
+			Values: map[string]interface{}{
+				"fullnameOverride": "anvil",
+				"anvil": map[string]interface{}{
+					"chainId":                   fmt.Sprintf("%d", nodeNetwork.ChainID),
+					"blockTime":                 anvilConfig.BlockTime,
+					"forkURL":                   anvilConfig.URL,
+					"forkBlockNumber":           anvilConfig.BlockNumber,
+					"forkRetries":               anvilConfig.Retries,
+					"forkTimeout":               anvilConfig.Timeout,
+					"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
+					"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
+				},
+				"resources": map[string]interface{}{
+					"requests": map[string]interface{}{
+						"cpu":    "4",
+						"memory": "6Gi",
+					},
+					"limits": map[string]interface{}{
+						"cpu":    "4",
+						"memory": "6Gi",
+					},
+				},
+			},
+		})
+		testEnv.AddHelm(anvilChart)
+		nodeNetwork.URLs = []string{anvilChart.ClusterWSURL}
+		nodeNetwork.HTTPURLs = []string{anvilChart.ClusterHTTPURL}
+	} else {
+		testEnv.AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: nodeNetwork.Name,
+			Simulated:   nodeNetwork.Simulated,
+			WsURLs:      nodeNetwork.URLs,
+		}))
 	}
 
 	var conf string
@@ -135,25 +181,48 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 
 	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, network),
+		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, nodeNetwork),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
+		"prometheus": true,
 	}, ocrTestConfig.GetChainlinkImageConfig(), overrideFn)
+	testEnv.AddHelm(cd)
 
-	testEnvironment := environment.New(baseEnvironmentConfig).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(ethereum.New(&ethereum.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})).
-		AddHelm(cd)
-	err := testEnvironment.Run()
+	err := testEnv.Run()
 	require.NoError(o.t, err, "Error launching test environment")
-	o.testEnvironment = testEnvironment
-	o.namespace = testEnvironment.Cfg.Namespace
+	o.testEnvironment = testEnv
+	o.namespace = testEnv.Cfg.Namespace
+
+	// If the test is using the remote runner, we don't need to set the network URLs
+	// as the remote runner will handle that
+	if o.Environment().WillUseRemoteRunner() {
+		return
+	}
+
+	o.rpcNetwork = nodeNetwork
+	if o.rpcNetwork.Simulated && o.rpcNetwork.Name == "Anvil" {
+		if testEnv.Cfg.InsideK8s {
+			// Test is running inside K8s, set the cluster URL of Anvil blockchain node
+			o.rpcNetwork.URLs = []string{anvilChart.ClusterWSURL}
+		} else {
+			// Test is running locally, set forwarded URL of Anvil blockchain node
+			o.rpcNetwork.URLs = []string{anvilChart.ForwardedWSURL}
+		}
+	} else if o.rpcNetwork.Simulated && o.rpcNetwork.Name == blockchain.SimulatedEVMNetwork.Name {
+		if testEnv.Cfg.InsideK8s {
+			// Test is running inside K8s
+			o.rpcNetwork.URLs = blockchain.SimulatedEVMNetwork.URLs
+		} else {
+			// Test is running locally, set forwarded URL of Geth blockchain node
+			wsURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal"]
+			httpURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal_http"]
+			require.NotEmpty(o.t, wsURLs, "Forwarded Geth URLs should not be empty")
+			require.NotEmpty(o.t, httpURLs, "Forwarded Geth URLs should not be empty")
+			o.rpcNetwork.URLs = wsURLs
+			o.rpcNetwork.HTTPURLs = httpURLs
+		}
+	}
 }
 
 // Environment returns the full K8s test environment
@@ -162,21 +231,14 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	var (
-		err     error
-		network = networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0]
-	)
-
-	network = utils.MustReplaceSimulatedNetworkUrlWithK8(o.log, network, *o.testEnvironment)
-	seth, err := actions_seth.GetChainClient(o.Config, network)
+	seth, err := actions_seth.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
-
 	o.seth = seth
 
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
-	o.mockServer, err = ctfClient.ConnectMockServer(o.testEnvironment)
+	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
 	linkContract, err := contracts.DeployLinkTokenContract(o.log, seth)
@@ -337,6 +399,7 @@ type OCRSoakTestState struct {
 	BootStrapNodeURL string   `toml:"bootstrapNodeURL"`
 	WorkerNodeURLs   []string `toml:"workerNodeURLs"`
 	ChainURL         string   `toml:"chainURL"`
+	ReorgHappened    bool     `toml:"reorgHappened"`
 	MockServerURL    string   `toml:"mockServerURL"`
 }
 
@@ -362,6 +425,7 @@ func (o *OCRSoakTest) SaveState() error {
 		MockServerURL:    "http://mockserver:1080", // TODO: Make this dynamic
 		BootStrapNodeURL: o.bootstrapNode.URL(),
 		WorkerNodeURLs:   workerNodeURLs,
+		ReorgHappened:    o.reorgHappened,
 	}
 	data, err := toml.Marshal(testState)
 	if err != nil {
@@ -412,6 +476,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
+	o.reorgHappened = testState.ReorgHappened
 	o.Config.OCR.Soak.OCRVersion = &testState.OCRVersion
 
 	o.bootstrapNode, err = client.ConnectChainlinkNodeURL(testState.BootStrapNodeURL)
@@ -443,7 +508,7 @@ func (o *OCRSoakTest) LoadState() error {
 		}
 	}
 
-	o.mockServer, err = ctfClient.ConnectMockServerURL(testState.MockServerURL)
+	o.mockServer, err = ctf_client.ConnectMockServerURL(testState.MockServerURL)
 	if err != nil {
 		return err
 	}
@@ -520,6 +585,22 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
+	// Schedule blockchain re-org if needed
+	// Reorg only avaible for Simulated Geth
+	var reorgCh <-chan time.Time
+	n := o.Config.GetNetworkConfig()
+	if n.IsSimulatedGethSelected() && n.GethReorgConfig.Enabled {
+		var reorgDelay time.Duration
+		if n.GethReorgConfig.DelayCreate.Duration > testDuration {
+			// This may happen when test is resumed and the reorg delay is longer than the time left
+			o.log.Warn().Msg("Reorg delay is longer than test duration, reorg scheduled immediately")
+			reorgDelay = 0
+		} else {
+			reorgDelay = n.GethReorgConfig.DelayCreate.Duration
+		}
+		reorgCh = time.After(reorgDelay)
+	}
+
 	for {
 		select {
 		case <-interruption:
@@ -553,6 +634,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
 			}
 			lastValue = newValue
+
+		// Schedule blockchain re-org if needed
+		case <-reorgCh:
+			if !o.reorgHappened {
+				o.startBlockchainReorg(o.Config.GetNetworkConfig().GethReorgConfig.Depth)
+			}
 		}
 	}
 }
@@ -566,6 +653,22 @@ func (o *OCRSoakTest) complete() {
 		o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	}
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
+}
+
+func (o *OCRSoakTest) startBlockchainReorg(depth int) {
+	if !o.Config.GetNetworkConfig().IsSimulatedGethSelected() {
+		require.FailNow(o.t, "Reorg only available for Simulated Geth")
+		return
+	}
+
+	client := ctf_client.NewRPCClient(o.rpcNetwork.HTTPURLs[0])
+	o.log.Info().
+		Str("URL", client.URL).
+		Int("depth", depth).
+		Msg("Starting blockchain reorg on Simulated Geth chain")
+	err := client.GethSetHead(depth)
+	require.NoError(o.t, err, "Error starting blockchain reorg on Simulated Geth chain")
+	o.reorgHappened = true
 }
 
 // setFilterQuery to look for all events that happened

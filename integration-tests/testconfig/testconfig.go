@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -279,15 +278,6 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	testConfig.ConfigurationName = configurationName
 	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
 
-	var handleSpecialOverrides = func(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte, product Product) error {
-		switch product {
-		case Automation:
-			return handleAutomationConfigOverride(logger, filename, configurationName, target, content)
-		default:
-			return handleDefaultConfigOverride(logger, filename, configurationName, target, content)
-		}
-	}
-
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
 	if areConfigsEmbedded {
@@ -302,34 +292,34 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, file, product)
+			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
 			}
 		}
-	}
+	} else {
+		logger.Info().Msg("Reading configs from file system")
+		for _, fileName := range fileNames {
+			logger.Debug().Msgf("Looking for config file %s", fileName)
+			filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
 
-	logger.Info().Msg("Reading configs from file system")
-	for _, fileName := range fileNames {
-		logger.Debug().Msgf("Looking for config file %s", fileName)
-		filePath, err := osutil.FindFile(fileName, osutil.DEFAULT_STOP_FILE_NAME, 3)
+			if err != nil && errors.Is(err, os.ErrNotExist) {
+				logger.Debug().Msgf("Config file %s not found", fileName)
+				continue
+			} else if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
+			}
+			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
 
-		if err != nil && errors.Is(err, os.ErrNotExist) {
-			logger.Debug().Msgf("Config file %s not found", fileName)
-			continue
-		} else if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error looking for file %s", filePath)
-		}
-		logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
+			content, err := readFile(filePath)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			}
 
-		content, err := readFile(filePath)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
-		}
-
-		err = handleSpecialOverrides(logger, fileName, configurationName, &testConfig, content, product)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			}
 		}
 	}
 
@@ -342,7 +332,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
-		err = handleSpecialOverrides(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded, product)
+		err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
 		if err != nil {
 			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
 		}
@@ -350,7 +340,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// it neede some custom logic, so we do it separately
+	// it needs some custom logic, so we do it separately
 	err := testConfig.readNetworkConfiguration()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading network config")
@@ -384,8 +374,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 
 	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
 		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+		zero := int64(0)
 		if rootBuffer == nil {
-			rootBuffer = big.NewInt(0)
+			rootBuffer = &zero
 		}
 		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
 		if clNodeFunding == nil {
@@ -398,9 +389,7 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 		minRequiredFundsBuffered := big.NewFloat(0).Mul(minRequiredFunds, big.NewFloat(1.2))
 		minRequiredFundsBufferedInt, _ := minRequiredFundsBuffered.Int(nil)
 
-		rootBuffer64, _ := rootBuffer.Float64()
-
-		if big.NewFloat(rootBuffer64).Cmp(minRequiredFundsBuffered) <= 0 {
+		if *rootBuffer < minRequiredFundsBufferedInt.Int64() {
 			msg := `
 The funds allocated to the root key buffer are below the minimum requirement, which could lead to insufficient funds for performing contract deployments. Please review and adjust your TOML configuration file to ensure that the root key buffer has adequate funds. Increase the fund settings as necessary to meet this requirement.
 
@@ -410,7 +399,7 @@ root_key_funds_buffer = 1_000
 `
 
 			logger.Warn().
-				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", rootBuffer.String(), conversions.WeiToEther(rootBuffer).Text('f', -1))).
+				Str("Root key buffer (wei/ether)", fmt.Sprintf("%s/%s", fmt.Sprint(rootBuffer), conversions.WeiToEther(big.NewInt(*rootBuffer)).Text('f', -1))).
 				Str("Minimum required funds (wei/ether)", fmt.Sprintf("%s/%s", minRequiredFundsBuffered.String(), conversions.WeiToEther(minRequiredFundsBufferedInt).Text('f', -1))).
 				Msg(msg)
 		}
@@ -570,77 +559,4 @@ func readFile(filePath string) ([]byte, error) {
 	}
 
 	return content, nil
-}
-
-func handleAutomationConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
-	logger.Debug().Msgf("Handling automation config override for %s", filename)
-	oldConfig := MustCopy(target)
-	newConfig := TestConfig{}
-
-	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	// override instead of merging
-	if (newConfig.Automation != nil && len(newConfig.Automation.Load) > 0) && (oldConfig != nil && oldConfig.Automation != nil && len(oldConfig.Automation.Load) > 0) {
-		target.Automation.Load = newConfig.Automation.Load
-	}
-
-	return nil
-}
-
-func handleDefaultConfigOverride(logger zerolog.Logger, filename, configurationName string, target *TestConfig, content []byte) error {
-	logger.Debug().Msgf("Handling default config override for %s", filename)
-	oldConfig := MustCopy(target)
-	newConfig := TestConfig{}
-
-	err := ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &target, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	err = ctf_config.BytesToAnyTomlStruct(logger, filename, configurationName, &newConfig, content)
-	if err != nil {
-		return errors.Wrapf(err, "error reading file %s", filename)
-	}
-
-	// temporary fix for Duration not being correctly copied
-	if oldConfig != nil && oldConfig.Seth != nil && oldConfig.Seth.Networks != nil {
-		for i, old_network := range oldConfig.Seth.Networks {
-			for _, target_network := range target.Seth.Networks {
-				if old_network.ChainID == target_network.ChainID {
-					oldConfig.Seth.Networks[i].TxnTimeout = target_network.TxnTimeout
-				}
-			}
-		}
-	}
-
-	// override instead of merging
-	if (newConfig.Seth != nil && len(newConfig.Seth.Networks) > 0) && (oldConfig != nil && oldConfig.Seth != nil && len(oldConfig.Seth.Networks) > 0) {
-		networksToUse := map[string]*seth.Network{}
-		for i, old_network := range oldConfig.Seth.Networks {
-			for _, new_network := range newConfig.Seth.Networks {
-				if old_network.ChainID == new_network.ChainID {
-					oldConfig.Seth.Networks[i] = new_network
-					break
-				}
-				if _, ok := networksToUse[new_network.ChainID]; !ok {
-					networksToUse[new_network.ChainID] = new_network
-				}
-			}
-			networksToUse[old_network.ChainID] = oldConfig.Seth.Networks[i]
-		}
-		target.Seth.Networks = []*seth.Network{}
-		for _, network := range networksToUse {
-			target.Seth.Networks = append(target.Seth.Networks, network)
-		}
-	}
-
-	return nil
 }

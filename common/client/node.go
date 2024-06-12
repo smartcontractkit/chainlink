@@ -9,15 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -47,14 +44,12 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
-	Errors() config.ClientErrors
 }
 
 type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
-	ChainType() commonconfig.ChainType
 }
 
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
@@ -106,10 +101,7 @@ type node[
 	stateLatestTotalDifficulty      *big.Int
 	stateLatestFinalizedBlockNumber int64
 
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -148,7 +140,7 @@ func NewNode[
 	if httpuri != nil {
 		n.http = httpuri
 	}
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(services.StopChan)
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
@@ -205,7 +197,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	n.cancelNodeCtx()
+	close(n.stopCh)
 	n.state = nodeStateClosed
 	return nil
 }

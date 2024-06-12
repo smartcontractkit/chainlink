@@ -117,7 +117,7 @@ func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
 	}
 	p.PeerID = key.PeerID()
 
-	discovererDB := NewDiscovererDatabase(p.ds, p.PeerID.Raw())
+	discovererDB := NewOCRDiscovererDatabase(p.ds, p.PeerID.Raw())
 
 	config := p.p2pCfg
 	peerConfig := ocrnetworking.PeerConfig{

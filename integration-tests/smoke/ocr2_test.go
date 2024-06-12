@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -155,7 +156,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		WithMockAdapter().
 		WithCLNodes(clNodeCount).
 		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()
