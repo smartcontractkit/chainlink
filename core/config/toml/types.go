@@ -1407,21 +1407,21 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 }
 
 type ExternalRegistry struct {
-	Address   string
-	NetworkID string
-	ChainID   string
+	Address   *string
+	NetworkID *string
+	ChainID   *string
 }
 
 func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
-	if r.Address == "" {
+	if f.Address != nil {
 		r.Address = f.Address
 	}
 
-	if r.NetworkID == "" {
+	if f.NetworkID != nil {
 		r.NetworkID = f.NetworkID
 	}
 
-	if r.ChainID == "" {
+	if f.ChainID != nil {
 		r.ChainID = f.ChainID
 	}
 }

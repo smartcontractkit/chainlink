@@ -32,13 +32,13 @@ func (c *capabilitiesExternalRegistry) RelayID() types.RelayID {
 }
 
 func (c *capabilitiesExternalRegistry) NetworkID() string {
-	return c.c.NetworkID
+	return *c.c.NetworkID
 }
 
 func (c *capabilitiesExternalRegistry) ChainID() string {
-	return c.c.ChainID
+	return *c.c.ChainID
 }
 
 func (c *capabilitiesExternalRegistry) Address() string {
-	return c.c.Address
+	return *c.c.Address
 }
