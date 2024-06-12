@@ -24,7 +24,11 @@ func main() {
 		unpackDir              = "core/web/assets"
 		downloadTimeoutSeconds = 10
 	)
-	rootDir := rootDir()
+	// Grab first argument as root directory
+	if len(os.Args) < 2 {
+		log.Fatalln("Usage: install.go <root>")
+	}
+	rootDir := os.Args[1]
 
 	tag := mustReadTagFile(path.Join(rootDir, tagPath))
 	strippedTag := stripVersionFromTag(tag)
@@ -40,22 +44,6 @@ func main() {
 
 	subPath := "package/artifacts/"
 	mustDownloadSubAsset(downloadUrl, downloadTimeoutSeconds, unpackPath, subPath)
-}
-
-func rootDir() string {
-	thisDir := thisExecutablesDir()
-
-	return filepath.Join(thisDir, "..")
-}
-
-func thisExecutablesDir() string {
-	exec, err := os.Executable()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	dir := filepath.Dir(exec)
-
-	return dir
 }
 
 func mustReadTagFile(file string) string {
