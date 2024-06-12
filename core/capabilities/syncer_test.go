@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -34,9 +35,7 @@ func TestSyncer_CleanStartClose(t *testing.T) {
 	wrapper := mocks.NewPeerWrapper(t)
 	wrapper.On("GetPeer").Return(peer)
 	registry := commonMocks.NewCapabilitiesRegistry(t)
-	registry.On("Add", mock.Anything, mock.Anything).Return(nil)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	networkSetup, err := NewHardcodedDonNetworkSetup()
 	require.NoError(t, err)
@@ -306,6 +305,9 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
+
+	// Finally, assert that no services were added.
+	assert.Len(t, syncer.subServices, 0)
 }
 
 func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
