@@ -218,6 +218,7 @@ func Test_Eth_Errors(t *testing.T) {
 			{"client error insufficient eth", true, "tomlConfig"},
 			{"transaction would cause overdraft", true, "Geth"},
 			{"[Request ID: 9dd78806-58c8-4e6d-89a8-a60962abe705] Error invoking RPC: transaction 0.0.3041916@1717691931.680570179 failed precheck with status INSUFFICIENT_PAYER_BALANCE", true, "hedera"},
+			{"[Request ID: 6198d2a3-590f-4724-aae5-69fecead0c49] Insufficient funds for transfer", true, "hedera"},
 		}
 		for _, test := range tests {
 			err = evmclient.NewSendErrorS(test.message)
