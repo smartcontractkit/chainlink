@@ -197,7 +197,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
 
     // Make sure this is tether compatible, as they have strange approval requirements
     // Should be good since all approvals are always immediately used.
-    i_localToken.approve(address(s_localLiquidityContainer), amount);
+    i_localToken.safeApprove(address(s_localLiquidityContainer), amount);
     s_localLiquidityContainer.provideLiquidity(amount);
 
     emit LiquidityAddedToContainer(msg.sender, amount);
@@ -268,7 +268,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
 
     // XXX: Could be optimized by withdrawing once and then sending to all destinations
     s_localLiquidityContainer.withdrawLiquidity(tokenAmount);
-    i_localToken.approve(address(remoteLiqManager.localBridge), tokenAmount);
+    i_localToken.safeApprove(address(remoteLiqManager.localBridge), tokenAmount);
 
     bytes memory bridgeReturnData = remoteLiqManager.localBridge.sendERC20{value: nativeBridgeFee}(
       address(i_localToken),
