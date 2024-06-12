@@ -4,8 +4,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
-type CapabilitiesRegistry interface {
-	RemoteAddress() string
+type CapabilitiesExternalRegistry interface {
+	Address() string
 	NetworkID() string
 	ChainID() string
 	RelayID() types.RelayID
@@ -13,5 +13,5 @@ type CapabilitiesRegistry interface {
 
 type Capabilities interface {
 	Peering() P2P
-	Registry() CapabilitiesRegistry
+	ExternalRegistry() CapabilitiesExternalRegistry
 }

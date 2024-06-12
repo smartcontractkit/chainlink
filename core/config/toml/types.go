@@ -1406,15 +1406,15 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 	return err
 }
 
-type Registry struct {
-	RemoteAddress string
-	NetworkID     string
-	ChainID       string
+type ExternalRegistry struct {
+	Address   string
+	NetworkID string
+	ChainID   string
 }
 
-func (r *Registry) setFrom(f *Registry) {
-	if r.RemoteAddress == "" {
-		r.RemoteAddress = f.RemoteAddress
+func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
+	if r.Address == "" {
+		r.Address = f.Address
 	}
 
 	if r.NetworkID == "" {
@@ -1427,13 +1427,13 @@ func (r *Registry) setFrom(f *Registry) {
 }
 
 type Capabilities struct {
-	Peering  P2P      `toml:",omitempty"`
-	Registry Registry `toml:",omitempty"`
+	Peering          P2P              `toml:",omitempty"`
+	ExternalRegistry ExternalRegistry `toml:",omitempty"`
 }
 
 func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Peering.setFrom(&f.Peering)
-	c.Registry.setFrom(&f.Registry)
+	c.ExternalRegistry.setFrom(&f.ExternalRegistry)
 }
 
 type ThresholdKeyShareSecrets struct {

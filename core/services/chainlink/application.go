@@ -219,8 +219,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
 
-		rid := cfg.Capabilities().Registry().RelayID()
-		registryAddress := cfg.Capabilities().Registry().RemoteAddress()
+		rid := cfg.Capabilities().ExternalRegistry().RelayID()
+		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
 		relayer, err := relayerChainInterops.Get(rid)
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)

@@ -305,8 +305,8 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
-[Capabilities.Registry]
-RemoteAddress = ''
+[Capabilities.ExternalRegistry]
+Address = ''
 NetworkID = 'evm'
 ChainID = '1'
 

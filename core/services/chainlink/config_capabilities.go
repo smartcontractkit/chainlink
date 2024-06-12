@@ -17,28 +17,28 @@ func (c *capabilitiesConfig) Peering() config.P2P {
 	return &p2p{c: c.c.Peering}
 }
 
-func (c *capabilitiesConfig) Registry() config.CapabilitiesRegistry {
-	return &capabilitiesRegistry{
-		c: c.c.Registry,
+func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegistry {
+	return &capabilitiesExternalRegistry{
+		c: c.c.ExternalRegistry,
 	}
 }
 
-type capabilitiesRegistry struct {
-	c toml.Registry
+type capabilitiesExternalRegistry struct {
+	c toml.ExternalRegistry
 }
 
-func (c *capabilitiesRegistry) RelayID() types.RelayID {
+func (c *capabilitiesExternalRegistry) RelayID() types.RelayID {
 	return types.NewRelayID(c.NetworkID(), c.ChainID())
 }
 
-func (c *capabilitiesRegistry) NetworkID() string {
+func (c *capabilitiesExternalRegistry) NetworkID() string {
 	return c.c.NetworkID
 }
 
-func (c *capabilitiesRegistry) ChainID() string {
+func (c *capabilitiesExternalRegistry) ChainID() string {
 	return c.c.ChainID
 }
 
-func (c *capabilitiesRegistry) RemoteAddress() string {
-	return c.c.RemoteAddress
+func (c *capabilitiesExternalRegistry) Address() string {
+	return c.c.Address
 }

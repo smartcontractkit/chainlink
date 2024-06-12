@@ -444,10 +444,10 @@ func TestConfig_Marshal(t *testing.T) {
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
-		Registry: toml.Registry{
-			RemoteAddress: "",
-			ChainID:       "1",
-			NetworkID:     "evm",
+		ExternalRegistry: toml.ExternalRegistry{
+			Address:   "",
+			ChainID:   "1",
+			NetworkID: "evm",
 		},
 	}
 	full.Keeper = toml.Keeper{
