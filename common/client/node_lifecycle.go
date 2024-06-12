@@ -113,8 +113,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		n.declareUnreachable()
 		return
 	}
-	// TODO: nit fix. If multinode switches primary node before we set sub as AliveSub, sub will be closed and we'll
-	// falsely transition this node to unreachable state
+
 	n.stateMu.Lock()
 	n.aliveLoopSub = sub
 	n.stateMu.Unlock()
