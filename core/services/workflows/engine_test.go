@@ -3,6 +3,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ import (
 
 const hardcodedWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedIds:
         - "0x1111111111111111111100000000000000000000000000000000000000000000"
@@ -32,7 +33,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000"
 
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -54,14 +55,14 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
       address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia"
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -72,6 +73,7 @@ targets:
 
 type testHooks struct {
 	initFailed        chan struct{}
+	initSuccessful    chan struct{}
 	executionFinished chan string
 }
 
@@ -79,7 +81,9 @@ type testHooks struct {
 func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
 	peerID := p2ptypes.PeerID{}
 	initFailed := make(chan struct{})
+	initSuccessful := make(chan struct{})
 	executionFinished := make(chan string, 100)
+	clock := clockwork.NewFakeClock()
 	cfg := Config{
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
@@ -91,21 +95,24 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 		maxRetries: 1,
 		retryMs:    100,
 		afterInit: func(success bool) {
-			if !success {
+			if success {
+				close(initSuccessful)
+			} else {
 				close(initFailed)
 			}
 		},
 		onExecutionFinished: func(weid string) {
 			executionFinished <- weid
 		},
-		clock: clockwork.NewFakeClock(),
+		clock: clock,
+		Store: store.NewDBStore(pgtest.NewSqlxDB(t), clock),
 	}
 	for _, o := range opts {
 		o(&cfg)
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
-	return eng, &testHooks{initFailed: initFailed, executionFinished: executionFinished}
+	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished}
 }
 
 // getExecutionId returns the execution id of the workflow that is
@@ -181,76 +188,57 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	t.Parallel()
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
-	testCases := []struct {
-		name  string
-		store store.Store
-	}{
-		{
-			name:  "db-engine",
-			store: store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock()),
+	trigger, cr := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	target1 := mockTarget()
+	require.NoError(t, reg.Add(ctx, target1))
+
+	target2 := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"write_ethereum-testnet-sepolia@1.0.0",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			m := req.Inputs.Underlying["report"].(*values.Map)
+			return capabilities.CapabilityResponse{
+				Value: m,
+			}, nil
 		},
-		{
-			name:  "in-memory-engine",
-			store: store.NewInMemoryStore(),
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
-			reg := coreCap.NewRegistry(logger.TestLogger(t))
+	)
+	require.NoError(t, reg.Add(ctx, target2))
 
-			trigger, cr := mockTrigger(t)
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		hardcodedWorkflow,
+		func(c *Config) { c.Store = dbstore },
+	)
 
-			require.NoError(t, reg.Add(ctx, trigger))
-			require.NoError(t, reg.Add(ctx, mockConsensus()))
-			target1 := mockTarget()
-			require.NoError(t, reg.Add(ctx, target1))
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
 
-			target2 := newMockCapability(
-				capabilities.MustNewCapabilityInfo(
-					"write_ethereum-testnet-sepolia",
-					capabilities.CapabilityTypeTarget,
-					"a write capability targeting ethereum sepolia testnet",
-					"v1.0.0",
-				),
-				func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-					m := req.Inputs.Underlying["report"].(*values.Map)
-					return capabilities.CapabilityResponse{
-						Value: m,
-					}, nil
-				},
-			)
-			require.NoError(t, reg.Add(ctx, target2))
+	eid := getExecutionId(t, eng, testHooks)
+	assert.Equal(t, cr, <-target1.response)
+	assert.Equal(t, cr, <-target2.response)
 
-			eng, testHooks := newTestEngine(
-				t,
-				reg,
-				hardcodedWorkflow,
-				func(c *Config) { c.Store = tc.store },
-			)
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
 
-			err := eng.Start(ctx)
-			require.NoError(t, err)
-			defer eng.Close()
-
-			eid := getExecutionId(t, eng, testHooks)
-			assert.Equal(t, cr, <-target1.response)
-			assert.Equal(t, cr, <-target2.response)
-
-			state, err := eng.executionStates.Get(ctx, eid)
-			require.NoError(t, err)
-
-			assert.Equal(t, state.Status, store.StatusCompleted)
-		})
-	}
+	assert.Equal(t, state.Status, store.StatusCompleted)
 }
 
 const (
 	simpleWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -258,7 +246,7 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
         
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -280,7 +268,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -293,10 +281,9 @@ targets:
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.CapabilityResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -316,10 +303,9 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Cap
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger",
+			"mercury-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
-			"v1.0.0",
 		),
 		ch: make(chan capabilities.CapabilityResponse, 10),
 	}
@@ -329,10 +315,9 @@ func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
 func mockFailingConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{}, errors.New("fatal consensus error")
@@ -340,13 +325,28 @@ func mockFailingConsensus() *mockCapability {
 	)
 }
 
+func mockConsensusWithEarlyTermination() *mockCapability {
+	return newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"offchain_reporting@1.0.0",
+			capabilities.CapabilityTypeConsensus,
+			"an ocr3 consensus capability",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				// copy error object to make sure message comparison works as expected
+				Err: errors.New(capabilities.ErrStopExecution.Error()),
+			}, nil
+		},
+	)
+}
+
 func mockConsensus() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"offchain_reporting",
+			"offchain_reporting@1.0.0",
 			capabilities.CapabilityTypeConsensus,
 			"an ocr3 consensus capability",
-			"v3.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			obs := req.Inputs.Underlying["observations"]
@@ -369,10 +369,9 @@ func mockConsensus() *mockCapability {
 func mockTarget() *mockCapability {
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"write_polygon-testnet-mumbai",
+			"write_polygon-testnet-mumbai@1.0.0",
 			capabilities.CapabilityTypeTarget,
 			"a write capability targeting polygon mumbai testnet",
-			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			m := req.Inputs.Underlying["report"].(*values.Map)
@@ -409,10 +408,35 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	assert.Equal(t, state.Steps["evm_median"].Status, store.StatusErrored)
 }
 
+func TestEngine_GracefulEarlyTermination(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensusWithEarlyTermination()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
+
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+	defer eng.Close()
+
+	eid := getExecutionId(t, eng, hooks)
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
+}
+
 const (
 	multiStepWorkflow = `
 triggers:
-  - id: "mercury-trigger"
+  - id: "mercury-trigger@1.0.0"
     config:
       feedlist:
         - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
@@ -420,14 +444,15 @@ triggers:
         - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
 
 actions:
-  - id: "read_chain_action"
+  - id: "read_chain_action@1.0.0"
     ref: "read_chain_action"
+    config: {}
     inputs:
       action:
         - "$(trigger.outputs)"
         
 consensus:
-  - id: "offchain_reporting"
+  - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
     inputs:
       observations:
@@ -450,7 +475,7 @@ consensus:
         abi: "mercury_reports bytes[]"
 
 targets:
-  - id: "write_polygon-testnet-mumbai"
+  - id: "write_polygon-testnet-mumbai@1.0.0"
     inputs:
       report: "$(evm_median.outputs.report)"
     config:
@@ -464,10 +489,9 @@ func mockAction() (*mockCapability, values.Value) {
 	outputs := values.NewString("output")
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
-			"read_chain_action",
+			"read_chain_action@1.0.0",
 			capabilities.CapabilityTypeAction,
 			"a read chain action",
-			"v1.0.0",
 		),
 		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 			return capabilities.CapabilityResponse{
@@ -631,4 +655,96 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusTimeout, gotEx.Status)
+}
+
+const (
+	delayedWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedlist:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000" # ETHUSD
+        - "0x2222222222222222222200000000000000000000000000000000000000000000" # LINKUSD
+        - "0x3333333333333333333300000000000000000000000000000000000000000000" # BTCUSD
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: "30m"
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_polygon-testnet-mumbai@1.0.0"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+      deltaStage: 2s
+      schedule: allAtOnce
+`
+)
+
+func TestEngine_WrapsTargets(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	clock := clockwork.NewFakeClock()
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+
+	eng, hooks := newTestEngine(
+		t,
+		reg,
+		delayedWorkflow,
+		func(c *Config) {
+			c.Store = dbstore
+			c.clock = clock
+		},
+	)
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+
+	<-hooks.initSuccessful
+
+	err = eng.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+		if s.Ref == workflows.KeywordTrigger {
+			return nil
+		}
+
+		info, err2 := s.capability.Info(ctx)
+		require.NoError(t, err2)
+
+		if info.CapabilityType == capabilities.CapabilityTypeTarget {
+			assert.Equal(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+		} else {
+			assert.NotEqual(t, "*transmission.LocalTargetCapability", fmt.Sprintf("%T", s.capability))
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
 }

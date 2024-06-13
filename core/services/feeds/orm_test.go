@@ -206,11 +206,12 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 		orm  = setupORM(t)
 		fmID = createFeedsManager(t, orm)
 		cfg1 = feeds.ChainConfig{
-			FeedsManagerID: fmID,
-			ChainID:        "1",
-			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0001",
-			AdminAddress:   "0x1001",
+			FeedsManagerID:          fmID,
+			ChainID:                 "1",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0001",
+			AdminAddress:            "0x1001",
+			AccountAddressPublicKey: null.StringFrom("0x0002"),
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -235,14 +236,15 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	assertChainConfigEqual(t, map[string]interface{}{
-		"feedsManagerID":    cfg1.FeedsManagerID,
-		"chainID":           cfg1.ChainID,
-		"chainType":         cfg1.ChainType,
-		"accountAddress":    cfg1.AccountAddress,
-		"adminAddress":      cfg1.AdminAddress,
-		"fluxMonitorConfig": cfg1.FluxMonitorConfig,
-		"ocrConfig":         cfg1.OCR1Config,
-		"ocr2Config":        cfg1.OCR2Config,
+		"feedsManagerID":          cfg1.FeedsManagerID,
+		"chainID":                 cfg1.ChainID,
+		"chainType":               cfg1.ChainType,
+		"accountAddress":          cfg1.AccountAddress,
+		"accountAddressPublicKey": cfg1.AccountAddressPublicKey,
+		"adminAddress":            cfg1.AdminAddress,
+		"fluxMonitorConfig":       cfg1.FluxMonitorConfig,
+		"ocrConfig":               cfg1.OCR1Config,
+		"ocr2Config":              cfg1.OCR2Config,
 	}, *actual)
 }
 
@@ -254,11 +256,12 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 		orm  = setupORM(t)
 		fmID = createFeedsManager(t, orm)
 		cfg1 = feeds.ChainConfig{
-			FeedsManagerID: fmID,
-			ChainID:        "1",
-			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0001",
-			AdminAddress:   "0x1001",
+			FeedsManagerID:          fmID,
+			ChainID:                 "1",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0001",
+			AccountAddressPublicKey: null.StringFrom("0x0002"),
+			AdminAddress:            "0x1001",
 		}
 		cfg2 = feeds.ChainConfig{
 			FeedsManagerID: fmID,
@@ -278,14 +281,15 @@ func Test_ORM_CreateBatchChainConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	assertChainConfigEqual(t, map[string]interface{}{
-		"feedsManagerID":    cfg1.FeedsManagerID,
-		"chainID":           cfg1.ChainID,
-		"chainType":         cfg1.ChainType,
-		"accountAddress":    cfg1.AccountAddress,
-		"adminAddress":      cfg1.AdminAddress,
-		"fluxMonitorConfig": cfg1.FluxMonitorConfig,
-		"ocrConfig":         cfg1.OCR1Config,
-		"ocr2Config":        cfg1.OCR2Config,
+		"feedsManagerID":          cfg1.FeedsManagerID,
+		"chainID":                 cfg1.ChainID,
+		"chainType":               cfg1.ChainType,
+		"accountAddress":          cfg1.AccountAddress,
+		"accountAddressPublicKey": cfg1.AccountAddressPublicKey,
+		"adminAddress":            cfg1.AdminAddress,
+		"fluxMonitorConfig":       cfg1.FluxMonitorConfig,
+		"ocrConfig":               cfg1.OCR1Config,
+		"ocr2Config":              cfg1.OCR2Config,
 	}, *actual)
 
 	actual, err = orm.GetChainConfig(ctx, ids[1])
@@ -346,11 +350,12 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 		orm  = setupORM(t)
 		fmID = createFeedsManager(t, orm)
 		cfg1 = feeds.ChainConfig{
-			FeedsManagerID: fmID,
-			ChainID:        "1",
-			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0001",
-			AdminAddress:   "0x1001",
+			FeedsManagerID:          fmID,
+			ChainID:                 "1",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0001",
+			AccountAddressPublicKey: null.StringFrom("0x0002"),
+			AdminAddress:            "0x1001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -376,14 +381,15 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 	require.Len(t, actual, 1)
 
 	assertChainConfigEqual(t, map[string]interface{}{
-		"feedsManagerID":    cfg1.FeedsManagerID,
-		"chainID":           cfg1.ChainID,
-		"chainType":         cfg1.ChainType,
-		"accountAddress":    cfg1.AccountAddress,
-		"adminAddress":      cfg1.AdminAddress,
-		"fluxMonitorConfig": cfg1.FluxMonitorConfig,
-		"ocrConfig":         cfg1.OCR1Config,
-		"ocr2Config":        cfg1.OCR2Config,
+		"feedsManagerID":          cfg1.FeedsManagerID,
+		"chainID":                 cfg1.ChainID,
+		"chainType":               cfg1.ChainType,
+		"accountAddress":          cfg1.AccountAddress,
+		"accountAddressPublicKey": cfg1.AccountAddressPublicKey,
+		"adminAddress":            cfg1.AdminAddress,
+		"fluxMonitorConfig":       cfg1.FluxMonitorConfig,
+		"ocrConfig":               cfg1.OCR1Config,
+		"ocr2Config":              cfg1.OCR2Config,
 	}, actual[0])
 }
 
@@ -395,19 +401,21 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 		orm  = setupORM(t)
 		fmID = createFeedsManager(t, orm)
 		cfg1 = feeds.ChainConfig{
-			FeedsManagerID:    fmID,
-			ChainID:           "1",
-			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0001",
-			AdminAddress:      "0x1001",
-			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
-			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
+			FeedsManagerID:          fmID,
+			ChainID:                 "1",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0001",
+			AccountAddressPublicKey: null.NewString("", false),
+			AdminAddress:            "0x1001",
+			FluxMonitorConfig:       feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:              feeds.OCR1Config{Enabled: false},
+			OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
 		}
 		updateCfg = feeds.ChainConfig{
-			AccountAddress:    "0x0002",
-			AdminAddress:      "0x1002",
-			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: true},
+			AccountAddress:          "0x0002",
+			AdminAddress:            "0x1002",
+			AccountAddressPublicKey: null.StringFrom("0x0002"),
+			FluxMonitorConfig:       feeds.FluxMonitorConfig{Enabled: true},
 			OCR1Config: feeds.OCR1Config{
 				Enabled:     true,
 				IsBootstrap: false,
@@ -434,14 +442,15 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	assertChainConfigEqual(t, map[string]interface{}{
-		"feedsManagerID":    cfg1.FeedsManagerID,
-		"chainID":           cfg1.ChainID,
-		"chainType":         cfg1.ChainType,
-		"accountAddress":    updateCfg.AccountAddress,
-		"adminAddress":      updateCfg.AdminAddress,
-		"fluxMonitorConfig": updateCfg.FluxMonitorConfig,
-		"ocrConfig":         updateCfg.OCR1Config,
-		"ocr2Config":        updateCfg.OCR2Config,
+		"feedsManagerID":          cfg1.FeedsManagerID,
+		"chainID":                 cfg1.ChainID,
+		"chainType":               cfg1.ChainType,
+		"accountAddress":          updateCfg.AccountAddress,
+		"accountAddressPublicKey": updateCfg.AccountAddressPublicKey,
+		"adminAddress":            updateCfg.AdminAddress,
+		"fluxMonitorConfig":       updateCfg.FluxMonitorConfig,
+		"ocrConfig":               updateCfg.OCR1Config,
+		"ocr2Config":              updateCfg.OCR2Config,
 	}, *actual)
 }
 

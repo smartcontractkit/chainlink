@@ -173,6 +173,8 @@ type Job struct {
 	WorkflowSpec                  *WorkflowSpec
 	StandardCapabilitiesSpecID    *int32
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPBootstrapSpecID           *int32
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -878,6 +880,7 @@ func (w *WorkflowSpec) Validate() error {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
 	}
 
+	w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
 	_, err := hex.DecodeString(w.WorkflowOwner)
 	if err != nil {
 		return fmt.Errorf("%w: expected hex encoding got %s: %w", ErrInvalidWorkflowOwner, w.WorkflowOwner, err)

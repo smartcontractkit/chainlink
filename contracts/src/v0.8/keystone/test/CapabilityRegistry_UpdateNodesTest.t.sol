@@ -73,7 +73,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, INVALID_P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeDoesNotExist.selector, INVALID_P2P_ID));
     s_capabilityRegistry.updateNodes(nodes);
   }
 
@@ -91,7 +91,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.InvalidNodeP2PId.selector, bytes32("")));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeDoesNotExist.selector, bytes32("")));
     s_capabilityRegistry.updateNodes(nodes);
   }
 
