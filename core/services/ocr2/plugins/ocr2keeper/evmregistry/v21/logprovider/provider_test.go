@@ -1494,8 +1494,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		assert.Equal(t, 10, len(payloads))
 
+		dequeueCoordinator := provider.dequeueCoordinator.(*dequeueCoordinator)
+
 		// the first block window does not contain any logs, so it automatically gets marked as having the minimum dequeued
-		assert.True(t, true, provider.dequeueCoordinator.dequeuedMinimum[0])
+		assert.True(t, true, dequeueCoordinator.dequeuedMinimum[0])
 
 		blockWindowCounts = map[int64]int{}
 
@@ -1604,8 +1606,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		assert.Equal(t, 0, len(payloads))
 
-		assert.Equal(t, false, provider.dequeueCoordinator.dequeuedMinimum[0])
-		assert.Equal(t, true, provider.dequeueCoordinator.notReady[0])
+		dequeueCoordinator := provider.dequeueCoordinator.(*dequeueCoordinator)
+
+		assert.Equal(t, false, dequeueCoordinator.dequeuedMinimum[0])
+		assert.Equal(t, true, dequeueCoordinator.notReady[0])
 
 		blockWindowCounts = map[int64]int{}
 
@@ -1634,8 +1638,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		assert.Equal(t, 0, len(payloads))
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[0]) // now that the window is complete, it should be marked as dequeued minimum
-		assert.Equal(t, true, provider.dequeueCoordinator.notReady[0])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[0]) // now that the window is complete, it should be marked as dequeued minimum
+		assert.Equal(t, true, dequeueCoordinator.notReady[0])
 
 		provider.poller = &mockLogPoller{
 			LatestBlockFn: func(ctx context.Context) (int64, error) {
@@ -1716,9 +1720,9 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 180, blockWindowCounts[4])
 		assert.Equal(t, 190, blockWindowCounts[8])
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[0])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[4])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[8])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[0])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[4])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[8])
 	})
 
 	t.Run("an incomplete window with minimum logs already present is marked as min dequeued", func(t *testing.T) {
@@ -1808,7 +1812,9 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		assert.Equal(t, 10, len(payloads))
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[0])
+		dequeueCoordinator := provider.dequeueCoordinator.(*dequeueCoordinator)
+
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[0])
 
 		blockWindowCounts = map[int64]int{}
 
@@ -1868,8 +1874,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 90, blockWindowCounts[0])
 		assert.Equal(t, 190, blockWindowCounts[4])
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[0])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[4])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[0])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[4])
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -2123,10 +2129,12 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 818, countLogs(bufV1.queues["4"].logs))
 		assert.Equal(t, 818, countLogs(bufV1.queues["5"].logs))
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[1])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[97])
-		assert.Equal(t, false, provider.dequeueCoordinator.dequeuedMinimum[98]) // this window has no min commitment met due to reorg
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[99])
+		dequeueCoordinator := provider.dequeueCoordinator.(*dequeueCoordinator)
+
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[1])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[97])
+		assert.Equal(t, false, dequeueCoordinator.dequeuedMinimum[98]) // this window has no min commitment met due to reorg
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[99])
 
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -2134,10 +2142,10 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		// we dequeue a maximum of 10 logs
 		assert.Equal(t, 10, len(payloads))
 
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[1])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[97])
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[98]) // this window has had min commitment met following reorg
-		assert.Equal(t, true, provider.dequeueCoordinator.dequeuedMinimum[99])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[1])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[97])
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[98]) // this window has had min commitment met following reorg
+		assert.Equal(t, true, dequeueCoordinator.dequeuedMinimum[99])
 
 		// the dequeue is evenly distributed across the 5 upkeeps
 		assert.Equal(t, 816, countLogs(bufV1.queues["1"].logs))

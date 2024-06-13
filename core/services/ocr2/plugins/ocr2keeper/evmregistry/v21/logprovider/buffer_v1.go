@@ -493,12 +493,14 @@ func (q *upkeepLogQueue) orderLogs() {
 // given upkeep was exceeded. Returns the number of logs that were dropped.
 // NOTE: this method is not thread safe and should be called within a lock.
 func (q *upkeepLogQueue) clean(blockThreshold int64) int {
-	var dropped, expired int
+	var totalDropped int
 	blockRate := int(q.opts.blockRate.Load())
 	windowLimit := int(q.opts.windowLimit.Load())
 	// helper variables to keep track of the current window capacity
 	currentWindowCapacity, currentWindowStart := 0, int64(0)
 	for _, blockNumber := range q.blockNumbers {
+		var dropped, expired int
+
 		logs := q.logs[blockNumber]
 		updated := make([]logpoller.Log, 0)
 
@@ -537,6 +539,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 		}
 
 		if dropped > 0 || expired > 0 {
+			totalDropped += dropped
 			q.logs[blockNumber] = updated
 			q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
 		}
@@ -544,7 +547,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 
 	q.cleanStates(blockThreshold)
 
-	return dropped
+	return totalDropped
 }
 
 // cleanStates removes states that are older than blockThreshold.
