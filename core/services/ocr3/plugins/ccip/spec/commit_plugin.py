@@ -77,13 +77,17 @@ class CommitPlugin:
         f_chain = consensus_f_chain(observations)
         seq_nums = consensus_seq_nums(observations, f_chain)
 
+        # all_msgs contains all messages from all observations, grouped by source chain
+        all_msgs = [observation["new_msgs"] for observation in observations].group_by_source_chain()
+
         trees = {} # { chain: (root, min_seq_num, max_seq_num) }
-        for (chain, msgs) in observations["new_msgs"]:
+        for (chain, msgs) in all_msgs:
             # filter out msgs with seq nums not matching consensus seq nums
             msgs = [msg for msg in msgs if msg.seq_num >= observed_seq_nums[chain]]
 
             msgs_by_seq_num = msgs.group_by_seq_num() # { 423: [0x1, 0x1, 0x2] }
                                                       # 2 nodes say that msg id is 0x1 and 1 node says it's 0x2
+
             msg_ids = { seq_num: elem_most_occurrences(ids) for (seq_num, ids) in f_chain_votes.items() }
             for (seq_num, id) in msg_ids.items(): # require at least 2f+1 observations of the voted id
                 assert(msgs_by_seq_num[seq_num].count(id) >= 2*f_chain[chain]+1)
