@@ -1,6 +1,7 @@
 package rollups
 
 import (
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"strings"
@@ -186,6 +187,43 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, assets.NewWei(l1BaseFee), gasPrice)
+	})
+
+	t.Run("Calling GasPrice on started zkSync L1Oracle returns ZkSync l1GasPrice", func(t *testing.T) {
+		gasPerPubByteL2 := big.NewInt(1100)
+		gasPriceL2 := big.NewInt(25000000)
+		ZksyncGasInfo_getGasPriceL2 := "0xfe173b97"
+		ZksyncGasInfo_getGasPerPubdataByteL2 := "0x7cb9357e"
+		ethClient := mocks.NewL1OracleClient(t)
+
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			var payload []byte
+			payload, err := hex.DecodeString(ZksyncGasInfo_getGasPriceL2[2:])
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
+			assert.Nil(t, blockNumber)
+		}).Return(common.BigToHash(gasPriceL2).Bytes(), nil).Once()
+
+		ethClient.On("CallContract", mock.Anything, mock.IsType(ethereum.CallMsg{}), mock.IsType(&big.Int{})).Run(func(args mock.Arguments) {
+			callMsg := args.Get(1).(ethereum.CallMsg)
+			blockNumber := args.Get(2).(*big.Int)
+			var payload []byte
+			payload, err := hex.DecodeString(ZksyncGasInfo_getGasPerPubdataByteL2[2:])
+			require.NoError(t, err)
+			require.Equal(t, payload, callMsg.Data)
+			assert.Nil(t, blockNumber)
+		}).Return(common.BigToHash(gasPerPubByteL2).Bytes(), nil)
+
+		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync)
+		require.NoError(t, oracle.Start(tests.Context(t)))
+		t.Cleanup(func() { assert.NoError(t, oracle.Close()) })
+
+		gasPrice, err := oracle.GasPrice(tests.Context(t))
+		require.NoError(t, err)
+
+		assert.Equal(t, assets.NewWei(new(big.Int).Mul(gasPriceL2, gasPerPubByteL2)), gasPrice)
 	})
 }
 
