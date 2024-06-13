@@ -91,7 +91,7 @@ func (o CommitPluginOutcome) String() string {
 
 type CommitPluginReport struct {
 	MerkleRoots  []MerkleRootChain `json:"merkleRoots"`
-	PriceUpdates PriceUpdate       `json:"priceUpdates"`
+	PriceUpdates PriceUpdates      `json:"priceUpdates"`
 }
 
 type CommitPluginReportWithMeta struct {
@@ -103,7 +103,7 @@ type CommitPluginReportWithMeta struct {
 func NewCommitPluginReport(merkleRoots []MerkleRootChain, tokenPriceUpdates []TokenPrice, gasPriceUpdate []GasPriceChain) CommitPluginReport {
 	return CommitPluginReport{
 		MerkleRoots:  merkleRoots,
-		PriceUpdates: PriceUpdate{TokenPriceUpdates: tokenPriceUpdates, GasPriceUpdates: gasPriceUpdate},
+		PriceUpdates: PriceUpdates{TokenPriceUpdates: tokenPriceUpdates, GasPriceUpdates: gasPriceUpdate},
 	}
 }
 
@@ -140,7 +140,7 @@ func NewMerkleRootChain(chainSel ChainSelector, seqNumsRange SeqNumRange, merkle
 	}
 }
 
-type PriceUpdate struct {
+type PriceUpdates struct {
 	TokenPriceUpdates []TokenPrice    `json:"tokenPriceUpdates"`
 	GasPriceUpdates   []GasPriceChain `json:"gasPriceUpdates"`
 }

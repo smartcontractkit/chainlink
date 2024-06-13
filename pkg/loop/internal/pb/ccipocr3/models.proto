@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-common/pkg/loop/internal/pb/ccipocr3;ccipocr3pb";
+
+package loop.internal.pb.ccipocr3;
+
+// CCIPMsg is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3.CCIPMsg].
+message CCIPMsg {
+  uint64 sequence_number = 1;
+  BigInt chain_fee_limit = 2;
+  uint64 nonce = 3;
+  uint64 chain_fee_price = 4;
+  bytes message_id = 5; // Hash [32]byte
+  uint64 source_chain_selector = 6;
+  string sender = 7; // Address
+  string receiver = 8; // Address
+  bool strict = 9;
+  string fee_token = 10; // Address
+  BigInt fee_token_amount = 11;
+  bytes data = 12;
+  repeated TokenAmount token_amounts = 13;
+  repeated bytes source_token_data = 14;
+}
+
+// BigInt represents a [big.Int].
+message BigInt {
+  bytes value = 1;
+}
+
+// TokenAmount is a helper type that defines a token and an amount.
+message TokenAmount {
+  string token = 1; // Token address
+  BigInt amount = 2;
+}
+
+
+// CommitPluginReport is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3.CommitPluginReport].
+message CommitPluginReport {
+  PriceUpdates price_updates = 1;
+  repeated MerkleRootChain merkle_roots = 2;
+}
+
+// PriceUpdates is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3.PriceUpdates].
+message PriceUpdates {
+  repeated TokenAmount token_price_updates = 1;
+  repeated GasPriceChain gas_price_updates = 2;
+}
+
+// GasPriceChain is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3.GasPriceChain].
+message GasPriceChain {
+  uint64 chain_selector = 1;
+  BigInt price = 2;
+}
+
+// MerkleRootChain is a gRPC adapter to [github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3.MerkleRootChain].
+message MerkleRootChain {
+  uint64 chain_selector = 1;
+  bytes merkle_root = 2;
+  SeqNumRange seq_num_range = 3;
+}
+
+// SeqNumRange defines an inclusive range of sequence numbers.
+message SeqNumRange {
+  uint64 start = 1;
+  uint64 end = 2;
+}

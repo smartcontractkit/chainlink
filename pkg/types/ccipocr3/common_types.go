@@ -57,6 +57,9 @@ func NewBigIntFromInt64(i int64) BigInt {
 }
 
 func (b BigInt) MarshalJSON() ([]byte, error) {
+	if b.Int == nil {
+		return []byte("null"), nil
+	}
 	return []byte(fmt.Sprintf(`"%s"`, b.String())), nil
 }
 
