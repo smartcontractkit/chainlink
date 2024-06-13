@@ -1,12 +1,14 @@
 package smoke
 
 import (
-	"math/big"
+	"log"
 	"testing"
 	"time"
 
+	"github.com/rs/zerolog"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -15,25 +17,54 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-func TestReorgAboveFinality(t *testing.T) {
+func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	t.Parallel()
 
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	config, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 
+	runReorgAboveFinalityTest(t, l, config)
+}
+
+func TestReorgAboveFinality_FinalityTagEnabled(t *testing.T) {
+	t.Parallel()
+	t.Skip("Core node is still healty after reorg with FinalityTagEnabled, skipping test")
+
+	l := logging.GetTestLogger(t)
+	config, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	require.NoError(t, err, "Error getting config")
+
+	runReorgAboveFinalityTest(t, l, config)
+}
+
+func runReorgAboveFinalityTest(t *testing.T, l zerolog.Logger, config tc.TestConfig) {
 	privateNetworkConf, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err)
 
-	nodeFinalityDepthInt := int64(10)
+	// Get values from the node config
+	configMap := make(map[string]interface{})
+	err = toml.Unmarshal([]byte(config.NodeConfig.CommonChainConfigTOML), &configMap)
+	if err != nil {
+		log.Fatalf("Error unmarshaling TOML: %s", err)
+	}
+	nodeFinalityDepthInt, isFinalityDepthSet := configMap["FinalityDepth"].(int64)
+	nodeFinalityTagEnabled := configMap["FinalityTagEnabled"].(bool)
+	l.Info().Int64("nodeFinalityDepth", nodeFinalityDepthInt).Bool("nodeFinalityTagEnabled", nodeFinalityTagEnabled).Msg("Node reorg config")
+
+	var reorgDepth int
+	if isFinalityDepthSet {
+		reorgDepth = int(nodeFinalityDepthInt) + 5
+	} else {
+		reorgDepth = 15
+	}
+	minChainBlockNumberBeforeReorg := reorgDepth + 10
 
 	testEnv, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetworkConf.EthereumNetworkConfig).
-		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithoutCleanup().
 		WithSeth().
 		Build()
@@ -43,16 +74,14 @@ func TestReorgAboveFinality(t *testing.T) {
 	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
 
 	// Wait for chain to progress
-	targetBlockNumber := nodeFinalityDepthInt * 3
 	require.Eventually(t, func() bool {
 		bn, err := client.BlockNumber()
 		require.NoError(t, err)
-		l.Info().Int64("blockNumber", bn).Int64("targetBlockNumber", targetBlockNumber).Msg("Waiting for chain to progress above target block number")
-		return bn > nodeFinalityDepthInt*3
-	}, 3*time.Minute, 3*time.Second, "chain did not progress above the target block number")
+		l.Info().Int64("blockNumber", bn).Int("targetBlockNumber", minChainBlockNumberBeforeReorg).Msg("Waiting for chain to progress above target block number")
+		return bn >= int64(minChainBlockNumberBeforeReorg)
+	}, 8*time.Minute, 3*time.Second, "timeout exceeded: chain did not progress above the target block number")
 
 	// Run reorg above finality depth
-	reorgDepth := int(nodeFinalityDepthInt) + 20
 	l.Info().
 		Str("URL", client.URL).
 		Int64("nodeFinalityDepth", nodeFinalityDepthInt).

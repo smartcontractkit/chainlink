@@ -180,3 +180,30 @@ FinalityTagEnabled = false
 [TestLogPollerReplayFixedDepth.LogPoller.General]
 use_finality_tag = false
 
+[TestReorgAboveFinality_FinalityTagDisabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 10
+FinalityTagEnabled = false
+"""
+[TestReorgAboveFinality_FinalityTagDisabled.PrivateEthereumNetwork]
+ethereum_version = "eth1"
+execution_layer = "geth"
+
+[TestReorgAboveFinality_FinalityTagEnabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+
+[HeadTracker]
+HistoryDepth = 10
+"""
+[TestReorgAboveFinality_FinalityTagEnabled.PrivateEthereumNetwork]
+ethereum_version = "eth1"
+execution_layer = "geth"
