@@ -58,13 +58,16 @@ func (c CommitPluginConfig) Validate() error {
 
 type ExecutePluginConfig struct {
 	// DestChain is the ccip destination chain configured for the execute DON.
-	DestChain ChainSelector
+	DestChain ChainSelector `json:"destChain"`
 
 	// ObserverInfo is a map of oracle IDs to ObserverInfo.
-	ObserverInfo map[commontypes.OracleID]ObserverInfo
+	ObserverInfo map[commontypes.OracleID]ObserverInfo `json:"observerInfo"`
 
 	// MessageVisibilityInterval is the time interval for which the messages are visible by the plugin.
-	MessageVisibilityInterval time.Duration
+	MessageVisibilityInterval time.Duration `json:"messageVisibilityInterval"`
+
+	// FChain defines the FChain value for each chain. FChain is used while forming consensus based on the observations.
+	FChain map[ChainSelector]int `json:"fChain"`
 }
 
 type ObserverInfo struct {
