@@ -48,16 +48,12 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
-
-	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
-		messageID, tc)
+	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
+
+	lggr.Debugw("sending request to peers", "execID", req.Metadata.WorkflowExecutionID, "schedule", peerIDToTransmissionDelay)
 
 	responseReceived := make(map[p2ptypes.PeerID]bool)
 	for peerID, delay := range peerIDToTransmissionDelay {
@@ -74,8 +70,10 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 
 			select {
 			case <-ctx.Done():
+				lggr.Debugw("context done, not sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				return
 			case <-time.After(delay):
+				lggr.Debugw("sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
 					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)

@@ -15,15 +15,14 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_EthResender_resendUnconfirmed(t *testing.T) {
@@ -32,9 +31,9 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
-	ccfg := evmtest.NewChainScopedConfig(t, cfg)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("IsL2").Return(false).Maybe()
+	ccfg := testutils.NewTestChainScopedConfig(t, nil)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -102,17 +101,15 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("IsL2").Return(false).Maybe()
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
 	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0] = &toml.EVMConfig{
-			Chain: toml.Defaults(ubig.New(big.NewInt(0)), &toml.Chain{
-				Transactions: toml.Transactions{ResendAfterThreshold: delay},
-			}),
-		}
+	ccfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
+		c.Chain = toml.Defaults(ubig.New(big.NewInt(0)), &toml.Chain{
+			Transactions: toml.Transactions{ResendAfterThreshold: delay},
+		})
 	})
-	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
@@ -132,7 +129,7 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 		err2 := er.XXXTestResendUnconfirmed()
 		require.NoError(t, err2)
-		testutils.WaitForLogMessageCount(t, o, "TxAttempt has been unconfirmed for more than max duration", 1)
+		tests.AssertLogCountEventually(t, o, "TxAttempt has been unconfirmed for more than max duration", 1)
 	})
 }
 
@@ -140,21 +137,22 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+	ccfg := testutils.NewTestChainScopedConfig(t, func(c *toml.EVMConfig) {
 		// This can be anything as long as it isn't zero
-		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(42 * time.Hour)
+		c.Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(42 * time.Hour)
 		// Set batch size low to test batching
-		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
+		c.RPCDefaultBatchSize = ptr[uint32](1)
 	})
+
 	txStore := cltest.NewTestTxStore(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+		ctx := tests.Context(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ethClient.On("IsL2").Return(false).Maybe()
 
 		er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTracker(txStore, ethKeyStore, big.NewInt(0), lggr), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 

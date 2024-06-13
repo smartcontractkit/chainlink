@@ -14,7 +14,12 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
   }
 
   function test_ReturnsCapabilities() public view {
-    CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
+    (bytes32[] memory hashedCapabilityIds, CapabilityRegistry.Capability[] memory capabilities) = s_capabilityRegistry
+      .getCapabilities();
+
+    assertEq(hashedCapabilityIds.length, 2);
+    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
+    assertEq(hashedCapabilityIds[1], keccak256(abi.encode(capabilities[1].labelledName, capabilities[1].version)));
 
     assertEq(capabilities.length, 2);
 
@@ -43,7 +48,12 @@ contract CapabilityRegistry_GetCapabilitiesTest is BaseTest {
     deprecatedCapabilities[0] = hashedCapabilityId;
     s_capabilityRegistry.deprecateCapabilities(deprecatedCapabilities);
 
-    CapabilityRegistry.Capability[] memory capabilities = s_capabilityRegistry.getCapabilities();
+    (bytes32[] memory hashedCapabilityIds, CapabilityRegistry.Capability[] memory capabilities) = s_capabilityRegistry
+      .getCapabilities();
+
+    assertEq(hashedCapabilityIds.length, 1);
+    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
+
     assertEq(capabilities.length, 1);
 
     assertEq(capabilities[0].labelledName, "read-ethereum-mainnet-gas-price");

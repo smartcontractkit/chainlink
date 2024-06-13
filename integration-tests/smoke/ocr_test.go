@@ -94,7 +94,7 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.5)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()
