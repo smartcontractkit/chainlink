@@ -11,13 +11,13 @@ require (
 	github.com/K-Phoen/grabana v0.22.1
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/go-resty/resty/v2 v2.11.0
-	github.com/pelletier/go-toml/v2 v2.1.1
+	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240607135320-c9bc0a2ac0ce
-	github.com/smartcontractkit/chainlink-testing-framework v1.30.2
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240612013352-4fe4a2e2ed0f
+	github.com/smartcontractkit/chainlink-testing-framework v1.30.5
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
