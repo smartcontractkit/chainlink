@@ -89,7 +89,7 @@ func NewRegistrySyncer(
 		peerWrapper,
 		registry,
 		dispatcher,
-		lggr,
+		lggr.Named("RegistrySyncer"),
 		networkSetup,
 		reader,
 	), nil
@@ -407,6 +407,7 @@ func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capa
 	if err != nil {
 		return err
 	}
+	s.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
 	capability, err := newCapFn(info)
 	if err != nil {
 		return err
@@ -432,6 +433,7 @@ func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capa
 	if err != nil {
 		return err
 	}
+	s.lggr.Debugw("Setting receiver for capability", "id", fullCapID, "donID", don.Id)
 	err = capability.Start(ctx)
 	if err != nil {
 		return err
@@ -536,6 +538,7 @@ func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.Capabil
 		return err
 	}
 
+	s.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
 	err = s.dispatcher.SetReceiver(fullCapID, fmt.Sprint(don.Id), receiver)
 	if err != nil {
 		return err
