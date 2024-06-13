@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -32,6 +34,33 @@ func TestCodec(t *testing.T) {
 
 	anyN := 10
 	c := tester.GetCodec(t)
+	t.Run("Decode works with multiple unnamed return values", func(t *testing.T) {
+		encode := &struct {
+			F0 int32
+			F1 int32
+		}{F0: 1, F1: 2}
+		codecName := "my_codec"
+		evmEncoderConfig := `[{"Name":"","Type":"int32"},{"Name":"","Type":"int32"}]`
+
+		codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+			codecName: {TypeABI: evmEncoderConfig},
+		}}
+		c, err := evm.NewCodec(codecConfig)
+		require.NoError(t, err)
+
+		result, err := c.Encode(testutils.Context(t), encode, codecName)
+		require.NoError(t, err)
+
+		decode := &struct {
+			F0 int32
+			F1 int32
+		}{}
+		err = c.Decode(testutils.Context(t), result, decode, codecName)
+		require.NoError(t, err)
+		require.Equal(t, encode.F0, decode.F0)
+		require.Equal(t, encode.F1, decode.F1)
+	})
+
 	t.Run("GetMaxEncodingSize delegates to GetMaxSize", func(t *testing.T) {
 		actual, err := c.GetMaxEncodingSize(testutils.Context(t), anyN, sizeItemType)
 		assert.NoError(t, err)
@@ -167,7 +196,7 @@ func (it *codecInterfaceTester) EncodeFields(t *testing.T, request *EncodeReques
 
 func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{}}
-	testStruct := CreateTestStruct(0, it)
+	testStruct := CreateTestStruct[*testing.T](0, it)
 	for k, v := range codecDefs {
 		defBytes, err := json.Marshal(v)
 		require.NoError(t, err)
@@ -215,13 +244,13 @@ func encodeFieldsOnSliceOrArray(t *testing.T, request *EncodeRequest) []byte {
 
 	switch request.TestOn {
 	case TestItemArray1Type:
-		args[0] = [1]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0])}
+		args[0] = [1]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0])}
 	case TestItemArray2Type:
-		args[0] = [2]chain_reader_tester.TestStruct{toInternalType(request.TestStructs[0]), toInternalType(request.TestStructs[1])}
+		args[0] = [2]chain_reader_tester.TestStruct{evmtesting.ToInternalType(request.TestStructs[0]), evmtesting.ToInternalType(request.TestStructs[1])}
 	default:
 		tmp := make([]chain_reader_tester.TestStruct, len(request.TestStructs))
 		for i, ts := range request.TestStructs {
-			tmp[i] = toInternalType(ts)
+			tmp[i] = evmtesting.ToInternalType(ts)
 		}
 		args[0] = tmp
 	}
@@ -299,4 +328,33 @@ func parseDefs(t *testing.T) map[string]abi.Arguments {
 	var results map[string]abi.Arguments
 	require.NoError(t, json.Unmarshal(bytes, &results))
 	return results
+}
+
+func getAccounts(first TestStruct) []common.Address {
+	accountBytes := make([]common.Address, len(first.Accounts))
+	for i, account := range first.Accounts {
+		accountBytes[i] = common.Address(account)
+	}
+	return accountBytes
+}
+
+func getOracleIDs(first TestStruct) [32]byte {
+	oracleIDs := [32]byte{}
+	for i, oracleID := range first.OracleIDs {
+		oracleIDs[i] = byte(oracleID)
+	}
+	return oracleIDs
+}
+
+func argsFromTestStruct(ts TestStruct) []any {
+	return []any{
+		ts.Field,
+		ts.DifferentField,
+		uint8(ts.OracleID),
+		getOracleIDs(ts),
+		common.Address(ts.Account),
+		getAccounts(ts),
+		ts.BigField,
+		evmtesting.MidToInternalType(ts.NestedStruct),
+	}
 }
