@@ -70,7 +70,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		},
 	}
 
-	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
+	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax().ToInt()
 	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chain.GasEstimator(), chainWriterConfig)
 	if err != nil {
 		return nil, err
