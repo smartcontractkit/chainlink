@@ -33,9 +33,8 @@ type ChainWriterService interface {
 var _ ChainWriterService = (*chainWriter)(nil)
 
 func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig) (ChainWriterService, error) {
-	maxGasPrice := config.MaxGasPrice
-	if maxGasPrice == nil {
-		maxGasPrice = assets.GWei(500).ToInt()
+	if config.MaxGasPrice == nil {
+		return nil, fmt.Errorf("max gas price is required")
 	}
 
 	w := chainWriter{
@@ -43,7 +42,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 		client:      client,
 		txm:         txm,
 		ge:          estimator,
-		maxGasPrice: maxGasPrice,
+		maxGasPrice: config.MaxGasPrice,
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
@@ -171,7 +170,7 @@ func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uu
 // (if the chain doesn't support dynamic TXs) the legacy GasPrice is used.
 func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainFeeComponents, error) {
 	if w.ge == nil {
-		return nil, fmt.Errorf("not implemented")
+		return nil, fmt.Errorf("gas estimator not available")
 	}
 
 	fee, _, err := w.ge.GetFee(ctx, nil, 0, assets.NewWei(w.maxGasPrice))
@@ -184,7 +183,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		gasPrice = fee.DynamicFeeCap.ToInt()
 	}
 	if gasPrice == nil {
-		return nil, fmt.Errorf("Dynamic fee and legacy gas price missing %+v", fee)
+		return nil, fmt.Errorf("dynamic fee and legacy gas price missing %+v", fee)
 	}
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
