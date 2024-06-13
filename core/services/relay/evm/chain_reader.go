@@ -229,7 +229,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, inputFields)
-	if err := verifyEventInputsUsed(eventName, inputFields, indexArgNames); err != nil {
+	if err := verifyEventIndexedInputsUsed(eventName, inputFields, indexArgNames); err != nil {
 		return err
 	}
 
@@ -321,7 +321,7 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 	return inputInfo, inMod, nil
 }
 
-func verifyEventInputsUsed(eventName string, inputFields []string, indexArgNames map[string]bool) error {
+func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexArgNames map[string]bool) error {
 	for _, value := range inputFields {
 		if !indexArgNames[abi.ToCamelCase(value)] {
 			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, eventName)
