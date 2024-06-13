@@ -40,8 +40,8 @@ import (
 
 	gowiremock "github.com/wiremock/go-wiremock"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	contractseth "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -320,7 +320,7 @@ Load Config:
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
 
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := actions.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -393,7 +393,7 @@ Load Config:
 
 	a.SetupAutomationDeployment(t)
 
-	err = actions_seth.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(l, a.ChainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes[1:]), big.NewFloat(*loadedTestConfig.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding chainlink nodes")
 
 	consumerContracts := make([]contracts.KeeperConsumer, 0)
@@ -791,7 +791,7 @@ Test Duration: %s`
 	}
 
 	t.Cleanup(func() {
-		if err = actions_seth.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
+		if err = actions.TeardownRemoteSuite(t, chainClient, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &loadedTestConfig); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 			testEnvironment.Cfg.TTL += time.Hour * 48
 			err := testEnvironment.Run()

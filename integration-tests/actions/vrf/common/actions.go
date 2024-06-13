@@ -2,8 +2,12 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/go-resty/resty/v2"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -16,7 +20,7 @@ import (
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -65,7 +69,7 @@ func CreateAndFundSendingKeys(
 			return nil, fmt.Errorf("error creating transaction key - response code, err %d", response.StatusCode)
 		}
 		newNativeTokenKeyAddresses = append(newNativeTokenKeyAddresses, newTxKey.Data.Attributes.Address)
-		_, err = actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+		_, err = actions.SendFunds(l, client, actions.FundsToSendPayload{
 			ToAddress:  common.HexToAddress(newTxKey.Data.Attributes.Address),
 			Amount:     conversions.EtherToWei(big.NewFloat(chainlinkNodeFunding)),
 			PrivateKey: client.PrivateKeys[0],
@@ -336,7 +340,7 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 					Str("Funding Amount in wei", fundingToSendWei.String()).
 					Str("Funding Amount in ETH", conversions.WeiToEther(fundingToSendWei).String()).
 					Msg("Funding Node's Sending Key")
-				_, err := actions_seth.SendFunds(l, client, actions_seth.FundsToSendPayload{
+				_, err := actions.SendFunds(l, client, actions.FundsToSendPayload{
 					ToAddress:  common.HexToAddress(sendingKey),
 					Amount:     fundingToSendWei,
 					PrivateKey: client.PrivateKeys[0],
@@ -368,4 +372,96 @@ func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewE
 		return nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
 	return env, nil
+}
+
+func GetRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
+	provider, err := env.GetRpcProvider(chainID)
+	if err != nil {
+		return "", err
+	}
+	return provider.PublicHttpUrls()[0], nil
+}
+
+// RPCRawClient
+// created separate client since method evmClient.RawJsonRPCCall fails on "invalid argument 0: json: cannot unmarshal non-string into Go value of type hexutil.Uint64"
+type RPCRawClient struct {
+	resty *resty.Client
+}
+
+func NewRPCRawClient(url string) *RPCRawClient {
+	isDebug := os.Getenv("DEBUG_RESTY") == "true"
+	restyClient := resty.New().SetDebug(isDebug).SetBaseURL(url)
+	return &RPCRawClient{
+		resty: restyClient,
+	}
+}
+
+func (g *RPCRawClient) SetHeadForSimulatedChain(setHeadToBlockNumber uint64) (JsonRPCResponse, error) {
+	var responseObject JsonRPCResponse
+	postBody, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "debug_setHead",
+		"params":  []string{hexutil.EncodeUint64(setHeadToBlockNumber)},
+	})
+	resp, err := g.resty.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(postBody).
+		SetResult(&responseObject).
+		Post("")
+
+	if err != nil {
+		return JsonRPCResponse{}, fmt.Errorf("error making API request: %w", err)
+	}
+	statusCode := resp.StatusCode()
+	if statusCode != 200 && statusCode != 201 {
+		return JsonRPCResponse{}, fmt.Errorf("error invoking debug_setHead method, received unexpected status code %d: %s", statusCode, resp.String())
+	}
+	if responseObject.Error != "" {
+		return JsonRPCResponse{}, fmt.Errorf("received non-empty error field: %v", responseObject.Error)
+	}
+	return responseObject, nil
+}
+
+type JsonRPCResponse struct {
+	Version string `json:"jsonrpc"`
+	Id      int    `json:"id"`
+	Result  string `json:"result,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// todo - move to CTF
+func RewindSimulatedChainToBlockNumber(
+	ctx context.Context,
+	client *seth.Client,
+	rpcURL string,
+	rewindChainToBlockNumber uint64,
+	l zerolog.Logger,
+) (uint64, error) {
+	latestBlockNumberBeforeReorg, err := client.Client.BlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("error getting latest block number: %w", err)
+	}
+
+	l.Info().
+		Str("RPC URL", rpcURL).
+		Uint64("Latest Block Number before Reorg", latestBlockNumberBeforeReorg).
+		Uint64("Rewind Chain to Block Number", rewindChainToBlockNumber).
+		Msg("Performing Reorg on chain by rewinding chain to specific block number")
+
+	_, err = NewRPCRawClient(rpcURL).SetHeadForSimulatedChain(rewindChainToBlockNumber)
+
+	if err != nil {
+		return 0, fmt.Errorf("error making reorg: %w", err)
+	}
+
+	latestBlockNumberAfterReorg, err := client.Client.BlockNumber(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("error getting latest block number: %w", err)
+	}
+
+	l.Info().
+		Uint64("Block Number", latestBlockNumberAfterReorg).
+		Msg("Latest Block Number after Reorg")
+	return latestBlockNumberAfterReorg, nil
 }

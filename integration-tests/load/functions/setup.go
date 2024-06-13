@@ -19,7 +19,7 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 )
@@ -53,7 +53,7 @@ type S4SecretsCfg struct {
 
 func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	seth, err := actions_seth.GetChainClient(globalConfig, selectedNetwork)
+	seth, err := actions.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}

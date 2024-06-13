@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -297,7 +297,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		logScannerSettings,
 	)
 
-	_, upkeepIDs := actions_seth.DeployConsumers(
+	_, upkeepIDs := actions.DeployConsumers(
 		t,
 		chainClient,
 		registry,

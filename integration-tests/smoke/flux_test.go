@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -115,7 +114,7 @@ func TestFluxBasic(t *testing.T) {
 
 	// initial value set is performed before jobs creation
 	fluxRoundTimeout := 1 * time.Minute
-	err = actions_seth.WatchNewFluxRound(l, sethClient, 1, fluxInstance, fluxRoundTimeout)
+	err = actions.WatchNewFluxRound(l, sethClient, 1, fluxInstance, fluxRoundTimeout)
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err := fluxInstance.GetContractData(testcontext.Get(t))
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
@@ -132,7 +131,7 @@ func TestFluxBasic(t *testing.T) {
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
-	err = actions_seth.WatchNewFluxRound(l, sethClient, 2, fluxInstance, fluxRoundTimeout)
+	err = actions.WatchNewFluxRound(l, sethClient, 2, fluxInstance, fluxRoundTimeout)
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err = fluxInstance.GetContractData(testcontext.Get(t))
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")

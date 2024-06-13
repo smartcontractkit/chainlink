@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -1147,7 +1146,7 @@ func SetupLogPollerTestDocker(
 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s. but has only %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String(), big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String())
 	}
 
-	registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 		t,
 		chainClient,
 		registryVersion,

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -59,23 +58,23 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	fundingAmount := big.NewFloat(.05)
 	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), fundingAmount)
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), fundingAmount)
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	operators, authorizedForwarders, _ := actions_seth.DeployForwarderContracts(
+	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
 		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
 
 	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
 
 	for i := range workerNodes {
-		actions_seth.AcceptAuthorizedReceiversOperator(
+		actions.AcceptAuthorizedReceiversOperator(
 			t, l, sethClient, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]},
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		actions_seth.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
+		actions.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
 	}
-	ocrInstances, err := actions_seth.DeployOCRContractsForwarderFlow(
+	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
 		l,
 		sethClient,
 		1,
@@ -87,7 +86,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, fmt.Sprint(sethClient.ChainID))
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -96,7 +95,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))

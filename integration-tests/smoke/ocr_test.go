@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -36,7 +35,7 @@ func TestOCRBasic(t *testing.T) {
 	err := actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err, "Error setting all adapter responses to the same value")
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -54,7 +53,7 @@ func TestOCRJobReplacement(t *testing.T) {
 
 	err := actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err, "Error setting all adapter responses to the same value")
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -71,7 +70,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
 	require.NoError(t, err, "Error creating OCR jobs")
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, ErrWatchingNewOCRRound)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
@@ -110,13 +109,13 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	linkContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Error deploying link token contract")
 
-	ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := actions.DeployOCRv1Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	require.NoError(t, err, "Error deploying OCR contracts")
 
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
 	require.NoError(t, err, "Error creating OCR jobs")
 
-	err = actions_seth.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
 	require.NoError(t, err, "Error watching for new OCR round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))

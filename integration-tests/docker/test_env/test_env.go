@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
@@ -175,7 +175,7 @@ func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 
 	if len(te.sethClients) > 0 {
 		for _, sethClient := range te.sethClients {
-			if err := actions_seth.FundChainlinkNodesFromRootAddress(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs()), amount); err != nil {
+			if err := actions.FundChainlinkNodesFromRootAddress(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs()), amount); err != nil {
 				return err
 			}
 		}
@@ -243,7 +243,6 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 		te.l.Error().Err(err).Msg("Error handling node coverage reports")
 	}
 
-	// close EVMClient connections
 	for _, evmClient := range te.evmClients {
 		err := evmClient.Close()
 		return err
@@ -393,7 +392,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 	}
 
 	for _, sethClient := range te.sethClients {
-		if err := actions_seth.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
+		if err := actions.ReturnFundsFromNodes(te.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(te.ClCluster.NodeAPIs())); err != nil {
 			te.l.Error().Err(err).Msg("Error returning funds from node")
 		}
 	}

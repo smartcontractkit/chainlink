@@ -396,7 +396,7 @@ func (v *EthereumVRFConsumer) Address() string {
 }
 
 func (v *EthereumVRFConsumer) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 // RequestRandomness requests VRF randomness
@@ -423,7 +423,7 @@ func (v *EthereumVRFConsumer) RandomnessOutput(ctx context.Context) (*big.Int, e
 
 // Fund sends specified currencies to the contract
 func (v *EthereumVRF) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 // ProofLength returns the PROOFLENGTH call from the VRF contract

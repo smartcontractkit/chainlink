@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -97,7 +96,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
@@ -109,7 +108,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			)
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
@@ -178,7 +177,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				highBCPTRegistryConfig,
@@ -193,7 +192,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			keepersPerformedLowFreq := map[*big.Int][]string{}
@@ -322,7 +321,7 @@ func TestKeeperSimulation(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
+			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				chainClient,
 				registryVersion,
@@ -341,7 +340,7 @@ func TestKeeperSimulation(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			consumerPerformance := consumersPerformance[0]
@@ -401,7 +400,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumersPerformance, upkeepIDs := actions_seth.DeployPerformanceKeeperContracts(
+			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				chainClient,
 				registryVersion,
@@ -420,7 +419,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			gom := gomega.NewGomegaWithT(t)
@@ -538,7 +537,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, registrar, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
@@ -552,7 +551,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -576,7 +575,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
 
-			newConsumers, _ := actions_seth.RegisterNewUpkeeps(t, chainClient, linkToken,
+			newConsumers, _ := actions.RegisterNewUpkeeps(t, chainClient, linkToken,
 				registry, registrar, keeperDefaultUpkeepGasLimit, 1)
 
 			// We know that newConsumers has size 1, so we can just use the newly registered upkeep.
@@ -634,7 +633,7 @@ func TestKeeperAddFunds(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
@@ -649,7 +648,7 @@ func TestKeeperAddFunds(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -709,7 +708,7 @@ func TestKeeperRemove(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
@@ -724,7 +723,7 @@ func TestKeeperRemove(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -794,7 +793,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				keeperDefaultRegistryConfig,
@@ -810,7 +809,7 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -860,7 +859,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	sb, err := chainClient.Client.BlockNumber(context.Background())
 	require.NoError(t, err, "Failed to get start block")
 
-	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
 		keeperDefaultRegistryConfig,
@@ -875,11 +874,11 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_2)()
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_2)()
 	})
 
 	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
-	secondRegistry, _, _, _ := actions_seth.DeployKeeperContracts(
+	secondRegistry, _, _, _ := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
 		keeperDefaultRegistryConfig,
@@ -964,7 +963,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			sb, err := chainClient.Client.BlockNumber(context.Background())
 			require.NoError(t, err, "Failed to get start block")
 
-			registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
 				lowBCPTRegistryConfig,
@@ -979,7 +978,7 @@ func TestKeeperNodeDown(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			t.Cleanup(func() {
-				actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
+				actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, registryVersion)()
 			})
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -1074,7 +1073,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	sb, err := chainClient.Client.BlockNumber(context.Background())
 	require.NoError(t, err, "Failed to get start block")
 
-	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
 		lowBCPTRegistryConfig,
@@ -1089,7 +1088,7 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
 	})
 
 	gom := gomega.NewGomegaWithT(t)
@@ -1166,7 +1165,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	sb, err := chainClient.Client.BlockNumber(context.Background())
 	require.NoError(t, err, "Failed to get start block")
 
-	registry, _, performDataChecker, upkeepIDs := actions_seth.DeployPerformDataCheckerContracts(
+	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(
 		t,
 		chainClient,
 		ethereum.RegistryVersion_1_3,
@@ -1182,7 +1181,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	t.Cleanup(func() {
-		actions_seth.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
+		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_3)()
 	})
 
 	gom := gomega.NewGomegaWithT(t)
@@ -1261,7 +1260,7 @@ func TestKeeperJobReplacement(t *testing.T) {
 	require.NoError(t, err, "Failed to get config")
 
 	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
-	registry, _, consumers, upkeepIDs := actions_seth.DeployKeeperContracts(
+	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		registryVersion,
 		keeperDefaultRegistryConfig,

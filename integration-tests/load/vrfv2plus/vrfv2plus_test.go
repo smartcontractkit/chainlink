@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
@@ -58,7 +58,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	}
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
+	sethClient, err := actions.GetChainClient(testConfig, network)
 	require.NoError(t, err, "Error creating seth client")
 	updatedLabels := UpdateLabels(labels, t)
 
@@ -213,7 +213,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
+	sethClient, err := actions.GetChainClient(testConfig, network)
 	require.NoError(t, err, "Error creating seth client")
 
 	cleanupFn := func() {

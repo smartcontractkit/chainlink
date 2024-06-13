@@ -1,4 +1,4 @@
-package actions_seth
+package actions
 
 import (
 	"context"

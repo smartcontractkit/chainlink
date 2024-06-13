@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
@@ -396,7 +396,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasSeth {
-				sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
+				sethClient, err := actions.GetChainClient(b.testConfig, networkConfig)
 				if err != nil {
 					return nil, err
 				}
@@ -495,7 +495,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 		if b.hasSeth {
 			b.te.sethClients = make(map[int64]*seth.Client)
-			sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
+			sethClient, err := actions.GetChainClient(b.testConfig, networkConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -561,7 +561,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 		if b.hasSeth {
 			for _, sethClient := range b.te.sethClients {
-				if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
+				if err := actions.FundChainlinkNodesFromRootAddress(b.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
 					return nil, err
 				}
 			}

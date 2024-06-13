@@ -1152,11 +1152,11 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		// rewind chain to block number after the request was made, but before the request was fulfilled
 		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 1
 
-		rpcUrl, err := actions.GetRPCUrl(env, chainID)
+		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
 		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
+		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
 
 		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
@@ -1201,11 +1201,11 @@ func TestVRFV2NodeReorg(t *testing.T) {
 		// rewind chain to block number before the randomness request was made
 		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 3
 
-		rpcUrl, err := actions.GetRPCUrl(env, chainID)
+		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
 		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := actions.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
+		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
 		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
 
 		//4. ensure that chain is reorged and latest block number is less than the block number when request was made

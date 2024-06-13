@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -30,7 +30,7 @@ func TestOCRLoad(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := actions_seth.GetChainClient(config, *evmNetwork)
+	seth, err := actions.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
@@ -66,7 +66,7 @@ func TestOCRVolume(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := actions_seth.GetChainClient(config, *evmNetwork)
+	seth, err := actions.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
