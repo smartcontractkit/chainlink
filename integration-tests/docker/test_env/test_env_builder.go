@@ -275,6 +275,7 @@ func (b *CLTestEnvBuilder[OldEVMClientType]) WithCustomCleanup(customFn func()) 
 
 func (b *CLTestEnvBuilder[OldEVMClientType]) WithOldEVMClientCreatorFn(creatorFn func(blockchain.EVMNetwork, zerolog.Logger) (OldEVMClientType, error)) *CLTestEnvBuilder[OldEVMClientType] {
 	b.oldEVMClientCreatorFn = creatorFn
+	b.hasEVMClient = true
 	return b
 }
 
@@ -431,17 +432,14 @@ func (b *CLTestEnvBuilder[OldEVMClientType]) Build() (*CLClusterTestEnv[OldEVMCl
 				return nil, err
 			}
 
-			if b.hasEVMClient {
+			if b.hasEVMClient && b.oldEVMClientCreatorFn != nil {
 				evmClient, err := b.oldEVMClientCreatorFn(networkConfig, b.l)
 				if err != nil {
 					return nil, err
 				}
 				b.te.evmClients[networkConfig.ChainID] = evmClient
-
-				//if err != nil {
-				//	return nil, err
-				//}
-				//evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+			} else {
+				log.Error().Msg("No EVM client creator function provided, not starting old EVMClient")
 			}
 
 			if b.hasSeth {
@@ -537,9 +535,10 @@ func (b *CLTestEnvBuilder[OldEVMClientType]) Build() (*CLClusterTestEnv[OldEVMCl
 			if err != nil {
 				return nil, err
 			}
-
 			b.te.evmClients = make(map[int64]OldEVMClientType)
 			b.te.evmClients[networkConfig.ChainID] = evmClient
+		} else {
+			log.Error().Msg("No EVM client creator function provided, not starting old EVMClient")
 		}
 
 		if b.hasSeth {
