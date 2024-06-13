@@ -3,16 +3,18 @@ package actions
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/seth"
 	"math"
 	"math/big"
 	"strconv"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/seth"
+
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"

@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/go-resty/resty/v2"
 	"math/big"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/go-resty/resty/v2"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"

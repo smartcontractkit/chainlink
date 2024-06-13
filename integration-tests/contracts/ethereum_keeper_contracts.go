@@ -2,17 +2,19 @@ package contracts
 
 import (
 	"context"
+	"math/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	goabi "github.com/umbracle/ethgo/abi"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-	goabi "github.com/umbracle/ethgo/abi"
 )
 
 var compatibleUtils = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)

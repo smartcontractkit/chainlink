@@ -4,12 +4,13 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/seth"
 	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
