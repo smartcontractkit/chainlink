@@ -3,6 +3,8 @@ package contracts
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"math/big"
 	"time"
 
@@ -430,4 +432,67 @@ func (v *EthereumVRF) ProofLength(ctx context.Context) (*big.Int, error) {
 		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	})
+}
+
+func LoadVRFCoordinatorV2_5(seth *seth.Client, addr string) (VRFCoordinatorV2_5, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to get VRFCoordinatorV2_5 ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFCoordinatorV2_5", *abi)
+	seth.ContractStore.AddBIN("VRFCoordinatorV2_5", common.FromHex(vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.Bin))
+
+	contract, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFCoordinatorV2_5{}, fmt.Errorf("failed to instantiate VRFCoordinatorV2_5 instance: %w", err)
+	}
+
+	return &EthereumVRFCoordinatorV2_5{
+		client:      seth,
+		address:     address,
+		coordinator: contract,
+	}, nil
+}
+
+func LoadBlockHashStore(seth *seth.Client, addr string) (BlockHashStore, error) {
+	address := common.HexToAddress(addr)
+	abi, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to get BlockHashStore ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("BlockHashStore", *abi)
+	seth.ContractStore.AddBIN("BlockHashStore", common.FromHex(blockhash_store.BlockhashStoreMetaData.Bin))
+
+	contract, err := blockhash_store.NewBlockhashStore(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBlockhashStore{}, fmt.Errorf("failed to instantiate BlockHashStore instance: %w", err)
+	}
+
+	return &EthereumBlockhashStore{
+		client:         seth,
+		address:        &address,
+		blockHashStore: contract,
+	}, nil
+}
+
+func LoadVRFv2PlusLoadTestConsumer(seth *seth.Client, addr string) (VRFv2PlusLoadTestConsumer, error) {
+	address := common.HexToAddress(addr)
+	abi, err := vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.GetAbi()
+	if err != nil {
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to get VRFV2PlusLoadTestWithMetrics ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("VRFV2PlusLoadTestWithMetrics", *abi)
+	seth.ContractStore.AddBIN("VRFV2PlusLoadTestWithMetrics", common.FromHex(vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsMetaData.Bin))
+
+	contract, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumVRFv2PlusLoadTestConsumer{}, fmt.Errorf("failed to instantiate VRFV2PlusLoadTestWithMetrics instance: %w", err)
+	}
+
+	return &EthereumVRFv2PlusLoadTestConsumer{
+		client:   seth,
+		address:  address,
+		consumer: contract,
+	}, nil
 }

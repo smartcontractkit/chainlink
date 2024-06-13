@@ -491,18 +491,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 			b.te.evmClients = make(map[int64]blockchain.EVMClient)
 			b.te.evmClients[networkConfig.ChainID] = bc
-
-			cd, err := contracts.NewContractDeployer(bc, b.l)
-			if err != nil {
-				return nil, err
-			}
-			b.te.ContractDeployer = cd
-
-			cl, err := contracts.NewContractLoader(bc, b.l)
-			if err != nil {
-				return nil, err
-			}
-			b.te.ContractLoader = cl
 		}
 
 		if b.hasSeth {

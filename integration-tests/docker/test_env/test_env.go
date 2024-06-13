@@ -48,8 +48,6 @@ type CLClusterTestEnv struct {
 	MockAdapter            *test_env.Killgrave
 	evmClients             map[int64]blockchain.EVMClient
 	sethClients            map[int64]*seth.Client
-	ContractDeployer       contracts.ContractDeployer
-	ContractLoader         contracts.ContractLoader
 	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
 	rpcProviders           map[int64]*test_env.RpcProvider

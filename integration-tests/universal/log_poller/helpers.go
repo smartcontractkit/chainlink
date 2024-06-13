@@ -1134,22 +1134,8 @@ func SetupLogPollerTestDocker(
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
-	var linkToken contracts.LinkToken
-
-	switch network.ChainID {
-	// Simulated
-	case 1337:
-		linkToken, err = contracts.DeployLinkTokenContract(l, chainClient)
-	// Ethereum Sepolia
-	case 11155111:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x779877A7B0D9E8603169DdbD7836e478b4624789")
-	// Polygon Mumbai
-	case 80001:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
-	default:
-		panic("Not implemented")
-	}
-	require.NoError(t, err, "Error loading/deploying LINK token")
+	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying LINK token")
 
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")

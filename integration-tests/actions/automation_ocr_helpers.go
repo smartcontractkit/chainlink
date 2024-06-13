@@ -4,8 +4,6 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"math"
-	"math/big"
 	"testing"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -254,130 +251,4 @@ func CreateOCRKeeperJobs(
 		require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 	}
 	l.Info().Msg("Done creating OCR automation jobs")
-}
-
-// DeployAutoOCRRegistryAndRegistrar registry and registrar
-func DeployAutoOCRRegistryAndRegistrar(
-	t *testing.T,
-	registryVersion ethereum.KeeperRegistryVersion,
-	registrySettings contracts.KeeperRegistrySettings,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, registryVersion, registrySettings, contractDeployer, client, linkToken)
-	registrar := deployRegistrar(t, registryVersion, registry, linkToken, contractDeployer, client)
-
-	return registry, registrar
-}
-
-func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger, isMercury)
-	var upkeepsAddresses []string
-	for _, upkeep := range upkeeps {
-		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
-	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
-	)
-	return upkeeps, upkeepIds
-}
-
-func DeployPerformanceConsumers(
-	t *testing.T,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	numberOfUpkeeps int,
-	linkFundsForEachUpkeep *big.Int,
-	upkeepGasLimit uint32,
-	blockRange, // How many blocks to run the test for
-	blockInterval, // Interval of blocks that upkeeps are expected to be performed
-	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
-	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
-) ([]contracts.KeeperConsumerPerformance, []*big.Int) {
-	upkeeps := DeployKeeperConsumersPerformance(
-		t, contractDeployer, client, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
-	)
-	var upkeepsAddresses []string
-	for _, upkeep := range upkeeps {
-		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
-	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
-	return upkeeps, upkeepIds
-}
-
-func DeployPerformDataCheckerConsumers(
-	t *testing.T,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	numberOfUpkeeps int,
-	linkFundsForEachUpkeep *big.Int,
-	upkeepGasLimit uint32,
-	expectedData []byte,
-) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
-	upkeeps := DeployPerformDataChecker(t, contractDeployer, client, numberOfUpkeeps, expectedData)
-	var upkeepsAddresses []string
-	for _, upkeep := range upkeeps {
-		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
-	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
-	return upkeeps, upkeepIds
-}
-
-func deployRegistrar(
-	t *testing.T,
-	registryVersion ethereum.KeeperRegistryVersion,
-	registry contracts.KeeperRegistry,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-) contracts.KeeperRegistrar {
-	registrarSettings := contracts.KeeperRegistrarSettings{
-		AutoApproveConfigType: 2,
-		AutoApproveMaxAllowed: math.MaxUint16,
-		RegistryAddr:          registry.Address(),
-		MinLinkJuels:          big.NewInt(0),
-	}
-	registrar, err := contractDeployer.DeployKeeperRegistrar(registryVersion, linkToken.Address(), registrarSettings)
-	require.NoError(t, err, "Deploying KeeperRegistrar contract shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for registrar to deploy")
-	return registrar
-}
-
-func deployRegistry(
-	t *testing.T,
-	registryVersion ethereum.KeeperRegistryVersion,
-	registrySettings contracts.KeeperRegistrySettings,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	linkToken contracts.LinkToken,
-) contracts.KeeperRegistry {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
-	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
-	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
-
-	// Deploy the transcoder here, and then set it to the registry
-	transcoder := DeployUpkeepTranscoder(t, contractDeployer, client)
-	registry := DeployKeeperRegistry(t, contractDeployer, client,
-		&contracts.KeeperRegistryOpts{
-			RegistryVersion: registryVersion,
-			LinkAddr:        linkToken.Address(),
-			ETHFeedAddr:     ef.Address(),
-			GasFeedAddr:     gf.Address(),
-			TranscoderAddr:  transcoder.Address(),
-			RegistrarAddr:   ZeroAddress.Hex(),
-			Settings:        registrySettings,
-		},
-	)
-	return registry
 }
