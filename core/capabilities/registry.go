@@ -2,11 +2,16 @@ package capabilities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+var (
+	ErrCapabilityAlreadyExists = errors.New("capability already exists")
 )
 
 // Registry is a struct for the registry of capabilities.
@@ -141,7 +146,7 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	id := info.ID
 	_, ok := r.m[id]
 	if ok {
-		return fmt.Errorf("capability with id: %s already exists", id)
+		return fmt.Errorf("%w: id %s found in registry", ErrCapabilityAlreadyExists, id)
 	}
 
 	r.m[id] = c
