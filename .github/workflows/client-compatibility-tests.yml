@@ -11,7 +11,7 @@ on:
     inputs:
       chainlinkVersion:
         description: commit SHA or tag of the Chainlink version to test
-        required: true
+        required: false
         type: string
       evmImplementations:
         description: comma separated list of EVM implementations to test (ignored if base64TestList is used)
@@ -24,7 +24,7 @@ on:
         type: number
         default: 3
       base64TestList:
-        description: base64 encoded list of tests to run (same as base64-ed output of .integration-tests/scripts/buildEvmClientTestMatrixList.sh)
+        description: base64 encoded list of tests to run (same as base64-ed output of testlistgenerator tool)
         required: false
         type: string
 
@@ -130,6 +130,7 @@ jobs:
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH          
+          
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Checking for new releases"
             implementations_arr=()
@@ -172,7 +173,8 @@ jobs:
         id: select-chainlink-version
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
-          export PATH          
+          export PATH
+          
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             echo "Fetching latest Chainlink stable version"
             implementations_arr=()
@@ -180,6 +182,14 @@ jobs:
             chainlink_version=$(ghlatestreleasechecker "smartcontractkit/chainlink" 100) 
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "Fetching Chainlink version from input"
+            if [ -n "${{ github.event.inputs.chainlinkVersion }}" ]; then
+              echo "Chainlink version provided in input"
+              chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
+            else
+              echo "Chainlink version not provided in input. Using latest commit SHA."
+              chainlink_version=${{ github.sha }}
+            fi
             chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
@@ -240,7 +250,7 @@ jobs:
           - name: nethermind/nethermind
             expression: '^[0-9]+\.[0-9]+\.[0-9]+$'
           - name: tofelb/ethereum-genesis-generator
-            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
+            expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
         uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
@@ -251,7 +261,7 @@ jobs:
           image_name: ${{matrix.mirror.name}}
           expression: ${{matrix.mirror.expression}}
           page_size: ${{matrix.mirror.page_size}}
-          
+
   build-chainlink:
     if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
@@ -376,8 +386,6 @@ jobs:
     outputs:
       matrix: ${{ env.JOB_MATRIX_JSON }}
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Decode Base64 Test List Input if Set
         if: env.BASE64_TEST_LIST != ''
         run: |
@@ -392,92 +400,86 @@ jobs:
         if: env.BASE64_TEST_LIST == ''
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.0.1
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/testlistgenerator@v1.1.0
       - name: Prepare matrix input
         if: env.BASE64_TEST_LIST == ''
         run: |
-          cd integration-tests
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-          
+                
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
-            testlistgenerator 'compatibility_test_list.json' 'cron' 'TestCronBasic' './smoke/cron_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"                    
-            testlistgenerator 'compatibility_test_list.json' 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrfv2plus' '^TestVRFv2Plus$/^Link_Billing$' './smoke/vrfv2plus_test.go' 'geth' "${{ needs.get-latest-available-images.outputs.geth_images }}"
-          else 
+            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test"
+          else
             echo "Will not test compatibility with geth"
           fi
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
-            testlistgenerator 'compatibility_test_list.json' 'cron' 'TestCronBasic' './smoke/cron_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"               
-            testlistgenerator 'compatibility_test_list.json' 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
+            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
             # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
-            # testlistgenerator 'compatibility_test_list.json' 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-            # testlistgenerator 'compatibility_test_list.json' 'vrfv2plus' '^TestVRFv2Plus$/^Link_Billing$' './smoke/vrfv2plus_test.go' 'besu' "${{ needs.get-latest-available-images.outputs.besu_images }}"
-          else 
+            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+            # testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test"
+          else
             echo "Will not test compatibility with besu"
           fi
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
-            testlistgenerator 'compatibility_test_list.json' 'cron' 'TestCronBasic' './smoke/cron_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"               
-            testlistgenerator 'compatibility_test_list.json' 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json'  'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrfv2plus' '^TestVRFv2Plus$/^Link_Billing$' './smoke/vrfv2plus_test.go' 'erigon' "${{ needs.get-latest-available-images.outputs.erigon_images }}"
-          else 
+            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test"
+          else
             echo "Will not test compatibility with erigon"
-          fi   
+          fi
           
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
-            testlistgenerator 'compatibility_test_list.json' 'cron' 'TestCronBasic' './smoke/cron_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'flux' 'TestFluxBasic' './smoke/flux_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'runlog' 'TestRunLogBasic' './smoke/runlog_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"               
-            testlistgenerator 'compatibility_test_list.json' 'log_poller' 'TestLogPollerFewFiltersFixedDepth' './smoke/log_poller_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr' 'TestOCRBasic' './smoke/ocr_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'ocr2' '^TestOCRv2Basic/plugins$' './smoke/ocr2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'automation' 'TestAutomationBasic/registry_2_1_logtrigger' './smoke/automation_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'keeper' 'TestKeeperBasicSmoke/registry_1_3' './smoke/keeper_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            testlistgenerator 'compatibility_test_list.json' 'vrf' '^TestVRFBasic/Request_Randomness$' './smoke/vrf_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
+            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
             # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
-            # testlistgenerator 'compatibility_test_list.json' 'vrfv2' '^TestVRFv2Basic/Request_Randomness$' './smoke/vrfv2_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"
-            # testlistgenerator 'compatibility_test_list.json' 'vrfv2plus' '^TestVRFv2Plus$/^Link_Billing$' './smoke/vrfv2plus_test.go' 'nethermind' "${{ needs.get-latest-available-images.outputs.nethermind_images }}"    
-          else 
+            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+            # testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test"
+          else
             echo "Will not test compatibility with nethermind"
           fi
-      - name: Create Final Test Matrix
-        id: create-test-matrix-list
-        if: env.BASE64_TEST_LIST == ''
-        run: |
-          cd ./integration-tests
-          JOB_MATRIX_JSON=$(./scripts/buildEvmClientTestMatrixList.sh ./compatibility_test_list.json ubuntu-latest)
-          echo "Generated test matrix:"
+          
+          JOB_MATRIX_JSON=$(cat compatibility_test_list.json)
           echo "$JOB_MATRIX_JSON" | jq .
-          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV      
+          echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV           
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
@@ -555,7 +557,7 @@ jobs:
 
             echo "$modified_string"
           }
-          echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.eth_implementation }}-test-logs")" >> $GITHUB_ENV
+          echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}-test-logs")" >> $GITHUB_ENV
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
@@ -614,7 +616,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Client Compatability Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
+                        "text": "EVM Implementation Compatibility Test Results ${{ contains(join(needs.*.result, ','), 'failure') && ':x:' || ':white_check_mark:'}}",
                         "emoji": true
                       }
                     },
@@ -632,7 +634,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                        "text": "<${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}> | <${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.select-versions.outputs.chainlink_version }}|${{ needs.select-versions.outputs.chainlink_version }}> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
                       }
                     }
                   ]
@@ -661,7 +663,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Post Test Results to Slack
         uses: ./.github/actions/notify-slack-jobs-result
         with:
