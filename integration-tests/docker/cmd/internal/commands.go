@@ -41,7 +41,7 @@ var StartNodesCmd = &cobra.Command{
 			return err
 		}
 
-		_, err = test_env.NewCLTestEnvBuilder().
+		_, err = test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 			WithTestConfig(&config).
 			WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 			WithMockAdapter().

@@ -15,16 +15,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/stretchr/testify/require"
 
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -35,8 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
 
 const (
@@ -1364,7 +1361,7 @@ func setupAutomationTestDocker(
 	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
 	//launch the environment
-	var env *test_env.CLClusterTestEnv
+	var env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 	var err error
 	require.NoError(t, err)
 	l.Debug().Msgf("Funding amount: %f", *automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)
@@ -1375,7 +1372,7 @@ func setupAutomationTestDocker(
 
 	if isMercuryV02 || isMercuryV03 {
 		// start mock adapter only
-		mockAdapterEnv, err := test_env.NewCLTestEnvBuilder().
+		mockAdapterEnv, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
 			WithMockAdapter().
@@ -1392,7 +1389,7 @@ func setupAutomationTestDocker(
 		Password = 'nodepass'`
 		secretsConfig = fmt.Sprintf(secretsConfig, mockAdapterEnv.MockAdapter.InternalEndpoint, mockAdapterEnv.MockAdapter.InternalEndpoint)
 
-		builder, err := test_env.NewCLTestEnvBuilder().WithTestEnv(mockAdapterEnv)
+		builder, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().WithTestEnv(mockAdapterEnv)
 		require.NoError(t, err, "Error building test environment for Mercury")
 
 		env, err = builder.
@@ -1409,7 +1406,7 @@ func setupAutomationTestDocker(
 
 		env.MockAdapter = mockAdapterEnv.MockAdapter
 	} else {
-		env, err = test_env.NewCLTestEnvBuilder().
+		env, err = test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).

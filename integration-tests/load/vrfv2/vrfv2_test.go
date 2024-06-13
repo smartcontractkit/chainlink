@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -19,11 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-
-	"github.com/stretchr/testify/require"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 var (
@@ -35,7 +33,7 @@ var (
 
 func TestVRFV2Performance(t *testing.T) {
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -180,7 +178,7 @@ func TestVRFV2Performance(t *testing.T) {
 
 func TestVRFV2BHSPerformance(t *testing.T) {
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData

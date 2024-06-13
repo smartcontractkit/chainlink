@@ -10,13 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-resty/resty/v2"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/seth"
 
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
@@ -83,7 +81,7 @@ func CreateAndFundSendingKeys(
 }
 
 func SetupBHSNode(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
@@ -162,7 +160,7 @@ func CreateBHSJob(
 }
 
 func SetupBHFNode(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
@@ -358,8 +356,8 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 	return nil
 }
 
-func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv, error) {
-	env, err := test_env.NewCLTestEnvBuilder().
+func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], error) {
+	env, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 		WithTestInstance(t).
 		WithTestConfig(&envConfig.TestConfig).
 		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
@@ -375,7 +373,7 @@ func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewE
 	return env, nil
 }
 
-func GetRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {
+func GetRPCUrl(env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], chainID int64) (string, error) {
 	provider, err := env.GetRpcProvider(chainID)
 	if err != nil {
 		return "", err

@@ -14,15 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 var (
@@ -34,7 +32,7 @@ var (
 
 func TestVRFV2PlusPerformance(t *testing.T) {
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -177,7 +175,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 func TestVRFV2PlusBHSPerformance(t *testing.T) {
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData

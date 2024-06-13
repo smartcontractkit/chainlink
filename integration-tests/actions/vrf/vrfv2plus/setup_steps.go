@@ -6,26 +6,24 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/shopspring/decimal"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 )
 
 func CreateVRFV2PlusJob(
@@ -74,7 +72,7 @@ func CreateVRFV2PlusJob(
 // SetupVRFV2_5Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2_5Environment(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	nodesToCreate []vrfcommon.VRFNodeType,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
@@ -246,7 +244,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 func SetupVRFV2PlusWrapperEnvironment(
 	ctx context.Context,
 	l zerolog.Logger,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	linkToken contracts.LinkToken,
@@ -358,9 +356,9 @@ func SetupVRFV2PlusUniverse(
 	envConfig vrfcommon.VRFEnvConfig,
 	newEnvConfig vrfcommon.NewEnvConfig,
 	l zerolog.Logger,
-) (*test_env.CLClusterTestEnv, *vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
+) (*test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], *vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	var (
-		env            *test_env.CLClusterTestEnv
+		env            *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts   *vrfcommon.VRFContracts
 		vrfKey         *vrfcommon.VRFKeyData
 		nodeTypeToNode map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
@@ -386,7 +384,7 @@ func SetupVRFV2PlusForNewEnv(
 	envConfig vrfcommon.VRFEnvConfig,
 	newEnvConfig vrfcommon.NewEnvConfig,
 	l zerolog.Logger,
-) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
+) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &envConfig.TestConfig)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error building ethereum network config for V2Plus", err)
@@ -424,9 +422,9 @@ func SetupVRFV2PlusForNewEnv(
 	return vrfContracts, vrfKey, env, nodeTypeToNode, nil
 }
 
-func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig, l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv, error) {
+func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig, l zerolog.Logger) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], error) {
 	commonExistingEnvConfig := envConfig.TestConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
-	env, err := test_env.NewCLTestEnvBuilder().
+	env, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 		WithTestInstance(t).
 		WithTestConfig(&envConfig.TestConfig).
 		WithCustomCleanup(envConfig.CleanupFn).
@@ -475,7 +473,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 
 func SetupSubsAndConsumersForExistingEnv(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
 	linkToken contracts.LinkToken,

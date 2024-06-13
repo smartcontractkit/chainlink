@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"os"
@@ -8,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/seth"
 	"go.uber.org/zap/zapcore"
 
@@ -23,11 +24,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type CleanUpType string
@@ -38,13 +38,49 @@ const (
 	CleanUpTypeCustom   CleanUpType = "custom"
 )
 
+type WithoutOldEVMClient struct{}
+
+func (WithoutOldEVMClient) WaitForEvents() error {
+	return nil
+}
+
+func (WithoutOldEVMClient) ParallelTransactions(_ bool) {}
+
+func (WithoutOldEVMClient) GetChainID() *big.Int {
+	return big.NewInt(0)
+}
+
+func (WithoutOldEVMClient) ReturnFunds(_ *ecdsa.PrivateKey) error {
+	return nil
+}
+
+func (WithoutOldEVMClient) EstimateGas(_ ethereum.CallMsg) (uint64, error) {
+	return 0, nil
+}
+
+func (WithoutOldEVMClient) Fund(_ string, _ *big.Float, _ uint64) error { return nil }
+
+func (WithoutOldEVMClient) Close() error {
+	return nil
+}
+
+type OldEVMClient interface {
+	WaitForEvents() error
+	ParallelTransactions(bool)
+	GetChainID() *big.Int
+	ReturnFunds(*ecdsa.PrivateKey) error
+	EstimateGas(msg ethereum.CallMsg) (uint64, error)
+	Fund(string, *big.Float, uint64) error
+	Close() error
+}
+
 type ChainlinkNodeLogScannerSettings struct {
 	FailingLogLevel zapcore.Level
 	Threshold       uint
 	AllowedMessages []testreporters.AllowedLogMessage
 }
 
-type CLTestEnvBuilder struct {
+type CLTestEnvBuilder[OldEVMClientType OldEVMClient] struct {
 	hasLogStream                    bool
 	hasKillgrave                    bool
 	hasSeth                         bool
@@ -57,7 +93,7 @@ type CLTestEnvBuilder struct {
 	defaultNodeCsaKeys              []string
 	l                               zerolog.Logger
 	t                               *testing.T
-	te                              *CLClusterTestEnv
+	te                              *CLClusterTestEnv[OldEVMClientType]
 	isEVM                           bool
 	cleanUpType                     CleanUpType
 	cleanUpCustomFn                 func()
@@ -65,6 +101,7 @@ type CLTestEnvBuilder struct {
 	privateEthereumNetworks         []*ctf_config.EthereumNetworkConfig
 	testConfig                      ctf_config.GlobalTestConfig
 	chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings
+	oldEVMClientCreatorFn           func(blockchain.EVMNetwork, zerolog.Logger) (OldEVMClientType, error)
 
 	/* funding */
 	ETHFunds *big.Float
@@ -90,8 +127,8 @@ func GetDefaultChainlinkNodeLogScannerSettingsWithExtraAllowedMessages(extraAllo
 	}
 }
 
-func NewCLTestEnvBuilder() *CLTestEnvBuilder {
-	return &CLTestEnvBuilder{
+func NewCLTestEnvBuilder[OldEVMClientType OldEVMClient]() *CLTestEnvBuilder[OldEVMClientType] {
+	return &CLTestEnvBuilder[OldEVMClientType]{
 		l:                               log.Logger,
 		hasLogStream:                    true,
 		hasEVMClient:                    true,
@@ -104,7 +141,7 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 // If nil, a new test environment is created.
 // If not nil, the test environment is used as-is.
 // If TEST_ENV_CONFIG_PATH is set, the test environment is created with the config at that path.
-func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder, error) {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithTestEnv(te *CLClusterTestEnv[OldEVMClientType]) (*CLTestEnvBuilder[OldEVMClientType], error) {
 	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
 	var cfg *TestEnvConfig
 	var err error
@@ -118,7 +155,7 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 	if te != nil {
 		b.te = te
 	} else {
-		b.te, err = NewTestEnv()
+		b.te, err = NewTestEnv[OldEVMClientType]()
 		if err != nil {
 			return nil, err
 		}
@@ -132,105 +169,112 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 
 // WithTestLogger sets the test logger to use for the test.
 // Useful for parallel tests so the logging will be separated correctly in the results views.
-func (b *CLTestEnvBuilder) WithTestInstance(t *testing.T) *CLTestEnvBuilder {
+//
+//revive:disable:confusing-naming
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithTestInstance(t *testing.T) *CLTestEnvBuilder[OldEVMClientType] {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
 	return b
 }
 
 // WithoutLogStream disables LogStream logging component
-func (b *CLTestEnvBuilder) WithoutLogStream() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithoutLogStream() *CLTestEnvBuilder[OldEVMClientType] {
 	b.hasLogStream = false
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithoutChainlinkNodeLogScanner() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithoutChainlinkNodeLogScanner() *CLTestEnvBuilder[OldEVMClientType] {
 	b.chainlinkNodeLogScannerSettings = &ChainlinkNodeLogScannerSettings{}
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithChainlinkNodeLogScanner(settings ChainlinkNodeLogScannerSettings) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithChainlinkNodeLogScanner(settings ChainlinkNodeLogScannerSettings) *CLTestEnvBuilder[OldEVMClientType] {
 	b.chainlinkNodeLogScannerSettings = &settings
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithCLNodes(clNodesCount int) *CLTestEnvBuilder[OldEVMClientType] {
 	b.clNodesCount = clNodesCount
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTestEnvBuilder[OldEVMClientType] {
 	b.testConfig = cfg
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder[OldEVMClientType] {
 	b.clNodesOpts = append(b.clNodesOpts, opt...)
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithFunding(eth *big.Float) *CLTestEnvBuilder[OldEVMClientType] {
 	b.ETHFunds = eth
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithSeth() *CLTestEnvBuilder[OldEVMClientType] {
 	b.hasSeth = true
 	b.hasEVMClient = false
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithoutEvmClients() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithoutEvmClients() *CLTestEnvBuilder[OldEVMClientType] {
 	b.hasSeth = false
 	b.hasEVMClient = false
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithPrivateEthereumNetwork(en ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder[OldEVMClientType] {
 	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &en)
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithPrivateEthereumNetworks(ens []*ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder[OldEVMClientType] {
 	b.privateEthereumNetworks = ens
 	return b
 }
 
 // Deprecated: Use TOML instead
-func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder[OldEVMClientType] {
 	b.clNodeConfig = cfg
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithSecretsConfig(secrets string) *CLTestEnvBuilder[OldEVMClientType] {
 	b.secretsConfig = secrets
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithMockAdapter() *CLTestEnvBuilder[OldEVMClientType] {
 	b.hasKillgrave = true
 	return b
 }
 
 // WithNonEVM sets the test environment to not use EVM when built.
-func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithNonEVM() *CLTestEnvBuilder[OldEVMClientType] {
 	b.isEVM = false
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithStandardCleanup() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithStandardCleanup() *CLTestEnvBuilder[OldEVMClientType] {
 	b.cleanUpType = CleanUpTypeStandard
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithoutCleanup() *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithoutCleanup() *CLTestEnvBuilder[OldEVMClientType] {
 	b.cleanUpType = CleanUpTypeNone
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithCustomCleanup(customFn func()) *CLTestEnvBuilder[OldEVMClientType] {
 	b.cleanUpType = CleanUpTypeCustom
 	b.cleanUpCustomFn = customFn
+	return b
+}
+
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithOldEVMClientCreatorFn(creatorFn func(blockchain.EVMNetwork, zerolog.Logger) (OldEVMClientType, error)) *CLTestEnvBuilder[OldEVMClientType] {
+	b.oldEVMClientCreatorFn = creatorFn
 	return b
 }
 
@@ -239,14 +283,14 @@ type EVMNetworkOption = func(*blockchain.EVMNetwork) *blockchain.EVMNetwork
 // WithEVMNetworkOptions sets the options for the EVM network. This is especially useful for simulated networks, which
 // by usually use default options, so if we want to change any of them before the configuration is passed to evm client
 // or Chainlnik node, we can do it here.
-func (b *CLTestEnvBuilder) WithEVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder {
+func (b *CLTestEnvBuilder[OldEVMClientType]) WithEVMNetworkOptions(opts ...EVMNetworkOption) *CLTestEnvBuilder[OldEVMClientType] {
 	b.evmNetworkOption = make([]EVMNetworkOption, 0)
 	b.evmNetworkOption = append(b.evmNetworkOption, opts...)
 
 	return b
 }
 
-func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
+func (b *CLTestEnvBuilder[OldEVMClientType]) Build() (*CLClusterTestEnv[OldEVMClientType], error) {
 	if b.testConfig == nil {
 		return nil, fmt.Errorf("test config must be set")
 	}
@@ -379,7 +423,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if len(b.privateEthereumNetworks) > 1 {
 		b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
 		b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
-		b.te.evmClients = make(map[int64]blockchain.EVMClient)
+		b.te.evmClients = make(map[int64]OldEVMClientType)
 		for _, en := range b.privateEthereumNetworks {
 			en.DockerNetworkNames = []string{b.te.DockerNetwork.Name}
 			networkConfig, rpcProvider, err := b.te.StartEthereumNetwork(en)
@@ -388,11 +432,16 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 
 			if b.hasEVMClient {
-				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+				evmClient, err := b.oldEVMClientCreatorFn(networkConfig, b.l)
 				if err != nil {
 					return nil, err
 				}
 				b.te.evmClients[networkConfig.ChainID] = evmClient
+
+				//if err != nil {
+				//	return nil, err
+				//}
+				//evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 			}
 
 			if b.hasSeth {
@@ -484,13 +533,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			}
 		}
 		if b.hasEVMClient {
-			bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+			evmClient, err := b.oldEVMClientCreatorFn(networkConfig, b.l)
 			if err != nil {
 				return nil, err
 			}
 
-			b.te.evmClients = make(map[int64]blockchain.EVMClient)
-			b.te.evmClients[networkConfig.ChainID] = bc
+			b.te.evmClients = make(map[int64]OldEVMClientType)
+			b.te.evmClients[networkConfig.ChainID] = evmClient
 		}
 
 		if b.hasSeth {

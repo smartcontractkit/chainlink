@@ -25,19 +25,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
 	ErrFundCLNode = "failed to fund CL node"
 )
 
-type CLClusterTestEnv struct {
+type CLClusterTestEnv[OldEVMClientType OldEVMClient] struct {
 	Cfg           *TestEnvConfig
 	DockerNetwork *tc.DockerNetwork
 	LogStream     *logstream.LogStream
@@ -46,7 +45,7 @@ type CLClusterTestEnv struct {
 	/* components */
 	ClCluster              *ClCluster
 	MockAdapter            *test_env.Killgrave
-	evmClients             map[int64]blockchain.EVMClient
+	evmClients             map[int64]OldEVMClientType
 	sethClients            map[int64]*seth.Client
 	PrivateEthereumConfigs []*ctf_config.EthereumNetworkConfig
 	EVMNetworks            []*blockchain.EVMNetwork
@@ -56,13 +55,13 @@ type CLClusterTestEnv struct {
 	isSimulatedNetwork     bool
 }
 
-func NewTestEnv() (*CLClusterTestEnv, error) {
+func NewTestEnv[OldEVMClientType OldEVMClient]() (*CLClusterTestEnv[OldEVMClientType], error) {
 	log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err
 	}
-	return &CLClusterTestEnv{
+	return &CLClusterTestEnv[OldEVMClientType]{
 		DockerNetwork: network,
 		l:             log.Logger,
 	}, nil
@@ -70,7 +69,7 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 
 // WithTestEnvConfig sets the test environment cfg.
 // Sets up private ethereum chain and MockAdapter containers with the provided cfg.
-func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
+func (te *CLClusterTestEnv[OldEVMClientType]) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv[OldEVMClientType] {
 	te.Cfg = cfg
 	if cfg.MockAdapter.ContainerName != "" {
 		n := []string{te.DockerNetwork.Name}
@@ -79,7 +78,7 @@ func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTest
 	return te
 }
 
-func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
+func (te *CLClusterTestEnv[OldEVMClientType]) WithTestInstance(t *testing.T) *CLClusterTestEnv[OldEVMClientType] {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
 	if te.MockAdapter != nil {
@@ -88,13 +87,13 @@ func (te *CLClusterTestEnv) WithTestInstance(t *testing.T) *CLClusterTestEnv {
 	return te
 }
 
-func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
+func (te *CLClusterTestEnv[OldEVMClientType]) ParallelTransactions(enabled bool) {
 	for _, evmClient := range te.evmClients {
 		evmClient.ParallelTransactions(enabled)
 	}
 }
 
-func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetworkConfig) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
+func (te *CLClusterTestEnv[OldEVMClientType]) StartEthereumNetwork(cfg *ctf_config.EthereumNetworkConfig) (blockchain.EVMNetwork, test_env.RpcProvider, error) {
 	// if environment is being restored from a previous state, use the existing config
 	// this might fail terribly if temporary folders with chain data on the host machine were removed
 	if te.Cfg != nil && te.Cfg.EthereumNetworkConfig != nil {
@@ -125,11 +124,11 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	return n, rpc, nil
 }
 
-func (te *CLClusterTestEnv) StartMockAdapter() error {
+func (te *CLClusterTestEnv[OldEVMClientType]) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
+func (te *CLClusterTestEnv[OldEVMClientType]) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
@@ -164,7 +163,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 }
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
-func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
+func (te *CLClusterTestEnv[OldEVMClientType]) FundChainlinkNodes(amount *big.Float) error {
 	if len(te.sethClients) == 0 && len(te.evmClients) == 0 {
 		return fmt.Errorf("both EVMClients and SethClient are nil, unable to fund chainlink nodes")
 	}
@@ -198,7 +197,7 @@ func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) Terminate() error {
+func (te *CLClusterTestEnv[OldEVMClientType]) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
 	return nil
@@ -209,7 +208,7 @@ type CleanupOpts struct {
 }
 
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
-func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
+func (te *CLClusterTestEnv[OldEVMClientType]) Cleanup(opts CleanupOpts) error {
 	te.l.Info().Msg("Cleaning up test environment")
 
 	runIdErr := runid.RemoveLocalRunId(te.TestConfig.GetLoggingConfig().RunId)
@@ -256,7 +255,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 }
 
 // handleNodeCoverageReports handles the coverage reports for the chainlink nodes
-func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
+func (te *CLClusterTestEnv[OldEVMClientType]) handleNodeCoverageReports(testName string) error {
 	testName = strings.ReplaceAll(testName, "/", "_")
 	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
 	isCI := os.Getenv("CI") != ""
@@ -335,7 +334,7 @@ func getChainlinkDir() (string, error) {
 	return chainlinkDir, nil
 }
 
-func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
+func (te *CLClusterTestEnv[OldEVMClientType]) logWhetherAllContainersAreRunning() {
 	for _, node := range te.ClCluster.Nodes {
 		if node.Container == nil {
 			continue
@@ -354,7 +353,7 @@ func (te *CLClusterTestEnv) logWhetherAllContainersAreRunning() {
 	}
 }
 
-func (te *CLClusterTestEnv) returnFunds() error {
+func (te *CLClusterTestEnv[OldEVMClientType]) returnFunds() error {
 	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 
 	if len(te.evmClients) == 0 && len(te.sethClients) == 0 {
@@ -378,14 +377,12 @@ func (te *CLClusterTestEnv) returnFunds() error {
 				if err != nil {
 					return err
 				}
-				if te.evmClients[0] != nil {
-					te.l.Debug().
-						Str("ChainId", evmClient.GetChainID().String()).
-						Msg("Returning funds from chainlink node")
-					if err = evmClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-						// If we fail to return funds from one, go on to try the others anyway
-						te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
-					}
+				te.l.Debug().
+					Str("ChainId", evmClient.GetChainID().String()).
+					Msg("Returning funds from chainlink node")
+				if err = evmClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+					// If we fail to return funds from one, go on to try the others anyway
+					te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
 				}
 			}
 		}
@@ -401,19 +398,19 @@ func (te *CLClusterTestEnv) returnFunds() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) GetEVMClient(chainId int64) (blockchain.EVMClient, error) {
+func (te *CLClusterTestEnv[OldEVMClientType]) GetEVMClient(chainId int64) (*OldEVMClientType, error) {
 	if len(te.sethClients) > 0 {
 		return nil, fmt.Errorf("Environment is using Seth clients, not EVM clients")
 	}
 
 	if evmClient, ok := te.evmClients[chainId]; ok {
-		return evmClient, nil
+		return &evmClient, nil
 	}
 
 	return nil, fmt.Errorf("no EVMClient available for chain ID %d", chainId)
 }
 
-func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
+func (te *CLClusterTestEnv[OldEVMClientType]) GetSethClient(chainId int64) (*seth.Client, error) {
 	if len(te.evmClients) > 0 {
 		return nil, fmt.Errorf("Environment is using EVMClients, not Seth clients")
 	}
@@ -424,12 +421,12 @@ func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
 	return nil, fmt.Errorf("no Seth client available for chain ID %d", chainId)
 }
 
-func (te *CLClusterTestEnv) GetSethClientForSelectedNetwork() (*seth.Client, error) {
+func (te *CLClusterTestEnv[OldEVMClientType]) GetSethClientForSelectedNetwork() (*seth.Client, error) {
 	n := networks.MustGetSelectedNetworkConfig(te.TestConfig.GetNetworkConfig())[0]
 	return te.GetSethClient(n.ChainID)
 }
 
-func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {
+func (te *CLClusterTestEnv[OldEVMClientType]) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {
 	if rpc, ok := te.rpcProviders[chainId]; ok {
 		return rpc, nil
 	}

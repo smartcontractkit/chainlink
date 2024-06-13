@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
-	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
-
 	"github.com/stretchr/testify/require"
 
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -27,7 +26,7 @@ func TestReorgAboveFinality(t *testing.T) {
 
 	nodeFinalityDepthInt := int64(10)
 
-	testEnv, err := test_env.NewCLTestEnvBuilder().
+	testEnv, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetworkConf.EthereumNetworkConfig).

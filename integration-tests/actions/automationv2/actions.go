@@ -27,23 +27,20 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
+	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
-	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
-	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 )
 
 type NodeDetails struct {
@@ -77,7 +74,7 @@ type AutomationTest struct {
 	ChainlinkNodesk8s []*client.ChainlinkK8sClient
 	ChainlinkNodes    []*client.ChainlinkClient
 
-	DockerEnv *test_env.CLClusterTestEnv
+	DockerEnv *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 
 	NodeDetails              []NodeDetails
 	DefaultP2Pv2Bootstrapper string
@@ -155,7 +152,7 @@ func (a *AutomationTest) SetUpkeepPrivilegeManager(address string) {
 	a.UpkeepPrivilegeManager = common.HexToAddress(address)
 }
 
-func (a *AutomationTest) SetDockerEnv(env *test_env.CLClusterTestEnv) {
+func (a *AutomationTest) SetDockerEnv(env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]) {
 	a.DockerEnv = env
 }
 

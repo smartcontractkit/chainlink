@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	logpoller "github.com/smartcontractkit/chainlink/integration-tests/universal/log_poller"
-
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -263,7 +262,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 
 type logPollerEnvironment struct {
 	logEmitters   []*contracts.LogEmitter
-	testEnv       *test_env.CLClusterTestEnv
+	testEnv       *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 	registry      contracts.KeeperRegistry
 	upkeepIDs     []*big.Int
 	upKeepsNeeded int
@@ -330,7 +329,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 }
 
 // waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
-func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, expectedFilters []logpoller.ExpectedFilter) {
+func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], testConfig *tc.TestConfig, expectedFilters []logpoller.ExpectedFilter) {
 	// Make sure that all nodes have expected filters registered before starting to emit events
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]

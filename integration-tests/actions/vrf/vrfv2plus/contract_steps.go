@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -121,7 +120,7 @@ func FundVRFCoordinatorV2_5Subscription(
 
 func CreateFundSubsAndAddConsumers(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
@@ -160,7 +159,7 @@ func CreateFundSubsAndAddConsumers(
 
 func CreateSubsAndFund(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
@@ -187,7 +186,7 @@ func CreateSubsAndFund(
 
 func CreateSubs(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
@@ -219,7 +218,7 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(ctx context.Context, env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
+func CreateSubAndFindSubID(ctx context.Context, env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreateVRFSubscription, err)
@@ -508,7 +507,7 @@ func DeployVRFV2PlusWrapperConsumers(client *seth.Client, vrfV2PlusWrapper contr
 }
 
 func SetupVRFV2PlusContracts(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
@@ -554,7 +553,7 @@ func SetupVRFV2PlusContracts(
 
 func SetupNewConsumersAndSubs(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2_5,
 	testConfig tc.TestConfig,

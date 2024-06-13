@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -26,7 +25,7 @@ func TestVersionUpgrade(t *testing.T) {
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
 
-	env, err := test_env.NewCLTestEnvBuilder().
+	env, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 		WithTestConfig(&config).
 		WithTestInstance(t).
 		WithStandardCleanup().

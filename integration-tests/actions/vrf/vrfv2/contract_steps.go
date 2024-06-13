@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
-
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
@@ -27,7 +26,7 @@ import (
 )
 
 func DeployVRFV2Contracts(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	linkTokenContract contracts.LinkToken,
 	linkEthFeedContract contracts.VRFMockETHLINKFeed,
@@ -157,7 +156,7 @@ func VRFV2RegisterProvingKey(
 }
 
 func SetupVRFV2Contracts(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
@@ -634,7 +633,7 @@ func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, vrfContracts *vrfcommon.VRF
 }
 
 func SetupNewConsumersAndSubs(
-	env *test_env.CLClusterTestEnv,
+	env *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient],
 	chainID int64,
 	coordinator contracts.VRFCoordinatorV2,
 	testConfig tc.TestConfig,

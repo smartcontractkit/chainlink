@@ -41,7 +41,7 @@ const (
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -569,7 +569,7 @@ func TestVRFv2Basic(t *testing.T) {
 func TestVRFv2MultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -682,7 +682,7 @@ func TestVRFv2MultipleSendingKeys(t *testing.T) {
 func TestVRFOwner(t *testing.T) {
 	t.Parallel()
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -819,7 +819,7 @@ func TestVRFOwner(t *testing.T) {
 func TestVRFV2WithBHS(t *testing.T) {
 	t.Parallel()
 	var (
-		testEnv                      *test_env.CLClusterTestEnv
+		testEnv                      *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1045,7 +1045,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 func TestVRFV2NodeReorg(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		defaultWalletAddress         string
@@ -1228,7 +1228,7 @@ func TestVRFV2NodeReorg(t *testing.T) {
 func TestVRFv2BatchFulfillmentEnabledDisabled(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		defaultWalletAddress         string

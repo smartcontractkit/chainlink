@@ -17,13 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 type ocr2test struct {
@@ -137,7 +135,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 	)
 }
 
-func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
+func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient], []contracts.OffchainAggregatorV2, *seth.Client) {
 	config, err := tc.GetConfig("Smoke", tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +146,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 
 	clNodeCount := 6
 
-	testEnv, err := test_env.NewCLTestEnvBuilder().
+	testEnv, err := test_env.NewCLTestEnvBuilder[test_env.WithoutOldEVMClient]().
 		WithTestInstance(t).
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
@@ -211,7 +209,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	return testEnv, aggregatorContracts, sethClient
 }
 
-func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCount int, testData ocr2test, testEnv *test_env.CLClusterTestEnv) {
+func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCount int, testData ocr2test, testEnv *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]) {
 	expectedNodesWithConfiguration := totalNodeCount - 1 // minus bootstrap node
 	expectedPatterns := []string{}
 

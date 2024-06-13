@@ -27,18 +27,17 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 )
 
 func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -744,7 +743,7 @@ func TestVRFv2Plus(t *testing.T) {
 func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -853,7 +852,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 func TestVRFv2PlusMigration(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1253,7 +1252,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 func TestVRFV2PlusWithBHS(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1488,7 +1487,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 func TestVRFV2PlusWithBHF(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1650,7 +1649,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1822,7 +1821,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
@@ -1917,7 +1916,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 func TestVRFv2PlusNodeReorg(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		defaultWalletAddress         string
@@ -2099,7 +2098,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 	t.Parallel()
 	var (
-		env                          *test_env.CLClusterTestEnv
+		env                          *test_env.CLClusterTestEnv[test_env.WithoutOldEVMClient]
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		defaultWalletAddress         string
