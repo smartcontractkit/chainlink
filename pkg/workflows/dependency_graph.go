@@ -28,14 +28,29 @@ type StepDefinition struct {
 }
 
 // WorkflowSpec is the parsed representation of a workflow.
+// It is a derived representation of the yaml spec.
+// Marshalling this struct is not guaranteed to produce the original yaml spec.
+// Access the original yaml spec using the `String` method.
 type WorkflowSpec struct {
-	CID       string           `json:"cid" jsonschema:"required"` // content of the original workflow yaml spec
-	Name      string           `json:"name,omitempty"`            // empty name allowed for anonymous workflows
-	Owner     string           `json:"owner,omitempty"`           // empty owner allowed for anonymous workflows
+	Name      string           `json:"name,omitempty"`
+	Owner     string           `json:"owner,omitempty"`
 	Triggers  []StepDefinition `json:"triggers" jsonschema:"required"`
 	Actions   []StepDefinition `json:"actions,omitempty"`
 	Consensus []StepDefinition `json:"consensus" jsonschema:"required"`
 	Targets   []StepDefinition `json:"targets" jsonschema:"required"`
+
+	cid  string // content hash of the original yaml spec
+	yaml string // original yaml spec
+}
+
+// String returns the original yaml spec of the workflow.
+func (w *WorkflowSpec) String() string {
+	return w.yaml
+}
+
+// CID returns the content hash of the original yaml spec of the workflow.
+func (w *WorkflowSpec) CID() string {
+	return w.cid
 }
 
 func (w *WorkflowSpec) Steps() []StepDefinition {

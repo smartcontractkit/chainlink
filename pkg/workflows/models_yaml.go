@@ -53,6 +53,7 @@ func ParseWorkflowSpecYaml(data string) (WorkflowSpec, error) {
 	sha256Hash := sha256.New()
 	sha256Hash.Write([]byte(data))
 	w.cid = fmt.Sprintf("%x", sha256Hash.Sum(nil))
+	w.yaml = data
 
 	return w.toWorkflowSpec(), nil
 }
@@ -77,7 +78,8 @@ type workflowSpecYaml struct {
 	Targets []stepDefinitionYaml `json:"targets" jsonschema:"required"`
 
 	// computed hash of the original workflow yaml spec
-	cid string
+	cid  string
+	yaml string // original yaml spec
 }
 
 // toWorkflowSpec converts a workflowSpecYaml to a WorkflowSpec.
@@ -118,9 +120,10 @@ func (w workflowSpecYaml) toWorkflowSpec() WorkflowSpec {
 		Actions:   actions,
 		Consensus: consensus,
 		Targets:   targets,
-		CID:       w.cid,
 		Name:      w.Name,
 		Owner:     w.Owner,
+		cid:       w.cid,
+		yaml:      w.yaml,
 	}
 }
 

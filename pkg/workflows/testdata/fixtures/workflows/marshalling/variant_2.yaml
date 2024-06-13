@@ -1,0 +1,25 @@
+ name: length_ten # exactly 10 characters
+ owner: 0x0123456789abcdef0123456789abcdef01234567
+ triggers:
+   - id: on_mercury_report@1.0.0
+     ref: report_data
+     config: {}
+
+ # no actions
+ # differs by id form
+
+ consensus:
+   - id: trigger_test:chain_ethereum:network_mainnet@2.0.0 
+     config: {}
+     inputs:
+       observations:
+         - triggers.report_data.outputs
+
+ targets:
+   - id: write_polygon_mainnet@1.0.0
+     config: {}
+     inputs:
+       report:
+         - consensus.evm_median.outputs.report
+
+# yaml-language-server: $schema=../workflow_schema.json

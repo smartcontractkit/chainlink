@@ -36,7 +36,6 @@ func yamlFixtureReaderBytes(t *testing.T, testCase string) func(name string) []b
 	return func(name string) []byte {
 		testFileBytes, err := os.ReadFile(fmt.Sprintf(fixtureDir+"%s/%s.yaml", testCase, name))
 		require.NoError(t, err)
-
 		return testFileBytes
 	}
 }
@@ -138,17 +137,19 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 		}
 	})
 
-	t.Run("Yaml spec to spec", func(t *testing.T) {
+	t.Run("Yaml spec to JSON spec", func(t *testing.T) {
 		expectedSpecPath := fixtureDir + "marshalling/" + "workflow_2_spec.json"
 		workflowBytes := fixtureReader("workflow_2")
 
 		workflowSpec, err := ParseWorkflowSpecYaml(string(workflowBytes))
 		require.NoError(t, err)
+		require.Equal(t, string(workflowBytes), workflowSpec.String())
+
 		workflowSpecBytes, err := json.MarshalIndent(workflowSpec, "", "  ")
 		require.NoError(t, err)
 
 		// change this to update golden file
-		shouldUpdateWorkflowSpec := false
+		shouldUpdateWorkflowSpec := true
 		if shouldUpdateWorkflowSpec {
 			err = os.WriteFile(expectedSpecPath, workflowSpecBytes, 0600)
 			require.NoError(t, err)
@@ -161,6 +162,38 @@ func TestWorkflowSpecMarshalling(t *testing.T) {
 			t.Errorf("WorkflowYamlSpecToWorkflowSpec() mismatch (-want +got):\n%s", diff)
 			t.FailNow()
 		}
+	})
+
+	t.Run("Logically equivalent specs with different CIDs", func(t *testing.T) {
+		// for better or worse we don't have a canonical form of a workflow spec that
+		// we use to generate the CID
+		// this means that logically equivalent specs can have different CIDs
+		variant1 := fixtureReader("variant_1")
+		variant2 := fixtureReader("variant_2")
+
+		workflowSpec1, err := ParseWorkflowSpecYaml(string(variant1))
+		require.NoError(t, err)
+
+		workflowSpec2, err := ParseWorkflowSpecYaml(string(variant2))
+		require.NoError(t, err)
+
+		// original YAML and CIDs should be different
+		require.NotEqual(t, workflowSpec1.CID(), workflowSpec2.CID())
+		require.NotEqual(t, workflowSpec1.String(), workflowSpec2.String())
+
+		// the parsed results should be logically equivalent
+		require.Equal(t, workflowSpec1.Actions, workflowSpec2.Actions)
+		require.Equal(t, workflowSpec1.Consensus, workflowSpec2.Consensus)
+		require.Equal(t, workflowSpec1.Targets, workflowSpec2.Targets)
+		require.Equal(t, workflowSpec1.Triggers, workflowSpec2.Triggers)
+		require.Equal(t, workflowSpec1.Owner, workflowSpec2.Owner)
+		require.Equal(t, workflowSpec1.Name, workflowSpec2.Name)
+		// serialized JSON of the parsed results should be the same
+		jsonSpec1, err := json.MarshalIndent(workflowSpec1, "", "  ")
+		require.NoError(t, err)
+		jsonSpec2, err := json.MarshalIndent(workflowSpec2, "", "  ")
+		require.NoError(t, err)
+		require.JSONEq(t, string(jsonSpec1), string(jsonSpec2))
 	})
 }
 
