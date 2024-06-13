@@ -106,18 +106,13 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestLogBlock, uniqueBlocks, reorgBlocks := b.blockStatistics(logs...)
-	if len(reorgBlocks) > 0 {
-		b.evictReorgdLogs(reorgBlocks)
-	}
+	latestLogBlock := b.latestBlockNumber(logs...)
 
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
 		b.lggr.Warnw("enqueuing logs with a latest block older older than latest seen block", "logBlock", latestLogBlock, "lastBlockSeen", lastBlockSeen)
 	}
-
-	b.trackBlockNumbersForUpkeep(uid, uniqueBlocks)
 
 	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
 	if blockThreshold <= 0 {
@@ -129,21 +124,17 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	return buf.enqueue(blockThreshold, logs...)
 }
 
-// blockStatistics returns the latest block number, a set of unique block numbers, and a set of reorgd blocks
-// from the given logs
-func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool, map[int64]bool) {
+func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) int64 {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	var latest int64
-	uniqueBlocks := map[int64]bool{}
 	reorgBlocks := map[int64]bool{}
 
 	for _, l := range logs {
 		if l.BlockNumber > latest {
 			latest = l.BlockNumber
 		}
-		uniqueBlocks[l.BlockNumber] = true
 		if hash, ok := b.blockHashes[l.BlockNumber]; ok {
 			if hash != l.BlockHash.String() {
 				reorgBlocks[l.BlockNumber] = true
@@ -153,7 +144,11 @@ func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]boo
 		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 	}
 
-	return latest, uniqueBlocks, reorgBlocks
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
+	return latest
 }
 
 func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
