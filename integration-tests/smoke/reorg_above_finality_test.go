@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	"github.com/pelletier/go-toml/v2"
