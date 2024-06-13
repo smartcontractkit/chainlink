@@ -99,6 +99,15 @@ selected_networks=["simulated"]
 enabled = true
 depth = 15
 delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
 
 # Soak test configuration with Geth reorg below finality with FinalityTagEnabled=true
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.NodeConfig]
@@ -118,3 +127,12 @@ selected_networks=["simulated"]
 enabled = true
 depth = 15
 delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"

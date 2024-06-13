@@ -40,6 +40,8 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 func runOCRSoakTest(t *testing.T, config tc.TestConfig, customNetworkTOML string) {
 	l := logging.GetTestLogger(t)
 
+	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
+
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
 	require.NoError(t, err, "Error creating soak test")
 	if !ocrSoakTest.Interrupted() {
