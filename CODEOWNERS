@@ -84,7 +84,6 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/src/v0.8/vrf @smartcontractkit/vrf-team
 
 
-
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/functions
 # Remove changeset files from the codeowners
@@ -92,13 +91,13 @@ core/scripts/gateway @smartcontractkit/functions
 
 
 # Tests
-/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @mateusz-sekara @emate
+/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 /integration-tests/**/*lm_* @smartcontractkit/liquidity-manager
 
 # CI/CD
-/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci
+/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @jasonmci @smartcontractkit/ccip
 /.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team @jasonmci
 /.github/workflows/**-tests.yml @smartcontractkit/test-tooling-team @jasonmci
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team @jasonmci
@@ -138,7 +137,7 @@ flake.lock @smartcontractkit/prodsec-public
 
 # CCIP override
 /core/ @smartcontractkit/ccip
-/contracts/ @smartcontractkit/ccip-onchain @makramkd
+/contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
 
 # CCIP LM
 /core/services/ocr2/plugins/liquiditymanager/ @smartcontractkit/liquidity-manager
