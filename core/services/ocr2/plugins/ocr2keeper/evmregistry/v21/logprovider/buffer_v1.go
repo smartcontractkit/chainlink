@@ -73,9 +73,6 @@ type logBuffer struct {
 	queues map[string]*upkeepLogQueue
 	lock   sync.RWMutex
 
-	// map for then number of times we have enqueued logs for a block number
-	enqueuedBlocks     map[int64]map[string]int
-	enqueuedBlockLock  sync.RWMutex
 	queueIDs           []string
 	blockHashes        map[int64]string
 	dequeueCoordinator *dequeueCoordinator
@@ -86,7 +83,6 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32, dequ
 		lggr:               lggr.Named("KeepersRegistry.LogEventBufferV1"),
 		opts:               newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen:      new(atomic.Int64),
-		enqueuedBlocks:     map[int64]map[string]int{},
 		queueIDs:           []string{},
 		queues:             make(map[string]*upkeepLogQueue),
 		blockHashes:        map[int64]string{},
@@ -119,8 +115,6 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		blockThreshold = 1
 	}
 
-	b.cleanupEnqueuedBlocks(blockThreshold)
-
 	return buf.enqueue(blockThreshold, logs...)
 }
 
@@ -152,9 +146,6 @@ func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) int64 {
 }
 
 func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
-	b.lock.Lock()
-	defer b.lock.Unlock()
-
 	for blockNumber := range reorgBlocks {
 		for _, queue := range b.queues {
 			if _, ok := queue.logs[blockNumber]; ok {
@@ -162,47 +153,6 @@ func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
 			}
 		}
 		b.dequeueCoordinator.MarkReorg(blockNumber, b.opts.blockRate.Load())
-	}
-}
-
-func (b *logBuffer) cleanupEnqueuedBlocks(blockThreshold int64) {
-	b.enqueuedBlockLock.Lock()
-	defer b.enqueuedBlockLock.Unlock()
-	// clean up enqueued block counts
-	for block := range b.enqueuedBlocks {
-		if block < blockThreshold {
-			delete(b.enqueuedBlocks, block)
-		}
-	}
-}
-
-// trackBlockNumbersForUpkeep keeps track of the number of times we enqueue logs for an upkeep,
-// for a specific block number. The expectation is that we will only enqueue logs for an upkeep for a
-// specific block number once, i.e. all logs for an upkeep for a block, will be enqueued in a single
-// enqueue call. In the event that we see upkeep logs enqueued for a particular block more than once,
-// we log a message.
-func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[int64]bool) {
-	b.enqueuedBlockLock.Lock()
-	defer b.enqueuedBlockLock.Unlock()
-
-	if uid == nil {
-		return
-	}
-
-	for blockNumber := range uniqueBlocks {
-		if blockNumbers, ok := b.enqueuedBlocks[blockNumber]; ok {
-			if upkeepBlockInstances, ok := blockNumbers[uid.String()]; ok {
-				blockNumbers[uid.String()] = upkeepBlockInstances + 1
-				b.lggr.Debugw("enqueuing logs again for a previously seen block for this upkeep", "blockNumber", blockNumber, "numberOfEnqueues", b.enqueuedBlocks[blockNumber], "upkeepID", uid.String())
-			} else {
-				blockNumbers[uid.String()] = 1
-			}
-			b.enqueuedBlocks[blockNumber] = blockNumbers
-		} else {
-			b.enqueuedBlocks[blockNumber] = map[string]int{
-				uid.String(): 1,
-			}
-		}
 	}
 }
 
@@ -348,12 +298,13 @@ type upkeepLogQueue struct {
 	opts *logBufferOptions
 
 	// logs is the buffer of logs for the upkeep
-	logs map[int64][]logpoller.Log
+	logs         map[int64][]logpoller.Log
+	blockNumbers []int64
+
 	// states keeps track of the state of the logs that are known to the queue
 	// and the block number they were seen at
-	blockNumbers []int64
-	states       map[string]logTriggerStateEntry
-	lock         sync.RWMutex
+	states map[string]logTriggerStateEntry
+	lock   sync.RWMutex
 }
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
@@ -493,11 +444,20 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 	windowLimit := int(q.opts.windowLimit.Load())
 	// helper variables to keep track of the current window capacity
 	currentWindowCapacity, currentWindowStart := 0, int64(0)
+	oldBlockNumbers := make([]int64, 0)
+	blockNumbers := make([]int64, 0)
+
 	for _, blockNumber := range q.blockNumbers {
 		var dropped, expired int
 
 		logs := q.logs[blockNumber]
 		updated := make([]logpoller.Log, 0)
+
+		if blockThreshold > blockNumber {
+			oldBlockNumbers = append(oldBlockNumbers, blockNumber)
+		} else {
+			blockNumbers = append(blockNumbers, blockNumber)
+		}
 
 		for _, l := range logs {
 			if blockThreshold > l.BlockNumber { // old log, removed
@@ -539,6 +499,11 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 			q.lggr.Debugw("Cleaned logs", "dropped", dropped, "expired", expired, "blockThreshold", blockThreshold, "len updated", len(updated), "len before", len(q.logs))
 		}
 	}
+
+	for _, blockNumber := range oldBlockNumbers {
+		delete(q.logs, blockNumber)
+	}
+	q.blockNumbers = blockNumbers
 
 	q.cleanStates(blockThreshold)
 

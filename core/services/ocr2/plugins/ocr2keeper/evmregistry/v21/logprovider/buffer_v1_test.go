@@ -110,8 +110,6 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["1"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["2"])
 		assert.True(t, true, warnLogReceived)
 		assert.True(t, true, debugLogReceived)
 	})
@@ -148,9 +146,6 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3b"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["2"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["1"])
-		assert.Equal(t, 2, buf.enqueuedBlocks[3]["3"])
 		assert.True(t, true, logReceived)
 	})
 }
@@ -707,108 +702,4 @@ func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []lo
 		}
 	}
 	return logs
-}
-
-func Test_trackBlockNumbersForUpkeep(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1, NewDequeueCoordinator())
-
-	logBuffer := buf.(*logBuffer)
-
-	for _, tc := range []struct {
-		uid                *big.Int
-		uniqueBlocks       map[int64]bool
-		wantEnqueuedBlocks map[int64]map[string]int
-	}{
-		{
-			uid: big.NewInt(1),
-			uniqueBlocks: map[int64]bool{
-				1: true,
-				2: true,
-				3: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-				},
-				2: {
-					"1": 1,
-				},
-				3: {
-					"1": 1,
-				},
-			},
-		},
-		{
-			uid: big.NewInt(2),
-			uniqueBlocks: map[int64]bool{
-				1: true,
-				2: true,
-				3: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 1,
-				},
-			},
-		},
-		{
-			uid: big.NewInt(2),
-			uniqueBlocks: map[int64]bool{
-				3: true,
-				4: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 2,
-				},
-				4: {
-					"2": 1,
-				},
-			},
-		},
-		{
-			uniqueBlocks: map[int64]bool{
-				3: true,
-				4: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 2,
-				},
-				4: {
-					"2": 1,
-				},
-			},
-		},
-	} {
-		logBuffer.trackBlockNumbersForUpkeep(tc.uid, tc.uniqueBlocks)
-		assert.Equal(t, tc.wantEnqueuedBlocks, logBuffer.enqueuedBlocks)
-	}
 }
