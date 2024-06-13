@@ -204,6 +204,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
+	defer syncer.Close()
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
@@ -305,6 +306,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
+	defer syncer.Close()
 
 	// Finally, assert that no services were added.
 	assert.Len(t, syncer.subServices, 0)
@@ -446,6 +448,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
+	defer syncer.Close()
 
 	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
@@ -599,6 +602,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
+	defer syncer.Close()
 
 	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
