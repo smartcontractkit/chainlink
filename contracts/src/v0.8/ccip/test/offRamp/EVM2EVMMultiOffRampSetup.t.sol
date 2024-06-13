@@ -5,8 +5,9 @@ import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.
 
 import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
-import {IMultiCommitStore} from "../../interfaces/IMultiCommitStore.sol";
+import {IRMN} from "../../interfaces/IRMN.sol";
 
+import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
@@ -24,7 +25,6 @@ import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMint
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
-import {MockMultiCommitStore} from "../mocks/MockMultiCommitStore.sol";
 import {MultiOCR3BaseSetup} from "../ocr/MultiOCR3BaseSetup.t.sol";
 import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 
@@ -39,7 +39,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   address internal constant ON_RAMP_ADDRESS_2 = 0xaA3f843Cf8E33B1F02dd28303b6bD87B1aBF8AE4;
   address internal constant ON_RAMP_ADDRESS_3 = 0x71830C37Cb193e820de488Da111cfbFcC680a1b9;
 
-  MockMultiCommitStore internal s_mockCommitStore;
+  address internal constant BLESS_VOTE_ADDR = address(8888);
+
   IAny2EVMMessageReceiver internal s_receiver;
   IAny2EVMMessageReceiver internal s_secondary_receiver;
   MaybeRevertMessageReceiver internal s_reverting_receiver;
@@ -48,10 +49,15 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
   EVM2EVMMultiOffRampHelper internal s_offRamp;
   MessageInterceptorHelper internal s_messageValidator;
+  RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
-  bytes32 internal s_configDigest;
+  bytes32 internal s_configDigestExec;
+  bytes32 internal s_configDigestCommit;
+  uint64 internal constant s_offchainConfigVersion = 3;
   uint8 internal constant s_F = 1;
+
+  uint40 internal s_latestEpochAndRound;
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup) {
     TokenSetup.setUp();
@@ -59,45 +65,57 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     MultiOCR3BaseSetup.setUp();
 
     s_messageValidator = new MessageInterceptorHelper();
-    s_mockCommitStore = new MockMultiCommitStore();
     s_receiver = new MaybeRevertMessageReceiver(false);
     s_secondary_receiver = new MaybeRevertMessageReceiver(false);
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
 
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
 
-    _deployOffRamp(s_mockCommitStore, s_destRouter);
+    _deployOffRamp(s_destRouter, s_mockRMN);
   }
 
-  function _deployOffRamp(IMultiCommitStore commitStore, Router router) internal {
+  function _deployOffRamp(Router router, IRMN rmnProxy) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
     s_offRamp = new EVM2EVMMultiOffRampHelper(
       EVM2EVMMultiOffRamp.StaticConfig({
-        commitStore: address(commitStore),
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmnProxy: address(s_mockRMN),
+        rmnProxy: address(rmnProxy),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       sourceChainConfigs
     );
 
-    s_configDigest = _getBasicConfigDigest(1, s_emptySigners, s_validTransmitters);
+    s_configDigestExec = _getBasicConfigDigest(s_F, s_emptySigners, s_validTransmitters);
+    s_configDigestCommit = _getBasicConfigDigest(s_F, s_validSigners, s_validTransmitters);
 
-    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](2);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
-      configDigest: s_configDigest,
+      configDigest: s_configDigestExec,
       F: s_F,
       uniqueReports: false,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters
     });
+    ocrConfigs[1] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: uint8(Internal.OCRPluginType.Commit),
+      configDigest: s_configDigestCommit,
+      F: s_F,
+      uniqueReports: false,
+      isSignatureVerificationEnabled: true,
+      signers: s_validSigners,
+      transmitters: s_validTransmitters
+    });
 
-    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(router)));
+    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(router), address(s_priceRegistry)));
     s_offRamp.setOCR3Configs(ocrConfigs);
+
+    address[] memory priceUpdaters = new address[](1);
+    priceUpdaters[0] = address(s_offRamp);
+    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
   }
 
   // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
@@ -164,7 +182,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_3
     });
-    _setupMultiCommitStoreFromOffRampConfigs(sourceChainConfigs);
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
 
@@ -189,19 +206,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
 
-  function _setupMultiCommitStoreFromOffRampConfigs(
-    EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs
-  ) internal {
-    for (uint256 i; i < sourceChainConfigs.length; ++i) {
-      EVM2EVMMultiOffRamp.SourceChainConfigArgs memory sourceChainConfig = sourceChainConfigs[i];
-      s_mockCommitStore.setSourceChainConfig(
-        sourceChainConfig.sourceChainSelector,
-        IMultiCommitStore.SourceChainConfig({isEnabled: true, minSeqNr: 1, onRamp: sourceChainConfig.onRamp})
-      );
-      s_mockCommitStore.setVerifyResult(sourceChainConfig.sourceChainSelector, true);
-    }
-  }
-
   function _generateDynamicOffRampConfig(
     address router,
     address priceRegistry
@@ -217,14 +221,14 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
   }
 
-  function _generateDynamicMultiOffRampConfig(address router)
-    internal
-    pure
-    returns (EVM2EVMMultiOffRamp.DynamicConfig memory)
-  {
+  function _generateDynamicMultiOffRampConfig(
+    address router,
+    address priceRegistry
+  ) internal pure returns (EVM2EVMMultiOffRamp.DynamicConfig memory) {
     return EVM2EVMMultiOffRamp.DynamicConfig({
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       router: router,
+      priceRegistry: priceRegistry,
       maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
       maxDataBytes: MAX_DATA_SIZE,
       messageValidator: address(0),
@@ -412,6 +416,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
     assertEq(a.maxTokenTransferGas, b.maxTokenTransferGas);
     assertEq(a.messageValidator, b.messageValidator);
+    assertEq(a.priceRegistry, b.priceRegistry);
   }
 
   function _assertSourceChainConfigEquality(
@@ -419,6 +424,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     EVM2EVMMultiOffRamp.SourceChainConfig memory config2
   ) internal pure {
     assertEq(config1.isEnabled, config2.isEnabled);
+    assertEq(config1.minSeqNr, config2.minSeqNr);
     assertEq(config1.prevOffRamp, config2.prevOffRamp);
     assertEq(config1.onRamp, config2.onRamp);
     assertEq(config1.metadataHash, config2.metadataHash);
@@ -446,5 +452,36 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     EVM2EVMMultiOffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
     dynamicConfig.messageValidator = address(s_messageValidator);
     s_offRamp.setDynamicConfig(dynamicConfig);
+  }
+
+  function _redeployOffRampWithNoOCRConfigs() internal {
+    s_offRamp = new EVM2EVMMultiOffRampHelper(
+      EVM2EVMMultiOffRamp.StaticConfig({
+        chainSelector: DEST_CHAIN_SELECTOR,
+        rmnProxy: address(s_mockRMN),
+        tokenAdminRegistry: address(s_tokenAdminRegistry)
+      }),
+      new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0)
+    );
+
+    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(s_destRouter), address(s_priceRegistry)));
+    _setupMultipleOffRamps();
+
+    address[] memory priceUpdaters = new address[](1);
+    priceUpdaters[0] = address(s_offRamp);
+    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
+  }
+
+  function _setupRealRMN() internal {
+    RMN.Voter[] memory voters = new RMN.Voter[](1);
+    voters[0] = RMN.Voter({
+      blessVoteAddr: BLESS_VOTE_ADDR,
+      curseVoteAddr: address(9999),
+      curseUnvoteAddr: address(19999),
+      blessWeight: 1,
+      curseWeight: 1
+    });
+    // Overwrite base mock rmn with real.
+    s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }
 }

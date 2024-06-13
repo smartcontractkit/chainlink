@@ -2,7 +2,6 @@
 pragma solidity 0.8.24;
 
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
-import "../commitStore/MultiCommitStore.t.sol";
 import "../helpers/MerkleHelper.sol";
 import "../offRamp/EVM2EVMMultiOffRampSetup.t.sol";
 import "../onRamp/EVM2EVMMultiOnRampSetup.t.sol";
@@ -12,7 +11,7 @@ import "../onRamp/EVM2EVMMultiOnRampSetup.t.sol";
 /// source chain 2).
 /// 2. Commit multiple merkle roots (1 for each source chain).
 /// 3. Batch execute all the committed messages.
-contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EVMMultiOffRampSetup {
+contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
   using Internal for Internal.EVM2EVMMessage;
 
   Router internal s_sourceRouter2;
@@ -23,9 +22,8 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EV
 
   mapping(address destPool => address sourcePool) internal s_sourcePoolByDestPool;
 
-  function setUp() public virtual override(EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EVMMultiOffRampSetup) {
+  function setUp() public virtual override(EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup) {
     EVM2EVMMultiOnRampSetup.setUp();
-    MultiCommitStoreSetup.setUp();
     EVM2EVMMultiOffRampSetup.setUp();
 
     // Deploy new source router for the new source chain
@@ -62,33 +60,13 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EV
     (s_onRamp2, s_metadataHash2) =
       _deployOnRamp(SOURCE_CHAIN_SELECTOR + 1, address(s_sourceRouter2), address(s_tokenAdminRegistry2));
 
-    // Deploy MultiCommitStore. We need to redeploy the MultiCommitStore because we need to update the first chain onramp address.
-    MultiCommitStore.SourceChainConfigArgs[] memory sourceChainConfigArgs =
-      new MultiCommitStore.SourceChainConfigArgs[](2);
-    sourceChainConfigArgs[0] = MultiCommitStore.SourceChainConfigArgs({
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      isEnabled: true,
-      minSeqNr: 1,
-      onRamp: address(s_onRamp)
-    });
-    sourceChainConfigArgs[1] = MultiCommitStore.SourceChainConfigArgs({
-      sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
-      isEnabled: true,
-      minSeqNr: 1,
-      onRamp: address(s_onRamp2)
-    });
-    s_multiCommitStore = new MultiCommitStoreHelper(
-      MultiCommitStore.StaticConfig({chainSelector: DEST_CHAIN_SELECTOR, rmnProxy: address(s_mockRMN)}),
-      sourceChainConfigArgs
-    );
-
     // Enable destination chain on new source chain router
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);
     onRampUpdates[0] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: address(s_onRamp2)});
     s_sourceRouter2.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
 
     // Deploy offramp
-    _deployOffRamp(s_multiCommitStore, s_destRouter);
+    _deployOffRamp(s_destRouter, s_mockRMN);
 
     // Enable source chains on offramp
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
@@ -145,34 +123,34 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EV
     merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
     merkleRoots[1] = MerkleHelper.getMerkleRoot(hashedMessages2);
 
-    MultiCommitStore.MerkleRoot[] memory roots = new MultiCommitStore.MerkleRoot[](2);
-    roots[0] = MultiCommitStore.MerkleRoot({
+    EVM2EVMMultiOffRamp.MerkleRoot[] memory roots = new EVM2EVMMultiOffRamp.MerkleRoot[](2);
+    roots[0] = EVM2EVMMultiOffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      interval: MultiCommitStore.Interval(messages1[0].sequenceNumber, messages1[1].sequenceNumber),
+      interval: EVM2EVMMultiOffRamp.Interval(messages1[0].sequenceNumber, messages1[1].sequenceNumber),
       merkleRoot: merkleRoots[0]
     });
-    roots[1] = MultiCommitStore.MerkleRoot({
+    roots[1] = EVM2EVMMultiOffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
-      interval: MultiCommitStore.Interval(messages2[0].sequenceNumber, messages2[0].sequenceNumber),
+      interval: EVM2EVMMultiOffRamp.Interval(messages2[0].sequenceNumber, messages2[0].sequenceNumber),
       merkleRoot: merkleRoots[1]
     });
 
-    MultiCommitStore.CommitReport memory report =
-      MultiCommitStore.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
+    EVM2EVMMultiOffRamp.CommitReport memory report =
+      EVM2EVMMultiOffRamp.CommitReport({priceUpdates: getEmptyPriceUpdates(), merkleRoots: roots});
 
     bytes memory commitReport = abi.encode(report);
 
     vm.resumeGasMetering();
-    s_multiCommitStore.report(commitReport, ++s_latestEpochAndRound);
+    s_offRamp.reportCommit(commitReport, ++s_latestEpochAndRound);
     vm.pauseGasMetering();
 
     bytes32[] memory proofs = new bytes32[](0);
     bytes32[] memory hashedLeaves = new bytes32[](1);
     hashedLeaves[0] = merkleRoots[0];
-    uint256 timestamp = s_multiCommitStore.verify(SOURCE_CHAIN_SELECTOR, hashedLeaves, proofs, 2 ** 2 - 1);
+    uint256 timestamp = s_offRamp.verify(SOURCE_CHAIN_SELECTOR, hashedLeaves, proofs, 2 ** 2 - 1);
     assertEq(BLOCK_TIME, timestamp);
     hashedLeaves[0] = merkleRoots[1];
-    timestamp = s_multiCommitStore.verify(SOURCE_CHAIN_SELECTOR + 1, hashedLeaves, proofs, 2 ** 2 - 1);
+    timestamp = s_offRamp.verify(SOURCE_CHAIN_SELECTOR + 1, hashedLeaves, proofs, 2 ** 2 - 1);
     assertEq(BLOCK_TIME, timestamp);
 
     // We change the block time so when execute would e.g. use the current

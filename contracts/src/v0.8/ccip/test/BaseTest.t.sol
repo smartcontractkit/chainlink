@@ -39,12 +39,6 @@ contract BaseTest is Test {
   uint32 internal constant DEFAULT_TOKEN_DEST_GAS_OVERHEAD = 34_000;
   uint32 internal constant DEFAULT_TOKEN_BYTES_OVERHEAD = 50;
 
-  // OCR
-  // Signer private keys used for these test
-  uint256 internal constant PRIVATE0 = 0x7b2e97fe057e6de99d6872a2ef2abf52c9b4469bc848c2465ac3fcd8d336e81d;
-  uint64 internal constant s_offchainConfigVersion = 3;
-  bytes internal constant REPORT = abi.encode("testReport");
-
   bool private s_baseTestInitialized;
 
   // Use 16 gas per data availability byte in our tests.

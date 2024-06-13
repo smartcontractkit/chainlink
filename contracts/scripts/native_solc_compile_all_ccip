@@ -55,7 +55,6 @@ compileContract ccip/applications/EtherSenderReceiver.sol
 compileContract ccip/onRamp/EVM2EVMMultiOnRamp.sol
 compileContract ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
-compileContract ccip/MultiCommitStore.sol
 compileContract ccip/MultiAggregateRateLimiter.sol
 compileContract ccip/Router.sol
 compileContract ccip/PriceRegistry.sol

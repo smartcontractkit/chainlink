@@ -4,6 +4,8 @@ pragma solidity 0.8.24;
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 
 contract MultiOCR3Helper is MultiOCR3Base {
+  event AfterConfigSet(uint8 ocrPluginType);
+
   /// @dev OCR plugin type used for transmit.
   ///      Defined in storage since it cannot be passed as calldata due to strict transmit checks
   uint8 internal s_transmitOcrPluginType;
@@ -35,5 +37,9 @@ contract MultiOCR3Helper is MultiOCR3Base {
 
   function typeAndVersion() public pure override returns (string memory) {
     return "MultiOCR3BaseHelper 1.0.0";
+  }
+
+  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual override {
+    emit AfterConfigSet(ocrPluginType);
   }
 }

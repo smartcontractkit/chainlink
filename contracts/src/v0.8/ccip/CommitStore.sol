@@ -76,7 +76,7 @@ contract CommitStore is ICommitStore, ITypeAndVersion, OCR2Base {
   uint64 private s_minSeqNr = 1;
   /// @dev The epoch and round of the last report
   uint40 private s_latestPriceEpochAndRound;
-  /// @dev Whether this OnRamp is paused or not
+  /// @dev Whether this CommitStore is paused or not
   bool private s_paused = false;
   // merkleRoot => timestamp when received
   mapping(bytes32 merkleRoot => uint256 timestamp) private s_roots;

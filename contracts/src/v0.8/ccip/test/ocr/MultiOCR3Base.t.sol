@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
+import {MultiOCR3Helper} from "../helpers/MultiOCR3Helper.sol";
 import {MultiOCR3BaseSetup} from "./MultiOCR3BaseSetup.t.sol";
 
 import {Vm} from "forge-std/Vm.sol";
@@ -56,7 +57,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     // F = 2, need 2 signatures
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, 2);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, REPORT, 2);
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
@@ -74,7 +75,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     // F = 1, need 5 signatures
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, 5);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, REPORT, 5);
 
     s_multiOCR3.setTransmitOcrPluginType(1);
 
@@ -155,7 +156,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     }
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(pickedSignerKeys, s_configDigest1, numSignatures);
+      _getSignaturesForDigest(pickedSignerKeys, s_configDigest1, REPORT, numSignatures);
 
     vm.expectEmit();
     emit MultiOCR3Base.Transmitted(3, s_configDigest1, uint32(uint256(s_configDigest1) >> 8));
@@ -169,7 +170,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, 2);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, REPORT, 2);
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
@@ -197,7 +198,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     // 1 signature too many
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, 6);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, REPORT, 6);
 
     s_multiOCR3.setTransmitOcrPluginType(1);
 
@@ -211,7 +212,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
 
     // Missing 1 signature for unique report
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, 4);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest2, REPORT, 4);
 
     s_multiOCR3.setTransmitOcrPluginType(1);
 
@@ -224,7 +225,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     bytes32 configDigest;
     bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
 
-    (,,, bytes32 rawVs) = _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, 2);
+    (,,, bytes32 rawVs) = _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, REPORT, 2);
 
     s_multiOCR3.setTransmitOcrPluginType(0);
 
@@ -260,7 +261,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss, uint8[] memory vs, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, 2);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, REPORT, 2);
 
     rs[1] = rs[0];
     ss[1] = ss[0];
@@ -278,7 +279,7 @@ contract MultiOCR3Base_transmit is MultiOCR3BaseSetup {
     bytes32[3] memory reportContext = [s_configDigest1, s_configDigest1, s_configDigest1];
 
     (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
-      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, 2);
+      _getSignaturesForDigest(s_validSignerKeys, s_configDigest1, REPORT, 2);
 
     rs[0] = s_configDigest1;
     ss = rs;
@@ -380,6 +381,10 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       ocrConfigs[0].transmitters,
       ocrConfigs[0].F
     );
+
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
+
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
     MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
@@ -421,6 +426,10 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       ocrConfigs[0].transmitters,
       ocrConfigs[0].F
     );
+
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
+
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
     MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
@@ -461,6 +470,10 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       ocrConfigs[0].transmitters,
       ocrConfigs[0].F
     );
+
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
+
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
     MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
@@ -526,6 +539,9 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
         ocrConfigs[i].transmitters,
         ocrConfigs[i].F
       );
+
+      vm.expectEmit();
+      emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[i].ocrPluginType);
     }
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
@@ -592,6 +608,8 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
     emit MultiOCR3Base.ConfigSet(
       ocrConfig.ocrPluginType, ocrConfig.configDigest, ocrConfig.signers, ocrConfig.transmitters, ocrConfig.F
     );
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfig.ocrPluginType);
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
     MultiOCR3Base.OCRConfig memory expectedConfig = MultiOCR3Base.OCRConfig({
@@ -637,6 +655,8 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       ocrConfigs[0].transmitters,
       ocrConfigs[0].F
     );
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
 
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
@@ -698,6 +718,8 @@ contract MultiOCR3Base_setOCR3Configs is MultiOCR3BaseSetup {
       ocrConfigs[0].transmitters,
       ocrConfigs[0].F
     );
+    vm.expectEmit();
+    emit MultiOCR3Helper.AfterConfigSet(ocrConfigs[0].ocrPluginType);
 
     s_multiOCR3.setOCR3Configs(ocrConfigs);
 
