@@ -13,6 +13,58 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 )
 
+var (
+	codecNumType = reflect.TypeOf(Number("0"))
+	intType      = reflect.TypeOf(int(0))
+	int8Type     = reflect.TypeOf(int8(0))
+	int16Type    = reflect.TypeOf(int16(0))
+	int32Type    = reflect.TypeOf(int32(0))
+	int64Type    = reflect.TypeOf(int64(0))
+	float32Type  = reflect.TypeOf(float32(0))
+	float64Type  = reflect.TypeOf(float64(0))
+)
+
+func NumberHook(from reflect.Type, to reflect.Type, val any) (any, error) {
+	if from == codecNumType && to != codecNumType {
+		number := val.(Number)
+
+		switch to {
+		case intType, int8Type, int16Type, int32Type, int64Type:
+			int64Val, err := number.Int64()
+			if err != nil {
+				return val, err
+			}
+
+			switch to {
+			case intType:
+				return int(int64Val), nil
+			case int8Type:
+				return int8(int64Val), nil
+			case int16Type:
+				return int16(int64Val), nil
+			case int32Type:
+				return int32(int64Val), nil
+			case int64Type:
+				return int64Val, nil
+			}
+		case float32Type, float64Type:
+			float64Val, err := number.Float64()
+			if err != nil {
+				return val, err
+			}
+
+			switch to {
+			case float32Type:
+				return float32(float64Val), nil
+			case float64Type:
+				return float64Val, nil
+			}
+		}
+	}
+
+	return val, nil
+}
+
 // FitsInNBitsSigned returns if the [*math/big.Int] can fit in n bits as a signed integer.
 // Namely, if it's in the range [-2^(n-1), 2^(n-1) - 1]
 func FitsInNBitsSigned(n int, bi *big.Int) bool {

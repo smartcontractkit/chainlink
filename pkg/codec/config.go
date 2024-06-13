@@ -1,12 +1,15 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"unicode"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -23,7 +26,7 @@ type ModifiersConfig []ModifierConfig
 
 func (m *ModifiersConfig) UnmarshalJSON(data []byte) error {
 	var rawDeserialized []json.RawMessage
-	if err := json.Unmarshal(data, &rawDeserialized); err != nil {
+	if err := decode(data, &rawDeserialized); err != nil {
 		return err
 	}
 
@@ -31,7 +34,7 @@ func (m *ModifiersConfig) UnmarshalJSON(data []byte) error {
 
 	for i, d := range rawDeserialized {
 		t := typer{}
-		if err := json.Unmarshal(d, &t); err != nil {
+		if err := decode(d, &t); err != nil {
 			return fmt.Errorf("%w: %w", types.ErrInvalidConfig, err)
 		}
 
@@ -53,7 +56,7 @@ func (m *ModifiersConfig) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("%w: unknown modifier type: %s", types.ErrInvalidConfig, mType)
 		}
 
-		if err := json.Unmarshal(d, (*m)[i]); err != nil {
+		if err := decode(d, (*m)[i]); err != nil {
 			return fmt.Errorf("%w: %w", types.ErrInvalidConfig, err)
 		}
 	}
@@ -161,8 +164,23 @@ type HardCodeModifierConfig struct {
 }
 
 func (h *HardCodeModifierConfig) ToModifier(onChainHooks ...mapstructure.DecodeHookFunc) (Modifier, error) {
+	for key, value := range h.OnChainValues {
+		number, ok := value.(json.Number)
+		if ok {
+			h.OnChainValues[key] = Number(number)
+		}
+	}
+
+	for key, value := range h.OffChainValues {
+		number, ok := value.(json.Number)
+		if ok {
+			h.OffChainValues[key] = Number(number)
+		}
+	}
+
 	mapKeyToUpperFirst(h.OnChainValues)
 	mapKeyToUpperFirst(h.OffChainValues)
+
 	return NewHardCoder(h.OnChainValues, h.OffChainValues, onChainHooks...)
 }
 
@@ -249,4 +267,67 @@ func (h *modifierMarshaller[T]) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(m)
+}
+
+func decode(bts []byte, val any) error {
+	decoder := json.NewDecoder(bytes.NewBuffer(bts))
+	decoder.UseNumber()
+
+	return decoder.Decode(val)
+}
+
+type Number string
+
+func (n Number) Float64() (float64, error) {
+	return json.Number(n).Float64()
+}
+
+func (n Number) Int64() (int64, error) {
+	return json.Number(n).Int64()
+}
+
+func (n Number) MarshalCBOR() ([]byte, error) {
+	if strings.Contains(string(n), ".") {
+		// parse as float64 and encode
+		floatVal, err := strconv.ParseFloat(string(n), 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return cbor.Marshal(floatVal)
+	}
+
+	// parse as int64 and encode
+	intVal, err := strconv.ParseInt(string(n), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	return cbor.Marshal(intVal)
+}
+
+func (n *Number) UnmarshalCBOR(data []byte) error {
+	var value string
+	if err := cbor.Unmarshal(data, &value); err != nil {
+		return err
+	}
+
+	*n = Number(value)
+
+	return nil
+}
+
+func (n Number) MarshalJSON() ([]byte, error) {
+	return json.Marshal(json.Number(n))
+}
+
+func (n *Number) UnmarshalJSON(data []byte) error {
+	var value json.Number
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+
+	*n = Number(value)
+
+	return nil
 }

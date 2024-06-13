@@ -1,16 +1,90 @@
 package codec_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 )
+
+func TestNumberJSONMarshal(t *testing.T) {
+	type A struct {
+		B codec.Number
+	}
+
+	expected := A{B: codec.Number("8")}
+	bts, err := json.Marshal(expected)
+
+	require.NoError(t, err)
+
+	assert.Equal(t, `{"B":8}`, string(bts))
+
+	var result A
+	require.NoError(t, json.Unmarshal(bts, &result))
+
+	assert.Equal(t, expected, result)
+}
+
+func TestCodecNumberJSONCBOREncoding(t *testing.T) {
+	conf := &codec.HardCodeModifierConfig{
+		OnChainValues: map[string]any{
+			"Z": 1.2,
+		},
+	}
+
+	confBytes, err := json.Marshal(conf)
+	require.NoError(t, err)
+
+	var hardCoder codec.HardCodeModifierConfig
+
+	decoder := json.NewDecoder(bytes.NewBuffer(confBytes))
+	decoder.UseNumber()
+
+	require.NoError(t, decoder.Decode(&hardCoder))
+
+	_, err = hardCoder.ToModifier()
+	require.NoError(t, err)
+
+	type A struct {
+		X int
+		Y float32
+		Z codec.Number
+	}
+
+	type B struct {
+		X int
+		Y float32
+		Z float64
+	}
+
+	initial := A{
+		X: 1,
+		Y: 1,
+		Z: hardCoder.OnChainValues["Z"].(codec.Number),
+	}
+	encoded, err := cbor.Marshal(initial)
+	require.NoError(t, err)
+
+	decopt := cbor.DecOptions{UTF8: cbor.UTF8DecodeInvalid}
+	var dec cbor.DecMode
+	dec, err = decopt.DecMode()
+	require.NoError(t, err)
+
+	var decoded B
+	require.NoError(t, dec.Unmarshal(encoded, &decoded))
+
+	floatVal, err := initial.Z.Float64()
+
+	require.NoError(t, err)
+	assert.Equal(t, floatVal, decoded.Z)
+}
 
 func TestModifiersConfig(t *testing.T) {
 	type testStruct struct {
