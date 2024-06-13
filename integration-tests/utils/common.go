@@ -3,6 +3,7 @@ package utils
 import (
 	"math/big"
 	"net"
+	"os"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
@@ -30,4 +31,13 @@ func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
 		}
 	}
 	return false
+}
+
+// GetenvOrDefault returns the value of an environment variable or a default value if not set.
+func GetenvOrDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }

@@ -10,6 +10,7 @@ import (
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 func TestOCRSoak(t *testing.T) {
@@ -21,8 +22,8 @@ func TestOCRSoak(t *testing.T) {
 	// fmt.Println("Using Chainlink TOML\n---------------------")
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
-
-	config, err := tc.GetConfig("Soak", tc.OCR)
+	confName := utils.GetenvOrDefault("TEST_CONFIG_NAME", "Soak")
+	config, err := tc.GetConfig(confName, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)

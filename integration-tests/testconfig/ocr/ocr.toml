@@ -82,3 +82,39 @@ test_duration="15m"
 ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=false
+[SoakWithGethReorgBelowFinality_FinalityTagDisabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 30
+FinalityTagEnabled = false
+"""
+[SoakWithGethReorgBelowFinality_FinalityTagDisabled.Network]
+selected_networks=["simulated"]
+[SoakWithGethReorgBelowFinality_FinalityTagDisabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=true
+[SoakWithGethReorgBelowFinality_FinalityTagEnabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+
+[HeadTracker]
+HistoryDepth = 10
+"""
+[SoakWithGethReorgBelowFinality_FinalityTagEnabled.Network]
+selected_networks=["simulated"]
+[SoakWithGethReorgBelowFinality_FinalityTagEnabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
