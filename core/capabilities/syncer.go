@@ -274,7 +274,9 @@ func signersFor(don kcr.CapabilityRegistryDONInfo, state state) ([][]byte, error
 			return nil, fmt.Errorf("could not find node for id %s", nodeID)
 		}
 
-		s = append(s, node.Signer[:])
+		// NOTE: the capability registry stores signers as [32]byte,
+		// but we only need the first [20], as the rest is padded.
+		s = append(s, node.Signer[0:20])
 	}
 
 	return s, nil
