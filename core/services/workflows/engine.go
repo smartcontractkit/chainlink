@@ -22,11 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
-const (
-	// NOTE: max 32 bytes per ID - consider enforcing exactly 32 bytes?
-	mockedTriggerID = "cccccccccc0000000000000000000000"
-)
-
 type donInfo struct {
 	*capabilities.DON
 	PeerID func() *p2ptypes.PeerID
@@ -141,18 +136,21 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
-	// Special treatment for local targets - wrap into a transmission capability
-	target, isTarget := cp.(capabilities.TargetCapability)
-	if isTarget {
-		capInfo, err2 := target.Info(ctx)
-		if err2 != nil {
-			return fmt.Errorf("failed to get info of target capability: %w", err2)
-		}
+	info, err := cp.Info(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get info of capability with id %s: %w", step.ID, err)
+	}
 
-		// If the DON is nil this is a local target
-		if capInfo.DON == nil {
-			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
-		}
+	// Special treatment for local targets - wrap into a transmission capability
+	// If the DON is nil, this is a local target.
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+		e.logger.Debugf("wrapping capability %s in local transmission protocol", info.ID)
+		cp = transmission.NewLocalTargetCapability(
+			e.logger,
+			*e.donInfo.PeerID(),
+			*e.donInfo.DON,
+			cp.(capabilities.TargetCapability),
+		)
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -217,8 +215,8 @@ func (e *Engine) init(ctx context.Context) {
 	}
 
 	e.logger.Debug("registering triggers")
-	for _, t := range e.workflow.triggers {
-		err := e.registerTrigger(ctx, t)
+	for idx, t := range e.workflow.triggers {
+		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
 			e.logger.Errorf("failed to register trigger: %s", err)
 		}
@@ -277,11 +275,15 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 	return nil
 }
 
+func generateTriggerId(workflowID string, triggerIdx int) string {
+	return fmt.Sprintf("wf_%s_trigger_%d", workflowID, triggerIdx)
+}
+
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
-func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -583,7 +585,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	var stepStatus string
 	switch {
-	case errors.Is(err, capabilities.ErrStopExecution):
+	case errors.Is(capabilities.ErrStopExecution, err):
 		l.Infow("step executed successfully with a termination")
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
@@ -649,10 +651,10 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 	return inputs, output, err
 }
 
-func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability) error {
+func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
 	triggerInputs, err := values.NewMap(
 		map[string]any{
-			"triggerId": mockedTriggerID,
+			"triggerId": generateTriggerId(e.workflow.id, triggerIdx),
 		},
 	)
 	if err != nil {
@@ -687,8 +689,8 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
-		for _, t := range e.workflow.triggers {
-			err := e.deregisterTrigger(ctx, t)
+		for idx, t := range e.workflow.triggers {
+			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
 				return err
 			}
@@ -762,6 +764,10 @@ const (
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
+	if cfg.Store == nil {
+		return nil, errors.New("must provide store")
+	}
+
 	if cfg.MaxWorkerLimit == 0 {
 		cfg.MaxWorkerLimit = defaultWorkerLimit
 	}
@@ -776,10 +782,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 
 	if cfg.MaxExecutionDuration == 0 {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
-	}
-
-	if cfg.Store == nil {
-		cfg.Store = store.NewInMemoryStore()
 	}
 
 	if cfg.retryMs == 0 {

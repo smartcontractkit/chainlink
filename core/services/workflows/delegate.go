@@ -2,7 +2,6 @@ package workflows
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -38,8 +37,8 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	dinfo, err := initializeDONInfo(d.logger)
+func (d *Delegate) ServicesForSpec(_ context.Context, spec job.Job) ([]job.ServiceCtx, error) {
+	dinfo, err := initializeDONInfo()
 	if err != nil {
 		d.logger.Errorw("could not add initialize don info", err)
 	}
@@ -62,22 +61,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	return []job.ServiceCtx{engine}, nil
 }
 
-func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
-	var key [16]byte
-
-	// TODO: fetch the key and DONInfo from the registry
-	keyString := "44fb5c1ee8ee48846c808a383da3aba3"
-	k, err := hex.DecodeString(keyString)
-	if err != nil {
-		lggr.Errorf("could not decode key %s: %v", keyString, err)
-	}
-	key = [16]byte(k)
-
+func initializeDONInfo() (*capabilities.DON, error) {
 	p2pStrings := []string{
 		"12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N",
 		"12D3KooWG1AyvwmCpZ93J8pBQUE1SuzrjDXnT4BeouncHR3jWLCG",
 		"12D3KooWGeUKZBRMbx27FUTgBwZa9Ap9Ym92mywwpuqkEtz8XWyv",
 		"12D3KooW9zYWQv3STmDeNDidyzxsJSTxoCTLicafgfeEz9nhwhC4",
+		"12D3KooWG1AeBnSJH2mdcDusXQVye2jqodZ6pftTH98HH6xvrE97",
+		"12D3KooWBf3PrkhNoPEmp7iV291YnPuuTsgEDHTscLajxoDvwHGA",
+		"12D3KooWP3FrMTFXXRU2tBC8aYvEBgUX6qhcH9q2JZCUi9Wvc2GX",
 	}
 
 	p2pIDs := []p2ptypes.PeerID{}
@@ -94,9 +86,6 @@ func initializeDONInfo(lggr logger.Logger) (*capabilities.DON, error) {
 	return &capabilities.DON{
 		ID:      "00010203",
 		Members: p2pIDs,
-		Config: capabilities.DONConfig{
-			SharedSecret: key,
-		},
 	}, nil
 }
 
