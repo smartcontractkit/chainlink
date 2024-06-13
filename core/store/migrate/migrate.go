@@ -23,6 +23,11 @@ import (
 //go:embed migrations/*.sql migrations/*.go
 var embedMigrations embed.FS
 
+// go:embed relayers/**/*.tmpl.sql
+var embedRelayerMigrations embed.FS
+
+const RELAYER_TEMPLATE_DIR string = "relayers"
+
 const MIGRATIONS_DIR string = "migrations"
 
 func init() {
@@ -99,13 +104,37 @@ func ensureMigrated(ctx context.Context, db *sql.DB) error {
 	})
 }
 
-func Migrate(ctx context.Context, db *sql.DB) error {
+type OptionalMigration struct {
+	Type     string
+	Template string
+	Schema   string
+}
+
+func Migrate(ctx context.Context, db *sql.DB, opts ...OptionalMigration) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
 	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
 	// includes out-of-order migrations
-	return goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
+	err := goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
+	if err != nil {
+		return fmt.Errorf("failed to do core database migration: %w", err)
+	}
+	for _, opt := range opts {
+		if opt.Type != "relayer" {
+			return fmt.Errorf("unknown migration type: %s", opt.Type)
+		}
+		if opt.Template != "evm" {
+			return fmt.Errorf("unknown migration template: %s", opt.Template)
+		}
+		root := fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Template)
+
+		err = goose.Up(db, fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Schema), goose.WithAllowMissing())
+		if err != nil {
+			return fmt.Errorf("failed to do %s database migration: %w", opt.Type, err)
+		}
+	}
+	return nil
 }
 
 func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
