@@ -253,7 +253,7 @@ var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transac
 var hedera = ClientErrors{
 	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
 	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),
-	TerminallyUnderpriced: regexp.MustCompile(`Gas price '(\d+)' is below configured minimum gas price '(\d+)'$`),
+	TerminallyUnderpriced: regexp.MustCompile(`Gas price '(\d+)' is below configured minimum gas price '(\d+)'`),
 	InsufficientEth:       regexp.MustCompile(`Insufficient funds for transfer| failed precheck with status INSUFFICIENT_PAYER_BALANCE`),
 	Fatal:                 hederaFatal,
 }
