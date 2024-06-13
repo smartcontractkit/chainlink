@@ -136,18 +136,21 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
-	// Special treatment for local targets - wrap into a transmission capability
-	target, isTarget := cp.(capabilities.TargetCapability)
-	if isTarget {
-		capInfo, err2 := target.Info(ctx)
-		if err2 != nil {
-			return fmt.Errorf("failed to get info of target capability: %w", err2)
-		}
+	info, err := cp.Info(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get info of capability with id %s: %w", step.ID, err)
+	}
 
-		// If the DON is nil this is a local target
-		if capInfo.DON == nil {
-			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
-		}
+	// Special treatment for local targets - wrap into a transmission capability
+	// If the DON is nil, this is a local target.
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+		e.logger.Debugf("wrapping capability %s in local transmission protocol", info.ID)
+		cp = transmission.NewLocalTargetCapability(
+			e.logger,
+			*e.donInfo.PeerID(),
+			*e.donInfo.DON,
+			cp.(capabilities.TargetCapability),
+		)
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -582,7 +585,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	var stepStatus string
 	switch {
-	case errors.Is(err, capabilities.ErrStopExecution):
+	case errors.Is(capabilities.ErrStopExecution, err):
 		l.Infow("step executed successfully with a termination")
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
