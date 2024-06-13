@@ -5,10 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
+	"google.golang.org/protobuf/proto"
+
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,13 +27,13 @@ type capabilityIface interface {
 
 type reportingPlugin struct {
 	batchSize int
-	s         *store
+	s         *requests.Store
 	r         capabilityIface
 	config    ocr3types.ReportingPluginConfig
 	lggr      logger.Logger
 }
 
-func newReportingPlugin(s *store, r capabilityIface, batchSize int, config ocr3types.ReportingPluginConfig, lggr logger.Logger) (*reportingPlugin, error) {
+func newReportingPlugin(s *requests.Store, r capabilityIface, batchSize int, config ocr3types.ReportingPluginConfig, lggr logger.Logger) (*reportingPlugin, error) {
 	// TODO: extract limits from OnchainConfig
 	// and perform validation.
 
@@ -44,7 +47,7 @@ func newReportingPlugin(s *store, r capabilityIface, batchSize int, config ocr3t
 }
 
 func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (types.Query, error) {
-	batch, err := r.s.firstN(ctx, r.batchSize)
+	batch, err := r.s.FirstN(ctx, r.batchSize)
 	if err != nil {
 		r.lggr.Errorw("could not retrieve batch", "error", err)
 		return nil, err
@@ -82,8 +85,8 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 		weids = append(weids, q.WorkflowExecutionId)
 	}
 
-	reqs := r.s.getN(ctx, weids)
-	reqMap := map[string]*request{}
+	reqs := r.s.GetN(ctx, weids)
+	reqMap := map[string]*requests.Request{}
 	for _, req := range reqs {
 		reqMap[req.WorkflowExecutionID] = req
 	}

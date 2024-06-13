@@ -66,12 +66,12 @@ func (s *Server) Get(ctx context.Context, req *relayerset.GetRelayerRequest) (*r
 }
 
 func (s *Server) List(ctx context.Context, req *relayerset.ListAllRelayersRequest) (*relayerset.ListAllRelayersResponse, error) {
-	var relayIds []types.RelayID
+	var relayIDs []types.RelayID
 	for _, id := range req.Ids {
-		relayIds = append(relayIds, types.RelayID{ChainID: id.ChainId, Network: id.Network})
+		relayIDs = append(relayIDs, types.RelayID{ChainID: id.ChainId, Network: id.Network})
 	}
 
-	relayers, err := s.impl.List(ctx, relayIds...)
+	relayers, err := s.impl.List(ctx, relayIDs...)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, fmt.Sprintf("error getting all relayers: %v", err))
 	}

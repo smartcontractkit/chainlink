@@ -6,6 +6,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -28,7 +29,7 @@ type Config struct {
 	EncoderFactory    types.EncoderFactory
 	SendBufferSize    int
 
-	store      *store
+	store      *requests.Store
 	capability *capability
 	clock      clockwork.Clock
 }
@@ -58,7 +59,7 @@ func NewOCR3(config Config) *Capability {
 	}
 
 	if config.store == nil {
-		config.store = newStore()
+		config.store = requests.NewStore()
 	}
 
 	if config.capability == nil {

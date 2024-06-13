@@ -5,12 +5,14 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
 type factory struct {
-	store      *store
+	store      *requests.Store
 	capability *capability
 	batchSize  int
 	lggr       logger.Logger
@@ -23,7 +25,7 @@ const (
 	defaultMaxReportCount      = 20
 )
 
-func newFactory(s *store, c *capability, batchSize int, lggr logger.Logger) (*factory, error) {
+func newFactory(s *requests.Store, c *capability, batchSize int, lggr logger.Logger) (*factory, error) {
 	return &factory{
 		store:      s,
 		capability: c,

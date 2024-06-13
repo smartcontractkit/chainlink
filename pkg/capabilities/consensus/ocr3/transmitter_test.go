@@ -8,14 +8,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -30,7 +32,7 @@ func TestTransmitter(t *testing.T) {
 	repId := []byte{0xf0, 0xe0}
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 
 	weid := uuid.New().String()
 
@@ -114,7 +116,7 @@ func TestTransmitter_ShouldReportFalse(t *testing.T) {
 	wowner := "foo-owner"
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 
 	weid := uuid.New().String()
 

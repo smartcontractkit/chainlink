@@ -9,6 +9,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -34,12 +35,12 @@ var info = capabilities.MustNewCapabilityInfo(
 type capability struct {
 	services.StateMachine
 	capabilities.CapabilityInfo
-	capabilities.Validator[config, inputs, outputs]
+	capabilities.Validator[config, inputs, requests.Response]
 
-	store  *store
-	stopCh services.StopChan
-	wg     sync.WaitGroup
-	lggr   logger.Logger
+	reqHandler *requests.Handler
+	stopCh     services.StopChan
+	wg         sync.WaitGroup
+	lggr       logger.Logger
 
 	requestTimeout time.Duration
 	clock          clockwork.Clock
@@ -50,22 +51,19 @@ type capability struct {
 	encoderFactory types.EncoderFactory
 	encoders       map[string]types.Encoder
 
-	transmitCh chan *outputs
-	newTimerCh chan *request
-
 	callbackChannelBufferSize int
 }
 
 var _ capabilityIface = (*capability)(nil)
 var _ capabilities.ConsensusCapability = (*capability)(nil)
-var ocr3CapabilityValidator = capabilities.NewValidator[config, inputs, outputs](capabilities.ValidatorArgs{Info: info})
+var ocr3CapabilityValidator = capabilities.NewValidator[config, inputs, requests.Response](capabilities.ValidatorArgs{Info: info})
 
-func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration, aggregatorFactory types.AggregatorFactory, encoderFactory types.EncoderFactory, lggr logger.Logger,
+func newCapability(s *requests.Store, clock clockwork.Clock, requestTimeout time.Duration, aggregatorFactory types.AggregatorFactory, encoderFactory types.EncoderFactory, lggr logger.Logger,
 	callbackChannelBufferSize int) *capability {
 	o := &capability{
 		CapabilityInfo:    info,
 		Validator:         ocr3CapabilityValidator,
-		store:             s,
+		reqHandler:        requests.NewHandler(lggr, s, clock, requestTimeout),
 		clock:             clock,
 		requestTimeout:    requestTimeout,
 		stopCh:            make(chan struct{}),
@@ -75,9 +73,6 @@ func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration
 		encoderFactory:    encoderFactory,
 		encoders:          map[string]types.Encoder{},
 
-		transmitCh: make(chan *outputs),
-		newTimerCh: make(chan *request),
-
 		callbackChannelBufferSize: callbackChannelBufferSize,
 	}
 	return o
@@ -85,8 +80,11 @@ func newCapability(s *store, clock clockwork.Clock, requestTimeout time.Duration
 
 func (o *capability) Start(ctx context.Context) error {
 	return o.StartOnce("OCR3Capability", func() error {
-		o.wg.Add(1)
-		go o.worker()
+		err := o.reqHandler.Start(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to start request handler: %w", err)
+		}
+
 		return nil
 	})
 }
@@ -95,6 +93,11 @@ func (o *capability) Close() error {
 	return o.StopOnce("OCR3Capability", func() error {
 		close(o.stopCh)
 		o.wg.Wait()
+		err := o.reqHandler.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close request handler: %w", err)
+		}
+
 		return nil
 	})
 }
@@ -179,14 +182,14 @@ func (o *capability) Execute(ctx context.Context, r capabilities.CapabilityReque
 			o.lggr.Debugw("Execute - terminating execution", "workflowExecutionID", r.Metadata.WorkflowExecutionID)
 			responseErr = capabilities.ErrStopExecution
 		}
-		out := &outputs{
+		out := &requests.Response{
 			WorkflowExecutionID: r.Metadata.WorkflowExecutionID,
 			CapabilityResponse: capabilities.CapabilityResponse{
 				Value: inputs,
 				Err:   responseErr,
 			},
 		}
-		o.transmitCh <- out
+		o.reqHandler.SendResponse(ctx, out)
 
 		// Return a dummy response back to the caller
 		// This allows the transmitter to block on a response before
@@ -239,7 +242,7 @@ func (o *capability) queueRequestForProcessing(
 		requestTimeout = time.Duration(c.RequestTimeoutMS) * time.Millisecond
 	}
 
-	r := &request{
+	r := &requests.Request{
 		StopCh:              make(chan struct{}),
 		CallbackCh:          callbackCh,
 		WorkflowExecutionID: metadata.WorkflowExecutionID,
@@ -254,67 +257,6 @@ func (o *capability) queueRequestForProcessing(
 
 	o.lggr.Debugw("Execute - adding to store", "workflowID", r.WorkflowID, "workflowExecutionID", r.WorkflowExecutionID, "observations", r.Observations)
 
-	err := o.store.add(ctx, r)
-	if err != nil {
-		return nil, err
-	}
-
-	o.newTimerCh <- r
+	o.reqHandler.SendRequest(ctx, r)
 	return callbackCh, nil
-}
-
-func (o *capability) worker() {
-	ctx, cancel := o.stopCh.NewCtx()
-	defer cancel()
-	defer o.wg.Done()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case r := <-o.newTimerCh:
-			o.wg.Add(1)
-			go o.expiryTimer(ctx, r)
-		case resp := <-o.transmitCh:
-			o.handleTransmitMsg(ctx, resp)
-		}
-	}
-}
-
-func (o *capability) handleTransmitMsg(ctx context.Context, resp *outputs) {
-	req, wasPresent := o.store.evict(ctx, resp.WorkflowExecutionID)
-	if !wasPresent {
-		return
-	}
-
-	select {
-	// This should only happen if the client has closed the upstream context.
-	// In this case, the request is cancelled and we shouldn't transmit.
-	case <-req.StopCh:
-	case req.CallbackCh <- resp.CapabilityResponse:
-		close(req.CallbackCh)
-	}
-}
-
-func (o *capability) expiryTimer(ctx context.Context, r *request) {
-	defer o.wg.Done()
-
-	d := r.ExpiresAt.Sub(o.clock.Now())
-	tr := o.clock.NewTimer(d)
-	defer tr.Stop()
-
-	select {
-	case <-ctx.Done():
-		return
-	case <-tr.Chan():
-		resp := &outputs{
-			WorkflowExecutionID: r.WorkflowExecutionID,
-			CapabilityResponse: capabilities.CapabilityResponse{
-				Err:   fmt.Errorf("timeout exceeded: could not process request before expiry %s", r.WorkflowExecutionID),
-				Value: nil,
-			},
-		}
-		o.lggr.Debugw("expiryTimer - expired request", "workflowExecutionID", r.WorkflowExecutionID)
-		o.transmitCh <- resp
-	}
 }

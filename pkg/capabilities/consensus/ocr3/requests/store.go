@@ -1,4 +1,4 @@
-package ocr3
+package requests
 
 import (
 	"context"
@@ -7,41 +7,26 @@ import (
 	"sync"
 )
 
-type store struct {
+type Store struct {
 	requestIDs []string
-	requests   map[string]*request
-
-	// for testing
-	evictedCh chan *request
+	requests   map[string]*Request
 
 	mu sync.RWMutex
 }
 
-func newStore() *store {
-	return &store{
+func NewStore() *Store {
+	return &Store{
 		requestIDs: []string{},
-		requests:   map[string]*request{},
+		requests:   map[string]*Request{},
 	}
 }
 
-func (s *store) add(ctx context.Context, req *request) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, ok := s.requests[req.WorkflowExecutionID]; ok {
-		return fmt.Errorf("request with id %s already exists", req.WorkflowExecutionID)
-	}
-	s.requestIDs = append(s.requestIDs, req.WorkflowExecutionID)
-	s.requests[req.WorkflowExecutionID] = req
-	return nil
-}
-
-// best-effort, doesn't return requests that are not in store
-func (s *store) getN(ctx context.Context, requestIDs []string) []*request {
+// GetN is best-effort, doesn't return requests that are not in store
+func (s *Store) GetN(ctx context.Context, requestIDs []string) []*Request {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	o := []*request{}
+	o := []*Request{}
 	for _, r := range requestIDs {
 		gr, ok := s.requests[r]
 		if ok {
@@ -52,13 +37,13 @@ func (s *store) getN(ctx context.Context, requestIDs []string) []*request {
 	return o
 }
 
-func (s *store) firstN(ctx context.Context, batchSize int) ([]*request, error) {
+func (s *Store) FirstN(ctx context.Context, batchSize int) ([]*Request, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if batchSize == 0 {
 		return nil, errors.New("batchsize cannot be 0")
 	}
-	got := []*request{}
+	got := []*Request{}
 	if len(s.requestIDs) == 0 {
 		return got, nil
 	}
@@ -84,7 +69,25 @@ func (s *store) firstN(ctx context.Context, batchSize int) ([]*request, error) {
 	return got, nil
 }
 
-func (s *store) evict(ctx context.Context, requestID string) (*request, bool) {
+func (s *Store) Add(req *Request) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.requests[req.WorkflowExecutionID]; ok {
+		return fmt.Errorf("request with id %s already exists", req.WorkflowExecutionID)
+	}
+	s.requestIDs = append(s.requestIDs, req.WorkflowExecutionID)
+	s.requests[req.WorkflowExecutionID] = req
+	return nil
+}
+
+func (s *Store) Get(requestID string) *Request {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.requests[requestID]
+}
+
+func (s *Store) evict(requestID string) (*Request, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -94,11 +97,6 @@ func (s *store) evict(ctx context.Context, requestID string) (*request, bool) {
 	}
 
 	delete(s.requests, requestID)
-
-	// for testing
-	if s.evictedCh != nil {
-		s.evictedCh <- r
-	}
 
 	return r, true
 }

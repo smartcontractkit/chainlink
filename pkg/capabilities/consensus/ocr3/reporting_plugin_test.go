@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/requests"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	pbtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -22,7 +24,7 @@ import (
 func TestReportingPlugin_Query_ErrorInQueueCall(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	batchSize := 0
 	rp, err := newReportingPlugin(s, nil, batchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
@@ -37,13 +39,14 @@ func TestReportingPlugin_Query_ErrorInQueueCall(t *testing.T) {
 func TestReportingPlugin_Query(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
 	eid := uuid.New().String()
 	wowner := uuid.New().String()
-	err = s.add(ctx, &request{
+
+	err = s.Add(&requests.Request{
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
 		WorkflowOwner:       wowner,
@@ -70,7 +73,7 @@ func TestReportingPlugin_Query(t *testing.T) {
 func TestReportingPlugin_Observation(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
@@ -79,7 +82,7 @@ func TestReportingPlugin_Observation(t *testing.T) {
 
 	eid := uuid.New().String()
 	wowner := uuid.New().String()
-	err = s.add(ctx, &request{
+	err = s.Add(&requests.Request{
 		WorkflowID:          workflowTestID,
 		WorkflowExecutionID: eid,
 		WorkflowOwner:       wowner,
@@ -112,7 +115,7 @@ func TestReportingPlugin_Observation(t *testing.T) {
 func TestReportingPlugin_Observation_NoResults(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	rp, err := newReportingPlugin(s, nil, defaultBatchSize, ocr3types.ReportingPluginConfig{}, lggr)
 	require.NoError(t, err)
 
@@ -134,12 +137,12 @@ func TestReportingPlugin_Observation_NoResults(t *testing.T) {
 }
 
 type mockCapability struct {
-	gotResponse *outputs
+	gotResponse *requests.Response
 	aggregator  *aggregator
 	encoder     *enc
 }
 
-func (mc *mockCapability) transmitResponse(ctx context.Context, resp *outputs) error {
+func (mc *mockCapability) transmitResponse(ctx context.Context, resp *requests.Response) error {
 	mc.gotResponse = resp
 	return nil
 }
@@ -184,7 +187,7 @@ func (mc *mockCapability) getEncoder(workflowID string) (pbtypes.Encoder, error)
 
 func TestReportingPlugin_Outcome(t *testing.T) {
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	cap := &mockCapability{
 		aggregator: &aggregator{},
 		encoder:    &enc{},
@@ -243,7 +246,7 @@ func TestReportingPlugin_Outcome(t *testing.T) {
 
 func TestReportingPlugin_Reports_ShouldReportFalse(t *testing.T) {
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	cap := &mockCapability{
 		aggregator: &aggregator{},
 		encoder:    &enc{},
@@ -295,7 +298,7 @@ func TestReportingPlugin_Reports_ShouldReportFalse(t *testing.T) {
 
 func TestReportingPlugin_Reports_ShouldReportTrue(t *testing.T) {
 	lggr := logger.Test(t)
-	s := newStore()
+	s := requests.NewStore()
 	cap := &mockCapability{
 		aggregator: &aggregator{},
 		encoder:    &enc{},
