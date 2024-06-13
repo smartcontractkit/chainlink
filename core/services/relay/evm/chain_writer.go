@@ -33,12 +33,17 @@ type ChainWriterService interface {
 var _ ChainWriterService = (*chainWriter)(nil)
 
 func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm evmtxmgr.TxManager, estimator gas.EvmFeeEstimator, config types.ChainWriterConfig) (ChainWriterService, error) {
+	maxGasPrice := config.MaxGasPrice
+	if maxGasPrice == nil {
+		maxGasPrice = assets.GWei(500).ToInt()
+	}
+
 	w := chainWriter{
 		logger:      logger,
 		client:      client,
 		txm:         txm,
 		ge:          estimator,
-		maxGasPrice: config.MaxGasPrice,
+		maxGasPrice: maxGasPrice,
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
