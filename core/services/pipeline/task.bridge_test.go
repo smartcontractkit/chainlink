@@ -1071,7 +1071,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// orm := bridges.NewORM(db)
-	orm := bridges.NewCache(bridges.NewORM(db), nil, bridges.DefaultUpsertInterval)
+	orm := bridges.NewCache(bridges.NewORM(db), logger.TestLogger(t), bridges.DefaultUpsertInterval)
 
 	servicetest.Run(t, orm)
 
