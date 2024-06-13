@@ -121,12 +121,12 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // _printGenerateProofV2PlusCommand(address(s_consumer1), 1, requestBlock, false);
     /*
        go run . generate-proof-v2-plus \
-        -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
-        -pre-seed 76568185840201037774581758921393822690942290841865097674309745036496166431060 \
-        -block-hash 0x14 \
-        -block-num 20 \
-        -sender 0x2f1c0761d6e4b1e5f01968d6c746f695e5f3e25d \
-        -native-payment false
+         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+         -pre-seed 76568185840201037774581758921393822690942290841865097674309745036496166431060 \
+         -block-hash 0x14 \
+         -block-num 20 \
+         -sender 0x2f1c0761d6e4b1e5f01968d6c746f695e5f3e25d \
+         -native-payment false
     */
     proofs[1] = VRFTypes.Proof({
       pk: [
