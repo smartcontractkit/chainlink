@@ -878,7 +878,7 @@ func (w *WorkflowSpec) Validate() error {
 	}
 	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
 	w.WorkflowName = s.Name
-	w.WorkflowID = s.CID
+	w.WorkflowID = s.CID()
 
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
