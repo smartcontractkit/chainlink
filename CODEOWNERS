@@ -62,6 +62,7 @@ core/scripts/gateway @smartcontractkit/functions
 /contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
 /contracts/**/ccip/ @smartcontractkit/ccip-onchain @makramkd
 /contracts/**/*Functions* @smartcontractkit/functions
+/contracts/**/liquiditymanager/ @smartcontractkit/liquidity-manager
 
 /contracts/src/v0.8/functions @smartcontractkit/functions
 /contracts/**/*functions* @smartcontractkit/functions
