@@ -211,7 +211,7 @@ func (e *Engine) init(ctx context.Context) {
 	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
 	err := e.resumeInProgressExecutions(ctx)
 	if err != nil {
-		e.logger.Errorf("failed to resume workflows: %w", err)
+		e.logger.Errorf("failed to resume workflows: %v", err)
 	}
 
 	e.logger.Debug("registering triggers")
@@ -350,26 +350,26 @@ func (e *Engine) loop(ctx context.Context) {
 			}
 
 			if resp.Err != nil {
-				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
+				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
 				continue
 			}
 
 			te := &capabilities.TriggerEvent{}
 			err := resp.Value.UnwrapTo(te)
 			if err != nil {
-				e.logger.Errorf("could not unwrap trigger event", resp.Err)
+				e.logger.Errorf("could not unwrap trigger event; error %v", resp.Err)
 				continue
 			}
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
-				e.logger.Errorf("could not generate execution ID", resp.Err)
+				e.logger.Errorf("could not generate execution ID; error %v", resp.Err)
 				continue
 			}
 
 			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
-				e.logger.Errorf("failed to start execution: %w", err)
+				e.logger.Errorf("failed to start execution: %v", err)
 			}
 		case pendingStepRequest := <-e.pendingStepRequests:
 			// Wait for a new worker to be available before dispatching a new one.
@@ -609,7 +609,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// like this one will get picked up again and will be reprocessed.
 	select {
 	case <-ctx.Done():
-		l.Errorf("context canceled before step update could be issued", err)
+		l.Errorf("context canceled before step update could be issued; error %v", err)
 	case e.stepUpdateCh <- *stepState:
 	}
 }
