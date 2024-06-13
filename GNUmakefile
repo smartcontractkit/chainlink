@@ -33,7 +33,6 @@ gomodtidy: ## Run go mod tidy on all modules.
 	cd ./integration-tests && go mod tidy
 	cd ./integration-tests/load && go mod tidy
 	cd ./dashboard-lib && go mod tidy
-	cd ./crib && go mod tidy
 
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
@@ -96,7 +95,6 @@ generate: pnpmdep abigen codecgen mockery protoc ## Execute all go:generate comm
 	cd ./integration-tests && go generate -x ./...
 	cd ./integration-tests/load && go generate -x ./...
 	cd ./dashboard-lib && go generate -x ./...
-	cd ./crib && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
