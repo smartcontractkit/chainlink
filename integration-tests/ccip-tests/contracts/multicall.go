@@ -103,6 +103,7 @@ func WaitForSuccessfulTxMined(evmClient blockchain.EVMClient, tx *types.Transact
 		return err
 	}
 	if receipt.Status != types.ReceiptStatusSuccessful {
+		// TODO: Add error reason from receipt/tx
 		return fmt.Errorf("tx failed %s", tx.Hash().Hex())
 	}
 	log.Info().Str("tx", tx.Hash().Hex()).Str("Network", evmClient.GetNetworkName()).Msg("tx mined successfully")

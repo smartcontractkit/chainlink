@@ -226,7 +226,7 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	}
 
 	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
-		return fmt.Errorf("chainlink nodes are nil, unable cleanup chainlink nodes")
+		return fmt.Errorf("chainlink nodes are nil, unable to cleanup chainlink nodes")
 	}
 
 	te.logWhetherAllContainersAreRunning()

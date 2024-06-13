@@ -59,6 +59,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+// NeedTokenAdminRegistry checks if token admin registry is needed for the current version of ccip
+// if the version is less than 1.5.0-dev, then token admin registry is not needed
+func NeedTokenAdminRegistry() bool {
+	// find out the pool version
+	version := VersionMap[TokenPoolContract]
+	if version == Latest {
+		return true
+	}
+	currentSemver := semver.MustParse(string(version))
+	tokenAdminEnabledVersion := semver.MustParse("1.5.0-dev")
+	return currentSemver.Compare(tokenAdminEnabledVersion) >= 0
+}
+
 // CCIPContractsDeployer provides the implementations for deploying CCIP ETH contracts
 type CCIPContractsDeployer struct {
 	evmClient   blockchain.EVMClient
@@ -200,6 +213,8 @@ func (e *CCIPContractsDeployer) DeployBurnMintERC677(ownerMintingAmount *big.Int
 		logger:          e.logger,
 		ContractAddress: *address,
 		instance:        instance.(*burn_mint_erc677.BurnMintERC677),
+		OwnerAddress:    common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+		OwnerWallet:     e.evmClient.GetDefaultWallet(),
 	}
 	if ownerMintingAmount != nil {
 		// grant minter role to owner and mint tokens
@@ -268,6 +283,8 @@ func (e *CCIPContractsDeployer) NewERC20TokenContract(addr common.Address) (*ERC
 		logger:          e.logger,
 		instance:        token,
 		ContractAddress: addr,
+		OwnerAddress:    common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+		OwnerWallet:     e.evmClient.GetDefaultWallet(),
 	}, err
 }
 
@@ -303,7 +320,9 @@ func (e *CCIPContractsDeployer) NewLockReleaseTokenPoolContract(addr common.Addr
 					LockReleasePool: pool,
 				},
 			},
-			EthAddress: addr,
+			EthAddress:   addr,
+			OwnerAddress: common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+			OwnerWallet:  e.evmClient.GetDefaultWallet(),
 		}, err
 	case V1_4_0:
 		pool, err := lock_release_token_pool_1_4_0.NewLockReleaseTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -329,7 +348,9 @@ func (e *CCIPContractsDeployer) NewLockReleaseTokenPoolContract(addr common.Addr
 					LockReleasePool: pool,
 				},
 			},
-			EthAddress: addr,
+			EthAddress:   addr,
+			OwnerAddress: common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+			OwnerWallet:  e.evmClient.GetDefaultWallet(),
 		}, err
 	default:
 		return nil, fmt.Errorf("version not supported: %s", version)
@@ -368,7 +389,9 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 					USDCPool:      pool,
 				},
 			},
-			EthAddress: addr,
+			EthAddress:   addr,
+			OwnerAddress: common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+			OwnerWallet:  e.evmClient.GetDefaultWallet(),
 		}, err
 	case V1_4_0:
 		pool, err := usdc_token_pool_1_4_0.NewUSDCTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -395,7 +418,9 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 					USDCPool:      pool,
 				},
 			},
-			EthAddress: addr,
+			EthAddress:   addr,
+			OwnerAddress: common.HexToAddress(e.evmClient.GetDefaultWallet().Address()),
+			OwnerWallet:  e.evmClient.GetDefaultWallet(),
 		}, err
 	default:
 		return nil, fmt.Errorf("version not supported: %s", version)
@@ -408,7 +433,7 @@ func (e *CCIPContractsDeployer) DeployUSDCTokenPoolContract(tokenAddr string, to
 	error,
 ) {
 	version := VersionMap[TokenPoolContract]
-	e.logger.Debug().Str("token", tokenAddr).Msg("Deploying usdc token pool")
+	e.logger.Debug().Str("Token", tokenAddr).Msg("Deploying USDC token pool")
 	token := common.HexToAddress(tokenAddr)
 	switch version {
 	case Latest:

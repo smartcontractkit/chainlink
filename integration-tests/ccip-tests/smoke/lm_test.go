@@ -28,7 +28,7 @@ func TestLmBasic(t *testing.T) {
 	require.NoError(t, err, "Failed to get liquidity from L2")
 	log.Info().Str("L1 Liquidity", l1liquidityStart.String()).Str("L2 Liquidity", l2liquidityStart.String()).Msg("Liquidity at start")
 
-	//TODO: Improve this wait
+	// TODO: Improve this wait
 	log.Info().Msg("Waiting 3 minutes for liquidity to change")
 	time.Sleep(3 * time.Minute)
 

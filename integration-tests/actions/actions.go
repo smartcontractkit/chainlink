@@ -4,6 +4,7 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -362,8 +363,9 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	return nil
 }
 
-// ReturnFunds attempts to return all the funds from the chainlink nodes to the network's default address
-// all from a remote, k8s style environment
+// ReturnFunds attempts to return all the funds from the chainlink nodes and other wallets to the network's default wallet,
+// which will always be the first wallet in the list of wallets. If errors are encountered, it will keep trying other wallets
+// and return all errors encountered.
 func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
 		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
@@ -374,30 +376,68 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 			Msg("Network is a simulated network. Skipping fund return.")
 		return nil
 	}
+	// If we fail to return funds from some addresses, we still want to try to return funds from the rest
+	encounteredErrors := []error{}
+
+	if len(blockchainClient.GetWallets()) > 1 {
+		if err := blockchainClient.SetDefaultWallet(0); err != nil {
+			encounteredErrors = append(encounteredErrors, err)
+		} else {
+			for walletIndex := 1; walletIndex < len(blockchainClient.GetWallets()); walletIndex++ {
+				decodedKey, err := hex.DecodeString(blockchainClient.GetWallets()[walletIndex].PrivateKey())
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+				privKey, err := crypto.ToECDSA(decodedKey)
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+
+				err = blockchainClient.ReturnFunds(privKey)
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+			}
+		}
+	}
 
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
 		if err != nil {
-			return err
+			encounteredErrors = append(encounteredErrors, err)
+			continue
 		}
 		for _, key := range fundedKeys {
 			keyToDecrypt, err := json.Marshal(key)
 			if err != nil {
-				return err
+				encounteredErrors = append(encounteredErrors, err)
+				continue
 			}
 			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
 			// issues. So we avoid running in parallel; slower, but safer.
 			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
 			if err != nil {
-				return err
+				encounteredErrors = append(encounteredErrors, err)
+				continue
 			}
 			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
 			if err != nil {
+				encounteredErrors = append(encounteredErrors, err)
 				log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
+				continue
 			}
 		}
 	}
-	return blockchainClient.WaitForEvents()
+	if err := blockchainClient.WaitForEvents(); err != nil {
+		encounteredErrors = append(encounteredErrors, err)
+	}
+	if len(encounteredErrors) > 0 {
+		return fmt.Errorf("encountered errors while returning funds: %v", encounteredErrors)
+	}
+	return nil
 }
 
 // FundAddresses will fund a list of addresses with an amount of native currency

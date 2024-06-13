@@ -336,9 +336,10 @@ transfer_gas_fee = 21_000
 gas_price = 50_000_000
 
 # EIP-1559 transactions
+
+
 gas_fee_cap = 3_800_000_000
 gas_tip_cap = 1_800_000_000
-
 [[Seth.networks]]
 name = "Optimism Sepolia"
 transaction_timeout = "3m"
@@ -408,4 +409,5 @@ gas_price_estimation_enabled = true
 # how many last blocks to use, when estimating gas for a transaction
 gas_price_estimation_blocks = 100
 # priority of the transaction, can be "fast", "standard" or "slow" (the higher the priority, the higher adjustment factor will be used for gas estimation) [default: "standard"]
+
 gas_price_estimation_tx_priority = "standard"

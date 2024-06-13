@@ -38,7 +38,7 @@ type CommonContracts struct {
 
 type SourceContracts struct {
 	OnRamp     string `json:"on_ramp"`
-	DepolyedAt uint64 `json:"deployed_at"`
+	DeployedAt uint64 `json:"deployed_at"`
 }
 
 type DestContracts struct {

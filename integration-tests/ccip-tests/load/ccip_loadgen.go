@@ -149,7 +149,7 @@ func (c *CCIPE2ELoad) BeforeAllCall() {
 			bal, err := token.BalanceOf(context.Background(), sourceCCIP.Common.MulticallContract.Hex())
 			require.NoError(c.t, err, "Failed to get token balance")
 			if bal.Cmp(amountToApprove) < 0 {
-				err := token.Transfer(sourceCCIP.Common.MulticallContract.Hex(), amountToApprove)
+				err := token.Transfer(token.OwnerWallet, sourceCCIP.Common.MulticallContract.Hex(), amountToApprove)
 				require.NoError(c.t, err, "Failed to approve token transfer amount")
 			}
 		}

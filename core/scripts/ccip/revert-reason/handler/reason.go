@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/erc20"
 )
 
 // RevertReasonFromErrorCodeString attempts to decode an error code string
@@ -132,6 +134,8 @@ func getAllABIs() []string {
 		lock_release_token_pool_1_4_0.LockReleaseTokenPoolABI,
 		burn_mint_token_pool_1_2_0.BurnMintTokenPoolABI,
 		usdc_token_pool_1_4_0.USDCTokenPoolABI,
+		burn_mint_erc677.BurnMintERC677ABI,
+		erc20.ERC20ABI,
 		lock_release_token_pool.LockReleaseTokenPoolABI,
 		burn_mint_token_pool.BurnMintTokenPoolABI,
 		usdc_token_pool.USDCTokenPoolABI,

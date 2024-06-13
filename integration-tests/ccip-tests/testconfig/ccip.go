@@ -94,12 +94,16 @@ func (m *MsgDetails) Validate() error {
 	return nil
 }
 
+// TokenConfig defines the configuration for tokens in a CCIP test group
 type TokenConfig struct {
 	NoOfTokensPerChain         *int             `toml:",omitempty"`
 	WithPipeline               *bool            `toml:",omitempty"`
 	TimeoutForPriceUpdate      *config.Duration `toml:",omitempty"`
 	NoOfTokensWithDynamicPrice *int             `toml:",omitempty"`
 	DynamicPriceUpdateInterval *config.Duration `toml:",omitempty"`
+	// CCIPOwnerTokens dictates if tokens are deployed and controlled by the default CCIP owner account
+	// By default, all tokens are deployed and owned by a separate address
+	CCIPOwnerTokens *bool `toml:",omitempty"`
 }
 
 func (tc *TokenConfig) IsDynamicPriceUpdate() bool {
@@ -242,7 +246,8 @@ func (l *LoadProfile) SetTestRunName(name string) {
 	}
 }
 
-type CCIPTestConfig struct {
+// CCIPTestGroupConfig defines configuration input to change how a particular CCIP test group should run
+type CCIPTestGroupConfig struct {
 	Type                      string                                `toml:",omitempty"`
 	KeepEnvAlive              *bool                                 `toml:",omitempty"`
 	BiDirectionalLane         *bool                                 `toml:",omitempty"`
@@ -271,7 +276,7 @@ type CCIPTestConfig struct {
 	LoadProfile               *LoadProfile                          `toml:",omitempty"`
 }
 
-func (c *CCIPTestConfig) Validate() error {
+func (c *CCIPTestGroupConfig) Validate() error {
 	if c.Type == Load {
 		if err := c.LoadProfile.Validate(); err != nil {
 			return err
@@ -373,7 +378,7 @@ type CCIP struct {
 	Env              *Common                                   `toml:",omitempty"`
 	ContractVersions map[string]*ccipcontracts.ContractVersion `toml:",omitempty"`
 	Deployments      *CCIPContractConfig                       `toml:",omitempty"`
-	Groups           map[string]*CCIPTestConfig                `toml:",omitempty"`
+	Groups           map[string]*CCIPTestGroupConfig           `toml:",omitempty"`
 }
 
 func (c *CCIP) Validate() error {
