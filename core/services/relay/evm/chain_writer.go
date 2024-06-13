@@ -72,7 +72,7 @@ type chainWriter struct {
 	client      evmclient.Client
 	txm         evmtxmgr.TxManager
 	ge          gas.EvmFeeEstimator
-	maxGasPrice *big.Int
+	maxGasPrice *assets.Wei
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
@@ -173,7 +173,7 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 		return nil, fmt.Errorf("gas estimator not available")
 	}
 
-	fee, _, err := w.ge.GetFee(ctx, nil, 0, assets.NewWei(w.maxGasPrice))
+	fee, _, err := w.ge.GetFee(ctx, nil, 0, w.maxGasPrice)
 	if err != nil {
 		return nil, err
 	}

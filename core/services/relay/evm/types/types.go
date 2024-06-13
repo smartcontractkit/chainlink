@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	mathBig "math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -20,13 +19,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 type ChainWriterConfig struct {
 	Contracts    map[string]*ContractConfig
 	SendStrategy txmgrtypes.TxStrategy
-	MaxGasPrice  *mathBig.Int
+	MaxGasPrice  *assets.Wei
 }
 
 type ContractConfig struct {
