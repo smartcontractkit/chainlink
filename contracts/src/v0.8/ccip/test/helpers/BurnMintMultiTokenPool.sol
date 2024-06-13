@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IBurnMintERC20} from "../../shared/token/ERC20/IBurnMintERC20.sol";
+import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 
-import {Pool} from "../libraries/Pool.sol";
-import {LegacyPoolWrapper} from "./LegacyPoolWrapper.sol";
+import {Pool} from "../../libraries/Pool.sol";
+import {MultiTokenPool} from "./MultiTokenPool.sol";
 
-contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
-  string public constant override typeAndVersion = "BurnMintTokenPoolAndProxy 1.5.0-dev";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
+contract BurnMintMultiTokenPool is MultiTokenPool {
   constructor(
-    IBurnMintERC20 token,
+    IERC20[] memory tokens,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) LegacyPoolWrapper(token, allowlist, rmnProxy, router) {}
+  ) MultiTokenPool(tokens, allowlist, rmnProxy, router) {}
 
   /// @notice Burn the token in the pool
   /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
@@ -28,15 +27,14 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
   {
     _validateLockOrBurn(lockOrBurnIn);
 
-    if (!_hasLegacyPool()) {
-      IBurnMintERC20(address(i_token)).burn(lockOrBurnIn.amount);
-    } else {
-      _lockOrBurnLegacy(lockOrBurnIn);
-    }
+    IBurnMintERC20(lockOrBurnIn.localToken).burn(lockOrBurnIn.amount);
 
     emit Burned(msg.sender, lockOrBurnIn.amount);
 
-    return Pool.LockOrBurnOutV1({destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector), destPoolData: ""});
+    return Pool.LockOrBurnOutV1({
+      destTokenAddress: getRemoteToken(lockOrBurnIn.localToken, lockOrBurnIn.remoteChainSelector),
+      destPoolData: ""
+    });
   }
 
   /// @notice Mint tokens from the pool to the recipient
@@ -50,12 +48,8 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
   {
     _validateReleaseOrMint(releaseOrMintIn);
 
-    if (!_hasLegacyPool()) {
-      // Mint to the offRamp, which forwards it to the recipient
-      IBurnMintERC20(address(i_token)).mint(msg.sender, releaseOrMintIn.amount);
-    } else {
-      _releaseOrMintLegacy(releaseOrMintIn);
-    }
+    // Mint to the offRamp, which forwards it to the recipient
+    IBurnMintERC20(releaseOrMintIn.localToken).mint(msg.sender, releaseOrMintIn.amount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
 

@@ -55,8 +55,15 @@ library Internal {
   }
 
   struct SourceTokenData {
+    // The source pool address, abi encoded. This value is trusted as it was obtained through the onRamp. It can be
+    // relied upon by the destination pool to validate the source pool.
     bytes sourcePoolAddress;
-    bytes destPoolAddress;
+    // The address of the destination token pool, abi encoded in the case of EVM chains
+    // This value is UNTRUSTED as any pool owner can return whatever value they want.
+    bytes destTokenAddress;
+    // Optional pool data to be transferred to the destination chain. Be default this is capped at
+    // CCIP_LOCK_OR_BURN_V1_RET_BYTES bytes. If more data is required, the TokenTransferFeeConfig.destBytesOverhead
+    // has to be set for the specific token.
     bytes extraData;
   }
 

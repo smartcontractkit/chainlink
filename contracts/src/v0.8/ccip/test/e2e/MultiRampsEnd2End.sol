@@ -43,14 +43,18 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, MultiCommitStoreSetup, EVM2EV
 
       s_sourcePoolByDestPool[s_destPoolBySourceToken[token]] = pool;
 
-      _setPool(s_tokenAdminRegistry2, token, pool, DEST_CHAIN_SELECTOR, s_destPoolByToken[s_destTokens[i]]);
+      _setPool(
+        s_tokenAdminRegistry2, token, pool, DEST_CHAIN_SELECTOR, s_destPoolByToken[s_destTokens[i]], s_destTokens[i]
+      );
     }
 
     for (uint256 i = 0; i < s_destTokens.length; ++i) {
       address token = s_destTokens[i];
       address pool = s_destPoolByToken[token];
 
-      _setPool(s_tokenAdminRegistry2, token, pool, SOURCE_CHAIN_SELECTOR + 1, s_sourcePoolByDestPool[pool]);
+      _setPool(
+        s_tokenAdminRegistry2, token, pool, SOURCE_CHAIN_SELECTOR + 1, s_sourcePoolByDestPool[pool], s_sourceTokens[i]
+      );
     }
 
     // Deploy the new source chain onramp

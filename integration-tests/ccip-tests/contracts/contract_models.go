@@ -737,7 +737,7 @@ func (pool *TokenPool) AddLiquidity(token *ERC20Token, fromWallet *blockchain.Et
 	return pool.client.ProcessTransaction(tx)
 }
 
-func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePoolAddresses common.Address) error {
+func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePoolAddresses common.Address, remoteTokenAddress common.Address) error {
 	pool.logger.Info().
 		Str("Token Pool", pool.Address()).
 		Msg("Setting remote chain on pool")
@@ -747,7 +747,8 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePo
 	if err != nil {
 		return fmt.Errorf("failed to get if chain is supported: %w", err)
 	}
-	if isSupported { // Check if remote chain is already supported, if yes return
+	// Check if remote chain is already supported, if yes return
+	if isSupported {
 		pool.logger.Info().
 			Str("Token Pool", pool.Address()).
 			Str(Network, pool.client.GetNetworkName()).
@@ -756,14 +757,20 @@ func (pool *TokenPool) SetRemoteChainOnPool(remoteChainSelector uint64, remotePo
 		return nil
 	}
 	// if not, add it
-	encodedAddress, err := abihelpers.EncodeAddress(remotePoolAddresses)
+	encodedPoolAddress, err := abihelpers.EncodeAddress(remotePoolAddresses)
 	if err != nil {
 		return fmt.Errorf("failed to encode address: %w", err)
 	}
 
+	encodedTokenAddress, err := abihelpers.EncodeAddress(remoteTokenAddress)
+	if err != nil {
+		return fmt.Errorf("failed to encode token address: %w", err)
+	}
+
 	selectorsToUpdate = append(selectorsToUpdate, token_pool.TokenPoolChainUpdate{
 		RemoteChainSelector: remoteChainSelector,
-		RemotePoolAddress:   encodedAddress,
+		RemotePoolAddress:   encodedPoolAddress,
+		RemoteTokenAddress:  encodedTokenAddress,
 		Allowed:             true,
 		InboundRateLimiterConfig: token_pool.RateLimiterConfig{
 			IsEnabled: true,

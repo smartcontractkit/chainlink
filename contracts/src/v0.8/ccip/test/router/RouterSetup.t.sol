@@ -40,7 +40,7 @@ contract RouterSetup is BaseTest {
   function generateSourceTokenData() internal pure returns (Internal.SourceTokenData memory) {
     return Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(address(12312412312)),
-      destPoolAddress: abi.encode(address(9809808909)),
+      destTokenAddress: abi.encode(address(9809808909)),
       extraData: ""
     });
   }

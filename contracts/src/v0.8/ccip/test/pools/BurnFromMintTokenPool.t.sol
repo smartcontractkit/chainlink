@@ -93,6 +93,7 @@ contract BurnFromMintTokenPool_lockOrBurn is BurnFromMintTokenPoolSetup {
         originalSender: bytes(""),
         receiver: OWNER,
         amount: 1,
+        localToken: address(s_burnMintERC677),
         remoteChainSelector: wrongChainSelector,
         sourcePoolAddress: generateSourceTokenData().sourcePoolAddress,
         sourcePoolData: generateSourceTokenData().extraData,

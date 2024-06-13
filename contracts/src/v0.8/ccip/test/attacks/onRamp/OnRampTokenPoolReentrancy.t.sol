@@ -35,6 +35,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(s_destPoolBySourceToken[s_sourceTokens[0]]),
+      remoteTokenAddress: abi.encode(s_destTokens[0]),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()

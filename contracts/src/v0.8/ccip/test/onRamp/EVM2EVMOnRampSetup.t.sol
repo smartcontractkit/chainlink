@@ -30,6 +30,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
   address[] internal s_offRamps;
 
   address internal s_destTokenPool = makeAddr("destTokenPool");
+  address internal s_destToken = makeAddr("destToken");
 
   EVM2EVMOnRamp.FeeTokenConfigArgs[] internal s_feeTokenConfigArgs;
   EVM2EVMOnRamp.TokenTransferFeeConfigArgs[] internal s_tokenTransferFeeConfigArgs;
@@ -235,12 +236,10 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     });
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
-      address sourcePool = s_sourcePoolByToken[message.tokenAmounts[i].token];
-      address destPool = s_destPoolBySourceToken[message.tokenAmounts[i].token];
       messageEvent.sourceTokenData[i] = abi.encode(
         Internal.SourceTokenData({
-          sourcePoolAddress: abi.encode(sourcePool),
-          destPoolAddress: abi.encode(destPool),
+          sourcePoolAddress: abi.encode(s_sourcePoolByToken[message.tokenAmounts[i].token]),
+          destTokenAddress: abi.encode(s_destTokenBySourceToken[message.tokenAmounts[i].token]),
           extraData: ""
         })
       );

@@ -10,12 +10,18 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
 /// @dev This contract does ***NOT*** check the supplied signatures on `transmit`
 /// This is intentional.
 abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
-  error InvalidConfig(string message);
+  error InvalidConfig(InvalidConfigErrorType errorType);
   error WrongMessageLength(uint256 expected, uint256 actual);
   error ConfigDigestMismatch(bytes32 expected, bytes32 actual);
   error ForkedChain(uint256 expected, uint256 actual);
   error UnauthorizedTransmitter();
   error OracleCannotBeZeroAddress();
+
+  enum InvalidConfigErrorType {
+    F_MUST_BE_POSITIVE,
+    TOO_MANY_TRANSMITTERS,
+    REPEATED_ORACLE_ADDRESS
+  }
 
   // Packing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a minimum number of SLOADs.
@@ -76,8 +82,8 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
 
   // Reverts transaction if config args are invalid
   modifier checkConfigValid(uint256 numTransmitters, uint256 f) {
-    if (numTransmitters > MAX_NUM_ORACLES) revert InvalidConfig("too many transmitters");
-    if (f == 0) revert InvalidConfig("f must be positive");
+    if (numTransmitters > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_TRANSMITTERS);
+    if (f == 0) revert InvalidConfig(InvalidConfigErrorType.F_MUST_BE_POSITIVE);
     _;
   }
 
@@ -101,15 +107,19 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
     bytes memory offchainConfig
   ) external override checkConfigValid(transmitters.length, f) onlyOwner {
     _beforeSetConfig(onchainConfig);
-    uint256 oldTransmitterLength = s_transmitters.length;
-    for (uint256 i = 0; i < oldTransmitterLength; ++i) {
-      delete s_oracles[s_transmitters[i]];
+    // Scoped to reduce contract size
+    {
+      uint256 oldTransmitterLength = s_transmitters.length;
+      for (uint256 i = 0; i < oldTransmitterLength; ++i) {
+        delete s_oracles[s_transmitters[i]];
+      }
     }
-
     uint256 newTransmitterLength = transmitters.length;
     for (uint256 i = 0; i < newTransmitterLength; ++i) {
       address transmitter = transmitters[i];
-      if (s_oracles[transmitter].role != Role.Unset) revert InvalidConfig("repeated transmitter address");
+      if (s_oracles[transmitter].role != Role.Unset) {
+        revert InvalidConfig(InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS);
+      }
       if (transmitter == address(0)) revert OracleCannotBeZeroAddress();
       s_oracles[transmitter] = Oracle(uint8(i), Role.Transmitter);
     }
@@ -178,10 +188,7 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
     bytes32 configDigest = reportContext[0];
     bytes32 latestConfigDigest = s_configInfo.latestConfigDigest;
     if (latestConfigDigest != configDigest) revert ConfigDigestMismatch(latestConfigDigest, configDigest);
-    // If the cached chainID at time of deployment doesn't match the current chainID, we reject all signed reports.
-    // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest
-    // calculated from chain A and so OCR reports will be valid on both forks.
-    if (i_chainID != block.chainid) revert ForkedChain(i_chainID, block.chainid);
+    _checkChainForked();
 
     emit Transmitted(configDigest, uint32(uint256(reportContext[1]) >> 8));
 
@@ -198,6 +205,13 @@ abstract contract OCR2BaseNoChecks is OwnerIsCreator, OCR2Abstract {
       + rs.length * 32 // 32 bytes per entry in _rs
       + ss.length * 32; // 32 bytes per entry in _ss)
     if (msg.data.length != expectedDataLength) revert WrongMessageLength(expectedDataLength, msg.data.length);
+  }
+
+  function _checkChainForked() internal view {
+    // If the cached chainID at time of deployment doesn't match the current chainID, we reject all signed reports.
+    // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest
+    // calculated from chain A and so OCR reports will be valid on both forks.
+    if (i_chainID != block.chainid) revert ForkedChain(i_chainID, block.chainid);
   }
 
   /// @notice information about current offchain reporting protocol configuration

@@ -142,7 +142,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     emit Burned(msg.sender, lockOrBurnIn.amount);
 
     return Pool.LockOrBurnOutV1({
-      destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector),
+      destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector),
       destPoolData: abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}))
     });
   }
@@ -178,7 +178,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     getToken().safeTransfer(msg.sender, releaseOrMintIn.amount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
-    return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
+    return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
   /// @notice Validates the USDC encoded message against the given parameters.

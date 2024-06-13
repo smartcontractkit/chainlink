@@ -41,6 +41,7 @@ contract USDCTokenPoolSetup is BaseTest {
   bytes32 internal constant SOURCE_CHAIN_TOKEN_SENDER = bytes32(uint256(uint160(0x01111111221)));
   address internal constant SOURCE_CHAIN_USDC_POOL = address(0x23789765456789);
   address internal constant DEST_CHAIN_USDC_POOL = address(0x987384873458734);
+  address internal constant DEST_CHAIN_USDC_TOKEN = address(0x23598918358198766);
 
   address internal s_routerAllowedOnRamp = address(3456);
   address internal s_routerAllowedOffRamp = address(234);
@@ -74,6 +75,7 @@ contract USDCTokenPoolSetup is BaseTest {
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: SOURCE_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
+      remoteTokenAddress: abi.encode(address(s_token)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -81,6 +83,7 @@ contract USDCTokenPoolSetup is BaseTest {
     chainUpdates[1] = TokenPool.ChainUpdate({
       remoteChainSelector: DEST_CHAIN_SELECTOR,
       remotePoolAddress: abi.encode(DEST_CHAIN_USDC_POOL),
+      remoteTokenAddress: abi.encode(DEST_CHAIN_USDC_TOKEN),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -208,7 +211,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
-    assertEq(poolReturnDataV1.destPoolAddress, abi.encode(DEST_CHAIN_USDC_POOL));
+    assertEq(poolReturnDataV1.destTokenAddress, abi.encode(DEST_CHAIN_USDC_TOKEN));
   }
 
   function test_Fuzz_LockOrBurnWithAllowList_Success(bytes32 destinationReceiver, uint256 amount) public {
@@ -246,7 +249,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     );
     uint64 nonce = abi.decode(poolReturnDataV1.destPoolData, (uint64));
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
-    assertEq(poolReturnDataV1.destPoolAddress, abi.encode(DEST_CHAIN_USDC_POOL));
+    assertEq(poolReturnDataV1.destTokenAddress, abi.encode(DEST_CHAIN_USDC_TOKEN));
   }
 
   // Reverts
@@ -261,6 +264,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     chainUpdates[0] = TokenPool.ChainUpdate({
       remoteChainSelector: wrongDomain,
       remotePoolAddress: abi.encode(address(1)),
+      remoteTokenAddress: abi.encode(address(2)),
       allowed: true,
       outboundRateLimiterConfig: getOutboundRateLimiterConfig(),
       inboundRateLimiterConfig: getInboundRateLimiterConfig()
@@ -356,7 +360,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
-      destPoolAddress: abi.encode(address(s_usdcTokenPool)),
+      destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
         USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
         )
@@ -382,6 +386,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         originalSender: abi.encode(OWNER),
         receiver: recipient,
         amount: amount,
+        localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
         sourcePoolData: sourceTokenData.extraData,
@@ -402,7 +407,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
-      destPoolAddress: abi.encode(address(s_usdcTokenPool)),
+      destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain}))
     });
 
@@ -423,6 +428,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         originalSender: abi.encode(OWNER),
         receiver: OWNER,
         amount: amount,
+        localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
         sourcePoolData: sourceTokenData.extraData,
@@ -451,7 +457,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
-      destPoolAddress: abi.encode(address(s_usdcTokenPool)),
+      destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(
         USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
         )
@@ -468,6 +474,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         originalSender: abi.encode(OWNER),
         receiver: OWNER,
         amount: amount,
+        localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
         sourcePoolData: sourceTokenData.extraData,
@@ -484,7 +491,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
       sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
-      destPoolAddress: abi.encode(address(s_usdcTokenPool)),
+      destTokenAddress: abi.encode(address(s_usdcTokenPool)),
       extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: 1, sourceDomain: SOURCE_DOMAIN_IDENTIFIER}))
     });
 
@@ -500,6 +507,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
         originalSender: abi.encode(OWNER),
         receiver: recipient,
         amount: amount,
+        localToken: address(s_token),
         remoteChainSelector: SOURCE_CHAIN_SELECTOR,
         sourcePoolAddress: sourceTokenData.sourcePoolAddress,
         sourcePoolData: sourceTokenData.extraData,

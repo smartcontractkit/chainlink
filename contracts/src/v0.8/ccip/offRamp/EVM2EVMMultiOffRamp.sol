@@ -10,6 +10,7 @@ import {IMultiCommitStore} from "../interfaces/IMultiCommitStore.sol";
 import {IPool} from "../interfaces/IPool.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
+import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../shared/call/CallWithExactGas.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
@@ -55,7 +56,6 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   error NotACompatiblePool(address notPool);
   error InvalidDataLength(uint256 expected, uint256 got);
   error InvalidNewState(uint64 sourceChainSelector, uint64 sequenceNumber, Internal.MessageExecutionState newState);
-  error IndexOutOfRange();
   error InvalidStaticConfig(uint64 sourceChainSelector);
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
@@ -80,6 +80,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     address commitStore; // ────────╮  CommitStore address on the destination chain
     uint64 chainSelector; // ───────╯  Destination chainSelector
     address rmnProxy; //               RMN proxy address
+    address tokenAdminRegistry; //     Token admin registry address
   }
 
   /// @notice Per-chain source config (defining a lane from a Source Chain -> Dest OffRamp)
@@ -130,6 +131,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the RMN proxy
   address internal immutable i_rmnProxy;
+  /// @dev The address of the token admin registry
+  address internal immutable i_tokenAdminRegistry;
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
@@ -151,11 +154,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     s_executionStates;
 
   constructor(StaticConfig memory staticConfig, SourceChainConfigArgs[] memory sourceChainConfigs) MultiOCR3Base() {
-    if (staticConfig.commitStore == address(0)) revert ZeroAddressNotAllowed();
+    if (staticConfig.commitStore == address(0) || staticConfig.tokenAdminRegistry == address(0)) {
+      revert ZeroAddressNotAllowed();
+    }
 
     i_commitStore = staticConfig.commitStore;
     i_chainSelector = staticConfig.chainSelector;
     i_rmnProxy = staticConfig.rmnProxy;
+    i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
 
     _applySourceChainConfigUpdates(sourceChainConfigs);
   }
@@ -590,7 +596,12 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// @dev This function will always return the same struct as the contents is static and can never change.
   /// RMN depends on this function, if changing, please notify the RMN maintainers.
   function getStaticConfig() external view returns (StaticConfig memory) {
-    return StaticConfig({commitStore: i_commitStore, chainSelector: i_chainSelector, rmnProxy: i_rmnProxy});
+    return StaticConfig({
+      commitStore: i_commitStore,
+      chainSelector: i_chainSelector,
+      rmnProxy: i_rmnProxy,
+      tokenAdminRegistry: i_tokenAdminRegistry
+    });
   }
 
   /// @notice Returns the current dynamic config.
@@ -667,7 +678,13 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
     // TODO: contract size golfing - is StaticConfig needed in the event?
     emit ConfigSet(
-      StaticConfig({chainSelector: i_chainSelector, rmnProxy: i_rmnProxy, commitStore: i_commitStore}), dynamicConfig
+      StaticConfig({
+        commitStore: i_commitStore,
+        chainSelector: i_chainSelector,
+        rmnProxy: i_rmnProxy,
+        tokenAdminRegistry: i_tokenAdminRegistry
+      }),
+      dynamicConfig
     );
   }
 
@@ -698,12 +715,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
         abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData));
       // We need to safely decode the pool address from the sourceTokenData, as it could be wrong,
       // in which case it doesn't have to be a valid EVM address.
-      address localPoolAddress = Internal._validateEVMAddress(sourceTokenData.destPoolAddress);
+      address localToken = Internal._validateEVMAddress(sourceTokenData.destTokenAddress);
+      // We check with the token admin registry if the token has a pool on this chain.
+      address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
       // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
       // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
       // The call gets a max or 30k gas per instance, of which there are three. This means gas estimations should
       // account for 90k gas overhead due to the interface check.
-      if (!localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
+      if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
         revert NotACompatiblePool(localPoolAddress);
       }
 
@@ -719,6 +738,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
             originalSender: messageRoute.sender,
             receiver: messageRoute.receiver,
             amount: sourceTokenAmounts[i].amount,
+            localToken: localToken,
             remoteChainSelector: messageRoute.sourceChainSelector,
             sourcePoolAddress: sourceTokenData.sourcePoolAddress,
             sourcePoolData: sourceTokenData.extraData,
@@ -738,24 +758,19 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
       if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
         revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
       }
-      (uint256 decodedAddress, uint256 amount) = abi.decode(returnData, (uint256, uint256));
-      address destTokenAddress = Internal._validateEVMAddressFromUint256(decodedAddress);
+      uint256 amount = abi.decode(returnData, (uint256));
 
       (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
         abi.encodeWithSelector(IERC20.transfer.selector, messageRoute.receiver, amount),
-        destTokenAddress,
+        localToken,
         s_dynamicConfig.maxTokenTransferGas,
         Internal.GAS_FOR_CALL_EXACT_CHECK,
         Internal.MAX_RET_BYTES
       );
 
-      // This is the same check SafeERC20 does. We validate the optional boolean return value of the transfer function.
-      // If nothing is returned, we assume success, if something is returned, it should be `true`.
-      if (!success || (returnData.length > 0 && !abi.decode(returnData, (bool)))) {
-        revert TokenHandlingError(returnData);
-      }
+      if (!success) revert TokenHandlingError(returnData);
 
-      destTokenAmounts[i].token = destTokenAddress;
+      destTokenAmounts[i].token = localToken;
       destTokenAmounts[i].amount = amount;
     }
 
@@ -768,8 +783,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   /// @notice Reverts as this contract should not access CCIP messages
   function ccipReceive(Client.Any2EVMMessage calldata) external pure {
-    /* solhint-disable */
+    // solhint-disable-next-line
     revert();
-    /* solhint-enable*/
   }
 }

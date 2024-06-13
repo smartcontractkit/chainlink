@@ -8,7 +8,7 @@ echo " └───────────────────────�
 
 SOLC_VERSION="0.8.24"
 OPTIMIZE_RUNS=26000
-OPTIMIZE_RUNS_OFFRAMP=21000
+OPTIMIZE_RUNS_OFFRAMP=19500
 OPTIMIZE_RUNS_ONRAMP=3600
 
 

@@ -43,7 +43,7 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     IBurnMintERC20(address(i_token)).burn(lockOrBurnIn.amount);
     emit Burned(msg.sender, lockOrBurnIn.amount);
     return Pool.LockOrBurnOutV1({
-      destPoolAddress: getRemotePool(lockOrBurnIn.remoteChainSelector),
+      destTokenAddress: getRemoteToken(lockOrBurnIn.remoteChainSelector),
       destPoolData: s_sourceTokenData
     });
   }
@@ -65,6 +65,6 @@ contract MaybeRevertingBurnMintTokenPool is BurnMintTokenPool {
     }
     IBurnMintERC20(address(i_token)).mint(msg.sender, releaseOrMintIn.amount);
     emit Minted(msg.sender, releaseOrMintIn.receiver, releaseOrMintIn.amount);
-    return Pool.ReleaseOrMintOutV1({localToken: address(i_token), destinationAmount: releaseOrMintIn.amount});
+    return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 }

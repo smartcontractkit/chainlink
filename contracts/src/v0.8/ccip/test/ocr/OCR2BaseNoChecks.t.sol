@@ -161,14 +161,22 @@ contract OCR2BaseNoChecks_setOCR2Config is OCR2BaseNoChecksSetup {
     transmitters[2] = address(1245678);
     transmitters[3] = address(1245678);
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2BaseNoChecks.InvalidConfig.selector, "repeated transmitter address"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OCR2BaseNoChecks.InvalidConfig.selector, OCR2BaseNoChecks.InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS
+      )
+    );
     s_OCR2Base.setOCR2Config(signers, transmitters, 1, abi.encode(""), 100, abi.encode(""));
   }
 
   function test_FMustBePositive_Revert() public {
     uint8 f = 0;
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2BaseNoChecks.InvalidConfig.selector, "f must be positive"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OCR2BaseNoChecks.InvalidConfig.selector, OCR2BaseNoChecks.InvalidConfigErrorType.F_MUST_BE_POSITIVE
+      )
+    );
     s_OCR2Base.setOCR2Config(new address[](0), new address[](0), f, abi.encode(""), 100, abi.encode(""));
   }
 
@@ -190,7 +198,11 @@ contract OCR2BaseNoChecks_setOCR2Config is OCR2BaseNoChecksSetup {
   function test_TooManyTransmitter_Revert() public {
     address[] memory transmitters = new address[](100);
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2BaseNoChecks.InvalidConfig.selector, "too many transmitters"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OCR2BaseNoChecks.InvalidConfig.selector, OCR2BaseNoChecks.InvalidConfigErrorType.TOO_MANY_TRANSMITTERS
+      )
+    );
     s_OCR2Base.setOCR2Config(new address[](0), transmitters, 0, abi.encode(""), 100, abi.encode(""));
   }
 }

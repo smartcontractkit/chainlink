@@ -77,7 +77,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       EVM2EVMMultiOffRamp.StaticConfig({
         commitStore: address(commitStore),
         chainSelector: DEST_CHAIN_SELECTOR,
-        rmnProxy: address(s_mockRMN)
+        rmnProxy: address(s_mockRMN),
+        tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       sourceChainConfigs
     );
@@ -114,7 +115,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         sourceChainSelector: sourceChainSelector,
         onRamp: onRampAddress,
         prevOffRamp: prevOffRamp,
-        rmnProxy: address(s_mockRMN)
+        rmnProxy: address(s_mockRMN),
+        tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       getInboundRateLimiterConfig()
     );
@@ -243,7 +245,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       Internal.SourceTokenData memory sourceTokenData =
         abi.decode(original.sourceTokenData[i], (Internal.SourceTokenData));
 
-      address destPoolAddress = abi.decode(sourceTokenData.destPoolAddress, (address));
+      address destPoolAddress = abi.decode(sourceTokenData.destTokenAddress, (address));
       TokenPool pool = TokenPool(destPoolAddress);
       destTokenAmounts[i].token = address(pool.getToken());
       destTokenAmounts[i].amount = original.tokenAmounts[i].amount;
@@ -307,7 +309,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       message.sourceTokenData[i] = abi.encode(
         Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
-          destPoolAddress: abi.encode(s_destPoolBySourceToken[tokenAmounts[i].token]),
+          destTokenAddress: abi.encode(s_destTokenBySourceToken[tokenAmounts[i].token]),
           extraData: ""
         })
       );
@@ -432,7 +434,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       sourceTokenData[i] = abi.encode(
         Internal.SourceTokenData({
           sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
-          destPoolAddress: abi.encode(s_destPoolBySourceToken[srcTokenAmounts[i].token]),
+          destTokenAddress: abi.encode(s_destTokenBySourceToken[srcTokenAmounts[i].token]),
           extraData: ""
         })
       );

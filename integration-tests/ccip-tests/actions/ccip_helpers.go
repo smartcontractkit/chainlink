@@ -2025,8 +2025,10 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			destCCIP.CommitStore.EthAddress,
 			sourceCCIP.OnRamp.EthAddress,
 			destCCIP.Common.RateLimiterConfig,
-			[]common.Address{}, []common.Address{},
+			[]common.Address{},
+			[]common.Address{},
 			*destCCIP.Common.ARMContract,
+			destCCIP.Common.TokenAdminRegistry.EthAddress,
 		)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
@@ -2647,13 +2649,16 @@ func (lane *CCIPLane) SetRemoteChainsOnPool() error {
 			len(lane.Source.Common.BridgeTokenPools), len(lane.Dest.Common.BridgeTokenPools),
 		)
 	}
-	for i, src := range lane.Source.Common.BridgeTokenPools {
-		dst := lane.Dest.Common.BridgeTokenPools[i]
-		err := src.SetRemoteChainOnPool(lane.Source.DestChainSelector, dst.EthAddress)
+	for i, srcPool := range lane.Source.Common.BridgeTokenPools {
+		sourceToken := lane.Source.Common.BridgeTokens[i]
+		destToken := lane.Dest.Common.BridgeTokens[i]
+		dstPool := lane.Dest.Common.BridgeTokenPools[i]
+
+		err := srcPool.SetRemoteChainOnPool(lane.Source.DestChainSelector, dstPool.EthAddress, destToken.ContractAddress)
 		if err != nil {
 			return err
 		}
-		err = dst.SetRemoteChainOnPool(lane.Dest.SourceChainSelector, src.EthAddress)
+		err = dstPool.SetRemoteChainOnPool(lane.Dest.SourceChainSelector, srcPool.EthAddress, sourceToken.ContractAddress)
 		if err != nil {
 			return err
 		}
