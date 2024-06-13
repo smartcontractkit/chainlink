@@ -373,7 +373,7 @@ func (s *registrySyncer) addRemoteCapabilities(ctx context.Context, myDON kcr.Ca
 			newTargetFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				client := target.NewClient(
 					info,
-					*toDONInfo(remoteDON),
+					*toDONInfo(myDON),
 					s.dispatcher,
 					defaultTargetRequestTimeout,
 					s.lggr,
