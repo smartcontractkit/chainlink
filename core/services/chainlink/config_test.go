@@ -445,9 +445,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		ExternalRegistry: toml.ExternalRegistry{
-			Address:   "",
-			ChainID:   "1",
-			NetworkID: "evm",
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
 		},
 	}
 	full.Keeper = toml.Keeper{
