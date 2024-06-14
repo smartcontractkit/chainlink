@@ -83,7 +83,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	for _, t := range e.workflow.triggers {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
-			e.logger.Errorf("failed to get trigger capability: %s", err)
+			e.logger.Errorf("capability id: %s failed to get trigger capability: %s", t.ID, err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -111,7 +111,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return fmt.Errorf("failed to initialize capability for step %s: %w", s.Ref, err)
+			return fmt.Errorf("capability id: %s failed to initialize capability for step %s: %w", s.ID, s.Ref, err)
 		}
 
 		return nil
@@ -128,20 +128,22 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
+		return fmt.Errorf("capability id: %s failed to get capability: %s", step.ID, err)
 	}
 
 	info, err := cp.Info(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get info of capability with id %s: %w", step.ID, err)
+		return fmt.Errorf("capability id: %s failed to get capability info: %w", step.ID, err)
 	}
 
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
 	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
-		e.logger.Debugf("wrapping capability %s in local transmission protocol", info.ID)
+		l := e.logger.With("capabilityID", step.ID)
+		l.Debugw("wrapping capability in local transmission protocol")
 		cp = transmission.NewLocalTargetCapability(
 			e.logger,
+			step.ID,
 			e.localNode,
 			cp.(capabilities.TargetCapability),
 		)
@@ -151,13 +153,13 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return fmt.Errorf("could not coerce capability %s to CallbackCapability", step.ID)
+		return fmt.Errorf("capability id: %s could not coerce to CallbackCapability", step.ID)
 	}
 
 	if step.config == nil {
 		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
-			return fmt.Errorf("failed to convert config to values.Map: %s", newMapErr)
+			return fmt.Errorf("capability id: %s failed to convert config to values.Map: %s", step.ID, newMapErr)
 		}
 		step.config = configMap
 	}
@@ -171,7 +173,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
 	if err != nil {
-		return fmt.Errorf("failed to register to workflow (%+v): %w", registrationRequest, err)
+		return fmt.Errorf("capability id: %s failed to register to workflow (%+v): %w", step.ID, registrationRequest, err)
 	}
 
 	step.capability = cc
