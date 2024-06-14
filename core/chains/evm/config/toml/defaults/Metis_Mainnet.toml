@@ -3,6 +3,7 @@ ChainID = '1088'
 ChainType = 'metis'
 # Sequencer offers absolute finality
 FinalityDepth = 10
+FinalityTagEnabled = true
 MinIncomingConfirmations = 1
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1

@@ -220,7 +220,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 		models.NetworkSelector(chainsel.TEST_90000001.Selector),
 		models.NetworkSelector(chainsel.TEST_90000002.Selector),
 		models.NetworkSelector(chainsel.TEST_90000003.Selector),
-		models.NetworkSelector(chainsel.TEST_2337.Selector):
+		models.NetworkSelector(chainsel.GETH_DEVNET_2.Selector):
 		// these chains are only ever used for tests
 		// in tests we only ever deploy the MockL1Bridge adapter
 		// so this is an "L1 to L1" bridge setup, but not really

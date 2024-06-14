@@ -266,7 +266,7 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 
 	// Deploy Wrapped Native contract only on private geth networks
 	if lmCommon.ChainSelectror == chainselectors.GETH_TESTNET.Selector ||
-		lmCommon.ChainSelectror == chainselectors.TEST_2337.Selector {
+		lmCommon.ChainSelectror == chainselectors.GETH_DEVNET_2.Selector {
 		lggr.Info().Msg("Deploying Wrapped Native contract")
 		wrapperNative, err := cd.DeployWrappedNative()
 		if err != nil {
@@ -286,7 +286,7 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 		}
 		lggr.Info().Str("Address", bridgeAdapter.EthAddress.String()).Msg("Deployed Mock L1 Bridge Adapter contract")
 		lmCommon.BridgeAdapterAddr = bridgeAdapter.EthAddress
-	case chainselectors.TEST_2337.Selector:
+	case chainselectors.GETH_DEVNET_2.Selector:
 		lggr.Info().Msg("Deploying Mock L2 Bridge Adapter contract")
 		bridgeAdapter, err := cd.DeployMockL2BridgeAdapter()
 		if err != nil {
