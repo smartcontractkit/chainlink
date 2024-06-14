@@ -3,7 +3,11 @@ package capabilities
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -11,7 +15,9 @@ import (
 )
 
 type remoteRegistryReader struct {
-	r types.ContractReader
+	r           types.ContractReader
+	peerWrapper p2ptypes.PeerWrapper
+	lggr        logger.Logger
 }
 
 var _ reader = (*remoteRegistryReader)(nil)
@@ -23,6 +29,44 @@ type state struct {
 	IDsToDONs         map[donID]kcr.CapabilityRegistryDONInfo
 	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo
 	IDsToCapabilities map[hashedCapabilityID]kcr.CapabilityRegistryCapability
+}
+
+func (r *remoteRegistryReader) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	if r.peerWrapper.GetPeer() == nil {
+		return capabilities.Node{}, errors.New("unable to get peer: peerWrapper hasn't started yet")
+	}
+
+	pid := r.peerWrapper.GetPeer().ID()
+
+	readerState, err := r.state(ctx)
+	if err != nil {
+		return capabilities.Node{}, fmt.Errorf("failed to get state from registry to determine don ownership: %w", err)
+	}
+
+	workflowDONs := []capabilities.DON{}
+	capabilityDONs := []capabilities.DON{}
+	for _, d := range readerState.IDsToDONs {
+		for _, p := range d.NodeP2PIds {
+			if p == pid {
+				if d.AcceptsWorkflows {
+					workflowDONs = append(workflowDONs, *toDONInfo(d))
+				}
+
+				capabilityDONs = append(capabilityDONs, *toDONInfo(d))
+			}
+		}
+	}
+
+	var workflowDON capabilities.DON
+	if len(workflowDONs) > 0 {
+		workflowDON = workflowDONs[0]
+	}
+
+	return capabilities.Node{
+		PeerID:         &pid,
+		WorkflowDON:    workflowDON,
+		CapabilityDONs: capabilityDONs,
+	}, nil
 }
 
 func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
@@ -66,7 +110,7 @@ type contractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
 }
 
-func newRemoteRegistryReader(ctx context.Context, relayer contractReaderFactory, remoteRegistryAddress string) (*remoteRegistryReader, error) {
+func newRemoteRegistryReader(ctx context.Context, lggr logger.Logger, peerWrapper p2ptypes.PeerWrapper, relayer contractReaderFactory, remoteRegistryAddress string) (*remoteRegistryReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
 			"capabilityRegistry": {
@@ -106,5 +150,9 @@ func newRemoteRegistryReader(ctx context.Context, relayer contractReaderFactory,
 		return nil, err
 	}
 
-	return &remoteRegistryReader{r: cr}, err
+	return &remoteRegistryReader{
+		r:           cr,
+		peerWrapper: peerWrapper,
+		lggr:        lggr,
+	}, err
 }
