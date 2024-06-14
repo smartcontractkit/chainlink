@@ -48,13 +48,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
-
-	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
-		messageID, tc)
+	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}

@@ -652,37 +652,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 
 		// variables for workflow spec
-		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-		wfOwner  = "00000000000000000000000000000000000000aa"
-		wfName   = "myworkflow" // len 10
-		specYaml = `
-triggers:
-  - id: "a-trigger@1.0.0"
-    config: {}
-
-actions:
-  - id: "an-action@1.0.0"
-    ref: "an-action"
-    config: {}
-    inputs:
-      trigger_output: $(trigger.outputs)
-
-consensus:
-  - id: "a-consensus@1.0.0"
-    ref: "a-consensus"
-    config: {}
-    inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
-
-targets:
-  - id: "a-target@1.0.0"
-    config: {}
-    ref: "a-target"
-    inputs: 
-      consensus_output: $(a-consensus.outputs)
-`
-		wfSpec              = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
+		wfJobSpec           = testspecs.DefaultWorkflowJobSpec(t)
 		proposalIDWF        = int64(11)
 		jobProposalSpecIdWF = int64(101)
 		jobIDWF             = int32(1001)
@@ -690,7 +660,7 @@ targets:
 		argsWF              = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDWF,
-			Spec:           wfSpec,
+			Spec:           wfJobSpec.Toml(),
 			Version:        1,
 		}
 		jpWF = feeds.JobProposal{
@@ -707,14 +677,14 @@ targets:
 			Status:         feeds.JobProposalStatusPending,
 		}
 		proposalSpecWF = feeds.JobProposalSpec{
-			Definition:    wfSpec,
+			Definition:    wfJobSpec.Toml(),
 			Status:        feeds.SpecStatusPending,
 			Version:       1,
 			JobProposalID: proposalIDWF,
 		}
 		autoApprovableProposalSpecWF = feeds.JobProposalSpec{
 			ID:            jobProposalSpecIdWF,
-			Definition:    wfSpec,
+			Definition:    wfJobSpec.Toml(),
 			Status:        feeds.SpecStatusPending,
 			Version:       1,
 			JobProposalID: proposalIDWF,
@@ -755,7 +725,11 @@ targets:
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
@@ -807,7 +781,11 @@ targets:
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
@@ -855,7 +833,11 @@ targets:
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).

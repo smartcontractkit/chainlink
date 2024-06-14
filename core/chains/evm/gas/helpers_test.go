@@ -16,8 +16,8 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []EvmPriorAttempt) error {
-	return b.checkConnectivity(attempts)
+func (b *BlockHistoryEstimator) HaltBumping(attempts []EvmPriorAttempt) error {
+	return b.haltBumping(attempts)
 }
 
 func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {
@@ -52,10 +52,22 @@ func GetGasPrice(b *BlockHistoryEstimator) *assets.Wei {
 	return b.gasPrice
 }
 
+func GetMaxPercentileGasPrice(b *BlockHistoryEstimator) *assets.Wei {
+	b.maxPriceMu.RLock()
+	defer b.maxPriceMu.RUnlock()
+	return b.maxPercentileGasPrice
+}
+
 func GetTipCap(b *BlockHistoryEstimator) *assets.Wei {
 	b.priceMu.RLock()
 	defer b.priceMu.RUnlock()
 	return b.tipCap
+}
+
+func GetMaxPercentileTipCap(b *BlockHistoryEstimator) *assets.Wei {
+	b.maxPriceMu.RLock()
+	defer b.maxPriceMu.RUnlock()
+	return b.maxPercentileTipCap
 }
 
 func GetLatestBaseFee(b *BlockHistoryEstimator) *assets.Wei {
