@@ -543,7 +543,12 @@ func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.Capabil
 
 	s.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
 	err = s.dispatcher.SetReceiver(fullCapID, fmt.Sprint(don.Id), receiver)
-	if err != nil {
+	if errors.Is(err, remote.ErrReceiverExists) {
+		// If a receiver already exists, let's log the error for debug purposes, but
+		// otherwise short-circuit here. We've handled this capability in a previous iteration.
+		s.lggr.Debugf("failed to set receiver for cap ID %s and don ID %d: %s", fullCapID, don.Id, err)
+		return nil
+	} else if err != nil {
 		return err
 	}
 

@@ -2,6 +2,7 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	sync "sync"
 	"time"
@@ -17,6 +18,10 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+)
+
+var (
+	ErrReceiverExists = errors.New("receiver already exists")
 )
 
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
@@ -94,7 +99,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId string, rec remotety
 	k := key{capabilityId, donId}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("receiver already exists for capability %s and don %s", capabilityId, donId)
+		return fmt.Errorf("%w: capability %s and don %s", ErrReceiverExists, capabilityId, donId)
 	}
 
 	receiverCh := make(chan *remotetypes.MessageBody, receiverBufferSize)

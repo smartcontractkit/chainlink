@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -603,6 +604,143 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 	require.NoError(t, err)
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, fmt.Sprint(triggerCapDonID), mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+
+	err = syncer.sync(ctx)
+	require.NoError(t, err)
+	defer syncer.Close()
+
+	_, err = registry.Get(ctx, fullTriggerCapID)
+	require.NoError(t, err)
+}
+
+func TestSyncer_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
+	ctx := tests.Context(t)
+	lggr := logger.TestLogger(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var pid ragetypes.PeerID
+	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
+	require.NoError(t, err)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(pid)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	fullTriggerCapID := "streams-trigger@1.0.0"
+	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+		fullTriggerCapID,
+		capabilities.CapabilityTypeTrigger,
+		"streams trigger",
+	))
+	require.NoError(t, registry.Add(ctx, mt))
+
+	workflowDonNodes := [][32]byte{
+		randomWord(),
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	capabilityDonNodes := [][32]byte{
+		pid,
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	triggerCapID := randomWord()
+	dID := uint32(1)
+	capDonID := uint32(2)
+	// The below state describes a Capability DON (AcceptsWorkflows = true),
+	// which exposes the streams-trigger and write_chain capabilities.
+	// We expect receivers to be wired up.
+	mr := &mockReader{
+		s: state{
+			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+				donID(dID): {
+					Id:               dID,
+					ConfigCount:      uint32(0),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: true,
+					NodeP2PIds:       workflowDonNodes,
+				},
+				donID(capDonID): {
+					Id:               capDonID,
+					ConfigCount:      uint32(0),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: false,
+					NodeP2PIds:       capabilityDonNodes,
+					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+						{
+							CapabilityId: triggerCapID,
+							Config:       []byte(""),
+						},
+					},
+				},
+			},
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+				triggerCapID: {
+					LabelledName:   "streams-trigger",
+					Version:        "1.0.0",
+					CapabilityType: 0,
+				},
+			},
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+				capabilityDonNodes[0]: {
+					NodeOperatorId:      1,
+					Signer:              randomWord(),
+					P2pId:               capabilityDonNodes[0],
+					HashedCapabilityIds: [][32]byte{triggerCapID},
+				},
+				capabilityDonNodes[1]: {
+					NodeOperatorId:      1,
+					Signer:              randomWord(),
+					P2pId:               capabilityDonNodes[1],
+					HashedCapabilityIds: [][32]byte{triggerCapID},
+				},
+				capabilityDonNodes[2]: {
+					NodeOperatorId:      1,
+					Signer:              randomWord(),
+					P2pId:               capabilityDonNodes[2],
+					HashedCapabilityIds: [][32]byte{triggerCapID},
+				},
+				capabilityDonNodes[3]: {
+					NodeOperatorId:      1,
+					Signer:              randomWord(),
+					P2pId:               capabilityDonNodes[3],
+					HashedCapabilityIds: [][32]byte{triggerCapID},
+				},
+				workflowDonNodes[0]: {
+					NodeOperatorId: 1,
+					Signer:         randomWord(),
+					P2pId:          workflowDonNodes[0],
+				},
+				workflowDonNodes[1]: {
+					NodeOperatorId: 1,
+					Signer:         randomWord(),
+					P2pId:          workflowDonNodes[1],
+				},
+				workflowDonNodes[2]: {
+					NodeOperatorId: 1,
+					Signer:         randomWord(),
+					P2pId:          workflowDonNodes[2],
+				},
+				workflowDonNodes[3]: {
+					NodeOperatorId: 1,
+					Signer:         randomWord(),
+					P2pId:          workflowDonNodes[3],
+				},
+			},
+		},
+	}
+	syncer := newRegistrySyncer(make(services.StopChan), wrapper, registry, dispatcher, lggr, HardcodedDonNetworkSetup{}, mr)
+	require.NoError(t, err)
+
+	dispatcher.On("SetReceiver", fullTriggerCapID, fmt.Sprint(capDonID), mock.AnythingOfType("*remote.triggerPublisher")).Return(remote.ErrReceiverExists)
 
 	err = syncer.sync(ctx)
 	require.NoError(t, err)
