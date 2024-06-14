@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -27,6 +28,7 @@ import (
 type ChainWriterConfig struct {
 	Contracts    map[string]*ContractConfig
 	SendStrategy txmgrtypes.TxStrategy
+	MaxGasPrice  *assets.Wei
 }
 
 type ContractConfig struct {
