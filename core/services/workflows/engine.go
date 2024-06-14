@@ -216,14 +216,14 @@ func (e *Engine) init(ctx context.Context) {
 	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
 	err := e.resumeInProgressExecutions(ctx)
 	if err != nil {
-		e.logger.Errorf("failed to resume workflows: %v", err)
+		e.logger.Errorf("failed to resume in-progress workflows: %v", err)
 	}
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
 		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
-			e.logger.Errorf("failed to register trigger: %s", err)
+			e.logger.Errorf("capability id: %s failed to register trigger: %s", t.ID, err)
 		}
 	}
 
@@ -314,7 +314,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	}
 	eventsCh, err := t.trigger.RegisterTrigger(ctx, triggerRegRequest)
 	if err != nil {
-		return fmt.Errorf("failed to instantiate trigger %s, %s", t.ID, err)
+		return fmt.Errorf("trigger id: %s failed to instantiate trigger: %s", t.ID, err)
 	}
 
 	go func() {
