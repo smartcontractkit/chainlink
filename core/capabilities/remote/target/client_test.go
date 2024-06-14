@@ -152,7 +152,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		ID:      "workflow-don",
 	}
 
-	broker := newTestMessageBroker()
+	broker := newTestAsyncMessageBroker(100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -171,6 +171,8 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}
+
+	servicetest.Run(t, broker)
 
 	executeInputs, err := values.NewMap(
 		map[string]any{

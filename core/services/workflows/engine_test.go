@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -221,9 +222,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		func(c *Config) { c.Store = dbstore },
 	)
 
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
+	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, testHooks)
 	assert.Equal(t, cr, <-target1.response)
@@ -395,9 +394,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
 
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
+	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -420,10 +417,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	eng, hooks := newTestEngine(t, reg, simpleWorkflow)
-
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
+	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -516,9 +510,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, action))
 
 	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-	defer eng.Close()
+	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
@@ -589,8 +581,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 		multiStepWorkflow,
 		func(c *Config) { c.Store = dbstore },
 	)
-	err = eng.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, eng)
 
 	eid := getExecutionId(t, eng, hooks)
 	gotEx, err := dbstore.Get(ctx, eid)
@@ -648,8 +639,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 		},
 	)
 	clock.Advance(15 * time.Minute)
-	err = eng.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, eng)
 
 	_ = getExecutionId(t, eng, hooks)
 	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
@@ -725,12 +715,11 @@ func TestEngine_WrapsTargets(t *testing.T) {
 			c.clock = clock
 		},
 	)
-	err := eng.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, eng)
 
 	<-hooks.initSuccessful
 
-	err = eng.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
+	err := eng.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
 		if s.Ref == workflows.KeywordTrigger {
 			return nil
 		}
