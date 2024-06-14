@@ -185,10 +185,12 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 	var result []BufferedLog
 	var remainingLogs int
 	var selectedUpkeeps int
-	numLogs := 0
+	upkeepNotSelected := 0
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 		if !upkeepSelector(q.id) {
+			b.lggr.Debugw("skipping dequeue", "upkeepID", q.id.String())
+			upkeepNotSelected++
 			continue
 		}
 		selectedUpkeeps++
@@ -211,10 +213,9 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			result = append(result, BufferedLog{ID: q.id, Log: l})
 			capacity--
 		}
-		numLogs += len(logs)
 		remainingLogs += remaining
 	}
-	b.lggr.Debugw("dequeued logs for upkeeps", "selectedUpkeeps", selectedUpkeeps, "numLogs", numLogs)
+	b.lggr.Debugw("dequeued logs for upkeeps", "selectedUpkeeps", selectedUpkeeps, "upkeepNotSelected", upkeepNotSelected, "totalUpkeeps", len(b.queueIDs), "numLogs", len(result))
 	return result, remainingLogs
 }
 
@@ -236,18 +237,13 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for _, upkeepID := range b.queueIDs {
+	for i, upkeepID := range b.queueIDs {
 		uid := new(big.Int)
 		_, ok := uid.SetString(upkeepID, 10)
 		if ok && !filterStore.Has(uid) {
 			// remove upkeep that is not in the filter store
 			delete(b.queues, upkeepID)
-			for i, v := range b.queueIDs {
-				if v == upkeepID {
-					b.queueIDs = append(b.queueIDs[:i], b.queueIDs[i+1:]...)
-					break
-				}
-			}
+			b.queueIDs = append(b.queueIDs[:i], b.queueIDs[i+1:]...)
 		}
 	}
 
