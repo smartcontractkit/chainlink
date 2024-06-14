@@ -11,13 +11,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-// AccountAddress is a 32 byte address on the Aptos blockchain
-// It can represent an Object, an Account, and much more.
-// Extracting this out from the aptos sdk as there are still breaking changes
-// https://github.com/aptos-labs/aptos-go-sdk
-type AccountAddress [32]byte
-
-// Raw represents the ETH private key
+// Raw represents the Aptos private key
 type Raw []byte
 
 // Key gets the Key
@@ -87,7 +81,7 @@ func newFrom(reader io.Reader) (Key, error) {
 
 // ID gets Key ID
 func (key Key) ID() string {
-	return key.PublicKeyStr()
+	return key.Address.String()
 }
 
 // GetPublic get Key's public key
