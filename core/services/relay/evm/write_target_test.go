@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -61,8 +62,10 @@ func TestEvmWrite(t *testing.T) {
 		c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ge := gasmocks.NewEvmFeeEstimator(t)
 
 	chain.On("Config").Return(evmCfg)
+	chain.On("GasEstimator").Return(ge)
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
