@@ -10,12 +10,13 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/ccipocr3/internal/libs/hashlib"
-	"github.com/smartcontractkit/ccipocr3/internal/libs/merklemulti"
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 )
 
 // observeMaxSeqNums finds the maximum committed sequence numbers for each source chain.
@@ -364,7 +365,7 @@ func newMsgsConsensusForChain(
 	}
 
 	lggr.Debugw("constructing merkle tree", "chain", chainSel, "treeLeaves", len(treeLeaves))
-	tree, err := merklemulti.NewTree(hashlib.NewKeccakCtx(), treeLeaves)
+	tree, err := merklemulti.NewTree(hashutil.NewKeccak(), treeLeaves)
 	if err != nil {
 		return observedMsgsConsensus{}, fmt.Errorf("construct merkle tree from %d leaves: %w", len(treeLeaves), err)
 	}
