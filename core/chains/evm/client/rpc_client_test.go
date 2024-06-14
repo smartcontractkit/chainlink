@@ -60,13 +60,13 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
-		latest, appLayerObservations := rpc.GetInterceptedChainInfo()
+		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Nil(t, latest.TotalDifficulty)
-		assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-		assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
-		assert.Nil(t, appLayerObservations.TotalDifficulty)
+		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
+		assert.Nil(t, highestUserObservations.TotalDifficulty)
 
 		ch := make(chan *evmtypes.Head)
 		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
@@ -79,28 +79,28 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		// received 128 head
 		<-ch
 
-		latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(128), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Equal(t, big.NewInt(500), latest.TotalDifficulty)
 
-		assertAppLayerObservations := func(appLayerObservations commonclient.ChainInfo) {
-			assert.Equal(t, int64(256), appLayerObservations.BlockNumber)
-			assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
-			assert.Equal(t, big.NewInt(1000), appLayerObservations.TotalDifficulty)
+		assertHighestUserObservations := func(highestUserObservations commonclient.ChainInfo) {
+			assert.Equal(t, int64(256), highestUserObservations.BlockNumber)
+			assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
+			assert.Equal(t, big.NewInt(1000), highestUserObservations.TotalDifficulty)
 		}
 
-		assertAppLayerObservations(appLayerObservations)
+		assertHighestUserObservations(highestUserObservations)
 
 		// DisconnectAll resets latest
 		rpc.DisconnectAll()
 
-		latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Nil(t, latest.TotalDifficulty)
 
-		assertAppLayerObservations(appLayerObservations)
+		assertHighestUserObservations(highestUserObservations)
 	})
 	t.Run("App layer observations are not affected by new block if health check flag is present", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -117,14 +117,14 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		// received 256 head
 		<-ch
 
-		latest, appLayerObservations := rpc.GetInterceptedChainInfo()
+		latest, highestUserObservations := rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(256), latest.BlockNumber)
 		assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 		assert.Equal(t, big.NewInt(1000), latest.TotalDifficulty)
 
-		assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-		assert.Equal(t, int64(0), appLayerObservations.FinalizedBlockNumber)
-		assert.Equal(t, (*big.Int)(nil), appLayerObservations.TotalDifficulty)
+		assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
+		assert.Equal(t, (*big.Int)(nil), highestUserObservations.TotalDifficulty)
 	})
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
@@ -257,43 +257,43 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	// updates chain info
 	_, err := rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	latest, appLayerObservations := rpc.GetInterceptedChainInfo()
+	latest, highestUserObservations := rpc.GetInterceptedChainInfo()
 
-	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
+	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(128), latest.FinalizedBlockNumber)
 
-	// lower block number does not update appLayerObservations
+	// lower block number does not update highestUserObservations
 	server.Head = &evmtypes.Head{Number: 127}
 	_, err = rpc.LatestFinalizedBlock(ctx)
 	require.NoError(t, err)
-	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 
-	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
+	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(127), latest.FinalizedBlockNumber)
 
-	// health check flg prevents change in appLayerObservations
+	// health check flg prevents change in highestUserObservations
 	server.Head = &evmtypes.Head{Number: 256}
 	_, err = rpc.LatestFinalizedBlock(commonclient.CtxAddHealthCheckFlag(ctx))
 	require.NoError(t, err)
-	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
+	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 
-	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
+	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(256), latest.FinalizedBlockNumber)
 
 	// DisconnectAll resets latest ChainInfo
 	rpc.DisconnectAll()
-	latest, appLayerObservations = rpc.GetInterceptedChainInfo()
-	assert.Equal(t, int64(0), appLayerObservations.BlockNumber)
-	assert.Equal(t, int64(128), appLayerObservations.FinalizedBlockNumber)
+	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
+	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
+	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)
 
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(0), latest.FinalizedBlockNumber)

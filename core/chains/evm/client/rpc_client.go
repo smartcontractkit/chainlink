@@ -101,7 +101,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
-	GetInterceptedChainInfo() (latest, appLayerObservations commonclient.ChainInfo)
+	GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo)
 }
 
 type rawclient struct {
@@ -135,7 +135,7 @@ type rpcClient struct {
 	chStopInFlight chan struct{}
 
 	// intercepted values seen by callers of the rpcClient excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
-	appLayerObservations commonclient.ChainInfo
+	highestUserObservations commonclient.ChainInfo
 	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
 	latestChainInfo commonclient.ChainInfo
 }
@@ -1208,8 +1208,8 @@ func (r *rpcClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
-		r.appLayerObservations.BlockNumber = max(r.appLayerObservations.BlockNumber, head.Number)
-		r.appLayerObservations.SetTotalDifficultyIfGt(head.TotalDifficulty)
+		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
+		r.highestUserObservations.SetTotalDifficultyIfGt(head.TotalDifficulty)
 	}
 	select {
 	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
@@ -1227,7 +1227,7 @@ func (r *rpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
-		r.appLayerObservations.FinalizedBlockNumber = max(r.appLayerObservations.FinalizedBlockNumber, head.Number)
+		r.highestUserObservations.FinalizedBlockNumber = max(r.highestUserObservations.FinalizedBlockNumber, head.Number)
 	}
 	select {
 	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
@@ -1237,10 +1237,10 @@ func (r *rpcClient) onNewFinalizedHead(ctx context.Context, requestCh <-chan str
 	}
 }
 
-func (r *rpcClient) GetInterceptedChainInfo() (latest, appLayerObservations commonclient.ChainInfo) {
+func (r *rpcClient) GetInterceptedChainInfo() (latest, highestUserObservations commonclient.ChainInfo) {
 	r.stateMu.RLock()
 	defer r.stateMu.RUnlock()
-	return r.latestChainInfo, r.appLayerObservations
+	return r.latestChainInfo, r.highestUserObservations
 }
 
 func ToBlockNumArg(number *big.Int) string {

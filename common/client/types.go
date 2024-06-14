@@ -77,7 +77,7 @@ type NodeClient[
 	LatestFinalizedBlock(ctx context.Context) (HEAD, error)
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.
 	// latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
-	// appLayerObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.
+	// highestUserObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.
 	// Its values must not be reset.
 	// The results of corresponding calls, to get the most recent head and the latest finalized head, must be
 	// intercepted and reflected in ChainInfo before being returned to a caller. Otherwise, MultiNode is not able to
@@ -85,7 +85,7 @@ type NodeClient[
 	// DisconnectAll must reset latest ChainInfo to default value.
 	// Ensure implementation does not have a race condition when values are reset before request completion and as
 	// a result latest ChainInfo contains information from the previous cycle.
-	GetInterceptedChainInfo() (latest, appLayerObservations ChainInfo)
+	GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo)
 }
 
 // clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
@@ -164,12 +164,13 @@ type connection[
 //
 //go:generate mockery --quiet --name PoolChainInfoProvider --structname mockPoolChainInfoProvider --filename "mock_pool_chain_info_provider_test.go" --inpackage --case=underscore
 type PoolChainInfoProvider interface {
-	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being.
-	// Return highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
+	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being
+	// moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
+	// Returns highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
 	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
 	LatestChainInfo() (int, ChainInfo)
-	// AppLayerObservations - returns highest ChainInfo ever observed by any user of MultiNode.
-	AppLayerObservations() ChainInfo
+	// HighestUserObservations - returns highest ChainInfo ever observed by any user of MultiNode.
+	HighestUserObservations() ChainInfo
 }
 
 // ChainInfo - defines RPC's or MultiNode's view on the chain

@@ -9,12 +9,12 @@ type mockPoolChainInfoProvider struct {
 	mock.Mock
 }
 
-// AppLayerObservations provides a mock function with given fields:
-func (_m *mockPoolChainInfoProvider) AppLayerObservations() ChainInfo {
+// HighestUserObservations provides a mock function with given fields:
+func (_m *mockPoolChainInfoProvider) HighestUserObservations() ChainInfo {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for AppLayerObservations")
+		panic("no return value specified for HighestUserObservations")
 	}
 
 	var r0 ChainInfo

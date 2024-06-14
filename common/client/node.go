@@ -66,8 +66,8 @@ type Node[
 	State() nodeState
 	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 	StateAndLatest() (nodeState, ChainInfo)
-	// AppLayerObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
-	AppLayerObservations() ChainInfo
+	// HighestUserObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
+	HighestUserObservations() ChainInfo
 	SetPoolChainInfoProvider(PoolChainInfoProvider)
 	// Name is a unique identifier for this node.
 	Name() string

@@ -283,13 +283,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return nLiveNodes, ch
 }
 
-// AppLayerObservations - returns highest ChainInfo ever observed by any user of the MultiNode
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) AppLayerObservations() ChainInfo {
+// HighestUserObservations - returns highest ChainInfo ever observed by any user of the MultiNode
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) HighestUserObservations() ChainInfo {
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.nodes {
-		nodeChainInfo := n.AppLayerObservations()
+		nodeChainInfo := n.HighestUserObservations()
 		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
 		ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
