@@ -33,6 +33,18 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: true
+    settings:
+      printf:
+        # Additionally check chainlink custom loggers
+        funcs:
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracef
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Infof
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Warnf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Errorf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalf
   errorlint:
     # Allow formatting of errors without %w
     errorf: false

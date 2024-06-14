@@ -444,6 +444,11 @@ func TestConfig_Marshal(t *testing.T) {
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
+		ExternalRegistry: toml.ExternalRegistry{
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),

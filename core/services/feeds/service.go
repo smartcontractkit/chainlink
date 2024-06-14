@@ -276,7 +276,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	}
 
 	if err := s.restartConnection(ctx, mgr); err != nil {
-		s.lggr.Errorf("could not restart FMS connection: %w", err)
+		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
 	return nil
@@ -347,7 +347,7 @@ func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -371,7 +371,7 @@ func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -412,7 +412,7 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -1179,7 +1179,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
