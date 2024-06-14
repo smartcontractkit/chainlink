@@ -1,4 +1,4 @@
-package commit
+package execute
 
 import (
 	"context"
@@ -69,13 +69,14 @@ func Test_getPendingExecutedReports(t *testing.T) {
 				1: nil,
 			},
 			want: cciptypes.ExecutePluginCommitObservations{
-				1: []cciptypes.ExecutePluginCommitData{
-					{
+				1: []cciptypes.ExecutePluginCommitDataWithMessages{
+					{ExecutePluginCommitData: cciptypes.ExecutePluginCommitData{
+						SourceChain:         1,
 						SequenceNumberRange: cciptypes.NewSeqNumRange(1, 10),
 						ExecutedMessages:    nil,
 						Timestamp:           time.UnixMilli(10101010101),
 						BlockNum:            999,
-					},
+					}},
 				},
 			},
 			want1:   time.UnixMilli(10101010101),
@@ -104,13 +105,14 @@ func Test_getPendingExecutedReports(t *testing.T) {
 				},
 			},
 			want: cciptypes.ExecutePluginCommitObservations{
-				1: []cciptypes.ExecutePluginCommitData{
-					{
+				1: []cciptypes.ExecutePluginCommitDataWithMessages{
+					{ExecutePluginCommitData: cciptypes.ExecutePluginCommitData{
+						SourceChain:         1,
 						SequenceNumberRange: cciptypes.NewSeqNumRange(1, 10),
 						Timestamp:           time.UnixMilli(10101010101),
 						BlockNum:            999,
 						ExecutedMessages:    []cciptypes.SeqNum{1, 2, 3, 7, 8},
-					},
+					}},
 				},
 			},
 			want1:   time.UnixMilli(10101010101),

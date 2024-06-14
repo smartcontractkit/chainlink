@@ -1,4 +1,4 @@
-package commit
+package execute
 
 import (
 	"context"
@@ -46,7 +46,7 @@ func NewPluginFactory() *PluginFactory {
 func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig) (ocr3types.ReportingPlugin[[]byte], ocr3types.ReportingPluginInfo, error) {
 	return NewPlugin(
 		context.Background(),
-		config.OracleID,
+		config,
 		cciptypes.ExecutePluginConfig{},
 		nil,
 	), ocr3types.ReportingPluginInfo{}, nil

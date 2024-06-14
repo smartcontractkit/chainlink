@@ -1,4 +1,4 @@
-package commit
+package execute
 
 import (
 	"errors"
@@ -6,10 +6,13 @@ import (
 	"sort"
 
 	mapset "github.com/deckarep/golang-set/v2"
-
-	"github.com/smartcontractkit/libocr/commontypes"
+	"golang.org/x/crypto/sha3"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/ccipocr3/execute/internal/validation"
 )
 
 // validateObserverReadingEligibility checks if the observer is eligible to observe the messages it observed.
@@ -40,7 +43,7 @@ func validateObserverReadingEligibility(
 
 // validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
 // that they match the observed max sequence numbers.
-func validateObservedSequenceNumbers(observedData map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitData) error {
+func validateObservedSequenceNumbers(observedData map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitDataWithMessages) error {
 	for _, commitData := range observedData {
 		// observed commitData must not contain duplicates
 
@@ -77,7 +80,8 @@ var errOverlappingRanges = errors.New("overlapping sequence numbers in reports")
 
 // computeRanges takes a slice of reports and computes the smallest number of contiguous ranges
 // that cover all the sequence numbers in the reports.
-func computeRanges(reports []cciptypes.ExecutePluginCommitData) ([]cciptypes.SeqNumRange, error) {
+// Note: reports need all messages to create a proof even if some are already executed.
+func computeRanges(reports []cciptypes.ExecutePluginCommitDataWithMessages) ([]cciptypes.SeqNumRange, error) {
 	var ranges []cciptypes.SeqNumRange
 
 	if len(reports) == 0 {
@@ -108,16 +112,18 @@ func computeRanges(reports []cciptypes.ExecutePluginCommitData) ([]cciptypes.Seq
 }
 
 func groupByChainSelector(reports []cciptypes.CommitPluginReportWithMeta) cciptypes.ExecutePluginCommitObservations {
-	commitReportCache := make(map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitData)
+	commitReportCache := make(map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitDataWithMessages)
 	for _, report := range reports {
 		for _, singleReport := range report.Report.MerkleRoots {
-			commitReportCache[singleReport.ChainSel] = append(commitReportCache[singleReport.ChainSel], cciptypes.ExecutePluginCommitData{
-				Timestamp:           report.Timestamp,
-				BlockNum:            report.BlockNum,
-				MerkleRoot:          singleReport.MerkleRoot,
-				SequenceNumberRange: singleReport.SeqNumsRange,
-				ExecutedMessages:    nil,
-			})
+			commitReportCache[singleReport.ChainSel] = append(commitReportCache[singleReport.ChainSel], cciptypes.ExecutePluginCommitDataWithMessages{
+				ExecutePluginCommitData: cciptypes.ExecutePluginCommitData{
+					SourceChain:         singleReport.ChainSel,
+					Timestamp:           report.Timestamp,
+					BlockNum:            report.BlockNum,
+					MerkleRoot:          singleReport.MerkleRoot,
+					SequenceNumberRange: singleReport.SeqNumsRange,
+					ExecutedMessages:    nil,
+				}})
 		}
 	}
 	return commitReportCache
@@ -125,7 +131,7 @@ func groupByChainSelector(reports []cciptypes.CommitPluginReportWithMeta) ccipty
 
 // filterOutExecutedMessages returns a new reports slice with fully executed messages removed.
 // Unordered inputs are supported.
-func filterOutExecutedMessages(reports []cciptypes.ExecutePluginCommitData, executedMessages []cciptypes.SeqNumRange) ([]cciptypes.ExecutePluginCommitData, error) {
+func filterOutExecutedMessages(reports []cciptypes.ExecutePluginCommitDataWithMessages, executedMessages []cciptypes.SeqNumRange) ([]cciptypes.ExecutePluginCommitDataWithMessages, error) {
 	sort.Slice(reports, func(i, j int) bool {
 		return reports[i].SequenceNumberRange.Start() < reports[j].SequenceNumberRange.Start()
 	})
@@ -148,7 +154,7 @@ func filterOutExecutedMessages(reports []cciptypes.ExecutePluginCommitData, exec
 		previousMax = seqRange.End()
 	}
 
-	var filtered []cciptypes.ExecutePluginCommitData
+	var filtered []cciptypes.ExecutePluginCommitDataWithMessages
 
 	reportIdx := 0
 	for _, executed := range executedMessages {
@@ -194,4 +200,107 @@ func filterOutExecutedMessages(reports []cciptypes.ExecutePluginCommitData, exec
 	}
 
 	return filtered, nil
+}
+
+type decodedAttributedObservation struct {
+	Observation cciptypes.ExecutePluginObservation
+	Observer    commontypes.OracleID
+}
+
+func decodeAttributedObservations(aos []types.AttributedObservation) ([]decodedAttributedObservation, error) {
+	decoded := make([]decodedAttributedObservation, len(aos))
+	for i, ao := range aos {
+		observation, err := cciptypes.DecodeExecutePluginObservation(ao.Observation)
+		if err != nil {
+			return nil, err
+		}
+		decoded[i] = decodedAttributedObservation{
+			Observation: observation,
+			Observer:    ao.Observer,
+		}
+	}
+	return decoded, nil
+}
+
+func mergeMessageObservations(aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int) (cciptypes.ExecutePluginMessageObservations, error) {
+	// Create a validator for each chain
+	validators := make(map[cciptypes.ChainSelector]validation.MinObservationFilter[cciptypes.CCIPMsg])
+	idFunc := func(data cciptypes.CCIPMsg) [32]byte {
+		return sha3.Sum256([]byte(fmt.Sprintf("%v", data)))
+	}
+	for selector, f := range fChain {
+		validators[selector] = validation.NewMinObservationValidator[cciptypes.CCIPMsg](f+1, idFunc)
+	}
+
+	// Add messages to the validator for each chain selector.
+	for _, ao := range aos {
+		for selector, messages := range ao.Observation.Messages {
+			validator, ok := validators[selector]
+			if !ok {
+				return cciptypes.ExecutePluginMessageObservations{}, fmt.Errorf("no validator for chain %d", selector)
+			}
+			// Add reports
+			for _, msg := range messages {
+				if err := validator.Add(msg); err != nil {
+					return cciptypes.ExecutePluginMessageObservations{}, err
+				}
+			}
+		}
+	}
+
+	results := make(cciptypes.ExecutePluginMessageObservations)
+	for selector, validator := range validators {
+		msgs, err := validator.GetValid()
+		if err != nil {
+			return cciptypes.ExecutePluginMessageObservations{}, err
+		}
+		if _, ok := results[selector]; !ok {
+			results[selector] = make(map[cciptypes.SeqNum]cciptypes.CCIPMsg)
+		}
+		for _, msg := range msgs {
+			results[selector][msg.SeqNum] = msg
+		}
+	}
+
+	return results, nil
+}
+
+// mergeCommitObservations merges all observations which reach the fChain threshold into a single result.
+// Any observations, or subsets of observations, which do not reach the threshold are ignored.
+func mergeCommitObservations(aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int) (cciptypes.ExecutePluginCommitObservations, error) {
+	// Create a validator for each chain
+	validators := make(map[cciptypes.ChainSelector]validation.MinObservationFilter[cciptypes.ExecutePluginCommitDataWithMessages])
+	idFunc := func(data cciptypes.ExecutePluginCommitDataWithMessages) [32]byte {
+		return sha3.Sum256([]byte(fmt.Sprintf("%v", data)))
+	}
+	for selector, f := range fChain {
+		validators[selector] = validation.NewMinObservationValidator[cciptypes.ExecutePluginCommitDataWithMessages](f+1, idFunc)
+	}
+
+	// Add reports to the validator for each chain selector.
+	for _, ao := range aos {
+		for selector, commitReports := range ao.Observation.CommitReports {
+			validator, ok := validators[selector]
+			if !ok {
+				return cciptypes.ExecutePluginCommitObservations{}, fmt.Errorf("no validator for chain %d", selector)
+			}
+			// Add reports
+			for _, commitReport := range commitReports {
+				if err := validator.Add(commitReport); err != nil {
+					return cciptypes.ExecutePluginCommitObservations{}, err
+				}
+			}
+		}
+	}
+
+	results := make(cciptypes.ExecutePluginCommitObservations)
+	for selector, validator := range validators {
+		var err error
+		results[selector], err = validator.GetValid()
+		if err != nil {
+			return cciptypes.ExecutePluginCommitObservations{}, err
+		}
+	}
+
+	return results, nil
 }
