@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@2031e56eb4edb8115ce8ba07cbbfb457149d865d # v2.3.8
+        uses: smartcontractkit/chainlink-github-actions/release/release-tag-check@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         env:
           # Match semver git tags with a "contracts-" prefix.
           RELEASE_REGEX: '^contracts-v[0-9]+\.[0-9]+\.[0-9]+$'

@@ -153,7 +153,7 @@ jobs:
         continue-on-error: true
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
 
   test-notify:
     name: Start Slack Thread

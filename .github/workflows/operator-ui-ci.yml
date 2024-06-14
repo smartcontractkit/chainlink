@@ -38,7 +38,7 @@ jobs:
 
       - name: Get Github Token
         id: get-gh-token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@5874ff7211cf5a5a2670bb010fbff914eaaae138 # v2.3.12
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 

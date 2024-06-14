@@ -183,7 +183,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:
@@ -278,7 +278,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@5dd916d08c03cb5f9a97304f4f174820421bb946 # v2.3.11
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
         with:
           test_download_vendor_packages_command: |
             cd ./integration-tests
