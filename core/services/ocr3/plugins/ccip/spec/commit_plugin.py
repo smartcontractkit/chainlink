@@ -88,7 +88,7 @@ class CommitPlugin:
             msgs_by_seq_num = msgs.group_by_seq_num() # { 423: [0x1, 0x1, 0x2] }
                                                       # 2 nodes say that msg id is 0x1 and 1 node says it's 0x2
 
-            msg_ids = { seq_num: elem_most_occurrences(ids) for (seq_num, ids) in f_chain_votes.items() }
+            msg_ids = { seq_num: elem_most_occurrences(ids) for (seq_num, ids) in msgs_by_seq_num.items() }
             for (seq_num, id) in msg_ids.items(): # require at least 2f+1 observations of the voted id
                 assert(msgs_by_seq_num[seq_num].count(id) >= 2*f_chain[chain]+1)
 
