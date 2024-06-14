@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -110,6 +111,20 @@ type OptionalMigration struct {
 	Schema   string
 }
 
+func (o OptionalMigration) validate() error {
+	if o.Type != "relayer" {
+		return fmt.Errorf("unknown migration type: %s", o.Type)
+	}
+	if o.Template != "evm" {
+		return fmt.Errorf("unknown migration template: %s", o.Template)
+	}
+	return nil
+}
+
+func (o OptionalMigration) rootDir() string {
+	return fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, o.Template)
+}
+
 func Migrate(ctx context.Context, db *sql.DB, opts ...OptionalMigration) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
@@ -120,16 +135,39 @@ func Migrate(ctx context.Context, db *sql.DB, opts ...OptionalMigration) error {
 	if err != nil {
 		return fmt.Errorf("failed to do core database migration: %w", err)
 	}
+	// Reset to default OS filesystem so that goose can find the generated migrations
+	if len(opts) > 0 {
+		defer goose.SetBaseFS(embedMigrations)
+		goose.SetBaseFS(nil)
+		goose.ResetGlobalMigrations()
+	}
+	err = ensureMigrated(ctx, db)
+	if err != nil {
+		return fmt.Errorf("failed to ensure migration: %w", err)
+	}
+	c, err := Current(ctx, db)
+	if err != nil {
+		return fmt.Errorf("failed to get current migration version: %w", err)
+	}
+	fmt.Printf("Current migration version: %d\n", c)
+	tmpDir := os.TempDir()
+	defer os.RemoveAll(tmpDir)
 	for _, opt := range opts {
-		if opt.Type != "relayer" {
-			return fmt.Errorf("unknown migration type: %s", opt.Type)
+		if err := opt.validate(); err != nil {
+			return fmt.Errorf("invalid migration option: %w", err)
 		}
-		if opt.Template != "evm" {
-			return fmt.Errorf("unknown migration template: %s", opt.Template)
+		root := opt.rootDir()
+		d := filepath.Join(tmpDir, opt.Template, opt.Schema)
+		migrations, err := generateMigrations(root, d, RelayerDB{Schema: opt.Schema})
+		if err != nil {
+			return fmt.Errorf("failed to generate migrations for opt %v: %w", opt, err)
 		}
-		root := fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Template)
+		fmt.Printf("Generated migrations: %v\n", migrations)
 
-		err = goose.Up(db, fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Schema), goose.WithAllowMissing())
+		//root := fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Template)
+		// generate migrations from templates
+
+		err = goose.Up(db, d, goose.WithNoVersioning())
 		if err != nil {
 			return fmt.Errorf("failed to do %s database migration: %w", opt.Type, err)
 		}

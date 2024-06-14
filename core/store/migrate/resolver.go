@@ -1,4 +1,4 @@
-package template
+package migrate
 
 import (
 	"bytes"

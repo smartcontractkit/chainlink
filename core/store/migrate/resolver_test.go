@@ -1,4 +1,4 @@
-package template
+package migrate
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ DROP TABLE optimism.bcf_3266_01;`,
 		},
 	}
 	for _, tt := range tests {
-		testInput, err := os.ReadFile("./migration_0001.tmpl.sql")
+		testInput, err := os.ReadFile("./relayers/evm/template/0002_b.tmpl.sql")
 		require.NoError(t, err)
 		t.Run(tt.name, func(t *testing.T) {
 			out := &bytes.Buffer{}
@@ -89,9 +89,9 @@ func Test_generateMigrations(t *testing.T) {
 				},
 			},
 			want: []string{
-				filepath.Join(tDir, "evm/migration_0000.sql"),
-				filepath.Join(tDir, "evm/migration_0001.sql"),
-				filepath.Join(tDir, "evm/migration_0002.sql")},
+				filepath.Join(tDir, "evm/0001_a.sql"),
+				filepath.Join(tDir, "evm/0002_b.sql"),
+				filepath.Join(tDir, "evm/0003_c.sql")},
 		},
 	}
 	for _, tt := range tests {
