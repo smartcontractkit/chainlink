@@ -302,13 +302,14 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		c.Source.User,  // user
 		c.Source.Chain, // client
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
-			LinkToken:         c.Source.LinkToken.Address(),
-			ChainSelector:     c.Source.ChainSelector,
-			DestChainSelector: c.Dest.ChainSelector,
-			DefaultTxGasLimit: 200_000,
-			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
-			PrevOnRamp:        prevOnRamp,
-			RmnProxy:          c.Source.ARM.Address(), // RMN, formerly ARM
+			LinkToken:          c.Source.LinkToken.Address(),
+			ChainSelector:      c.Source.ChainSelector,
+			DestChainSelector:  c.Dest.ChainSelector,
+			DefaultTxGasLimit:  200_000,
+			MaxNopFeesJuels:    big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
+			PrevOnRamp:         prevOnRamp,
+			RmnProxy:           c.Source.ARM.Address(), // RMN, formerly ARM
+			TokenAdminRegistry: c.Source.TokenAdminRegistry.Address(),
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			Router:                            c.Source.Router.Address(),
@@ -321,7 +322,6 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			PriceRegistry:                     c.Source.PriceRegistry.Address(),
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
-			TokenAdminRegistry:                c.Source.TokenAdminRegistry.Address(),
 			DefaultTokenFeeUSDCents:           50,
 			DefaultTokenDestGasOverhead:       34_000,
 			DefaultTokenDestBytesOverhead:     500,
@@ -1028,13 +1028,14 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		sourceUser,  // user
 		sourceChain, // client
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
-			LinkToken:         sourceLinkTokenAddress,
-			ChainSelector:     sourceChainSelector,
-			DestChainSelector: destChainSelector,
-			DefaultTxGasLimit: 200_000,
-			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
-			PrevOnRamp:        common.HexToAddress(""),
-			RmnProxy:          armProxySourceAddress, // RMN, formerly ARM
+			LinkToken:          sourceLinkTokenAddress,
+			ChainSelector:      sourceChainSelector,
+			DestChainSelector:  destChainSelector,
+			DefaultTxGasLimit:  200_000,
+			MaxNopFeesJuels:    big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
+			PrevOnRamp:         common.HexToAddress(""),
+			RmnProxy:           armProxySourceAddress, // RMN, formerly ARM
+			TokenAdminRegistry: sourceTokenAdminRegistry.Address(),
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			Router:                            sourceRouterAddress,
@@ -1047,7 +1048,6 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			PriceRegistry:                     sourcePricesAddress,
 			MaxDataBytes:                      1e5,
 			MaxPerMsgGasLimit:                 4_000_000,
-			TokenAdminRegistry:                sourceTokenAdminRegistry.Address(),
 			DefaultTokenFeeUSDCents:           50,
 			DefaultTokenDestGasOverhead:       34_000,
 			DefaultTokenDestBytesOverhead:     500,
