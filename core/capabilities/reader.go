@@ -43,23 +43,22 @@ func (r *remoteRegistryReader) LocalNode(ctx context.Context) (capabilities.Node
 		return capabilities.Node{}, fmt.Errorf("failed to get state from registry to determine don ownership: %w", err)
 	}
 
-	workflowDONs := []capabilities.DON{}
+	var workflowDON capabilities.DON
 	capabilityDONs := []capabilities.DON{}
 	for _, d := range readerState.IDsToDONs {
 		for _, p := range d.NodeP2PIds {
 			if p == pid {
 				if d.AcceptsWorkflows {
-					workflowDONs = append(workflowDONs, *toDONInfo(d))
+					if workflowDON.ID == "" {
+						workflowDON = *toDONInfo(d)
+					} else {
+						r.lggr.Errorf("Configuration error: node %s belongs to more than one workflowDON", pid)
+					}
 				}
 
 				capabilityDONs = append(capabilityDONs, *toDONInfo(d))
 			}
 		}
-	}
-
-	var workflowDON capabilities.DON
-	if len(workflowDONs) > 0 {
-		workflowDON = workflowDONs[0]
 	}
 
 	return capabilities.Node{
