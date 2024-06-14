@@ -177,7 +177,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    name: ccip-load-with-chaos-tests
+    name: CCIP Load With Chaos Tests
+    if: false # Disabled until CCIP-2555 is resolved
     runs-on: ubuntu-latest
     needs: [ build-chainlink, build-test-image ]
     env:
