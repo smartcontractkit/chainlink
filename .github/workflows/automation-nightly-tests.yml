@@ -30,7 +30,7 @@ jobs:
           this-job-name: Build Chainlink Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Chainlink Image
@@ -84,7 +84,7 @@ jobs:
     name: Automation ${{ matrix.tests.name }} Test
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Setup GAP for Grafana

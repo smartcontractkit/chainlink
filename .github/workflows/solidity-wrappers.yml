@@ -23,7 +23,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - name: Detect changes
         id: ch
         uses: ./.github/actions/detect-solidity-file-changes
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
