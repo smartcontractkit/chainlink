@@ -93,7 +93,7 @@ func NewDelegate(logger logger.Logger, registry core.CapabilitiesRegistry, store
 	return &Delegate{logger: logger, registry: registry, store: store, peerID: peerID}
 }
 
-func ValidatedWorkflowSpec(tomlString string) (job.Job, error) {
+func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{ExternalJobID: uuid.New()}
 
 	tree, err := toml.Load(tomlString)
