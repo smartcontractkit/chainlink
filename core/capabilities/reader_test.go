@@ -18,7 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -82,13 +84,16 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *backends.Simulated
 		testutils.SimulatedChainID,
 	)
 	db := pgtest.NewSqlxDB(t)
+	const finalityDepth = 2
+	ht := headtracker.NewSimulatedHeadTracker(client, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
 		client,
 		lggr,
+		ht,
 		logpoller.Opts{
 			PollPeriod:               100 * time.Millisecond,
-			FinalityDepth:            2,
+			FinalityDepth:            finalityDepth,
 			BackfillBatchSize:        3,
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,

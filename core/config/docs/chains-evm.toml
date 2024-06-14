@@ -391,7 +391,6 @@ EnforceRepeatableRead = false # Default
 # trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
 # RPC will not be picked to handle a request even if this option is set to a nonzero value.
 DeathDeclarationDelay = '10s' # Default
-
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
