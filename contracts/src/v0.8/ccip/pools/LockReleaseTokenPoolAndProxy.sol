@@ -24,9 +24,6 @@ contract LockReleaseTokenPoolAndProxy is LegacyPoolWrapper, ILiquidityContainer,
 
   string public constant override typeAndVersion = "LockReleaseTokenPoolAndProxy 1.5.0-dev";
 
-  /// @dev The unique lock release pool flag to signal through EIP 165.
-  bytes4 private constant LOCK_RELEASE_INTERFACE_ID = bytes4(keccak256("LockReleaseTokenPool"));
-
   /// @dev Whether or not the pool accepts liquidity.
   /// External liquidity is not required when there is one canonical token deployed to a chain,
   /// and CCIP is facilitating mint/burn on all the other chains, in which case the invariant
@@ -91,15 +88,9 @@ contract LockReleaseTokenPoolAndProxy is LegacyPoolWrapper, ILiquidityContainer,
     return Pool.ReleaseOrMintOutV1({destinationAmount: releaseOrMintIn.amount});
   }
 
-  /// @notice returns the lock release interface flag used for EIP165 identification.
-  function getLockReleaseInterfaceId() public pure returns (bytes4) {
-    return LOCK_RELEASE_INTERFACE_ID;
-  }
-
   // @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
-    return interfaceId == LOCK_RELEASE_INTERFACE_ID || interfaceId == type(ILiquidityContainer).interfaceId
-      || super.supportsInterface(interfaceId);
+    return interfaceId == type(ILiquidityContainer).interfaceId || super.supportsInterface(interfaceId);
   }
 
   /// @notice Gets LiquidityManager, can be address(0) if none is configured.

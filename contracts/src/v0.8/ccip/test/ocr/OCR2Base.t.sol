@@ -229,7 +229,9 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     address[] memory transmitters = new address[](10);
     transmitters[0] = signers[0];
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, "repeated transmitter address"));
+    vm.expectRevert(
+      abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, OCR2Base.InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS)
+    );
     s_OCR2Base.setOCR2Config(signers, transmitters, 2, abi.encode(""), 100, abi.encode(""));
   }
 
@@ -267,7 +269,11 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     address[] memory signers = new address[](10);
     address[] memory transmitters = new address[](0);
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, "oracle addresses out of registration"));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        OCR2Base.InvalidConfig.selector, OCR2Base.InvalidConfigErrorType.NUM_SIGNERS_NOT_NUM_TRANSMITTERS
+      )
+    );
     s_OCR2Base.setOCR2Config(signers, transmitters, 2, abi.encode(""), 100, abi.encode(""));
   }
 
@@ -275,21 +281,25 @@ contract OCR2Base_setOCR2Config is OCR2BaseSetup {
     address[] memory signers = new address[](0);
     uint8 f = 1;
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, "faulty-oracle f too high"));
+    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, OCR2Base.InvalidConfigErrorType.F_TOO_HIGH));
     s_OCR2Base.setOCR2Config(signers, new address[](0), f, abi.encode(""), 100, abi.encode(""));
   }
 
   function test_FMustBePositive_Revert() public {
     uint8 f = 0;
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, "f must be positive"));
+    vm.expectRevert(
+      abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, OCR2Base.InvalidConfigErrorType.F_MUST_BE_POSITIVE)
+    );
     s_OCR2Base.setOCR2Config(new address[](0), new address[](0), f, abi.encode(""), 100, abi.encode(""));
   }
 
   function test_TooManySigners_Revert() public {
     address[] memory signers = new address[](32);
 
-    vm.expectRevert(abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, "too many signers"));
+    vm.expectRevert(
+      abi.encodeWithSelector(OCR2Base.InvalidConfig.selector, OCR2Base.InvalidConfigErrorType.TOO_MANY_SIGNERS)
+    );
     s_OCR2Base.setOCR2Config(signers, new address[](0), 0, abi.encode(""), 100, abi.encode(""));
   }
 }

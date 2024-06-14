@@ -12,6 +12,7 @@ import {TokenPool} from "./TokenPool.sol";
 /// It either accepts any address as originalSender, or only accepts whitelisted originalSender.
 /// The only way to change whitelisting mode is to deploy a new pool.
 /// If that is expected, please make sure the token's burner/minter roles are adjustable.
+/// @dev This contract is a variant of BurnMintTokenPool that uses `burn(amount)`.
 contract BurnMintTokenPool is BurnMintTokenPoolAbstract, ITypeAndVersion {
   string public constant override typeAndVersion = "BurnMintTokenPool 1.5.0-dev";
 

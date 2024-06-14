@@ -389,7 +389,6 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
 
 contract LockReleaseTokenPool_supportsInterface is LockReleaseTokenPoolSetup {
   function test_SupportsInterface_Success() public view {
-    assertTrue(s_lockReleaseTokenPool.supportsInterface(s_lockReleaseTokenPool.getLockReleaseInterfaceId()));
     assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IPool).interfaceId));
     assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IERC165).interfaceId));
   }

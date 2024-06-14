@@ -13,7 +13,7 @@ contract SelfFundedPingPongDappSetup is EVM2EVMOnRampSetup {
   IERC20 internal s_feeToken;
   uint8 internal constant s_roundTripsBeforeFunding = 0;
 
-  address internal immutable i_pongContract = address(10);
+  address internal immutable i_pongContract = makeAddr("ping_pong_counterpart");
 
   function setUp() public virtual override {
     EVM2EVMOnRampSetup.setUp();
@@ -37,7 +37,7 @@ contract SelfFundedPingPongDappSetup is EVM2EVMOnRampSetup {
 contract SelfFundedPingPong_ccipReceive is SelfFundedPingPongDappSetup {
   function test_Funding_Success() public {
     Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
-      messageId: bytes32("a"),
+      messageId: keccak256("msg id"),
       sourceChainSelector: DEST_CHAIN_SELECTOR,
       sender: abi.encode(i_pongContract),
       data: "",

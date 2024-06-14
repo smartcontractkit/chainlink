@@ -167,11 +167,17 @@ library Internal {
     return _validateEVMAddressFromUint256(abi.decode(encodedAddress, (uint256)));
   }
 
+  /// @dev We disallow the first 1024 addresses to never allow calling precompiles. It is extremely unlikely that
+  /// anyone would ever be able to generate an address in this range.
+  uint256 public constant PRECOMPILE_SPACE = 1024;
+
   /// @notice This method provides a safe way to convert a uint256 to an address.
   /// It will revert if the uint256 is not a valid EVM address, or a precompile address.
   /// @return The address if it is valid, the function will revert otherwise.
   function _validateEVMAddressFromUint256(uint256 encodedAddress) internal pure returns (address) {
-    if (encodedAddress > type(uint160).max || encodedAddress < 10) revert InvalidEVMAddress(abi.encode(encodedAddress));
+    if (encodedAddress > type(uint160).max || encodedAddress < PRECOMPILE_SPACE) {
+      revert InvalidEVMAddress(abi.encode(encodedAddress));
+    }
     return address(uint160(encodedAddress));
   }
 

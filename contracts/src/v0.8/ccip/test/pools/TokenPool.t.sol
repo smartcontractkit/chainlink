@@ -312,21 +312,21 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     // Outbound
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 
     chainUpdates[0].outboundRateLimiterConfig.rate = 100;
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 
     chainUpdates[0].outboundRateLimiterConfig.capacity = 100;
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].outboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 
@@ -343,21 +343,21 @@ contract TokenPool_applyChainUpdates is TokenPoolSetup {
     chainUpdates[0].inboundRateLimiterConfig.rate = 0;
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 
     chainUpdates[0].inboundRateLimiterConfig.rate = 100;
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 
     chainUpdates[0].inboundRateLimiterConfig.capacity = 100;
 
     vm.expectRevert(
-      abi.encodeWithSelector(RateLimiter.InvalidRatelimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
+      abi.encodeWithSelector(RateLimiter.InvalidRateLimitRate.selector, chainUpdates[0].inboundRateLimiterConfig)
     );
     s_tokenPool.applyChainUpdates(chainUpdates);
 

@@ -519,7 +519,6 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
 contract USDCTokenPool_supportsInterface is USDCTokenPoolSetup {
   function test_SupportsInterface_Success() public view {
-    assertTrue(s_usdcTokenPool.supportsInterface(s_usdcTokenPool.getUSDCInterfaceId()));
     assertTrue(s_usdcTokenPool.supportsInterface(type(IPool).interfaceId));
     assertTrue(s_usdcTokenPool.supportsInterface(type(IERC165).interfaceId));
   }

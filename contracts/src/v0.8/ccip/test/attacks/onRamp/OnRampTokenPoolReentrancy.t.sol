@@ -18,6 +18,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
   ReentrantMaliciousTokenPool internal s_maliciousTokenPool;
   IERC20 internal s_sourceToken;
   IERC20 internal s_feeToken;
+  address internal immutable i_receiver = makeAddr("receiver");
 
   function setUp() public virtual override {
     EVM2EVMOnRampSetup.setUp();
@@ -25,7 +26,8 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     s_sourceToken = IERC20(s_sourceTokens[0]);
     s_feeToken = IERC20(s_sourceTokens[0]);
 
-    s_facadeClient = new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken);
+    s_facadeClient =
+      new FacadeClient(address(s_sourceRouter), DEST_CHAIN_SELECTOR, s_sourceToken, s_feeToken, i_receiver);
 
     s_maliciousTokenPool = new ReentrantMaliciousTokenPool(
       address(s_facadeClient), s_sourceToken, address(s_mockRMN), address(s_sourceRouter)
@@ -64,7 +66,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
   /// In this case, Facade's second call would produce an EVM2EVM msg with a lower sequence number.
   /// The issue was fixed by moving state updates and event construction to before TokenPool calls.
   /// This test is kept to verify message sequence expectations are not broken.
-  function test_Success() public {
+  function test_OnRampTokenPoolReentrancy_Success() public {
     uint256 amount = 1;
 
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
@@ -72,7 +74,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     tokenAmounts[0].amount = amount;
 
     Client.EVM2AnyMessage memory message1 = Client.EVM2AnyMessage({
-      receiver: abi.encode(address(100)),
+      receiver: abi.encode(i_receiver),
       data: abi.encodePacked(uint256(1)), // message 1 contains data 1
       tokenAmounts: tokenAmounts,
       extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),
@@ -80,7 +82,7 @@ contract OnRampTokenPoolReentrancy is EVM2EVMOnRampSetup {
     });
 
     Client.EVM2AnyMessage memory message2 = Client.EVM2AnyMessage({
-      receiver: abi.encode(address(100)),
+      receiver: abi.encode(i_receiver),
       data: abi.encodePacked(uint256(2)), // message 2 contains data 2
       tokenAmounts: tokenAmounts,
       extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: 200_000})),

@@ -1015,13 +1015,14 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 				auth,
 				wrappers.MustNewWrappedContractBackend(e.evmClient, nil),
 				evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
-					LinkToken:         linkTokenAddress,
-					ChainSelector:     sourceChainSelector, // source chain id
-					DestChainSelector: destChainSelector,   // destinationChainSelector
-					DefaultTxGasLimit: 200_000,
-					MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
-					PrevOnRamp:        common.HexToAddress(""),
-					RmnProxy:          rmn,
+					LinkToken:          linkTokenAddress,
+					ChainSelector:      sourceChainSelector, // source chain id
+					DestChainSelector:  destChainSelector,   // destinationChainSelector
+					DefaultTxGasLimit:  200_000,
+					MaxNopFeesJuels:    big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
+					PrevOnRamp:         common.HexToAddress(""),
+					RmnProxy:           rmn,
+					TokenAdminRegistry: tokenAdminRegistry,
 				},
 				evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 					Router:                            router,
@@ -1034,7 +1035,6 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 					PriceRegistry:                     priceRegistry,
 					MaxDataBytes:                      50000,
 					MaxPerMsgGasLimit:                 4_000_000,
-					TokenAdminRegistry:                tokenAdminRegistry,
 					DefaultTokenFeeUSDCents:           50,
 					DefaultTokenDestGasOverhead:       34_000,
 					DefaultTokenDestBytesOverhead:     500,

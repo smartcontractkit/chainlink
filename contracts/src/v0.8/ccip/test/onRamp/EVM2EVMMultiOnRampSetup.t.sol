@@ -232,14 +232,9 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
 
   function _generateDynamicMultiOnRampConfig(
     address router,
-    address priceRegistry,
-    address tokenAdminRegistry
+    address priceRegistry
   ) internal pure returns (EVM2EVMMultiOnRamp.DynamicConfig memory) {
-    return EVM2EVMMultiOnRamp.DynamicConfig({
-      router: router,
-      priceRegistry: priceRegistry,
-      tokenAdminRegistry: tokenAdminRegistry
-    });
+    return EVM2EVMMultiOnRamp.DynamicConfig({router: router, priceRegistry: priceRegistry});
   }
 
   function _generateDestChainConfigArgs() internal pure returns (EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory) {
@@ -299,9 +294,10 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
         linkToken: s_sourceTokens[0],
         chainSelector: sourceChainSelector,
         maxNopFeesJuels: MAX_NOP_FEES_JUELS,
-        rmnProxy: address(s_mockRMN)
+        rmnProxy: address(s_mockRMN),
+        tokenAdminRegistry: tokenAdminRegistry
       }),
-      _generateDynamicMultiOnRampConfig(sourceRouter, address(s_priceRegistry), tokenAdminRegistry),
+      _generateDynamicMultiOnRampConfig(sourceRouter, address(s_priceRegistry)),
       _generateDestChainConfigArgs(),
       getOutboundRateLimiterConfig(),
       s_premiumMultiplierWeiPerEthArgs,
@@ -346,6 +342,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     assertEq(a.chainSelector, b.chainSelector);
     assertEq(a.maxNopFeesJuels, b.maxNopFeesJuels);
     assertEq(a.rmnProxy, b.rmnProxy);
+    assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 
   function _assertDynamicConfigsEqual(
@@ -354,7 +351,6 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
   ) internal pure {
     assertEq(a.router, b.router);
     assertEq(a.priceRegistry, b.priceRegistry);
-    assertEq(a.tokenAdminRegistry, b.tokenAdminRegistry);
   }
 
   function _assertTokenTransferFeeConfigEqual(

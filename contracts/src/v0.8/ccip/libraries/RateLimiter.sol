@@ -15,7 +15,7 @@ library RateLimiter {
   error TokenRateLimitReached(uint256 minWaitInSeconds, uint256 available, address tokenAddress);
   error AggregateValueMaxCapacityExceeded(uint256 capacity, uint256 requested);
   error AggregateValueRateLimitReached(uint256 minWaitInSeconds, uint256 available);
-  error InvalidRatelimitRate(Config rateLimiterConfig);
+  error InvalidRateLimitRate(Config rateLimiterConfig);
   error DisabledNonZeroRateLimit(Config config);
   error RateLimitMustBeDisabled();
 
@@ -120,7 +120,7 @@ library RateLimiter {
   function _validateTokenBucketConfig(Config memory config, bool mustBeDisabled) internal pure {
     if (config.isEnabled) {
       if (config.rate >= config.capacity || config.rate == 0) {
-        revert InvalidRatelimitRate(config);
+        revert InvalidRateLimitRate(config);
       }
       if (mustBeDisabled) {
         revert RateLimitMustBeDisabled();

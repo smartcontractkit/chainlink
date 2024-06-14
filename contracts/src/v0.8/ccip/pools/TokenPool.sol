@@ -55,7 +55,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
 
   struct ChainUpdate {
     uint64 remoteChainSelector; // ──╮ Remote chain selector
-    bool allowed; // ────────────────╯ Whether the chain is allowed
+    bool allowed; // ────────────────╯ Whether the chain should be enabled
     bytes remotePoolAddress; //        Address of the remote pool, ABI encoded in the case of a remove EVM chain.
     bytes remoteTokenAddress; //       Address of the remote token, ABI encoded in the case of a remote EVM chain.
     RateLimiter.Config outboundRateLimiterConfig; // Outbound rate limited config, meaning the rate limits for all of the onRamps for the given chain
@@ -84,7 +84,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   IRouter internal s_router;
   /// @dev A set of allowed chain selectors. We want the allowlist to be enumerable to
   /// be able to quickly determine (without parsing logs) who can access the pool.
-  /// @dev The chain selectors are in uin256 format because of the EnumerableSet implementation.
+  /// @dev The chain selectors are in uint256 format because of the EnumerableSet implementation.
   EnumerableSet.UintSet internal s_remoteChainSelectors;
   mapping(uint64 remoteChainSelector => RemoteChainConfig) internal s_remoteChainConfigs;
 
@@ -393,7 +393,6 @@ abstract contract TokenPool is IPool, OwnerIsCreator {
   /// @notice Apply updates to the allow list.
   /// @param removes The addresses to be removed.
   /// @param adds The addresses to be added.
-  /// @dev allowListing will be removed before public launch
   function applyAllowListUpdates(address[] calldata removes, address[] calldata adds) external onlyOwner {
     _applyAllowListUpdates(removes, adds);
   }

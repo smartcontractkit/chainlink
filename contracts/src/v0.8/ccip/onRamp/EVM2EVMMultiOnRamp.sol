@@ -47,7 +47,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   error MustBeCalledByRouter();
   error RouterMustSetOriginalSender();
   error InvalidConfig();
-  error InvalidAddress(bytes encodedAddress);
   error CursedByRMN(uint64 sourceChainSelector);
   error LinkBalanceNotSettled();
   error InvalidNopAddress(address nop);
@@ -81,6 +80,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     uint64 chainSelector; // ─────╯ Source chainSelector
     uint96 maxNopFeesJuels; // ───╮ Max nop fee balance onramp can have
     address rmnProxy; // ─────────╯ Address of RMN proxy
+    address tokenAdminRegistry; // Token admin registry address
   }
 
   /// @dev Struct to contains the dynamic configuration
@@ -88,7 +88,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   struct DynamicConfig {
     address router; // Router address
     address priceRegistry; // Price registry address
-    address tokenAdminRegistry; // Token admin registry address
   }
 
   /// @dev Struct to hold the fee token configuration for a token, same as the s_premiumMultiplierWeiPerEth but with
@@ -192,6 +191,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the rmn proxy
   address internal immutable i_rmnProxy;
+  /// @dev The address of the token admin registry
+  address internal immutable i_tokenAdminRegistry;
   /// @dev the maximum number of nops that can be configured at the same time.
   /// Used to bound gas for loops over nops.
   uint256 private constant MAX_NUMBER_OF_NOPS = 64;
@@ -230,8 +231,10 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
     NopAndWeight[] memory nopsAndWeights
   ) AggregateRateLimiter(rateLimiterConfig) {
-    if (staticConfig.linkToken == address(0) || staticConfig.chainSelector == 0 || staticConfig.rmnProxy == address(0))
-    {
+    if (
+      staticConfig.linkToken == address(0) || staticConfig.chainSelector == 0 || staticConfig.rmnProxy == address(0)
+        || staticConfig.tokenAdminRegistry == address(0)
+    ) {
       revert InvalidConfig();
     }
 
@@ -239,6 +242,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
     i_chainSelector = staticConfig.chainSelector;
     i_maxNopFeesJuels = staticConfig.maxNopFeesJuels;
     i_rmnProxy = staticConfig.rmnProxy;
+    i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
 
     _setDynamicConfig(dynamicConfig);
     _applyDestChainConfigUpdates(destChainConfigArgs);
@@ -455,7 +459,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
       linkToken: i_linkToken,
       chainSelector: i_chainSelector,
       maxNopFeesJuels: i_maxNopFeesJuels,
-      rmnProxy: i_rmnProxy
+      rmnProxy: i_rmnProxy,
+      tokenAdminRegistry: i_tokenAdminRegistry
     });
   }
 
@@ -483,7 +488,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
         linkToken: i_linkToken,
         chainSelector: i_chainSelector,
         maxNopFeesJuels: i_maxNopFeesJuels,
-        rmnProxy: i_rmnProxy
+        rmnProxy: i_rmnProxy,
+        tokenAdminRegistry: i_tokenAdminRegistry
       }),
       dynamicConfig
     );
@@ -495,7 +501,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, ILinkAvailable, AggregateRat
 
   /// @inheritdoc IEVM2AnyOnRampClient
   function getPoolBySourceToken(uint64, /*destChainSelector*/ IERC20 sourceToken) public view returns (IPool) {
-    return IPool(ITokenAdminRegistry(s_dynamicConfig.tokenAdminRegistry).getPool(address(sourceToken)));
+    return IPool(ITokenAdminRegistry(i_tokenAdminRegistry).getPool(address(sourceToken)));
   }
 
   /// @inheritdoc IEVM2AnyOnRampClient

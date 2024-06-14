@@ -10,7 +10,6 @@ import {TokenPool} from "../TokenPool.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
 /// @notice This pool mints and burns USDC tokens through the Cross Chain Transfer
 /// Protocol (CCTP).
@@ -61,9 +60,6 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   IMessageTransmitter public immutable i_messageTransmitter;
   uint32 public immutable i_localDomainIdentifier;
 
-  // The unique USDC pool flag to signal through EIP 165 that this is a USDC token pool.
-  bytes4 private constant USDC_INTERFACE_ID = bytes4(keccak256("USDC"));
-
   /// A domain is a USDC representation of a destination chain.
   /// @dev Zero is a valid domain identifier.
   /// @dev The address to mint on the destination chain is the corresponding USDC pool.
@@ -95,16 +91,6 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     i_localDomainIdentifier = transmitter.localDomain();
     i_token.safeIncreaseAllowance(address(i_tokenMessenger), type(uint256).max);
     emit ConfigSet(address(tokenMessenger));
-  }
-
-  /// @notice returns the USDC interface flag used for EIP165 identification.
-  function getUSDCInterfaceId() public pure returns (bytes4) {
-    return USDC_INTERFACE_ID;
-  }
-
-  /// @inheritdoc IERC165
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return interfaceId == USDC_INTERFACE_ID || super.supportsInterface(interfaceId);
   }
 
   /// @notice Burn the token in the pool

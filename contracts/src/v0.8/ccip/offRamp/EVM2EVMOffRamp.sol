@@ -626,7 +626,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // wrap and rethrow the error so we can catch it lower in the stack
     if (!success) revert TokenHandlingError(returnData);
 
-    // If the call was successful, the returnData should be the local token address.
+    // If the call was successful, the returnData should contain only the local token amount.
     if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
       revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
     }

@@ -14,10 +14,10 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
   string public constant override typeAndVersion = "RegistryModuleOwnerCustom 1.5.0-dev";
 
   // The TokenAdminRegistry contract
-  ITokenAdminRegistry internal s_tokenAdminRegistry;
+  ITokenAdminRegistry internal immutable i_tokenAdminRegistry;
 
   constructor(address tokenAdminRegistry) {
-    s_tokenAdminRegistry = ITokenAdminRegistry(tokenAdminRegistry);
+    i_tokenAdminRegistry = ITokenAdminRegistry(tokenAdminRegistry);
   }
 
   /// @notice Registers the admin of the token using the `getCCIPAdmin` method.
@@ -43,7 +43,7 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
       revert CanOnlySelfRegister(admin, token);
     }
 
-    s_tokenAdminRegistry.registerAdministrator(token, admin);
+    i_tokenAdminRegistry.registerAdministrator(token, admin);
 
     emit AdministratorRegistered(token, admin);
   }

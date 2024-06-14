@@ -11,7 +11,7 @@ import {ERC165Checker} from
   "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/ERC165Checker.sol";
 
 contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
-  function test_Examples() public {
+  function test_ImmutableExamples_Success() public {
     CCIPClientExample exampleContract = new CCIPClientExample(s_sourceRouter, IERC20(s_sourceFeeToken));
     deal(address(exampleContract), 100 ether);
     deal(s_sourceFeeToken, address(exampleContract), 100 ether);
@@ -25,7 +25,7 @@ contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
     exampleContract.enableChain(DEST_CHAIN_SELECTOR, encodedExtraArgs);
     assertEq(exampleContract.s_chains(DEST_CHAIN_SELECTOR), encodedExtraArgs);
 
-    address toAddress = address(100);
+    address toAddress = makeAddr("toAddress");
 
     // Can send data pay native
     exampleContract.sendDataPayNative(DEST_CHAIN_SELECTOR, abi.encode(toAddress), bytes("hello"));

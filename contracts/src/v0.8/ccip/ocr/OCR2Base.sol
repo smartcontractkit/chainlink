@@ -8,7 +8,7 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
 /// @dev For details on its operation, see the offchain reporting protocol design
 /// doc, which refers to this contract as simply the "contract".
 abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
-  error InvalidConfig(string message);
+  error InvalidConfig(InvalidConfigErrorType errorType);
   error WrongMessageLength(uint256 expected, uint256 actual);
   error ConfigDigestMismatch(bytes32 expected, bytes32 actual);
   error ForkedChain(uint256 expected, uint256 actual);
@@ -18,6 +18,14 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
   error UnauthorizedSigner();
   error NonUniqueSignatures();
   error OracleCannotBeZeroAddress();
+
+  enum InvalidConfigErrorType {
+    F_MUST_BE_POSITIVE,
+    TOO_MANY_SIGNERS,
+    F_TOO_HIGH,
+    REPEATED_ORACLE_ADDRESS,
+    NUM_SIGNERS_NOT_NUM_TRANSMITTERS
+  }
 
   // Packing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a minimum number of SLOADs.
@@ -88,10 +96,10 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
 
   // Reverts transaction if config args are invalid
   modifier checkConfigValid(uint256 numSigners, uint256 numTransmitters, uint256 f) {
-    if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
-    if (f == 0) revert InvalidConfig("f must be positive");
-    if (numSigners != numTransmitters) revert InvalidConfig("oracle addresses out of registration");
-    if (numSigners <= 3 * f) revert InvalidConfig("faulty-oracle f too high");
+    if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig(InvalidConfigErrorType.TOO_MANY_SIGNERS);
+    if (f == 0) revert InvalidConfig(InvalidConfigErrorType.F_MUST_BE_POSITIVE);
+    if (numSigners != numTransmitters) revert InvalidConfig(InvalidConfigErrorType.NUM_SIGNERS_NOT_NUM_TRANSMITTERS);
+    if (numSigners <= 3 * f) revert InvalidConfig(InvalidConfigErrorType.F_TOO_HIGH);
     _;
   }
 
@@ -121,12 +129,14 @@ abstract contract OCR2Base is OwnerIsCreator, OCR2Abstract {
     for (uint256 i = 0; i < newSignersLength; ++i) {
       // add new signer/transmitter addresses
       address signer = signers[i];
-      if (s_oracles[signer].role != Role.Unset) revert InvalidConfig("repeated signer address");
+      if (s_oracles[signer].role != Role.Unset) revert InvalidConfig(InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS);
       if (signer == address(0)) revert OracleCannotBeZeroAddress();
       s_oracles[signer] = Oracle(uint8(i), Role.Signer);
 
       address transmitter = transmitters[i];
-      if (s_oracles[transmitter].role != Role.Unset) revert InvalidConfig("repeated transmitter address");
+      if (s_oracles[transmitter].role != Role.Unset) {
+        revert InvalidConfig(InvalidConfigErrorType.REPEATED_ORACLE_ADDRESS);
+      }
       if (transmitter == address(0)) revert OracleCannotBeZeroAddress();
       s_oracles[transmitter] = Oracle(uint8(i), Role.Transmitter);
     }

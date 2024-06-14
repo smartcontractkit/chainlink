@@ -104,9 +104,10 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
         defaultTxGasLimit: GAS_LIMIT,
         maxNopFeesJuels: MAX_NOP_FEES_JUELS,
         prevOnRamp: address(0),
-        rmnProxy: address(s_mockRMN)
+        rmnProxy: address(s_mockRMN),
+        tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
-      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry), address(s_tokenAdminRegistry)),
+      generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
       getOutboundRateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
@@ -144,8 +145,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
 
   function generateDynamicOnRampConfig(
     address router,
-    address priceRegistry,
-    address tokenAdminRegistry
+    address priceRegistry
   ) internal pure returns (EVM2EVMOnRamp.DynamicConfig memory) {
     return EVM2EVMOnRamp.DynamicConfig({
       router: router,
@@ -158,7 +158,6 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       priceRegistry: priceRegistry,
       maxDataBytes: MAX_DATA_SIZE,
       maxPerMsgGasLimit: MAX_GAS_LIMIT,
-      tokenAdminRegistry: tokenAdminRegistry,
       defaultTokenFeeUSDCents: DEFAULT_TOKEN_FEE_USD_CENTS,
       defaultTokenDestGasOverhead: DEFAULT_TOKEN_DEST_GAS_OVERHEAD,
       defaultTokenDestBytesOverhead: DEFAULT_TOKEN_BYTES_OVERHEAD,

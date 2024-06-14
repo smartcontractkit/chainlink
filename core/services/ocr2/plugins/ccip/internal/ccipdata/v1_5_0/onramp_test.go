@@ -137,13 +137,14 @@ func setupOnRampV1_5_0(t testing.TB, user *bind.TransactOpts, bc *client.Simulat
 
 	linkTokenAddress := common.HexToAddress("0x000011")
 	staticConfig := evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
-		LinkToken:         linkTokenAddress,
-		ChainSelector:     testutils.SimulatedChainID.Uint64(),
-		DestChainSelector: testutils.SimulatedChainID.Uint64(),
-		DefaultTxGasLimit: 30000,
-		MaxNopFeesJuels:   big.NewInt(1000000),
-		PrevOnRamp:        common.Address{},
-		RmnProxy:          rmnAddress,
+		LinkToken:          linkTokenAddress,
+		ChainSelector:      testutils.SimulatedChainID.Uint64(),
+		DestChainSelector:  testutils.SimulatedChainID.Uint64(),
+		DefaultTxGasLimit:  30000,
+		MaxNopFeesJuels:    big.NewInt(1000000),
+		PrevOnRamp:         common.Address{},
+		RmnProxy:           rmnAddress,
+		TokenAdminRegistry: utils.RandomAddress(),
 	}
 	dynamicConfig := evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 		Router:                            common.HexToAddress("0x0000000000000000000000000000000000000150"),
