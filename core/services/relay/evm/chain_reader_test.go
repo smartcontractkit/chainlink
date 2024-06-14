@@ -15,9 +15,14 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
@@ -29,7 +34,114 @@ import (
 
 const commonGasLimitOnEvms = uint64(4712388)
 
+func TestChainReaderEventsInitValidation(t *testing.T) {
+	tests := []struct {
+		name                 string
+		chainContractReaders map[string]types.ChainContractReader
+		expectedError        error
+	}{
+		{
+			name: "Invalid ABI",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"InvalidContract": {
+					ContractABI: "{invalid json}",
+					Configs:     map[string]*types.ChainReaderDefinition{},
+				},
+			},
+			expectedError: fmt.Errorf("failed to parse abi"),
+		},
+		{
+			name: "Conflicting polling filter definitions",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithConflict": {
+					ContractABI: "[]",
+					Configs: map[string]*types.ChainReaderDefinition{
+						"EventWithConflict": {
+							ChainSpecificName: "EventName",
+							ReadType:          types.Event,
+							EventDefinitions: &types.EventDefinitions{
+								PollingFilter: &types.PollingFilter{},
+							},
+						},
+					},
+					ContractPollingFilter: types.ContractPollingFilter{
+						GenericEventNames: []string{"EventWithConflict"},
+					},
+				},
+			},
+			expectedError: fmt.Errorf(
+				"%w: conflicting chain reader polling filter definitions for contract: %s event: %s, can't have polling filter defined both on contract and event level",
+				clcommontypes.ErrInvalidConfig, "ContractWithConflict", "EventWithConflict"),
+		},
+		{
+			name: "No polling filter defined",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithNoFilter": {
+					ContractABI: "[]",
+					Configs: map[string]*types.ChainReaderDefinition{
+						"EventWithNoFilter": {
+							ChainSpecificName: "EventName",
+							ReadType:          types.Event,
+						},
+					},
+				},
+			},
+			expectedError: fmt.Errorf(
+				"%w: chain reader has no polling filter defined for contract: %s, event: %s",
+				clcommontypes.ErrInvalidConfig, "ContractWithNoFilter", "EventWithNoFilter"),
+		},
+		{
+			name: "Invalid chain reader definition read type",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithInvalidReadType": {
+					ContractABI: "[]",
+					Configs: map[string]*types.ChainReaderDefinition{
+						"InvalidReadType": {
+							ChainSpecificName: "InvalidName",
+							ReadType:          types.ReadType(2),
+						},
+					},
+				},
+			},
+			expectedError: fmt.Errorf(
+				"%w: invalid chain reader definition read type",
+				clcommontypes.ErrInvalidConfig),
+		},
+		{
+			name: "Event not present in ABI",
+			chainContractReaders: map[string]types.ChainContractReader{
+				"ContractWithConflict": {
+					ContractABI: "[{\"anonymous\":false,\"inputs\":[],\"name\":\"WrongEvent\",\"type\":\"event\"}]",
+					Configs: map[string]*types.ChainReaderDefinition{
+						"SomeEvent": {
+							ChainSpecificName: "EventName",
+							ReadType:          types.Event,
+						},
+					},
+					ContractPollingFilter: types.ContractPollingFilter{
+						GenericEventNames: []string{"SomeEvent"},
+					},
+				},
+			},
+			expectedError: fmt.Errorf(
+				"%w: event %s doesn't exist",
+				clcommontypes.ErrInvalidConfig, "EventName"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			require.Error(t, err)
+			if err != nil {
+				assert.Contains(t, err.Error(), tt.expectedError.Error())
+			}
+		})
+	}
+}
+
 func TestChainReader(t *testing.T) {
+	// TODO QueryKey test is flaky BCF-3258
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
 	RunChainReaderEvmTests(t, it)
