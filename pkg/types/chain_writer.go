@@ -10,9 +10,9 @@ import (
 type ChainWriter interface {
 	// SubmitTransaction packs and broadcasts a transaction to the underlying chain.
 	//
-	// - `args` specifies input parameters to the contract call.
+	// - `args` should be any object which maps a set of method param into the contract and method specific method params.
 	// - `transactionID` will be used by the underlying TXM as an idempotency key, and unique reference to track transaction attempts.
-	SubmitTransaction(ctx context.Context, contractName, method string, args any, transactionID uuid.UUID, toAddress string, meta *TxMeta, value big.Int) error
+	SubmitTransaction(ctx context.Context, contractName, method string, args any, transactionID string, toAddress string, meta *TxMeta, value *big.Int) error
 
 	// GetTransactionStatus returns the current status of a transaction in the underlying chain's TXM.
 	GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (TransactionStatus, error)
