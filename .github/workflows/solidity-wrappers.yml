@@ -63,7 +63,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Commit any wrapper changes
-        uses: planetscale/ghcommit-action@21a8cda29f55e5cc2cdae0cdbdd08e38dd148c25 # v0.1.37
+        uses: planetscale/ghcommit-action@e1599c54d850c63ee45f5456a2ac741f49cfed01 # v0.1.42
         with:
           commit_message: "Update gethwrappers" 
           repo: ${{ github.repository }}
