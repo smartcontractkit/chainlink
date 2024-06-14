@@ -7,10 +7,15 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/sha3"
 )
+
+// AccountAddress is a 32 byte address on the Aptos blockchain
+// It can represent an Object, an Account, and much more.
+// Extracting this out from the aptos sdk as there are still breaking changes
+// https://github.com/aptos-labs/aptos-go-sdk
+type AccountAddress [32]byte
 
 // Raw represents the ETH private key
 type Raw []byte
@@ -41,7 +46,7 @@ var _ fmt.GoStringer = &Key{}
 
 // Key represents Aptos key
 type Key struct {
-	Address aptos.AccountAddress
+	Address AccountAddress
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
@@ -51,9 +56,9 @@ func New() (Key, error) {
 	return newFrom(crypto_rand.Reader)
 }
 
-func PubkeyToAddress(pubkey ed25519.PublicKey) aptos.AccountAddress {
+func PubkeyToAddress(pubkey ed25519.PublicKey) AccountAddress {
 	authKey := sha3.Sum256(append([]byte(pubkey), 0x00))
-	accountAddress := aptos.AccountAddress(authKey)
+	accountAddress := AccountAddress(authKey)
 	return accountAddress
 }
 
