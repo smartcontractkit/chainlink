@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgconn"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -221,6 +222,11 @@ func (l *leaseLock) loop(ctx context.Context) {
 			}
 			cancel()
 			if err != nil {
+				var pgErr pgconn.PgError
+				const ReadOnlyTransaction = "25006"
+				if errors.As(err, &pgErr) && pgErr.Code == ReadOnlyTransaction {
+					l.logger.Fatal("Read-only connection, exiting immediately")
+				}
 				l.logger.Errorw("Error trying to refresh database lease", "err", err)
 			} else if !gotLease {
 				if err := l.db.Close(); err != nil {
