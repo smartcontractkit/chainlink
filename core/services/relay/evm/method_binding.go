@@ -28,15 +28,17 @@ func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
 	m.codec = codec
 }
 
+func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
+	m.address = common.HexToAddress(binding.Address)
+	m.bound = true
+	return nil
+}
+
 func (m *methodBinding) Register(_ context.Context) error {
 	return nil
 }
 
 func (m *methodBinding) Unregister(_ context.Context) error {
-	return nil
-}
-
-func (m *methodBinding) UnregisterAll(_ context.Context) error {
 	return nil
 }
 
@@ -66,10 +68,4 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 
 func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
 	return nil, nil
-}
-
-func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
-	m.address = common.HexToAddress(binding.Address)
-	m.bound = true
-	return nil
 }
