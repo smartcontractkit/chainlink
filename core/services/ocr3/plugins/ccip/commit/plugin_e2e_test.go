@@ -161,7 +161,11 @@ func setupEmptyOutcome(ctx context.Context, t *testing.T, lggr logger.Logger) []
 		FChain: map[cciptypes.ChainSelector]int{
 			chainC: 1,
 		},
-		ObserverInfo:        map[commontypes.OracleID]cciptypes.ObserverInfo{},
+		ObserverInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
+			1: {Writer: false, Reads: []cciptypes.ChainSelector{}},
+			2: {Writer: false, Reads: []cciptypes.ChainSelector{}},
+			3: {Writer: false, Reads: []cciptypes.ChainSelector{}},
+		},
 		PricedTokens:        []types.Account{tokenX},
 		TokenPricesObserver: false,
 		NewMsgScanBatchSize: 256,

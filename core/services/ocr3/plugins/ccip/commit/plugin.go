@@ -96,7 +96,7 @@ func (p *Plugin) Query(_ context.Context, _ ocr3types.OutcomeContext) (types.Que
 //	We discover the token prices only for the tokens that are used to pay for ccip fees.
 //	The fee tokens are configured in the plugin config.
 func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, _ types.Query) (types.Observation, error) {
-	maxSeqNumsPerChain, err := observeMaxSeqNums(
+	maxSeqNumsPerChain, seqNumsInSync, err := observeMaxSeqNums(
 		ctx,
 		p.lggr,
 		p.ccipReader,
@@ -152,8 +152,13 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 	for _, msg := range newMsgs {
 		msgBaseDetails = append(msgBaseDetails, msg.CCIPMsgBaseDetails)
 	}
-	return cciptypes.NewCommitPluginObservation(msgBaseDetails, gasPrices, tokenPrices, maxSeqNumsPerChain, p.cfg).Encode()
 
+	if !seqNumsInSync {
+		// If the node was not able to sync the max sequence numbers we don't want to transmit
+		// the potentially outdated ones. We expect that a sufficient number of nodes will be able to observe them.
+		maxSeqNumsPerChain = nil
+	}
+	return cciptypes.NewCommitPluginObservation(msgBaseDetails, gasPrices, tokenPrices, maxSeqNumsPerChain, p.cfg).Encode()
 }
 
 func (p *Plugin) ValidateObservation(_ ocr3types.OutcomeContext, _ types.Query, ao types.AttributedObservation) error {
@@ -166,7 +171,7 @@ func (p *Plugin) ValidateObservation(_ ocr3types.OutcomeContext, _ types.Query, 
 		return fmt.Errorf("validate sequence numbers: %w", err)
 	}
 
-	if err := validateObserverReadingEligibility(ao.Observer, obs.NewMsgs, p.cfg.ObserverInfo); err != nil {
+	if err := validateObserverReadingEligibility(ao.Observer, obs.NewMsgs, obs.MaxSeqNums, p.cfg.ObserverInfo); err != nil {
 		return fmt.Errorf("validate observer %d reading eligibility: %w", ao.Observer, err)
 	}
 
@@ -299,7 +304,7 @@ func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r o
 		"gasPriceUpdates", len(decodedReport.PriceUpdates.GasPriceUpdates),
 	)
 
-	// todo: if report is stale -> do not transmit
+	// todo: if report is stale -> do not transmit (check the spec for the exact condition)
 	return true, nil
 }
 

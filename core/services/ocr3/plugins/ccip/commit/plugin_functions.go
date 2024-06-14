@@ -28,14 +28,16 @@ func observeMaxSeqNums(
 	readableChains mapset.Set[cciptypes.ChainSelector],
 	destChain cciptypes.ChainSelector,
 	knownSourceChains []cciptypes.ChainSelector,
-) ([]cciptypes.SeqNumChain, error) {
+) ([]cciptypes.SeqNumChain, bool, error) {
+	seqNumsInSync := false
+
 	// If there is a previous outcome, start with the sequence numbers of it.
 	seqNumPerChain := make(map[cciptypes.ChainSelector]cciptypes.SeqNum)
 	if previousOutcomeBytes != nil {
 		lggr.Debugw("observing based on previous outcome")
 		prevOutcome, err := cciptypes.DecodeCommitPluginOutcome(previousOutcomeBytes)
 		if err != nil {
-			return nil, fmt.Errorf("decode commit plugin previous outcome: %w", err)
+			return nil, false, fmt.Errorf("decode commit plugin previous outcome: %w", err)
 		}
 		lggr.Debugw("previous outcome decoded", "outcome", prevOutcome.String())
 
@@ -52,7 +54,7 @@ func observeMaxSeqNums(
 		lggr.Debugw("reading sequence numbers from destination")
 		onChainSeqNums, err := ccipReader.NextSeqNum(ctx, knownSourceChains)
 		if err != nil {
-			return nil, fmt.Errorf("get next seq nums: %w", err)
+			return nil, false, fmt.Errorf("get next seq nums: %w", err)
 		}
 		lggr.Debugw("discovered sequence numbers from destination", "onChainSeqNums", onChainSeqNums)
 
@@ -63,6 +65,7 @@ func observeMaxSeqNums(
 				lggr.Debugw("updated sequence number", "chain", ch, "seqNum", onChainSeqNums[i])
 			}
 		}
+		seqNumsInSync = true
 	}
 
 	maxChainSeqNums := make([]cciptypes.SeqNumChain, 0)
@@ -71,7 +74,7 @@ func observeMaxSeqNums(
 	}
 
 	sort.Slice(maxChainSeqNums, func(i, j int) bool { return maxChainSeqNums[i].ChainSel < maxChainSeqNums[j].ChainSel })
-	return maxChainSeqNums, nil
+	return maxChainSeqNums, seqNumsInSync, nil
 }
 
 // observeNewMsgs finds the new messages for each supported chain based on the provided max sequence numbers.
@@ -550,6 +553,12 @@ func pluginConfigConsensus(
 // validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
 // that they match the observed max sequence numbers.
 func validateObservedSequenceNumbers(msgs []cciptypes.CCIPMsgBaseDetails, maxSeqNums []cciptypes.SeqNumChain) error {
+	// If the observer did not include sequence numbers it means that it's not a destination chain reader.
+	// In that case we cannot do any msg sequence number validations.
+	if len(maxSeqNums) == 0 {
+		return nil
+	}
+
 	// MaxSeqNums must be unique for each chain.
 	maxSeqNumsMap := make(map[cciptypes.ChainSelector]cciptypes.SeqNum)
 	for _, maxSeqNum := range maxSeqNums {
@@ -590,18 +599,22 @@ func validateObservedSequenceNumbers(msgs []cciptypes.CCIPMsgBaseDetails, maxSeq
 func validateObserverReadingEligibility(
 	observer commontypes.OracleID,
 	msgs []cciptypes.CCIPMsgBaseDetails,
+	seqNums []cciptypes.SeqNumChain,
 	observerCfg map[commontypes.OracleID]cciptypes.ObserverInfo,
 ) error {
-	if len(msgs) == 0 {
-		return nil
-	}
-
 	observerInfo, exists := observerCfg[observer]
 	if !exists {
 		return fmt.Errorf("observer not found in config")
 	}
-
 	observerReadChains := mapset.NewSet(observerInfo.Reads...)
+
+	if len(seqNums) > 0 && !observerInfo.Writer {
+		return fmt.Errorf("observer must be a writer if it observes sequence numbers")
+	}
+
+	if len(msgs) == 0 {
+		return nil
+	}
 
 	for _, msg := range msgs {
 		// Observer must be able to read the chain that the message is coming from.
