@@ -181,6 +181,12 @@ type DON struct {
 	Config []byte
 }
 
+type Node struct {
+	PeerID         *p2ptypes.PeerID
+	WorkflowDON    DON
+	CapabilityDONs []DON
+}
+
 // CapabilityInfo is a struct for the info of a capability.
 type CapabilityInfo struct {
 	// The capability ID is a fully qualified identifier for the capability.
