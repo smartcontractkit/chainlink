@@ -83,6 +83,9 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+				ContractPollingFilter: types.ContractPollingFilter{
+					GenericEventNames: []string{EventName, EventWithFilterName},
+				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "getElementAtIndex",
@@ -110,22 +113,30 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					EventWithFilterName: {
 						ChainSpecificName:       "Triggered",
 						ReadType:                types.Event,
-						EventInputFields:        []string{"Field"},
+						EventDefinitions:        &types.EventDefinitions{InputFields: []string{"Field"}},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
-						EventInputFields:  []string{"fieldHash"},
+						EventDefinitions: &types.EventDefinitions{
+							InputFields: []string{"fieldHash"},
+							// no specific reason for filter being defined here insted on contract level,
+							// this is just for test case variety
+							PollingFilter: &types.PollingFilter{},
+						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName:       triggerWithAllTopics,
-						ReadType:                types.Event,
-						EventInputFields:        []string{"Field1", "Field2", "Field3"},
+						ChainSpecificName: triggerWithAllTopics,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							InputFields:   []string{"Field1", "Field2", "Field3"},
+							PollingFilter: &types.PollingFilter{},
+						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
