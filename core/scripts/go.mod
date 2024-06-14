@@ -24,7 +24,11 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-automation v1.0.4
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240614120734-7fa0ab584458
+=======
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240614134652-1fb0b48758af
+>>>>>>> ab20c19fb3 (go.mod: Bumped chainlink-common to commit 1fb0b48758af25d689b6957ebfb76598c9fb27ea)
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
