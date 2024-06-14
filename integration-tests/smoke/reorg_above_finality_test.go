@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 
 	"github.com/pelletier/go-toml/v2"
@@ -25,21 +23,6 @@ func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 
-	runReorgAboveFinalityTest(t, l, config)
-}
-
-func TestReorgAboveFinality_FinalityTagEnabled(t *testing.T) {
-	t.Parallel()
-	t.Skip("Core node is still healty after reorg with FinalityTagEnabled, skipping test")
-
-	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.LogPoller)
-	require.NoError(t, err, "Error getting config")
-
-	runReorgAboveFinalityTest(t, l, config)
-}
-
-func runReorgAboveFinalityTest(t *testing.T, l zerolog.Logger, config tc.TestConfig) {
 	privateNetworkConf, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err)
 

@@ -192,18 +192,3 @@ FinalityTagEnabled = false
 [TestReorgAboveFinality_FinalityTagDisabled.PrivateEthereumNetwork]
 ethereum_version = "eth1"
 execution_layer = "geth"
-
-[TestReorgAboveFinality_FinalityTagEnabled.NodeConfig]
-CommonChainConfigTOML = """
-AutoCreateKey = true
-MinContractPayment = 0
-LogPollInterval="500ms"
-BackupLogPollerBlockDelay = 0
-FinalityTagEnabled = true
-
-[HeadTracker]
-HistoryDepth = 10
-"""
-[TestReorgAboveFinality_FinalityTagEnabled.PrivateEthereumNetwork]
-ethereum_version = "eth1"
-execution_layer = "geth"
