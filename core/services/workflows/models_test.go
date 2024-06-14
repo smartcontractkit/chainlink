@@ -322,5 +322,5 @@ func TestParsesIntsCorrectly(t *testing.T) {
 	n, err := wf.Vertex("evm_median")
 	require.NoError(t, err)
 
-	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
+	assert.Equal(t, int64(3600), n.Config["aggregation_config"].(map[string]any)["feeds"].(map[string]any)["0x1111111111111111111100000000000000000000000000000000000000000000"].(map[string]any)["heartbeat"])
 }
