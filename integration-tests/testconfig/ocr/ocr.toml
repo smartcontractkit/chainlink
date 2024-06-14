@@ -82,3 +82,57 @@ test_duration="15m"
 ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=false
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityDepth = 30
+FinalityTagEnabled = false
+"""
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Network]
+selected_networks=["simulated"]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+
+# Soak test configuration with Geth reorg below finality with FinalityTagEnabled=true
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.NodeConfig]
+CommonChainConfigTOML = """
+AutoCreateKey = true
+MinContractPayment = 0
+LogPollInterval="500ms"
+BackupLogPollerBlockDelay = 0
+FinalityTagEnabled = true
+
+[HeadTracker]
+HistoryDepth = 10
+"""
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Network]
+selected_networks=["simulated"]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Network.GethReorgConfig]
+enabled = true
+depth = 15
+delay_create = "3s"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR]
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"

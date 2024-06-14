@@ -146,11 +146,13 @@ func (entry *codecEntry) Init() (err error) {
 			}
 			for {
 				name = name + "_X"
+				arg.Name = name
 				if !seenNames[name] {
 					break
 				}
 			}
 		}
+		args[i] = arg
 		seenNames[name] = true
 		native[i] = reflect.StructField{Name: name, Type: nativeArg}
 		checked[i] = reflect.StructField{Name: name, Type: checkedArg}

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 
 	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -163,38 +163,42 @@ func TestAutomationReorg(t *testing.T) {
 			if testEnvironment.WillUseRemoteRunner() {
 				return
 			}
-			gethURL := testEnvironment.URLs["Simulated Geth_http"][0]
-			require.NotEmpty(t, gethURL, "Geth URL should not be empty")
-			gethRPCClient := ctf_client.NewRPCClient(gethURL)
+			if !testEnvironment.Cfg.InsideK8s {
+				// Test is running locally, set forwarded URL of Geth blockchain node
+				wsURLs := testEnvironment.URLs[network.Name+"_internal"]
+				httpURLs := testEnvironment.URLs[network.Name+"_internal_http"]
+				require.NotEmpty(t, wsURLs, "Forwarded Geth URLs should not be empty")
+				require.NotEmpty(t, httpURLs, "Forwarded Geth URLs should not be empty")
+				network.URLs = wsURLs
+				network.HTTPURLs = httpURLs
+			}
 
-			chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
+			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
+			chainClient, err := actions_seth.GetChainClient(config, network)
 			require.NoError(t, err, "Error connecting to blockchain")
-			contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-			require.NoError(t, err, "Error building contract deployer")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
-			chainClient.ParallelTransactions(true)
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
+				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, nodeFundsAmount)
+			err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
 			require.NoError(t, err, "Error funding Chainlink nodes")
 
-			linkToken, err := contractDeployer.DeployLinkTokenContract()
+			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
-			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+			registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
 				t,
+				chainClient,
 				registryVersion,
 				defaultOCRRegistryConfig,
 				linkToken,
-				contractDeployer,
-				chainClient,
 			)
+
 			// Fund the registry with LINK
 			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(upkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
@@ -210,11 +214,21 @@ func TestAutomationReorg(t *testing.T) {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
 			require.NoError(t, err, "Registry config should be be set successfully")
-			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, upkeepCount, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
+			consumers, upkeepIDs := actions_seth.DeployConsumers(
+				t,
+				chainClient,
+				registry,
+				registrar,
+				linkToken,
+				upkeepCount,
+				big.NewInt(defaultLinkFunds),
+				defaultUpkeepGasLimit,
+				isLogTrigger,
+				false,
+			)
 
 			if isLogTrigger {
 				for i := 0; i < len(upkeepIDs); i++ {

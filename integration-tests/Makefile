@@ -148,20 +148,31 @@ test_soak_ocr1:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run TestOCRv1Soak ./soak
 
-.PHONY: test_soak_forwarder_ocr1
-test_soak_forwarder_ocr1:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestForwarderOCRv1Soak ./soak
-
 .PHONY: test_soak_ocr2
 test_soak_ocr2:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run TestOCRv2Soak ./soak
 
+.PHONY: test_soak_forwarder_ocr1
+test_soak_forwarder_ocr1:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run TestForwarderOCRv1Soak ./soak
+
 .PHONY: test_soak_forwarder_ocr2
 test_soak_forwarder_ocr2:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run TestForwarderOCRv2Soak ./soak
+
+.PHONY: test_soak_ocr_reorg_1
+test_soak_ocr_reorg_1:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$$ ./soak
+
+.PHONY: test_soak_ocr_reorg_2
+test_soak_ocr_reorg_2:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$$ ./soak
+
 
 .PHONY: test_soak_automation
 test_soak_automation:

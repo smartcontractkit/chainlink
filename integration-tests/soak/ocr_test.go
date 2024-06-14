@@ -16,7 +16,6 @@ import (
 func TestOCRv1Soak(t *testing.T) {
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
-
 	executeOCRSoakTest(t, &config)
 }
 
@@ -24,6 +23,18 @@ func TestOCRv2Soak(t *testing.T) {
 	config, err := tc.GetConfig("Soak", tc.OCR2)
 	require.NoError(t, err, "Error getting config")
 
+	executeOCRSoakTest(t, &config)
+}
+
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	executeOCRSoakTest(t, &config)
+}
+
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
 	executeOCRSoakTest(t, &config)
 }
 
