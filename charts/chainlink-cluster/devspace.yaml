@@ -1,0 +1,143 @@
+version: v2beta1
+name: chainlink
+
+vars:
+  DEVSPACE_IMAGE:
+    source: env
+
+# This is a list of `pipelines` that DevSpace can execute (you can define your own)
+pipelines:
+  #       create_deployments --all  can be used to apply manifests again
+  # This is the pipeline for the main command: `devspace dev` (or `devspace run-pipeline dev`)
+  dev:
+    run: |-
+      run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
+      ensure_pull_secrets --all    # 2. Ensure pull secrets
+      start_dev app                # 3. Start dev mode "app" (see "dev" section)
+  # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
+  deploy:
+    run: |-
+      run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
+      ensure_pull_secrets --all                         # 2. Ensure pull secrets
+      build_images --all -t $(git rev-parse --short HEAD)    # 3. Build, tag (git commit hash) and push all images (see "images")
+      create_deployments --all                          # 4. Deploy Helm charts and manifests specfied as "deployments"
+
+images:
+  app:
+    image: ${DEVSPACE_IMAGE}
+    dockerfile: ../../core/chainlink.devspace.Dockerfile
+    context: ../..
+
+# This is a list of `deployments` that DevSpace can create for this project
+deployments:
+  app:
+    helm:
+      chart:
+        name: cl-cluster
+        path: .
+      # for simplicity, we define all the values here
+      # they can be defined the same way in values.yml
+      # devspace merging this "values" and "values.yml" before deploy
+      values:
+        runner:
+          image: ${DEVSPACE_IMAGE}
+          stateful: false
+        geth:
+          version: v1.12.0
+          wsrpc-port: 8546
+          httprpc-port: 8544
+          networkid: 1337
+          blocktime: 1
+        mockserver:
+          port: 1080
+        db:
+          stateful: false
+        chainlink:
+          web_port: 6688
+          p2p_port: 8090
+          nodes:
+            - name: node-1
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-2
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-3
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-4
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+        podAnnotations: { }
+        nodeSelector: { }
+        tolerations: [ ]
+        affinity: { }
+
+profiles:
+  # this replaces only "runner" pod, usable when you'd like to run some system level tests inside k8s
+  - name: runner
+    patches:
+      - op: replace
+        path: dev.app.workingDir
+        value: /home/root/chainlink/integration-tests
+      - op: replace
+        path: dev.app.container
+        value: runner
+      - op: replace
+        path: dev.app.labelSelector.instance
+        value: runner-1
+      - op: remove
+        path: dev.app.sync[1].uploadExcludePaths[0]
+      - op: remove
+        path: dev.app.open
+      - op: remove
+        path: dev.app.ports[1]
+  - name: node
+    patches:
+      - op: replace
+        path: dev.app.container
+        value: node
+      - op: replace
+        path: dev.app.labelSelector.instance
+        value: node-1
+
+# This is a list of `dev` containers that are based on the containers created by your deployments
+dev:
+  app:
+    workingDir: /home/root/chainlink
+    container: node
+    labelSelector:
+      instance: node-1
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+        printLogs: true
+        disableDownload: true
+      - path: ../..:/home/root/chainlink
+        printLogs: true
+        disableDownload: true
+        uploadExcludePaths:
+          - integration-tests/
+          - .git/
+          - .github/
+          - belt/
+          - charts/
+          - contracts/
+          - node_modules/
+          - integration/
+          - integration-scripts/
+          - testdata/
+          - evm-test-helpers/
+          - tools/
+    # Open a terminal and use the following command
+    terminal:
+      command: bash
+    ssh:
+      enabled: true
+    proxyCommands:
+      - command: devspace
+      - command: kubectl
+      - command: helm
+      - gitCredentials: true
+    ports:
+      - port: "2345"

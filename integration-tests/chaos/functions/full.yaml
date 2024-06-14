@@ -1,0 +1,232 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  namespace: chainlink
+  name: chainlink-flow
+spec:
+  entry: entry
+  templates:
+    # root entry
+    - name: entry
+      templateType: Serial
+      deadline: 1h
+      children:
+        - killing
+        - network-delay-internal
+#        - external-deps-failure
+    # children chaos group
+    - name: killing
+      templateType: Serial
+      children:
+        - gateway-kill
+        - don-minority-kill
+        - don-majority-kill
+        - adapters-minority-kill
+        - adapters-majority-kill
+    # children chaos group
+    - name: network-delay-internal
+      templateType: Serial
+      children:
+        - gateway-delay
+        - don-minority-delay
+        - don-majority-delay
+        - adapters-minority-delay
+        - adapters-majority-delay
+    # children chaos group
+    - name: external-deps-failure
+      templateType: Serial
+      children:
+        - ea-url-resolve-failure
+
+    # experiments (killing)
+    - name: gateway-kill
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        selector:
+          namespaces:
+            - chainlink
+          labelSelectors:
+            'app.kubernetes.io/instance': cln-gateway-staging1-node
+        mode: one
+        action: pod-kill
+    - name: don-minority-kill
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        selector:
+          namespaces:
+            - chainlink
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - clc-ocr2-dr-matic-testnet-nodes-0
+                - clc-ocr2-dr-matic-testnet-boot
+        mode: all
+        action: pod-kill
+    - name: don-majority-kill
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        selector:
+          namespaces:
+            - chainlink
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - clc-ocr2-dr-matic-testnet-nodes-1
+                - clc-ocr2-dr-matic-testnet-nodes-0
+                - clc-ocr2-dr-matic-testnet-boot
+        mode: all
+        action: pod-kill
+    - name: adapters-minority-kill
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        selector:
+          namespaces:
+            - adapters
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - universal-mumbai-0
+        mode: all
+        action: pod-kill
+    - name: adapters-majority-kill
+      templateType: PodChaos
+      deadline: 1m
+      podChaos:
+        selector:
+          namespaces:
+            - adapters
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - universal-mumbai-1
+                - universal-mumbai-0
+        mode: all
+        action: pod-kill
+
+    # TODO: enable when chaosd is installed on all the nodes
+    # experiments (delays)
+    - name: gateway-delay
+      templateType: NetworkChaos
+      deadline: 1m
+      networkChaos:
+        selector:
+          namespaces:
+            - chainlink
+          labelSelectors:
+            'app.kubernetes.io/instance': cln-gateway-staging1-node
+        mode: all
+        action: delay
+        delay:
+          latency: 200ms
+          correlation: '0'
+          jitter: 0ms
+        direction: to
+    - name: don-minority-delay
+      templateType: NetworkChaos
+      deadline: 1m
+      networkChaos:
+        selector:
+          namespaces:
+            - chainlink
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - clc-ocr2-dr-matic-testnet-nodes-0
+                - clc-ocr2-dr-matic-testnet-boot
+        mode: all
+        action: delay
+        delay:
+          latency: 200ms
+          correlation: '0'
+          jitter: 0ms
+        direction: to
+    - name: don-majority-delay
+      templateType: NetworkChaos
+      deadline: 1m
+      networkChaos:
+        selector:
+          namespaces:
+            - chainlink
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - clc-ocr2-dr-matic-testnet-nodes-1
+                - clc-ocr2-dr-matic-testnet-nodes-0
+                - clc-ocr2-dr-matic-testnet-boot
+        mode: all
+        action: delay
+        delay:
+          latency: 200ms
+          correlation: '0'
+          jitter: 0ms
+        direction: to
+    - name: adapters-minority-delay
+      templateType: NetworkChaos
+      deadline: 1m
+      networkChaos:
+        selector:
+          namespaces:
+            - adapters
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - universal-mumbai-0
+        mode: all
+        action: delay
+        delay:
+          latency: 200ms
+          correlation: '0'
+          jitter: 0ms
+        direction: to
+    - name: adapters-majority-delay
+      templateType: NetworkChaos
+      deadline: 1m
+      networkChaos:
+        selector:
+          namespaces:
+            - adapters
+          expressionSelectors:
+            - key: app.kubernetes.io/instance
+              operator: In
+              values:
+                - universal-mumbai-1
+                - universal-mumbai-0
+        mode: all
+        action: delay
+        delay:
+          latency: 200ms
+          correlation: '0'
+          jitter: 0ms
+        direction: to
+
+    # experiments (external deps failure)
+#    - name: ea-url-resolve-failure
+#      templateType: NetworkChaos
+#      deadline: 3m
+#      networkChaos:
+#        selector:
+#          namespaces:
+#            - chainlink
+#        mode: all
+#        action: partition
+#        direction: to
+#        target:
+#          selector:
+#            namespaces:
+#              - chainlink
+#          mode: all
+#        externalTargets:
+#          - >-
+#            my-url.com
+

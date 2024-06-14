@@ -1,0 +1,67 @@
+{{ if (hasKey .Values "runner")}}
+apiVersion: apps/v1
+{{ if .Values.runner.stateful }}
+kind: StatefulSet
+{{ else }}
+kind: Deployment
+{{ end }}
+metadata:
+  name: runner
+spec:
+  selector:
+    matchLabels:
+      app: runner
+      instance: runner-1
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: runner
+        instance: runner-1
+        release: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: 'true'
+    spec:
+      containers:
+        - name: runner
+          image: {{ default "public.ecr.aws/chainlink/chainlink" .Values.runner.image }}
+          imagePullPolicy: Always
+          command: [ "/bin/bash", "-c", "--" ]
+          args: [ "tail -f /dev/null" ]
+          {{ if (hasKey .Values.runner "env") }}
+          env:
+            {{- range $key, $value := .Values.runner.env }}
+            {{- if $value }}
+            - name: {{ $key | upper}}
+                {{- if kindIs "string" $value}}
+              value: {{ $value | quote}}
+            {{- else }}
+              value: {{ $value }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+          {{ end }}
+          {{ if (hasKey .Values.runner "resources") }}
+          resources:
+            requests:
+              memory: {{ default "1024Mi" .Values.runner.resources.requests.memory }}
+              cpu: {{ default "500m" $.Values.runner.resources.requests.cpu }}
+            limits:
+              memory: {{ default "1024Mi" $.Values.runner.resources.limits.memory }}
+              cpu: {{ default "500m" $.Values.runner.resources.limits.cpu }}
+          {{ else }}
+          {{ end }}
+{{- with $.Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+---
+{{ end }}

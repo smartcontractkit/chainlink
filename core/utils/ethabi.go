@@ -3,14 +3,14 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
+	"strings"
 
-	"github.com/pkg/errors"
-
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/tidwall/gjson"
 )
 
@@ -27,34 +27,36 @@ const (
 	FormatBool = "bool"
 )
 
+// ABIEncode is the equivalent of abi.encode.
+// See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
+func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
+	// Create a dummy method with arguments
+	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, abiStr)
+	inAbi, err := abi.JSON(strings.NewReader(inDef))
+	if err != nil {
+		return nil, err
+	}
+	res, err := inAbi.Pack("method", values...)
+	if err != nil {
+		return nil, err
+	}
+	return res[4:], nil
+}
+
+// ABIEncode is the equivalent of abi.decode.
+// See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
+func ABIDecode(abiStr string, data []byte) ([]interface{}, error) {
+	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, abiStr)
+	inAbi, err := abi.JSON(strings.NewReader(inDef))
+	if err != nil {
+		return nil, err
+	}
+	return inAbi.Unpack("method", data)
+}
+
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})
-}
-
-// EVMTranscodeBytes converts a json input to an EVM bytes array
-func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
-	switch value.Type {
-	case gjson.String:
-		return EVMEncodeBytes([]byte(value.Str)), nil
-
-	case gjson.False:
-		return EVMEncodeBytes(EVMWordUint64(0)), nil
-
-	case gjson.True:
-		return EVMEncodeBytes(EVMWordUint64(1)), nil
-
-	case gjson.Number:
-		v := big.NewFloat(value.Num)
-		vInt, _ := v.Int(nil)
-		word, err := EVMWordSignedBigInt(vInt)
-		if err != nil {
-			return nil, errors.Wrap(err, "while converting float to int256")
-		}
-		return EVMEncodeBytes(word), nil
-	default:
-		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
-	}
 }
 
 func roundToEVMWordBorder(length int) int {
@@ -108,15 +110,8 @@ func EVMTranscodeBool(value gjson.Result) ([]byte, error) {
 }
 
 func parseDecimalString(input string) (*big.Int, error) {
-	parseValue, err := strconv.ParseFloat(input, 64)
-	if err != nil {
-		return nil, err
-	}
-	output, ok := big.NewInt(0).SetString(fmt.Sprintf("%.f", parseValue), 10)
-	if !ok {
-		return nil, fmt.Errorf("error parsing decimal %s", input)
-	}
-	return output, nil
+	d, err := decimal.NewFromString(input)
+	return d.BigInt(), err
 }
 
 func parseNumericString(input string) (*big.Int, error) {
@@ -182,44 +177,17 @@ func EVMTranscodeInt256(value gjson.Result) ([]byte, error) {
 	return EVMWordSignedBigInt(output)
 }
 
-// EVMTranscodeJSONWithFormat given a JSON input and a format specifier, encode the
-// value for use by the EVM
-func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, error) {
-	switch format {
-	case FormatBytes:
-		return EVMTranscodeBytes(value)
-	case FormatPreformatted:
-		return hex.DecodeString(RemoveHexPrefix(value.Str))
-	case FormatUint256:
-		data, err := EVMTranscodeUint256(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	case FormatInt256:
-		data, err := EVMTranscodeInt256(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	case FormatBool:
-		data, err := EVMTranscodeBool(value)
-		if err != nil {
-			return []byte{}, err
-		}
-		return EVMEncodeBytes(data), nil
-
-	default:
-		return []byte{}, fmt.Errorf("unsupported format: %s", format)
-	}
-}
-
 // EVMWordUint64 returns a uint64 as an EVM word byte array.
 func EVMWordUint64(val uint64) []byte {
 	word := make([]byte, EVMWordByteLen)
 	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
+	return word
+}
+
+// EVMWordUint32 returns a uint32 as an EVM word byte array.
+func EVMWordUint32(val uint32) []byte {
+	word := make([]byte, EVMWordByteLen)
+	binary.BigEndian.PutUint32(word[EVMWordByteLen-4:], val)
 	return word
 }
 
@@ -259,6 +227,28 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 		return nil, fmt.Errorf("overflow saving big.Int to EVM word: %v", val)
 	}
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
+}
+
+// Bytes32FromString returns a 32 byte array filled from the given string, which may be of any length.
+func Bytes32FromString(s string) [32]byte {
+	var b32 [32]byte
+	copy(b32[:], s)
+	return b32
+}
+
+// Bytes4FromString returns a 4 byte array filled from the given string, which may be of any length.
+func Bytes4FromString(s string) [4]byte {
+	var b4 [4]byte
+	copy(b4[:], s)
+	return b4
+}
+
+func MustAbiType(ts string, components []abi.ArgumentMarshaling) abi.Type {
+	ty, err := abi.NewType(ts, "", components)
+	if err != nil {
+		panic(err)
+	}
+	return ty
 }
 
 // "Constants" used by EVM words

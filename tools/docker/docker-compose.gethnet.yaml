@@ -16,8 +16,8 @@ services:
     container_name: geth
     image: smartcontract/gethnet
     ports:
-      - 8545:8545
-      - 8546:8546
+      - 8545
+      - 8546
     volumes:
       - geth-db-data:/gethnet/datadir/geth
     secrets:

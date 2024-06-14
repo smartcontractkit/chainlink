@@ -1,0 +1,14 @@
+type EthKey {
+    address: String!
+    isDisabled: Boolean!
+    createdAt: Time!
+    updatedAt: Time!
+    chain: Chain!
+    ethBalance: String
+    linkBalance: String
+    maxGasPriceWei: String
+}
+
+type EthKeysPayload {
+    results: [EthKey!]!
+}

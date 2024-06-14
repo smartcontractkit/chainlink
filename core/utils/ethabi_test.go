@@ -1,11 +1,14 @@
 package utils
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -568,12 +571,126 @@ func TestParseDecimalString(t *testing.T) {
 		{"12072e-4", "1"},
 		{"1.2072e+20", "120720000000000000000"},
 		{"-1.2072e+20", "-120720000000000000000"},
-		{"1.55555555555555555555e+20", "155555555555555540992"},
+		{"1.55555555555555555555e+20", "155555555555555555555"},
+		{"1.000000000000000001e+18", "1000000000000000001"},
+		{"1000000.000000000000000001e+18", "1000000000000000000000001"},
 	}
 
 	for _, test := range tests {
 		out, err := parseDecimalString(test.input)
 		assert.NoError(t, err)
 		assert.Equal(t, test.output, out.String())
+	}
+}
+
+// EVMTranscodeJSONWithFormat given a JSON input and a format specifier, encode the
+// value for use by the EVM
+func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, error) {
+	switch format {
+	case FormatBytes:
+		return EVMTranscodeBytes(value)
+	case FormatPreformatted:
+		return hex.DecodeString(RemoveHexPrefix(value.Str))
+	case FormatUint256:
+		data, err := EVMTranscodeUint256(value)
+		if err != nil {
+			return []byte{}, err
+		}
+		return EVMEncodeBytes(data), nil
+
+	case FormatInt256:
+		data, err := EVMTranscodeInt256(value)
+		if err != nil {
+			return []byte{}, err
+		}
+		return EVMEncodeBytes(data), nil
+
+	case FormatBool:
+		data, err := EVMTranscodeBool(value)
+		if err != nil {
+			return []byte{}, err
+		}
+		return EVMEncodeBytes(data), nil
+
+	default:
+		return []byte{}, fmt.Errorf("unsupported format: %s", format)
+	}
+}
+
+// EVMTranscodeBytes converts a json input to an EVM bytes array
+func EVMTranscodeBytes(value gjson.Result) ([]byte, error) {
+	switch value.Type {
+	case gjson.String:
+		return EVMEncodeBytes([]byte(value.Str)), nil
+
+	case gjson.False:
+		return EVMEncodeBytes(EVMWordUint64(0)), nil
+
+	case gjson.True:
+		return EVMEncodeBytes(EVMWordUint64(1)), nil
+
+	case gjson.Number:
+		v := big.NewFloat(value.Num) // precision limited to float64
+		vInt, _ := v.Int(nil)
+		word, err := EVMWordSignedBigInt(vInt)
+		if err != nil {
+			return nil, errors.Wrap(err, "while converting float to int256")
+		}
+		return EVMEncodeBytes(word), nil
+	default:
+		return []byte{}, fmt.Errorf("unsupported encoding for value: %s", value.Type)
+	}
+}
+
+func TestABIEncodeDecode(t *testing.T) {
+	// Note this is just a sanity check test,
+	// ABIEncode/ABIDecode is a thin wrapper around the geth abi library
+	// which has its own exhaustive test suite.
+	var tt = []struct {
+		abiStr    string
+		vals      []interface{}
+		name      string
+		expectErr bool
+	}{
+		{
+			abiStr: `[{ "type": "bool" }]`,
+			vals:   []interface{}{true},
+			name:   "single value",
+		},
+		{
+			abiStr: `[{"components": [{"name":"int1","type":"int256"},{"name":"int2","type":"int256"}], "type":"tuple"}]`,
+			vals: []interface{}{struct {
+				Int1 *big.Int `json:"int1"`
+				Int2 *big.Int `json:"int2"`
+			}{big.NewInt(10), big.NewInt(12)}},
+			name: "struct",
+		},
+		{
+			abiStr: `[{ "type": "bool" }, {"type": "uint256"}]`,
+			vals:   []interface{}{true, big.NewInt(10)},
+			name:   "multiple values",
+		},
+		{
+			abiStr:    `[{ "type": "bool" }, {"type": "uint256"}]`,
+			vals:      []interface{}{big.NewInt(1), big.NewInt(10)},
+			name:      "mismatch",
+			expectErr: true,
+		},
+	}
+	for _, tc := range tt {
+		// Round trip should remain the same.
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			abiBytes, err := ABIEncode(tc.abiStr, tc.vals...)
+			if tc.expectErr {
+				t.Log(err)
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			res, err := ABIDecode(tc.abiStr, abiBytes)
+			require.NoError(t, err)
+			assert.Equal(t, tc.vals, res)
+		})
 	}
 }

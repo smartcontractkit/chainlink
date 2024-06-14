@@ -1,0 +1,114 @@
+{{ if (hasKey .Values "geth") }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geth
+spec:
+  selector:
+    matchLabels:
+      app: geth
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: geth
+        release: {{ .Release.Name }}
+      annotations:
+        {{- range $key, $value := .Values.podAnnotations }}
+        {{ $key }}: {{ $value | quote }}
+        {{- end }}
+    spec:
+      volumes:
+      - name: configmap-volume
+        configMap:
+          name: geth-cm
+      containers:
+      - name: geth-network
+        image: "{{ default "ethereum/client-go" .Values.geth.image }}:{{ default "stable" .Values.geth.version }}"
+        command: [ "sh", "./root/init.sh" ]
+        volumeMounts:
+        - name : configmap-volume
+          mountPath: /root/init.sh
+          subPath: init.sh
+        - name: configmap-volume
+          mountPath: /root/config
+        - name: configmap-volume
+          mountPath: /root/.ethereum/devchain/keystore/key1
+          subPath: key1
+        - name: configmap-volume
+          mountPath: /root/.ethereum/devchain/keystore/key2
+          subPath: key2
+        - name: configmap-volume
+          mountPath: /root/.ethereum/devchain/keystore/key3
+          subPath: key3
+        args:
+          - '--dev'
+          - '--password'
+          - '/root/config/password.txt'
+          - '--datadir'
+          - '/root/.ethereum/devchain'
+          - '--unlock'
+          - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+          - '--unlock'
+          - '0x70997970C51812dc3A010C7d01b50e0d17dc79C8'
+          - '--unlock'
+          - '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC'
+          - '--mine'
+          - '--miner.etherbase'
+          - '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
+          - '--ipcdisable'
+          - '--http'
+          - '--http.vhosts'
+          - '*'
+          - '--http.addr'
+          - '0.0.0.0'
+          - '--http.port=8544'
+          - '--ws'
+          - '--ws.origins'
+          - '*'
+          - '--ws.addr'
+          - '0.0.0.0'
+          - '--ws.port=8546'
+          - '--graphql'
+          - '-graphql.corsdomain'
+          - '*'
+          - '--allow-insecure-unlock'
+          - '--rpc.allow-unprotected-txs'
+          - '--http.corsdomain'
+          - '*'
+          - '--vmdebug'
+          - '--networkid={{ .Values.geth.networkid }}'
+          - '--rpc.txfeecap'
+          - '0'
+          - '--dev.period'
+          - '{{ .Values.geth.blocktime }}'
+          - '--miner.gasprice'
+          - '10000000000'
+        ports:
+        - name: http-rpc
+          containerPort: 8544
+        - name: ws-rpc
+          containerPort: 8546
+        {{ if (hasKey .Values.geth "resources") }}
+        resources:
+          requests:
+            memory: {{ default "1024Mi" .Values.geth.resources.requests.memory }}
+            cpu: {{ default "1000m" .Values.geth.resources.requests.cpu }}
+          limits:
+            memory: {{ default "1024Mi" .Values.geth.resources.limits.memory }}
+            cpu: {{ default "1000m" .Values.geth.resources.limits.cpu }}
+        {{ else }}
+        {{ end }}
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.affinity }}
+      affinity:
+        {{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{ end }}

@@ -1,0 +1,36 @@
+exec chainlink --help
+cmpenv stdout help.txt
+
+-- help.txt --
+NAME:
+   chainlink - CLI for Chainlink
+
+USAGE:
+   chainlink [global options] command [command options] [arguments...]
+
+VERSION:
+   ${VERSION}@${COMMIT_SHA}
+
+COMMANDS:
+   admin           Commands for remotely taking admin related actions
+   attempts, txas  Commands for managing Ethereum Transaction Attempts
+   blocks          Commands for managing blocks
+   bridges         Commands for Bridges communicating with External Adapters
+   config          Commands for the node's configuration
+   jobs            Commands for managing Jobs
+   keys            Commands for managing various types of keys used by the Chainlink node
+   node, local     Commands for admin actions that must be run locally
+   initiators      Commands for managing External Initiators
+   txs             Commands for handling transactions
+   chains          Commands for handling chain configuration
+   nodes           Commands for handling node configuration
+   forwarders      Commands for managing forwarder addresses.
+   help, h         Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --json, -j                     json output as opposed to table
+   --admin-credentials-file FILE  optional, applies only in client mode when making remote API calls. If provided, FILE containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to <RootDir>/apicredentials
+   --remote-node-url URL          optional, applies only in client mode when making remote API calls. If provided, URL will be used as the remote Chainlink API endpoint (default: "http://localhost:6688")
+   --insecure-skip-verify         optional, applies only in client mode when making remote API calls. If turned on, SSL certificate verification will be disabled. This is mostly useful for people who want to use Chainlink with a self-signed TLS certificate
+   --help, -h                     show help
+   --version, -v                  print the version

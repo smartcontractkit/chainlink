@@ -1,0 +1,12 @@
+type = "bootstrap"
+schemaVersion = 1
+name = "Functions V1 bootstrap {{timestamp}}"
+forwardingAllowed = false
+contractID = "{{router_contract_address}}"
+relay = "evm"
+
+[relayConfig]
+chainID = {{chain_id}}
+contractUpdateCheckFrequencySec = 60
+contractVersion = 1
+donID = "{{don_id}}"

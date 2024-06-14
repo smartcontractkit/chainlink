@@ -5,15 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 )
 
 type countingWorker struct {
-	numJobsPerformed int32
+	numJobsPerformed atomic.Int32
 	delay            time.Duration
+}
+
+func (t *countingWorker) Name() string {
+	return "CountingWorker"
 }
 
 func (t *countingWorker) Work() {
@@ -21,11 +25,11 @@ func (t *countingWorker) Work() {
 		time.Sleep(t.delay)
 	}
 	// Without an atomic, the race detector fails
-	atomic.AddInt32(&t.numJobsPerformed, 1)
+	t.numJobsPerformed.Add(1)
 }
 
 func (t *countingWorker) getNumJobsPerformed() int {
-	return int(atomic.LoadInt32(&t.numJobsPerformed))
+	return int(t.numJobsPerformed.Load())
 }
 
 func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
@@ -39,18 +43,16 @@ func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
 	require.Panics(t, func() {
 		sleeper.WakeUp()
 	})
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
+	gomega.NewWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
 }
 
-func TestSleeperTask_CallingStopTwicePanics(t *testing.T) {
+func TestSleeperTask_CallingStopTwiceFails(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{}
 	sleeper := utils.NewSleeperTask(worker)
 	require.NoError(t, sleeper.Stop())
-	require.Panics(t, func() {
-		require.NoError(t, sleeper.Stop())
-	})
+	require.Error(t, sleeper.Stop())
 }
 
 func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
@@ -60,7 +62,7 @@ func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
 	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
+	gomega.NewWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
 	require.NoError(t, sleeper.Stop())
 }
 
@@ -95,8 +97,8 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 	worker.ignoreSignals = true
 	worker.allowResumeWork <- struct{}{}
 
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
-	gomega.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
+	gomega.NewWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
+	gomega.NewWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
 	require.NoError(t, sleeper.Stop())
 }
 

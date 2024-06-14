@@ -1,0 +1,53 @@
+name: 'CodeQL'
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [develop]
+  schedule:
+    - cron: '23 19 * * 4'
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu20.04-4cores-16GB
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['go', 'javascript']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Set up Go
+        if: ${{ matrix.language == 'go' }}
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Touching core/web/assets/index.html
+        if: ${{ matrix.language == 'go' }}
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@cdcdbb579706841c47f7063dda365e292e5cad7a # v2.13.4
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Analyze ${{ matrix.language }}
+        continue-on-error: true

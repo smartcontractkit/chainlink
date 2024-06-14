@@ -1,0 +1,7 @@
+ds-test/=foundry-lib/forge-std/lib/ds-test/src
+forge-std/=foundry-lib/forge-std/src
+openzeppelin-contracts/=foundry-lib/openzeppelin-contracts/contracts/
+
+@openzeppelin/=node_modules/@openzeppelin/
+hardhat/=node_modules/hardhat/
+@eth-optimism/=node_modules/@eth-optimism

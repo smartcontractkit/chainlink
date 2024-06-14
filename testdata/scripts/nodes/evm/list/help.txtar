@@ -1,0 +1,9 @@
+exec chainlink nodes evm list --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink nodes evm list - List all existing EVM nodes
+
+USAGE:
+   chainlink nodes evm list [arguments...]

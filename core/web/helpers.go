@@ -1,25 +1,20 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
+	"testing"
 
+	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-)
+	"github.com/stretchr/testify/require"
 
-// StatusCodeForError returns an http status code for an error type.
-func StatusCodeForError(err interface{}) int {
-	switch err.(type) {
-	case *models.ValidationError:
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+)
 
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
@@ -42,7 +37,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 
@@ -77,4 +72,10 @@ func jsonAPIResponseWithStatus(c *gin.Context, resource interface{}, name string
 
 func jsonAPIResponse(c *gin.Context, resource interface{}, name string) {
 	jsonAPIResponseWithStatus(c, resource, name, http.StatusOK)
+}
+
+func Router(t testing.TB, app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
+	r, err := NewRouter(app, prometheus)
+	require.NoError(t, err)
+	return r
 }

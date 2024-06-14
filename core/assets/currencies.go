@@ -4,8 +4,9 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"math/big"
+	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -28,13 +29,21 @@ func format(i *big.Int, precision int) string {
 // Link contains a field to represent the smallest units of LINK
 type Link big.Int
 
-// NewLink returns a new struct to represent LINK from it's smallest unit
-func NewLink(w int64) *Link {
+// NewLinkFromJuels returns a new struct to represent LINK from it's smallest unit
+func NewLinkFromJuels(w int64) *Link {
 	return (*Link)(big.NewInt(w))
 }
 
 // String returns Link formatted as a string.
 func (l *Link) String() string {
+	if l == nil {
+		return "0"
+	}
+	return fmt.Sprintf("%v", (*big.Int)(l))
+}
+
+// Link returns Link formatted as a string, in LINK units
+func (l *Link) Link() string {
 	if l == nil {
 		return "0"
 	}
@@ -90,8 +99,13 @@ func (l *Link) Text(base int) string {
 	return (*big.Int)(l).Text(base)
 }
 
+var linkFmtThreshold = (*Link)(new(big.Int).Exp(big.NewInt(10), big.NewInt(12), nil))
+
 // MarshalText implements the encoding.TextMarshaler interface.
 func (l *Link) MarshalText() ([]byte, error) {
+	if l.Cmp(linkFmtThreshold) >= 0 {
+		return []byte(fmt.Sprintf("%s link", decimal.NewFromBigInt(l.ToInt(), -18))), nil
+	}
 	return (*big.Int)(l).MarshalText()
 }
 
@@ -114,8 +128,28 @@ func (l *Link) UnmarshalJSON(data []byte) error {
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (l *Link) UnmarshalText(text []byte) error {
-	if _, ok := l.SetString(string(text), 10); !ok {
-		return fmt.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
+	s := string(text)
+	if strings.HasSuffix(s, "link") {
+		s = strings.TrimSuffix(s, "link")
+		s = strings.TrimSuffix(s, " ")
+		d, err := decimal.NewFromString(s)
+		if err != nil {
+			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+		}
+		d = d.Mul(decimal.New(1, 18))
+		if !d.IsInteger() {
+			err := errors.New("maximum precision is juels")
+			return errors.Wrapf(err, "assets: cannot unmarshal %q into a *assets.Link", text)
+		}
+		l.Set((*Link)(d.Rat().Num()))
+		return nil
+	}
+	if strings.HasSuffix(s, "juels") {
+		s = strings.TrimSuffix(s, "juels")
+		s = strings.TrimSuffix(s, " ")
+	}
+	if _, ok := l.SetString(s, 10); !ok {
+		return errors.Errorf("assets: cannot unmarshal %q into a *assets.Link", text)
 	}
 	return nil
 }
@@ -177,6 +211,7 @@ func NewEthValue(w int64) Eth {
 }
 
 // NewEthValueS returns a new struct to represent ETH from a string value of Eth (not wei)
+// the underlying value is still wei
 func NewEthValueS(s string) (Eth, error) {
 	e, err := decimal.NewFromString(s)
 	if err != nil {
@@ -192,6 +227,9 @@ func (e *Eth) Cmp(y *Eth) int {
 }
 
 func (e *Eth) String() string {
+	if e == nil {
+		return "<nil>"
+	}
 	return format(e.ToInt(), 18)
 }
 

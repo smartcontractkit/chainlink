@@ -1,0 +1,39 @@
+#
+# This action checks PRs to see if any README* files were updated.
+# If none were, it will add a message to the PR asking if it would make sense to do so.
+#
+name: Readme
+
+on: pull_request
+
+jobs:
+  readme:
+    # For security reasons, GITHUB_TOKEN is read-only on forks, so we cannot leave comments on PRs.
+    # This check skips the job if it is detected we are running on a fork.
+    if: ${{ github.event.pull_request.head.repo.full_name == 'smartcontractkit/chainlink' }}
+    name: Readme checker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for changed files
+        id: changedfiles
+        uses: umani/changed-files@0239328a3a6268aad16af7c3e4efc78e32d6c0f0 # Version 4.0.1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: '^(?!.*node_modules).*README\.md$'
+      - name: Make a comment
+        uses: unsplash/comment-on-pr@ffe8f97ccc63ce12c3c23c6885b169db67958d3b # Version 1.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: contains(steps.changedfiles.outputs.files_updated, 'README') != true && contains(steps.changedfiles.outputs.files_created, 'README') != true
+        with:
+          msg: "I see that you haven't updated any README files. Would it make sense to do so?"
+          check_for_duplicate_msg: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Readme checker
+        continue-on-error: true

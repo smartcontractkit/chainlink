@@ -1,0 +1,4 @@
+golang 1.21.1
+k3d 5.4.6
+kubectl 1.25.5
+nodejs 18.13.0

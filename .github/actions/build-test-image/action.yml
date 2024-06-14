@@ -1,0 +1,62 @@
+name: Build Test Image
+description: A composite action that allows building and publishing the test remote runner image
+
+inputs:
+  repository:
+    description: The docker repository for the image
+    default: chainlink-tests
+    required: false
+  tag:
+    description: The tag to use by default and to use for checking image existance
+    default: ${{ github.sha }}
+    required: false
+  other_tags:
+    description: Other tags to push if needed
+    required: false
+  suites:
+    description: The test suites to build into the image
+    default: chaos migration performance reorg smoke soak benchmark
+    required: false
+  QA_AWS_ROLE_TO_ASSUME:
+    description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
+    required: true
+  QA_AWS_REGION:
+    description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
+    required: true
+  QA_AWS_ACCOUNT_NUMBER:
+    description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Check if image exists
+      id: check-image
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      with:
+        repository: ${{ inputs.repository }}
+        tag: ${{ inputs.tag }}
+        AWS_REGION: ${{ inputs.QA_AWS_REGION }}
+        AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
+    - name: Build and Publish Test Runner
+      if: steps.check-image.outputs.exists == 'false'
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+      with:
+        tags: |
+          ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
+          ${{ inputs.other_tags }}
+        file: ./integration-tests/test.Dockerfile
+        build-args: |
+          BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
+          IMAGE_VERSION=v0.32.9
+          SUITES="${{ inputs.suites }}"
+        AWS_REGION: ${{ inputs.QA_AWS_REGION }}
+        AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
+    - name: Print Image Built
+      shell: sh
+      env:
+        INPUTS_REPOSITORY: ${{ inputs.repository }}
+        INPUTS_TAG: ${{ inputs.tag }}
+      run: |
+        echo "### ${INPUTS_REPOSITORY} image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+        echo "\`${INPUTS_TAG}\`" >>$GITHUB_STEP_SUMMARY

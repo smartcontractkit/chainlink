@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -19,8 +20,9 @@ var levelColors = map[string]func(...interface{}) string{
 	"info":    color.New(color.FgWhite).SprintFunc(),
 	"warn":    color.New(color.FgYellow).SprintFunc(),
 	"error":   color.New(color.FgRed).SprintFunc(),
-	"panic":   color.New(color.FgRed).SprintFunc(),
-	"fatal":   color.New(color.FgRed).SprintFunc(),
+	"panic":   color.New(color.FgHiRed).SprintFunc(),
+	"crit":    color.New(color.FgHiRed).SprintFunc(),
+	"fatal":   color.New(color.FgHiRed).SprintFunc(),
 }
 
 var blue = color.New(color.FgBlue).SprintFunc()
@@ -45,10 +47,29 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 	return pc.Sink.Write([]byte(fmt.Sprintln(headline, details)))
 }
 
+// Close is overridden to prevent accidental closure of stderr/stdout
+func (pc PrettyConsole) Close() error {
+	switch pc.Sink {
+	case os.Stderr, os.Stdout:
+		// Never close Stderr/Stdout because this will break any future go runtime logging from panics etc
+		return nil
+	default:
+		return pc.Sink.Close()
+	}
+}
+
 func generateHeadline(js gjson.Result) string {
-	sec, dec := math.Modf(js.Get("ts").Float())
+	ts := js.Get("ts")
+	var tsStr string
+	if f := ts.Float(); f > 1 {
+		sec, dec := math.Modf(f)
+		tsStr = iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9))))
+	} else {
+		// assume already formatted
+		tsStr = ts.Str
+	}
 	headline := []interface{}{
-		iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),
 		fmt.Sprintf("%-50s", js.Get("msg")),

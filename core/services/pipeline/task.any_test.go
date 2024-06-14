@@ -1,16 +1,19 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func TestAny(t *testing.T) {
+func TestAnyTask(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -59,7 +62,9 @@ func TestAny(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.AnyTask{}
-			output := task.Run(context.Background(), pipeline.TaskRun{}, test.inputs)
+			output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)

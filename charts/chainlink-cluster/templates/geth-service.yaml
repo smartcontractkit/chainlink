@@ -1,0 +1,18 @@
+{{ if (hasKey .Values "geth") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: geth
+spec:
+  selector:
+    app: geth
+    release: {{ .Release.Name }}
+  ports:
+  - name: ws-rpc
+    port: {{ default "8546" $.Values.geth.wsrpc_port}}
+    targetPort: ws-rpc
+  - name: http-rpc
+    port: {{ default "8544" $.Values.geth.httprpc_port}}
+    targetPort: http-rpc
+  type: ClusterIP
+{{ end }}

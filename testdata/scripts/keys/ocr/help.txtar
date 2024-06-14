@@ -1,0 +1,20 @@
+exec chainlink keys ocr --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys ocr - Remote commands for administering the node's legacy off chain reporting keys
+
+USAGE:
+   chainlink keys ocr command [command options] [arguments...]
+
+COMMANDS:
+   create  Create an OCR key bundle, encrypted with password from the password file, and store it in the database
+   delete  Deletes the encrypted OCR key bundle matching the given ID
+   list    List available OCR key bundles
+   import  Imports an OCR key bundle from a JSON file
+   export  Exports an OCR key bundle to a JSON file
+
+OPTIONS:
+   --help, -h  show help
+   

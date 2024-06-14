@@ -1,0 +1,10 @@
+ChainID = '8217'
+FinalityDepth = 1
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '30s'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'L2Suggested'
+PriceDefault = '750 gwei' # gwei = ston
+BumpThreshold = 0

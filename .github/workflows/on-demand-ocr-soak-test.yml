@@ -1,0 +1,143 @@
+name: On Demand OCR Soak Test
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network to run tests on
+        type: choice
+        options:
+          - "SIMULATED"
+          - "GOERLI"
+          - "OPTIMISM_GOERLI"
+          - "ARBITRUM_GOERLI"
+          - "CELO_ALFAJORES"
+          - "CELO_MAINNET"
+          - "BASE_GOERLI"
+          - "BASE_MAINNET"
+          - "BSC_MAINNET"
+          - "BSC_TESTNET"
+          - "SCROLL_SEPOLIA"
+          - "SCROLL_MAINNET"   
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: false
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      slackMemberID:
+        description: Slack Member ID (Not your @)
+        required: true
+        default: U01A2B2C3D4
+        type: string
+      chainlinkImage:
+        description: Container image location for the Chainlink nodes
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion:
+        description: Container image version for the Chainlink nodes
+        required: true
+        default: "1.11.0"
+      testDuration:
+        description: Duration of the test (time string)
+        required: false
+        default: 15m
+      chainlinkNodeFunding:
+        description: How much to fund each Chainlink node (in ETH)
+        required: false
+        default: ".001"
+      timeBetweenRounds:
+        description: How long to wait before starting a new round
+        required: false
+        default: 1m
+
+jobs:
+  ocr_soak_test:
+    name: ${{ inputs.network }} OCR Soak Test
+    environment: integration
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_COMMIT_SHA: ${{ inputs.chainlinkVersion }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
+      OCR_TEST_DURATION: ${{ inputs.testDuration }}
+      OCR_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
+      OCR_TIME_BETWEEN_ROUNDS: ${{ inputs.timeBetweenRounds }}
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} OCR Soak Test
+        continue-on-error: true
+      - name: Get Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+          SLACK_USER=$(jq -r '.inputs.slackMemberID' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+          echo ::add-mask::$SLACK_USER
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+          echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        with:
+          ref: ${{ env.REF_NAME }}
+      - name: Setup Push Tag
+        shell: bash
+        run: |
+          echo "### chainlink image used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${{ inputs.chainlinkVersion }}\`" >>$GITHUB_STEP_SUMMARY
+          echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+      - name: Build Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: soak
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
+        with:
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          should_cleanup: false
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

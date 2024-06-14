@@ -1,27 +1,60 @@
 package directrequest
 
 import (
-	gethCommon "github.com/ethereum/go-ethereum/common"
+	"context"
+	"fmt"
+	"reflect"
+	"sync"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type Delegate struct {
-	logBroadcaster log.Broadcaster
-	pipelineRunner pipeline.Runner
-	db             *gorm.DB
-}
+type (
+	Delegate struct {
+		logger         logger.Logger
+		pipelineRunner pipeline.Runner
+		pipelineORM    pipeline.ORM
+		chHeads        chan *evmtypes.Head
+		legacyChains   evm.LegacyChainContainer
+		mailMon        *utils.MailboxMonitor
+	}
 
-func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *Delegate {
+	Config interface {
+		MinIncomingConfirmations() uint32
+		MinContractPayment() *assets.Link
+	}
+)
+
+var _ job.Delegate = (*Delegate)(nil)
+
+func NewDelegate(
+	logger logger.Logger,
+	pipelineRunner pipeline.Runner,
+	pipelineORM pipeline.ORM,
+	legacyChains evm.LegacyChainContainer,
+	mailMon *utils.MailboxMonitor,
+) *Delegate {
 	return &Delegate{
-		logBroadcaster,
-		pipelineRunner,
-		db,
+		logger:         logger.Named("DirectRequest"),
+		pipelineRunner: pipelineRunner,
+		pipelineORM:    pipelineORM,
+		chHeads:        make(chan *evmtypes.Head, 1),
+		legacyChains:   legacyChains,
+		mailMon:        mailMon,
 	}
 }
 
@@ -29,94 +62,357 @@ func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-// ServicesForSpec returns the log listener service for a direct request job
-// TODO: This will need heavy test coverage
-func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
-	if spec.DirectRequestSpec == nil {
-		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", spec)
-	}
-	concreteSpec := spec.DirectRequestSpec
+func (d *Delegate) BeforeJobCreated(spec job.Job)                {}
+func (d *Delegate) AfterJobCreated(spec job.Job)                 {}
+func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
+func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
-	logListener := listener{
-		d.logBroadcaster,
-		concreteSpec.ContractAddress.Address(),
-		d.pipelineRunner,
-		d.db,
-		spec.ID,
+// ServicesForSpec returns the log listener service for a direct request job
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+	if jb.DirectRequestSpec == nil {
+		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
+	chain, err := d.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
+	if err != nil {
+		return nil, err
+	}
+	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config().EVM(), *jb.DirectRequestSpec)
+
+	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
+	}
+
+	svcLogger := d.logger.
+		With(
+			"contract", concreteSpec.ContractAddress.Address().String(),
+			"jobName", jb.PipelineSpec.JobName,
+			"jobID", jb.PipelineSpec.JobID,
+			"externalJobID", jb.ExternalJobID,
+		)
+
+	logListener := &listener{
+		logger:                   svcLogger.Named("DirectRequest"),
+		config:                   chain.Config().EVM(),
+		logBroadcaster:           chain.LogBroadcaster(),
+		oracle:                   oracle,
+		pipelineRunner:           d.pipelineRunner,
+		pipelineORM:              d.pipelineORM,
+		mailMon:                  d.mailMon,
+		job:                      jb,
+		mbOracleRequests:         utils.NewHighCapacityMailbox[log.Broadcast](),
+		mbOracleCancelRequests:   utils.NewHighCapacityMailbox[log.Broadcast](),
+		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
+		requesters:               concreteSpec.Requesters,
+		minContractPayment:       concreteSpec.MinContractPayment,
+		chStop:                   make(chan struct{}),
+	}
+	var services []job.ServiceCtx
 	services = append(services, logListener)
 
-	return
+	return services, nil
 }
 
 var (
-	_ log.Listener = &listener{}
-	_ job.Service  = &listener{}
+	_ log.Listener   = &listener{}
+	_ job.ServiceCtx = &listener{}
 )
 
 type listener struct {
-	logBroadcaster  log.Broadcaster
-	contractAddress gethCommon.Address
-	pipelineRunner  pipeline.Runner
-	db              *gorm.DB
-	jobID           int32
+	logger                   logger.Logger
+	config                   Config
+	logBroadcaster           log.Broadcaster
+	oracle                   operator_wrapper.OperatorInterface
+	pipelineRunner           pipeline.Runner
+	pipelineORM              pipeline.ORM
+	mailMon                  *utils.MailboxMonitor
+	job                      job.Job
+	runs                     sync.Map // map[string]utils.StopChan
+	shutdownWaitGroup        sync.WaitGroup
+	mbOracleRequests         *utils.Mailbox[log.Broadcast]
+	mbOracleCancelRequests   *utils.Mailbox[log.Broadcast]
+	minIncomingConfirmations uint32
+	requesters               models.AddressCollection
+	minContractPayment       *assets.Link
+	chStop                   chan struct{}
+	utils.StartStopOnce
 }
 
+func (l *listener) HealthReport() map[string]error {
+	return map[string]error{l.Name(): l.Healthy()}
+}
+
+func (l *listener) Name() string { return l.logger.Name() }
+
 // Start complies with job.Service
-func (d listener) Start() error {
-	connected := d.logBroadcaster.Register(nil, d)
-	if !connected {
-		return errors.New("Failed to register listener with logBroadcaster")
-	}
-	return nil
+func (l *listener) Start(context.Context) error {
+	return l.StartOnce("DirectRequestListener", func() error {
+		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
+			Contract: l.oracle.Address(),
+			ParseLog: l.oracle.ParseLog,
+			LogsWithTopics: map[common.Hash][][]log.Topic{
+				operator_wrapper.OperatorOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
+				operator_wrapper.OperatorCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
+			},
+			MinIncomingConfirmations: l.minIncomingConfirmations,
+		})
+		l.shutdownWaitGroup.Add(3)
+		go l.processOracleRequests()
+		go l.processCancelOracleRequests()
+
+		go func() {
+			<-l.chStop
+			unsubscribeLogs()
+			l.shutdownWaitGroup.Done()
+		}()
+
+		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", fmt.Sprint(l.job.PipelineSpec.JobID))
+		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", fmt.Sprint(l.job.PipelineSpec.JobID))
+
+		return nil
+	})
 }
 
 // Close complies with job.Service
-func (d listener) Close() error {
-	d.logBroadcaster.Unregister(nil, d)
-	return nil
+func (l *listener) Close() error {
+	return l.StopOnce("DirectRequestListener", func() error {
+		l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
+			runCloserChannel := runCloserChannelIf.(utils.StopChan)
+			close(runCloserChannel)
+			return true
+		})
+		l.runs = sync.Map{}
+
+		close(l.chStop)
+		l.shutdownWaitGroup.Wait()
+
+		return services.CloseAll(l.mbOracleRequests, l.mbOracleCancelRequests)
+	})
 }
 
-// OnConnect complies with log.Listener
-func (listener) OnConnect() {}
-
-// OnDisconnect complies with log.Listener
-func (listener) OnDisconnect() {}
-
-// OnConnect complies with log.Listener
-func (d listener) HandleLog(lb log.Broadcast, err error) {
-	if err != nil {
-		logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
+func (l *listener) HandleLog(lb log.Broadcast) {
+	log := lb.DecodedLog()
+	if log == nil || reflect.ValueOf(log).IsNil() {
+		l.logger.Error("HandleLog: ignoring nil value")
 		return
 	}
 
-	was, err := lb.WasAlreadyConsumed()
-	if err != nil {
-		logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
-		return
-	} else if was {
+	switch log := log.(type) {
+	case *operator_wrapper.OperatorOracleRequest:
+		wasOverCapacity := l.mbOracleRequests.Deliver(lb)
+		if wasOverCapacity {
+			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
+		}
+	case *operator_wrapper.OperatorCancelOracleRequest:
+		wasOverCapacity := l.mbOracleCancelRequests.Deliver(lb)
+		if wasOverCapacity {
+			l.logger.Error("CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
+		}
+	default:
+		l.logger.Warnf("Unexpected log type %T", log)
+	}
+}
+
+func (l *listener) processOracleRequests() {
+	for {
+		select {
+		case <-l.chStop:
+			l.shutdownWaitGroup.Done()
+			return
+		case <-l.mbOracleRequests.Notify():
+			l.handleReceivedLogs(l.mbOracleRequests)
+		}
+	}
+}
+
+func (l *listener) processCancelOracleRequests() {
+	for {
+		select {
+		case <-l.chStop:
+			l.shutdownWaitGroup.Done()
+			return
+		case <-l.mbOracleCancelRequests.Notify():
+			l.handleReceivedLogs(l.mbOracleCancelRequests)
+		}
+	}
+}
+
+func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
+	for {
+		select {
+		case <-l.chStop:
+			return
+		default:
+		}
+		lb, exists := mailbox.Retrieve()
+		if !exists {
+			return
+		}
+		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
+		if err != nil {
+			l.logger.Errorw("Could not determine if log was already consumed", "err", err)
+			continue
+		} else if was {
+			continue
+		}
+
+		logJobSpecID := lb.RawLog().Topics[1]
+		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
+			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
+			l.markLogConsumed(lb)
+			continue
+		}
+
+		log := lb.DecodedLog()
+		if log == nil || reflect.ValueOf(log).IsNil() {
+			l.logger.Error("HandleLog: ignoring nil value")
+			continue
+		}
+
+		switch log := log.(type) {
+		case *operator_wrapper.OperatorOracleRequest:
+			l.handleOracleRequest(log, lb)
+		case *operator_wrapper.OperatorCancelOracleRequest:
+			l.handleCancelOracleRequest(log, lb)
+		default:
+			l.logger.Warnf("Unexpected log type %T", log)
+		}
+	}
+}
+
+func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[string]interface{} {
+	result := make(map[string]interface{})
+	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
+	result["requester"] = request.Requester.Hex()
+	result["requestId"] = formatRequestId(request.RequestId)
+	result["payment"] = fmt.Sprintf("%v", request.Payment)
+	result["callbackAddr"] = request.CallbackAddr.Hex()
+	result["callbackFunctionId"] = fmt.Sprintf("0x%x", request.CallbackFunctionId)
+	result["cancelExpiration"] = fmt.Sprintf("%v", request.CancelExpiration)
+	result["dataVersion"] = fmt.Sprintf("%v", request.DataVersion)
+	result["data"] = fmt.Sprintf("0x%x", request.Data)
+	return result
+}
+
+func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleRequest, lb log.Broadcast) {
+	l.logger.Infow("Oracle request received",
+		"specId", fmt.Sprintf("%0x", request.SpecId),
+		"requester", request.Requester,
+		"requestId", fmt.Sprintf("%0x", request.RequestId),
+		"payment", request.Payment,
+		"callbackAddr", request.CallbackAddr,
+		"callbackFunctionId", fmt.Sprintf("%0x", request.CallbackFunctionId),
+		"cancelExpiration", request.CancelExpiration,
+		"dataVersion", request.DataVersion,
+		"data", fmt.Sprintf("%0x", request.Data),
+	)
+
+	if !l.allowRequester(request.Requester) {
+		l.logger.Infow("Rejected run for invalid requester",
+			"requester", request.Requester,
+			"allowedRequesters", l.requesters.ToStrings(),
+		)
+		l.markLogConsumed(lb)
 		return
 	}
 
-	// TODO: Logic to handle log will go here
+	var minContractPayment *assets.Link
+	if l.minContractPayment != nil {
+		minContractPayment = l.minContractPayment
+	} else {
+		minContractPayment = l.config.MinContractPayment()
+	}
+	if minContractPayment != nil && request.Payment != nil {
+		requestPayment := assets.Link(*request.Payment)
+		if minContractPayment.Cmp(&requestPayment) > 0 {
+			l.logger.Warnw("Rejected run for insufficient payment",
+				"minContractPayment", minContractPayment.String(),
+				"requestPayment", requestPayment.String(),
+			)
+			l.markLogConsumed(lb)
+			return
+		}
+	}
 
-	err = lb.MarkConsumed()
-	if err != nil {
-		logger.Errorf("Error marking log as consumed: %v", err)
+	meta := make(map[string]interface{})
+	meta["oracleRequest"] = oracleRequestToMap(request)
+
+	runCloserChannel := make(utils.StopChan)
+	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
+	if loaded {
+		runCloserChannel = runCloserChannelIf.(utils.StopChan)
+	}
+	ctx, cancel := runCloserChannel.NewCtx()
+	defer cancel()
+
+	evmChainID := lb.EVMChainID()
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+			"pipelineSpec": &pipeline.Spec{
+				ForwardingAllowed: l.job.ForwardingAllowed,
+			},
+			"evmChainID": evmChainID.String(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta":                  meta,
+			"logBlockHash":          request.Raw.BlockHash,
+			"logBlockNumber":        request.Raw.BlockNumber,
+			"logTxHash":             request.Raw.TxHash,
+			"logAddress":            request.Raw.Address,
+			"logTopics":             request.Raw.Topics,
+			"logData":               request.Raw.Data,
+			"blockReceiptsRoot":     lb.ReceiptsRoot(),
+			"blockTransactionsRoot": lb.TransactionsRoot(),
+			"blockStateRoot":        lb.StateRoot(),
+		},
+	})
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx pg.Queryer) error {
+		l.markLogConsumed(lb, pg.WithQueryer(tx))
+		return nil
+	})
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
+		l.logger.Errorw("Failed executing run", "err", err)
 	}
 }
 
-// JobID complies with log.Listener
-func (listener) JobID() models.JobID {
-	return models.NilJobID
+func (l *listener) allowRequester(requester common.Address) bool {
+	if len(l.requesters) == 0 {
+		return true
+	}
+	for _, addr := range l.requesters {
+		if addr == requester {
+			return true
+		}
+	}
+	return false
 }
 
-// SpecDB complies with log.Listener
-func (d listener) JobIDV2() int32 {
-	return d.jobID
+// Cancels runs that haven't been started yet, with the given request ID
+func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
+	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
+	if loaded {
+		close(runCloserChannelIf.(utils.StopChan))
+	}
+	l.markLogConsumed(lb)
 }
 
-// IsV2Job complies with log.Listener
-func (listener) IsV2Job() bool {
-	return true
+func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
+	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
+		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
+	}
+}
+
+// JobID - Job complies with log.Listener
+func (l *listener) JobID() int32 {
+	return l.job.ID
+}
+
+func formatRequestId(requestId [32]byte) string {
+	return fmt.Sprintf("0x%x", requestId)
 }

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │      Compiling Functions contracts...        │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.6"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+
+compileContract () {
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION/functions/$1 \
+      --abi --bin \
+      --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/functions \
+      $ROOT/contracts/src/v0.8/functions/$2
+}
+
+##########################
+# Version 0 (Testnet Beta)
+##########################
+
+compileContract v0_0_0 dev/v0_0_0/Functions.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsBillingRegistry.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsClient.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsOracle.sol
+compileContract v0_0_0 dev/v0_0_0/example/FunctionsClientExample.sol
+
+# Test helpers
+compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
+compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsOracleWithInit.sol
+
+############################
+# Version 1 (Mainnet Preview)
+############################
+
+SOLC_VERSION="0.8.19"
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+compileContract v1_0_0 dev/v1_0_0/libraries/FunctionsRequest.sol
+compileContract v1_0_0 dev/v1_0_0/FunctionsRouter.sol
+compileContract v1_0_0 dev/v1_0_0/FunctionsCoordinator.sol
+compileContract v1_0_0 dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol
+compileContract v1_0_0 dev/v1_0_0/example/FunctionsClientExample.sol
+
+# Test helpers
+compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol
+compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsLoadTestClient.sol
+
+# Mocks
+compileContract v1_0_0 dev/v1_0_0/mocks/FunctionsV1EventsMock.sol

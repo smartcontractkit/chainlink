@@ -1,39 +1,50 @@
-package main
+package core
 
 import (
+	"fmt"
+	"log"
 	"os"
 
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/Masterminds/semver/v3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/build"
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
-func main() {
-	Run(NewProductionClient(), os.Args...)
+func init() {
+	// check version
+	if static.Version == static.Unset {
+		if !build.IsProd() {
+			return
+		}
+		log.Println(`Version was unset on production build. Chainlink should be built with static.Version set to a valid semver for production builds.`)
+	} else if _, err := semver.NewVersion(static.Version); err != nil {
+		panic(fmt.Sprintf("Version invalid: %q is not valid semver", static.Version))
+	}
 }
 
-// Run runs the CLI, providing further command instructions by default.
-func Run(client *cmd.Client, args ...string) {
-	app := cmd.NewApp(client)
-	logger.WarnIf(app.Run(args))
+func Main() (code int) {
+	recovery.ReportPanics(func() {
+		app := cmd.NewApp(newProductionClient())
+		if err := app.Run(os.Args); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running app: %v\n", err)
+			code = 1
+		}
+	})
+	return
 }
 
-// NewProductionClient configures an instance of the CLI to be used
-// in production.
-func NewProductionClient() *cmd.Client {
-	config := orm.NewConfig()
+// newProductionClient configures an instance of the CLI to be used in production.
+func newProductionClient() *cmd.Shell {
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(config, cmd.DiskCookieStore{Config: config})
-	return &cmd.Client{
+	return &cmd.Shell{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
-		Config:                         config,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(config, cookieAuth),
-		CookieAuthenticator:            cookieAuth,
-		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
 		PasswordPrompter:               cmd.NewPasswordPrompter(),

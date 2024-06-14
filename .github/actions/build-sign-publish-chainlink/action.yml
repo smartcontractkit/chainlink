@@ -1,0 +1,268 @@
+name: Build and Publish Chainlink
+
+description: A composite action that allows building and publishing signed chainlink images.
+
+inputs:
+  # Inputs for publishing
+  publish:
+    description: When set to the string boolean value of "true", the resulting built image will be published
+    default: "false"
+    required: false
+
+  dockerfile:
+    default: core/chainlink.Dockerfile
+    required: false
+  ecr-hostname:
+    description: The ECR registry scope
+    default: public.ecr.aws
+    required: false
+  ecr-image-name:
+    description: |
+      The image name with path, in the format of `[registry]/repository`. For private ECR repos the registry name is optional, where for public repos, it is required.
+      Eg. Public ECR repo `chainlink` and registry alias `chainlinklabs` should be `chainlinklabs/chainlink`. For a private ECR repo `chainlink` the image name should be `chainlink`
+    default: chainlink/chainlink
+    required: false
+  ecr-tag-suffix:
+    required: false
+  aws-role-to-assume:
+    description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
+    required: false
+  aws-role-duration-seconds:
+    description: The duration of the role assumed
+    required: false
+  aws-region:
+    description: The AWS region the ECR repository is located in, should only be needed for public ECR repositories, used in configuring docker/login-action
+    required: false
+
+  # Inputs for signing
+  sign-images:
+    description: When set to the string boolean value of "true", the resulting build image will be signed
+    default: "false"
+    required: false
+  cosign-private-key:
+    description: The private key to be used with cosign to sign the image
+    required: false
+  cosign-public-key:
+    description: The public key to be used with cosign for verification
+    required: false
+  cosign-password:
+    description: The password to decrypt the cosign private key needed to sign the image
+    required: false
+  sign-method:
+    description: Build image will be signed using keypair or keyless methods
+    default: "keypair"
+    required: true
+  verify-signature:
+    description: When set to the string boolean value of "true", the resulting build image signature will be verified
+    default: "false"
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Set shared variables
+      shell: sh
+      # See https://docs.github.com/en/actions/learn-github-actions/workflow-commands-for-github-actions#multiline-strings
+      run: |
+        SHARED_IMAGES=${{ inputs.ecr-hostname }}/${{ inputs.ecr-image-name }}
+
+        SHARED_TAG_LIST=$(cat << EOF
+        type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}
+        type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}
+        type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}
+        EOF
+        )
+
+        SHARED_BUILD_ARGS=$(cat << EOF
+        COMMIT_SHA=${{ github.sha }}
+        EOF
+        )
+
+        echo "shared-images<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_IMAGES" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "shared-tag-list<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_TAG_LIST" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+        echo "shared-build-args<<EOF" >> $GITHUB_ENV
+        echo "$SHARED_BUILD_ARGS" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
+    - if: inputs.publish == 'true'
+      # Log in to AWS for publish to ECR
+      name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+      with:
+        role-to-assume: ${{ inputs.aws-role-to-assume }}
+        role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - if: inputs.publish == 'true'
+      name: Login to ECR
+      uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
+      with:
+        registry: ${{ inputs.ecr-hostname }}
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@4b4e9c3e2d4531116a6f8ba8e71fc6e2cb6e6c8c # v2.5.0
+
+    - name: Generate docker metadata for root image
+      id: meta-root
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      with:
+        # list of Docker images to use as base name for tags
+        images: ${{ env.shared-images }}
+        # XXX: DO NOT USE SHARED TAGS HERE
+        tags: |
+          type=ref,event=branch,suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=semver,pattern={{version}},suffix=${{ inputs.ecr-tag-suffix }}-root
+          type=sha,format=short,suffix=${{ inputs.ecr-tag-suffix }}-root
+
+    - name: Build and push root docker image
+      id: buildpush-root
+      uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
+      with:
+        push: ${{ inputs.publish }}
+        context: .
+        load: ${{ contains(inputs.publish, false) }}
+        tags: ${{ steps.meta-root.outputs.tags }}
+        labels: ${{ steps.meta-root.outputs.labels }}
+        file: ${{ inputs.dockerfile }}
+        build-args: |
+          CHAINLINK_USER=root
+          ${{ env.shared-build-args }}
+
+    - name: Save root image name in GITHUB_ENV
+      id: save-root-image-name-env
+      shell: sh
+      run: |
+        IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-root.outputs.metadata)['image.name'] }}
+        IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        echo "root_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+
+    - name: Generate docker metadata for non-root image
+      id: meta-nonroot
+      uses: docker/metadata-action@c4ee3adeed93b1fa6a762f209fb01608c1a22f1e # v4.4.4
+      with:
+        flavor: |
+          latest=auto
+          prefix=
+          suffix=
+        images: ${{ env.shared-images }}
+        tags: ${{ env.shared-tag-list }}
+
+    - name: Build and push non-root docker image
+      id: buildpush-nonroot
+      uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
+      with:
+        push: ${{ inputs.publish }}
+        context: .
+        load: ${{ contains(inputs.publish, false) }}
+        tags: ${{ steps.meta-nonroot.outputs.tags }}
+        labels: ${{ steps.meta-nonroot.outputs.labels }}
+        file: ${{ inputs.dockerfile }}
+        build-args: |
+          CHAINLINK_USER=chainlink
+          ${{ env.shared-build-args }}
+
+    - name: Save non-root image name in GITHUB_ENV and GITHUB_STEP_SUMMARY
+      id: save-non-root-image-name-env
+      shell: sh
+      run: |
+        IMAGES_NAME_RAW=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['image.name'] }}
+        IMAGE_DIGEST=${{ fromJSON(steps.buildpush-nonroot.outputs.metadata)['containerimage.digest'] }}
+        IMAGE_NAME=$(echo "$IMAGES_NAME_RAW" | cut -d"," -f1)
+        echo "nonroot_image_name=${IMAGE_NAME}" >> $GITHUB_ENV
+        echo '### Docker Image' >> $GITHUB_STEP_SUMMARY
+        echo "Image Name: ${IMAGE_NAME}"  >> $GITHUB_STEP_SUMMARY
+        echo "Image Digest: ${IMAGE_DIGEST}"  >> $GITHUB_STEP_SUMMARY
+
+    - name: Check if non-root image runs as root
+      id: check-nonroot-runs-root
+      shell: sh
+      env:
+        PUBLISH: ${{ inputs.publish }}
+      run: |
+        echo "Fail build if non-root image runs as user: root"
+        # if we're publishing the image, it doesn't get loaded into the local docker daemon
+        # so we need to pull the image into our daemon
+        if [ $PUBLISH = "true" ]; then
+         docker pull "${nonroot_image_name}"
+        fi
+        docker inspect "${nonroot_image_name}" | jq -r '.[].Config.User' | ( ! grep "root" )
+
+    - if: inputs.sign-images == 'true'
+      name: Install cosign
+      uses: sigstore/cosign-installer@581838fbedd492d2350a9ecd427a95d6de1e5d01 # v2.1.0
+      with:
+        cosign-release: "v1.6.0"
+
+    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
+      name: Sign the published root Docker image using keypair method
+      shell: sh
+      env:
+        COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      run: |
+        echo "${{ inputs.cosign-private-key }}" > cosign.key
+        cosign sign --key cosign.key "${{ env.root_image_name }}"
+        rm -f cosign.key
+
+    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
+      name: Verify the signature of the published root Docker image using keypair
+      shell: sh
+      run: |
+        echo "${{ inputs.cosign-public-key }}" > cosign.key
+        cosign verify --key cosign.key "${{ env.root_image_name }}"
+        rm -f cosign.key
+
+    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
+      name: Sign the published root Docker image using keyless method
+      shell: sh
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        cosign sign "${{ env.root_image_name }}"
+
+    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
+      name: Verify the signature of the published root Docker image using keyless
+      shell: sh
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        cosign verify "${{ env.root_image_name }}"
+
+    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keypair'
+      name: Sign the published non-root Docker image using keypair method
+      shell: sh
+      env:
+        COSIGN_PASSWORD: "${{ inputs.cosign-password }}"
+      run: |
+        echo "${{ inputs.cosign-private-key }}" > cosign.key
+        cosign sign --key cosign.key "${{ env.nonroot_image_name }}"
+        rm -f cosign.key
+
+    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keypair'
+      name: Verify the signature of the published non-root Docker image using keypair
+      shell: sh
+      run: |
+        echo "${{ inputs.cosign-public-key }}" > cosign.key
+        cosign verify --key cosign.key "${{ env.nonroot_image_name }}"
+        rm -f cosign.key
+
+    - if: inputs.sign-images == 'true' && inputs.sign-method == 'keyless'
+      name: Sign the published non-root Docker image using keyless method
+      shell: sh
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        cosign sign "${{ env.nonroot_image_name }}"
+
+    - if: inputs.verify-signature == 'true' && inputs.sign-method == 'keyless'
+      name: Verify the signature of the published non-root Docker image using keyless
+      shell: sh
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        cosign verify "${{ env.nonroot_image_name }}"

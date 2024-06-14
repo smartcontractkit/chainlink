@@ -1,0 +1,83 @@
+run:
+  timeout: 15m0s
+linters:
+  enable:
+    - exhaustive
+    - exportloopref
+    - revive
+    - goimports
+    - gosec
+    - misspell
+    - rowserrcheck
+    - errorlint
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
+  goimports:
+    local-prefixes: github.com/smartcontractkit/chainlink
+  golint:
+    min-confidence: 1.0
+  gosec:
+    excludes:
+      - G101
+      - G104
+      # - G204
+      # - G304
+      # - G404
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+  errorlint:
+    # Allow formatting of errors without %w
+    errorf: false
+  revive:
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      # - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      # - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      # - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+      - name: waitgroup-by-value
+      - name: unconditional-recursion
+      - name: struct-tag
+      # - name: string-format
+      - name: string-of-int
+      # - name: range-val-address
+      - name: range-val-in-closure
+      - name: modifies-value-receiver
+      - name: modifies-parameter
+      - name: identical-branches
+      - name: get-return
+      # - name: flag-parameter
+      # - name: early-return
+      - name: defer
+      - name: constant-logical-expr
+      # - name: confusing-naming
+      # - name: confusing-results
+      - name: bool-literal-in-expr
+      - name: atomic
+issues:
+  exclude-rules:
+    - path: test
+      text: "^G404:"
+      linters:
+        - gosec

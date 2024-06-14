@@ -1,0 +1,117 @@
+# override resources for keys "chainlink", "db", or "geth" if needed
+#  resources:
+#    requests:
+#      cpu: 350m
+#      memory: 1024Mi
+#    limits:
+#      cpu: 350m
+#      memory: 1024Mi
+# images can be overriden for the same keys:
+#   image: ethereum/client-go
+#   version: stable
+chainlink:
+  web_port: 6688
+  p2p_port: 8090
+  nodes:
+    - name: node-1
+      image: "public.ecr.aws/chainlink/chainlink:latest"
+      # override default config per node
+      # for example, use OCRv2 P2P setup, the whole config
+#      toml: |
+#        RootDir = './clroot'
+#        [Log]
+#        JSONConsole = true
+#        Level = 'debug'
+#        [WebServer]
+#        AllowOrigins = '*'
+#        SecureCookies = false
+#        SessionTimeout = '999h0m0s'
+#        [OCR2]
+#        Enabled = true
+#        [P2P]
+#        [P2P.V2]
+#        Enabled = false
+#        AnnounceAddresses = []
+#        DefaultBootstrappers = []
+#        DeltaDial = '15s'
+#        DeltaReconcile = '1m0s'
+#        ListenAddresses = []
+#        [[EVM]]
+#        ChainID = '1337'
+#        MinContractPayment = '0'
+#        [[EVM.Nodes]]
+#        Name = 'node-0'
+#        WSURL = 'ws://geth:8546'
+#        HTTPURL = 'http://geth:8544'
+#        [WebServer.TLS]
+#        HTTPSPort = 0
+    - name: node-2
+    - name: node-3
+    - name: node-4
+  resources:
+    requests:
+      cpu: 350m
+      memory: 1024Mi
+    limits:
+      cpu: 350m
+      memory: 1024Mi
+
+# each CL node have a dedicated PostgreSQL 11.15
+# use StatefulSet by setting:
+#
+# stateful: true
+# capacity 10Gi
+#
+# if you are running long tests
+db:
+  stateful: false
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+# default cluster shipped with latest Geth ( dev mode by default )
+geth:
+  version: v1.12.0
+  wsrpc-port: 8546
+  httprpc-port: 8544
+  networkid: 1337
+  blocktime: 1
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+# mockserver is https://www.mock-server.com/where/kubernetes.html
+# used to stub External Adapters
+mockserver:
+  port: 1080
+  resources:
+    requests:
+      cpu: 1
+      memory: 1024Mi
+    limits:
+      cpu: 1
+      memory: 1024Mi
+runner:
+  stateful: false
+  resources:
+    requests:
+      cpu: 1
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 512Mi
+
+# monitoring.coreos.com/v1 PodMonitor for each node
+prometheusMonitor: false
+
+# deployment placement, standard helm stuff
+podAnnotations:
+nodeSelector:
+tolerations:
+affinity:

@@ -1,0 +1,147 @@
+{{ if (hasKey .Values "geth") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: geth-cm
+    release: {{ .Release.Name }}
+  name: geth-cm
+data:
+  key1: |
+    {"address":"f39fd6e51aad88f6f4ce6ab8827279cfffb92266","crypto":{"cipher":"aes-128-ctr","ciphertext":"c36afd6e60b82d6844530bd6ab44dbc3b85a53e826c3a7f6fc6a75ce38c1e4c6","cipherparams":{"iv":"f69d2bb8cd0cb6274535656553b61806"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"80d5f5e38ba175b6b89acfc8ea62a6f163970504af301292377ff7baafedab53"},"mac":"f2ecec2c4d05aacc10eba5235354c2fcc3776824f81ec6de98022f704efbf065"},"id":"e5c124e9-e280-4b10-a27b-d7f3e516b408","version":3}
+  key2: |
+    {"address":"70997970c51812dc3a010c7d01b50e0d17dc79c8","crypto":{"cipher":"aes-128-ctr","ciphertext":"f8183fa00bc112645d3e23e29a233e214f7c708bf49d72750c08af88ad76c980","cipherparams":{"iv":"796d08e3e1f71bde89ed826abda96cda"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"03c864a22a1f7b06b1da12d8b93e024ac144f898285907c58b2abc135fc8a35c"},"mac":"5fe91b1a1821c0d9f85dfd582354ead9612e9a7e9adc38b06a2beff558c119ac"},"id":"d2cab765-5e30-42ae-bb91-f090d9574fae","version":3}
+  key3: |
+    {"address":"3c44cdddb6a900fa2b585dd299e03d12fa4293bc","crypto":{"cipher":"aes-128-ctr","ciphertext":"2cd6ab87086c47f343f2c4d957eace7986f3b3c87fc35a2aafbefb57a06d9f1c","cipherparams":{"iv":"4e16b6cd580866c1aa642fb4d7312c9b"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"0cabde93877f6e9a59070f9992f7a01848618263124835c90d4d07a0041fc57c"},"mac":"94b7776ea95b0ecd8406c7755acf17b389b7ebe489a8942e32082dfdc1f04f57"},"id":"ade1484b-a3bb-426f-9223-a1f5e3bde2e8","version":3}
+  key4: |
+    {"address":"90f79bf6eb2c4f870365e785982e1f101e93b906","crypto":{"cipher":"aes-128-ctr","ciphertext":"15144214d323871e00f7b205368128061c91b77a27b7deec935f8f5b734f0d42","cipherparams":{"iv":"bb22ba8051ef9f60abded7a9f4f2c6ae"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"07331ef3035567c00830b4e50d5dd68bc877974b4ce38cd42fef755be01556c9"},"mac":"2294eacadaf2761851814451d8c7dcca20a606a0344335d98f09403aba4e82ca"},"id":"96af8cc7-97e1-4bba-8968-632b034986c2","version":3}
+  key5: |
+    {"address":"15d34aaf54267db7d7c367839aaf71a00a2c6a65","crypto":{"cipher":"aes-128-ctr","ciphertext":"057878284a6c74d3ad99910adddd6b477b383837dbf2280efea585f0f0fdb012","cipherparams":{"iv":"e6eab29d60b526f305f8d47badf48687"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"dfdca8066d2486da5cb9a909d03744e2a8c6537930271e85e7cd8a5d952c0f22"},"mac":"f8352be41c9a06d69111ca4d8fcff0eef079b68b1173cad99803538991716c5d"},"id":"a35bb452-0d57-42d5-8d25-5a00a40a4db8","version":3}
+  key6: |
+    {"address":"9965507d1a55bcc2695c58ba16fb37d819b0a4dc","crypto":{"cipher":"aes-128-ctr","ciphertext":"5a73201500307c6aa98edd44d962b344a893768331454a61595ec848e738e9d2","cipherparams":{"iv":"5282de2b3e2b305019a2fed5c62f3383"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"6ad001831d097f175fff7d6cf61301e9620b32afd9a7a6437e6030af14576a96"},"mac":"0a55eddbd13c713aa8b8c4106b2fb62bc1d1e18e7177207a444f83a4d8426ed5"},"id":"27aed2b2-cb94-4d37-8819-b15219187bb5","version":3}
+  key7: |
+    {"address":"976ea74026e726554db657fa54763abd0c3a0aa9","crypto":{"cipher":"aes-128-ctr","ciphertext":"a6edf11e81b38e60a549696236cb9efc026e87adc45a9521ea7b2c45a2a9fbb9","cipherparams":{"iv":"82f4c79cd4b28a8585a9c78d758f832b"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"87400e16ecc320dadff85eccbf4dbaaea2dd91e50047e4aa391799bb319c1fd8"},"mac":"80c83dad05998db6c673a97096fcfad54636458f4a3c82483686b253f8cc9b69"},"id":"fc7d7694-6206-48fc-bb25-36b523f90df6","version":3}
+  key8: |
+    {"address":"14dc79964da2c08b23698b3d3cc7ca32193d9955","crypto":{"cipher":"aes-128-ctr","ciphertext":"410f258bc8b12a0250cba22cbc5e413534fcf90bf322ced6943189ad9e43b4b9","cipherparams":{"iv":"1dd6077a8bee9b3bf2ca90e6abc8a237"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"5d3358bf99bbcb82354f40e5501abf4336bc141ee05d8feed4fbe7eb8c08c917"},"mac":"9cd959fa1e8129a8deb86e0264ec81d6cde79b5a19ae259b7d00543c9037908a"},"id":"689d7ad2-fe46-4c09-9c2a-a50e607989b8","version":3}
+  key9: |
+    {"address":"23618e81e3f5cdf7f54c3d65f7fbc0abf5b21e8f","crypto":{"cipher":"aes-128-ctr","ciphertext":"13dccac740314edea20d44e6f3592575bbcb739ec5892d635326cff3c386eb86","cipherparams":{"iv":"bf42d811cd41fa97ddcae3425f8c3211"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d2fa67cbb5e86d5bf9a90e27b8747bac493614b45778d43e9da1c14e06b2401d"},"mac":"7d2797cf344704d8f36265238d3938e06952c78ab7dfcbac53dc7f472c93d933"},"id":"4c8e899e-80f0-4417-9b1e-c5e29049f1e7","version":3}
+  key10: |
+    {"address":"a0ee7a142d267c1f36714e4a8f75612f20a79720","crypto":{"cipher":"aes-128-ctr","ciphertext":"56bc8766f47aeafae74eea333e1e890a3776d7fae6c48cbdbffb270655ce050d","cipherparams":{"iv":"a66129e6a110b3ddf93b4355aa147c58"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"15c4e8bcc80920139eb236d91194825f1fce27dd2af281e0f2752d8a5dbc48bd"},"mac":"db01e720866ce8bb7897dfc7773e064003ad53429a79732ee769cf6d02273570"},"id":"87b2d76f-1b70-4e4f-8b2a-5d1915c1177c","version":3}
+  key11: |
+    {"address":"bcd4042de499d14e55001ccbb24a551f3b954096","crypto":{"cipher":"aes-128-ctr","ciphertext":"e455eda6e38d246c03b930f845adfc8721ca75e9f47135cd4c18dbc3e5c5440a","cipherparams":{"iv":"0b1a0a24acc1ad25b0f170f751c2cb27"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"69f324ed0787794878bf5f84d4dbbc70dec1274cad666399edc48640605f64c8"},"mac":"f07da09c460a69f943f5639545d2b3f72c1e9789f0421ad41d3078ea3db12c96"},"id":"7ec7bb3c-c486-4785-a4fc-f8f4b2fc7764","version":3}
+  key12: |
+    {"address":"71be63f3384f5fb98995898a86b02fb2426c5788","crypto":{"cipher":"aes-128-ctr","ciphertext":"4194377a05fd3d13e0a3155dad974a003fe5f7a3b5acb35d7d97c50daa8990d4","cipherparams":{"iv":"607670778baf62b1e86394cf1980487a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d63b890ad7f4fcc857681faabe9319dffc53893966ef0810bf64c4f319b0ffc5"},"mac":"bfaf924959e65c8030ece259d52ed52d5d21bd74f1a67ae545d4bb289a479e16"},"id":"0c6af842-384f-49b6-b5b7-199a1e05486b","version":3}
+  key13: |
+    {"address":"fabb0ac9d68b0b445fb7357272ff202c5651694a","crypto":{"cipher":"aes-128-ctr","ciphertext":"6bad79e57a9b80e1b2aa7292a2f72613615a43da2796abeac071ad06a2decff6","cipherparams":{"iv":"91f24b0da7179a0e62803cb2cba6bb49"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"153a063a0dcf7abe7fd730ba908d00856783f0814e1b684a6a08b519d5dbadda"},"mac":"b007d01324b2d05c9a0333e4fbf826681ee2f5ddb4007c6fab20ef923481ba8f"},"id":"fb09dfff-ac3b-46c5-8d88-f4549007977b","version":3}
+  key14: |
+    {"address":"1cbd3b2770909d4e10f157cabc84c7264073c9ec","crypto":{"cipher":"aes-128-ctr","ciphertext":"3a7b9d84afb8d6241974cf35a34cbce077aae04f4c0aea1730167c9d8266bd74","cipherparams":{"iv":"329b510bce6e63a53827a0c307c041b5"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"6648c7f4ed24d1134dcf5983a5ca4bc5ae16787f0813530d5ae4c9c61dd3623f"},"mac":"65098dcdaabfb404539aeeea20f41b24886f9d3a55b9a841e2769692e19b75e8"},"id":"2053c6ce-da95-44d2-af1f-1939319aaa45","version":3}
+  key15: |
+    {"address":"df3e18d64bc6a983f673ab319ccae4f1a57c7097","crypto":{"cipher":"aes-128-ctr","ciphertext":"ab5802ecd849b0931d822a59597f9b59277526c13dcf792d1f6771ff0a63c902","cipherparams":{"iv":"c10e50c9f7359d281bfddd90ffeee967"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"97848515d8c93caab641882fea9b1428de32a8cf006d998893d01c03a0c2f48c"},"mac":"a2c5fbf7f78e498ee4a8bb242b4a03d4fb77f4135218a5af1d4b99ebd8991c9d"},"id":"83fa51c4-48f7-4d1d-b368-c9bd9d8841ee","version":3}
+  key16: |
+    {"address":"cd3b766ccdd6ae721141f452c550ca635964ce71","crypto":{"cipher":"aes-128-ctr","ciphertext":"05f18b7afa63c3748f3c5c99c8f036df1295f7660380e3c6a3fc6252f40566aa","cipherparams":{"iv":"3346ffa57c1b04f678d373cce4e4383a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c21f4d22a2324039b3f7cd6dbfa757bc489fa676d700b3ee88d0e3b334698720"},"mac":"7762c08bb673333946e87c33108349d10850c559104e863c5b0826cd6e64df78"},"id":"67b3c79c-d696-4e1b-a381-d67553bc674b","version":3}
+  key17: |
+    {"address":"2546bcd3c84621e976d8185a91a922ae77ecec30","crypto":{"cipher":"aes-128-ctr","ciphertext":"accd54a6b3969a4aed305baa0cd35ce4b54dcc92d866ff8b3d23536609a282eb","cipherparams":{"iv":"93be3f925ddea06113b3dcac650e9b6b"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"092f7823a668981e14f715ae7352fa176461cddd94267f9dd6f23f9fe663ba9a"},"mac":"bb4792148205a4f0d8dfc5cd04725d0a4785a6d7e6ca0c208ffc0b005947821b"},"id":"368b24f6-6d1b-4fd5-a506-d73b5bb4aac8","version":3}
+  key18: |
+    {"address":"bda5747bfd65f08deb54cb465eb87d40e51b197e","crypto":{"cipher":"aes-128-ctr","ciphertext":"8bc3bf720dce7d010617edaf6db4ed35701c13ff67cd9dce742de77b4b4b3df0","cipherparams":{"iv":"50075ca52dd388719b27e3029f01a484"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"8e365100caeda20cc0a13c28517d62fc41d5cae1da4dae3fef51daf4b323da81"},"mac":"5ed7ad5aca897fd03ebeb08a7fcfa38d2eadc240b6eb6ad53f7c06c6ee9085de"},"id":"8b627671-46e5-4081-a25a-c928b135a87e","version":3}
+  key19: |
+    {"address":"dd2fd4581271e230360230f9337d5c0430bf44c0","crypto":{"cipher":"aes-128-ctr","ciphertext":"39c1bbd9c070465fb7828be95b3b0978482aab16b8b1f11db0022321bcaa9172","cipherparams":{"iv":"35bd60a818c50e65fee00031f0a33d8e"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"eecd539685126cfc1f444070d7528c5f570d71c48994118af8c50c316ef72a99"},"mac":"93224b4767a57a8cd394c37087f0dfc9393b381f09c45c5abc55cec5d719181f"},"id":"321978cb-f1bf-4790-8a29-5e5878f8dbb9","version":3}
+  key20: |
+    {"address":"8626f6940e2eb28930efb4cef49b2d1f2c9c1199","crypto":{"cipher":"aes-128-ctr","ciphertext":"8a3f1dc7b110c5ce59007f6e55fd7f055b41e518b1f34e93b4185aa44d8a1f92","cipherparams":{"iv":"02fe1b25039baf5abbdd448b932b2ab5"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"a75a6b250851f76f36132aad3ca944493b7d20a07bd4c7b1d8574596a240b35f"},"mac":"679d96ef17c9ac86960e61ced85eb551ba1895cfde2c8bb099e38dc1251a44f0"},"id":"5d3a08df-78f3-43e8-8978-75652502c962","version":3}
+  password.txt: |
+  init.sh: |
+    #!/bin/bash
+    if [ ! -d /root/.ethereum/keystore ]; then
+        echo "/root/.ethereum/keystore not found, running 'geth init'..."
+        geth init /root/ethconfig/genesis.json
+        echo "...done!"
+    fi
+
+    geth "$@"
+  genesis.json: |
+    {
+      "config": {
+        "chainId": {{ .Values.geth.networkId }},
+        "homesteadBlock": 0,
+        "eip150Block": 0,
+        "eip155Block": 0,
+        "eip158Block": 0,
+        "eip160Block": 0,
+        "byzantiumBlock": 0,
+        "constantinopleBlock": 0,
+        "petersburgBlock": 0,
+        "istanbulBlock": 0,
+        "muirGlacierBlock": 0,
+        "berlinBlock": 0,
+        "londonBlock": 0
+      },
+      "nonce": "0x0000000000000042",
+      "mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "difficulty": "1",
+      "coinbase": "0x3333333333333333333333333333333333333333",
+      "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "extraData": "0x",
+      "gasLimit": "8000000000",
+      "alloc": {
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": {
+          "balance": "20000000000000000000000"
+        },
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8": {
+          "balance": "20000000000000000000000"
+        },
+        "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC": {
+          "balance": "20000000000000000000000"
+        },
+        "0x90F79bf6EB2c4f870365E785982E1f101E93b906": {
+          "balance": "20000000000000000000000"
+        },
+        "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65": {
+          "balance": "20000000000000000000000"
+        },
+        "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc": {
+          "balance": "20000000000000000000000"
+        },
+        "0x976EA74026E726554dB657fA54763abd0C3a0aa9": {
+          "balance": "20000000000000000000000"
+        },
+        "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955": {
+          "balance": "20000000000000000000000"
+        },
+        "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f": {
+          "balance": "20000000000000000000000"
+        },
+        "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720": {
+          "balance": "20000000000000000000000"
+        },
+        "0xBcd4042DE499D14e55001CcbB24a551F3b954096": {
+          "balance": "20000000000000000000000"
+        },
+        "0x71bE63f3384f5fb98995898A86B02Fb2426c5788": {
+          "balance": "20000000000000000000000"
+        },
+        "0xFABB0ac9d68B0B445fB7357272Ff202C5651694a": {
+          "balance": "20000000000000000000000"
+        },
+        "0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec": {
+          "balance": "20000000000000000000000"
+        },
+        "0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097": {
+          "balance": "20000000000000000000000"
+        },
+        "0xcd3B766CCDd6AE721141F452C550Ca635964ce71": {
+          "balance": "20000000000000000000000"
+        },
+        "0x2546BcD3c84621e976D8185a91A922aE77ECEc30": {
+          "balance": "20000000000000000000000"
+        },
+        "0xbDA5747bFD65F08deb54cb465eB87D40e51B197E": {
+          "balance": "20000000000000000000000"
+        },
+        "0xdD2FD4581271e230360230F9337D5c0430Bf44C0": {
+          "balance": "20000000000000000000000"
+        },
+        "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199": {
+          "balance": "20000000000000000000000"
+        }
+      }
+    }
+  {{ end }}
