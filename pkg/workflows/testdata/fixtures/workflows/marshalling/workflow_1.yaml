@@ -63,16 +63,18 @@
      config:
        aggregation_method: data_feeds_2_0
        aggregation_config:
-         123: # ETHUSD
-           deviation: "0.005"
-           heartbeat: 24h
-           test:  
-         456: # LINKUSD
-           deviation: "0.001"
-           heartbeat: 24h
-         789: # USDBTC
-           deviation: "0.002"
-           heartbeat: 6h
+         allowedPartialStaleness: "0.2"
+         feeds:
+          123: # ETHUSD
+            deviation: "0.005"
+            heartbeat: 24h
+            test:  
+          456: # LINKUSD
+            deviation: "0.001"
+            heartbeat: 24h
+          789: # USDBTC
+            deviation: "0.002"
+            heartbeat: 6h
        encoder: EVM
        encoder_config:
            abi: "mercury_reports bytes[]"

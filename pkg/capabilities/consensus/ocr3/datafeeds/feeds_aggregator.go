@@ -34,6 +34,12 @@ const (
 
 type aggregatorConfig struct {
 	Feeds map[datastreams.FeedID]feedConfig
+	// AllowedPartialStaleness is an optional optimization that tries to maximize batching.
+	// Once any deviation or heartbeat threshold hits, we will include all other feeds that are
+	// within the AllowedPartialStaleness range of their own heartbeat.
+	// For example, setting 0.2 will include all feeds that are within 20% of their heartbeat.
+	AllowedPartialStaleness    float64 `mapstructure:"-"`
+	AllowedPartialStalenessStr string  `mapstructure:"allowedPartialStaleness"`
 }
 
 type feedConfig struct {
@@ -79,32 +85,9 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}
 	a.lggr.Debugw("collected latestReportPerFeed", "len", len(latestReportPerFeed))
 
-	currentState := &DataFeedsOutcomeMetadata{}
-	if previousOutcome != nil {
-		err := proto.Unmarshal(previousOutcome.Metadata, currentState)
-		if err != nil {
-			return nil, err
-		}
-	}
-	// initialize empty state for missing feeds
-	if currentState.FeedInfo == nil {
-		currentState.FeedInfo = make(map[string]*DataFeedsMercuryReportInfo)
-	}
-	for feedID := range a.config.Feeds {
-		if _, ok := currentState.FeedInfo[feedID.String()]; !ok {
-			currentState.FeedInfo[feedID.String()] = &DataFeedsMercuryReportInfo{
-				ObservationTimestamp: 0, // will always trigger an update
-				BenchmarkPrice:       big.NewInt(0).Bytes(),
-			}
-			a.lggr.Debugw("initializing empty onchain state for feed", "feedID", feedID.String())
-		}
-	}
-	// remove obsolete feeds from state
-	for feedID := range currentState.FeedInfo {
-		if _, ok := a.config.Feeds[datastreams.FeedID(feedID)]; !ok {
-			delete(currentState.FeedInfo, feedID)
-			a.lggr.Debugw("removed obsolete feedID from state", "feedID", feedID)
-		}
+	currentState, err := a.initializeCurrentState(previousOutcome)
+	if err != nil {
+		return nil, err
 	}
 
 	reportsNeedingUpdate := []datastreams.FeedReport{}
@@ -114,10 +97,11 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 	}
 	// ensure deterministic order of reportsNeedingUpdate
 	sort.Slice(allIDs, func(i, j int) bool { return allIDs[i] < allIDs[j] })
-	for _, feedID := range allIDs {
-		previousReportInfo := currentState.FeedInfo[feedID]
-		feedID, err := datastreams.NewFeedID(feedID)
-		if err != nil {
+	candidateIDs := []string{}
+	for _, feedIDStr := range allIDs {
+		previousReportInfo := currentState.FeedInfo[feedIDStr]
+		feedID, err2 := datastreams.NewFeedID(feedIDStr)
+		if err2 != nil {
 			a.lggr.Errorf("could not convert %s to feedID", feedID)
 			continue
 		}
@@ -130,9 +114,23 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		oldPrice := big.NewInt(0).SetBytes(previousReportInfo.BenchmarkPrice)
 		newPrice := big.NewInt(0).SetBytes(latestReport.BenchmarkPrice)
 		currDeviation := deviation(oldPrice, newPrice)
+		currStaleness := latestReport.ObservationTimestamp - previousReportInfo.ObservationTimestamp
 		a.lggr.Debugw("checking deviation and heartbeat", "feedID", feedID, "currentTs", latestReport.ObservationTimestamp, "oldTs", previousReportInfo.ObservationTimestamp, "oldPrice", oldPrice, "newPrice", newPrice, "deviation", currDeviation)
-		if latestReport.ObservationTimestamp-previousReportInfo.ObservationTimestamp > int64(config.Heartbeat) ||
+		if currStaleness > int64(config.Heartbeat) ||
 			currDeviation > config.Deviation.InexactFloat64() {
+			previousReportInfo.ObservationTimestamp = latestReport.ObservationTimestamp
+			previousReportInfo.BenchmarkPrice = latestReport.BenchmarkPrice
+			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport)
+		} else if float64(currStaleness) > float64(config.Heartbeat)*(1.0-a.config.AllowedPartialStaleness) {
+			candidateIDs = append(candidateIDs, feedIDStr)
+		}
+	}
+
+	// optimization that allows for more efficient batching
+	if len(reportsNeedingUpdate) > 0 {
+		for _, feedIDStr := range candidateIDs {
+			previousReportInfo := currentState.FeedInfo[feedIDStr]
+			latestReport := latestReportPerFeed[datastreams.FeedID(feedIDStr)]
 			previousReportInfo.ObservationTimestamp = latestReport.ObservationTimestamp
 			previousReportInfo.BenchmarkPrice = latestReport.BenchmarkPrice
 			reportsNeedingUpdate = append(reportsNeedingUpdate, latestReport)
@@ -170,6 +168,37 @@ func (a *dataFeedsAggregator) Aggregate(previousOutcome *types.AggregationOutcom
 		Metadata:         marshalledState,
 		ShouldReport:     len(reportsNeedingUpdate) > 0,
 	}, nil
+}
+
+func (a *dataFeedsAggregator) initializeCurrentState(previousOutcome *types.AggregationOutcome) (*DataFeedsOutcomeMetadata, error) {
+	currentState := &DataFeedsOutcomeMetadata{}
+	if previousOutcome != nil {
+		err := proto.Unmarshal(previousOutcome.Metadata, currentState)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// initialize empty state for missing feeds
+	if currentState.FeedInfo == nil {
+		currentState.FeedInfo = make(map[string]*DataFeedsMercuryReportInfo)
+	}
+	for feedID := range a.config.Feeds {
+		if _, ok := currentState.FeedInfo[feedID.String()]; !ok {
+			currentState.FeedInfo[feedID.String()] = &DataFeedsMercuryReportInfo{
+				ObservationTimestamp: 0, // will always trigger an update
+				BenchmarkPrice:       big.NewInt(0).Bytes(),
+			}
+			a.lggr.Debugw("initializing empty onchain state for feed", "feedID", feedID.String())
+		}
+	}
+	// remove obsolete feeds from state
+	for feedID := range currentState.FeedInfo {
+		if _, ok := a.config.Feeds[datastreams.FeedID(feedID)]; !ok {
+			delete(currentState.FeedInfo, feedID)
+			a.lggr.Debugw("removed obsolete feedID from state", "feedID", feedID)
+		}
+	}
+	return currentState, nil
 }
 
 func (a *dataFeedsAggregator) extractSignersAndPayloads(observations map[ocrcommon.OracleID][]values.Value, fConsensus int) ([][]byte, int, map[ocrcommon.OracleID]values.Value) {
@@ -266,29 +295,31 @@ func NewDataFeedsAggregator(config values.Map, reportCodec datastreams.ReportCod
 }
 
 func ParseConfig(config values.Map) (aggregatorConfig, error) {
-	parsedConfig := aggregatorConfig{
-		Feeds: make(map[datastreams.FeedID]feedConfig),
+	parsedConfig := aggregatorConfig{}
+	if err := config.UnwrapTo(&parsedConfig); err != nil {
+		return aggregatorConfig{}, err
 	}
-	for feedIDStr, feedCfg := range config.Underlying {
-		feedID, err := datastreams.NewFeedID(feedIDStr)
-		if err != nil {
-			return aggregatorConfig{}, err
-		}
-		var parsedFeedConfig feedConfig
-		err = feedCfg.UnwrapTo(&parsedFeedConfig)
-		if err != nil {
-			return aggregatorConfig{}, err
-		}
 
-		if parsedFeedConfig.DeviationString != "" {
-			dec, err := decimal.NewFromString(parsedFeedConfig.DeviationString)
-			if err != nil {
-				return aggregatorConfig{}, err
+	for feedID, feedCfg := range parsedConfig.Feeds {
+		if feedCfg.DeviationString != "" {
+			if _, err := datastreams.NewFeedID(feedID.String()); err != nil {
+				return aggregatorConfig{}, fmt.Errorf("cannot parse feedID config for feed %s: %w", feedID, err)
 			}
-
-			parsedFeedConfig.Deviation = dec
+			dec, err := decimal.NewFromString(feedCfg.DeviationString)
+			if err != nil {
+				return aggregatorConfig{}, fmt.Errorf("cannot parse deviation config for feed %s: %w", feedID, err)
+			}
+			feedCfg.Deviation = dec
+			parsedConfig.Feeds[feedID] = feedCfg
 		}
-		parsedConfig.Feeds[feedID] = parsedFeedConfig
+	}
+	// convert allowedPartialStaleness from string to float64
+	if parsedConfig.AllowedPartialStalenessStr != "" {
+		allowedPartialStaleness, err := decimal.NewFromString(parsedConfig.AllowedPartialStalenessStr)
+		if err != nil {
+			return aggregatorConfig{}, fmt.Errorf("cannot parse allowedPartialStaleness: %w", err)
+		}
+		parsedConfig.AllowedPartialStaleness = allowedPartialStaleness.InexactFloat64()
 	}
 	return parsedConfig, nil
 }
