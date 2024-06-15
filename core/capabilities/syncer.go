@@ -32,6 +32,7 @@ import (
 
 type reader interface {
 	state(ctx context.Context) (state, error)
+	LocalNode(ctx context.Context) (capabilities.Node, error)
 }
 
 type registrySyncer struct {
@@ -41,7 +42,7 @@ type registrySyncer struct {
 	stopCh       services.StopChan
 	subServices  []services.Service
 	networkSetup HardcodedDonNetworkSetup
-	reader       reader
+	reader
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -79,7 +80,7 @@ func NewRegistrySyncer(
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
 	ctx, _ := stopCh.NewCtx()
-	reader, err := newRemoteRegistryReader(ctx, relayer, registryAddress)
+	reader, err := newRemoteRegistryReader(ctx, lggr, peerWrapper, relayer, registryAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +117,8 @@ func newRegistrySyncer(
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	// NOTE: Decrease wg.Add and uncomment line 124 below
-	// this for a hardcoded syncer
+	// NOTE: Decrease wg.Add and uncomment the line below
+	// `go s.launch()` to enable the hardcoded syncer.
 	s.wg.Add(1)
 	// go s.launch()
 	go s.syncLoop()
