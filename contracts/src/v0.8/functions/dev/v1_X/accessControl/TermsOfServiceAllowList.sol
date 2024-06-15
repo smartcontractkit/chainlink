@@ -16,7 +16,6 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /// @inheritdoc ITypeAndVersion
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
@@ -128,11 +127,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     uint64 allowedSenderIdxStart,
     uint64 allowedSenderIdxEnd
   ) external view override returns (address[] memory allowedSenders) {
-    if (
-      allowedSenderIdxStart > allowedSenderIdxEnd ||
-      allowedSenderIdxEnd >= s_allowedSenders.length() ||
-      s_allowedSenders.length() == 0
-    ) {
+    if (allowedSenderIdxStart > allowedSenderIdxEnd || allowedSenderIdxEnd >= s_allowedSenders.length()) {
       revert InvalidCalldata();
     }
 

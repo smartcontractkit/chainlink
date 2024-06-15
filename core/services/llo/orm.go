@@ -10,9 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type ORM interface {
@@ -22,12 +21,12 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	q          pg.Queryer
+	ds         sqlutil.DataSource
 	evmChainID *big.Int
 }
 
-func NewORM(q pg.Queryer, evmChainID *big.Int) ORM {
-	return &orm{q, evmChainID}
+func NewORM(ds sqlutil.DataSource, evmChainID *big.Int) ORM {
+	return &orm{ds, evmChainID}
 }
 
 func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address) (dfns llotypes.ChannelDefinitions, blockNum int64, err error) {
@@ -36,7 +35,7 @@ func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address) (
 		BlockNum    int64  `db:"block_num"`
 	}
 	var scanned scd
-	err = o.q.GetContext(ctx, &scanned, "SELECT definitions, block_num FROM channel_definitions WHERE evm_chain_id = $1 AND addr = $2", o.evmChainID.String(), addr)
+	err = o.ds.GetContext(ctx, &scanned, "SELECT definitions, block_num FROM channel_definitions WHERE evm_chain_id = $1 AND addr = $2", o.evmChainID.String(), addr)
 	if errors.Is(err, sql.ErrNoRows) {
 		return dfns, blockNum, nil
 	} else if err != nil {
@@ -53,7 +52,7 @@ func (o *orm) LoadChannelDefinitions(ctx context.Context, addr common.Address) (
 // TODO: Test this method
 // https://smartcontract-it.atlassian.net/jira/software/c/projects/MERC/issues/MERC-3653
 func (o *orm) StoreChannelDefinitions(ctx context.Context, addr common.Address, dfns llotypes.ChannelDefinitions, blockNum int64) error {
-	_, err := o.q.ExecContext(ctx, `
+	_, err := o.ds.ExecContext(ctx, `
 INSERT INTO channel_definitions (evm_chain_id, addr, definitions, block_num, updated_at)
 VALUES ($1, $2, $3, $4, NOW())
 ON CONFLICT (evm_chain_id, addr) DO UPDATE

@@ -10,7 +10,9 @@ union JobSpec =
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
     BootstrapSpec |
-    GatewaySpec
+    GatewaySpec |
+    WorkflowSpec |
+    StandardCapabilitiesSpec
 
 type CronSpec {
     schedule: String!
@@ -159,4 +161,20 @@ type GatewaySpec {
     id: ID!
     gatewayConfig: Map!
     createdAt: Time!
+}
+
+type WorkflowSpec {
+    id: ID!
+    workflowID: String!
+    workflow: String!
+    workflowOwner: String!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+type StandardCapabilitiesSpec {
+    id: ID!
+    createdAt: Time!
+    command: String!
+    config: String
 }

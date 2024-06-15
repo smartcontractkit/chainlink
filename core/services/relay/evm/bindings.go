@@ -1,47 +1,58 @@
 package evm
 
 import (
+	"context"
 	"fmt"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
-// key is contract name
-type contractBindings map[string]readBindings
+// bindings manage all contract bindings, key is contract name.
+type bindings map[string]*contractBinding
 
-// key is read name
-type readBindings map[string]readBinding
-
-func (b contractBindings) GetReadBinding(contractName, readName string) (readBinding, error) {
-	rb, rbExists := b[contractName]
-	if !rbExists {
+func (b bindings) GetReadBinding(contractName, readName string) (readBinding, error) {
+	// GetReadBindings should only be called after Chain Reader init.
+	cb, cbExists := b[contractName]
+	if !cbExists {
 		return nil, fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidType, contractName)
 	}
 
-	reader, readerExists := rb[readName]
-	if !readerExists {
+	rb, rbExists := cb.readBindings[readName]
+	if !rbExists {
 		return nil, fmt.Errorf("%w: no readName named %s in contract %s", commontypes.ErrInvalidType, readName, contractName)
 	}
-	return reader, nil
+	return rb, nil
 }
 
-func (b contractBindings) AddReadBinding(contractName, readName string, reader readBinding) {
-	rbs, rbsExists := b[contractName]
-	if !rbsExists {
-		rbs = readBindings{}
-		b[contractName] = rbs
+// AddReadBinding adds read bindings. Calling this outside of Chain Reader init is not thread safe.
+func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) {
+	cb, cbExists := b[contractName]
+	if !cbExists {
+		cb = &contractBinding{
+			name:         contractName,
+			readBindings: make(map[string]readBinding),
+		}
+		b[contractName] = cb
 	}
-	rbs[readName] = reader
+	cb.readBindings[readName] = rb
 }
 
-func (b contractBindings) Bind(boundContracts []commontypes.BoundContract) error {
+// Bind binds contract addresses to contract bindings and read bindings.
+// Bind also registers the common contract polling filter and eventBindings polling filters.
+func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
 	for _, bc := range boundContracts {
-		rbs, rbsExist := b[bc.Name]
-		if !rbsExist {
+		cb, cbExists := b[bc.Name]
+		if !cbExists {
 			return fmt.Errorf("%w: no contract named %s", commontypes.ErrInvalidConfig, bc.Name)
 		}
-		for _, r := range rbs {
-			if err := r.Bind(bc); err != nil {
+
+		if err := cb.Bind(ctx, lp, bc); err != nil {
+			return err
+		}
+
+		for _, rb := range cb.readBindings {
+			if err := rb.Bind(ctx, bc); err != nil {
 				return err
 			}
 		}
@@ -49,12 +60,10 @@ func (b contractBindings) Bind(boundContracts []commontypes.BoundContract) error
 	return nil
 }
 
-func (b contractBindings) ForEach(fn func(readBinding) error) error {
-	for _, rbs := range b {
-		for _, rb := range rbs {
-			if err := fn(rb); err != nil {
-				return err
-			}
+func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contractBinding) error) error {
+	for _, cb := range b {
+		if err := fn(ctx, cb); err != nil {
+			return err
 		}
 	}
 	return nil

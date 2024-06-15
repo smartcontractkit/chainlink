@@ -1,0 +1,157 @@
+exec chainlink help-all
+cmp stdout out.txt
+
+-- out.txt --
+admin # Commands for remotely taking admin related actions
+admin chpass # Change your API password remotely
+admin login # Login to remote client by creating a session cookie
+admin logout # Delete any local sessions
+admin profile # Collects profile metrics from the node.
+admin status # Displays the health of various services running inside the node.
+admin users # Create, edit permissions, or delete API users
+admin users chrole # Changes an API user's role
+admin users create # Create a new API user
+admin users delete # Delete an API user
+admin users list # Lists all API users and their roles
+attempts # Commands for managing Ethereum Transaction Attempts
+attempts list # List the Transaction Attempts in descending order
+blocks # Commands for managing blocks
+blocks find-lca # Find latest common block stored in DB and on chain
+blocks replay # Replays block data from the given number
+bridges # Commands for Bridges communicating with External Adapters
+bridges create # Create a new Bridge to an External Adapter
+bridges destroy # Destroys the Bridge for an External Adapter
+bridges list # List all Bridges to External Adapters
+bridges show # Show a Bridge's details
+chains # Commands for handling chain configuration
+chains cosmos # Commands for handling Cosmos chains
+chains cosmos list # List all existing Cosmos chains
+chains evm # Commands for handling EVM chains
+chains evm list # List all existing EVM chains
+chains solana # Commands for handling Solana chains
+chains solana list # List all existing Solana chains
+chains starknet # Commands for handling StarkNet chains
+chains starknet list # List all existing StarkNet chains
+config # Commands for the node's configuration
+config loglevel # Set log level
+config logsql # Enable/disable SQL statement logging
+config show # Show the application configuration
+config validate # DEPRECATED. Use `chainlink node validate`
+forwarders # Commands for managing forwarder addresses.
+forwarders delete # Delete a forwarder address
+forwarders list # List all stored forwarders addresses
+forwarders track # Track a new forwarder
+health # Prints a health report
+help # Shows a list of commands or help for one command
+help-all # Shows a list of all commands and sub-commands
+initiators # Commands for managing External Initiators
+initiators create # Create an authentication key for a user of External Initiators
+initiators destroy # Remove an external initiator by name
+initiators list # List all external initiators
+jobs # Commands for managing Jobs
+jobs create # Create a job
+jobs delete # Delete a job
+jobs list # List all jobs
+jobs run # Trigger a job run
+jobs show # Show a job
+keys # Commands for managing various types of keys used by the Chainlink node
+keys cosmos # Remote commands for administering the node's Cosmos keys
+keys cosmos create # Create a Cosmos key
+keys cosmos delete # Delete Cosmos key if present
+keys cosmos export # Export Cosmos key to keyfile
+keys cosmos import # Import Cosmos key from keyfile
+keys cosmos list # List the Cosmos keys
+keys csa # Remote commands for administering the node's CSA keys
+keys csa create # Create a CSA key, encrypted with password from the password file, and store it in the database.
+keys csa export # Exports an existing CSA key by its ID.
+keys csa import # Imports a CSA key from a JSON file.
+keys csa list # List available CSA keys
+keys dkgencrypt # Remote commands for administering the node's DKGEncrypt keys
+keys dkgencrypt create # Create a DKGEncrypt key
+keys dkgencrypt delete # Delete DKGEncrypt key if present
+keys dkgencrypt export # Export DKGEncrypt key to keyfile
+keys dkgencrypt import # Import DKGEncrypt key from keyfile
+keys dkgencrypt list # List the DKGEncrypt keys
+keys dkgsign # Remote commands for administering the node's DKGSign keys
+keys dkgsign create # Create a DKGSign key
+keys dkgsign delete # Delete DKGSign key if present
+keys dkgsign export # Export DKGSign key to keyfile
+keys dkgsign import # Import DKGSign key from keyfile
+keys dkgsign list # List the DKGSign keys
+keys eth # Remote commands for administering the node's Ethereum keys
+keys eth chain # Update an EVM key for the given chain
+keys eth create # Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
+keys eth delete # Delete the ETH key by address (irreversible!)
+keys eth export # Exports an ETH key to a JSON file
+keys eth import # Import an ETH key from a JSON file
+keys eth list # List available Ethereum accounts with their ETH & LINK balances and other metadata
+keys ocr # Remote commands for administering the node's legacy off chain reporting keys
+keys ocr create # Create an OCR key bundle, encrypted with password from the password file, and store it in the database
+keys ocr delete # Deletes the encrypted OCR key bundle matching the given ID
+keys ocr export # Exports an OCR key bundle to a JSON file
+keys ocr import # Imports an OCR key bundle from a JSON file
+keys ocr list # List available OCR key bundles
+keys ocr2 # Remote commands for administering the node's off chain reporting keys
+keys ocr2 create # Create an OCR2 key bundle, encrypted with password from the password file, and store it in the database
+keys ocr2 delete # Deletes the encrypted OCR2 key bundle matching the given ID
+keys ocr2 export # Exports an OCR2 key bundle to a JSON file
+keys ocr2 import # Imports an OCR2 key bundle from a JSON file
+keys ocr2 list # List available OCR2 key bundles
+keys p2p # Remote commands for administering the node's p2p keys
+keys p2p create # Create a p2p key, encrypted with password from the password file, and store it in the database.
+keys p2p delete # Delete the encrypted P2P key by id
+keys p2p export # Exports a P2P key to a JSON file
+keys p2p import # Imports a P2P key from a JSON file
+keys p2p list # List available P2P keys
+keys solana # Remote commands for administering the node's Solana keys
+keys solana create # Create a Solana key
+keys solana delete # Delete Solana key if present
+keys solana export # Export Solana key to keyfile
+keys solana import # Import Solana key from keyfile
+keys solana list # List the Solana keys
+keys starknet # Remote commands for administering the node's StarkNet keys
+keys starknet create # Create a StarkNet key
+keys starknet delete # Delete StarkNet key if present
+keys starknet export # Export StarkNet key to keyfile
+keys starknet import # Import StarkNet key from keyfile
+keys starknet list # List the StarkNet keys
+keys vrf # Remote commands for administering the node's vrf keys
+keys vrf create # Create a VRF key
+keys vrf delete # Archive or delete VRF key from memory and the database, if present. Note that jobs referencing the removed key will also be removed.
+keys vrf export # Export VRF key to keyfile
+keys vrf import # Import VRF key from keyfile
+keys vrf list # List the VRF keys
+node # Commands for admin actions that must be run locally
+node db # Commands for managing the database.
+node db create-migration # Create a new migration.
+node db delete-chain # Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+node db migrate # Migrate the database to the latest version.
+node db preparetest # Reset database and load fixtures.
+node db reset # Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+node db rollback # Roll back the database to a previous <version>. Rolls back a single migration if no version specified.
+node db status # Display the current database migration status.
+node db version # Display the current database version.
+node profile # Collects profile metrics from the node.
+node rebroadcast-transactions # Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
+node remove-blocks # Deletes block range and all associated data
+node start # Run the Chainlink node
+node status # Displays the health of various services running inside the node.
+node validate # Validate the TOML configuration and secrets that are passed as flags to the `node` command. Prints the full effective configuration, with defaults included
+nodes # Commands for handling node configuration
+nodes cosmos # Commands for handling Cosmos node configuration
+nodes cosmos list # List all existing Cosmos nodes
+nodes evm # Commands for handling EVM node configuration
+nodes evm list # List all existing EVM nodes
+nodes solana # Commands for handling Solana node configuration
+nodes solana list # List all existing Solana nodes
+nodes starknet # Commands for handling StarkNet node configuration
+nodes starknet list # List all existing StarkNet nodes
+txs # Commands for handling transactions
+txs cosmos # Commands for handling Cosmos transactions
+txs cosmos create # Send <amount> of <token> from node Cosmos account <fromAddress> to destination <toAddress>.
+txs evm # Commands for handling EVM transactions
+txs evm create # Send <amount> ETH (or wei) from node ETH account <fromAddress> to destination <toAddress>.
+txs evm list # List the Ethereum Transactions in descending order
+txs evm show # get information on a specific Ethereum Transaction
+txs solana # Commands for handling Solana transactions
+txs solana create # Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.

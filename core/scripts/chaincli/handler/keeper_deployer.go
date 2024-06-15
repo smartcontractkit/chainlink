@@ -339,7 +339,7 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig := iregistry21.KeeperRegistryBase21OnchainConfig{
+	onchainConfig := iregistry21.IAutomationV21PlusCommonOnchainConfigLegacy{
 		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
 		FlatFeeMicroLink:       d.cfg.FlatFeeMicroLink,
 		CheckGasLimit:          d.cfg.CheckGasLimit,

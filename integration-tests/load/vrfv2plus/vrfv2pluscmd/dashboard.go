@@ -3,19 +3,20 @@ package main
 import (
 	"os"
 
+	db "github.com/smartcontractkit/wasp/dashboard"
+
 	"github.com/K-Phoen/grabana/dashboard"
 	"github.com/K-Phoen/grabana/logs"
 	"github.com/K-Phoen/grabana/row"
 	"github.com/K-Phoen/grabana/target/prometheus"
 	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/timeseries/axis"
-	"github.com/smartcontractkit/wasp"
 )
 
 func main() {
 	//TODO switch to TOML too?
 	lokiDS := os.Getenv("DATA_SOURCE_NAME")
-	d, err := wasp.NewDashboard(nil,
+	d, err := db.NewDashboard(nil,
 		[]dashboard.Option{
 			dashboard.Row("LoadContractMetrics",
 				row.WithTimeSeries(

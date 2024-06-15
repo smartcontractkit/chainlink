@@ -3,9 +3,12 @@ package contracts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -18,10 +21,19 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 )
 
 // EthereumOffchainAggregator represents the offchain aggregation contract
@@ -33,14 +45,14 @@ type EthereumOffchainAggregator struct {
 }
 
 func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOffchainAggregator, error) {
-	oAbi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	abi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
 	}
-	seth.ContractStore.AddABI("OffChainAggregator", *oAbi)
+	seth.ContractStore.AddABI("OffChainAggregator", *abi)
 	seth.ContractStore.AddBIN("OffChainAggregator", common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin))
 
-	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, seth.Client)
+	ocr, err := offchainaggregator.NewOffchainAggregator(contractAddress, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}
@@ -54,7 +66,7 @@ func LoadOffchainAggregator(l zerolog.Logger, seth *seth.Client, contractAddress
 }
 
 func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddress common.Address, offchainOptions OffchainOptions) (EthereumOffchainAggregator, error) {
-	oAbi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	abi, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to get OffChain Aggregator ABI: %w", err)
 	}
@@ -62,7 +74,7 @@ func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddr
 	ocrDeploymentData, err := seth.DeployContract(
 		seth.NewTXOpts(),
 		"OffChainAggregator",
-		*oAbi,
+		*abi,
 		common.FromHex(offchainaggregator.OffchainAggregatorMetaData.Bin),
 		offchainOptions.MaximumGasPrice,
 		offchainOptions.ReasonableGasPrice,
@@ -80,7 +92,7 @@ func DeployOffchainAggregator(l zerolog.Logger, seth *seth.Client, linkTokenAddr
 		return EthereumOffchainAggregator{}, fmt.Errorf("OCR instance deployment have failed: %w", err)
 	}
 
-	ocr, err := offchainaggregator.NewOffchainAggregator(ocrDeploymentData.Address, seth.Client)
+	ocr, err := offchainaggregator.NewOffchainAggregator(ocrDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregator{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}
@@ -132,9 +144,6 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
-		if err != nil {
-			return err
-		}
 		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err
@@ -274,11 +283,11 @@ type EthereumOperatorFactory struct {
 }
 
 func DeployEthereumOperatorFactory(seth *seth.Client, linkTokenAddress common.Address) (EthereumOperatorFactory, error) {
-	operatorAbi, err := operator_factory.OperatorFactoryMetaData.GetAbi()
+	abi, err := operator_factory.OperatorFactoryMetaData.GetAbi()
 	if err != nil {
 		return EthereumOperatorFactory{}, fmt.Errorf("failed to get OperatorFactory ABI: %w", err)
 	}
-	operatorData, err := seth.DeployContract(seth.NewTXOpts(), "OperatorFactory", *operatorAbi, common.FromHex(operator_factory.OperatorFactoryMetaData.Bin), linkTokenAddress)
+	operatorData, err := seth.DeployContract(seth.NewTXOpts(), "OperatorFactory", *abi, common.FromHex(operator_factory.OperatorFactoryMetaData.Bin), linkTokenAddress)
 	if err != nil {
 		return EthereumOperatorFactory{}, fmt.Errorf("OperatorFactory instance deployment have failed: %w", err)
 	}
@@ -458,7 +467,7 @@ func DeployOffchainAggregatorV2(l zerolog.Logger, seth *seth.Client, linkTokenAd
 		return EthereumOffchainAggregatorV2{}, fmt.Errorf("OCR instance deployment have failed: %w", err)
 	}
 
-	ocr2, err := ocr2aggregator.NewOCR2Aggregator(ocrDeploymentData2.Address, seth.Client)
+	ocr2, err := ocr2aggregator.NewOCR2Aggregator(ocrDeploymentData2.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
 	if err != nil {
 		return EthereumOffchainAggregatorV2{}, fmt.Errorf("failed to instantiate OCR instance: %w", err)
 	}
@@ -567,15 +576,755 @@ func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*
 	return e.contract.ParseAnswerUpdated(log)
 }
 
-func DeployLinkTokenContract(client *seth.Client) (seth.DeploymentData, error) {
-	linkTokenAbi, err := link_token.LinkTokenMetaData.GetAbi()
+// EthereumLinkToken represents a LinkToken address
+type EthereumLinkToken struct {
+	client   *seth.Client
+	instance *link_token_interface.LinkToken
+	address  common.Address
+	l        zerolog.Logger
+}
+
+func DeployLinkTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumLinkToken, error) {
+	linkTokenAbi, err := link_token_interface.LinkTokenMetaData.GetAbi()
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
 	}
-	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token.LinkTokenMetaData.Bin))
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "LinkToken", *linkTokenAbi, common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
 	if err != nil {
-		return seth.DeploymentData{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
+		return &EthereumLinkToken{}, fmt.Errorf("LinkToken instance deployment have failed: %w", err)
 	}
 
-	return linkDeploymentData, nil
+	linkToken, err := link_token_interface.NewLinkToken(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
+	}
+
+	return &EthereumLinkToken{
+		client:   client,
+		instance: linkToken,
+		address:  linkDeploymentData.Address,
+		l:        l,
+	}, nil
+}
+
+func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumLinkToken, error) {
+	abi, err := link_token_interface.LinkTokenMetaData.GetAbi()
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to get LinkToken ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("LinkToken", *abi)
+	client.ContractStore.AddBIN("LinkToken", common.FromHex(link_token_interface.LinkTokenMetaData.Bin))
+
+	linkToken, err := link_token_interface.NewLinkToken(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumLinkToken{}, fmt.Errorf("failed to instantiate LinkToken instance: %w", err)
+	}
+
+	return &EthereumLinkToken{
+		client:   client,
+		instance: linkToken,
+		address:  address,
+		l:        l,
+	}, nil
+}
+
+// Fund the LINK Token contract with ETH to distribute the token
+func (l *EthereumLinkToken) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	return l.instance.BalanceOf(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	}, common.HexToAddress(addr))
+
+}
+
+// Name returns the name of the link token
+func (l *EthereumLinkToken) Name(ctx context.Context) (string, error) {
+	return l.instance.Name(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (l *EthereumLinkToken) Address() string {
+	return l.address.Hex()
+}
+
+func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Approving LINK Transfer")
+	_, err := l.client.Decode(l.instance.Approve(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring LINK")
+	_, err := l.client.Decode(l.instance.Transfer(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXOpts(), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
+}
+
+func (l *EthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error) {
+	l.l.Info().
+		Str("From", l.client.Addresses[keyNum].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring and Calling LINK")
+	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXKeyOpts(keyNum), common.HexToAddress(to), amount, data))
+	if err != nil {
+		return nil, err
+	}
+	return decodedTx.Transaction, nil
+}
+
+// DeployFluxAggregatorContract deploys the Flux Aggregator Contract on an EVM chain
+func DeployFluxAggregatorContract(
+	seth *seth.Client,
+	linkAddr string,
+	fluxOptions FluxAggregatorOptions,
+) (FluxAggregator, error) {
+	abi, err := flux_aggregator_wrapper.FluxAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to get FluxAggregator ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FluxAggregator", *abi)
+	seth.ContractStore.AddBIN("FluxAggregator", common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin))
+
+	fluxDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "FluxAggregator", *abi, common.FromHex(flux_aggregator_wrapper.FluxAggregatorMetaData.Bin),
+		common.HexToAddress(linkAddr),
+		fluxOptions.PaymentAmount,
+		fluxOptions.Timeout,
+		fluxOptions.Validator,
+		fluxOptions.MinSubValue,
+		fluxOptions.MaxSubValue,
+		fluxOptions.Decimals,
+		fluxOptions.Description,
+	)
+
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("FluxAggregator instance deployment have failed: %w", err)
+	}
+
+	flux, err := flux_aggregator_wrapper.NewFluxAggregator(fluxDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumFluxAggregator{}, fmt.Errorf("failed to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumFluxAggregator{
+		client:         seth,
+		address:        &fluxDeploymentData.Address,
+		fluxAggregator: flux,
+	}, nil
+}
+
+// EthereumFluxAggregator represents the basic flux aggregation contract
+type EthereumFluxAggregator struct {
+	client         *seth.Client
+	fluxAggregator *flux_aggregator_wrapper.FluxAggregator
+	address        *common.Address
+}
+
+func (f *EthereumFluxAggregator) Address() string {
+	return f.address.Hex()
+}
+
+// Fund sends specified currencies to the contract
+func (f *EthereumFluxAggregator) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
+	_, err := f.client.Decode(f.fluxAggregator.UpdateAvailableFunds(f.client.NewTXOpts()))
+	return err
+}
+
+func (f *EthereumFluxAggregator) PaymentAmount(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.PaymentAmount(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) RequestNewRound(context.Context) error {
+	_, err := f.client.Decode(f.fluxAggregator.RequestNewRound(f.client.NewTXOpts()))
+	return err
+}
+
+// WatchSubmissionReceived subscribes to any submissions on a flux feed
+func (f *EthereumFluxAggregator) WatchSubmissionReceived(_ context.Context, _ chan<- *SubmissionEvent) error {
+	panic("do not use this method, instead use XXXX")
+}
+
+func (f *EthereumFluxAggregator) SetRequesterPermissions(_ context.Context, addr common.Address, authorized bool, roundsDelay uint32) error {
+	_, err := f.client.Decode(f.fluxAggregator.SetRequesterPermissions(f.client.NewTXOpts(), addr, authorized, roundsDelay))
+	return err
+}
+
+func (f *EthereumFluxAggregator) GetOracles(ctx context.Context) ([]string, error) {
+	addresses, err := f.fluxAggregator.GetOracles(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var oracleAddrs []string
+	for _, o := range addresses {
+		oracleAddrs = append(oracleAddrs, o.Hex())
+	}
+	return oracleAddrs, nil
+}
+
+func (f *EthereumFluxAggregator) LatestRoundID(ctx context.Context) (*big.Int, error) {
+	return f.fluxAggregator.LatestRound(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (f *EthereumFluxAggregator) WithdrawPayment(
+	_ context.Context,
+	from common.Address,
+	to common.Address,
+	amount *big.Int) error {
+	_, err := f.client.Decode(f.fluxAggregator.WithdrawPayment(f.client.NewTXOpts(), from, to, amount))
+	return err
+}
+
+func (f *EthereumFluxAggregator) WithdrawablePayment(ctx context.Context, addr common.Address) (*big.Int, error) {
+	return f.fluxAggregator.WithdrawablePayment(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}, addr)
+}
+
+func (f *EthereumFluxAggregator) LatestRoundData(ctx context.Context) (flux_aggregator_wrapper.LatestRoundData, error) {
+	return f.fluxAggregator.LatestRoundData(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// GetContractData retrieves basic data for the flux aggregator contract
+func (f *EthereumFluxAggregator) GetContractData(ctx context.Context) (*FluxAggregatorData, error) {
+	opts := &bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctx,
+	}
+
+	allocated, err := f.fluxAggregator.AllocatedFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	available, err := f.fluxAggregator.AvailableFunds(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	lr, err := f.fluxAggregator.LatestRoundData(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+	latestRound := RoundData(lr)
+
+	oracles, err := f.fluxAggregator.GetOracles(opts)
+	if err != nil {
+		return &FluxAggregatorData{}, err
+	}
+
+	return &FluxAggregatorData{
+		AllocatedFunds:  allocated,
+		AvailableFunds:  available,
+		LatestRoundData: latestRound,
+		Oracles:         oracles,
+	}, nil
+}
+
+// SetOracles allows the ability to add and/or remove oracles from the contract, and to set admins
+func (f *EthereumFluxAggregator) SetOracles(o FluxAggregatorSetOraclesOptions) error {
+	_, err := f.client.Decode(f.fluxAggregator.ChangeOracles(f.client.NewTXOpts(), o.RemoveList, o.AddList, o.AdminList, o.MinSubmissions, o.MaxSubmissions, o.RestartDelayRounds))
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+// Description returns the description of the flux aggregator contract
+func (f *EthereumFluxAggregator) Description(ctxt context.Context) (string, error) {
+	return f.fluxAggregator.Description(&bind.CallOpts{
+		From:    f.client.Addresses[0],
+		Context: ctxt,
+	})
+}
+
+func DeployOracle(seth *seth.Client, linkAddr string) (Oracle, error) {
+	abi, err := oracle_wrapper.OracleMetaData.GetAbi()
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("failed to get Oracle ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("Oracle", *abi)
+	seth.ContractStore.AddBIN("Oracle", common.FromHex(oracle_wrapper.OracleMetaData.Bin))
+
+	oracleDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "Oracle", *abi, common.FromHex(oracle_wrapper.OracleMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle instance deployment have failed: %w", err)
+	}
+
+	oracle, err := oracle_wrapper.NewOracle(oracleDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumOracle{}, fmt.Errorf("Oracle to instantiate FluxAggregator instance: %w", err)
+	}
+
+	return &EthereumOracle{
+		client:  seth,
+		address: &oracleDeploymentData.Address,
+		oracle:  oracle,
+	}, nil
+}
+
+// EthereumOracle oracle for "directrequest" job tests
+type EthereumOracle struct {
+	address *common.Address
+	client  *seth.Client
+	oracle  *oracle_wrapper.Oracle
+}
+
+func (e *EthereumOracle) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumOracle) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+// SetFulfillmentPermission sets fulfillment permission for particular address
+func (e *EthereumOracle) SetFulfillmentPermission(address string, allowed bool) error {
+	_, err := e.client.Decode(e.oracle.SetFulfillmentPermission(e.client.NewTXOpts(), common.HexToAddress(address), allowed))
+	return err
+}
+
+func DeployAPIConsumer(seth *seth.Client, linkAddr string) (APIConsumer, error) {
+	abi, err := test_api_consumer_wrapper.TestAPIConsumerMetaData.GetAbi()
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to get TestAPIConsumer ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("TestAPIConsumer", *abi)
+	seth.ContractStore.AddBIN("TestAPIConsumer", common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin))
+
+	consumerDeploymentData, err := seth.DeployContract(seth.NewTXOpts(), "TestAPIConsumer", *abi, common.FromHex(test_api_consumer_wrapper.TestAPIConsumerMetaData.Bin),
+		common.HexToAddress(linkAddr),
+	)
+
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("TestAPIConsumer instance deployment have failed: %w", err)
+	}
+
+	consumer, err := test_api_consumer_wrapper.NewTestAPIConsumer(consumerDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumAPIConsumer{}, fmt.Errorf("failed to instantiate TestAPIConsumer instance: %w", err)
+	}
+
+	return &EthereumAPIConsumer{
+		client:   seth,
+		address:  &consumerDeploymentData.Address,
+		consumer: consumer,
+	}, nil
+}
+
+// EthereumAPIConsumer API consumer for job type "directrequest" tests
+type EthereumAPIConsumer struct {
+	address  *common.Address
+	client   *seth.Client
+	consumer *test_api_consumer_wrapper.TestAPIConsumer
+}
+
+func (e *EthereumAPIConsumer) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
+	return e.consumer.CurrentRoundID(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (e *EthereumAPIConsumer) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+}
+
+func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
+	return e.consumer.Data(&bind.CallOpts{
+		From:    e.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+// CreateRequestTo creates request to an oracle for particular jobID with params
+func (e *EthereumAPIConsumer) CreateRequestTo(
+	oracleAddr string,
+	jobID [32]byte,
+	payment *big.Int,
+	url string,
+	path string,
+	times *big.Int,
+) error {
+	_, err := e.client.Decode(e.consumer.CreateRequestTo(e.client.NewTXOpts(), common.HexToAddress(oracleAddr), jobID, payment, url, path, times))
+	return err
+}
+
+// EthereumMockETHLINKFeed represents mocked ETH/LINK feed contract
+type EthereumMockETHLINKFeed struct {
+	client  *seth.Client
+	feed    *mock_ethlink_aggregator_wrapper.MockETHLINKAggregator
+	address *common.Address
+}
+
+func (v *EthereumMockETHLINKFeed) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundData() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (v *EthereumMockETHLINKFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
+func DeployMockETHLINKFeed(client *seth.Client, answer *big.Int) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockETHLINKFeed", *abi, common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("MockETHLINKFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLINKFeed, error) {
+	abi, err := mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to get MockETHLINKFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockETHLINKFeed", *abi)
+	client.ContractStore.AddBIN("MockETHLINKFeed", common.FromHex(mock_ethlink_aggregator_wrapper.MockETHLINKAggregatorMetaData.Bin))
+
+	instance, err := mock_ethlink_aggregator_wrapper.NewMockETHLINKAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHLINKFeed{}, fmt.Errorf("failed to instantiate MockETHLINKFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHLINKFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+// EthereumMockGASFeed represents mocked Gas feed contract
+type EthereumMockGASFeed struct {
+	client  *seth.Client
+	feed    *mock_gas_aggregator_wrapper.MockGASAggregator
+	address *common.Address
+}
+
+func (v *EthereumMockGASFeed) Address() string {
+	return v.address.Hex()
+}
+
+func DeployMockGASFeed(client *seth.Client, answer *big.Int) (MockGasFeed, error) {
+	abi, err := mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to get MockGasFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockGasFeed", *abi, common.FromHex(mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("MockGasFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_gas_aggregator_wrapper.NewMockGASAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to instantiate MockGasFeed instance: %w", err)
+	}
+
+	return &EthereumMockGASFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockGASFeed(client *seth.Client, address common.Address) (MockGasFeed, error) {
+	abi, err := mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to get MockGasFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockGasFeed", *abi)
+	client.ContractStore.AddBIN("MockGasFeed", common.FromHex(mock_gas_aggregator_wrapper.MockGASAggregatorMetaData.Bin))
+
+	instance, err := mock_gas_aggregator_wrapper.NewMockGASAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockGASFeed{}, fmt.Errorf("failed to instantiate MockGasFeed instance: %w", err)
+	}
+
+	return &EthereumMockGASFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func DeployMultiCallContract(client *seth.Client) (common.Address, error) {
+	abi, err := abi.JSON(strings.NewReader(MultiCallABI))
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	data, err := client.DeployContract(client.NewTXOpts(), "MultiCall", abi, common.FromHex(MultiCallBIN))
+	if err != nil {
+		return common.Address{}, fmt.Errorf("MultiCall instance deployment have failed: %w", err)
+	}
+
+	return data.Address, nil
+}
+
+func LoadFunctionsCoordinator(seth *seth.Client, addr string) (FunctionsCoordinator, error) {
+	abi, err := functions_coordinator.FunctionsCoordinatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsCoordinator{}, fmt.Errorf("failed to get FunctionsCoordinator ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsCoordinator", *abi)
+	seth.ContractStore.AddBIN("FunctionsCoordinator", common.FromHex(functions_coordinator.FunctionsCoordinatorMetaData.Bin))
+
+	instance, err := functions_coordinator.NewFunctionsCoordinator(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsCoordinator{}, fmt.Errorf("failed to instantiate FunctionsCoordinator instance: %w", err)
+	}
+
+	return &EthereumFunctionsCoordinator{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+type EthereumFunctionsCoordinator struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+	return e.instance.GetThresholdPublicKey(e.client.NewCallOpts())
+}
+
+func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+	return e.instance.GetDONPublicKey(e.client.NewCallOpts())
+}
+
+func (e *EthereumFunctionsCoordinator) Address() string {
+	return e.address.Hex()
+}
+
+func LoadFunctionsRouter(l zerolog.Logger, seth *seth.Client, addr string) (FunctionsRouter, error) {
+	abi, err := functions_router.FunctionsRouterMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsRouter{}, fmt.Errorf("failed to get FunctionsRouter ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsRouter", *abi)
+	seth.ContractStore.AddBIN("FunctionsRouter", common.FromHex(functions_router.FunctionsRouterMetaData.Bin))
+
+	instance, err := functions_router.NewFunctionsRouter(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsRouter{}, fmt.Errorf("failed to instantiate FunctionsRouter instance: %w", err)
+	}
+
+	return &EthereumFunctionsRouter{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+		l:        l,
+	}, err
+}
+
+type EthereumFunctionsRouter struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_router.FunctionsRouter
+	l        zerolog.Logger
+}
+
+func (e *EthereumFunctionsRouter) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
+	tx, err := e.client.Decode(e.instance.CreateSubscriptionWithConsumer(e.client.NewTXOpts(), common.HexToAddress(consumer)))
+	if err != nil {
+		return 0, err
+	}
+
+	if tx.Receipt == nil {
+		return 0, errors.New("transaction did not err, but the receipt is nil")
+	}
+	for _, l := range tx.Receipt.Logs {
+		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+	}
+	topicsMap := map[string]interface{}{}
+
+	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
+	if err != nil {
+		return 0, err
+	}
+	for _, ev := range fabi.Events {
+		e.l.Info().Str("EventName", ev.Name).Send()
+	}
+	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
+	topicOneHash := []common.Hash{tx.Receipt.Logs[0].Topics[1:][0]}
+	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
+		return 0, fmt.Errorf("failed to decode topic value, err: %w", err)
+	}
+	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
+	if topicsMap["subscriptionId"] == 0 {
+		return 0, fmt.Errorf("failed to decode subscription ID after creation")
+	}
+	return topicsMap["subscriptionId"].(uint64), nil
+}
+
+func DeployFunctionsLoadTestClient(seth *seth.Client, router string) (FunctionsLoadTestClient, error) {
+	operatorAbi, err := functions_load_test_client.FunctionsLoadTestClientMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to get FunctionsLoadTestClient ABI: %w", err)
+	}
+	data, err := seth.DeployContract(seth.NewTXOpts(), "FunctionsLoadTestClient", *operatorAbi, common.FromHex(functions_load_test_client.FunctionsLoadTestClientMetaData.Bin), common.HexToAddress(router))
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("FunctionsLoadTestClient instance deployment have failed: %w", err)
+	}
+
+	instance, err := functions_load_test_client.NewFunctionsLoadTestClient(data.Address, seth.Client)
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to instantiate FunctionsLoadTestClient instance: %w", err)
+	}
+
+	return &EthereumFunctionsLoadTestClient{
+		client:   seth,
+		instance: instance,
+		address:  data.Address,
+	}, nil
+}
+
+// LoadFunctionsLoadTestClient returns deployed on given address FunctionsLoadTestClient contract instance
+func LoadFunctionsLoadTestClient(seth *seth.Client, addr string) (FunctionsLoadTestClient, error) {
+	abi, err := functions_load_test_client.FunctionsLoadTestClientMetaData.GetAbi()
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to get FunctionsLoadTestClient ABI: %w", err)
+	}
+	seth.ContractStore.AddABI("FunctionsLoadTestClient", *abi)
+	seth.ContractStore.AddBIN("FunctionsLoadTestClient", common.FromHex(functions_load_test_client.FunctionsLoadTestClientMetaData.Bin))
+
+	instance, err := functions_load_test_client.NewFunctionsLoadTestClient(common.HexToAddress(addr), seth.Client)
+	if err != nil {
+		return &EthereumFunctionsLoadTestClient{}, fmt.Errorf("failed to instantiate FunctionsLoadTestClient instance: %w", err)
+	}
+
+	return &EthereumFunctionsLoadTestClient{
+		client:   seth,
+		instance: instance,
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+type EthereumFunctionsLoadTestClient struct {
+	address  common.Address
+	client   *seth.Client
+	instance *functions_load_test_client.FunctionsLoadTestClient
+}
+
+func (e *EthereumFunctionsLoadTestClient) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
+	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(e.client.NewCallOpts())
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadStats{
+		LastRequestID: string(Bytes32ToSlice(lr)),
+		LastResponse:  string(lbody),
+		LastError:     string(lerr),
+		Total:         total,
+		Succeeded:     succeeded,
+		Errored:       errored,
+		Empty:         empty,
+	}, nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
+	_, err := e.client.Decode(e.instance.ResetStats(e.client.NewTXOpts()))
+	return err
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequest(e.client.NewTXOpts(), times, source, encryptedSecretsReferences, args, subscriptionId, jobId))
+	return err
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
+	_, err := e.client.Decode(e.instance.SendRequestWithDONHostedSecrets(e.client.NewTXOpts(), times, source, slotID, slotVersion, args, subscriptionId, donID))
+	return err
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -80,7 +79,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, fina
 }
 
 func (bs *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) {
-	h, err := bs.lp.LatestBlock(pg.WithParentCtx(ctx))
+	h, err := bs.lp.LatestBlock(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -148,11 +147,11 @@ func (bs *BlockSubscriber) initialize(ctx context.Context) {
 	// initialize the blocks map with the recent blockSize blocks
 	blocks, err := bs.getBlockRange(ctx)
 	if err != nil {
-		bs.lggr.Errorf("failed to get block range", err)
+		bs.lggr.Errorf("failed to get block range; error %v", err)
 	}
 	err = bs.initializeBlocks(ctx, blocks)
 	if err != nil {
-		bs.lggr.Errorf("failed to get log poller blocks", err)
+		bs.lggr.Errorf("failed to get log poller blocks; error %v", err)
 	}
 	_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
 }

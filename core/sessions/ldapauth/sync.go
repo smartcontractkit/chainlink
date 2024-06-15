@@ -1,23 +1,23 @@
 package ldapauth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
 type LDAPServerStateSyncer struct {
-	q            pg.Q
+	ds           sqlutil.DataSource
 	ldapClient   LDAPClient
 	config       config.LDAP
 	lggr         logger.Logger
@@ -26,14 +26,13 @@ type LDAPServerStateSyncer struct {
 
 // NewLDAPServerStateSync creates a reaper that cleans stale sessions from the store.
 func NewLDAPServerStateSync(
-	db *sqlx.DB,
-	pgCfg pg.QConfig,
+	ds sqlutil.DataSource,
 	config config.LDAP,
 	lggr logger.Logger,
 ) *utils.SleeperTask {
 	namedLogger := lggr.Named("LDAPServerStateSync")
 	serverSync := LDAPServerStateSyncer{
-		q:            pg.NewQ(db, namedLogger, pgCfg),
+		ds:           ds,
 		ldapClient:   newLDAPClient(config),
 		config:       config,
 		lggr:         namedLogger,
@@ -65,14 +64,15 @@ func (ldSync *LDAPServerStateSyncer) StartWorkOnTimer() {
 }
 
 func (ldSync *LDAPServerStateSyncer) Work() {
+	ctx := context.Background() // TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
 	// Purge expired ldap_sessions and ldap_user_api_tokens
 	recordCreationStaleThreshold := ldSync.config.SessionTimeout().Before(time.Now())
-	err := ldSync.deleteStaleSessions(recordCreationStaleThreshold)
+	err := ldSync.deleteStaleSessions(ctx, recordCreationStaleThreshold)
 	if err != nil {
 		ldSync.lggr.Error("unable to expire local LDAP sessions: ", err)
 	}
 	recordCreationStaleThreshold = ldSync.config.UserAPITokenDuration().Before(time.Now())
-	err = ldSync.deleteStaleAPITokens(recordCreationStaleThreshold)
+	err = ldSync.deleteStaleAPITokens(ctx, recordCreationStaleThreshold)
 	if err != nil {
 		ldSync.lggr.Error("unable to expire user API tokens: ", err)
 	}
@@ -94,38 +94,38 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 	conn, err := ldSync.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
+		ldSync.lggr.Error("Failed to Dial LDAP Server: ", err)
 		return
 	}
 	// Root level root user auth with credentials provided from config
 	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
 	if err = conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
-		ldSync.lggr.Errorf("Unable to login as initial root LDAP user", err)
+		ldSync.lggr.Error("Unable to login as initial root LDAP user: ", err)
 	}
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
 	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
+		ldSync.lggr.Error("Error in ldapGroupMembersListToUser: ", err)
 		return
 	}
 
@@ -149,7 +149,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	// list group members that are no longer marked as active
 	usersActiveFlags, err := ldSync.validateUsersActive(dedupedEmails, conn)
 	if err != nil {
-		ldSync.lggr.Errorf("Error validating supplied user list: ", err)
+		ldSync.lggr.Error("Error validating supplied user list: ", err)
 	}
 	// Remove users in the upstreamUserStateMap source of truth who are part of groups but marked as deactivated/no-active
 	for i, active := range usersActiveFlags {
@@ -160,18 +160,18 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 	// upstreamUserStateMap is now the most up to date source of truth
 	// Now sync database sessions and roles with new data
-	err = ldSync.q.Transaction(func(tx pg.Queryer) error {
+	err = sqlutil.TransactDataSource(ctx, ldSync.ds, nil, func(tx sqlutil.DataSource) error {
 		// First, purge users present in the local ldap_sessions table but not in the upstream server
 		type LDAPSession struct {
 			UserEmail string
 			UserRole  sessions.UserRole
 		}
 		var existingSessions []LDAPSession
-		if err = tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
+		if err = tx.SelectContext(ctx, &existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
 			return fmt.Errorf("unable to query ldap_sessions table: %w", err)
 		}
 		var existingAPITokens []LDAPSession
-		if err = tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
+		if err = tx.SelectContext(ctx, &existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
 			return fmt.Errorf("unable to query ldap_user_api_tokens table: %w", err)
 		}
 
@@ -202,7 +202,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active sessions this user may have
 		if len(emailsToPurge) > 0 {
-			_, err = ldSync.q.Exec("DELETE FROM ldap_sessions WHERE user_email = ANY($1)", pq.Array(emailsToPurge))
+			_, err = tx.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE user_email = ANY($1)", pq.Array(emailsToPurge))
 			if err != nil {
 				return err
 			}
@@ -210,7 +210,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active API tokens this user may have
 		if len(apiTokenEmailsToPurge) > 0 {
-			_, err = ldSync.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = ANY($1)", pq.Array(apiTokenEmailsToPurge))
+			_, err = tx.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE user_email = ANY($1)", pq.Array(apiTokenEmailsToPurge))
 			if err != nil {
 				return err
 			}
@@ -235,14 +235,14 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		if len(emailValues) != 0 {
 			// Set new role state for all rows in single Exec
 			query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", queryWhenClause)
-			_, err = ldSync.q.Exec(query, emailValues...)
+			_, err = tx.ExecContext(ctx, query, emailValues...)
 			if err != nil {
 				return err
 			}
 
 			// Update role of API tokens as well
 			query = fmt.Sprintf("UPDATE ldap_user_api_tokens SET user_role = CASE %s ELSE user_role END", queryWhenClause)
-			_, err = ldSync.q.Exec(query, emailValues...)
+			_, err = tx.ExecContext(ctx, query, emailValues...)
 			if err != nil {
 				return err
 			}
@@ -252,20 +252,20 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		return nil
 	})
 	if err != nil {
-		ldSync.lggr.Errorf("Error syncing local database state: ", err)
+		ldSync.lggr.Error("Error syncing local database state: ", err)
 	}
 	ldSync.lggr.Info("Upstream LDAP sync complete")
 }
 
 // deleteStaleSessions deletes all ldap_sessions before the passed time.
-func (ldSync *LDAPServerStateSyncer) deleteStaleSessions(before time.Time) error {
-	_, err := ldSync.q.Exec("DELETE FROM ldap_sessions WHERE created_at < $1", before)
+func (ldSync *LDAPServerStateSyncer) deleteStaleSessions(ctx context.Context, before time.Time) error {
+	_, err := ldSync.ds.ExecContext(ctx, "DELETE FROM ldap_sessions WHERE created_at < $1", before)
 	return err
 }
 
 // deleteStaleAPITokens deletes all ldap_user_api_tokens before the passed time.
-func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(before time.Time) error {
-	_, err := ldSync.q.Exec("DELETE FROM ldap_user_api_tokens WHERE created_at < $1", before)
+func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(ctx context.Context, before time.Time) error {
+	_, err := ldSync.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE created_at < $1", before)
 	return err
 }
 

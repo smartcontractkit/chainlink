@@ -11,21 +11,21 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/seth"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
+	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 )
 
 type FunctionsTest struct {
-	EVMClient                 blockchain.EVMClient
-	ContractDeployer          contracts.ContractDeployer
-	ContractLoader            contracts.ContractLoader
+	SethClient                seth.Client
 	LinkToken                 contracts.LinkToken
 	Coordinator               contracts.FunctionsCoordinator
 	Router                    contracts.FunctionsRouter
@@ -51,44 +51,32 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
+func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	bc, err := blockchain.NewEVMClientFromNetwork(selectedNetwork, log.Logger)
-	if err != nil {
-		return nil, err
-	}
-	cd, err := contracts.NewContractDeployer(bc, log.Logger)
-	if err != nil {
-		return nil, err
-	}
-
-	cl, err := contracts.NewContractLoader(bc, log.Logger)
-	if err != nil {
-		return nil, err
-	}
+	seth, err := actions_seth.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}
 
 	cfg := functionsConfig.GetFunctionsConfig()
 
-	lt, err := cl.LoadLINKToken(*cfg.Common.LINKTokenAddr)
+	lt, err := contracts.DeployLinkTokenContract(log.Logger, seth)
 	if err != nil {
 		return nil, err
 	}
-	coord, err := cl.LoadFunctionsCoordinator(*cfg.Common.Coordinator)
+	coord, err := contracts.LoadFunctionsCoordinator(seth, *cfg.Common.Coordinator)
 	if err != nil {
 		return nil, err
 	}
-	router, err := cl.LoadFunctionsRouter(*cfg.Common.Router)
+	router, err := contracts.LoadFunctionsRouter(log.Logger, seth, *cfg.Common.Router)
 	if err != nil {
 		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
 	if cfg.Common.LoadTestClient != nil && *cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = cl.LoadFunctionsLoadTestClient(*cfg.Common.LoadTestClient)
+		loadTestClient, err = contracts.LoadFunctionsLoadTestClient(seth, *cfg.Common.LoadTestClient)
 	} else {
-		loadTestClient, err = cd.DeployFunctionsLoadTestClient(*cfg.Common.Router)
+		loadTestClient, err = contracts.DeployFunctionsLoadTestClient(seth, *cfg.Common.Router)
 	}
 	if err != nil {
 		return nil, err
@@ -155,9 +143,7 @@ func SetupLocalLoadTestEnv(globalConfig tc.GlobalTestConfig, functionsConfig typ
 			Msg("Set new secret")
 	}
 	return &FunctionsTest{
-		EVMClient:                 bc,
-		ContractDeployer:          cd,
-		ContractLoader:            cl,
+		SethClient:                *seth,
 		LinkToken:                 lt,
 		Coordinator:               coord,
 		Router:                    router,

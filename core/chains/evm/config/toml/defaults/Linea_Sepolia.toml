@@ -1,0 +1,13 @@
+ChainID = '59141'
+FinalityDepth = 900
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+PriceMin = '1 wei'
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[HeadTracker]
+HistoryDepth = 1000

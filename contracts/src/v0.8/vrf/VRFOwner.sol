@@ -110,7 +110,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
   event RandomWordsForced(uint256 indexed requestId, uint64 indexed subId, address indexed sender);
 
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(_vrfCoordinator != address(0), "vrf coordinator address must be non-zero");
     s_vrfCoordinator = IVRFCoordinatorV2(_vrfCoordinator);
   }

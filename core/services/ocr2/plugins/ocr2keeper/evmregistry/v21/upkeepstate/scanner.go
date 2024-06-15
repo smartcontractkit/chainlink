@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -50,12 +50,12 @@ func NewPerformedEventsScanner(
 	}
 }
 
-func (s *performedEventsScanner) Start(_ context.Context) error {
-	return s.poller.RegisterFilter(logpoller.Filter{
+func (s *performedEventsScanner) Start(ctx context.Context) error {
+	return s.poller.RegisterFilter(ctx, logpoller.Filter{
 		Name: dedupFilterName(s.registryAddress),
 		EventSigs: []common.Hash{
 			// listening to dedup key added event
-			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+			ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(),
 		},
 		Addresses: []common.Address{s.registryAddress},
 		Retention: logprovider.LogRetention,
@@ -79,7 +79,8 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 			end = len(ids)
 		}
 		batch := ids[i:end]
-		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, logpoller.Confirmations(s.finalityDepth), pg.WithParentCtx(ctx))
+
+		batchLogs, err := s.poller.IndexedLogs(ctx, ac.IAutomationV21PlusCommonDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, evmtypes.Confirmations(s.finalityDepth))
 		if err != nil {
 			return nil, fmt.Errorf("error fetching logs: %w", err)
 		}

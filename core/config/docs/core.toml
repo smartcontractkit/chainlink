@@ -30,7 +30,7 @@ MaxIdleConns = 10 # Default
 # MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 #
 # Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
 
@@ -280,6 +280,12 @@ ReaperThreshold = '24h' # Default
 # **ADVANCED**
 # ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
 ResultWriteQueueDepth = 100 # Default
+# VerboseLogging enables detailed logging of pipeline execution steps. 
+# This can be useful for debugging failed runs without relying on the UI
+# or database.
+#
+# You may disable if this results in excessive log volume.
+VerboseLogging = true # Default
 
 [JobPipeline.HTTPRequest]
 # DefaultTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
@@ -413,6 +419,55 @@ TraceLogging = false # Default
 # Enabled enables P2P V2.
 # Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
 Enabled = true # Default
+# AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`. 
+# The addresses should be reachable by other nodes on the network. When attempting to connect to another node, 
+# a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+# DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
+#
+# Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports. 
+# DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate. 
+# Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node 
+# (which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications 
+# received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
+# nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
+DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
+# DeltaDial controls how far apart Dial attempts are
+DeltaDial = '15s' # Default
+# DeltaReconcile controls how often a Reconcile message is sent to every peer.
+DeltaReconcile = '1m' # Default
+# ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
+# but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+
+[Capabilities.ExternalRegistry]
+# Address is the address for the capabilities registry contract.
+Address = '0x0' # Example
+# NetworkID identifies the target network where the remote registry is located.
+NetworkID = 'evm' # Default
+# ChainID identifies the target chain id where the remote registry is located.
+ChainID = '1' # Default
+
+[Capabilities.Peering]
+# IncomingMessageBufferSize is the per-remote number of incoming
+# messages to buffer. Any additional messages received on top of those
+# already in the queue will be dropped.
+IncomingMessageBufferSize = 10 # Default
+# OutgoingMessageBufferSize is the per-remote number of outgoing
+# messages to buffer. Any additional messages send on top of those
+# already in the queue will displace the oldest.
+# NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
+# IncomingMessageBufferSize to give the remote enough space to process
+# them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize = 10 # Default
+# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
+# TraceLogging enables trace level logging.
+TraceLogging = false # Default
+
+[Capabilities.Peering.V2]
+# Enabled enables P2P V2.
+Enabled = false # Default
 # AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`. 
 # The addresses should be reachable by other nodes on the network. When attempting to connect to another node, 
 # a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
@@ -575,3 +630,17 @@ LatestReportDeadline = "5s" # Default
 [Mercury.TLS]
 # CertFile is the path to a PEM file of trusted root certificate authority certificates
 CertFile = "/path/to/client/certs.pem" # Example
+
+# Mercury.Transmitter controls settings for the mercury transmitter
+[Mercury.Transmitter]
+# TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
+# per OCR instance. If the queue is full, the transmitter will start dropping
+# the oldest messages in order to make space.
+#
+# This is useful if mercury server goes offline and the nop needs to buffer
+# transmissions.
+TransmitQueueMaxSize = 10_000 # Default
+# TransmitTimeout controls how long the transmitter will wait for a response
+# when sending a message to the mercury server, before aborting and considering
+# the transmission to be failed.
+TransmitTimeout = "5s" # Default

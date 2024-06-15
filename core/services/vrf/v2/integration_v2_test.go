@@ -67,14 +67,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -144,7 +142,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil)
 
 	return txm
 }
@@ -467,7 +465,8 @@ func deployOldCoordinator(
 // Send eth from prefunded account.
 // Amount is number of ETH not wei.
 func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to common.Address, eth int) {
-	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address)
+	ctx := testutils.Context(t)
+	nonce, err := ec.PendingNonceAt(ctx, key.Address)
 	require.NoError(t, err)
 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
 		ChainID:   testutils.SimulatedChainID,
@@ -481,7 +480,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 	})
 	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(testutils.SimulatedChainID), key.ToEcdsaPrivKey())
 	require.NoError(t, err)
-	err = ec.SendTransaction(testutils.Context(t), signedTx)
+	err = ec.SendTransaction(ctx, signedTx)
 	require.NoError(t, err)
 	ec.Commit()
 }
@@ -532,6 +531,7 @@ func createVRFJobs(
 	batchEnabled bool,
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
+	ctx := testutils.Context(t)
 	if len(gasLanePrices) != len(fromKeys) {
 		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
 			len(gasLanePrices), len(fromKeys))
@@ -543,7 +543,7 @@ func createVRFJobs(
 			keyStrs = append(keyStrs, k.Address.String())
 		}
 
-		vrfkey, err := app.GetKeyStore().VRF().Create()
+		vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 		require.NoError(t, err)
 
 		jid := uuid.New()
@@ -574,7 +574,7 @@ func createVRFJobs(
 		jb, err := vrfcommon.ValidatedVRFSpec(spec)
 		require.NoError(t, err)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
-		err = app.JobSpawner().CreateJob(&jb)
+		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)
@@ -780,8 +780,7 @@ func assertNumRandomWords(
 }
 
 func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -808,8 +807,7 @@ func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBa
 
 func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version, chainId *big.Int) bool {
 	requestIDMap := map[string]bool{}
-	cfg := pgtest.NewQConfig(false)
-	txstore := txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
 		metaField = "GlobalSubId"
@@ -999,7 +997,9 @@ func testEoa(
 	batchingEnabled bool,
 	batchCoordinatorAddress common.Address,
 	vrfOwnerAddress *common.Address,
-	vrfVersion vrfcommon.Version) {
+	vrfVersion vrfcommon.Version,
+) {
+	ctx := testutils.Context(t)
 	gasLimit := int64(2_500_000)
 
 	finalityDepth := uint32(50)
@@ -1012,7 +1012,7 @@ func testEoa(
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].FinalityDepth = ptr(finalityDepth)
 	})
@@ -1033,7 +1033,7 @@ func testEoa(
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1062,7 +1062,7 @@ func testEoa(
 	// Ensure request is not fulfilled.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 0
@@ -1072,10 +1072,9 @@ func testEoa(
 	var broadcastsBeforeFinality []evmlogger.LogBroadcast
 	var broadcastsAfterFinality []evmlogger.LogBroadcast
 	query := `SELECT block_hash, consumed, log_index, job_id FROM log_broadcasts`
-	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
 
 	// Execute the query.
-	require.NoError(t, q.Select(&broadcastsBeforeFinality, query))
+	require.NoError(t, app.GetDB().SelectContext(ctx, &broadcastsBeforeFinality, query))
 
 	// Ensure there is only one log broadcast (our EOA request), and that
 	// it hasn't been marked as consumed yet.
@@ -1090,14 +1089,14 @@ func testEoa(
 	// Ensure the request is still not fulfilled.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		uni.backend.Commit()
-		runs, err := app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == 0
 	}, 5*time.Second, time.Second).Should(gomega.BeTrue())
 
 	// Execute the query for log broadcasts again after finality depth has elapsed.
-	require.NoError(t, q.Select(&broadcastsAfterFinality, query))
+	require.NoError(t, app.GetDB().SelectContext(ctx, &broadcastsAfterFinality, query))
 
 	// Ensure that there is still only one log broadcast (our EOA request), but that
 	// it has been marked as "consumed," such that it won't be retried.
@@ -1161,6 +1160,7 @@ func deployWrapper(t *testing.T, uni coordinatorV2UniverseCommon, wrapperOverhea
 
 func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
 
@@ -1173,7 +1173,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1182,7 +1182,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1224,7 +1224,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err2 := app.PipelineORM().GetAllRuns()
+		runs, err2 := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1241,6 +1241,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 
 func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	wrapperOverhead := uint32(30_000)
 	coordinatorOverhead := uint32(90_000)
 
@@ -1253,7 +1254,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 			Key:          ptr(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1264,7 +1265,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF job.
 	jbs := createVRFJobs(
@@ -1306,7 +1307,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		runs, err2 := app.PipelineORM().GetAllRuns()
+		runs, err2 := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err2)
 		t.Log("runs", len(runs))
 		return len(runs) == 1
@@ -1426,29 +1427,13 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerBigGasCallbackSandwich(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2,
-		false,
-	)
+	testSingleConsumerBigGasCallbackSandwich(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
 func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	testSingleConsumerMultipleGasLanes(
-		t,
-		ownerKey,
-		uni.coordinatorV2UniverseCommon,
-		uni.batchCoordinatorContractAddress,
-		false,
-		vrfcommon.V2,
-		false,
-	)
+	testSingleConsumerMultipleGasLanes(t, ownerKey, uni.coordinatorV2UniverseCommon, uni.batchCoordinatorContractAddress, vrfcommon.V2, false)
 }
 
 func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
@@ -1492,7 +1477,7 @@ func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.Ke
 		if defaultGasPrice != nil {
 			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
 		}
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
 
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1634,6 +1619,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 
 func TestIntegrationVRFV2(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
 	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
@@ -1653,11 +1639,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	carolContractAddress := uni.consumerContractAddresses[0]
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	keys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+	keys, err := app.KeyStore.Eth().EnabledKeysForChain(ctx, testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Zero(t, key.Cmp(keys[0]))
 
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 	var chain legacyevm.Chain
 	chain, err = app.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
@@ -1726,7 +1712,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// by the node.
 	var runs []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err = app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		// It is possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
@@ -1748,7 +1734,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		return len(rf) == 1
 	}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 	assert.True(t, rf[0].Success(), "expected callback to succeed")
-	fulfillReceipt, err := uni.backend.TransactionReceipt(testutils.Context(t), rf[0].Raw().TxHash)
+	fulfillReceipt, err := uni.backend.TransactionReceipt(ctx, rf[0].Raw().TxHash)
 	require.NoError(t, err)
 
 	// Assert all the random words received by the consumer are different and non-zero.
@@ -1816,7 +1802,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// We should see the response count present
 	require.NoError(t, err)
 	var counts map[string]uint64
-	counts, err = listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
+	counts, err = listenerV2.GetStartingResponseCountsV2(ctx)
 	require.NoError(t, err)
 	t.Log(counts, rf[0].RequestID().String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestID().String()])
@@ -1837,6 +1823,7 @@ func TestMaliciousConsumer(t *testing.T) {
 }
 
 func TestRequestCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 
@@ -1844,7 +1831,7 @@ func TestRequestCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 	t.Run("non-proxied consumer", func(tt *testing.T) {
@@ -1942,6 +1929,7 @@ func TestMaxConsumersCost(t *testing.T) {
 }
 
 func TestFulfillmentCost(t *testing.T) {
+	ctx := testutils.Context(t)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 
@@ -1949,7 +1937,7 @@ func TestFulfillmentCost(t *testing.T) {
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	vrfkey, err := app.GetKeyStore().VRF().Create()
+	vrfkey, err := app.GetKeyStore().VRF().Create(ctx)
 	require.NoError(t, err)
 	registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, uni.rootContract, vrfkey, nil)
 
@@ -2046,10 +2034,10 @@ func TestFulfillmentCost(t *testing.T) {
 func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
+	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
-	qCfg := pgtest.NewQConfig(false)
-	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qCfg)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
@@ -2066,7 +2054,7 @@ func TestStartingCountsV1(t *testing.T) {
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(counts))
-	err = ks.Unlock(testutils.Password)
+	err = ks.Unlock(ctx, testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
 	require.NoError(t, err)
@@ -2162,7 +2150,7 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	txList := append(confirmedTxes, unconfirmedTxes...)
 	for i := range txList {
-		err = txStore.InsertTx(&txList[i])
+		err = txStore.InsertTx(ctx, &txList[i])
 		require.NoError(t, err)
 	}
 
@@ -2178,7 +2166,7 @@ func TestStartingCountsV1(t *testing.T) {
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   txmgrtypes.TxAttemptBroadcast,
 			CreatedAt:               time.Now(),
-			ChainSpecificFeeLimit:   uint32(100),
+			ChainSpecificFeeLimit:   uint64(100),
 		})
 	}
 	// add tx attempt for unconfirmed
@@ -2190,14 +2178,14 @@ func TestStartingCountsV1(t *testing.T) {
 			Hash:                  evmutils.NewHash(),
 			State:                 txmgrtypes.TxAttemptInProgress,
 			CreatedAt:             time.Now(),
-			ChainSpecificFeeLimit: uint32(100),
+			ChainSpecificFeeLimit: uint64(100),
 		})
 	}
 	for _, txAttempt := range txAttempts {
 		t.Log("tx attempt eth tx id: ", txAttempt.TxID)
 	}
 	for i := range txAttempts {
-		err = txStore.InsertTxAttempt(&txAttempts[i])
+		err = txStore.InsertTxAttempt(ctx, &txAttempts[i])
 		require.NoError(t, err)
 	}
 
@@ -2212,7 +2200,7 @@ func TestStartingCountsV1(t *testing.T) {
 		})
 	}
 	for i := range receipts {
-		_, err = txStore.InsertReceipt(&receipts[i])
+		_, err = txStore.InsertReceipt(ctx, &receipts[i])
 		require.NoError(t, err)
 	}
 

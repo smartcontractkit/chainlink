@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cometbft/cometbft/libs/rand"
+	prom "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 )
@@ -37,7 +39,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.aliveLoop()
-
 	})
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -56,7 +57,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
 		})
-
 	})
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -148,7 +148,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertLogCountEventually(t, observedLogs, "Version poll successful", 2)
 		assert.True(t, ensuredAlive.Load(), "expected to ensure that node was alive")
-
 	})
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -283,9 +282,11 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
 		node := newSubscribedNode(t, testNodeOpts{
-			config:              testNodeConfig{},
-			noNewHeadsThreshold: tests.TestInterval,
-			rpc:                 rpc,
+			config: testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc: rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		// tries to redial in outOfSync
@@ -308,10 +309,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc := newMockNodeClient[types.ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
-			config:              testNodeConfig{},
-			lggr:                lggr,
-			noNewHeadsThreshold: tests.TestInterval,
-			rpc:                 rpc,
+			config: testNodeConfig{},
+			lggr:   lggr,
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc: rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
@@ -335,10 +338,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newDialedNode(t, testNodeOpts{
-			lggr:                lggr,
-			config:              testNodeConfig{},
-			noNewHeadsThreshold: tests.TestInterval,
-			rpc:                 rpc,
+			lggr:   lggr,
+			config: testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc: rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		// disconnects all on transfer to unreachable or outOfSync
@@ -348,7 +353,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		assert.Equal(t, nodeStateUnreachable, node.State())
-
 	})
 	t.Run("updates block number and difficulty on new head", func(t *testing.T) {
 		t.Parallel()
@@ -374,6 +378,128 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return state == nodeStateAlive && block == expectedBlockNumber == bigmath.Equal(diff, expectedDiff)
 		})
 	})
+	t.Run("If finality tag is not enabled updates finalized block metric using finality depth and latest head", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		sub := mocks.NewSubscription(t)
+		sub.On("Err").Return((<-chan error)(nil))
+		sub.On("Unsubscribe").Once()
+		const blockNumber = 1000
+		const finalityDepth = 10
+		const expectedBlock = 990
+		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+			ch := args.Get(1).(chan<- Head)
+			go writeHeads(t, ch, head{BlockNumber: blockNumber - 1}, head{BlockNumber: blockNumber}, head{BlockNumber: blockNumber - 1})
+		}).Return(sub, nil).Once()
+		rpc.On("SetAliveLoopSub", sub).Once()
+		name := "node-" + rand.Str(5)
+		node := newDialedNode(t, testNodeOpts{
+			config:      testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{FinalityDepthVal: finalityDepth},
+			rpc:         rpc,
+			name:        name,
+			chainID:     big.NewInt(1),
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		node.declareAlive()
+		tests.AssertEventually(t, func() bool {
+			metric, err := promPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
+			require.NoError(t, err)
+			var m = &prom.Metric{}
+			require.NoError(t, metric.Write(m))
+			return float64(expectedBlock) == m.Gauge.GetValue()
+		})
+	})
+	t.Run("Logs warning if failed to get finalized block", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("LatestFinalizedBlock", mock.Anything).Return(newMockHead(t), errors.New("failed to get finalized block"))
+		sub := mocks.NewSubscription(t)
+		sub.On("Err").Return((<-chan error)(nil))
+		sub.On("Unsubscribe").Once()
+		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SetAliveLoopSub", sub).Once()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newDialedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				finalizedBlockPollInterval: tests.TestInterval,
+			},
+			chainConfig: clientMocks.ChainConfig{
+				IsFinalityTagEnabled: true,
+			},
+			rpc:  rpc,
+			lggr: lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "Failed to fetch latest finalized block")
+	})
+	t.Run("Logs warning if latest finalized block is not valid", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		head := newMockHead(t)
+		head.On("IsValid").Return(false)
+		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head, nil)
+		sub := mocks.NewSubscription(t)
+		sub.On("Err").Return((<-chan error)(nil))
+		sub.On("Unsubscribe").Once()
+		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SetAliveLoopSub", sub).Once()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newDialedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				finalizedBlockPollInterval: tests.TestInterval,
+			},
+			chainConfig: clientMocks.ChainConfig{
+				IsFinalityTagEnabled: true,
+			},
+			rpc:  rpc,
+			lggr: lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "Latest finalized block is not valid")
+	})
+	t.Run("If finality tag and finalized block polling are enabled updates latest finalized block metric", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockNodeClient[types.ID, Head](t)
+		const expectedBlock = 1101
+		const finalityDepth = 10
+		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head{BlockNumber: expectedBlock - 1}.ToMockHead(t), nil).Once()
+		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head{BlockNumber: expectedBlock}.ToMockHead(t), nil)
+		sub := mocks.NewSubscription(t)
+		sub.On("Err").Return((<-chan error)(nil))
+		sub.On("Unsubscribe").Once()
+		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+			ch := args.Get(1).(chan<- Head)
+			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
+			// the metric
+			go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
+		}).Return(sub, nil).Once()
+		rpc.On("SetAliveLoopSub", sub).Once()
+		name := "node-" + rand.Str(5)
+		node := newDialedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				finalizedBlockPollInterval: tests.TestInterval,
+			},
+			chainConfig: clientMocks.ChainConfig{
+				FinalityDepthVal:     finalityDepth,
+				IsFinalityTagEnabled: true,
+			},
+			rpc:     rpc,
+			name:    name,
+			chainID: big.NewInt(1),
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		node.declareAlive()
+		tests.AssertEventually(t, func() bool {
+			metric, err := promPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
+			require.NoError(t, err)
+			var m = &prom.Metric{}
+			require.NoError(t, metric.Write(m))
+			return float64(expectedBlock) == m.Gauge.GetValue()
+		})
+	})
 }
 
 type head struct {
@@ -381,11 +507,17 @@ type head struct {
 	BlockDifficulty *big.Int
 }
 
+func (h head) ToMockHead(t *testing.T) *mockHead {
+	m := newMockHead(t)
+	m.On("BlockNumber").Return(h.BlockNumber).Maybe()
+	m.On("BlockDifficulty").Return(h.BlockDifficulty).Maybe()
+	m.On("IsValid").Return(true).Maybe()
+	return m
+}
+
 func writeHeads(t *testing.T, ch chan<- Head, heads ...head) {
 	for _, head := range heads {
-		h := newMockHead(t)
-		h.On("BlockNumber").Return(head.BlockNumber)
-		h.On("BlockDifficulty").Return(head.BlockDifficulty)
+		h := head.ToMockHead(t)
 		select {
 		case ch <- h:
 		case <-tests.Context(t).Done():
@@ -675,10 +807,12 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		nodeChainID := types.RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
-			noNewHeadsThreshold: tests.TestInterval,
-			rpc:                 rpc,
-			chainID:             nodeChainID,
-			lggr:                lggr,
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
@@ -721,7 +855,6 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.unreachableLoop()
-
 	})
 	t.Run("on failed redial, keeps trying", func(t *testing.T) {
 		t.Parallel()
@@ -808,8 +941,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil).Twice()
-		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Twice()
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
 
 		setupRPCForAliveLoop(t, rpc)
@@ -879,7 +1012,6 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.invalidChainIDLoop()
-
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -1234,7 +1366,7 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 			}
 			for _, td := range []int64{totalDifficulty - syncThreshold - 1, totalDifficulty - syncThreshold, totalDifficulty, totalDifficulty + 1} {
 				for _, testCase := range testCases {
-					t.Run(fmt.Sprintf("%s: selectionMode: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
+					t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
 						outOfSync, liveNodes := node.syncStatus(testCase.blockNumber, big.NewInt(td))
 						assert.Equal(t, nodesNum, liveNodes)
 						assert.Equal(t, testCase.outOfSync, outOfSync)
@@ -1242,7 +1374,6 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 				}
 			}
 		}
-
 	})
 	t.Run("total difficulty selection mode", func(t *testing.T) {
 		const syncThreshold = 10
@@ -1287,14 +1418,13 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		}
 		for _, hb := range []int64{highestBlock - syncThreshold - 1, highestBlock - syncThreshold, highestBlock, highestBlock + 1} {
 			for _, testCase := range testCases {
-				t.Run(fmt.Sprintf("%s: selectionMode: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
+				t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
 					outOfSync, liveNodes := node.syncStatus(hb, big.NewInt(testCase.totalDifficulty))
 					assert.Equal(t, nodesNum, liveNodes)
 					assert.Equal(t, testCase.outOfSync, outOfSync)
 				})
 			}
 		}
-
 	})
 }
 
@@ -1315,7 +1445,6 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.syncingLoop()
-
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()

@@ -3,7 +3,9 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"log/slog"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -13,9 +15,16 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
+
+func init() {
+	// This is a hack to undo geth's disruption of the std default logger.
+	// To be removed after upgrading geth to v1.13.10.
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+}
 
 type Configs interface {
 	Chains(ids ...string) ([]types.ChainStatus, int, error)
@@ -215,6 +224,13 @@ func (r *Receipt) GetTransactionIndex() uint {
 func (r *Receipt) GetBlockHash() common.Hash {
 	return r.BlockHash
 }
+
+type Confirmations int
+
+const (
+	Finalized   = Confirmations(-1)
+	Unconfirmed = Confirmations(0)
+)
 
 // Log represents a contract log event.
 //

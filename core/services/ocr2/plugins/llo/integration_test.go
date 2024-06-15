@@ -148,10 +148,7 @@ func TestIntegration_LLO(t *testing.T) {
 		})
 	}
 
-	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
-	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
-
-	// Bury everything with finality depth
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
 	ch, err := nodes[0].App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
@@ -159,9 +156,11 @@ func TestIntegration_LLO(t *testing.T) {
 		backend.Commit()
 	}
 
+	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
+	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
+
 	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
 	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
-
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
 		seen := make(map[ocr2types.Account]map[llotypes.ChannelID]struct{})
@@ -173,10 +172,10 @@ func TestIntegration_LLO(t *testing.T) {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
 			seen[o.OracleIdentity.TransmitAccount] = make(map[llotypes.ChannelID]struct{})
 		}
-
 		for req := range reqs {
 			if _, exists := seen[req.TransmitterID()]; !exists {
 				// oracle already reported on all channels; discard
+				// if this test timeouts, check for expected transmitter ID
 				continue
 			}
 
@@ -188,7 +187,7 @@ func TestIntegration_LLO(t *testing.T) {
 				t.Fatalf("FAIL: expected payload %#v to contain 'report'", v)
 			}
 
-			t.Logf("Got report from oracle %x with format: %d", req.pk, req.req.ReportFormat)
+			t.Logf("Got report from oracle %s with format: %d", req.pk, req.req.ReportFormat)
 
 			var r datastreamsllo.Report
 
@@ -199,7 +198,7 @@ func TestIntegration_LLO(t *testing.T) {
 				r, err = (datastreamsllo.JSONReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid JSON")
 			case uint32(llotypes.ReportFormatEVM):
-				t.Logf("Got report (EVM) from oracle %x: 0x%x", req.pk, report.([]byte))
+				t.Logf("Got report (EVM) from oracle %s: 0x%x", req.pk, report.([]byte))
 				var err error
 				r, err = (lloevm.ReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid EVM encoding")

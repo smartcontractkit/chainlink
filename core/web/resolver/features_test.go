@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -23,7 +24,7 @@ func Test_ToFeatures(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetConfig").Return(configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 					t, f := true, false
 					c.Feature.UICSAKeys = &f

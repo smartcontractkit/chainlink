@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"time"
@@ -15,7 +16,6 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 type (
@@ -39,7 +39,7 @@ func newEthSubscriber(ethClient evmclient.Client, config Config, lggr logger.Log
 // backfillLogs - fetches earlier logs either from a relatively recent block (latest minus BlockBackfillDepth) or from the given fromBlockOverride
 // note that the whole operation has no timeout - it relies on BlockBackfillSkip (set outside) to optionally prevent very deep, long backfills
 // Max runtime is: (10 sec + 1 min * numBlocks/batchSize) * 3 retries
-func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride sql.NullInt64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	sub.logger.Infow("backfilling logs", "from", fromBlockOverride, "addresses", addresses)
 	if len(addresses) == 0 {
 		sub.logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
@@ -104,7 +104,6 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses [
 		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
 		batchSize := int64(sub.config.LogBackfillBatchSize())
 		for from := q.FromBlock.Int64(); from <= latestHeight; from += batchSize {
-
 			to := from + batchSize - 1
 			if to > latestHeight {
 				to = latestHeight
@@ -204,7 +203,6 @@ func (sub *ethSubscriber) createSubscription(addresses []common.Address, topics 
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() (retry bool) {
-
 		filterQuery := ethereum.FilterQuery{
 			Addresses: addresses,
 			Topics:    [][]common.Hash{topics},

@@ -14,6 +14,7 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
@@ -70,7 +70,7 @@ func New(
 	l logger.Logger,
 	chain legacyevm.Chain,
 	chainID *big.Int,
-	q pg.Q,
+	ds sqlutil.DataSource,
 	coordinator CoordinatorV2_X,
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	vrfOwner vrf_owner.VRFOwnerInterface,
@@ -93,7 +93,7 @@ func New(
 		vrfOwner:              vrfOwner,
 		pipelineRunner:        pipelineRunner,
 		job:                   job,
-		q:                     q,
+		ds:                    ds,
 		gethks:                gethks,
 		chStop:                make(chan struct{}),
 		reqAdded:              reqAdded,
@@ -120,7 +120,7 @@ type listenerV2 struct {
 
 	pipelineRunner pipeline.Runner
 	job            job.Job
-	q              pg.Q
+	ds             sqlutil.DataSource
 	gethks         keystore.Eth
 	chStop         services.StopChan
 
@@ -170,11 +170,11 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		gasLimit := lsn.feeCfg.LimitDefault()
 		vrfLimit := lsn.feeCfg.LimitJobType().VRF()
 		if vrfLimit != nil {
-			gasLimit = *vrfLimit
+			gasLimit = uint64(*vrfLimit)
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
-		} else if conf.MaxGasLimit()+(GasProofVerification*2) > gasLimit {
+		} else if uint64(conf.MaxGasLimit()+(GasProofVerification*2)) > gasLimit {
 			lsn.l.Criticalw("Node gas limit setting may not be high enough to fulfill all requests; it should be increased. Starting anyway.",
 				"currentGasLimit", gasLimit,
 				"neededGasLimit", conf.MaxGasLimit()+(GasProofVerification*2),

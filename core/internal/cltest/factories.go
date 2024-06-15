@@ -23,6 +23,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -42,15 +44,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewEIP55Address() ethkey.EIP55Address {
+func NewEIP55Address() evmtypes.EIP55Address {
 	a := testutils.NewAddress()
-	e, err := ethkey.NewEIP55Address(a.Hex())
+	e, err := evmtypes.NewEIP55Address(a.Hex())
 	if err != nil {
 		panic(err)
 	}
@@ -97,10 +98,10 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // MustCreateBridge creates a bridge
 // Be careful not to specify a name here unless you ABSOLUTELY need to
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
-func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts, cfg pg.QConfig) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+func MustCreateBridge(t testing.TB, ds sqlutil.DataSource, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
-	err := orm.CreateBridgeType(bt)
+	orm := bridges.NewORM(ds)
+	err := orm.CreateBridgeType(testutils.Context(t), bt)
 	require.NoError(t, err)
 	return bta, bt
 }
@@ -142,7 +143,7 @@ func NewEthTx(fromAddress common.Address) txmgr.Tx {
 		ToAddress:      testutils.NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          big.Int(assets.NewEthValue(142)),
-		FeeLimit:       uint32(1000000000),
+		FeeLimit:       uint64(1000000000),
 		State:          txmgrcommon.TxUnstarted,
 	}
 }
@@ -178,13 +179,14 @@ func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonc
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxUnconfirmed
 	etx.ChainID = chainID
-	require.NoError(t, txStore.InsertTx(&etx))
+	require.NoError(t, txStore.InsertTx(testutils.Context(t), &etx))
 	return etx
 }
 
 func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	etx := MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
+	ctx := testutils.Context(t)
 
 	tx := NewLegacyTransaction(uint64(nonce), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
@@ -192,8 +194,8 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
-	etx, err := txStore.FindTxWithAttempts(etx.ID)
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
+	etx, err := txStore.FindTxWithAttempts(ctx, etx.ID)
 	require.NoError(t, err)
 	return etx
 }
@@ -201,6 +203,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
+	ctx := testutils.Context(t)
 
 	etx.BroadcastAt = &timeNow
 	etx.InitialBroadcastAt = &timeNow
@@ -208,11 +211,11 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	etx.Sequence = &n
 	etx.State = txmgrcommon.TxConfirmed
 	etx.MinConfirmations.SetValid(6)
-	require.NoError(t, txStore.InsertTx(&etx))
+	require.NoError(t, txStore.InsertTx(ctx, &etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = txmgrtypes.TxAttemptBroadcast
-	require.NoError(t, txStore.InsertTxAttempt(&attempt))
+	require.NoError(t, txStore.InsertTxAttempt(ctx, &attempt))
 	etx.TxAttempts = append(etx.TxAttempts, attempt)
 	return etx
 }
@@ -259,14 +262,15 @@ type RandomKey struct {
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
 	ctx := testutils.Context(t)
-	if r.chainIDs == nil {
-		r.chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
+	chainIDs := r.chainIDs
+	if chainIDs == nil {
+		chainIDs = []ubig.Big{*ubig.New(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
 	keystore.XXXTestingOnlyAdd(ctx, key)
 
-	for _, cid := range r.chainIDs {
+	for _, cid := range chainIDs {
 		require.NoError(t, keystore.Add(ctx, key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(ctx, key.Address, cid.ToInt()))
 		if r.Disabled {
@@ -314,9 +318,9 @@ func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evmtypes.Head {
+func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) evmtypes.Head {
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), 0, ubig.New(&FixtureChainID))
-	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
+	horm := headtracker.NewORM(FixtureChainID, ds)
 
 	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
 	require.NoError(t, err)
@@ -326,7 +330,7 @@ func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.QConfig, number int64) evm
 func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
-	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
+	addr, err := evmtypes.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
@@ -344,13 +348,13 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:  pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), configtest.NewTestGeneralConfig(t).Database())
-	err = jorm.InsertJob(&jb)
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	err = jorm.InsertJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OCROracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress evmtypes.EIP55Address) job.OCROracleSpec {
 	t.Helper()
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
@@ -375,15 +379,16 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm *keeper.ORM, from evmtypes.EIP55Address, contract evmtypes.EIP55Address) job.Job {
 	t.Helper()
+	ctx := testutils.Context(t)
 
 	var keeperSpec job.KeeperSpec
-	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at,evm_chain_id) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING *`, contract, from, testutils.SimulatedChainID.Int64())
+	err := korm.DataSource().GetContext(ctx, &keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at,evm_chain_id) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING *`, contract, from, testutils.SimulatedChainID.Int64())
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
-	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
+	err = korm.DataSource().GetContext(ctx, &pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
 
 	jb := job.Job{
@@ -398,39 +403,42 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	tlg := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, tlg, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, tlg, cfg.Database())
-	jrm := job.NewORM(db, prm, btORM, nil, tlg, cfg.Database())
-	err = jrm.InsertJob(&jb)
+	prm := pipeline.NewORM(db, tlg, cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db)
+	jrm := job.NewORM(db, prm, btORM, nil, tlg)
+	err = jrm.InsertJob(testutils.Context(t), &jb)
 	require.NoError(t, err)
+	jb.PipelineSpec.JobID = jb.ID
 	return jb
 }
 
-func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm *keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
+	t.Helper()
+	ctx := testutils.Context(t)
 	key, _ := MustInsertRandomKey(t, ethKeyStore, *ubig.New(testutils.SimulatedChainID))
 	from := key.EIP55Address
-	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
+	jb := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: blockCountPerTurn,
 		CheckGas:          150_000,
 		FromAddress:       from,
-		JobID:             job.ID,
+		JobID:             jb.ID,
 		KeeperIndex:       keeperIndex,
 		NumKeepers:        numKeepers,
-		KeeperIndexMap: map[ethkey.EIP55Address]int32{
+		KeeperIndexMap: map[evmtypes.EIP55Address]int32{
 			from: keeperIndex,
 		},
 	}
-	err := korm.UpsertRegistry(&registry)
+	err := korm.UpsertRegistry(ctx, &registry)
 	require.NoError(t, err)
-	return registry, job
+	return registry, jb
 }
 
-func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, registry keeper.Registry) keeper.UpkeepRegistration {
-	korm := keeper.NewORM(db, logger.TestLogger(t), cfg)
+func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, registry keeper.Registry) keeper.UpkeepRegistration {
+	ctx := testutils.Context(t)
+	korm := keeper.NewORM(db, logger.TestLogger(t))
 	upkeepID := ubig.NewI(int64(mathrand.Uint32()))
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
@@ -442,26 +450,26 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg pg.QConfig, regi
 	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	require.NoError(t, err)
 	upkeep.PositioningConstant = positioningConstant
-	err = korm.UpsertUpkeep(&upkeep)
+	err = korm.UpsertUpkeep(ctx, &upkeep)
 	require.NoError(t, err)
 	return upkeep
 }
 
 func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,created_at) VALUES ($1, 0, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
 	return run
 }
 
-func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus) (run pipeline.Run) {
+func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID int32, status pipeline.RunStatus, jobID int32) (run pipeline.Run) {
 	var finishedAt *time.Time
-	var outputs pipeline.JSONSerializable
+	var outputs jsonserializable.JSONSerializable
 	var allErrors pipeline.RunErrors
 	var fatalErrors pipeline.RunErrors
 	now := time.Now()
 	switch status {
 	case pipeline.RunStatusCompleted:
 		finishedAt = &now
-		outputs = pipeline.JSONSerializable{
+		outputs = jsonserializable.JSONSerializable{
 			Val:   "foo",
 			Valid: true,
 		}
@@ -474,7 +482,7 @@ func MustInsertPipelineRunWithStatus(t *testing.T, db *sqlx.DB, pipelineSpecID i
 	default:
 		t.Fatalf("unknown status: %s", status)
 	}
-	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`, status, pipelineSpecID, finishedAt, outputs, allErrors, fatalErrors))
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,pruning_key,finished_at,outputs,all_errors,fatal_errors,created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`, status, pipelineSpecID, jobID, finishedAt, outputs, allErrors, fatalErrors))
 	return run
 }
 
@@ -540,6 +548,7 @@ type ExternalInitiatorOpts struct {
 }
 
 func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
+	ctx := testutils.Context(t)
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix
@@ -556,7 +565,7 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts Ext
 	hashedSecret, err := auth.HashedSecret(token, ei.Salt)
 	require.NoError(t, err)
 	ei.HashedSecret = hashedSecret
-	err = orm.CreateExternalInitiator(&ei)
+	err = orm.CreateExternalInitiator(ctx, &ei)
 	require.NoError(t, err)
 	return ei
 }

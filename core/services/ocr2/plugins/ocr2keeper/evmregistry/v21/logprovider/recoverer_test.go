@@ -28,14 +28,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
-	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
+	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
 
 	tests := []struct {
 		name    string
@@ -607,7 +606,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 0, errors.New("latest block boom")
 				},
 			},
@@ -630,7 +629,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -658,7 +657,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -686,7 +685,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -716,7 +715,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -747,7 +746,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 100, nil
 				},
 			},
@@ -778,7 +777,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -813,7 +812,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -853,7 +852,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
 			},
@@ -885,10 +884,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
 				},
 			},
@@ -920,10 +919,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -968,10 +967,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							BlockNumber: 80,
@@ -1019,10 +1018,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
-				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+				LatestBlockFn: func(ctx context.Context) (int64, error) {
 					return 300, nil
 				},
-				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+				LogsWithSigsFn: func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
 					return []logpoller.Log{
 						{
 							EvmChainId:     ubig.New(big.NewInt(1)),
@@ -1153,7 +1152,7 @@ func TestLogRecoverer_pending(t *testing.T) {
 				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
 			}()
 
-			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
+			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
 			r.lock.Lock()
 			r.pending = tc.exist
 			for i, p := range tc.new {
@@ -1200,15 +1199,15 @@ func (s *mockFilterStore) Has(id *big.Int) bool {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	LatestBlockFn  func(qopts ...pg.QOpt) (int64, error)
-	LogsWithSigsFn func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	LatestBlockFn  func(ctx context.Context) (int64, error)
+	LogsWithSigsFn func(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
-	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
+func (p *mockLogPoller) LogsWithSigs(ctx context.Context, start, end int64, eventSigs []common.Hash, address common.Address) ([]logpoller.Log, error) {
+	return p.LogsWithSigsFn(ctx, start, end, eventSigs, address)
 }
-func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (logpoller.LogPollerBlock, error) {
-	block, err := p.LatestBlockFn(qopts...)
+func (p *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
+	block, err := p.LatestBlockFn(ctx)
 	return logpoller.LogPollerBlock{BlockNumber: block}, err
 }
 
@@ -1234,7 +1233,7 @@ func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int
 	lp := new(lpmocks.LogPoller)
 	statesReader := new(mocks.UpkeepStateReader)
 	filterStore := NewUpkeepFilterStore()
-	opts := NewOptions(lookbackBlocks)
+	opts := NewOptions(lookbackBlocks, big.NewInt(1))
 	opts.ReadInterval = interval / 5
 	opts.LookbackBlocks = lookbackBlocks
 	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)

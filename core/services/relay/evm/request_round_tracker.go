@@ -9,19 +9,17 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // RequestRoundTracker subscribes to new request round logs.
@@ -35,12 +33,11 @@ type RequestRoundTracker struct {
 	jobID            int32
 	lggr             logger.SugaredLogger
 	odb              RequestRoundDB
-	q                pg.Q
+	ds               sqlutil.DataSource
 	blockTranslator  ocrcommon.BlockTranslator
 
 	// Start/Stop lifecycle
-	ctx             context.Context
-	ctxCancel       context.CancelFunc
+	stopCh          services.StopChan
 	unsubscribeLogs func()
 
 	// LatestRoundRequested
@@ -56,12 +53,10 @@ func NewRequestRoundTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	lggr logger.Logger,
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	odb RequestRoundDB,
 	chain ocrcommon.Config,
-	qConfig pg.QConfig,
 ) (o *RequestRoundTracker) {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &RequestRoundTracker{
 		ethClient:        ethClient,
 		contract:         contract,
@@ -70,18 +65,17 @@ func NewRequestRoundTracker(
 		jobID:            jobID,
 		lggr:             logger.Sugared(lggr),
 		odb:              odb,
-		q:                pg.NewQ(db, lggr, qConfig),
+		ds:               ds,
 		blockTranslator:  ocrcommon.NewBlockTranslator(chain, ethClient, lggr),
-		ctx:              ctx,
-		ctxCancel:        cancel,
+		stopCh:           make(chan struct{}),
 	}
 }
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
-func (t *RequestRoundTracker) Start() error {
+func (t *RequestRoundTracker) Start(ctx context.Context) error {
 	return t.StartOnce("RequestRoundTracker", func() (err error) {
-		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested(ctx)
 		if err != nil {
 			return errors.Wrap(err, "RequestRoundTracker#Start: failed to load latest round requested")
 		}
@@ -101,7 +95,7 @@ func (t *RequestRoundTracker) Start() error {
 // Close should be called after teardown of the OCR job relying on this tracker
 func (t *RequestRoundTracker) Close() error {
 	return t.StopOnce("RequestRoundTracker", func() error {
-		t.ctxCancel()
+		close(t.stopCh)
 		t.unsubscribeLogs()
 		return nil
 	})
@@ -109,8 +103,8 @@ func (t *RequestRoundTracker) Close() error {
 
 // HandleLog complies with LogListener interface
 // It is not thread safe
-func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
-	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
+func (t *RequestRoundTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
+	was, err := t.logBroadcaster.WasAlreadyConsumed(ctx, lb)
 	if err != nil {
 		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
 		return
@@ -121,12 +115,12 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.lggr.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 		return
 	}
 
@@ -137,15 +131,15 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.lggr.Errorw("could not parse round requested", "err", err)
-			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+			t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = t.q.Transaction(func(q pg.Queryer) error {
-				if err = t.odb.SaveLatestRoundRequested(q, *rr); err != nil {
+			err = sqlutil.TransactDataSource(ctx, t.ds, nil, func(tx sqlutil.DataSource) error {
+				if err = t.odb.WithDataSource(tx).SaveLatestRoundRequested(ctx, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(q))
+				return t.logBroadcaster.MarkConsumed(ctx, tx, lb)
 			})
 			if err != nil {
 				t.lggr.Error(err)
@@ -163,7 +157,7 @@ func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 		t.lggr.Debugw("RequestRoundTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
+		t.lggr.ErrorIf(t.logBroadcaster.MarkConsumed(ctx, nil, lb), "unable to mark consumed")
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -42,21 +43,25 @@ type ExternalAdapterClient interface {
 }
 
 type externalAdapterClient struct {
-	adapterURL       url.URL
-	maxResponseBytes int64
+	adapterURL             url.URL
+	maxResponseBytes       int64
+	maxRetries             int
+	exponentialBackoffBase time.Duration
 }
 
 var _ ExternalAdapterClient = (*externalAdapterClient)(nil)
 
 //go:generate mockery --quiet --name BridgeAccessor --output ./mocks/ --case=underscore
 type BridgeAccessor interface {
-	NewExternalAdapterClient() (ExternalAdapterClient, error)
+	NewExternalAdapterClient(context.Context) (ExternalAdapterClient, error)
 }
 
 type bridgeAccessor struct {
-	bridgeORM        bridges.ORM
-	bridgeName       string
-	maxResponseBytes int64
+	bridgeORM              bridges.ORM
+	bridgeName             string
+	maxResponseBytes       int64
+	maxRetries             int
+	exponentialBackoffBase time.Duration
 }
 
 var _ BridgeAccessor = (*bridgeAccessor)(nil)
@@ -112,10 +117,12 @@ var (
 	)
 )
 
-func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64) ExternalAdapterClient {
+func NewExternalAdapterClient(adapterURL url.URL, maxResponseBytes int64, maxRetries int, exponentialBackoffBase time.Duration) ExternalAdapterClient {
 	return &externalAdapterClient{
-		adapterURL:       adapterURL,
-		maxResponseBytes: maxResponseBytes,
+		adapterURL:             adapterURL,
+		maxResponseBytes:       maxResponseBytes,
+		maxRetries:             maxRetries,
+		exponentialBackoffBase: exponentialBackoffBase,
 	}
 }
 
@@ -190,7 +197,13 @@ func (ea *externalAdapterClient) request(
 	req.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
-	client := &http.Client{}
+
+	// retry will only happen on a 5XX error response code (except 501)
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = ea.maxRetries
+	retryClient.RetryWaitMin = ea.exponentialBackoffBase
+
+	client := retryClient.StandardClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		promEAClientErrors.WithLabelValues(label).Inc()
@@ -244,18 +257,20 @@ func (ea *externalAdapterClient) request(
 	}
 }
 
-func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64) BridgeAccessor {
+func NewBridgeAccessor(bridgeORM bridges.ORM, bridgeName string, maxResponseBytes int64, maxRetries int, exponentialBackoffBase time.Duration) BridgeAccessor {
 	return &bridgeAccessor{
-		bridgeORM:        bridgeORM,
-		bridgeName:       bridgeName,
-		maxResponseBytes: maxResponseBytes,
+		bridgeORM:              bridgeORM,
+		bridgeName:             bridgeName,
+		maxResponseBytes:       maxResponseBytes,
+		maxRetries:             maxRetries,
+		exponentialBackoffBase: exponentialBackoffBase,
 	}
 }
 
-func (b *bridgeAccessor) NewExternalAdapterClient() (ExternalAdapterClient, error) {
-	bridge, err := b.bridgeORM.FindBridge(bridges.BridgeName(b.bridgeName))
+func (b *bridgeAccessor) NewExternalAdapterClient(ctx context.Context) (ExternalAdapterClient, error) {
+	bridge, err := b.bridgeORM.FindBridge(ctx, bridges.BridgeName(b.bridgeName))
 	if err != nil {
 		return nil, err
 	}
-	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes), nil
+	return NewExternalAdapterClient(url.URL(bridge.URL), b.maxResponseBytes, b.maxRetries, b.exponentialBackoffBase), nil
 }

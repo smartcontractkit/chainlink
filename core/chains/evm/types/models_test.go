@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -17,15 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/null"
 )
 
 func TestHead_NewHead(t *testing.T) {
@@ -55,11 +56,11 @@ func TestHead_GreaterThan(t *testing.T) {
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
-		{"present nil", cltest.Head(1), nil, true},
-		{"nil present", nil, cltest.Head(1), false},
-		{"less", cltest.Head(1), cltest.Head(2), false},
-		{"equal", cltest.Head(2), cltest.Head(2), false},
-		{"greater", cltest.Head(2), cltest.Head(1), true},
+		{"present nil", testutils.Head(1), nil, true},
+		{"nil present", nil, testutils.Head(1), false},
+		{"less", testutils.Head(1), testutils.Head(2), false},
+		{"equal", testutils.Head(2), testutils.Head(2), false},
+		{"greater", testutils.Head(2), testutils.Head(1), true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,7 +77,7 @@ func TestHead_NextInt(t *testing.T) {
 		want *big.Int
 	}{
 		{"nil", nil, nil},
-		{"one", cltest.Head(1), big.NewInt(2)},
+		{"one", testutils.Head(1), big.NewInt(2)},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -92,14 +93,13 @@ func TestEthTx_GetID(t *testing.T) {
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	tx := cltest.NewLegacyTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)
 
-	signedTx, err := ethKeyStore.SignTx(testutils.Context(t), fromAddress, tx, chainID)
+	signedTx, err := ethKeyStore.SignTx(tests.Context(t), fromAddress, tx, chainID)
 	require.NoError(t, err)
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
@@ -329,7 +329,20 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 				Number:           0x15156,
 				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
 				Timestamp:        time.Unix(0x60d0952d, 0).UTC(),
-				L1BlockNumber:    null.Int64From(0x8652f9),
+				L1BlockNumber:    sql.NullInt64{Int64: 0x8652f9, Valid: true},
+				ReceiptsRoot:     common.HexToHash("0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504"),
+				TransactionsRoot: common.HexToHash("0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3"),
+				StateRoot:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+			},
+		},
+		{"arbitrum_empty_l1BlockNumber",
+			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[]}`,
+			evmtypes.Head{
+				Hash:             common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
+				Number:           0x15156,
+				ParentHash:       common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
+				Timestamp:        time.Unix(0x60d0952d, 0).UTC(),
+				L1BlockNumber:    sql.NullInt64{Int64: 0, Valid: false},
 				ReceiptsRoot:     common.HexToHash("0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504"),
 				TransactionsRoot: common.HexToHash("0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3"),
 				StateRoot:        common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
@@ -1084,7 +1097,6 @@ func TestTransaction_UnmarshalJSON(t *testing.T) {
 			err := got.UnmarshalJSON(tt.args.data)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got)
-
 		})
 	}
 }
@@ -1137,7 +1149,6 @@ func assertTxnsEqual(t *testing.T, txns1, txns2 []evmtypes.Transaction) {
 	}
 }
 func TestTxType_JSONRoundtrip(t *testing.T) {
-
 	t.Run("non zero", func(t *testing.T) {
 		t.Parallel()
 		want := evmtypes.TxType(2)

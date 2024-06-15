@@ -35,7 +35,7 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 		require.Len(t, bfs.fulfillments, 1)
 	}
 
-	require.Equal(t, uint32(2000), bfs.fulfillments[0].totalGasLimit)
+	require.Equal(t, uint64(2000), bfs.fulfillments[0].totalGasLimit)
 
 	// This addition should create and add a new batch
 	bfs.addRun(vrfPipelineResult{
@@ -73,7 +73,7 @@ func Test_BatchFulfillments_AddRun_V2Plus(t *testing.T) {
 		require.Len(t, bfs.fulfillments, 1)
 	}
 
-	require.Equal(t, uint32(2000), bfs.fulfillments[0].totalGasLimit)
+	require.Equal(t, uint64(2000), bfs.fulfillments[0].totalGasLimit)
 
 	// This addition should create and add a new batch
 	bfs.addRun(vrfPipelineResult{

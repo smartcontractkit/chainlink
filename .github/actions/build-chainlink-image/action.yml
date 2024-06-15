@@ -11,29 +11,29 @@ inputs:
   git_commit_sha:
     description: The git commit sha to use for the image tag
     default: ${{ github.sha }}
-  GRAFANA_CLOUD_BASIC_AUTH:
-    description: "grafana cloud basic auth"
-  GRAFANA_CLOUD_HOST:
-    description: "grafana cloud hostname"
   AWS_REGION:
     description: "AWS region to use for ECR"
   AWS_ROLE_TO_ASSUME:
     description: "AWS role to assume for ECR"
+  dep_evm_sha:
+    description: The chainlink-evm commit sha to use in go deps
+    required: false
 
 runs:
   using: composite
   steps:
     - name: Check if image exists
+      if: ${{ inputs.dep_evm_sha != '' }}
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       with:
         repository: chainlink
         tag: ${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
         AWS_REGION: ${{ inputs.AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
     - name: Build Image
-      if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@c67a09566412d153ff7640d99f96b43aa03abc04 # v2.3.6
+      if: steps.check-image.outputs.exists != 'true'
+      uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       with:
         cl_repo: smartcontractkit/chainlink
         cl_ref: ${{ inputs.git_commit_sha }}
@@ -41,6 +41,8 @@ runs:
         push_tag: ${{ env.CHAINLINK_IMAGE }}:${{ inputs.git_commit_sha }}${{ inputs.tag_suffix }}
         QA_AWS_REGION: ${{ inputs.AWS_REGION }}
         QA_AWS_ROLE_TO_ASSUME: ${{ inputs.AWS_ROLE_TO_ASSUME }}
+        GO_COVER_FLAG: true
+        dep_evm_sha: ${{ inputs.dep_evm_sha }}
     - name: Print Chainlink Image Built
       shell: sh
       run: |

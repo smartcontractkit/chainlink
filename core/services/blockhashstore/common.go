@@ -8,8 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 // Coordinator defines an interface for fetching request and fulfillment metadata from a VRF
@@ -133,7 +133,7 @@ func GetSearchWindow(latestBlock, waitBlocks, lookbackBlocks int) (uint64, uint6
 }
 
 // SendingKeys returns a list of sending keys (common.Address) given EIP55 addresses
-func SendingKeys(fromAddresses []ethkey.EIP55Address) []common.Address {
+func SendingKeys(fromAddresses []types.EIP55Address) []common.Address {
 	var keys []common.Address
 	for _, a := range fromAddresses {
 		keys = append(keys, a.Address())

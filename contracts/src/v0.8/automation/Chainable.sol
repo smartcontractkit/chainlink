@@ -30,9 +30,8 @@ contract Chainable {
    * @notice the fallback function routes the call to the next contract in the chain
    * @dev most of the implementation is copied directly from OZ's Proxy contract
    */
-  // solhint-disable payable-fallback
   // solhint-disable-next-line no-complex-fallback
-  fallback() external {
+  fallback() external payable {
     // copy to memory for assembly access
     address next = i_FALLBACK_ADDRESS;
     // copied directly from OZ's Proxy contract

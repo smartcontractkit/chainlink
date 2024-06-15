@@ -14,7 +14,18 @@ If you have previously run these smoke tests using GitHub Actions or some sort o
 
 ## Configure
 
-See the [example.env](./example.env) file for environment variables you can set to configure things like network settings, Chainlink version, and log level. Remember to use `source .env` to activate your settings.
+We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
+
+We have defined some sensible defaults for all products, you can find them in `./testconfig/<product>/<product>.toml` files. Each product folder contains an `example.toml` file that describes all options. If you wish to override these values, you can do so by creating a `./testconfig/overrides.toml`. A detailed description of TOML configuration can be found in the [testconfig README](./testconfig/README.md), but if you want to run some tests using default values all you need to do is provide the Chainlink image and version you want to run tests on:
+```toml
+# ./testconfig/overrides.toml
+
+[ChainlinkImage]
+image = "your image name"
+version = "your tag"
+```
+
+The `./testconfig/overrides.toml` file **should never be committed** and has been added to the [.gitignore](../.gitignore) file as it can often contain secrets like private keys and RPC URLs.
 
 ## Build
 
@@ -26,9 +37,9 @@ e.g.
 
 `make build_docker_image image=chainlink tag=test-tag`
 
-You'll want to set the `CHAINLINK_IMAGE` and `CHAINLINK_VERSION` env values appropriately as well. See [example.env](./example.env) for more details.
-
 ## Run
+
+Ensure you have created a `./testconfig/overrides.toml` file with your desired Chainlink image and version.
 
 `go test ./smoke/<product>_test.go`
 
@@ -37,6 +48,10 @@ Most test files have a couple of tests, it's recommended to look into the file a
 `go test ./smoke/ocr_test.go -run TestOCRBasic`
 
 It's generally recommended to run only one test at a time on a local machine as it needs a lot of docker containers and can peg your resources otherwise. You will see docker containers spin up on your machine for each component of the test where you can inspect logs.
+
+### Configure Seth
+
+Our new evm client is Seth. Detailed instructions on how to configure it can be found in the [Seth README](./README_SETH.md) in this repo as well as in [Seth repository](https://github.com/smartcontractkit/seth).
 
 ## Analyze
 

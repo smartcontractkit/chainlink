@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 type VRFEncodedProvingKey [2]*big.Int
@@ -17,6 +18,7 @@ type VRFKeyData struct {
 	VRFKey            *client.VRFKey
 	EncodedProvingKey VRFEncodedProvingKey
 	KeyHash           [32]byte
+	PubKeyCompressed  string
 }
 
 type VRFNodeType int
@@ -24,10 +26,11 @@ type VRFNodeType int
 const (
 	VRF VRFNodeType = iota + 1
 	BHS
+	BHF
 )
 
 func (n VRFNodeType) String() string {
-	return [...]string{"VRF", "BHS"}[n-1]
+	return [...]string{"VRF", "BHS", "BHF"}[n-1]
 }
 
 func (n VRFNodeType) Index() int {
@@ -41,12 +44,17 @@ type VRFNode struct {
 }
 
 type VRFContracts struct {
-	CoordinatorV2     contracts.VRFCoordinatorV2
-	CoordinatorV2Plus contracts.VRFCoordinatorV2_5
-	VRFOwner          contracts.VRFOwner
-	BHS               contracts.BlockHashStore
-	VRFV2Consumer     []contracts.VRFv2LoadTestConsumer
-	VRFV2PlusConsumer []contracts.VRFv2PlusLoadTestConsumer
+	CoordinatorV2          contracts.VRFCoordinatorV2
+	BatchCoordinatorV2     contracts.BatchVRFCoordinatorV2
+	CoordinatorV2Plus      contracts.VRFCoordinatorV2_5
+	BatchCoordinatorV2Plus contracts.BatchVRFCoordinatorV2Plus
+	VRFOwner               contracts.VRFOwner
+	BHS                    contracts.BlockHashStore
+	BatchBHS               contracts.BatchBlockhashStore
+	VRFV2Consumers         []contracts.VRFv2LoadTestConsumer
+	VRFV2PlusConsumer      []contracts.VRFv2PlusLoadTestConsumer
+	LinkToken              contracts.LinkToken
+	MockETHLINKFeed        contracts.VRFMockETHLINKFeed
 }
 
 type VRFOwnerConfig struct {
@@ -57,6 +65,7 @@ type VRFOwnerConfig struct {
 type VRFJobSpecConfig struct {
 	ForwardingAllowed             bool
 	CoordinatorAddress            string
+	BatchCoordinatorAddress       string
 	FromAddresses                 []string
 	EVMChainID                    string
 	MinIncomingConfirmations      int
@@ -72,4 +81,18 @@ type VRFJobSpecConfig struct {
 
 type VRFLoadTestConsumer interface {
 	GetLoadTestMetrics(ctx context.Context) (*contracts.VRFLoadTestMetrics, error)
+}
+
+type NewEnvConfig struct {
+	NodesToCreate                   []VRFNodeType
+	NumberOfTxKeysToCreate          int
+	UseVRFOwner                     bool
+	UseTestCoordinator              bool
+	ChainlinkNodeLogScannerSettings test_env.ChainlinkNodeLogScannerSettings
+}
+
+type VRFEnvConfig struct {
+	TestConfig tc.TestConfig
+	ChainID    int64
+	CleanupFn  func()
 }

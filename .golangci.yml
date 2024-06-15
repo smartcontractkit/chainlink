@@ -13,6 +13,9 @@ linters:
     - unconvert
     - sqlclosecheck
     - noctx
+    - depguard
+    - whitespace
+    - containedctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -30,6 +33,18 @@ linters-settings:
   govet:
     # report about shadowed variables
     check-shadowing: true
+    settings:
+      printf:
+        # Additionally check chainlink custom loggers
+        funcs:
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracef
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Infof
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Warnf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Errorf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalf
   errorlint:
     # Allow formatting of errors without %w
     errorf: false
@@ -78,6 +93,38 @@ linters-settings:
       # - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
+  depguard:
+    rules:
+      main:
+        list-mode: lax
+        deny:
+          - pkg: cosmossdk.io/errors
+            desc: Use the standard library instead
+          - pkg: github.com/gofrs/uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/jackc/pgx3
+            desc: Use github.com/jackc/pgx4 instead
+          - pkg: github.com/jackc/pgx5
+            desc: Use github.com/jackc/pgx4 instead
+          - pkg: github.com/satori/go.uuid
+            desc: Use github.com/google/uuid instead
+          - pkg: github.com/test-go/testify/assert
+            desc: Use github.com/stretchr/testify/assert instead
+          - pkg: github.com/test-go/testify/mock
+            desc: Use github.com/stretchr/testify/mock instead
+          - pkg: github.com/test-go/testify/require
+            desc: Use github.com/stretchr/testify/require instead
+# TODO https://smartcontract-it.atlassian.net/browse/BCI-2589
+#          - pkg: go.uber.org/multierr
+#            desc: Use the standard library instead, for example https://pkg.go.dev/errors#Join
+          - pkg: gopkg.in/guregu/null.v1
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v2
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: gopkg.in/guregu/null.v3
+            desc: Use gopkg.in/guregu/null.v4 instead
+          - pkg: github.com/go-gorm/gorm
+            desc: Use github.com/jmoiron/sqlx directly instead
 issues:
   exclude-rules:
     - path: test

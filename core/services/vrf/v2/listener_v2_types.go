@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
@@ -72,7 +72,7 @@ type vrfPipelineResult struct {
 	fundsNeeded   *big.Int
 	run           *pipeline.Run
 	payload       string
-	gasLimit      uint32
+	gasLimit      uint64
 	req           pendingRequest
 	proof         VRFProof
 	reqCommitment RequestCommitment
@@ -83,7 +83,7 @@ type vrfPipelineResult struct {
 type batchFulfillment struct {
 	proofs        []VRFProof
 	commitments   []RequestCommitment
-	totalGasLimit uint32
+	totalGasLimit uint64
 	runs          []*pipeline.Run
 	reqIDs        []*big.Int
 	maxFees       []*big.Int
@@ -144,7 +144,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 		b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 	} else {
 		currBatch := b.fulfillments[b.currIndex]
-		if (currBatch.totalGasLimit + result.gasLimit) >= b.batchGasLimit {
+		if (currBatch.totalGasLimit + result.gasLimit) >= uint64(b.batchGasLimit) {
 			// don't add to curr batch, add new batch and increment index
 			b.fulfillments = append(b.fulfillments, newBatchFulfillment(result, fromAddress, b.version))
 			b.currIndex++
@@ -222,8 +222,8 @@ func (lsn *listenerV2) processBatch(
 	)
 	ll.Info("Enqueuing batch fulfillment")
 	var ethTX txmgr.Tx
-	err = lsn.q.Transaction(func(tx pg.Queryer) error {
-		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
+	err = sqlutil.TransactDataSource(ctx, lsn.ds, nil, func(tx sqlutil.DataSource) error {
+		if err = lsn.pipelineRunner.InsertFinishedRuns(ctx, tx, batch.runs, true); err != nil {
 			return fmt.Errorf("inserting finished pipeline runs: %w", err)
 		}
 
@@ -240,7 +240,7 @@ func (lsn *listenerV2) processBatch(
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
-			FeeLimit:       totalGasLimitBumped,
+			FeeLimit:       uint64(totalGasLimitBumped),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestIDs:      reqIDHashes,

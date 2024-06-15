@@ -24,15 +24,14 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/jmoiron/sqlx"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 const (
@@ -61,11 +60,6 @@ func MustNewSimTransactor(t testing.TB) *bind.TransactOpts {
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
-}
-
-func NewAddressPtr() *common.Address {
-	a := common.BytesToAddress(randomBytes(20))
-	return &a
 }
 
 // NewPrivateKeyAndAddress returns a new private key and the corresponding address
@@ -127,12 +121,6 @@ func WaitTimeout(t *testing.T) time.Duration {
 		return time.Until(d) * 9 / 10
 	}
 	return DefaultWaitTimeout
-}
-
-// AfterWaitTimeout returns a channel that will send a time value when the
-// WaitTimeout is reached
-func AfterWaitTimeout(t *testing.T) <-chan time.Time {
-	return time.After(WaitTimeout(t))
 }
 
 // Context returns a context with the test's deadline, if available.
@@ -419,10 +407,11 @@ func SkipShortDB(tb testing.TB) {
 	SkipShort(tb, "DB dependency")
 }
 
-func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
+func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
 	t.Helper()
+	ctx := Context(t)
 	var count int64
-	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }

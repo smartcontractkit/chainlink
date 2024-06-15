@@ -3,8 +3,7 @@ package legacyevm
 import (
 	"fmt"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -14,7 +13,7 @@ import (
 )
 
 func newEvmTxm(
-	db *sqlx.DB,
+	ds sqlutil.DataSource,
 	cfg evmconfig.EVM,
 	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,
@@ -51,10 +50,11 @@ func newEvmTxm(
 
 	if opts.GenTxManager == nil {
 		txm, err = txmgr.NewTxm(
-			db,
+			ds,
 			cfg,
 			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
 			cfg.Transactions(),
+			cfg.NodePool().Errors(),
 			databaseConfig,
 			listenerConfig,
 			client,

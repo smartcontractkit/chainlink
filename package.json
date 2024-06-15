@@ -1,0 +1,25 @@
+{
+  "name": "chainlink",
+  "version": "2.13.0",
+  "description": "node of the decentralized oracle network, bridging on and off-chain computation",
+  "main": "index.js",
+  "scripts": {
+    "ci:changeset:version": "pnpm changeset version"
+  },
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/smartcontractkit/chainlink.git"
+  },
+  "author": "smartcontractkit",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/smartcontractkit/chainlink/issues"
+  },
+  "homepage": "https://github.com/smartcontractkit/chainlink#readme",
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.4.8",
+    "@changesets/cli": "~2.26.2",
+    "semver": "^7.6.1"
+  }
+}

@@ -165,7 +165,6 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlB, err := chainB.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlB, chains[0].Config)
-
 }
 
 type TestCosmosChainsController struct {
@@ -182,7 +181,8 @@ func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*coscfg.TOMLConfig)
 		c.EVM = nil
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
 

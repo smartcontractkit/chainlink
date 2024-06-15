@@ -15,11 +15,12 @@ import (
 )
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
+	t.Parallel()
 	var (
 		fluxAggregator    = mocks.NewFluxAggregator(t)
 		orm               = fmmocks.NewORM(t)
 		keyStore          = fmmocks.NewKeyStoreInterface(t)
-		gasLimit          = uint32(2100)
+		gasLimit          = uint64(2100)
 		forwardingAllowed = false
 		submitter         = fluxmonitorv2.NewFluxAggregatorContractSubmitter(fluxAggregator, orm, keyStore, gasLimit, forwardingAllowed, testutils.FixtureChainID)
 

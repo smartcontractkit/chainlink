@@ -62,13 +62,13 @@ describe('Cron', () => {
             await expect(
               cron.encodeCronString(input),
               `expected ${input} to be invalid`,
-            ).to.be.revertedWith('')
+            ).to.be.reverted
           }
         })
       })
 
       describe('calculateNextTick() / calculateLastTick()', () => {
-        it('correctly identifies the next & last ticks for cron jobs', async () => {
+        it('correctly identifies the next & last ticks for cron jobs [ @skip-coverage ]', async () => {
           await setTimestamp(timeStamp)
           const now = () => moment.unix(timeStamp)
           const tests = [

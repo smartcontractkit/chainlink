@@ -37,9 +37,7 @@ import (
 	vrf_wrapper "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ ocr2vrftypes.CoordinatorInterface = &coordinator{}
@@ -83,7 +81,7 @@ var (
 	}, promLabels)
 	promCallbacksToReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "ocr2vrf_coordinator_callbacks_to_report",
-		Help:    "Number of unfulfilled and and in-flight callbacks fit in current report in reportBlocks",
+		Help:    "Number of unfulfilled and in-flight callbacks fit in current report in reportBlocks",
 		Buckets: counterBuckets,
 	}, promLabels)
 	promBlocksInReport = promauto.NewHistogramVec(prometheus.HistogramOpts{
@@ -166,6 +164,7 @@ type coordinator struct {
 
 // New creates a new CoordinatorInterface implementor.
 func New(
+	ctx context.Context,
 	lggr logger.Logger,
 	beaconAddress common.Address,
 	coordinatorAddress common.Address,
@@ -183,7 +182,7 @@ func New(
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
-	err = logPoller.RegisterFilter(logpoller.Filter{
+	err = logPoller.RegisterFilter(ctx, logpoller.Filter{
 		Name: filterName(beaconAddress, coordinatorAddress, dkgAddress),
 		EventSigs: []common.Hash{
 			t.randomnessRequestedTopic,
@@ -226,7 +225,7 @@ func New(
 }
 
 func (c *coordinator) CurrentChainHeight(ctx context.Context) (uint64, error) {
-	head, err := c.lp.LatestBlock(pg.WithParentCtx(ctx))
+	head, err := c.lp.LatestBlock(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -257,14 +256,14 @@ func (c *coordinator) ReportIsOnchain(
 
 	c.lggr.Info(fmt.Sprintf("epoch and round: %s %s", epochAndRound.String(), enrTopic.String()))
 	logs, err := c.lp.IndexedLogs(
+		ctx,
 		c.topics.newTransmissionTopic,
 		c.beaconAddress,
 		2,
 		[]common.Hash{
 			enrTopic,
 		},
-		1,
-		pg.WithParentCtx(ctx))
+		1)
 	if err != nil {
 		return false, errors.Wrap(err, "log poller IndexedLogs")
 	}
@@ -342,6 +341,7 @@ func (c *coordinator) ReportBlocks(
 	c.lggr.Infow("current chain height", "currentHeight", currentHeight)
 
 	logs, err := c.lp.LogsWithSigs(
+		ctx,
 		int64(currentHeight-c.coordinatorConfig.LookbackBlocks),
 		int64(currentHeight),
 		[]common.Hash{
@@ -350,8 +350,7 @@ func (c *coordinator) ReportBlocks(
 			c.randomWordsFulfilledTopic,
 			c.outputsServedTopic,
 		},
-		c.coordinatorAddress,
-		pg.WithParentCtx(ctx))
+		c.coordinatorAddress)
 	if err != nil {
 		err = errors.Wrapf(err, "logs with topics. address: %s", c.coordinatorAddress)
 		return
@@ -480,7 +479,6 @@ func (c *coordinator) getBlockhashesMappingFromRequests(
 	currentHeight uint64,
 	recentBlockHashesStartHeight uint64,
 ) (blockhashesMapping map[uint64]common.Hash, err error) {
-
 	// Get all request + callback requests into a mapping.
 	rawBlocksRequested := make(map[uint64]struct{})
 	for _, l := range randomnessRequestedLogs {
@@ -547,7 +545,7 @@ func (c *coordinator) getBlockhashesMapping(
 		return blockNumbers[a] < blockNumbers[b]
 	})
 
-	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers, pg.WithParentCtx(ctx))
+	heads, err := c.lp.GetBlocksRange(ctx, blockNumbers)
 	if err != nil {
 		return nil, errors.Wrap(err, "logpoller.GetBlocks")
 	}
@@ -587,7 +585,6 @@ func (c *coordinator) filterUnfulfilledCallbacks(
 	currentHeight uint64,
 	currentBatchGasLimit int64,
 ) (callbacks []ocr2vrftypes.AbstractCostedCallbackRequest) {
-
 	/**
 	 * Callback batch ordering:
 	 * - Callbacks are first ordered by beacon output + confirmation delay (ascending), in other words
@@ -664,7 +661,6 @@ func (c *coordinator) filterEligibleCallbacks(
 	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (callbacks []*vrf_wrapper.VRFCoordinatorRandomnessFulfillmentRequested, unfulfilled []block, err error) {
-
 	for _, r := range randomnessFulfillmentRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -712,7 +708,6 @@ func (c *coordinator) filterEligibleRandomnessRequests(
 	currentHeight uint64,
 	blockhashesMapping map[uint64]common.Hash,
 ) (unfulfilled []block, err error) {
-
 	for _, r := range randomnessRequestedLogs {
 		// The on-chain machinery will revert requests that specify an unsupported
 		// confirmation delay, so this is more of a sanity check than anything else.
@@ -911,10 +906,10 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	defer c.logAndEmitFunctionDuration("DKGVRFCommittees", startTime)
 
 	latestVRF, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.beaconAddress,
-		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest vrf ConfigSet by sig with confs")
@@ -922,10 +917,10 @@ func (c *coordinator) DKGVRFCommittees(ctx context.Context) (dkgCommittee, vrfCo
 	}
 
 	latestDKG, err := c.lp.LatestLogByEventSigWithConfs(
+		ctx,
 		c.configSetTopic,
 		c.dkgAddress,
-		logpoller.Confirmations(c.finalityDepth),
-		pg.WithParentCtx(ctx),
+		evmtypes.Confirmations(c.finalityDepth),
 	)
 	if err != nil {
 		err = errors.Wrap(err, "latest dkg ConfigSet by sig with confs")
@@ -1142,16 +1137,16 @@ func filterName(beaconAddress, coordinatorAddress, dkgAddress common.Address) st
 
 func FilterNamesFromSpec(spec *job.OCR2OracleSpec) (names []string, err error) {
 	var cfg ocr2vrfconfig.PluginConfig
-	var beaconAddress, coordinatorAddress, dkgAddress ethkey.EIP55Address
+	var beaconAddress, coordinatorAddress, dkgAddress evmtypes.EIP55Address
 
 	if err = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
 		err = errors.Wrap(err, "failed to unmarshal ocr2vrf plugin config")
 		return nil, err
 	}
 
-	if beaconAddress, err = ethkey.NewEIP55Address(spec.ContractID); err == nil {
-		if coordinatorAddress, err = ethkey.NewEIP55Address(cfg.VRFCoordinatorAddress); err == nil {
-			if dkgAddress, err = ethkey.NewEIP55Address(cfg.DKGContractAddress); err == nil {
+	if beaconAddress, err = evmtypes.NewEIP55Address(spec.ContractID); err == nil {
+		if coordinatorAddress, err = evmtypes.NewEIP55Address(cfg.VRFCoordinatorAddress); err == nil {
+			if dkgAddress, err = evmtypes.NewEIP55Address(cfg.DKGContractAddress); err == nil {
 				return []string{filterName(beaconAddress.Address(), coordinatorAddress.Address(), dkgAddress.Address())}, nil
 			}
 		}

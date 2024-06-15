@@ -48,14 +48,14 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	for upkeepIterator.Next() {
 		fmt.Printf("%s,%s,%s,%s,%s\n",
 			upkeepIterator.Event.From,
-			upkeepIterator.Event.InitialBlock,
-			upkeepIterator.Event.LastBlock,
+			upkeepIterator.Event.InitialTimestamp,
+			upkeepIterator.Event.LastTimestamp,
 			upkeepIterator.Event.PreviousBlock,
 			upkeepIterator.Event.Counter,
 		)
 		row = []string{upkeepIterator.Event.From.String(),
-			upkeepIterator.Event.InitialBlock.String(),
-			upkeepIterator.Event.LastBlock.String(),
+			upkeepIterator.Event.InitialTimestamp.String(),
+			upkeepIterator.Event.LastTimestamp.String(),
 			upkeepIterator.Event.PreviousBlock.String(),
 			upkeepIterator.Event.Counter.String()}
 		if err = w.Write(row); err != nil {

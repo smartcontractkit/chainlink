@@ -17,14 +17,18 @@ type Heads interface {
 	HeadByHash(hash common.Hash) *evmtypes.Head
 	// AddHeads adds newHeads to the collection, eliminates duplicates,
 	// sorts by head number, fixes parents and cuts off old heads (historyDepth).
-	AddHeads(historyDepth uint, newHeads ...*evmtypes.Head)
+	AddHeads(newHeads ...*evmtypes.Head)
 	// Count returns number of heads in the collection.
 	Count() int
+	// MarkFinalized - finds `finalized` in the LatestHead and marks it and all direct ancestors as finalized.
+	// Trims old blocks whose height is smaller than minBlockToKeep
+	MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool
 }
 
 type heads struct {
-	heads []*evmtypes.Head
-	mu    sync.RWMutex
+	heads    []*evmtypes.Head
+	headsMap map[common.Hash]*evmtypes.Head
+	mu       sync.RWMutex
 }
 
 func NewHeads() Heads {
@@ -45,12 +49,11 @@ func (h *heads) HeadByHash(hash common.Hash) *evmtypes.Head {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	for _, head := range h.heads {
-		if head.Hash == hash {
-			return head
-		}
+	if h.headsMap == nil {
+		return nil
 	}
-	return nil
+
+	return h.headsMap[hash]
 }
 
 func (h *heads) Count() int {
@@ -60,14 +63,41 @@ func (h *heads) Count() int {
 	return len(h.heads)
 }
 
-func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
+// MarkFinalized - marks block with has equal to finalized and all it's direct ancestors as finalized.
+// Trims old blocks whose height is smaller than minBlockToKeep
+func (h *heads) MarkFinalized(finalized common.Hash, minBlockToKeep int64) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	headsMap := make(map[common.Hash]*evmtypes.Head, len(h.heads)+len(newHeads))
-	for _, head := range append(h.heads, newHeads...) {
+	if len(h.heads) == 0 {
+		return false
+	}
+
+	// deep copy to avoid race on head.Parent
+	h.heads, h.headsMap = deepCopy(h.heads, minBlockToKeep)
+
+	finalizedHead, ok := h.headsMap[finalized]
+	if !ok {
+		return false
+	}
+	for finalizedHead != nil {
+		finalizedHead.IsFinalized = true
+		finalizedHead = finalizedHead.Parent
+	}
+
+	return true
+}
+
+func deepCopy(oldHeads []*evmtypes.Head, minBlockToKeep int64) ([]*evmtypes.Head, map[common.Hash]*evmtypes.Head) {
+	headsMap := make(map[common.Hash]*evmtypes.Head, len(oldHeads))
+	heads := make([]*evmtypes.Head, 0, len(headsMap))
+	for _, head := range oldHeads {
 		if head.Hash == head.ParentHash {
 			// shouldn't happen but it is untrusted input
+			continue
+		}
+		if head.BlockNumber() < minBlockToKeep {
+			// trim redundant blocks
 			continue
 		}
 		// copy all head objects to avoid races when a previous head chain is used
@@ -75,32 +105,21 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 		headCopy := *head
 		headCopy.Parent = nil // always build it from scratch in case it points to a head too old to be included
 		// map eliminates duplicates
-		headsMap[head.Hash] = &headCopy
-	}
-
-	heads := make([]*evmtypes.Head, len(headsMap))
-	// unsorted unique heads
-	{
-		var i int
-		for _, head := range headsMap {
-			heads[i] = head
-			i++
+		// prefer head that was already in heads as it might have been marked as finalized on previous run
+		if _, ok := headsMap[head.Hash]; !ok {
+			headsMap[head.Hash] = &headCopy
+			heads = append(heads, &headCopy)
 		}
 	}
 
-	// sort the heads
+	// sort the heads as original slice might be out of order
 	sort.SliceStable(heads, func(i, j int) bool {
 		// sorting from the highest number to lowest
 		return heads[i].Number > heads[j].Number
 	})
 
-	// cut off the oldest
-	if uint(len(heads)) > historyDepth {
-		heads = heads[:historyDepth]
-	}
-
 	// assign parents
-	for i := 0; i < len(heads)-1; i++ {
+	for i := 0; i < len(heads); i++ {
 		head := heads[i]
 		parent, exists := headsMap[head.ParentHash]
 		if exists {
@@ -108,6 +127,13 @@ func (h *heads) AddHeads(historyDepth uint, newHeads ...*evmtypes.Head) {
 		}
 	}
 
-	// set
-	h.heads = heads
+	return heads, headsMap
+}
+
+func (h *heads) AddHeads(newHeads ...*evmtypes.Head) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	// deep copy to avoid race on head.Parent
+	h.heads, h.headsMap = deepCopy(append(h.heads, newHeads...), 0)
 }

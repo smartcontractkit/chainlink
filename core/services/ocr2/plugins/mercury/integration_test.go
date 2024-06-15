@@ -132,12 +132,12 @@ func TestIntegration_MercuryV1(t *testing.T) {
 }
 
 func integration_MercuryV1(t *testing.T) {
+	ctx := testutils.Context(t)
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
 	})
 	lggr := logger.TestLogger(t)
-	const fromBlock = 1 // cannot use zero, start from block 1
 	testStartTimeStamp := uint32(time.Now().Unix())
 
 	// test vars
@@ -184,6 +184,16 @@ func integration_MercuryV1(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
+	fromBlock := int(finalityDepth) // cannot use zero, start from finality depth
+
 	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
@@ -215,7 +225,8 @@ func integration_MercuryV1(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := io.ReadAll(req.Body)
+			var b []byte
+			b, err = io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
@@ -224,19 +235,19 @@ func integration_MercuryV1(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))
@@ -271,7 +282,6 @@ func integration_MercuryV1(t *testing.T) {
 			)
 		}
 	}
-
 	// Setup config on contract
 	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
@@ -330,14 +340,6 @@ func integration_MercuryV1(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
-		backend.Commit()
-	}
-
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
 
@@ -474,6 +476,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 }
 
 func integration_MercuryV2(t *testing.T) {
+	ctx := testutils.Context(t)
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -537,6 +540,14 @@ func integration_MercuryV2(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
 	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
@@ -569,7 +580,8 @@ func integration_MercuryV2(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := io.ReadAll(req.Body)
+			var b []byte
+			b, err = io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
@@ -578,19 +590,19 @@ func integration_MercuryV2(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))
@@ -671,14 +683,6 @@ func integration_MercuryV2(t *testing.T) {
 		backend.Commit()
 	}
 
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
 	runTestSetup := func() {
 		// Expect at least one report per feed from each oracle
 		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
@@ -748,6 +752,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 }
 
 func integration_MercuryV3(t *testing.T) {
+	ctx := testutils.Context(t)
 	var logObservers []*observer.ObservedLogs
 	t.Cleanup(func() {
 		detectPanicLogs(t, logObservers)
@@ -788,16 +793,6 @@ func integration_MercuryV3(t *testing.T) {
 		feedM[feeds[i].id] = feeds[i]
 	}
 
-	reqs := make(chan request)
-	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
-	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
-		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
-		if err != nil {
-			panic(err)
-		}
-		return report
-	})
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -806,7 +801,25 @@ func integration_MercuryV3(t *testing.T) {
 		clientCSAKeys[i] = key
 		clientPubKeys[i] = key.PublicKey
 	}
-	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	// Test multi-send to three servers
+	const nSrvs = 3
+	reqChs := make([]chan request, nSrvs)
+	servers := make(map[string]string)
+	for i := 0; i < nSrvs; i++ {
+		k := csakey.MustNewV2XXXTestingOnly(big.NewInt(int64(-(i + 1))))
+		reqs := make(chan request, 100)
+		srv := NewMercuryServer(t, ed25519.PrivateKey(k.Raw()), reqs, func() []byte {
+			report, err := (&reportcodecv3.ReportCodec{}).BuildReport(v3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+			if err != nil {
+				panic(err)
+			}
+			return report
+		})
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+		reqChs[i] = reqs
+		servers[serverURL] = fmt.Sprintf("%x", k.PublicKey)
+	}
 	chainID := testutils.SimulatedChainID
 
 	steve, backend, verifier, verifierAddress := setupBlockchain(t)
@@ -816,6 +829,14 @@ func integration_MercuryV3(t *testing.T) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
+
+	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
 
 	// Set up n oracles
 	var (
@@ -849,7 +870,8 @@ func integration_MercuryV3(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := io.ReadAll(req.Body)
+			var b []byte
+			b, err = io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
@@ -858,19 +880,19 @@ func integration_MercuryV3(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err := res.Write([]byte(resp))
+				_, err = res.Write([]byte(resp))
 				require.NoError(t, err)
 			}
 		}))
 		t.Cleanup(bridge.Close)
 		u, _ := url.Parse(bridge.URL)
 		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
 			Name: bridges.BridgeName(bridgeName),
 			URL:  models.WebURL(*u),
 		}))
@@ -895,8 +917,7 @@ func integration_MercuryV3(t *testing.T) {
 				bmBridge,
 				bidBridge,
 				askBridge,
-				serverURL,
-				serverPubKey,
+				servers,
 				clientPubKeys[i],
 				feed.name,
 				feed.id,
@@ -955,16 +976,8 @@ func integration_MercuryV3(t *testing.T) {
 		backend.Commit()
 	}
 
-	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
-	runTestSetup := func() {
-		// Expect at least one report per feed from each oracle
+	runTestSetup := func(reqs chan request) {
+		// Expect at least one report per feed from each oracle, per server
 		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
 		for i := range feeds {
 			// feedID will be deleted when all n oracles have reported
@@ -1017,12 +1030,10 @@ func integration_MercuryV3(t *testing.T) {
 		}
 	}
 
-	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
-		runTestSetup()
-	})
-
-	t.Run("receives at least one report per feed from each oracle when EAs are at 80% reliability", func(t *testing.T) {
-		pError.Store(20)
-		runTestSetup()
+	t.Run("receives at least one report per feed for every server from each oracle when EAs are at 100% reliability", func(t *testing.T) {
+		for i := 0; i < nSrvs; i++ {
+			reqs := reqChs[i]
+			runTestSetup(reqs)
+		}
 	})
 }

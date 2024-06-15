@@ -12,15 +12,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 
 	"github.com/jmoiron/sqlx"
 
@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -54,6 +53,7 @@ var (
 )
 
 func main() {
+	ctx := context.Background()
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
@@ -218,8 +218,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
@@ -310,8 +310,8 @@ func main() {
 		db := sqlx.MustOpen("postgres", *dbURL)
 		lggr, _ := logger.NewLogger()
 
-		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr, pg.NewQConfig(false))
-		err = keyStore.Unlock(*keystorePassword)
+		keyStore := keystore.New(db, utils.DefaultScryptParams, lggr)
+		err = keyStore.Unlock(ctx, *keystorePassword)
 		helpers.PanicErr(err)
 
 		k, err := keyStore.VRF().Get(*pubKeyHex)
@@ -1294,6 +1294,13 @@ func main() {
 			*wrapperPremiumPercentage,
 			*keyHash,
 			*maxNumWords)
+	case "wrapper-get-config":
+		cmd := flag.NewFlagSet("wrapper-get-config", flag.ExitOnError)
+		wrapperAddress := cmd.String("wrapper-address", "", "wrapper address")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address")
+		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
+		helpers.PanicErr(err)
+		v2scripts.PrintWrapperConfig(wrapper)
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
