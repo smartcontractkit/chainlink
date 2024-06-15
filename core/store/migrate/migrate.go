@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -24,12 +25,15 @@ import (
 //go:embed migrations/*.sql migrations/*.go
 var embedMigrations embed.FS
 
-// go:embed relayers/**/*.tmpl.sql
+// go:embed plugins/relayers/**/*.tmpl.sql
 var embedRelayerMigrations embed.FS
 
-const PLUGIN_TEMPLATE_DIR string = "template"
+const PLUGIN_MIGRATIONS_DIR string = "plugins"
 
 const MIGRATIONS_DIR string = "migrations"
+
+// go:embed manifest.txt
+var migrationManifest string
 
 func init() {
 	setupCoreMigrations()
@@ -246,4 +250,120 @@ func SetMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
 		}
 	}
 	return nil
+}
+
+type manifest struct {
+	Entries []manifestEntry
+	m       map[string]manifestEntry
+}
+
+func (m manifest) After(e manifestEntry) ([]manifestEntry, error) {
+	indexed, exists := m.m[e.id()]
+	if !exists {
+		return nil, fmt.Errorf("entry not found in manifest: %v key %s", e, e.id())
+	}
+	var entries []manifestEntry
+	// reverse order index
+	for i := len(m.Entries) - 1; i > indexed.index; i-- {
+		entries = append(entries, m.Entries[i])
+	}
+	return entries, nil
+
+}
+
+func (m manifest) Before(e manifestEntry) ([]manifestEntry, error) {
+	var entries []manifestEntry
+	for _, entry := range m.Entries {
+		if entry.Version < e.Version {
+			entries = append(entries, entry)
+		}
+	}
+	return entries, nil
+}
+
+type manifestEntry struct {
+	Type          string // core, plugin
+	PluginKind    string // relayer, app
+	PluginVariant string // evm, optimism, arbitrum, functions, ccip
+	Version       int
+
+	index int    // 0 ==> most recent
+	path  string // migration path
+
+}
+
+func (m manifestEntry) id() string {
+	if m.Type == "core" {
+		return fmt.Sprintf("%s_%d", m.Type, m.Version)
+	}
+	return fmt.Sprintf("%s_%s_%s_%d", m.Type, m.PluginKind, m.PluginVariant, m.Version)
+}
+
+func loadManifest(txt string) (manifest, error) {
+	lines := strings.Split(txt, "\n")
+	var m manifest
+	m.m = make(map[string]manifestEntry, len(lines))
+	for i, l := range lines {
+		if l == "" {
+			continue
+		}
+		e, err := parseEntry(l)
+		if err != nil {
+			return manifest{}, fmt.Errorf("failed to parse line %s: %w", l, err)
+		}
+		e.index = i
+		m.Entries = append(m.Entries, e)
+		m.m[e.id()] = e
+	}
+	return m, nil
+}
+
+var (
+	coreMigrationsRoot  = MIGRATIONS_DIR
+	relayMigrationsRoot = filepath.Join(PLUGIN_MIGRATIONS_DIR, "relayers")
+	appMigrationsRoot   = filepath.Join(PLUGIN_MIGRATIONS_DIR, "apps")
+	regexGenerator      = func(root string) string {
+		return fmt.Sprintf(`^%s/[0-9]{4}_`, root)
+	}
+	coreRe  = regexp.MustCompile(regexGenerator(coreMigrationsRoot))
+	relayRe = regexp.MustCompile(regexGenerator(relayMigrationsRoot))
+	appRe   = regexp.MustCompile(regexGenerator(appMigrationsRoot))
+)
+
+func parseEntry(path string) (manifestEntry, error) {
+	version, err := extractVersion(filepath.Base(path))
+	if err != nil {
+		return manifestEntry{}, fmt.Errorf("failed to extract version for %s: %w", err)
+	}
+	path = strings.TrimPrefix(path, "core/store/migrate/")
+
+	if coreRe.Match([]byte(path)) {
+		return manifestEntry{
+			path:    path,
+			Type:    "core",
+			Version: version,
+		}, nil
+	}
+
+	if relayRe.Match([]byte(path)) {
+		return manifestEntry{
+			path:       path,
+			Type:       "plugin",
+			PluginKind: "relayer",
+		}, nil
+	}
+
+	return manifestEntry{}, nil
+}
+
+func extractVersion(migrationPath string) (int, error) {
+	parts := strings.Split(migrationPath, "_")
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("invalid migration path: %s", migrationPath)
+	}
+	version, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("invalid migration path: could not parse version: %s", migrationPath)
+	}
+	return version, nil
 }

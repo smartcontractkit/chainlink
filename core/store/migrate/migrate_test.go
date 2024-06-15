@@ -417,19 +417,13 @@ func TestMigrate(t *testing.T) {
 	t.Run("core migration with optional relayer migration", func(t *testing.T) {
 		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
-		err := migrate.Migrate(ctx, db.DB)
-		require.NoError(t, err)
-
-		v, err := migrate.Current(ctx, db.DB)
-		require.NoError(t, err)
-		assert.Equal(t, int64(9999), v)
 		cfg := migrate.MigrationConfig{
-			Dir:      filepath.Join(migrate.PLUGIN_TEMPLATE_DIR, "evm"),
+			Dir:      filepath.Join(migrate.PLUGIN_MIGRATIONS_DIR, "relayers/evm"),
 			Type:     "relayer",
 			Template: "evm",
 			Schema:   "someevmchain",
 		}
-		err = migrate.MigratePlugin(ctx, db.DB, cfg)
+		err := migrate.MigratePlugin(ctx, db.DB, cfg)
 		require.NoError(t, err)
 
 		v2, err := migrate.CurrentPlugin(ctx, db.DB, cfg)

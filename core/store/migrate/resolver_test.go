@@ -12,7 +12,8 @@ import (
 )
 
 func Test_resolve(t *testing.T) {
-	fixture := "./template/relayers/evm/0002_b.tmpl.sql"
+	// TODO use embedded files
+	fixture := "./plugins/relayers/evm/0002_b.tmpl.sql"
 	type args struct {
 		val SQLConfig
 	}
