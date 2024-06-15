@@ -32,12 +32,16 @@ const RELAYER_TEMPLATE_DIR string = "relayers"
 const MIGRATIONS_DIR string = "migrations"
 
 func init() {
-	goose.SetBaseFS(embedMigrations)
-	goose.SetSequential(true)
-	goose.SetTableName("goose_migrations")
+	setupCoreMigrations()
 	logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
 	verbose, _ := strconv.ParseBool(logMigrations)
 	goose.SetVerbose(verbose)
+}
+
+func setupCoreMigrations() {
+	goose.SetBaseFS(embedMigrations)
+	goose.SetSequential(true)
+	goose.SetTableName("goose_migrations")
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
@@ -164,14 +168,43 @@ func Migrate(ctx context.Context, db *sql.DB, opts ...OptionalMigration) error {
 		}
 		fmt.Printf("Generated migrations: %v\n", migrations)
 
-		//root := fmt.Sprintf("%s/%s", RELAYER_TEMPLATE_DIR, opt.Template)
-		// generate migrations from templates
-
 		err = goose.Up(db, d, goose.WithNoVersioning())
 		if err != nil {
 			return fmt.Errorf("failed to do %s database migration: %w", opt.Type, err)
 		}
 	}
+	return nil
+}
+
+// MigrateSubsytstem migrates a subsystem of the chainlink database.
+// It generates migrations based on the template for the subsystem and applies them to the database.
+func MigrateSubsytstem(ctx context.Context, db *sql.DB, opt OptionalMigration) error {
+
+	if err := opt.validate(); err != nil {
+		return fmt.Errorf("invalid migration option: %w", err)
+	}
+
+	tmpDir := os.TempDir()
+	defer os.RemoveAll(tmpDir)
+
+	defer setupCoreMigrations()
+	goose.SetBaseFS(nil)
+	goose.ResetGlobalMigrations()
+	goose.SetTableName(fmt.Sprintf("goose_migration_%s_%s", opt.Template, opt.Schema))
+
+	root := opt.rootDir()
+	d := filepath.Join(tmpDir, opt.Template, opt.Schema)
+	migrations, err := generateMigrations(root, d, RelayerDB{Schema: opt.Schema})
+	if err != nil {
+		return fmt.Errorf("failed to generate migrations for opt %v: %w", opt, err)
+	}
+	fmt.Printf("Generated migrations: %v\n", migrations)
+
+	err = goose.Up(db, d, goose.WithNoVersioning())
+	if err != nil {
+		return fmt.Errorf("failed to do %s database migration: %w", opt.Type, err)
+	}
+
 	return nil
 }
 
@@ -183,6 +216,34 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
 	}
 	return goose.Down(db, MIGRATIONS_DIR)
+}
+
+func RollbackSubsystem(ctx context.Context, db *sql.DB, version null.Int, opt OptionalMigration) error {
+	if err := opt.validate(); err != nil {
+		return fmt.Errorf("invalid migration option: %w", err)
+	}
+
+	tmpDir := os.TempDir()
+	defer os.RemoveAll(tmpDir)
+
+	defer setupCoreMigrations()
+	goose.SetBaseFS(nil)
+	goose.ResetGlobalMigrations()
+	goose.SetTableName(fmt.Sprintf("goose_migration_%s_%s", opt.Template, opt.Schema))
+
+	// TODO: should these be saved somewhere? if so where, if not if the db itself?
+	root := opt.rootDir()
+	d := filepath.Join(tmpDir, opt.Template, opt.Schema)
+	migrations, err := generateMigrations(root, d, RelayerDB{Schema: opt.Schema})
+	if err != nil {
+		return fmt.Errorf("failed to generate migrations for opt %v: %w", opt, err)
+	}
+	fmt.Printf("Generated migrations: %v\n", migrations)
+
+	if version.Valid {
+		return goose.DownTo(db, d, version.Int64)
+	}
+	return goose.Down(db, d)
 }
 
 func Current(ctx context.Context, db *sql.DB) (int64, error) {
