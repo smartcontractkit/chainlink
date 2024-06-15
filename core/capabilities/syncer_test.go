@@ -55,6 +55,10 @@ func (m mockReader) state(ctx context.Context) (state, error) {
 	return m.s, m.err
 }
 
+func (m mockReader) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	return capabilities.Node{}, nil
+}
+
 type mockTrigger struct {
 	capabilities.CapabilityInfo
 }

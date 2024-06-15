@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -110,6 +111,24 @@ func randomWord() [32]byte {
 	return [32]byte(word)
 }
 
+type mockWrapper struct {
+	services.Service
+	peer p2ptypes.Peer
+}
+
+func (m mockWrapper) GetPeer() p2ptypes.Peer {
+	return m.peer
+}
+
+type mockPeer struct {
+	p2ptypes.Peer
+	peerID p2ptypes.PeerID
+}
+
+func (m mockPeer) ID() p2ptypes.PeerID {
+	return m.peerID
+}
+
 func TestReader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
@@ -180,7 +199,12 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	reader, err := newRemoteRegistryReader(ctx, factory, regAddress.Hex())
+	pw := mockWrapper{
+		peer: mockPeer{
+			peerID: nodeSet[0],
+		},
+	}
+	reader, err := newRemoteRegistryReader(ctx, logger.TestLogger(t), pw, factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	s, err := reader.state(ctx)
@@ -207,4 +231,10 @@ func TestReader_Integration(t *testing.T) {
 		nodeSet[1]: nodes[1],
 		nodeSet[2]: nodes[2],
 	}, s.IDsToNodes)
+
+	node, err := reader.LocalNode(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, p2ptypes.PeerID(nodeSet[0]), *node.PeerID)
+	assert.Equal(t, fmt.Sprint(1), node.WorkflowDON.ID)
 }
