@@ -136,7 +136,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	var srvcs []services.Service
-	broker := newTestAsyncMessageBroker(1000)
+	broker := newTestAsyncMessageBroker(t, 1000)
 	err := broker.Start(context.Background())
 	require.NoError(t, err)
 	srvcs = append(srvcs, broker)
@@ -183,7 +183,7 @@ type serverTestClient struct {
 	callerDonID       string
 }
 
-func (r *serverTestClient) Receive(msg *remotetypes.MessageBody) {
+func (r *serverTestClient) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.receivedMessages <- msg
 }
 

@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -26,7 +27,7 @@ func newReceiver() *testReceiver {
 	}
 }
 
-func (r *testReceiver) Receive(msg *remotetypes.MessageBody) {
+func (r *testReceiver) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.ch <- msg
 }
 
