@@ -103,6 +103,10 @@ let config = {
           },
         },
       },
+      'src/v0.8/automation/AutomationForwarderLogic.sol': {
+        version: '0.8.16',
+        settings: COMPILER_SETTINGS,
+      },
     },
   },
   mocha: {
