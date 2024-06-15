@@ -10,12 +10,12 @@ import (
 	"strings"
 )
 
-type RelayerDB struct {
+type SQLConfig struct {
 	Schema string
 }
 
 // resolve resolves the template with the given RelayerDB
-func resolve(out io.Writer, in io.Reader, val RelayerDB) error {
+func resolve(out io.Writer, in io.Reader, val SQLConfig) error {
 	unresolved, err := io.ReadAll(in)
 	if err != nil {
 		return err
@@ -30,7 +30,7 @@ func resolve(out io.Writer, in io.Reader, val RelayerDB) error {
 
 var migrationSuffix = ".tmpl.sql"
 
-func generateMigrations(rootDir string, tmpDir string, val RelayerDB) ([]string, error) {
+func generateMigrations(rootDir string, tmpDir string, val SQLConfig) ([]string, error) {
 	err := os.MkdirAll(tmpDir, os.ModePerm)
 	if err != nil {
 		return nil, err

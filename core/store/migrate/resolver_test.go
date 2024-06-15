@@ -12,8 +12,9 @@ import (
 )
 
 func Test_resolve(t *testing.T) {
+	fixture := "./template/relayers/evm/0002_b.tmpl.sql"
 	type args struct {
-		val RelayerDB
+		val SQLConfig
 	}
 	tests := []struct {
 		name    string
@@ -25,13 +26,13 @@ func Test_resolve(t *testing.T) {
 		{
 			name: "evm template",
 			args: args{
-				val: RelayerDB{
+				val: SQLConfig{
 					Schema: "evm",
 				},
 			},
 			wantOut: `-- +goose Up
 CREATE TABLE evm.bcf_3266_01 (
-    name TEXT PRIMARY KEY,
+    "id" TEXT PRIMARY KEY
 );
 -- +goose Down
 DROP TABLE evm.bcf_3266_01;`,
@@ -40,20 +41,20 @@ DROP TABLE evm.bcf_3266_01;`,
 		{
 			name: "optimism template",
 			args: args{
-				val: RelayerDB{
+				val: SQLConfig{
 					Schema: "optimism",
 				},
 			},
 			wantOut: `-- +goose Up
 CREATE TABLE optimism.bcf_3266_01 (
-    name TEXT PRIMARY KEY,
+    "id" TEXT PRIMARY KEY
 );
 -- +goose Down
 DROP TABLE optimism.bcf_3266_01;`,
 		},
 	}
 	for _, tt := range tests {
-		testInput, err := os.ReadFile("./relayers/evm/template/0002_b.tmpl.sql")
+		testInput, err := os.ReadFile(fixture)
 		require.NoError(t, err)
 		t.Run(tt.name, func(t *testing.T) {
 			out := &bytes.Buffer{}
@@ -71,7 +72,7 @@ func Test_generateMigrations(t *testing.T) {
 	type args struct {
 		rootDir string
 		tmpDir  string
-		val     RelayerDB
+		val     SQLConfig
 	}
 	tests := []struct {
 		name    string
@@ -84,7 +85,7 @@ func Test_generateMigrations(t *testing.T) {
 			args: args{
 				rootDir: "./",
 				tmpDir:  filepath.Join(tDir, "evm"),
-				val: RelayerDB{
+				val: SQLConfig{
 					Schema: "evm",
 				},
 			},
