@@ -16,6 +16,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -215,7 +216,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 		F:       workflowDonF,
 	}
 
-	broker := newTestAsyncMessageBroker(1000)
+	broker := newTestAsyncMessageBroker(t, 1000)
 
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
@@ -276,6 +277,8 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 type testAsyncMessageBroker struct {
 	services.StateMachine
+	t *testing.T
+
 	nodes map[p2ptypes.PeerID]remotetypes.Receiver
 
 	sendCh chan *remotetypes.MessageBody
@@ -292,8 +295,9 @@ func (a *testAsyncMessageBroker) Name() string {
 	return "testAsyncMessageBroker"
 }
 
-func newTestAsyncMessageBroker(sendChBufferSize int) *testAsyncMessageBroker {
+func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMessageBroker {
 	return &testAsyncMessageBroker{
+		t:      t,
 		nodes:  make(map[p2ptypes.PeerID]remotetypes.Receiver),
 		stopCh: make(services.StopChan),
 		sendCh: make(chan *remotetypes.MessageBody, sendChBufferSize),
@@ -318,7 +322,7 @@ func (a *testAsyncMessageBroker) Start(ctx context.Context) error {
 						panic("server not found for peer id")
 					}
 
-					receiver.Receive(msg)
+					receiver.Receive(tests.Context(a.t), msg)
 				}
 			}
 		}()

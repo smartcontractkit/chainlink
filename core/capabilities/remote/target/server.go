@@ -106,8 +106,7 @@ func (r *server) expireRequests() {
 	}
 }
 
-// Receive handles incoming messages from remote nodes and dispatches them to the corresponding request.
-func (r *server) Receive(msg *types.MessageBody) {
+func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
@@ -135,9 +134,6 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 	req := r.requestIDToRequest[requestID]
 
-	// TODO context should be received from the dispatcher here - pending KS-296
-	ctx, cancel := r.stopCh.NewCtx()
-	defer cancel()
 	err := req.OnMessage(ctx, msg)
 	if err != nil {
 		r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)

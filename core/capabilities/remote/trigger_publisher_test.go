@@ -70,7 +70,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		CallerDonId: workflowDonInfo.ID,
 		Payload:     marshaled,
 	}
-	publisher.Receive(regEvent)
+	publisher.Receive(ctx, regEvent)
 	forwarded := <-underlying.registrationsCh
 	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 
