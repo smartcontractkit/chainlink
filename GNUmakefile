@@ -118,6 +118,10 @@ testdb: ## Prepares the test database.
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
+.PHONY: migration-manifest
+migration-manifest: ## Generate a migration manifest.
+	core/scripts/db/manifest.sh
+
 # Format for CI
 .PHONY: presubmit
 presubmit: ## Format go files and imports.
