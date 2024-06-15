@@ -20,10 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+const testWorkflowId = "<workflow-id>"
 const hardcodedWorkflow = `
 triggers:
   - id: "mercury-trigger@1.0.0"
@@ -78,6 +80,25 @@ type testHooks struct {
 	executionFinished chan string
 }
 
+func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
+	// Taken from https://github.com/smartcontractkit/chainlink/blob/d736d9e0838983a021677bc608556b3994f46690/core/services/job/orm.go#L412
+	// We need to insert this row so that we dont get foreign key constraint errors
+	// based on the workflow_id
+	db := pgtest.NewSqlxDB(t)
+	sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at)
+	VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW())
+	RETURNING id;`
+	var wfSpec job.WorkflowSpec
+	wfSpec.Workflow = simpleWorkflow
+	wfSpec.WorkflowID = testWorkflowId
+	wfSpec.WorkflowOwner = "testowner"
+	wfSpec.WorkflowName = "testworkflow"
+	_, err := db.NamedExec(sql, wfSpec)
+	require.NoError(t, err)
+
+	return store.NewDBStore(db, logger.TestLogger(t), clock)
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
 	peerID := p2ptypes.PeerID{}
@@ -86,6 +107,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
 	cfg := Config{
+		WorkflowID: testWorkflowId,
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     spec,
@@ -110,10 +132,13 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 			executionFinished <- weid
 		},
 		clock: clock,
-		Store: store.NewDBStore(pgtest.NewSqlxDB(t), clock),
 	}
 	for _, o := range opts {
 		o(&cfg)
+	}
+	// We use the cfg clock incase they override it
+	if cfg.Store == nil {
+		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -193,7 +218,6 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -223,7 +247,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		t,
 		reg,
 		hardcodedWorkflow,
-		func(c *Config) { c.Store = dbstore },
 	)
 
 	servicetest.Run(t, eng)
@@ -559,8 +582,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 
 	action, _ := mockAction()
 	require.NoError(t, reg.Add(ctx, action))
-
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
+	dbstore := newTestDBStore(t, clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -572,7 +594,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  "",
+		WorkflowID:  testWorkflowId,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -614,7 +636,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, action))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -626,7 +648,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  "",
+		WorkflowID:  testWorkflowId,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -708,7 +730,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 
 	eng, hooks := newTestEngine(
 		t,
@@ -754,7 +776,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 
 	var peerID p2ptypes.PeerID
 	node := capabilities.Node{

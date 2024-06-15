@@ -14,11 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	valuespb "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // `DBStore` is a postgres-backed
 // data store that persists workflow progress.
 type DBStore struct {
+	lggr  logger.Logger
 	db    sqlutil.DataSource
 	clock clockwork.Clock
 }
@@ -202,11 +204,14 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
 		if state.WorkflowID != "" {
 			wid = &state.WorkflowID
 		}
+
 		wex := &workflowExecutionRow{
 			ID:         state.ExecutionID,
 			WorkflowID: wid,
 			Status:     state.Status,
 		}
+		d.lggr.Debugw("Adding workflow execution", "executionID", state.ExecutionID, "workflowID", state.WorkflowID, "status", state.Status)
+
 		err := db.insertWorkflowExecution(ctx, wex)
 		if err != nil {
 			return fmt.Errorf("could not insert workflow execution %s: %w", state.ExecutionID, err)
@@ -218,6 +223,7 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
 			if err != nil {
 				return err
 			}
+			d.lggr.Debugw("Adding workflow step", "executionID", state.ExecutionID, "ref", step.Ref, "status", step.Status)
 			ws = append(ws, step)
 		}
 		if len(ws) > 0 {
@@ -368,6 +374,6 @@ func (d *DBStore) GetUnfinished(ctx context.Context, offset, limit int) ([]Workf
 	return states, nil
 }
 
-func NewDBStore(ds sqlutil.DataSource, clock clockwork.Clock) *DBStore {
-	return &DBStore{db: ds, clock: clock}
+func NewDBStore(ds sqlutil.DataSource, lggr logger.Logger, clock clockwork.Clock) *DBStore {
+	return &DBStore{db: ds, lggr: lggr.Named("WorkflowDBStore"), clock: clock}
 }
