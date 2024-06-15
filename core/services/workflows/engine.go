@@ -243,7 +243,7 @@ func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
 
 	// TODO: paginate properly
 	if len(wipExecutions) >= defaultLimit {
-		e.logger.Warnf("possible execution overflow during resumption")
+		e.logger.Warnf("possible execution overflow during resumption, work in progress executions: %d >= %d", len(wipExecutions), defaultLimit)
 	}
 
 	// Cache the dependents associated with a step.
@@ -368,13 +368,13 @@ func (e *Engine) loop(ctx context.Context) {
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
-				e.logger.Errorf("could not generate execution ID; error %v", resp.Err)
+				e.logger.With("triggerid", te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
 
 			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
-				e.logger.Errorf("failed to start execution: %v", err)
+				e.logger.With("executionID", executionID).Errorf("failed to start execution: %v", err)
 			}
 		case pendingStepRequest := <-e.pendingStepRequests:
 			// Wait for a new worker to be available before dispatching a new one.
@@ -386,7 +386,8 @@ func (e *Engine) loop(ctx context.Context) {
 				e.wg.Add(1)
 				go e.workerForStepRequest(ctx, pendingStepRequest)
 			case <-t.Chan():
-				e.logger.Errorf("timed out when spinning off worker for pending step request %+v", pendingStepRequest)
+				e.logger.With("executionID", pendingStepRequest.state.ExecutionID, "stepRef", pendingStepRequest.stepRef).
+					Errorf("timed out when spinning off worker for pending step request %+v", pendingStepRequest)
 				e.pendingStepRequests <- pendingStepRequest
 			}
 			t.Stop()
@@ -394,7 +395,8 @@ func (e *Engine) loop(ctx context.Context) {
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
 			err := e.handleStepUpdate(ctx, stepUpdate)
 			if err != nil {
-				e.logger.Errorf("failed to update step state: %+v, %s", stepUpdate, err)
+				e.logger.With("executionID", stepUpdate.ExecutionID, "stepRef", stepUpdate.Ref).
+					Errorf("failed to update step state: %+v, %s", stepUpdate, err)
 			}
 		}
 	}
@@ -459,6 +461,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 	if err != nil {
 		return err
 	}
+	l := e.logger.With("executionID", state.ExecutionID, "stepRef", stepUpdate.Ref)
 
 	switch stepUpdate.Status {
 	case store.StatusCompleted:
@@ -501,7 +504,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		// We haven't completed the workflow, but should we continue?
 		// If we've been executing for too long, let's time the workflow out and stop here.
 		if state.CreatedAt != nil && e.clock.Since(*state.CreatedAt) > e.maxExecutionDuration {
-			e.logger.Infow("execution timed out", "executionID", state.ExecutionID)
+			l.Infow("execution timed out")
 			return e.finishExecution(ctx, state.ExecutionID, store.StatusTimeout)
 		}
 
@@ -511,7 +514,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			e.queueIfReady(state, sd)
 		}
 	case store.StatusCompletedEarlyExit:
-		e.logger.Infow("execution terminated early", "executionID", state.ExecutionID)
+		l.Infow("execution terminated early")
 		// NOTE: even though this marks the workflow as completed, any branches of the DAG
 		// that don't depend on the step that signaled for an early exit will still complete.
 		// This is to ensure that any side effects are executed consistently, since otherwise
@@ -521,7 +524,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			return err
 		}
 	case store.StatusErrored:
-		e.logger.Infow("execution errored", "executionID", state.ExecutionID)
+		l.Infow("execution errored")
 		err := e.finishExecution(ctx, state.ExecutionID, store.StatusErrored)
 		if err != nil {
 			return err
@@ -553,7 +556,7 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.Debugw("step request enqueued", "ref", step.Ref, "state", copyState(state))
+		e.logger.Debugw("step request enqueued", "stepRef", step.Ref, "executionID", state.ExecutionID, "state", copyState(state))
 		e.pendingStepRequests <- stepRequest{
 			state:   copyState(state),
 			stepRef: step.Ref,
@@ -725,7 +728,7 @@ func (e *Engine) Close() error {
 
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
-				return fmt.Errorf("failed to unregister from workflow: %+v", reg)
+				return fmt.Errorf("capability id: %s step ref: %s failed to unregister from workflow: %+v", s.ID, s.Ref, reg)
 			}
 
 			return nil
@@ -769,7 +772,7 @@ const (
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
 	if cfg.Store == nil {
-		return nil, errors.New("must provide store")
+		return nil, fmt.Errorf("workflow id: %s must provide store", cfg.WorkflowID)
 	}
 
 	if cfg.MaxWorkerLimit == 0 {
