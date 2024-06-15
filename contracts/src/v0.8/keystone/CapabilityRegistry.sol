@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";

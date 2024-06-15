@@ -70,6 +70,13 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.24',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris'
+        }
+      }
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
