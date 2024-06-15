@@ -41,7 +41,7 @@ func (u *UserController) Index(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		u.App.GetLogger().Errorf("Unable to list users", "err", err)
+		u.App.GetLogger().Errorw("Unable to list users", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -97,7 +97,7 @@ func (u *UserController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		u.App.GetLogger().Errorf("Error creating new API user", "err", err)
+		u.App.GetLogger().Errorw("Error creating new API user", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("error creating API user"))
 		return
 	}
@@ -190,7 +190,7 @@ func (u *UserController) Delete(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
-		u.App.GetLogger().Errorf("Error deleting API user", "err", err)
+		u.App.GetLogger().Errorw("Error deleting API user", "err", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("error deleting API user"))
 		return
 	}
