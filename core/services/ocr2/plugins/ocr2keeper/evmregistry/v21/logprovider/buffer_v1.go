@@ -196,10 +196,12 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 		selectedUpkeeps++
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
+			b.lggr.Debugw("skipping dequeue, no logs in range", "upkeepID", q.id.String())
 			// if there are no logs in the range, skip the upkeep
 			continue
 		}
 		if capacity == 0 {
+			b.lggr.Debugw("skipping dequeue, no capacity", "upkeepID", q.id.String())
 			// if there is no more capacity for results, just count the remaining logs
 			remainingLogs += logsInRange
 			continue
@@ -262,14 +264,7 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	found := false
-	for _, id := range b.queueIDs {
-		if id == uid.String() {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if _, ok := b.queues[uid.String()]; !ok {
 		b.queueIDs = append(b.queueIDs, uid.String())
 	}
 	b.queues[uid.String()] = buf
