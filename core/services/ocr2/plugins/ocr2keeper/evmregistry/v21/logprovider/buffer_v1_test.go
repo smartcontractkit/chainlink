@@ -504,10 +504,12 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
+	dequeueCoordinator := NewDequeueCoordinator()
+
 	t.Run("enqueue dequeue", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
-		added, dropped := q.enqueue(10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
+		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		require.Equal(t, 0, dropped)
 		require.Equal(t, 1, added)
 		require.Equal(t, 1, q.sizeOfRange(1, 20))
@@ -519,7 +521,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 	t.Run("enqueue with limits", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
-		added, dropped := q.enqueue(10,
+		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
 			createDummyLogSequence(15, 0, 20, common.HexToHash("0x20"))...,
 		)
 		require.Equal(t, 5, dropped)
@@ -529,7 +531,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 	t.Run("dequeue with limits", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 3))
 
-		added, dropped := q.enqueue(10,
+		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
 			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -544,6 +546,8 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 }
 
 func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
+	dequeueCoordinator := NewDequeueCoordinator()
+
 	t.Run("empty", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
@@ -553,7 +557,7 @@ func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
 
-		added, dropped := q.enqueue(10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
+		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		require.Equal(t, 0, dropped)
 		require.Equal(t, 1, added)
 		require.Equal(t, 0, q.sizeOfRange(1, 10))

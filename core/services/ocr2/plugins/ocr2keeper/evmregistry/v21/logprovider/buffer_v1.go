@@ -115,7 +115,9 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		blockThreshold = 1
 	}
 
-	return buf.enqueue(blockThreshold, logs...)
+	b.dequeueCoordinator.Clean(blockThreshold, b.opts.blockRate.Load())
+
+	return buf.enqueue(b.dequeueCoordinator, b.opts.blockRate.Load(), blockThreshold, logs...)
 }
 
 func (b *logBuffer) latestBlockNumber(logs ...logpoller.Log) int64 {
@@ -342,7 +344,7 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 	for _, blockNumber := range q.blockNumbers {
 		if blockNumber >= start && blockNumber <= end {
 			updatedLogs := make([]logpoller.Log, 0)
-
+			blockResults := 0
 			for _, l := range q.logs[blockNumber] {
 				if len(results) < limit {
 					results = append(results, l)
@@ -351,13 +353,16 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 						s.state = logTriggerStateDequeued
 						q.states[lid] = s
 					}
+					blockResults++
 				} else {
 					remaining++
 					updatedLogs = append(updatedLogs, l)
 				}
 			}
 
-			q.logs[blockNumber] = updatedLogs
+			if blockResults > 0 {
+				q.logs[blockNumber] = updatedLogs
+			}
 		}
 	}
 
@@ -373,11 +378,13 @@ func (q *upkeepLogQueue) dequeue(start, end int64, limit int) ([]logpoller.Log, 
 // enqueue adds logs to the buffer and might also drop logs if the limit for the
 // given upkeep was exceeded. Additionally, it will drop logs that are older than blockThreshold.
 // Returns the number of logs that were added and number of logs that were  dropped.
-func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Log) (int, int) {
+func (q *upkeepLogQueue) enqueue(coordinator *dequeueCoordinator, blockRate uint32, blockThreshold int64, logsToAdd ...logpoller.Log) (int, int) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	var added int
+
+	logsAdded := map[int64]int{}
 	for _, log := range logsToAdd {
 		if log.BlockNumber < blockThreshold {
 			// q.lggr.Debugw("Skipping log from old block", "blockThreshold", blockThreshold, "logBlock", log.BlockNumber, "logIndex", log.LogIndex)
@@ -390,6 +397,13 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 		}
 		q.states[lid] = logTriggerStateEntry{state: logTriggerStateEnqueued, block: log.BlockNumber}
 		added++
+
+		if count, ok := logsAdded[log.BlockNumber]; ok {
+			logsAdded[log.BlockNumber] = count + 1
+		} else {
+			logsAdded[log.BlockNumber] = 1
+		}
+
 		if logList, ok := q.logs[log.BlockNumber]; ok {
 			logList = append(logList, log)
 			q.logs[log.BlockNumber] = logList
@@ -398,6 +412,10 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 			q.blockNumbers = append(q.blockNumbers, log.BlockNumber)
 			sort.Slice(q.blockNumbers, func(i, j int) bool { return q.blockNumbers[i] < q.blockNumbers[j] })
 		}
+	}
+
+	for blockNumber, logsAddedForBlock := range logsAdded {
+		coordinator.CountEnqueuedLogsForWindow(blockNumber, blockRate, logsAddedForBlock)
 	}
 
 	var dropped int
