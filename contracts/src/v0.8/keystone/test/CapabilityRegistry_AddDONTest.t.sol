@@ -174,6 +174,24 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
   }
 
+  function test_RevertWhen_NodeAlreadyBelongsToWorkflowDON() public {
+    bytes32[] memory nodes = new bytes32[](2);
+    nodes[0] = P2P_ID;
+    nodes[1] = P2P_ID_TWO;
+
+    CapabilityRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: BASIC_CAPABILITY_CONFIG
+    });
+
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
+
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeBelongsToWorkflowDON.selector, 2, P2P_ID));
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
+  }
+
   function test_AddDON() public {
     bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;

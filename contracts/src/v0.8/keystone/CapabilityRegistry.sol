@@ -268,6 +268,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeP2PId The P2P ID of the node
   error DuplicateDONNode(uint32 donId, bytes32 nodeP2PId);
 
+  /// @notice This error is thrown when attempting to add a node a second
+  // Workflow DON
+  error NodeBelongsToWorkflowDON(uint32 donId, bytes32 nodeP2PId);
+
   /// @notice This error is thrown when trying to configure a DON with invalid
   /// fault tolerance value.
   /// @param f The proposed fault tolerance value
@@ -847,7 +851,8 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!donCapabilityConfig.nodes.add(nodes[i])) revert DuplicateDONNode(donParams.id, nodes[i]);
 
       if (donParams.acceptsWorkflows) {
-        // TODO validate the node does not have a workflow DON already
+        if (s_nodes[nodes[i]].workflowDONId != donParams.id && s_nodes[nodes[i]].workflowDONId != 0)
+          revert NodeBelongsToWorkflowDON(donParams.id, nodes[i]);
         s_nodes[nodes[i]].workflowDONId = donParams.id;
       } else {
         /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
