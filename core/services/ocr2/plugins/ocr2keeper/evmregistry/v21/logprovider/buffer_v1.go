@@ -225,20 +225,20 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
+	var newQueueIDs []string
+
 	for _, upkeepID := range b.queueIDs {
 		uid := new(big.Int)
 		_, ok := uid.SetString(upkeepID, 10)
 		if ok && !filterStore.Has(uid) {
 			// remove upkeep that is not in the filter store
 			delete(b.queues, upkeepID)
-			for i, v := range b.queueIDs {
-				if v == upkeepID {
-					b.queueIDs = append(b.queueIDs[:i], b.queueIDs[i+1:]...)
-					break
-				}
-			}
+		} else {
+			newQueueIDs = append(newQueueIDs, upkeepID)
 		}
 	}
+
+	b.queueIDs = newQueueIDs
 
 	return nil
 }
@@ -255,14 +255,7 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	found := false
-	for _, id := range b.queueIDs {
-		if id == uid.String() {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if _, ok := b.queues[uid.String()]; !ok {
 		b.queueIDs = append(b.queueIDs, uid.String())
 	}
 	b.queues[uid.String()] = buf
