@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -14,7 +13,6 @@ import (
 )
 
 func TestOCRSoak(t *testing.T) {
-	l := logging.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := ``
 	// Uncomment below for debugging TOML issues on the node
@@ -22,14 +20,27 @@ func TestOCRSoak(t *testing.T) {
 	// fmt.Println("Using Chainlink TOML\n---------------------")
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
-
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, customNetworkTOML)
+}
 
-	// validate Seth config before anything else
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	_, err = actions_seth.GetChainClient(config, network)
-	require.NoError(t, err, "Error creating seth client")
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, "")
+}
+
+func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, "")
+}
+
+func runOCRSoakTest(t *testing.T, config tc.TestConfig, customNetworkTOML string) {
+	l := logging.GetTestLogger(t)
+
+	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
 	require.NoError(t, err, "Error creating soak test")

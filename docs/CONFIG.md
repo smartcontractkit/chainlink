@@ -1199,6 +1199,33 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.ExternalRegistry
+```toml
+[Capabilities.ExternalRegistry]
+Address = '0x0' # Example
+NetworkID = 'evm' # Default
+ChainID = '1' # Default
+```
+
+
+### Address
+```toml
+Address = '0x0' # Example
+```
+Address is the address for the capabilities registry contract.
+
+### NetworkID
+```toml
+NetworkID = 'evm' # Default
+```
+NetworkID identifies the target network where the remote registry is located.
+
+### ChainID
+```toml
+ChainID = '1' # Default
+```
+ChainID identifies the target chain id where the remote registry is located.
+
 ## Capabilities.Peering
 ```toml
 [Capabilities.Peering]
@@ -3447,7 +3474,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3500,7 +3527,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -3537,7 +3564,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3590,7 +3617,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -3627,7 +3654,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -3680,7 +3707,7 @@ CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 5
+HistoryDepth = 50
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -3808,7 +3835,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -3987,7 +4014,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -4077,7 +4104,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -4257,7 +4284,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -4347,7 +4374,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'wemix'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -4436,7 +4463,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -4885,7 +4912,7 @@ GasLimit = 3800000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -5336,7 +5363,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'celo'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -5425,7 +5452,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LinkContractAddress = '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846'
 LogBackfillBatchSize = 1000
@@ -5515,7 +5542,7 @@ GasLimit = 5400000
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogBackfillBatchSize = 1000
@@ -5606,7 +5633,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'celo'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
@@ -5963,7 +5990,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'metis'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -6774,7 +6801,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -6864,7 +6891,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
-FinalityDepth = 1
+FinalityDepth = 10
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '3s'
@@ -7435,8 +7462,6 @@ ChainType = 'arbitrum' # Example
 ```
 ChainType is automatically detected from chain ID. Set this to force a certain chain type regardless of chain ID.
 Available types: `arbitrum`, `celo`, `gnosis`, `kroma`, `metis`, `optimismBedrock`, `scroll`, `wemix`, `xlayer`, `zksync`
-
-`xdai` has been deprecated and will be removed in v2.13.0, use `gnosis` instead.
 
 ### FinalityDepth
 ```toml
@@ -8362,9 +8387,9 @@ GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 
-## EVM.ChainWriter
+## EVM.Workflow
 ```toml
-[EVM.ChainWriter]
+[EVM.Workflow]
 FromAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ForwarderAddress = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292' # Example
 ```
@@ -8519,6 +8544,7 @@ ComputeUnitPriceMax = 1000 # Default
 ComputeUnitPriceMin = 0 # Default
 ComputeUnitPriceDefault = 0 # Default
 FeeBumpPeriod = '3s' # Default
+BlockHistoryPollPeriod = '5s' # Default
 ```
 
 
@@ -8624,6 +8650,12 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 FeeBumpPeriod = '3s' # Default
 ```
 FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+
+### BlockHistoryPollPeriod
+```toml
+BlockHistoryPollPeriod = '5s' # Default
+```
+BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 
 ## Solana.Nodes
 ```toml

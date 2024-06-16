@@ -18,10 +18,16 @@ var (
 	reportA = []byte{0x01, 0x02, 0x03}
 	reportB = []byte{0xaa, 0xbb, 0xcc, 0xdd}
 
-	workflowID      = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-	donID           = "00010203"
-	executionID     = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
-	workflowOwnerID = "0000000000000000000000000000000000000000"
+	workflowID       = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
+	workflowName     = "aabbccddeeaabbccddee"
+	donID            = "00010203"
+	executionID      = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
+	workflowOwnerID  = "0000000000000000000000000000000000000000"
+	reportID         = "9988"
+	timestampInt     = uint32(1234567890)
+	timestampHex     = "499602d2"
+	configVersionInt = uint32(1)
+	configVersionHex = "00000001"
 
 	invalidID   = "not_valid"
 	wrongLength = "8d4e66"
@@ -38,9 +44,8 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -49,10 +54,7 @@ func TestEVMEncoder_SingleField(t *testing.T) {
 
 	expected :=
 		// start of the outer tuple
-		workflowID +
-			donID +
-			executionID +
-			workflowOwnerID +
+		getHexMetadata() +
 			// start of the inner tuple (user_fields)
 			"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Full_reports array
 			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Full_reports array
@@ -77,10 +79,9 @@ func TestEVMEncoder_TwoFields(t *testing.T) {
 
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	input := map[string]any{
-		"Prices":                            []any{big.NewInt(234), big.NewInt(456)},
-		"Timestamps":                        []any{int64(111), int64(222)},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Prices":                         []any{big.NewInt(234), big.NewInt(456)},
+		"Timestamps":                     []any{int64(111), int64(222)},
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -89,10 +90,7 @@ func TestEVMEncoder_TwoFields(t *testing.T) {
 
 	expected :=
 		// start of the outer tuple
-		workflowID +
-			donID +
-			executionID +
-			workflowOwnerID +
+		getHexMetadata() +
 			// start of the inner tuple (user_fields)
 			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of Prices array
 			"00000000000000000000000000000000000000000000000000000000000000a0" + // offset of Timestamps array
@@ -121,8 +119,7 @@ func TestEVMEncoder_Tuple(t *testing.T) {
 			"Prices":     []any{big.NewInt(234), big.NewInt(456)},
 			"Timestamps": []any{int64(111), int64(222)},
 		},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -131,10 +128,7 @@ func TestEVMEncoder_Tuple(t *testing.T) {
 
 	expected :=
 		// start of the outer tuple
-		workflowID +
-			donID +
-			executionID +
-			workflowOwnerID +
+		getHexMetadata() +
 			// start of the inner tuple (user_fields)
 			"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Elem tuple
 			"0000000000000000000000000000000000000000000000000000000000000040" + // offset of Prices array
@@ -170,8 +164,7 @@ func TestEVMEncoder_ListOfTuples(t *testing.T) {
 				"Timestamp": int64(222),
 			},
 		},
-		consensustypes.WorkflowIDFieldName:  workflowID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		consensustypes.MetadataFieldName: getMetadata(workflowID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -180,10 +173,7 @@ func TestEVMEncoder_ListOfTuples(t *testing.T) {
 
 	expected :=
 		// start of the outer tuple
-		workflowID +
-			donID +
-			executionID +
-			workflowOwnerID +
+		getHexMetadata() +
 			// start of the inner tuple (user_fields)
 			"0000000000000000000000000000000000000000000000000000000000000020" + // offset of Elem list
 			"0000000000000000000000000000000000000000000000000000000000000002" + // length of Elem list
@@ -207,9 +197,8 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 	// output of a DF2.0 aggregator + metadata fields appended by OCR
 	// using an invalid ID
 	input := map[string]any{
-		"Full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  invalidID,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(invalidID),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
@@ -218,12 +207,29 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 
 	// using valid hex string of wrong length
 	input = map[string]any{
-		"full_reports":                      []any{reportA, reportB},
-		consensustypes.WorkflowIDFieldName:  wrongLength,
-		consensustypes.ExecutionIDFieldName: executionID,
+		"Full_reports":                   []any{reportA, reportB},
+		consensustypes.MetadataFieldName: getMetadata(wrongLength),
 	}
 	wrapped, err = values.NewMap(input)
 	require.NoError(t, err)
 	_, err = enc.Encode(testutils.Context(t), *wrapped)
 	assert.ErrorContains(t, err, "incorrect length for id")
+}
+
+func getHexMetadata() string {
+	return "01" + executionID + timestampHex + donID + configVersionHex + workflowID + workflowName + workflowOwnerID + reportID
+}
+
+func getMetadata(cid string) consensustypes.Metadata {
+	return consensustypes.Metadata{
+		Version:          1,
+		ExecutionID:      executionID,
+		Timestamp:        timestampInt,
+		DONID:            donID,
+		DONConfigVersion: configVersionInt,
+		WorkflowID:       cid,
+		WorkflowName:     workflowName,
+		WorkflowOwner:    workflowOwnerID,
+		ReportID:         reportID,
+	}
 }

@@ -1,4 +1,4 @@
 GETH_VERSION: 1.13.8
-forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin 2407c8de12f430c9907f5fdc7a93398c0085c2800b88c11344b10f849cd854a7
-keystone_capability_registry: ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.abi ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.bin 0a79d0eba13fd4a4b83d7618bb181c21c42222f3cc6c5a90a09302f685555033
-ocr3_capability: ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.bin 9dcbdf55bd5729ba266148da3f17733eb592c871c2108ccca546618628fd9ad2
+forwarder: ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.19/KeystoneForwarder/KeystoneForwarder.bin bd15b7c5cecc87d44cac0b8414627cfb2c0e1cdd554df60a50dcb682f9a05129
+keystone_capability_registry: ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.abi ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.bin cc978f3a11c405f0559cf1d371ed8a1553d9b9975e8b3915a142cc781d280823
+ocr3_capability: ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.19/OCR3Capability/OCR3Capability.bin 144f23145878b95d1672e4919874eddeeaa38ce520d0edbe72c6677e39bb4741

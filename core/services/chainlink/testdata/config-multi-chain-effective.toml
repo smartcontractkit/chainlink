@@ -249,6 +249,11 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
+[Capabilities.ExternalRegistry]
+Address = ''
+NetworkID = 'evm'
+ChainID = '1'
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -579,6 +584,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
+BlockHistoryPollPeriod = '5s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -601,6 +607,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 0
 ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
+BlockHistoryPollPeriod = '5s'
 
 [[Solana.Nodes]]
 Name = 'secondary'

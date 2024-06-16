@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,44 +22,69 @@ import (
 //
 // client communicates with corresponding server on remote nodes.
 type client struct {
+	services.StateMachine
 	lggr                 logger.Logger
 	remoteCapabilityInfo commoncap.CapabilityInfo
-	localDONInfo         capabilities.DON
+	localDONInfo         commoncap.DON
 	dispatcher           types.Dispatcher
 	requestTimeout       time.Duration
 
 	messageIDToCallerRequest map[string]*request.ClientRequest
 	mutex                    sync.Mutex
+	stopCh                   services.StopChan
+	wg                       sync.WaitGroup
 }
 
 var _ commoncap.TargetCapability = &client{}
 var _ types.Receiver = &client{}
+var _ services.Service = &client{}
 
-func NewClient(ctx context.Context, lggr logger.Logger, remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration) *client {
-	c := &client{
+func NewClient(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
+	requestTimeout time.Duration, lggr logger.Logger) *client {
+	return &client{
 		lggr:                     lggr,
 		remoteCapabilityInfo:     remoteCapabilityInfo,
 		localDONInfo:             localDonInfo,
 		dispatcher:               dispatcher,
 		requestTimeout:           requestTimeout,
 		messageIDToCallerRequest: make(map[string]*request.ClientRequest),
+		stopCh:                   make(services.StopChan),
 	}
+}
 
-	go func() {
-		ticker := time.NewTicker(requestTimeout)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				c.expireRequests()
-			}
+func (c *client) Start(ctx context.Context) error {
+	return c.StartOnce(c.Name(), func() error {
+		c.wg.Add(1)
+		go func() {
+			defer c.wg.Done()
+			c.checkForExpiredRequests()
+		}()
+		c.lggr.Info("TargetClient started")
+		return nil
+	})
+}
+
+func (c *client) Close() error {
+	return c.StopOnce(c.Name(), func() error {
+		close(c.stopCh)
+		c.cancelAllRequests(errors.New("client closed"))
+		c.wg.Wait()
+		c.lggr.Info("TargetClient closed")
+		return nil
+	})
+}
+
+func (c *client) checkForExpiredRequests() {
+	ticker := time.NewTicker(c.requestTimeout)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.stopCh:
+			return
+		case <-ticker.C:
+			c.expireRequests()
 		}
-	}()
-
-	return c
+	}
 }
 
 func (c *client) expireRequests() {
@@ -71,6 +96,14 @@ func (c *client) expireRequests() {
 			req.Cancel(errors.New("request expired"))
 			delete(c.messageIDToCallerRequest, messageID)
 		}
+	}
+}
+
+func (c *client) cancelAllRequests(err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	for _, req := range c.messageIDToCallerRequest {
+		req.Cancel(err)
 	}
 }
 
@@ -112,11 +145,9 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	return req.ResponseChan(), nil
 }
 
-func (c *client) Receive(msg *types.MessageBody) {
+func (c *client) Receive(ctx context.Context, msg *types.MessageBody) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	// TODO should the dispatcher be passing in a context?
-	ctx := context.Background()
 
 	messageID := GetMessageID(msg)
 
@@ -126,11 +157,9 @@ func (c *client) Receive(msg *types.MessageBody) {
 		return
 	}
 
-	go func() {
-		if err := req.OnMessage(ctx, msg); err != nil {
-			c.lggr.Errorw("failed to add response to request", "messageID", messageID, "err", err)
-		}
-	}()
+	if err := req.OnMessage(ctx, msg); err != nil {
+		c.lggr.Errorw("failed to add response to request", "messageID", messageID, "err", err)
+	}
 }
 
 func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
@@ -139,4 +168,16 @@ func GetMessageIDForRequest(req commoncap.CapabilityRequest) (string, error) {
 	}
 
 	return req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID, nil
+}
+
+func (c *client) Ready() error {
+	return nil
+}
+
+func (c *client) HealthReport() map[string]error {
+	return nil
+}
+
+func (c *client) Name() string {
+	return "TargetClient"
 }

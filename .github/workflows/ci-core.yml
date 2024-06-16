@@ -69,13 +69,13 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Notify Slack
-        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#team-core"
-          slack-message: "golangci-lint failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+          slack-message: "golangci-lint failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
 
   core:
     env:
@@ -170,7 +170,7 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
-          CL_DATABASE_URL: ${{ env.DB_URL }}  
+          CL_DATABASE_URL: ${{ env.DB_URL }}
         run: ./tools/bin/${{ matrix.type.cmd }} ./...
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.type.cmd == 'go_core_tests' && needs.filter.outputs.changes == 'true' }}
@@ -187,6 +187,8 @@ jobs:
           else
             echo "post_to_slack=false" >> $GITHUB_OUTPUT
           fi
+          echo "github.event_name: ${{ github.event_name }}"
+          echo "github.ref: ${{ github.ref }}"
       - name: Print postgres logs
         if: ${{ always() &&  needs.filter.outputs.changes == 'true' }}
         run: docker compose logs postgres | tee ../../../postgres_logs.txt
@@ -203,13 +205,13 @@ jobs:
             ./coverage.txt
             ./postgres_logs.txt
       - name: Notify Slack
-        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && steps.print-races.outputs.post_to_slack == 'true' && matrix.type.cmd == 'go_core_race_tests' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') && needs.filter.outputs.changes == 'true' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: "#topic-data-races"
-          slack-message: "Race tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
+          slack-message: "Race tests failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}"
       - name: Collect Path Output
         id: collect-path-output
         env:
@@ -223,7 +225,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.filter.outputs.changes == 'true' && always() }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2954caaadb1b194740b24fde41daf3f4e6d1eba7
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ matrix.type.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

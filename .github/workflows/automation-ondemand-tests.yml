@@ -155,7 +155,7 @@ jobs:
             os: ubuntu-latest
             enabled: ${{ inputs.enableReorg }}
             pyroscope_env: ci-automation-on-demand-reorg
-            network: SIMULATED_NONDEV
+            network: SIMULATED
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade 2.0
             id: upgrade-2.0
@@ -218,7 +218,7 @@ jobs:
             echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -226,11 +226,6 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
-          # metrics inputs
-          metrics-job-name: "grafana"
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Prepare Base64 TOML config
         env:
           SELECTED_NETWORKS: ${{ matrix.tests.network }}

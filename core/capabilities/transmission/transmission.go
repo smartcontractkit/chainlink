@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/crypto/sha3"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/libocr/permutation"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-)
+	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
-// TODO determine location for this code
+	"golang.org/x/crypto/sha3"
+)
 
 var (
 	// S = [N]
@@ -27,7 +27,7 @@ type TransmissionConfig struct {
 	DeltaStage time.Duration
 }
 
-func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
+func extractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	var tc struct {
 		DeltaStage string
 		Schedule   string
@@ -49,11 +49,21 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 }
 
 // GetPeerIDToTransmissionDelay returns a map of PeerID to the time.Duration that the node with that PeerID should wait
-// before transmitting. If a node is not in the map, it should not transmit.  The sharedSecret is shared by nodes in the
-// same DON and used to generate a deterministic schedule for the transmission delays.
-func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret [16]byte, transmissionID string, tc TransmissionConfig) (map[p2ptypes.PeerID]time.Duration, error) {
+// before transmitting the capability request. If a node is not in the map, it should not transmit.
+func GetPeerIDToTransmissionDelay(donPeerIDs []types.PeerID, req capabilities.CapabilityRequest) (map[types.PeerID]time.Duration, error) {
+	tc, err := extractTransmissionConfig(req.Config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
+	}
+
+	if req.Metadata.WorkflowID == "" || req.Metadata.WorkflowExecutionID == "" {
+		return nil, errors.New("workflow ID and workflow execution ID must be set in request metadata")
+	}
+
+	transmissionID := req.Metadata.WorkflowID + req.Metadata.WorkflowExecutionID
+
 	donMemberCount := len(donPeerIDs)
-	key := transmissionScheduleSeed(sharedSecret, transmissionID)
+	key := transmissionScheduleSeed(transmissionID)
 	schedule, err := createTransmissionSchedule(tc.Schedule, donMemberCount)
 	if err != nil {
 		return nil, err
@@ -61,7 +71,7 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []ragep2ptypes.PeerID, sharedSecret
 
 	picked := permutation.Permutation(donMemberCount, key)
 
-	peerIDToTransmissionDelay := map[p2ptypes.PeerID]time.Duration{}
+	peerIDToTransmissionDelay := map[types.PeerID]time.Duration{}
 	for i, peerID := range donPeerIDs {
 		delay := delayFor(i, schedule, picked, tc.DeltaStage)
 		if delay != nil {
@@ -98,11 +108,9 @@ func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
 	return nil, fmt.Errorf("unknown schedule type %s", scheduleType)
 }
 
-func transmissionScheduleSeed(sharedSecret [16]byte, transmissionID string) [16]byte {
+func transmissionScheduleSeed(transmissionID string) [16]byte {
 	hash := sha3.NewLegacyKeccak256()
-	hash.Write(sharedSecret[:])
 	hash.Write([]byte(transmissionID))
-
 	var key [16]byte
 	copy(key[:], hash.Sum(nil))
 	return key

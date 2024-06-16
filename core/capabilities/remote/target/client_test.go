@@ -11,6 +11,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -21,8 +22,7 @@ import (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
@@ -59,8 +59,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -98,8 +97,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -138,10 +136,9 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -155,7 +152,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		ID:      "workflow-don",
 	}
 
-	broker := newTestMessageBroker()
+	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -166,12 +163,16 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
+
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		caller := target.NewClient(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout)
+		caller := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout, lggr)
+		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
 	}
+
+	servicetest.Run(t, broker)
 
 	executeInputs, err := values.NewMap(
 		map[string]any{
@@ -187,6 +188,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	// Fire off all the requests
 	for _, caller := range callers {
 		go func(caller commoncap.TargetCapability) {
+			defer wg.Done()
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
@@ -198,7 +200,6 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 				})
 
 			responseTest(t, responseCh, err)
-			wg.Done()
 		}(caller)
 	}
 
@@ -228,7 +229,7 @@ func newTestServer(peerID p2ptypes.PeerID, dispatcher remotetypes.Dispatcher, wo
 	}
 }
 
-func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
+func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
@@ -257,7 +258,7 @@ func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
 
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
-				CapabilityId:    "cap_id",
+				CapabilityId:    "cap_id@1.0.0",
 				CapabilityDonId: "capability-don",
 				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
@@ -296,7 +297,7 @@ func NewTestDispatcher() *TestDispatcher {
 }
 
 func (t *TestDispatcher) SendToReceiver(msgBody *remotetypes.MessageBody) {
-	t.receiver.Receive(msgBody)
+	t.receiver.Receive(context.Background(), msgBody)
 }
 
 func (t *TestDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {

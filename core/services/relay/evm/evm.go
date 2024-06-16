@@ -132,7 +132,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	mercuryORM := mercury.NewORM(opts.DS)
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
-	return &Relayer{
+	relayer := &Relayer{
 		ds:                   opts.DS,
 		chain:                chain,
 		lggr:                 lggr,
@@ -143,7 +143,22 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		mercuryORM:           mercuryORM,
 		transmitterCfg:       opts.TransmitterConfig,
 		capabilitiesRegistry: opts.CapabilitiesRegistry,
-	}, nil
+	}
+
+	// Initialize write target capability if configuration is defined
+	if chain.Config().EVM().Workflow().ForwarderAddress() != nil {
+		ctx := context.Background()
+		capability, err := NewWriteTarget(ctx, relayer, chain, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize write target: %w", err)
+		}
+		if err := relayer.capabilitiesRegistry.Add(ctx, capability); err != nil {
+			return nil, err
+		}
+		lggr.Infow("Registered write target", "chain_id", chain.ID())
+	}
+
+	return relayer, nil
 }
 
 func (r *Relayer) Name() string {
@@ -478,7 +493,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 				defer cancel()
 				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
 				if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {
-					c.lggr.Errorf("error replaying for config", "err", err)
+					c.lggr.Errorw("error replaying for config", "err", err)
 				} else {
 					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
 				}

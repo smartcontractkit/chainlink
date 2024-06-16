@@ -367,11 +367,12 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			Version: "1.0.0",
 		}
 		cfg = feeds.ChainConfig{
-			FeedsManagerID: mgr.ID,
-			ChainID:        "42",
-			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000000000000000000000000000000000000000",
-			AdminAddress:   "0x0000000000000000000000000000000000000001",
+			FeedsManagerID:          mgr.ID,
+			ChainID:                 "42",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0000000000000000000000000000000000000000",
+			AccountAddressPublicKey: null.StringFrom("0x0000000000000000000000000000000000000002"),
+			AdminAddress:            "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -398,11 +399,12 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 					Id:   cfg.ChainID,
 					Type: proto.ChainType_CHAIN_TYPE_EVM,
 				},
-				AccountAddress:    cfg.AccountAddress,
-				AdminAddress:      cfg.AdminAddress,
-				FluxMonitorConfig: &proto.FluxMonitorConfig{Enabled: true},
-				Ocr1Config:        &proto.OCR1Config{Enabled: false},
-				Ocr2Config:        &proto.OCR2Config{Enabled: false},
+				AccountAddress:          cfg.AccountAddress,
+				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+				AdminAddress:            cfg.AdminAddress,
+				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+				Ocr1Config:              &proto.OCR1Config{Enabled: false},
+				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
@@ -489,14 +491,15 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			Version: "1.0.0",
 		}
 		cfg = feeds.ChainConfig{
-			FeedsManagerID:    mgr.ID,
-			ChainID:           "42",
-			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000000000000000000000000000000000000000",
-			AdminAddress:      "0x0000000000000000000000000000000000000001",
-			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
-			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
+			FeedsManagerID:          mgr.ID,
+			ChainID:                 "42",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0000000000000000000000000000000000000000",
+			AccountAddressPublicKey: null.StringFrom("0x0000000000000000000000000000000000000002"),
+			AdminAddress:            "0x0000000000000000000000000000000000000001",
+			FluxMonitorConfig:       feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:              feeds.OCR1Config{Enabled: false},
+			OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
 		}
 
 		svc = setupTestService(t)
@@ -514,11 +517,12 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 					Id:   cfg.ChainID,
 					Type: proto.ChainType_CHAIN_TYPE_EVM,
 				},
-				AccountAddress:    cfg.AccountAddress,
-				AdminAddress:      cfg.AdminAddress,
-				FluxMonitorConfig: &proto.FluxMonitorConfig{Enabled: false},
-				Ocr1Config:        &proto.OCR1Config{Enabled: false},
-				Ocr2Config:        &proto.OCR2Config{Enabled: false},
+				AccountAddress:          cfg.AccountAddress,
+				AdminAddress:            cfg.AdminAddress,
+				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: false},
+				Ocr1Config:              &proto.OCR1Config{Enabled: false},
+				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
@@ -648,39 +652,15 @@ func Test_Service_ProposeJob(t *testing.T) {
 		httpTimeout = *commonconfig.MustNewDuration(1 * time.Second)
 
 		// variables for workflow spec
-		wfID     = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
-		wfOwner  = "00000000000000000000000000000000000000aa"
-		wfName   = "my-workflow"
-		specYaml = `
-triggers:
-  - id: "a-trigger"
-
-actions:
-  - id: "an-action"
-    ref: "an-action"
-    inputs:
-      trigger_output: $(trigger.outputs)
-
-consensus:
-  - id: "a-consensus"
-    ref: "a-consensus"
-    inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
-
-targets:
-  - id: "a-target"
-    ref: "a-target"
-    inputs: 
-      consensus_output: $(a-consensus.outputs)
-`
-		wfSpec       = testspecs.GenerateWorkflowSpec(wfID, wfOwner, wfName, specYaml).Toml()
-		proposalIDWF = int64(11)
-		remoteUUIDWF = uuid.New()
-		argsWF       = &feeds.ProposeJobArgs{
+		wfJobSpec           = testspecs.DefaultWorkflowJobSpec(t)
+		proposalIDWF        = int64(11)
+		jobProposalSpecIdWF = int64(101)
+		jobIDWF             = int32(1001)
+		remoteUUIDWF        = uuid.New()
+		argsWF              = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDWF,
-			Spec:           wfSpec,
+			Spec:           wfJobSpec.Toml(),
 			Version:        1,
 		}
 		jpWF = feeds.JobProposal{
@@ -689,8 +669,22 @@ targets:
 			RemoteUUID:     remoteUUIDWF,
 			Status:         feeds.JobProposalStatusPending,
 		}
+		acceptedjpWF = feeds.JobProposal{
+			ID:             13,
+			FeedsManagerID: 1,
+			Name:           null.StringFrom("test-spec"),
+			RemoteUUID:     remoteUUIDWF,
+			Status:         feeds.JobProposalStatusPending,
+		}
 		proposalSpecWF = feeds.JobProposalSpec{
-			Definition:    wfSpec,
+			Definition:    wfJobSpec.Toml(),
+			Status:        feeds.SpecStatusPending,
+			Version:       1,
+			JobProposalID: proposalIDWF,
+		}
+		autoApprovableProposalSpecWF = feeds.JobProposalSpec{
+			ID:            jobProposalSpecIdWF,
+			Definition:    wfJobSpec.Toml(),
 			Status:        feeds.SpecStatusPending,
 			Version:       1,
 			JobProposalID: proposalIDWF,
@@ -705,11 +699,11 @@ targets:
 		wantErr string
 	}{
 		{
-			name: "Auto approve WF spec",
+			name: "Auto approve new WF spec",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
-				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
 				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
@@ -718,26 +712,31 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
-				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
-					proposalSpecWF.JobProposalID,
+					jobProposalSpecIdWF,
 					mock.IsType(uuid.UUID{}),
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
@@ -751,13 +750,14 @@ targets:
 			args:   argsWF,
 			wantID: proposalIDWF,
 		},
+
 		{
-			name: "Auto approve WF spec: error creating job",
+			name: "Auto approve existing WF spec found by FindJobIDByWorkflow",
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
-				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(int64(100), nil)
-				//			svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
+				svc.orm.On("CountJobProposalsByStatus", mock.Anything).Return(&feeds.JobProposalCounts{}, nil)
 				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 				transactCall.Run(func(args mock.Arguments) {
 					fn := args[1].(func(orm feeds.ORM) error)
@@ -765,19 +765,79 @@ targets:
 				})
 				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
 				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
-				svc.orm.EXPECT().GetSpec(mock.Anything, proposalIDWF).Return(&proposalSpecWF, nil)
-				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, autoApprovableProposalSpecWF.JobProposalID).Return(&acceptedjpWF, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
 
-				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows) // TODO fix the external job id in wf spec generation
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
 				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
 				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(jobIDWF, sql.ErrNoRows)
+				svc.orm.On("GetApprovedSpec", mock.Anything, acceptedjpWF.ID).Return(&autoApprovableProposalSpecWF, nil)
+				svc.orm.On("CancelSpec", mock.Anything, autoApprovableProposalSpecWF.ID).Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, jobIDWF).Return(nil)
 				svc.spawner.
 					On("CreateJob",
 						mock.Anything,
 						mock.Anything,
 						mock.MatchedBy(func(j *job.Job) bool {
-							return j.WorkflowSpec.WorkflowOwner == wfOwner
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(nil)
+				svc.orm.On("ApproveSpec",
+					mock.Anything,
+					jobProposalSpecIdWF,
+					mock.IsType(uuid.UUID{}),
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid:    jpWF.RemoteUUID.String(),
+						Version: int64(proposalSpecWF.Version),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+			},
+			args:   argsWF,
+			wantID: proposalIDWF,
+		},
+
+		{
+			name: "Auto approve WF spec: error creating job for new spec",
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposalByRemoteUUID", mock.Anything, argsWF.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", mock.Anything, &jpWF).Return(proposalIDWF, nil)
+				svc.orm.On("CreateSpec", mock.Anything, proposalSpecWF).Return(jobProposalSpecIdWF, nil)
+				transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
+				transactCall.Run(func(args mock.Arguments) {
+					fn := args[1].(func(orm feeds.ORM) error)
+					transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
+				})
+				// Auto approve is really a call to ApproveJobProposal and so we have to mock that as well
+				svc.connMgr.On("GetClient", argsWF.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.EXPECT().GetSpec(mock.Anything, jobProposalSpecIdWF).Return(&proposalSpecWF, nil)
+				svc.orm.EXPECT().GetJobProposal(mock.Anything, proposalSpecWF.JobProposalID).Return(&jpWF, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+				svc.jobORM.On("FindJobIDByWorkflow", mock.Anything, mock.Anything).Return(int32(0), sql.ErrNoRows) // no existing job
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							match := j.WorkflowSpec.Workflow == wfJobSpec.Job().WorkflowSpec.Workflow
+							if !match {
+								t.Logf("got wf spec %s want %s", j.WorkflowSpec.Workflow, wfJobSpec.Job().WorkflowSpec.Workflow)
+							}
+							return match
 						}),
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
