@@ -5,9 +5,10 @@ import "./BaseFeeManagerNoNative.t.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 /**
- * @title BaseFeeManagerTest
+ * @title FeeManagerNoNativeProcessFeeBulkTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the feeManager processFee
+ * @author ad0ll
+ * @notice This contract will test the functionality of the FeeManagerNoNative processFeeBulk function
  */
 contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
   uint256 internal constant NUMBER_OF_REPORTS = 5;
@@ -29,7 +30,7 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
     processFee(payloads, USER, address(link));
 
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
-    assertEq(getLinkBalance(address(feeManager)), 0);
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 0);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
 
     //the subscriber (user) should receive funds back and not the proxy, although when live the proxy will forward the funds sent and not cover it seen here
@@ -38,7 +39,7 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_processMultipleWrappedNativeReports() public {
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
 
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
@@ -47,18 +48,18 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
       payloads[i] = payload;
     }
 
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS, USER);
 
     processFee(payloads, USER, address(native));
 
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
-    assertEq(getLinkBalance(address(feeManager)), 1);
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 1);
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
   }
 
   function test_processV1V2V3Reports() public {
-    mintLink(address(feeManager), 1);
+    mintLink(address(feeManagerNoNative), 1);
 
     bytes memory payloadV1 = abi.encode(
       [DEFAULT_CONFIG_DIGEST, 0, 0],
@@ -82,17 +83,17 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
 
     processFee(payloads, USER, address(link));
 
-    assertEq(getNativeBalance(address(feeManager)), 0);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), 0);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 4);
-    assertEq(getLinkBalance(address(feeManager)), 1);
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 1);
 
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 4);
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - 0);
   }
 
   function test_processV1V2V3ReportsWithWrapped() public {
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * 4 + 1);
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 4, USER);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE * 4 + 1);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE * 4, USER);
 
     bytes memory payloadV1 = abi.encode(
       [DEFAULT_CONFIG_DIGEST, 0, 0],
@@ -114,9 +115,9 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
 
     processFee(payloads, USER, address(native));
 
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 4);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE * 4);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 4);
-    assertEq(getLinkBalance(address(feeManager)), 1);
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 1);
 
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 4);
     assertEq(getNativeBalance(PROXY), DEFAULT_NATIVE_MINT_QUANTITY);
@@ -152,7 +153,7 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
     payloads[3] = nativePayload;
     payloads[4] = nativePayload;
 
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 5, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE * 5, USER);
 
     IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](5);
     payments[0] = IRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
@@ -167,7 +168,7 @@ contract FeeManagerNoNativeProcessFeeBulkTest is BaseFeeManagerNoNativeTest {
 
     processFee(payloads, USER, address(native));
 
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 5);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY);
   }

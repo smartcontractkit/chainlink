@@ -4,9 +4,10 @@ pragma solidity 0.8.19;
 import "./BaseFeeManagerNoNative.t.sol";
 
 /**
- * @title BaseFeeManagerTest
+ * @title FeeManagerNoNativeProcessFeeTest
  * @author Michael Fletcher
- * @notice This contract will test the setup functionality of the feemanager
+ * @author ad0ll
+ * @notice This contract will test the setup functionality of the FeeManagerNoNative contract
  */
 contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
   function setUp() public override {
@@ -15,10 +16,10 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_WithdrawERC20() public {
     //simulate a fee
-    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+    mintLink(address(feeManagerNoNative), DEFAULT_LINK_MINT_QUANTITY);
 
     //get the balances to ne used for comparison
-    uint256 contractBalance = getLinkBalance(address(feeManager));
+    uint256 contractBalance = getLinkBalance(address(feeManagerNoNative));
     uint256 adminBalance = getLinkBalance(ADMIN);
 
     //the amount to withdraw
@@ -28,7 +29,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     withdraw(address(link), ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
-    uint256 newContractBalance = getLinkBalance(address(feeManager));
+    uint256 newContractBalance = getLinkBalance(address(feeManagerNoNative));
     uint256 newAdminBalance = getLinkBalance(ADMIN);
 
     //check the balance is greater than zero
@@ -41,10 +42,10 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_WithdrawUnwrappedNative() public {
     //issue funds straight to the contract to bypass the lack of fallback function
-    issueUnwrappedNative(address(feeManager), DEFAULT_NATIVE_MINT_QUANTITY);
+    issueUnwrappedNative(address(feeManagerNoNative), DEFAULT_NATIVE_MINT_QUANTITY);
 
     //get the balances to be used for comparison
-    uint256 contractBalance = getNativeUnwrappedBalance(address(feeManager));
+    uint256 contractBalance = getNativeUnwrappedBalance(address(feeManagerNoNative));
     uint256 adminBalance = getNativeUnwrappedBalance(ADMIN);
 
     //the amount to withdraw
@@ -54,7 +55,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     withdraw(NATIVE_WITHDRAW_ADDRESS, ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
-    uint256 newContractBalance = getNativeUnwrappedBalance(address(feeManager));
+    uint256 newContractBalance = getNativeUnwrappedBalance(address(feeManagerNoNative));
     uint256 newAdminBalance = getNativeUnwrappedBalance(ADMIN);
 
     //check the balance is greater than zero
@@ -67,7 +68,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_WithdrawNonAdminAddr() public {
     //simulate a fee
-    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+    mintLink(address(feeManagerNoNative), DEFAULT_LINK_MINT_QUANTITY);
 
     //should revert if not admin
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
@@ -106,7 +107,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_eventIsEmittedUponWithdraw() public {
     //simulate a fee
-    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+    mintLink(address(feeManagerNoNative), DEFAULT_LINK_MINT_QUANTITY);
 
     //the amount to withdraw
     uint192 withdrawAmount = 1;
@@ -123,20 +124,20 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_linkAvailableForPaymentReturnsLinkBalance() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //check there's a balance
-    assertGt(getLinkBalance(address(feeManager)), 0);
+    assertGt(getLinkBalance(address(feeManagerNoNative)), 0);
 
     //check the link available for payment is the link balance
-    assertEq(feeManager.linkAvailableForPayment(), getLinkBalance(address(feeManager)));
+    assertEq(feeManagerNoNative.linkAvailableForPayment(), getLinkBalance(address(feeManagerNoNative)));
   }
 
   function test_payLinkDeficit() public {
     //get the default payload
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
@@ -153,7 +154,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     assertEq(getLinkBalance(address(rewardManager)), 0);
 
     //simulate a deposit of link to cover the deficit
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     vm.expectEmit();
     emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE);
@@ -169,7 +170,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     //get the default payload
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
@@ -187,7 +188,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     assertEq(getLinkBalance(address(rewardManager)), 0);
 
     //simulate a deposit of link to cover the deficit
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     vm.expectEmit();
     emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE);
@@ -209,9 +210,9 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
-    //processing the fee will transfer the native from the user to the feeManager
+    //processing the fee will transfer the native from the user to the feeManagerNoNative
     processFee(payload, USER, address(native));
     processFee(payload, USER, address(native));
 
@@ -222,7 +223,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     assertEq(getLinkBalance(address(rewardManager)), 0);
 
     //simulate a deposit of link to cover the deficit
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * 2);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE * 2);
 
     vm.expectEmit();
     emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE * 2);

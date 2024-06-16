@@ -5,13 +5,14 @@ import {Common} from "../../libraries/Common.sol";
 import "./BaseFeeManagerNoNative.t.sol";
 
 /**
- * @title BaseFeeManagerTest
+ * @title FeeManagerNoNativeGetFeeAndRewardTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the feeManager's getFeeAndReward
+ * @author ad0ll
+ * @notice This contract will test the functionality of the FeeManagerNoNative's getFee and getReward functions
  */
 contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
   function test_baseFeeIsAppliedForNative() public {
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be the default
@@ -19,7 +20,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_baseFeeIsAppliedForLink() public {
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //fee should be the default
@@ -30,7 +31,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount for another user
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), INVALID_ADDRESS);
 
     //fee should be the default
@@ -49,7 +50,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //fee should be half the default
@@ -60,7 +61,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be half the default
@@ -71,7 +72,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //fee should be half the default
@@ -80,7 +81,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //remove the discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), 0, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //fee should be the default
@@ -94,7 +95,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge
@@ -111,7 +112,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //fee should be the default
@@ -125,7 +126,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge
@@ -137,7 +138,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //remove the surcharge
     setNativeSurcharge(0, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be the default
@@ -151,7 +152,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge
@@ -163,7 +164,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //change the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge
@@ -183,7 +184,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge quantity
@@ -200,7 +201,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //expect a revert
     vm.expectRevert(INVALID_QUOTE_ERROR);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     getFee(getV3Report(DEFAULT_FEED_1_V3), address(0), USER);
   }
 
@@ -208,7 +209,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(FEE_SCALAR, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be twice the base fee
@@ -219,7 +220,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(0, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should base fee
@@ -241,7 +242,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(FEE_SCALAR, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected discount quantity
@@ -255,7 +256,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 100%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be zero
@@ -266,7 +267,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected discount quantity
@@ -278,7 +279,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //remove the discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), 0, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be the base fee
@@ -289,7 +290,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected discount quantity
@@ -301,7 +302,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //change the discount to 25%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 4, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //expected discount is now 25%
@@ -329,7 +330,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //fee should be zero
@@ -351,7 +352,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected surcharge quantity
@@ -368,7 +369,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 33.333%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), discount, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //calculate the expected quantity
@@ -379,7 +380,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_reportWithNoExpiryOrFeeReturnsZero() public {
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV1Report(DEFAULT_FEED_1_V1), getNativeQuote(), USER);
 
     //fee should be zero
@@ -408,7 +409,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_2_V3), getNativeQuote(), USER);
 
     //fee should be the base fee
@@ -419,7 +420,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(
       getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, uint32(block.timestamp), 0, 0),
       getNativeQuote(),
@@ -437,7 +438,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the surcharge
     setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(
       getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, uint32(block.timestamp), 0, 0),
       getNativeQuote(),
@@ -463,7 +464,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_getBaseRewardWithLinkQuote() public {
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the base fee
@@ -474,7 +475,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the discounted base fee
@@ -482,7 +483,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
   }
 
   function test_getRewardWithNativeQuote() public {
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link
@@ -493,7 +494,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the native surcharge
     setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link regardless of the surcharge
@@ -504,7 +505,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 2, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the discounted base fee
@@ -515,7 +516,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 3, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal .66% + 1 of the base fee due to a 33% discount rounded up
@@ -526,7 +527,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 3, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
@@ -544,7 +545,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(link), FEE_SCALAR / 3, ADMIN);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link regardless of the surcharge
@@ -555,7 +556,7 @@ contract FeeManagerNoNativeGetFeeAndRewardTest is BaseFeeManagerNoNativeTest {
     //expect a revert
     vm.expectRevert(EXPIRED_REPORT_ERROR);
 
-    //get the fee required by the feeManager
+    //get the fee required by the feeManagerNoNative contract
     getFee(
       getV3ReportWithCustomExpiryAndFee(
         DEFAULT_FEED_1_V3,

@@ -16,6 +16,7 @@ import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
  * @title FeeManagerNoNative
  * @author Michael Fletcher
  * @author Austin Born
+ * @author ad0ll
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
 contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
@@ -120,7 +121,7 @@ contract FeeManagerNoNative is IFeeManager, ConfirmedOwner, TypeAndVersionInterf
   );
 
   /**
-   * @notice Construct the FeeManager contract
+   * @notice Construct the FeeManagerNoNative contract
    * @param _linkAddress The address of the LINK token
    * @param _nativeAddress The address of the wrapped ERC-20 version of the native token (represents fee in native or wrapped)
    * @param _proxyAddress The address of the proxy contract

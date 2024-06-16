@@ -13,12 +13,13 @@ import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";
 /**
  * @title BaseFeeManagerNoNativeTest
  * @author Michael Fletcher
- * @notice Base class for all feeManager tests
- * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup the feeManager
+ * @author ad0ll
+ * @notice Base class for all FeeManagerNoNative tests
+ * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup the FeeManagerNoNative
  */
 contract BaseFeeManagerNoNativeTest is Test {
   //contracts
-  FeeManagerNoNative internal feeManager;
+  FeeManagerNoNative internal feeManagerNoNative;
   RewardManager internal rewardManager;
   FeeManagerProxy internal feeManagerProxy;
 
@@ -98,18 +99,18 @@ contract BaseFeeManagerNoNativeTest is Test {
 
     feeManagerProxy = new FeeManagerProxy();
     rewardManager = new RewardManager(address(link));
-    feeManager = new FeeManagerNoNative(
+    feeManagerNoNative = new FeeManagerNoNative(
       address(link),
       address(native),
       address(feeManagerProxy),
       address(rewardManager)
     );
 
-    //link the feeManager to the proxy
-    feeManagerProxy.setFeeManager(feeManager);
+    //link the feeManagerNoNative to the proxy
+    feeManagerProxy.setFeeManager(feeManagerNoNative);
 
-    //link the feeManager to the reward manager
-    rewardManager.setFeeManager(address(feeManager));
+    //link the feeManagerNoNative to the reward manager
+    rewardManager.setFeeManager(address(feeManagerNoNative));
 
     //mint some tokens to the admin
     link.mint(ADMIN, DEFAULT_LINK_MINT_QUANTITY);
@@ -139,7 +140,7 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(sender);
 
     //set the discount
-    feeManager.updateSubscriberDiscount(subscriber, feedId, token, uint64(discount));
+    feeManagerNoNative.updateSubscriberDiscount(subscriber, feedId, token, uint64(discount));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -151,7 +152,7 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.setNativeSurcharge(uint64(surcharge));
+    feeManagerNoNative.setNativeSurcharge(uint64(surcharge));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -160,21 +161,21 @@ contract BaseFeeManagerNoNativeTest is Test {
   // solium-disable-next-line no-unused-vars
   function getFee(bytes memory report, address quote, address subscriber) public view returns (Common.Asset memory) {
     //get the fee
-    (Common.Asset memory fee, , ) = feeManager.getFeeAndReward(subscriber, report, quote);
+    (Common.Asset memory fee, , ) = feeManagerNoNative.getFeeAndReward(subscriber, report, quote);
 
     return fee;
   }
 
   function getReward(bytes memory report, address quote, address subscriber) public view returns (Common.Asset memory) {
     //get the reward
-    (, Common.Asset memory reward, ) = feeManager.getFeeAndReward(subscriber, report, quote);
+    (, Common.Asset memory reward, ) = feeManagerNoNative.getFeeAndReward(subscriber, report, quote);
 
     return reward;
   }
 
   function getAppliedDiscount(bytes memory report, address quote, address subscriber) public view returns (uint256) {
     //get the reward
-    (, , uint256 appliedDiscount) = feeManager.getFeeAndReward(subscriber, report, quote);
+    (, , uint256 appliedDiscount) = feeManagerNoNative.getFeeAndReward(subscriber, report, quote);
 
     return appliedDiscount;
   }
@@ -245,7 +246,7 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.withdraw(assetAddress, recipient, uint192(amount));
+    feeManagerNoNative.withdraw(assetAddress, recipient, uint192(amount));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -303,7 +304,7 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(sender);
 
     //process the fee
-    feeManager.processFee{value: wrappedNativeValue}(payload, abi.encode(tokenAddress), subscriber);
+    feeManagerNoNative.processFee{value: wrappedNativeValue}(payload, abi.encode(tokenAddress), subscriber);
 
     //change ProcessFeeAsUserback to the original address
     changePrank(originalAddr);
@@ -367,13 +368,13 @@ contract BaseFeeManagerNoNativeTest is Test {
     changePrank(sender);
 
     //approve the link to be transferred
-    feeManager.payLinkDeficit(configDigest);
+    feeManagerNoNative.payLinkDeficit(configDigest);
 
     //change back to the original address
     changePrank(originalAddr);
   }
 
   function getLinkDeficit(bytes32 configDigest) public view returns (uint256) {
-    return feeManager.s_linkDeficit(configDigest);
+    return feeManagerNoNative.s_linkDeficit(configDigest);
   }
 }

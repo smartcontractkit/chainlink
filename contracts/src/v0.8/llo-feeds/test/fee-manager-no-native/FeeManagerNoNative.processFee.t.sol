@@ -7,9 +7,10 @@ import "./BaseFeeManagerNoNative.t.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 /**
- * @title BaseFeeManagerTest
+ * @title FeeManagerNoNativeProcessFeedTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the feeManager processFee
+ * @author ad0ll
+ * @notice This contract will test the functionality of the FeeManagerNoNative processFee function
  */
 contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
   function setUp() public override {
@@ -48,11 +49,11 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
-    //expect a revert due to the feeManager being the subscriber
+    //expect a revert due to the feeManagerNoNative being the subscriber
     vm.expectRevert(INVALID_ADDRESS_ERROR);
 
     //process the fee will fail due to assertion
-    processFee(payload, address(feeManager), address(native));
+    processFee(payload, address(feeManagerNoNative), address(native));
   }
 
   function test_processFeeWithWithEmptyQuotePayload() public {
@@ -112,25 +113,25 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeNative() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
-    //processing the fee will transfer the native from the user to the feeManager
+    //processing the fee will transfer the native from the user to the feeManagerNoNative contract
     processFee(payload, USER, address(native));
 
     //check the native has been transferred
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE);
 
     //check the link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
-    //check the feeManager has had the link deducted, the remaining balance should be 0
-    assertEq(getLinkBalance(address(feeManager)), 0);
+    //check the feeManagerNoNative has had the link deducted, the remaining balance should be 0
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 0);
 
     //check the subscriber has had the native deducted
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
@@ -138,13 +139,13 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeEmitsEventIfNotEnoughLink() public {
     //simulate a deposit of half the link required for the fee
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE / 2);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE / 2);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //expect an emit as there's not enough link
     vm.expectEmit();
@@ -155,27 +156,27 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     //emit the event that is expected to be emitted
     emit InsufficientLink(contractFees);
 
-    //processing the fee will transfer the native from the user to the feeManager
+    //processing the fee will transfer the native from the user to the feeManagerNoNative contract
     processFee(payload, USER, address(native));
 
     //check the native has been transferred
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE);
 
     //check no link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), 0);
-    assertEq(getLinkBalance(address(feeManager)), DEFAULT_REPORT_LINK_FEE / 2);
+    assertEq(getLinkBalance(address(feeManagerNoNative)), DEFAULT_REPORT_LINK_FEE / 2);
 
     //check the subscriber has had the native deducted
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
   }
 
   function test_processFeeWithWrappedNative() public {
-    // Mint and approve LINK for feeManager transfer to rewardManager following successful verification
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
-    approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(feeManager));
+    // Mint and approve LINK for feeManagerNoNative transfer to rewardManager following successful verification
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
+    approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(feeManagerNoNative));
 
     // Mint and approve ERC20 representing native for the verification fee. USER given native ERC20 in setup
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -184,13 +185,13 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     processFee(payload, USER, address(native));
 
     //Check that fee manager has received wrapped native
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE);
 
     //check the link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
-    //check the feeManager has had the link deducted, the remaining balance should be 0
-    assertEq(getLinkBalance(address(feeManager)), 0);
+    //check the feeManagerNoNative has had the link deducted, the remaining balance should be 0
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 0);
 
     //check the subscriber has had the native deducted
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
@@ -198,7 +199,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeWithUnwrappedNativeLinkAddress() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -221,13 +222,13 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     processFee(payload, PROXY, address(link));
 
     //check the native unwrapped is no longer in the account
-    assertEq(getNativeBalance(address(feeManager)), 0);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), 0);
 
     //check the link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
-    //check the feeManager has had the link deducted, the remaining balance should be 0
-    assertEq(getLinkBalance(address(feeManager)), 0);
+    //check the feeManagerNoNative has had the link deducted, the remaining balance should be 0
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 0);
 
     //native should not be deducted, note that native was minted for PROXY in setup
     assertEq(getNativeBalance(PROXY), DEFAULT_NATIVE_MINT_QUANTITY);
@@ -235,8 +236,8 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeWithUnwrappedNativeWithExcessiveFee() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, PROXY);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, PROXY);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -245,14 +246,14 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     processFee(payload, PROXY, address(native));
 
     //check the native has been transferred and converted to wrapped native
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
-    assertEq(getNativeUnwrappedBalance(address(feeManager)), 0);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(getNativeUnwrappedBalance(address(feeManagerNoNative)), 0);
 
     //check the link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
 
-    //check the feeManager has had the link deducted, the remaining balance should be 0
-    assertEq(getLinkBalance(address(feeManager)), 0);
+    //check the feeManagerNoNative has had the link deducted, the remaining balance should be 0
+    assertEq(getLinkBalance(address(feeManagerNoNative)), 0);
 
     //check the subscriber has had the native deducted
     assertEq(getNativeBalance(PROXY), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
@@ -375,7 +376,7 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeWithZeroLinkNonZeroNativeWithNativeQuote() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
     bytes memory payload = getPayload(
@@ -383,19 +384,19 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
     );
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
-    //processing the fee will transfer the native from the user to the feeManager
+    //processing the fee will transfer the native from the user to the feeManagerNoNative contract
     processFee(payload, USER, address(native));
 
     //check the native has been transferred
-    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(getNativeBalance(address(feeManagerNoNative)), DEFAULT_REPORT_NATIVE_FEE);
 
     //check no link has been transferred to the rewardManager
     assertEq(getLinkBalance(address(rewardManager)), 0);
 
-    //check the feeManager has had no link deducted
-    assertEq(getLinkBalance(address(feeManager)), DEFAULT_REPORT_LINK_FEE);
+    //check the feeManagerNoNative has had no link deducted
+    assertEq(getLinkBalance(address(feeManagerNoNative)), DEFAULT_REPORT_LINK_FEE);
 
     //check the subscriber has had the native deducted
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
@@ -439,13 +440,13 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeWithDiscountEmitsEvent() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE / 2, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE / 2, USER);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
@@ -464,10 +465,10 @@ contract FeeManagerNoNativeProcessFeeTest is BaseFeeManagerNoNativeTest {
 
   function test_processFeeWithNoDiscountDoesNotEmitEvent() public {
     //simulate a deposit of link for the conversion pool
-    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+    mintLink(address(feeManagerNoNative), DEFAULT_REPORT_LINK_FEE);
 
     //approve the native to be transferred from the user
-    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    approveNative(address(feeManagerNoNative), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //get the default payload
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
