@@ -195,7 +195,7 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
     });
     s_capabilityRegistry.updateNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, ) = s_capabilityRegistry.getNode(P2P_ID_TWO);
+    CapabilityRegistry.NodeInfo memory node = s_capabilityRegistry.getNode(P2P_ID_TWO);
     assertEq(node.signer, NODE_OPERATOR_ONE_SIGNER_ADDRESS);
   }
 
@@ -217,13 +217,13 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
     emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_capabilityRegistry.updateNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    CapabilityRegistry.NodeInfo memory node = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
     assertEq(node.signer, NEW_NODE_SIGNER);
     assertEq(node.hashedCapabilityIds.length, 1);
     assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
-    assertEq(configCount, 2);
+    assertEq(node.configCount, 2);
   }
 
   function test_OwnerCanUpdateNodes() public {
@@ -244,12 +244,12 @@ contract CapabilityRegistry_UpdateNodesTest is BaseTest {
     emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_capabilityRegistry.updateNodes(nodes);
 
-    (CapabilityRegistry.NodeParams memory node, uint32 configCount) = s_capabilityRegistry.getNode(P2P_ID);
+    CapabilityRegistry.NodeInfo memory node = s_capabilityRegistry.getNode(P2P_ID);
     assertEq(node.nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(node.p2pId, P2P_ID);
     assertEq(node.signer, NEW_NODE_SIGNER);
     assertEq(node.hashedCapabilityIds.length, 1);
     assertEq(node.hashedCapabilityIds[0], s_basicHashedCapabilityId);
-    assertEq(configCount, 2);
+    assertEq(node.configCount, 2);
   }
 }

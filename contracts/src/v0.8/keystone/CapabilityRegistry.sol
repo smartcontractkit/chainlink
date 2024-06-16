@@ -63,7 +63,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The list of capabilities DON Ids supported by the node. A node
     /// can belong to multiple capabilities DONs. This list does not include a
     /// Workflow DON id if the node belongs to one.
-    uint32[] capabilitiesDONIds;
+    uint256[] capabilitiesDONIds;
   }
 
   struct Node {
@@ -607,32 +607,31 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
-  /// @return NodeParams The node data
-  /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) public view returns (NodeParams memory, uint32 configCount) {
+  /// @return nodeInfo NodeInfo The node data
+  function getNode(bytes32 p2pId) public view returns (NodeInfo memory nodeInfo) {
     return (
-      NodeParams({
+      NodeInfo({
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
         signer: s_nodes[p2pId].signer,
-        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values()
-      }),
-      s_nodes[p2pId].configCount
+        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values(),
+        configCount: s_nodes[p2pId].configCount,
+        workflowDONId: s_nodes[p2pId].workflowDONId,
+        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values()
+      })
     );
   }
 
   /// @notice Gets all nodes
-  /// @return nodeParams NodeParams[] All nodes in the capability registry
-  /// @return configCounts uint32[] All the config counts for the nodes in the capability registry
-  function getNodes() external view returns (NodeParams[] memory nodeParams, uint32[] memory configCounts) {
+  /// @return nodeInfos NodeInfo[] All nodes in the capability registry
+  function getNodes() external view returns (NodeInfo[] memory nodeInfos) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
-    nodeParams = new NodeParams[](p2pIds.length);
-    configCounts = new uint32[](p2pIds.length);
+    nodeInfos = new NodeInfo[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      (nodeParams[i], configCounts[i]) = getNode(p2pIds[i]);
+      nodeInfos[i] = getNode(p2pIds[i]);
     }
-    return (nodeParams, configCounts);
+    return nodeInfos;
   }
 
   /// @notice Adds a new capability to the capability registry
