@@ -268,10 +268,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeP2PId The P2P ID of the node
   error DuplicateDONNode(uint32 donId, bytes32 nodeP2PId);
 
-  /// @notice This error is thrown when attempting to add a node a second
-  // Workflow DON
-  error NodeBelongsToWorkflowDON(uint32 donId, bytes32 nodeP2PId);
-
   /// @notice This error is thrown when trying to configure a DON with invalid
   /// fault tolerance value.
   /// @param f The proposed fault tolerance value
@@ -298,9 +294,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error NodeOperatorDoesNotExist(uint32 nodeOperatorId);
 
   /// @notice This error is thrown when trying to remove a node that is still
-  /// part of a DON
+  /// part of a capabitlities DON
+  /// @param donId The Id of the DON the node belongs to
   /// @param nodeP2PId The P2P Id of the node being removed
-  error NodePartOfDON(bytes32 nodeP2PId);
+  error NodePartOfCapabilitiesDON(uint32 donId, bytes32 nodeP2PId);
+
+  /// @notice This error is thrown when attempting to add a node to a second
+  /// Workflow DON or when trying to remove a node that belongs to a Workflow
+  /// DON
+  /// @param donId The Id of the DON the node belongs to
+  /// @param nodeP2PId The P2P Id of the node
+  error NodePartOfWorkflowDON(uint32 donId, bytes32 nodeP2PId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -526,7 +530,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       Node storage node = s_nodes[p2pId];
 
       if (node.signer == bytes32("")) revert NodeDoesNotExist(p2pId);
-      if (node.capabilitiesDONIds.length() > 0 || node.workflowDONId != 0) revert NodePartOfDON(p2pId);
+      if (node.capabilitiesDONIds.length() > 0)
+        revert NodePartOfCapabilitiesDON(uint32(node.capabilitiesDONIds.at(i)), p2pId);
+      if (node.workflowDONId != 0) revert NodePartOfWorkflowDON(node.workflowDONId, p2pId);
 
       if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
       s_nodeSigners.remove(node.signer);
@@ -852,7 +858,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
       if (donParams.acceptsWorkflows) {
         if (s_nodes[nodes[i]].workflowDONId != donParams.id && s_nodes[nodes[i]].workflowDONId != 0)
-          revert NodeBelongsToWorkflowDON(donParams.id, nodes[i]);
+          revert NodePartOfWorkflowDON(donParams.id, nodes[i]);
         s_nodes[nodes[i]].workflowDONId = donParams.id;
       } else {
         /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set

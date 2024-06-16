@@ -75,7 +75,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     s_capabilityRegistry.removeNodes(nodes);
   }
 
-  function test_RevertWhen_NodePartOfDON() public {
+  function test_RevertWhen_NodePartOfCapabilitiesDON() public {
     changePrank(ADMIN);
     bytes32[] memory nodes = new bytes32[](2);
     nodes[0] = P2P_ID;
@@ -88,9 +88,9 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
       config: BASIC_CAPABILITY_CONFIG
     });
 
-    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
+    s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, false, F_VALUE);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfDON.selector, P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfCapabilitiesDON.selector, 1, P2P_ID));
     s_capabilityRegistry.removeNodes(nodes);
   }
 
@@ -114,7 +114,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     // Try remove nodes
     bytes32[] memory removedNodes = new bytes32[](1);
     removedNodes[0] = P2P_ID;
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfDON.selector, P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfWorkflowDON.selector, 1, P2P_ID));
     s_capabilityRegistry.removeNodes(removedNodes);
 
     // Remove DON
@@ -153,7 +153,7 @@ contract CapabilityRegistry_RemoveNodesTest is BaseTest {
     // Try remove nodes
     bytes32[] memory removedNodes = new bytes32[](1);
     removedNodes[0] = P2P_ID_TWO;
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfDON.selector, P2P_ID_TWO));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfWorkflowDON.selector, 1, P2P_ID_TWO));
     s_capabilityRegistry.removeNodes(removedNodes);
 
     // Update nodes in DON

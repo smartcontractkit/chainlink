@@ -188,7 +188,7 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
 
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
 
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodeBelongsToWorkflowDON.selector, 2, P2P_ID));
+    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.NodePartOfWorkflowDON.selector, 2, P2P_ID));
     s_capabilityRegistry.addDON(nodes, capabilityConfigs, true, true, F_VALUE);
   }
 
