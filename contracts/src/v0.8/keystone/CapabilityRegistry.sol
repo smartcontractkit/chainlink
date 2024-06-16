@@ -545,8 +545,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
-      storedNode.configCount++;
-      uint32 capabilityConfigCount = storedNode.configCount;
+      uint32 capabilityConfigCount = ++storedNode.configCount;
       for (uint256 j; j < supportedHashedCapabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
