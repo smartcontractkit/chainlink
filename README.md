@@ -64,6 +64,7 @@ Ethereum node versions currently tested and supported:
 
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+- [Besu](https://github.com/hyperledger/besu)
 
 [Supported but broken]
 These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
@@ -71,11 +72,6 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
   - ~https://github.com/NethermindEth/nethermind/issues/4384~
-- [Besu](https://github.com/hyperledger/besu)
-  Blocking issues:
-  - https://github.com/hyperledger/besu/issues/4212
-  - ~https://github.com/hyperledger/besu/issues/4192~
-  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946
@@ -272,18 +268,21 @@ Go generate is used to generate mocks in this project. Mocks are generated with 
 
 ### Nix
 
-A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/), with optional [flakes](https://nixos.wiki/wiki/Flakes) support. It defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies, while non-flakes shell will use your channel's packages versions.
+A [shell.nix](https://nixos.wiki/wiki/Development_environment_with_nix-shell) is provided for use with the [Nix package manager](https://nixos.org/). By default,we utilize the shell through [Nix Flakes](https://nixos.wiki/wiki/Flakes). 
+
+Nix defines a declarative, reproducible development environment. Flakes version use deterministic, frozen (`flake.lock`) dependencies to
+gain more consistency/reproducibility on the built artifacts.
 
 To use it:
 
 1. Install [nix package manager](https://nixos.org/download.html) in your system.
 
-- Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+- Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
 
-2. Run `nix-shell`. You will be put in shell containing all the dependencies.
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
 
-- To use the flakes version, run `nix develop` instead of `nix-shell`. Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
-- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use nix` or `use flake` on it.
+- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
 
 3. Create a local postgres database:
 

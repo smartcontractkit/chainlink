@@ -4,6 +4,7 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -360,8 +363,9 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	return nil
 }
 
-// ReturnFunds attempts to return all the funds from the chainlink nodes to the network's default address
-// all from a remote, k8s style environment
+// ReturnFunds attempts to return all the funds from the chainlink nodes and other wallets to the network's default wallet,
+// which will always be the first wallet in the list of wallets. If errors are encountered, it will keep trying other wallets
+// and return all errors encountered.
 func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
 		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
@@ -373,29 +377,67 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 		return nil
 	}
 
+	// If we fail to return funds from some addresses, we still want to try to return funds from the rest
+	encounteredErrors := []error{}
+
+	if len(blockchainClient.GetWallets()) > 1 {
+		if err := blockchainClient.SetDefaultWallet(0); err != nil {
+			encounteredErrors = append(encounteredErrors, err)
+		} else {
+			for walletIndex := 1; walletIndex < len(blockchainClient.GetWallets()); walletIndex++ {
+				decodedKey, err := hex.DecodeString(blockchainClient.GetWallets()[walletIndex].PrivateKey())
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+				privKey, err := crypto.ToECDSA(decodedKey)
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+
+				err = blockchainClient.ReturnFunds(privKey)
+				if err != nil {
+					encounteredErrors = append(encounteredErrors, err)
+					continue
+				}
+			}
+		}
+	}
+
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
 		if err != nil {
-			return err
+			encounteredErrors = append(encounteredErrors, err)
+			continue
 		}
 		for _, key := range fundedKeys {
 			keyToDecrypt, err := json.Marshal(key)
 			if err != nil {
-				return err
+				encounteredErrors = append(encounteredErrors, err)
+				continue
 			}
 			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
 			// issues. So we avoid running in parallel; slower, but safer.
 			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
 			if err != nil {
-				return err
+				encounteredErrors = append(encounteredErrors, err)
+				continue
 			}
 			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
 			if err != nil {
-				log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
+				encounteredErrors = append(encounteredErrors, fmt.Errorf("error returning funds from chainlink node: %w", err))
+				continue
 			}
 		}
 	}
-	return blockchainClient.WaitForEvents()
+	if err := blockchainClient.WaitForEvents(); err != nil {
+		encounteredErrors = append(encounteredErrors, err)
+	}
+	if len(encounteredErrors) > 0 {
+		return fmt.Errorf("encountered errors while returning funds: %v", encounteredErrors)
+	}
+	return nil
 }
 
 // FundAddresses will fund a list of addresses with an amount of native currency
@@ -475,33 +517,9 @@ func GenerateWallet() (common.Address, error) {
 }
 
 // todo - move to CTF
-func FundAddress(client blockchain.EVMClient, sendingKey string, fundingToSendEth *big.Float) error {
-	address := common.HexToAddress(sendingKey)
-	gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
-		To: &address,
-	})
-	if err != nil {
-		return err
-	}
-	err = client.Fund(sendingKey, fundingToSendEth, gasEstimates)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// todo - move to CTF
 func GetTxFromAddress(tx *types.Transaction) (string, error) {
 	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	return from.String(), err
-}
-
-// todo - move to CTF
-func GetTxByHash(ctx context.Context, client blockchain.EVMClient, hash common.Hash) (*types.Transaction, bool, error) {
-	return client.(*blockchain.EthereumMultinodeClient).
-		DefaultClient.(*blockchain.EthereumClient).
-		Client.
-		TransactionByHash(ctx, hash)
 }
 
 // todo - move to CTF
@@ -523,42 +541,50 @@ func DecodeTxInputData(abiString string, data []byte) (map[string]interface{}, e
 	return inputsMap, nil
 }
 
-// todo - move to EVMClient
+// todo - move to CTF
 func WaitForBlockNumberToBe(
 	waitForBlockNumberToBe uint64,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	wg *sync.WaitGroup,
 	timeout time.Duration,
 	t testing.TB,
+	l zerolog.Logger,
 ) (uint64, error) {
 	blockNumberChannel := make(chan uint64)
 	errorChannel := make(chan error)
 	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
 	defer testCancel()
-
-	ticker := time.NewTicker(time.Second * 1)
-	var blockNumber uint64
+	ticker := time.NewTicker(time.Second * 5)
+	var latestBlockNumber uint64
 	for {
 		select {
 		case <-testContext.Done():
 			ticker.Stop()
 			wg.Done()
-			return blockNumber,
+			return latestBlockNumber,
 				fmt.Errorf("timeout waiting for Block Number to be: %d. Last recorded block number was: %d",
-					waitForBlockNumberToBe, blockNumber)
+					waitForBlockNumberToBe, latestBlockNumber)
 		case <-ticker.C:
 			go func() {
-				currentBlockNumber, err := client.LatestBlockNumber(testcontext.Get(t))
+				currentBlockNumber, err := client.Client.BlockNumber(testcontext.Get(t))
 				if err != nil {
 					errorChannel <- err
 				}
+				l.Info().
+					Uint64("Latest Block Number", currentBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Waiting for Block Number to be")
 				blockNumberChannel <- currentBlockNumber
 			}()
-		case blockNumber = <-blockNumberChannel:
-			if blockNumber == waitForBlockNumberToBe {
+		case latestBlockNumber = <-blockNumberChannel:
+			if latestBlockNumber >= waitForBlockNumberToBe {
 				ticker.Stop()
 				wg.Done()
-				return blockNumber, nil
+				l.Info().
+					Uint64("Latest Block Number", latestBlockNumber).
+					Uint64("Desired Block Number", waitForBlockNumberToBe).
+					Msg("Desired Block Number reached!")
+				return latestBlockNumber, nil
 			}
 		case err := <-errorChannel:
 			ticker.Stop()
@@ -571,12 +597,12 @@ func WaitForBlockNumberToBe(
 // todo - move to EVMClient
 func RewindSimulatedChainToBlockNumber(
 	ctx context.Context,
-	evmClient blockchain.EVMClient,
+	client *seth.Client,
 	rpcURL string,
 	rewindChainToBlockNumber uint64,
 	l zerolog.Logger,
 ) (uint64, error) {
-	latestBlockNumberBeforeReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberBeforeReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}
@@ -593,12 +619,7 @@ func RewindSimulatedChainToBlockNumber(
 		return 0, fmt.Errorf("error making reorg: %w", err)
 	}
 
-	err = evmClient.WaitForEvents()
-	if err != nil {
-		return 0, fmt.Errorf("error waiting for events: %w", err)
-	}
-
-	latestBlockNumberAfterReorg, err := evmClient.LatestBlockNumber(ctx)
+	latestBlockNumberAfterReorg, err := client.Client.BlockNumber(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("error getting latest block number: %w", err)
 	}

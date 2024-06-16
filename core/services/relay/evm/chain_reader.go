@@ -2,13 +2,15 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -19,6 +21,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -26,20 +29,21 @@ import (
 
 type ChainReaderService interface {
 	services.ServiceCtx
-	commontypes.ChainReader
+	commontypes.ContractReader
 }
 
 type chainReader struct {
 	lggr             logger.Logger
 	lp               logpoller.LogPoller
 	client           evmclient.Client
-	contractBindings contractBindings
+	contractBindings bindings
 	parsed           *parsedTypes
 	codec            commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
 var _ ChainReaderService = (*chainReader)(nil)
+var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
@@ -48,7 +52,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		lggr:             lggr.Named("ChainReader"),
 		lp:               lp,
 		client:           client,
-		contractBindings: contractBindings{},
+		contractBindings: bindings{},
 		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
@@ -61,17 +65,101 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(b readBinding, c context.Context) error {
-		b.SetCodec(cr.codec)
+	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		for _, rb := range cb.readBindings {
+			rb.SetCodec(cr.codec)
+		}
 		return nil
 	})
 
 	return cr, err
 }
 
+func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
+	for contractName, chainContractReader := range chainContractReaders {
+		contractAbi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
+		if err != nil {
+			return fmt.Errorf("failed to parse abi for contract: %s, err: %w", contractName, err)
+		}
+
+		var eventSigsForContractFilter evmtypes.HashArray
+		for typeName, chainReaderDefinition := range chainContractReader.Configs {
+			switch chainReaderDefinition.ReadType {
+			case types.Method:
+				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
+			case types.Event:
+				partOfContractCommonFilter := slices.Contains(chainContractReader.GenericEventNames, typeName)
+				if !partOfContractCommonFilter && !chainReaderDefinition.HasPollingFilter() {
+					return fmt.Errorf(
+						"%w: chain reader has no polling filter defined for contract: %s, event: %s",
+						commontypes.ErrInvalidConfig, contractName, typeName)
+				}
+
+				eventOverridesContractFilter := chainReaderDefinition.HasPollingFilter()
+				if eventOverridesContractFilter && partOfContractCommonFilter {
+					return fmt.Errorf(
+						"%w: conflicting chain reader polling filter definitions for contract: %s event: %s, can't have polling filter defined both on contract and event level",
+						commontypes.ErrInvalidConfig, contractName, typeName)
+				}
+
+				if !eventOverridesContractFilter &&
+					!slices.Contains(eventSigsForContractFilter, contractAbi.Events[chainReaderDefinition.ChainSpecificName].ID) {
+					eventSigsForContractFilter = append(eventSigsForContractFilter, contractAbi.Events[chainReaderDefinition.ChainSpecificName].ID)
+				}
+
+				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
+			default:
+				return fmt.Errorf(
+					"%w: invalid chain reader definition read type: %s",
+					commontypes.ErrInvalidConfig,
+					chainReaderDefinition.ReadType)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		cr.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
+	}
+	return nil
+}
+
 func (cr *chainReader) Name() string { return cr.lggr.Name() }
 
-var _ commontypes.ContractTypeProvider = &chainReader{}
+// Start registers polling filters if contracts are already bound.
+func (cr *chainReader) Start(ctx context.Context) error {
+	return cr.StartOnce("ChainReader", func() error {
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+			for _, rb := range cb.readBindings {
+				if err := rb.Register(ctx); err != nil {
+					return err
+				}
+			}
+			return cb.Register(ctx, cr.lp)
+		})
+	})
+}
+
+// Close unregisters polling filters for bound contracts.
+func (cr *chainReader) Close() error {
+	return cr.StopOnce("ChainReader", func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+			for _, rb := range cb.readBindings {
+				if err := rb.Unregister(ctx); err != nil {
+					return err
+				}
+			}
+			return cb.Unregister(ctx, cr.lp)
+		})
+	})
+}
+
+func (cr *chainReader) Ready() error { return nil }
+
+func (cr *chainReader) HealthReport() map[string]error {
+	return map[string]error{cr.Name(): nil}
+}
 
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
 	b, err := cr.contractBindings.GetReadBinding(contractName, method)
@@ -83,7 +171,7 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, bindings)
+	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
@@ -93,53 +181,6 @@ func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter
 	}
 
 	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
-}
-
-func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractReader) error {
-	for contractName, chainContractReader := range chainContractReaders {
-		contractAbi, err := abi.JSON(strings.NewReader(chainContractReader.ContractABI))
-		if err != nil {
-			return err
-		}
-
-		for typeName, chainReaderDefinition := range chainContractReader.Configs {
-			switch chainReaderDefinition.ReadType {
-			case types.Method:
-				err = cr.addMethod(contractName, typeName, contractAbi, *chainReaderDefinition)
-			case types.Event:
-				err = cr.addEvent(contractName, typeName, contractAbi, *chainReaderDefinition)
-			default:
-				return fmt.Errorf(
-					"%w: invalid chain reader definition read type: %s",
-					commontypes.ErrInvalidConfig,
-					chainReaderDefinition.ReadType)
-			}
-
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (cr *chainReader) Start(ctx context.Context) error {
-	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, readBinding.Register)
-	})
-}
-
-func (cr *chainReader) Close() error {
-	return cr.StopOnce("ChainReader", func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		return cr.contractBindings.ForEach(ctx, readBinding.Unregister)
-	})
-}
-
-func (cr *chainReader) Ready() error { return nil }
-func (cr *chainReader) HealthReport() map[string]error {
-	return map[string]error{cr.Name(): nil}
 }
 
 func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
@@ -163,13 +204,6 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	if len(chainReaderDefinition.EventInputFields) != 0 {
-		return fmt.Errorf(
-			"%w: method %s has event topic fields defined, but is not an event",
-			commontypes.ErrInvalidConfig,
-			chainReaderDefinition.ChainSpecificName)
-	}
-
 	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
 		contractName: contractName,
 		method:       methodName,
@@ -189,8 +223,13 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return fmt.Errorf("%w: event %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, chainReaderDefinition)
-	if err := verifyEventInputsUsed(chainReaderDefinition, indexArgNames); err != nil {
+	var inputFields []string
+	if chainReaderDefinition.EventDefinitions != nil {
+		inputFields = chainReaderDefinition.EventDefinitions.InputFields
+	}
+
+	filterArgs, codecTopicInfo, indexArgNames := setupEventInput(event, inputFields)
+	if err := verifyEventIndexedInputsUsed(eventName, inputFields, indexArgNames); err != nil {
 		return err
 	}
 
@@ -208,41 +247,62 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
+	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	if err != nil {
+		return err
+	}
+
 	eb := &eventBinding{
-		contractName:   contractName,
-		eventName:      eventName,
-		lp:             cr.lp,
-		hash:           event.ID,
-		inputInfo:      inputInfo,
-		inputModifier:  inputModifier,
-		codecTopicInfo: codecTopicInfo,
-		topicsInfo:     make(map[string]topicInfo),
-		eventDataWords: chainReaderDefinition.GenericDataWordNames,
-		id:             wrapItemType(contractName, eventName, false) + uuid.NewString(),
+		contractName:         contractName,
+		eventName:            eventName,
+		lp:                   cr.lp,
+		hash:                 event.ID,
+		inputInfo:            inputInfo,
+		inputModifier:        inputModifier,
+		codecTopicInfo:       codecTopicInfo,
+		topics:               make(map[string]topicDetail),
+		eventDataWords:       make(map[string]uint8),
+		confirmationsMapping: confirmations,
+	}
+
+	if eventDefinitions := chainReaderDefinition.EventDefinitions; eventDefinitions != nil {
+		if eventDefinitions.PollingFilter != nil {
+			eb.filterRegisterer = &filterRegisterer{
+				pollingFilter: eventDefinitions.PollingFilter.ToLPFilter(evmtypes.HashArray{a.Events[event.Name].ID}),
+				filterLock:    sync.Mutex{},
+			}
+		}
+
+		if eventDefinitions.GenericDataWordNames != nil {
+			eb.eventDataWords = eventDefinitions.GenericDataWordNames
+		}
+
+		cr.addQueryingReadBindings(contractName, eventDefinitions.GenericTopicNames, event.Inputs, eb)
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
 
-	// set topic mappings for QueryKeys
-	for topicIndex, topic := range event.Inputs {
-		genericTopicName, ok := chainReaderDefinition.GenericTopicNames[topic.Name]
+	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
+}
+
+// addQueryingReadBindings reuses the eventBinding and maps it to topic and dataWord keys used for QueryKey.
+func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopicNames map[string]string, eventInputs abi.Arguments, eb *eventBinding) {
+	// add topic readBindings for QueryKey
+	for topicIndex, topic := range eventInputs {
+		genericTopicName, ok := genericTopicNames[topic.Name]
 		if ok {
-			eb.topicsInfo[genericTopicName] = topicInfo{
-				Argument:   topic,
-				topicIndex: uint64(topicIndex),
+			eb.topics[genericTopicName] = topicDetail{
+				Argument: topic,
+				Index:    uint64(topicIndex),
 			}
 		}
-		// this way querying by key/s values comparison can find its bindings
 		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
 
-	// set data word mappings for QueryKeys
+	// add data word readBindings for QueryKey
 	for genericDataWordName := range eb.eventDataWords {
-		// this way querying by key/s values comparison can find its bindings
 		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
-
-	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
 
 func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
@@ -261,10 +321,10 @@ func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractNa
 	return inputInfo, inMod, nil
 }
 
-func verifyEventInputsUsed(chainReaderDefinition types.ChainReaderDefinition, indexArgNames map[string]bool) error {
-	for _, value := range chainReaderDefinition.EventInputFields {
+func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexArgNames map[string]bool) error {
+	for _, value := range inputFields {
 		if !indexArgNames[abi.ToCamelCase(value)] {
-			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, chainReaderDefinition.ChainSpecificName)
+			return fmt.Errorf("%w: %s is not an indexed argument of event %s", commontypes.ErrInvalidConfig, value, eventName)
 		}
 	}
 	return nil
@@ -296,59 +356,9 @@ func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.
 	return output.Init()
 }
 
-// remapFilter, changes chain agnostic filters to match evm specific filters.
-func (e *eventBinding) remapFilter(filter query.KeyFilter) (remappedFilter query.KeyFilter, err error) {
-	addEventSigFilter := false
-	for _, expression := range filter.Expressions {
-		remappedExpression, hasComparatorPrimitive, err := e.remapExpression(filter.Key, expression)
-		if err != nil {
-			return query.KeyFilter{}, err
-		}
-		remappedFilter.Expressions = append(remappedFilter.Expressions, remappedExpression)
-		// comparator primitive maps to event by topic or event by evm data word filters, which means that event sig filter is not needed
-		addEventSigFilter = addEventSigFilter != hasComparatorPrimitive
-	}
-
-	if addEventSigFilter {
-		remappedFilter.Expressions = append(remappedFilter.Expressions, NewEventBySigFilter(e.address, e.hash))
-	}
-	return remappedFilter, nil
-}
-
-func (e *eventBinding) remapExpression(key string, expression query.Expression) (remappedExpression query.Expression, hasComparerPrimitive bool, err error) {
-	if !expression.IsPrimitive() {
-		for i := range expression.BoolExpression.Expressions {
-			remappedExpression, hasComparerPrimitive, err = e.remapExpression(key, expression.BoolExpression.Expressions[i])
-			if err != nil {
-				return query.Expression{}, false, err
-			}
-			remappedExpression.BoolExpression.Expressions = append(remappedExpression.BoolExpression.Expressions, remappedExpression)
-		}
-
-		if expression.BoolExpression.BoolOperator == query.AND {
-			return query.And(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
-		}
-		return query.Or(remappedExpression.BoolExpression.Expressions...), hasComparerPrimitive, nil
-	}
-
-	// remap chain agnostic primitives to chain specific
-	switch primitive := expression.Primitive.(type) {
-	case *primitives.Confirmations:
-		remappedExpression, err = NewFinalityFilter(primitive)
-		return remappedExpression, hasComparerPrimitive, err
-	case *primitives.Comparator:
-		if val, ok := e.eventDataWords[primitive.Name]; ok {
-			return NewEventByWordFilter(e.hash, val, primitive.ValueComparators), true, nil
-		}
-		return NewEventByTopicFilter(e.hash, e.topicsInfo[key].topicIndex, primitive.ValueComparators), true, nil
-	default:
-		return expression, hasComparerPrimitive, nil
-	}
-}
-
-func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Argument, types.CodecEntry, map[string]bool) {
+func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, types.CodecEntry, map[string]bool) {
 	topicFieldDefs := map[string]bool{}
-	for _, value := range def.EventInputFields {
+	for _, value := range inputFields {
 		capFirstValue := abi.ToCamelCase(value)
 		topicFieldDefs[capFirstValue] = true
 	}
@@ -377,4 +387,26 @@ func setupEventInput(event abi.Event, def types.ChainReaderDefinition) ([]abi.Ar
 	}
 
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
+}
+
+func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
+	mappings := map[primitives.ConfidenceLevel]evmtypes.Confirmations{
+		primitives.Unconfirmed: evmtypes.Unconfirmed,
+		primitives.Finalized:   evmtypes.Finalized,
+	}
+
+	if values == nil {
+		return mappings, nil
+	}
+
+	for key, mapped := range values {
+		mappings[primitives.ConfidenceLevel(key)] = evmtypes.Confirmations(mapped)
+	}
+
+	if mappings[primitives.Finalized] != evmtypes.Finalized &&
+		mappings[primitives.Finalized] > mappings[primitives.Unconfirmed] {
+		return nil, errors.New("finalized confidence level should map to -1 or a higher value than 0")
+	}
+
+	return mappings, nil
 }

@@ -37,9 +37,8 @@ func TestForwarderOCRBasic(t *testing.T) {
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithForwarders().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
+		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
 		WithSeth().
 		Build()

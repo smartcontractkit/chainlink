@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/runid"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -111,6 +112,7 @@ func (te *CLClusterTestEnv) StartEthereumNetwork(cfg *ctf_config.EthereumNetwork
 	builder := test_env.NewEthereumNetworkBuilder()
 	c, err := builder.WithExistingConfig(*cfg).
 		WithTest(te.t).
+		WithLogStream(te.LogStream).
 		Build()
 	if err != nil {
 		return blockchain.EVMNetwork{}, test_env.RpcProvider{}, err
@@ -129,7 +131,6 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 	return te.MockAdapter.StartContainer()
 }
 
-// pass config here
 func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string, testconfig ctf_config.GlobalTestConfig, opts ...ClNodeOption) error {
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
@@ -142,10 +143,10 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 				},
 			}, opts...)
 		}
-		opts = append(opts, WithSecrets(secretsConfig), WithLogStream(te.LogStream))
+		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, opts...)
+			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, te.LogStream, opts...)
 			if err != nil {
 				return err
 			}
@@ -274,6 +275,7 @@ func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
 	if showHTMLCoverageReport || isCI {
 		// Stop all nodes in the chainlink cluster.
 		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
+		// TODO: fix this as it results in: ERR LOG AFTER TEST ENDED ... INF 🐳 Stopping container
 		err := te.ClCluster.Stop()
 		if err != nil {
 			return err
@@ -364,7 +366,7 @@ func (te *CLClusterTestEnv) returnFunds() error {
 
 	for _, evmClient := range te.evmClients {
 		for _, chainlinkNode := range te.ClCluster.Nodes {
-			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.evmClients[0].GetChainID().String())
+			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(evmClient.GetChainID().String())
 			if err != nil {
 				return err
 			}
@@ -423,6 +425,11 @@ func (te *CLClusterTestEnv) GetSethClient(chainId int64) (*seth.Client, error) {
 	}
 
 	return nil, fmt.Errorf("no Seth client available for chain ID %d", chainId)
+}
+
+func (te *CLClusterTestEnv) GetSethClientForSelectedNetwork() (*seth.Client, error) {
+	n := networks.MustGetSelectedNetworkConfig(te.TestConfig.GetNetworkConfig())[0]
+	return te.GetSethClient(n.ChainID)
 }
 
 func (te *CLClusterTestEnv) GetRpcProvider(chainId int64) (*test_env.RpcProvider, error) {

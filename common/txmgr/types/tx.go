@@ -183,6 +183,7 @@ type TxAttempt[
 	State                   TxAttemptState
 	Receipts                []ChainReceipt[TX_HASH, BLOCK_HASH] `json:"-"`
 	TxType                  int
+	IsPurgeAttempt          bool
 }
 
 func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {

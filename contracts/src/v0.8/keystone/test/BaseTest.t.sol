@@ -24,13 +24,15 @@ contract BaseTest is Test, Constants {
       labelledName: "data-streams-reports",
       version: "1.0.0",
       responseType: CapabilityRegistry.CapabilityResponseType.REPORT,
-      configurationContract: address(0)
+      configurationContract: address(0),
+      capabilityType: CapabilityRegistry.CapabilityType.TRIGGER
     });
     s_capabilityWithConfigurationContract = CapabilityRegistry.Capability({
       labelledName: "read-ethereum-mainnet-gas-price",
       version: "1.0.2",
       responseType: CapabilityRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL,
-      configurationContract: address(s_capabilityConfigurationContract)
+      configurationContract: address(s_capabilityConfigurationContract),
+      capabilityType: CapabilityRegistry.CapabilityType.ACTION
     });
 
     s_basicHashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId(
@@ -44,10 +46,11 @@ contract BaseTest is Test, Constants {
     s_nonExistentHashedCapabilityId = s_capabilityRegistry.getHashedCapabilityId("non-existent-capability", "1.0.0");
   }
 
-  function _getNodeOperators() internal view returns (CapabilityRegistry.NodeOperator[] memory) {
-    CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](2);
+  function _getNodeOperators() internal pure returns (CapabilityRegistry.NodeOperator[] memory) {
+    CapabilityRegistry.NodeOperator[] memory nodeOperators = new CapabilityRegistry.NodeOperator[](3);
     nodeOperators[0] = CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_ONE_ADMIN, name: NODE_OPERATOR_ONE_NAME});
     nodeOperators[1] = CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_TWO_ADMIN, name: NODE_OPERATOR_TWO_NAME});
+    nodeOperators[2] = CapabilityRegistry.NodeOperator({admin: NODE_OPERATOR_THREE, name: NODE_OPERATOR_THREE_NAME});
     return nodeOperators;
   }
 }

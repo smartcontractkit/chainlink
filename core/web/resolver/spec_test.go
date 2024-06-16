@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -34,7 +35,7 @@ func TestResolver_CronSpec(t *testing.T) {
 		{
 			name:          "cron spec success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Cron,
@@ -88,7 +89,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 		{
 			name:          "direct request spec success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.DirectRequest,
@@ -153,7 +154,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 		{
 			name:          "flux monitor spec with standard timers",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.FluxMonitor,
@@ -220,7 +221,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 		{
 			name:          "flux monitor spec with drumbeat",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.FluxMonitor,
@@ -303,7 +304,7 @@ func TestResolver_KeeperSpec(t *testing.T) {
 		{
 			name:          "keeper spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Keeper,
@@ -367,7 +368,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 		{
 			name:          "OCR spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting,
@@ -472,7 +473,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 		{
 			name:          "OCR 2 spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.OffchainReporting2,
@@ -574,7 +575,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 		{
 			name:          "vrf spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.VRF,
@@ -670,7 +671,7 @@ func TestResolver_WebhookSpec(t *testing.T) {
 		{
 			name:          "webhook spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Webhook,
@@ -739,7 +740,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 		{
 			name:          "blockhash store spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockhashStore,
@@ -843,7 +844,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 		{
 			name:          "block header feeder spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.BlockHeaderFeeder,
@@ -930,7 +931,7 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 		{
 			name:          "Bootstrap spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Bootstrap,
@@ -1002,7 +1003,7 @@ func TestResolver_WorkflowSpec(t *testing.T) {
 		{
 			name:          "Workflow spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Workflow,
@@ -1060,7 +1061,7 @@ func TestResolver_GatewaySpec(t *testing.T) {
 		{
 			name:          "Gateway spec",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
 					Type: job.Gateway,
@@ -1095,6 +1096,63 @@ func TestResolver_GatewaySpec(t *testing.T) {
 							"id": "1",
 							"gatewayConfig": {"NodeServerConfig": {}},
 							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "StandardCapabilities spec",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
+					Type: job.StandardCapabilities,
+					StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
+						ID:        id,
+						CreatedAt: f.Timestamp(),
+						Command:   "testcommand",
+						Config:    "testconfig",
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on StandardCapabilitiesSpec {
+									id
+									createdAt
+									command
+									config
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "StandardCapabilitiesSpec",
+							"id": "1",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"command": "testcommand",
+							"config": "testconfig"
 						}
 					}
 				}

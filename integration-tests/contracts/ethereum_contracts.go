@@ -1358,9 +1358,6 @@ func (o *LegacyEthereumOffchainAggregator) SetConfig(
 			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
-		if err != nil {
-			return err
-		}
 		p2pKeys, err := node.MustReadP2PKeys()
 		if err != nil {
 			return err

@@ -248,6 +248,34 @@ func (_m *ORM) FindJobIDByAddress(ctx context.Context, address types.EIP55Addres
 	return r0, r1
 }
 
+// FindJobIDByWorkflow provides a mock function with given fields: ctx, spec
+func (_m *ORM) FindJobIDByWorkflow(ctx context.Context, spec job.WorkflowSpec) (int32, error) {
+	ret := _m.Called(ctx, spec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindJobIDByWorkflow")
+	}
+
+	var r0 int32
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, job.WorkflowSpec) (int32, error)); ok {
+		return rf(ctx, spec)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, job.WorkflowSpec) int32); ok {
+		r0 = rf(ctx, spec)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, job.WorkflowSpec) error); ok {
+		r1 = rf(ctx, spec)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindJobIDsWithBridge provides a mock function with given fields: ctx, name
 func (_m *ORM) FindJobIDsWithBridge(ctx context.Context, name string) ([]int32, error) {
 	ret := _m.Called(ctx, name)

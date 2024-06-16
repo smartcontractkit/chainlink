@@ -35,6 +35,16 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
+// NewHash return random Keccak256
+func NewHash() common.Hash {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return common.BytesToHash(b)
+}
+
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
 	_, err := rand.Read(b)
@@ -73,4 +83,9 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 		Data:     data,
 	}
 	return types.NewTx(&tx)
+}
+
+func NewAddressPtr() *common.Address {
+	a := common.BytesToAddress(randomBytes(20))
+	return &a
 }

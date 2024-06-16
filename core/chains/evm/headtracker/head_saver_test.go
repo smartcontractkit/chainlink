@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -34,6 +34,13 @@ func (h *headTrackerConfig) SamplingInterval() time.Duration {
 
 func (h *headTrackerConfig) MaxBufferSize() uint32 {
 	return uint32(0)
+}
+
+func (h *headTrackerConfig) FinalityTagBypass() bool {
+	return false
+}
+func (h *headTrackerConfig) MaxAllowedFinalityDepth() uint32 {
+	return 10000
 }
 
 type config struct {
@@ -62,7 +69,7 @@ func configureSaver(t *testing.T, opts saverOpts) (httypes.HeadSaver, headtracke
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.Test(t)
 	htCfg := &config{finalityDepth: uint32(1)}
-	orm := headtracker.NewORM(cltest.FixtureChainID, db)
+	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, opts.headTrackerConfig)
 	return saver, orm
 }
@@ -72,11 +79,11 @@ func TestHeadSaver_Save(t *testing.T) {
 
 	saver, _ := configureSaver(t, saverOpts{})
 
-	head := cltest.Head(1)
-	err := saver.Save(testutils.Context(t), head)
+	head := testutils.Head(1)
+	err := saver.Save(tests.Context(t), head)
 	require.NoError(t, err)
 
-	latest, err := saver.LatestHeadFromDB(testutils.Context(t))
+	latest, err := saver.LatestHeadFromDB(tests.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, int64(1), latest.Number)
 
@@ -116,7 +123,7 @@ func TestHeadSaver_Load(t *testing.T) {
 	allHeads := []*evmtypes.Head{h0, h1, h2, h2Uncle, h3, h4, h5}
 
 	for _, h := range allHeads {
-		err := orm.IdempotentInsertHead(testutils.Context(t), h)
+		err := orm.IdempotentInsertHead(tests.Context(t), h)
 		require.NoError(t, err)
 	}
 
@@ -129,7 +136,7 @@ func TestHeadSaver_Load(t *testing.T) {
 	}
 
 	// load all from [h5-historyDepth, h5]
-	latestHead, err := saver.Load(testutils.Context(t), h5.BlockNumber())
+	latestHead, err := saver.Load(tests.Context(t), h5.BlockNumber())
 	require.NoError(t, err)
 	// verify latest head loaded from db
 	verifyLatestHead(latestHead)
