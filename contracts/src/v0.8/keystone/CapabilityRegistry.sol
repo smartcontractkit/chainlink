@@ -50,6 +50,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 nodeOperatorId;
     /// @notice The number of times the node's configuration has been updated
     uint32 configCount;
+    /// @notice The ID of the Workflow DON that the node belongs to. A node can
+    /// only belong to one DON that accepts Workflows.
+    uint32 workflowDONId;
     /// @notice The signer address for application-layer message verification.
     /// @dev This key is guaranteed to be unique in the CapabilityRegistry
     /// as a signer address can only belong to one node.
@@ -67,8 +70,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
     mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedHashedCapabilityIds;
-    /// @notice The list of DON Ids supported by the node.
-    EnumerableSet.UintSet supportedDONIds;
+    /// @notice The list of capabilities DON Ids supported by the node. A node
+    /// can belong to multiple capabilities DONs. This list does not include a
+    /// Workflow DON id if the node belongs to one.
+    EnumerableSet.UintSet capabilitiesDONIds;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -163,7 +168,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice True if the DON is public. A public DON means that it accepts
     /// external capability requests
     bool isPublic;
-    /// @notice True if the DON accepts Workflows.
+    /// @notice True if the DON accepts Workflows. A DON that accepts Workflows
+    /// is called Workflow DON and it can process Workflow Specs. A Workflow
+    /// DON also support one or more capabilities as well.
     bool acceptsWorkflows;
     /// @notice Mapping of config counts to configurations
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
@@ -515,7 +522,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       Node storage node = s_nodes[p2pId];
 
       if (node.signer == bytes32("")) revert NodeDoesNotExist(p2pId);
-      if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
+      if (node.capabilitiesDONIds.length() > 0 || node.workflowDONId != 0) revert NodePartOfDON(p2pId);
 
       if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
       s_nodeSigners.remove(node.signer);
@@ -739,8 +746,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint32 configCount = don.configCount;
       EnumerableSet.Bytes32Set storage nodeP2PIds = don.config[configCount].nodes;
 
+      bool isWorkflowDON = don.acceptsWorkflows;
       for (uint256 j; j < nodeP2PIds.length(); ++j) {
-        s_nodes[nodeP2PIds.at(j)].supportedDONIds.remove(donId);
+        if (isWorkflowDON) {
+          delete s_nodes[nodeP2PIds.at(j)].workflowDONId;
+        } else {
+          s_nodes[nodeP2PIds.at(j)].capabilitiesDONIds.remove(donId);
+        }
       }
 
       // DON config count starts at index 1
@@ -826,16 +838,22 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // needed as the previous config will be overwritten by storing the latest config
       // at configCount
       for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
-        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donParams.id);
+        s_nodes[prevDONCapabilityConfig.nodes.at(i)].capabilitiesDONIds.remove(donParams.id);
+        delete s_nodes[prevDONCapabilityConfig.nodes.at(i)].workflowDONId;
       }
     }
 
     for (uint256 i; i < nodes.length; ++i) {
       if (!donCapabilityConfig.nodes.add(nodes[i])) revert DuplicateDONNode(donParams.id, nodes[i]);
 
-      /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
-      /// will only store unique DON IDs
-      s_nodes[nodes[i]].supportedDONIds.add(donParams.id);
+      if (donParams.acceptsWorkflows) {
+        // TODO validate the node does not have a workflow DON already
+        s_nodes[nodes[i]].workflowDONId = donParams.id;
+      } else {
+        /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
+        /// will only store unique DON IDs
+        s_nodes[nodes[i]].capabilitiesDONIds.add(donParams.id);
+      }
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {
