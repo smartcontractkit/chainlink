@@ -31,7 +31,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     string name;
   }
 
-  struct NodeInfo {
+  struct NodeParams {
     /// @notice The id of the node operator that manages this node
     uint32 nodeOperatorId;
     /// @notice The signer address for application-layer message verification.
@@ -42,6 +42,28 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bytes32 p2pId;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
+  }
+
+  struct NodeInfo {
+    /// @notice The id of the node operator that manages this node
+    uint32 nodeOperatorId;
+    /// @notice The number of times the node's configuration has been updated
+    uint32 configCount;
+    /// @notice The ID of the Workflow DON that the node belongs to. A node can
+    /// only belong to one DON that accepts Workflows.
+    uint32 workflowDONId;
+    /// @notice The signer address for application-layer message verification.
+    bytes32 signer;
+    /// @notice This is an Ed25519 public key that is used to identify a node.
+    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// used to identify a node in the the P2P network.
+    bytes32 p2pId;
+    /// @notice The list of hashed capability IDs supported by the node
+    bytes32[] hashedCapabilityIds;
+    /// @notice The list of capabilities DON Ids supported by the node. A node
+    /// can belong to multiple capabilities DONs. This list does not include a
+    /// Workflow DON id if the node belongs to one.
+    uint32[] capabilitiesDONIds;
   }
 
   struct Node {
@@ -484,10 +506,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
-  function addNodes(NodeInfo[] calldata nodes) external {
+  function addNodes(NodeParams[] calldata nodes) external {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
-      NodeInfo memory node = nodes[i];
+      NodeParams memory node = nodes[i];
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
@@ -545,10 +567,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Updates nodes.  The node admin can update the node's signer address
   /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
-  function updateNodes(NodeInfo[] calldata nodes) external {
+  function updateNodes(NodeParams[] calldata nodes) external {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
-      NodeInfo memory node = nodes[i];
+      NodeParams memory node = nodes[i];
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
@@ -585,11 +607,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
-  /// @return NodeInfo The node data
+  /// @return NodeParams The node data
   /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) public view returns (NodeInfo memory, uint32 configCount) {
+  function getNode(bytes32 p2pId) public view returns (NodeParams memory, uint32 configCount) {
     return (
-      NodeInfo({
+      NodeParams({
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
         signer: s_nodes[p2pId].signer,
@@ -600,17 +622,17 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Gets all nodes
-  /// @return nodeInfo NodeInfo[] All nodes in the capability registry
+  /// @return nodeParams NodeParams[] All nodes in the capability registry
   /// @return configCounts uint32[] All the config counts for the nodes in the capability registry
-  function getNodes() external view returns (NodeInfo[] memory nodeInfo, uint32[] memory configCounts) {
+  function getNodes() external view returns (NodeParams[] memory nodeParams, uint32[] memory configCounts) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
-    nodeInfo = new NodeInfo[](p2pIds.length);
+    nodeParams = new NodeParams[](p2pIds.length);
     configCounts = new uint32[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      (nodeInfo[i], configCounts[i]) = getNode(p2pIds[i]);
+      (nodeParams[i], configCounts[i]) = getNode(p2pIds[i]);
     }
-    return (nodeInfo, configCounts);
+    return (nodeParams, configCounts);
   }
 
   /// @notice Adds a new capability to the capability registry

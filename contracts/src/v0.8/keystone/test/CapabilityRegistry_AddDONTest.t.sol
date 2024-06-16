@@ -17,12 +17,12 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
     s_capabilityRegistry.addCapabilities(capabilities);
 
-    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](3);
+    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](3);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeInfo({
+    nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -32,14 +32,14 @@ contract CapabilityRegistry_AddDONTest is BaseTest {
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeInfo({
+    nodes[1] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_TWO_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
       hashedCapabilityIds: nodeTwoCapabilityIds
     });
 
-    nodes[2] = CapabilityRegistry.NodeInfo({
+    nodes[2] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_THREE_ID,
       p2pId: P2P_ID_THREE,
       signer: NODE_OPERATOR_THREE_SIGNER_ADDRESS,
