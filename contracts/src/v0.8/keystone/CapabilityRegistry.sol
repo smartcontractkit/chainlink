@@ -539,8 +539,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       Node storage storedNode = s_nodes[node.p2pId];
       if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
 
-      if (node.signer == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer)))
-        revert InvalidNodeSigner();
+      if (node.signer == bytes32("")) revert InvalidNodeSigner();
+
+      bytes32 previousSigner = storedNode.signer;
+      if (previousSigner != node.signer) {
+        if (s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
+        storedNode.signer = node.signer;
+        s_nodeSigners.remove(previousSigner);
+        s_nodeSigners.add(node.signer);
+      }
 
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
@@ -555,13 +562,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
 
-      bytes32 previousSigner = storedNode.signer;
-
-      if (storedNode.signer != node.signer) {
-        s_nodeSigners.remove(previousSigner);
-        storedNode.signer = node.signer;
-        s_nodeSigners.add(node.signer);
-      }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
