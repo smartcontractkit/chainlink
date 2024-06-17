@@ -111,7 +111,7 @@ func main() {
 	}
 
 	if len(parsedResults) == 0 {
-		fmt.Printf("No results found for '%s' regex in workflow id %d\n", *jobNameRegex, *workflowRunID)
+		fmt.Printf("No results found for '%s' regex in workflow id %s\n", *jobNameRegex, *workflowRunID)
 		return
 	}
 
@@ -148,7 +148,7 @@ func main() {
 		if err != nil {
 			fmt.Println("Error writing results to file:", err)
 		} else {
-			fmt.Println("Results saved to", *outputFile)
+			fmt.Printf("Results for '%s' regex and workflow id %s saved to %s\n", *outputFile, *jobNameRegex, *workflowRunID)
 		}
 	} else {
 		fmt.Println(string(formattedResults))
