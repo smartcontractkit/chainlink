@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -33,14 +32,14 @@ func TestReorgAboveFinality(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetworkConf.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithoutCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	network := testEnv.EVMNetworks[0]
-	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	evmNetwork, err := testEnv.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	client := ctf_client.NewRPCClient(evmNetwork.HTTPURLs[0])
 
 	// Wait for chain to progress
 	targetBlockNumber := nodeFinalityDepthInt * 3

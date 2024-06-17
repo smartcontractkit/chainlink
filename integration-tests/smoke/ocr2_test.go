@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -15,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logstream"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -155,14 +156,14 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		WithMockAdapter().
 		WithCLNodes(clNodeCount).
 		WithCLNodeOptions(test_env.WithNodeEnvVars(testData.env)).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := testEnv.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	nodeClients := testEnv.ClCluster.NodeAPIs()
@@ -171,7 +172,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	linkContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Error deploying link token contract")
 
-	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(.05))
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	// Gather transmitters

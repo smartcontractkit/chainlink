@@ -6,6 +6,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/seth"
+
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/shopspring/decimal"
 	"golang.org/x/sync/errgroup"
 
@@ -74,6 +78,7 @@ func CreateVRFV2PlusJob(
 // SetupVRFV2_5Environment will create specified number of subscriptions and add the same conumer/s to each of them
 func SetupVRFV2_5Environment(
 	ctx context.Context,
+	sethClient *seth.Client,
 	env *test_env.CLClusterTestEnv,
 	chainID int64,
 	nodesToCreate []vrfcommon.VRFNodeType,
@@ -85,9 +90,9 @@ func SetupVRFV2_5Environment(
 ) (*vrfcommon.VRFContracts, *vrfcommon.VRFKeyData, map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode, error) {
 	l.Info().Msg("Starting VRFV2 Plus environment setup")
 	configGeneral := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
+
 	vrfContracts, err := SetupVRFV2PlusContracts(
-		env,
-		chainID,
+		sethClient,
 		linkToken,
 		mockNativeLINKFeed,
 		configGeneral,
@@ -113,11 +118,6 @@ func SetupVRFV2_5Environment(
 	keyHash, err := vrfContracts.CoordinatorV2Plus.HashOfKey(ctx, provingKey)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreatingProvingKeyHash, err)
-	}
-
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, nil, nil, err
 	}
 
 	vrfTXKeyAddressStrings, _, err := vrfcommon.CreateFundAndGetSendingKeys(
@@ -148,7 +148,7 @@ func SetupVRFV2_5Environment(
 	if bhsNode, exists := nodeTypeToNodeMap[vrfcommon.BHS]; exists {
 		g.Go(func() error {
 			err := vrfcommon.SetupBHSNode(
-				env,
+				sethClient,
 				configGeneral.General,
 				numberOfTxKeysToCreate,
 				big.NewInt(chainID),
@@ -168,7 +168,7 @@ func SetupVRFV2_5Environment(
 	if bhfNode, exists := nodeTypeToNodeMap[vrfcommon.BHF]; exists {
 		g.Go(func() error {
 			err := vrfcommon.SetupBHFNode(
-				env,
+				sethClient,
 				configGeneral.General,
 				numberOfTxKeysToCreate,
 				big.NewInt(chainID),
@@ -246,8 +246,7 @@ func setupVRFNode(contracts *vrfcommon.VRFContracts, chainID *big.Int, config *v
 func SetupVRFV2PlusWrapperEnvironment(
 	ctx context.Context,
 	l zerolog.Logger,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	vrfv2PlusTestConfig types.VRFv2PlusTestConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
@@ -256,18 +255,12 @@ func SetupVRFV2PlusWrapperEnvironment(
 	wrapperConsumerContractsAmount int,
 ) (*VRFV2PlusWrapperContracts, *big.Int, error) {
 	// external EOA has to create a subscription for the wrapper first
-	wrapperSubId, err := CreateSubAndFindSubID(ctx, env, chainID, coordinator)
+	wrapperSubId, err := CreateSubAndFindSubID(ctx, sethClient, coordinator)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	vrfv2PlusConfig := vrfv2PlusTestConfig.GetVRFv2PlusConfig().General
-
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
 		sethClient,
 		linkToken.Address(),
@@ -391,11 +384,7 @@ func SetupVRFV2PlusForNewEnv(
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error building ethereum network config for V2Plus", err)
 	}
-	env, err := vrfcommon.BuildNewCLEnvForVRF(t, envConfig, newEnvConfig, network)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	sethClient, err := env.GetSethClient(envConfig.ChainID)
+	env, sethClient, err := vrfcommon.BuildNewCLEnvForVRF(l, t, envConfig, newEnvConfig, network)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -409,6 +398,7 @@ func SetupVRFV2PlusForNewEnv(
 	}
 	vrfContracts, vrfKey, nodeTypeToNode, err := SetupVRFV2_5Environment(
 		ctx,
+		sethClient,
 		env,
 		envConfig.ChainID,
 		newEnvConfig.NodesToCreate,
@@ -430,12 +420,15 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 		WithTestInstance(t).
 		WithTestConfig(&envConfig.TestConfig).
 		WithCustomCleanup(envConfig.CleanupFn).
-		WithSeth().
 		Build()
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-	sethClient, err := env.GetSethClient(envConfig.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -475,8 +468,7 @@ func SetupVRFV2PlusForExistingEnv(t *testing.T, envConfig vrfcommon.VRFEnvConfig
 
 func SetupSubsAndConsumersForExistingEnv(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2_5,
 	linkToken contracts.LinkToken,
 	numberOfConsumerContractsToDeployAndAddToSub int,
@@ -489,17 +481,12 @@ func SetupSubsAndConsumersForExistingEnv(
 		consumers []contracts.VRFv2PlusLoadTestConsumer
 		err       error
 	)
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, nil, err
-	}
 	if *testConfig.VRFv2Plus.General.UseExistingEnv {
 		commonExistingEnvConfig := testConfig.VRFv2Plus.ExistingEnvConfig.ExistingEnvConfig
 		if *commonExistingEnvConfig.CreateFundSubsAndAddConsumers {
 			consumers, subIDs, err = SetupNewConsumersAndSubs(
 				ctx,
-				env,
-				chainID,
+				sethClient,
 				coordinator,
 				testConfig,
 				linkToken,
@@ -526,8 +513,7 @@ func SetupSubsAndConsumersForExistingEnv(
 	} else {
 		consumers, subIDs, err = SetupNewConsumersAndSubs(
 			ctx,
-			env,
-			chainID,
+			sethClient,
 			coordinator,
 			testConfig,
 			linkToken,

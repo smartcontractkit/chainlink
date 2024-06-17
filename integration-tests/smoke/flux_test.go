@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -42,15 +42,16 @@ func TestFluxBasic(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(3).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
 	nodeAddresses, err := env.ClCluster.NodeAddresses()
 	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	sethClient, err := env.GetSethClient(network.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	adapterUUID := uuid.NewString()
@@ -70,7 +71,7 @@ func TestFluxBasic(t *testing.T) {
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
-	err = env.FundChainlinkNodes(big.NewFloat(1))
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Failed to fund the nodes")
 
 	err = fluxInstance.SetOracles(

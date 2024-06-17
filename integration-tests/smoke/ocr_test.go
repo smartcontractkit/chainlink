@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -93,18 +94,21 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
-	sethClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	linkContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Error deploying link token contract")

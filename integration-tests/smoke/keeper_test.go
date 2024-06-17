@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
@@ -15,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -1235,16 +1236,18 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 		WithTestConfig(config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(5).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
 
-	sethClient, err := env.GetSethClient(network.ChainID)
-	require.NoError(t, err, "Getting EVM client shouldn't fail")
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	linkTokenContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")

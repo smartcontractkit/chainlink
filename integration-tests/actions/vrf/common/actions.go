@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/go-resty/resty/v2"
 
@@ -83,7 +85,7 @@ func CreateAndFundSendingKeys(
 }
 
 func SetupBHSNode(
-	env *test_env.CLClusterTestEnv,
+	sethClient *seth.Client,
 	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
@@ -93,11 +95,6 @@ func SetupBHSNode(
 	l zerolog.Logger,
 	bhsNode *VRFNode,
 ) error {
-	sethClient, err := env.GetSethClient(chainID.Int64())
-	if err != nil {
-		return err
-	}
-
 	bhsTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
 		l,
 		sethClient,
@@ -162,7 +159,7 @@ func CreateBHSJob(
 }
 
 func SetupBHFNode(
-	env *test_env.CLClusterTestEnv,
+	sethClient *seth.Client,
 	config *vrf_common_config.General,
 	numberOfTxKeysToCreate int,
 	chainID *big.Int,
@@ -173,10 +170,6 @@ func SetupBHFNode(
 	l zerolog.Logger,
 	bhfNode *VRFNode,
 ) error {
-	sethClient, err := env.GetSethClient(chainID.Int64())
-	if err != nil {
-		return err
-	}
 	bhfTXKeyAddressStrings, _, err := CreateFundAndGetSendingKeys(
 		l,
 		sethClient,
@@ -358,21 +351,34 @@ func FundNodesIfNeeded(ctx context.Context, existingEnvConfig *vrf_common_config
 	return nil
 }
 
-func BuildNewCLEnvForVRF(t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv, error) {
+func BuildNewCLEnvForVRF(l zerolog.Logger, t *testing.T, envConfig VRFEnvConfig, newEnvConfig NewEnvConfig, network ctf_test_env.EthereumNetwork) (*test_env.CLClusterTestEnv, *seth.Client, error) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&envConfig.TestConfig).
 		WithPrivateEthereumNetwork(network.EthereumNetworkConfig).
 		WithCLNodes(len(newEnvConfig.NodesToCreate)).
-		WithFunding(big.NewFloat(*envConfig.TestConfig.Common.ChainlinkNodeFunding)).
 		WithChainlinkNodeLogScanner(newEnvConfig.ChainlinkNodeLogScannerSettings).
 		WithCustomCleanup(envConfig.CleanupFn).
-		WithSeth().
 		Build()
 	if err != nil {
-		return nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
+		return nil, nil, fmt.Errorf("%s, err: %w", "error creating test env", err)
 	}
-	return env, nil
+
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err: %w", "error getting first evm network", err)
+	}
+	sethClient, err := seth_utils.GetChainClient(envConfig.TestConfig, *evmNetwork)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err: %w", "error getting seth client", err)
+	}
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*envConfig.TestConfig.Common.ChainlinkNodeFunding))
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s, err: %w", "failed to fund the nodes", err)
+	}
+
+	return env, sethClient, nil
 }
 
 func GetRPCUrl(env *test_env.CLClusterTestEnv, chainID int64) (string, error) {

@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fxamacker/cbor/v2"
@@ -22,7 +24,6 @@ import (
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ctfTestEnv "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
@@ -1361,7 +1362,6 @@ func setupAutomationTestDocker(
 	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-	network := networks.MustGetSelectedNetworkConfig(automationTestConfig.GetNetworkConfig())[0]
 
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
@@ -1379,7 +1379,6 @@ func setupAutomationTestDocker(
 			WithTestInstance(t).
 			WithTestConfig(automationTestConfig).
 			WithMockAdapter().
-			WithoutEvmClients().
 			WithoutCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
@@ -1401,9 +1400,7 @@ func setupAutomationTestDocker(
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithSecretsConfig(secretsConfig).
 			WithCLNodes(clNodesCount).
-			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
@@ -1415,17 +1412,21 @@ func setupAutomationTestDocker(
 			WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
-			WithFunding(big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding)).
 			WithStandardCleanup().
-			WithSeth().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
 
 	nodeClients := env.ClCluster.NodeAPIs()
 
-	sethClient, err := env.GetSethClient(network.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(automationTestConfig, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
 	a.SetMercuryCredentialName("cred1")

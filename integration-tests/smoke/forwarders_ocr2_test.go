@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -38,9 +39,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(*config.Common.ChainlinkNodeFunding)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
@@ -50,9 +49,14 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(config.Network)[0]
-	sethClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")

@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -989,10 +991,15 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := testEnv.GetFirstEvmNetwork()
 	if err != nil {
 		errorCh <- err
+		return
+	}
+	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
+	if err != nil {
+		errorCh <- err
+		return
 	}
 
 	go func() {
@@ -1118,17 +1125,20 @@ func SetupLogPollerTestDocker(
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
-		WithFunding(big.NewFloat(chainlinkNodeFunding)).
 		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
 		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	chainClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
