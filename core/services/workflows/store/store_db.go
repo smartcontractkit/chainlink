@@ -199,6 +199,7 @@ func stateToStep(state *WorkflowExecutionStep) (workflowStepRow, error) {
 // `Add` creates the relevant workflow_execution and workflow_step entries
 // to persist the passed in ExecutionState.
 func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
+	l := d.lggr.With("executionID", state.ExecutionID, "workflowID", state.WorkflowID, "status", state.Status)
 	return d.transact(ctx, func(db *DBStore) error {
 		var wid *string
 		if state.WorkflowID != "" {
@@ -210,7 +211,7 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
 			WorkflowID: wid,
 			Status:     state.Status,
 		}
-		d.lggr.Debugw("Adding workflow execution", "executionID", state.ExecutionID, "workflowID", state.WorkflowID, "status", state.Status)
+		l.Debug("Adding workflow execution")
 
 		err := db.insertWorkflowExecution(ctx, wex)
 		if err != nil {
@@ -223,7 +224,7 @@ func (d *DBStore) Add(ctx context.Context, state *WorkflowExecution) error {
 			if err != nil {
 				return err
 			}
-			d.lggr.Debugw("Adding workflow step", "executionID", state.ExecutionID, "ref", step.Ref, "status", step.Status)
+			l.With("stepRef", step.Ref).Debug("Adding workflow step")
 			ws = append(ws, step)
 		}
 		if len(ws) > 0 {
