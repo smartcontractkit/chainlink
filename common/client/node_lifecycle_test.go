@@ -817,7 +817,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
 			BlockNumber:     100,
 			TotalDifficulty: big.NewInt(200),
-		}).Once()
+		})
 		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 0}, ChainInfo{BlockNumber: 0})
 
