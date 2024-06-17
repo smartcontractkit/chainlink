@@ -144,7 +144,7 @@ flake.lock @smartcontractkit/prodsec-public
 /contracts/.changeset/
 
 # CCIP LM
-/core/services/ocr2/plugins/liquiditymanager/ @smartcontractkit/liquidity-manager
+/core/**/liquiditymanager/ @smartcontractkit/liquidity-manager
 /core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
 /contracts/**/liquiditymanager/ @smartcontractkit/liquidity-manager
 
