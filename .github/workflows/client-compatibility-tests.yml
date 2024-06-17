@@ -653,7 +653,8 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix,should-run]
+#    needs: [run-client-compatibility-matrix,should-run]
+    needs: [should-run]
     outputs:
       base64_parsed_results: ${{ steps.get-test-results.outputs.base64_parsed_results }}
     steps:
@@ -666,14 +667,22 @@ jobs:
         id: get-test-results
         run: |
           cd .github/scripts/workflowresultparser
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
+#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
+           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
           
           echo "Raw results:"
           jq . output.json
@@ -690,7 +699,8 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [start-slack-thread, should-run, parse-test-results]
+#    needs: [start-slack-thread, should-run, parse-test-results]
+    needs: [should-run, parse-test-results]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
