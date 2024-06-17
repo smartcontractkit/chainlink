@@ -160,11 +160,17 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	loopRegistry := plugins.NewLoopRegistry(appLggr, cfg.Tracing())
 
+	// TOML config + env var protected usage of grpc mercury pool
+	var mercuryTlsCertFile *string
+	if os.Getenv("CHAINLINK_MERCURY_USE_GRPC") == "true" {
+		tlsCertFile := cfg.Mercury().TLS().CertFile()
+		mercuryTlsCertFile = &tlsCertFile
+	}
 	mercuryPool := wsrpc.NewPool(appLggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
 		LatestReportDeadline: cfg.Mercury().Cache().LatestReportDeadline(),
-	})
+	}, mercuryTlsCertFile)
 
 	capabilitiesRegistry := capabilities.NewRegistry(appLggr)
 

@@ -23,6 +23,7 @@ type mockClient struct {
 	started   bool
 	closed    bool
 	rawClient pb.MercuryClient
+	lggr      logger.Logger
 }
 
 func (c *mockClient) Transmit(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
@@ -46,7 +47,9 @@ func (c *mockClient) ServerURL() string              { return "mock client url" 
 func (c *mockClient) RawClient() pb.MercuryClient    { return c.rawClient }
 
 func newMockClient(lggr logger.Logger) *mockClient {
-	return &mockClient{}
+	return &mockClient{
+		lggr: lggr,
+	}
 }
 
 func Test_Pool(t *testing.T) {
@@ -55,7 +58,9 @@ func Test_Pool(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("Checkout", func(t *testing.T) {
-		p := newPool(lggr)
+		p := &pool{
+			lggr: lggr,
+		}
 		p.cacheSet = &mockCacheSet{}
 
 		t.Run("checks out one started client", func(t *testing.T) {
@@ -64,7 +69,7 @@ func Test_Pool(t *testing.T) {
 			serverURL := "example.com:443/ws"
 
 			client := newMockClient(lggr)
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 				assert.Equal(t, clientPrivKey, cprivk)
 				assert.Equal(t, serverPubKey, spubk)
 				assert.Equal(t, serverURL, surl)
@@ -110,7 +115,7 @@ func Test_Pool(t *testing.T) {
 				"example.invalid:8000/ws",
 			}
 
-			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+			p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 				return newMockClient(lggr)
 			}
 
@@ -203,7 +208,9 @@ func Test_Pool(t *testing.T) {
 		})
 	})
 
-	p := newPool(lggr)
+	p := &pool{
+		lggr: lggr,
+	}
 	p.cacheSet = &mockCacheSet{}
 
 	t.Run("Name", func(t *testing.T) {
@@ -226,7 +233,7 @@ func Test_Pool(t *testing.T) {
 		}
 
 		var clients []*mockClient
-		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet) Client {
+		p.newClient = func(lggr logger.Logger, cprivk csakey.KeyV2, spubk []byte, surl string, cs cache.CacheSet, tlsCertFile *string) Client {
 			c := newMockClient(lggr)
 			clients = append(clients, c)
 			return c

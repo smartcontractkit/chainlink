@@ -257,7 +257,7 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 
 	ok := m.IfStarted(func() {
 		m.wg.Add(1)
-		go m.fetch(req, v)
+		go m.fetch(ctx, req, v)
 	})
 	if !ok {
 		err := fmt.Errorf("memCache must be started, but is: %v", m.State())
@@ -287,7 +287,7 @@ func (m *memCache) newBackoff() backoff.Backoff {
 
 // fetch continually tries to call FetchLatestReport and write the result to v
 // it writes errors as they come up
-func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
+func (m *memCache) fetch(reqCtx context.Context, req *pb.LatestReportRequest, v *cacheVal) {
 	defer m.wg.Done()
 	b := m.newBackoff()
 	memcacheCtx, cancel := m.chStop.NewCtx()
@@ -302,10 +302,10 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 	for {
 		t = time.Now()
 
-		ctx := memcacheCtx
+		ctx := reqCtx
 		cancel := func() {}
 		if m.cfg.LatestReportDeadline > 0 {
-			ctx, cancel = context.WithTimeoutCause(memcacheCtx, m.cfg.LatestReportDeadline, errors.New("latest report fetch deadline exceeded"))
+			ctx, cancel = context.WithTimeout(ctx, m.cfg.LatestReportDeadline)
 		}
 
 		// NOTE: must drop down to RawClient here otherwise we enter an
