@@ -1,4 +1,4 @@
-# Integration Tests
+# Integration Tests   
 
 Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
@@ -6,13 +6,13 @@ Here lives the integration tests for chainlink, utilizing our [chainlink-testing
 
 If you have previously run these smoke tests using GitHub Actions or some sort of Kubernetes setup, that method is no longer necessary. We have moved the majority of our tests to utilize plain Docker containers (with the help of [Testcontainers](https://golang.testcontainers.org/)). This should make tests faster, more stable, and enable you to run them on your local machine without much hassle.
 
-## Requirements
+## Requirements   
 
 1. [Go](https://go.dev/)
 2. [Docker](https://www.docker.com/)
 3. You'll probably want to [increase the resources available to Docker](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container) as most tests require quite a few containers (e.g. OCR requires 6 Chainlink nodes, 6 databases, a simulated blockchain, and a mock server).
 
-## Configure
+## Configure   
 
 We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
 

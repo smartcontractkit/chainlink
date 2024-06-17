@@ -124,6 +124,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSubunitsSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
 `
@@ -359,11 +366,12 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			Version: "1.0.0",
 		}
 		cfg = feeds.ChainConfig{
-			FeedsManagerID: mgr.ID,
-			ChainID:        "42",
-			ChainType:      feeds.ChainTypeEVM,
-			AccountAddress: "0x0000000000000000000000000000000000000000",
-			AdminAddress:   "0x0000000000000000000000000000000000000001",
+			FeedsManagerID:          mgr.ID,
+			ChainID:                 "42",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0000000000000000000000000000000000000000",
+			AccountAddressPublicKey: null.StringFrom("0x0000000000000000000000000000000000000002"),
+			AdminAddress:            "0x0000000000000000000000000000000000000001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{
 				Enabled: true,
 			},
@@ -390,11 +398,12 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 					Id:   cfg.ChainID,
 					Type: proto.ChainType_CHAIN_TYPE_EVM,
 				},
-				AccountAddress:    cfg.AccountAddress,
-				AdminAddress:      cfg.AdminAddress,
-				FluxMonitorConfig: &proto.FluxMonitorConfig{Enabled: true},
-				Ocr1Config:        &proto.OCR1Config{Enabled: false},
-				Ocr2Config:        &proto.OCR2Config{Enabled: false},
+				AccountAddress:          cfg.AccountAddress,
+				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+				AdminAddress:            cfg.AdminAddress,
+				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+				Ocr1Config:              &proto.OCR1Config{Enabled: false},
+				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
@@ -481,14 +490,15 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			Version: "1.0.0",
 		}
 		cfg = feeds.ChainConfig{
-			FeedsManagerID:    mgr.ID,
-			ChainID:           "42",
-			ChainType:         feeds.ChainTypeEVM,
-			AccountAddress:    "0x0000000000000000000000000000000000000000",
-			AdminAddress:      "0x0000000000000000000000000000000000000001",
-			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
-			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
+			FeedsManagerID:          mgr.ID,
+			ChainID:                 "42",
+			ChainType:               feeds.ChainTypeEVM,
+			AccountAddress:          "0x0000000000000000000000000000000000000000",
+			AccountAddressPublicKey: null.StringFrom("0x0000000000000000000000000000000000000002"),
+			AdminAddress:            "0x0000000000000000000000000000000000000001",
+			FluxMonitorConfig:       feeds.FluxMonitorConfig{Enabled: false},
+			OCR1Config:              feeds.OCR1Config{Enabled: false},
+			OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
 		}
 
 		svc = setupTestService(t)
@@ -506,11 +516,12 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 					Id:   cfg.ChainID,
 					Type: proto.ChainType_CHAIN_TYPE_EVM,
 				},
-				AccountAddress:    cfg.AccountAddress,
-				AdminAddress:      cfg.AdminAddress,
-				FluxMonitorConfig: &proto.FluxMonitorConfig{Enabled: false},
-				Ocr1Config:        &proto.OCR1Config{Enabled: false},
-				Ocr2Config:        &proto.OCR2Config{Enabled: false},
+				AccountAddress:          cfg.AccountAddress,
+				AdminAddress:            cfg.AdminAddress,
+				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: false},
+				Ocr1Config:              &proto.OCR1Config{Enabled: false},
+				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
 		},
 	}).Return(&proto.UpdateNodeResponse{}, nil)
@@ -974,6 +985,7 @@ ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
+# omit gasPriceSubunitsSource intentionally 
 """
 `
 
@@ -2289,6 +2301,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSubunitsSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "30s"
 `
@@ -2320,6 +2339,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+# intentionally do not set gasPriceSubunitsSource for this pipeline example to cover case when none is set
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "20m"
 `
