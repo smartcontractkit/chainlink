@@ -667,22 +667,14 @@ jobs:
         id: get-test-results
         run: |
           cd .github/scripts/workflowresultparser
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-#          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
           
           echo "Raw results:"
           jq . output.json
