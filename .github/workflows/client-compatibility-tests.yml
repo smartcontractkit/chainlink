@@ -190,7 +190,6 @@ jobs:
               echo "Chainlink version not provided in input. Using latest commit SHA."
               chainlink_version=${{ github.sha }}
             fi
-            chainlink_version="${{ github.event.inputs.chainlinkVersion }}"
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             echo "Fetching Chainlink version from PR's head commit"
