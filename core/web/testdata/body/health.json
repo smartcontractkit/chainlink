@@ -2,15 +2,6 @@
   "data": [
     {
       "type": "checks",
-      "id": "BridgeCache",
-      "attributes": {
-        "name": "BridgeCache",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
       "id": "EVM.0",
       "attributes": {
         "name": "EVM.0",
@@ -158,6 +149,15 @@
       "id": "PipelineRunner",
       "attributes": {
         "name": "PipelineRunner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
         "status": "passing",
         "output": ""
       }

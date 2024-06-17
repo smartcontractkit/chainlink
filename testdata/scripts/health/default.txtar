@@ -31,28 +31,19 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 -- out.txt --
-ok BridgeCache
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
+ok PipelineRunner.BridgeCache
 ok PromReporter
 ok TelemetryManager
 
 -- out.json --
 {
   "data": [
-    {
-      "type": "checks",
-      "id": "BridgeCache",
-      "attributes": {
-        "name": "BridgeCache",
-        "status": "passing",
-        "output": ""
-      }
-    },
     {
       "type": "checks",
       "id": "JobSpawner",
@@ -107,6 +98,16 @@ ok TelemetryManager
         "output": ""
       }
     },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+
     {
       "type": "checks",
       "id": "PromReporter",

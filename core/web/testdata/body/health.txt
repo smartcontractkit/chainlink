@@ -1,4 +1,3 @@
-ok BridgeCache
 ok EVM.0
 ok EVM.0.BalanceMonitor
 ok EVM.0.HeadBroadcaster
@@ -17,5 +16,6 @@ ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
+ok PipelineRunner.BridgeCache
 ok PromReporter
 ok TelemetryManager
