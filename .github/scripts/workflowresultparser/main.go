@@ -110,6 +110,11 @@ func main() {
 		}
 	}
 
+	if len(parsedResults) == 0 {
+		fmt.Printf("No results found for '%s' regex in workflow id %d\n", *jobNameRegex, *workflowRunID)
+		return
+	}
+
 	// Create a map to store results
 	results := ResultsMap{}
 
