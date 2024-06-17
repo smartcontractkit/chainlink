@@ -272,15 +272,14 @@ func (v *pgDSLParser) whereClause(expressions []query.Expression, limiter query.
 			return "", errors.New("invalid cursor direction")
 		}
 
-		block, logIdx, txHash, err := valuesFromCursor(limiter.Limit.Cursor)
+		block, logIdx, _, err := valuesFromCursor(limiter.Limit.Cursor)
 		if err != nil {
 			return "", err
 		}
 
-		segment = fmt.Sprintf("%s AND block_number %s= :cursor_block AND tx_hash %s= :tx_hash AND log_index %s :cursor_log_index", segment, op, op, op)
+		segment = fmt.Sprintf("%s AND (block_number %s :cursor_block_number OR (block_number = :cursor_block_number AND log_index %s :cursor_log_index))", segment, op, op)
 
 		v.args.withField("cursor_block_number", block).
-			withField("tx_hash", txHash).
 			withField("cursor_log_index", logIdx)
 	}
 

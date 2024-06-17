@@ -58,14 +58,14 @@ func TestDSLParser(t *testing.T) {
 			"AND (address = :address_0 AND event_sig = :event_sig_0 " +
 			"AND block_number <= " +
 			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
-			"AND block_number >= :cursor_block AND tx_hash >= :tx_hash AND log_index > :cursor_log_index " +
+			"AND (block_number > :cursor_block_number OR (block_number = :cursor_block_number AND log_index > :cursor_log_index)) " +
 			"ORDER BY block_number ASC, log_index ASC, tx_hash ASC " +
 			"LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 6)
+		assertArgs(t, args, 5)
 	})
 
 	t.Run("query with limit and no order by", func(t *testing.T) {
@@ -154,13 +154,13 @@ func TestDSLParser(t *testing.T) {
 			"AND block_number != :block_number_0 " +
 			"AND block_number <= " +
 			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
-			"AND block_number <= :cursor_block AND tx_hash <= :tx_hash AND log_index < :cursor_log_index " +
+			"AND (block_number < :cursor_block_number OR (block_number = :cursor_block_number AND log_index < :cursor_log_index)) " +
 			"ORDER BY block_number DESC, log_index DESC, tx_hash DESC LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 7)
+		assertArgs(t, args, 6)
 	})
 
 	t.Run("query for finality", func(t *testing.T) {
