@@ -7,7 +7,7 @@ import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfac
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
-/// @notice CapabilityRegistry is used to manage Nodes (including their links to Node
+/// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node
 /// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
 /// sets of nodes that support those Capabilities.
 /// @dev The contract currently stores the entire state of Node Operators, Nodes,
@@ -15,7 +15,7 @@ import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.so
 /// if an upgrade is ever required.  The team acknowledges this and is fine
 /// reconfiguring the upgraded contract in the future so as to not add extra
 /// complexity to this current version.
-contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
+contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -37,7 +37,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The signer address for application-layer message verification.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
     /// @notice The list of hashed capability IDs supported by the node
@@ -55,7 +55,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice The signer address for application-layer message verification.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
     /// @notice The list of hashed capability IDs supported by the node
@@ -76,7 +76,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// only belong to one DON that accepts Workflows.
     uint32 workflowDONId;
     /// @notice The signer address for application-layer message verification.
-    /// @dev This key is guaranteed to be unique in the CapabilityRegistry
+    /// @dev This key is guaranteed to be unique in the CapabilitiesRegistry
     /// as a signer address can only belong to one node.
     /// @dev This should be the ABI encoded version of the node's address.
     /// I.e 0x0000address.  The Capability Registry does not store it as an address so that
@@ -84,7 +84,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// in the future.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
     /// @notice The node's supported capabilities
@@ -420,7 +420,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
-    return "CapabilityRegistry 1.0.0";
+    return "CapabilitiesRegistry 1.0.0";
   }
 
   /// @notice Adds a list of node operators

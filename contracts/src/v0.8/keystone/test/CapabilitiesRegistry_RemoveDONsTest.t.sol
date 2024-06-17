@@ -3,27 +3,27 @@ pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
 
-import {CapabilityRegistry} from "../CapabilityRegistry.sol";
+import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
-contract CapabilityRegistry_RemoveDONsTest is BaseTest {
+contract CapabilitiesRegistry_RemoveDONsTest is BaseTest {
   event ConfigSet(uint32 donId, uint32 configCount);
 
   function setUp() public override {
     BaseTest.setUp();
 
-    CapabilityRegistry.Capability[] memory capabilities = new CapabilityRegistry.Capability[](2);
+    CapabilitiesRegistry.Capability[] memory capabilities = new CapabilitiesRegistry.Capability[](2);
     capabilities[0] = s_basicCapability;
     capabilities[1] = s_capabilityWithConfigurationContract;
 
-    s_capabilityRegistry.addNodeOperators(_getNodeOperators());
-    s_capabilityRegistry.addCapabilities(capabilities);
+    s_CapabilitiesRegistry.addNodeOperators(_getNodeOperators());
+    s_CapabilitiesRegistry.addCapabilities(capabilities);
 
-    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](2);
     bytes32[] memory capabilityIds = new bytes32[](2);
     capabilityIds[0] = s_basicHashedCapabilityId;
     capabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeParams({
+    nodes[0] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
@@ -33,7 +33,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     bytes32[] memory nodeTwoCapabilityIds = new bytes32[](1);
     nodeTwoCapabilityIds[0] = s_basicHashedCapabilityId;
 
-    nodes[1] = CapabilityRegistry.NodeParams({
+    nodes[1] = CapabilitiesRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
@@ -41,11 +41,11 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     });
 
     changePrank(NODE_OPERATOR_ONE_ADMIN);
-    s_capabilityRegistry.addNodes(nodes);
+    s_CapabilitiesRegistry.addNodes(nodes);
 
-    CapabilityRegistry.CapabilityConfiguration[]
-      memory capabilityConfigs = new CapabilityRegistry.CapabilityConfiguration[](1);
-    capabilityConfigs[0] = CapabilityRegistry.CapabilityConfiguration({
+    CapabilitiesRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilitiesRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilitiesRegistry.CapabilityConfiguration({
       capabilityId: s_basicHashedCapabilityId,
       config: BASIC_CAPABILITY_CONFIG
     });
@@ -55,7 +55,7 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     nodeIds[1] = P2P_ID_TWO;
 
     changePrank(ADMIN);
-    s_capabilityRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
+    s_CapabilitiesRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
   }
 
   function test_RevertWhen_CalledByNonAdmin() public {
@@ -63,34 +63,34 @@ contract CapabilityRegistry_RemoveDONsTest is BaseTest {
     donIDs[0] = 1;
     changePrank(STRANGER);
     vm.expectRevert("Only callable by owner");
-    s_capabilityRegistry.removeDONs(donIDs);
+    s_CapabilitiesRegistry.removeDONs(donIDs);
   }
 
   function test_RevertWhen_DONDoesNotExist() public {
     uint32 invalidDONId = 10;
     uint32[] memory donIDs = new uint32[](1);
     donIDs[0] = invalidDONId;
-    vm.expectRevert(abi.encodeWithSelector(CapabilityRegistry.DONDoesNotExist.selector, invalidDONId));
-    s_capabilityRegistry.removeDONs(donIDs);
+    vm.expectRevert(abi.encodeWithSelector(CapabilitiesRegistry.DONDoesNotExist.selector, invalidDONId));
+    s_CapabilitiesRegistry.removeDONs(donIDs);
   }
 
   function test_RemovesDON() public {
     uint32[] memory donIDs = new uint32[](1);
     donIDs[0] = DON_ID;
-    vm.expectEmit(true, true, true, true, address(s_capabilityRegistry));
+    vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
     emit ConfigSet(DON_ID, 0);
-    s_capabilityRegistry.removeDONs(donIDs);
+    s_CapabilitiesRegistry.removeDONs(donIDs);
 
-    CapabilityRegistry.DONInfo memory donInfo = s_capabilityRegistry.getDON(DON_ID);
+    CapabilitiesRegistry.DONInfo memory donInfo = s_CapabilitiesRegistry.getDON(DON_ID);
     assertEq(donInfo.id, 0);
     assertEq(donInfo.configCount, 0);
     assertEq(donInfo.isPublic, false);
     assertEq(donInfo.capabilityConfigurations.length, 0);
 
-    (bytes memory capabilityRegistryDONConfig, bytes memory capabilityConfigContractConfig) = s_capabilityRegistry
+    (bytes memory CapabilitiesRegistryDONConfig, bytes memory capabilityConfigContractConfig) = s_CapabilitiesRegistry
       .getCapabilityConfigs(DON_ID, s_basicHashedCapabilityId);
 
-    assertEq(capabilityRegistryDONConfig, bytes(""));
+    assertEq(CapabilitiesRegistryDONConfig, bytes(""));
     assertEq(capabilityConfigContractConfig, bytes(""));
     assertEq(donInfo.nodeP2PIds.length, 0);
   }
