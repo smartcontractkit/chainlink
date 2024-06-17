@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.12.1-starknet
+
+### Changes
+
+- [#13584](https://github.com/smartcontractkit/chainlink/pull/13584) [`0115ac134d`](https://github.com/smartcontractkit/chainlink/commit/0115ac134d328c0cb702694603a5f8da69e10ef2) Thanks [@augustbleeds](https://github.com/augustbleeds)! - Add option to include GasPriceSubunits pipeline to include gasPriceSubunits in median ocr2 transmission (only to be used with Starknet chain for now) #added #nops #updated
+
+- [#13584](https://github.com/smartcontractkit/chainlink/pull/13584) [`174befa292`](https://github.com/smartcontractkit/chainlink/commit/174befa292c59d7ad4a9b36ccf63f87af7b4a6ce) Thanks [@augustbleeds](https://github.com/augustbleeds)! - #db_update Add account_address_public_key to feeds_manager_chain_configs
+
 ## 2.12.0 - 2024-06-05
 
 ### Minor Changes
@@ -65,7 +73,6 @@
 
 - [#12747](https://github.com/smartcontractkit/chainlink/pull/12747) [`2729ef76f3`](https://github.com/smartcontractkit/chainlink/commit/2729ef76f34877a2e6e8644b2e67f3e5dfb0c2b6) Thanks [@friedemannf](https://github.com/friedemannf)! - Add support for X Layer (X1) #added
 
-
 - [#12680](https://github.com/smartcontractkit/chainlink/pull/12680) [`f55d8be495`](https://github.com/smartcontractkit/chainlink/commit/f55d8be495a83c97ac5439672563400e12ec2ee7) Thanks [@samsondav](https://github.com/samsondav)! - #added
 
   Add configurability to mercury transmitter
@@ -93,6 +100,7 @@
 ## 2.11.1 - 2024-05-20
 
 ### Patch Changes
+
 - [#13254](https://github.com/smartcontractkit/chainlink/pull/13254) [`c0d201a9a8`](https://github.com/smartcontractkit/chainlink/commit/c0d201a9a85b66718c5102427c34276e0b61c84e) Thanks [@samsondav!] - Fix panic if mercury server returns error #bugfix
 
 ## 2.11.0 - 2024-04-30
