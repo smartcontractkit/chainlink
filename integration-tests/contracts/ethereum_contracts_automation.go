@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	registrylogicc23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_c_wrapper_2_3"
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -28,12 +30,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
+	registrar23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_3"
 	registrylogica22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_a_wrapper_2_2"
 	registrylogicb22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_b_wrapper_2_2"
 	registry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_module_base"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+
+	registrylogica23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_a_wrapper_2_3"
+	registrylogicb23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_b_wrapper_2_3"
+	registry23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_wrapper_2_3"
+	iregistry23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_chain_module"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -127,6 +137,7 @@ type EthereumKeeperRegistry struct {
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
 	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
 	registry2_2 *i_automation_registry_master_wrapper_2_2.IAutomationRegistryMaster
+	registry2_3 *i_automation_registry_master_wrapper_2_3.IAutomationRegistryMaster23
 	chainModule *i_chain_module.IChainModule
 	address     *common.Address
 	l           zerolog.Logger
@@ -139,7 +150,7 @@ func (v *EthereumKeeperRegistry) ReorgProtectionEnabled() bool {
 }
 
 func (v *EthereumKeeperRegistry) ChainModuleAddress() common.Address {
-	if v.version == ethereum.RegistryVersion_2_2 {
+	if v.version >= ethereum.RegistryVersion_2_2 {
 		return v.chainModule.Address()
 	}
 	return common.Address{}
@@ -179,6 +190,8 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 	txOpts := v.client.NewTXOpts()
 	var err error
 
+	v.l.Error().Msg("===============Setting config for registry")
+	//v.l.Info().Msgf("=======Setting config for registry %s", v.version)
 	switch v.version {
 	case ethereum.RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetConfigTypeSafe(txOpts,
@@ -197,6 +210,18 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.TypedOnchainConfig22,
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
+		))
+	case ethereum.RegistryVersion_2_3:
+		// TODO need to change to real LINK address
+		_, err = v.client.Decode(v.registry2_3.SetConfigTypeSafe(txOpts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.TypedOnchainConfig23,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+			ocrConfig.BillingTokens,
+			ocrConfig.BillingConfigs,
 		))
 	default:
 		return fmt.Errorf("SetConfigTypeSafe is not supported in keeper registry version %d", v.version)
@@ -660,6 +685,8 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		tx, err = v.client.Decode(v.registry2_1.CancelUpkeep(opts, id))
 	case ethereum.RegistryVersion_2_2:
 		tx, err = v.client.Decode(v.registry2_2.CancelUpkeep(opts, id))
+	case ethereum.RegistryVersion_2_3:
+		tx, err = v.client.Decode(v.registry2_3.CancelUpkeep(opts, id))
 	}
 
 	txHash := "none"
@@ -978,6 +1005,12 @@ func (v *EthereumKeeperRegistry) ParseUpkeepIdFromRegisteredLog(log *types.Log) 
 			return nil, err
 		}
 		return parsedLog.Id, nil
+	case ethereum.RegistryVersion_2_3:
+		parsedLog, err := v.registry2_3.ParseUpkeepRegistered(*log)
+		if err != nil {
+			return nil, err
+		}
+		return parsedLog.Id, nil
 	}
 
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -1015,6 +1048,8 @@ func DeployKeeperRegistry(
 		return deployRegistry21(client, opts, mode)
 	case eth_contracts.RegistryVersion_2_2:
 		return deployRegistry22(client, opts)
+	case eth_contracts.RegistryVersion_2_3:
+		return deployRegistry23(client, opts)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
@@ -1339,6 +1374,110 @@ func deployRegistry22(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 	}, err
 }
 
+func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
+	var chainModuleAddr common.Address
+	var err error
+	chainId := client.ChainID
+
+	if chainId == networks.ScrollMainnet.ChainID || chainId == networks.ScrollSepolia.ChainID {
+		chainModuleAddr, err = deployScrollModule(client)
+	} else if chainId == networks.ArbitrumMainnet.ChainID || chainId == networks.ArbitrumSepolia.ChainID {
+		chainModuleAddr, err = deployArbitrumModule(client)
+	} else if chainId == networks.OptimismMainnet.ChainID || chainId == networks.OptimismSepolia.ChainID {
+		chainModuleAddr, err = deployOptimismModule(client)
+	} else {
+		chainModuleAddr, err = deployBaseModule(client)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	automationForwarderLogicAddr, err := deployAutomationForwarderLogicSeth(client)
+	if err != nil {
+		return nil, err
+	}
+
+	var allowedReadOnlyAddress common.Address
+	if chainId == networks.PolygonZkEvmMainnet.ChainID || chainId == networks.PolygonZkEvmCardona.ChainID {
+		allowedReadOnlyAddress = common.HexToAddress("0x1111111111111111111111111111111111111111")
+	} else {
+		allowedReadOnlyAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	}
+
+	logicCAbi, err := registrylogicc23.AutomationRegistryLogicCMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistryLogicC2_3 ABI: %w", err)
+	}
+
+	// TODO update args
+	logicCData, err := client.DeployContract(client.NewTXOpts(), "AutomationRegistryLogicC2_3", *logicCAbi, common.FromHex(registrylogicc23.AutomationRegistryLogicCMetaData.Bin),
+		common.HexToAddress(opts.LinkAddr),
+		common.HexToAddress(opts.LinkUSDFeedAddr),
+		common.HexToAddress(opts.NativeUSDFeedAddr),
+		common.HexToAddress(opts.GasFeedAddr),
+		automationForwarderLogicAddr,
+		allowedReadOnlyAddress,
+		uint8(0),
+		common.HexToAddress(opts.WrappedNativeAddr),
+	)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistryLogicC2_3 instance deployment have failed: %w", err)
+	}
+
+	logicBAbi, err := registrylogicb23.AutomationRegistryLogicBMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistryLogicB2_3 ABI: %w", err)
+	}
+
+	logicBData, err := client.DeployContract(client.NewTXOpts(), "AutomationRegistryLogicB2_3", *logicBAbi, common.FromHex(registrylogicb23.AutomationRegistryLogicBMetaData.Bin),
+		logicCData.Address,
+	)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistryLogicB2_3 instance deployment have failed: %w", err)
+	}
+
+	logicAAbi, err := registrylogica23.AutomationRegistryLogicAMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistryLogicA2_3 ABI: %w", err)
+	}
+	logicAData, err := client.DeployContract(client.NewTXOpts(), "AutomationRegistryLogicA2_3", *logicAAbi, common.FromHex(registrylogica23.AutomationRegistryLogicAMetaData.Bin),
+		logicBData.Address,
+	)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistryLogicA2_3 instance deployment have failed: %w", err)
+	}
+
+	abi, err := registry23.AutomationRegistryMetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistry2_3 ABI: %w", err)
+	}
+
+	data, err := client.DeployContract(client.NewTXOpts(), "AutomationRegistry2_3", *abi, common.FromHex(registry23.AutomationRegistryMetaData.Bin),
+		logicAData.Address,
+	)
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("AutomationRegistry2_3 instance deployment have failed: %w", err)
+	}
+
+	instance, err := iregistry23.NewIAutomationRegistryMaster23(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_3 instance: %w", err)
+	}
+
+	chainModule, err := i_chain_module.NewIChainModule(
+		chainModuleAddr,
+		wrappers.MustNewWrappedContractBackend(nil, client),
+	)
+
+	return &EthereumKeeperRegistry{
+		client:      client,
+		version:     eth_contracts.RegistryVersion_2_3,
+		registry2_3: instance,
+		chainModule: chainModule,
+		address:     &data.Address,
+	}, err
+}
+
 // LoadKeeperRegistry returns deployed on given address EthereumKeeperRegistry
 func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error) {
 	var keeper *EthereumKeeperRegistry
@@ -1356,6 +1495,8 @@ func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Ad
 		keeper, err = loadRegistry2_1(client, address)
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
+	case eth_contracts.RegistryVersion_2_3: // why the contract name is not the same as the actual contract name?
+		keeper, err = loadRegistry2_3(client, address)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
 	}
@@ -1495,6 +1636,27 @@ func loadRegistry2_2(client *seth.Client, address common.Address) (*EthereumKeep
 	}, nil
 }
 
+func loadRegistry2_3(client *seth.Client, address common.Address) (*EthereumKeeperRegistry, error) {
+	abi, err := iregistry23.IAutomationRegistryMaster23MetaData.GetAbi()
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistry2_3 ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("AutomationRegistry2_3", *abi)
+	client.ContractStore.AddBIN("AutomationRegistry2_3", common.FromHex(iregistry23.IAutomationRegistryMaster23MetaData.Bin))
+
+	instance, err := iregistry23.NewIAutomationRegistryMaster23(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate AutomationRegistry2_3 instance: %w", err)
+	}
+
+	return &EthereumKeeperRegistry{
+		address:     &address,
+		client:      client,
+		registry2_3: instance,
+	}, nil
+}
+
 func deployAutomationForwarderLogicSeth(client *seth.Client) (common.Address, error) {
 	abi, err := automationForwarderLogic.AutomationForwarderLogicMetaData.GetAbi()
 	if err != nil {
@@ -1567,6 +1729,7 @@ type EthereumKeeperRegistrar struct {
 	registrar   *keeper_registrar_wrapper1_2.KeeperRegistrar
 	registrar20 *keeper_registrar_wrapper2_0.KeeperRegistrar
 	registrar21 *registrar21.AutomationRegistrar
+	registrar23 *registrar23.AutomationRegistrar
 	address     *common.Address
 }
 
@@ -1579,7 +1742,7 @@ func (v *EthereumKeeperRegistrar) Fund(_ *big.Float) error {
 }
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
-func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool) ([]byte, error) {
+func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool, linkTokenAddr string) ([]byte, error) {
 	if v.registrar20 != nil {
 		registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.ABI))
 		if err != nil {
@@ -1667,6 +1830,113 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 			common.HexToAddress(senderAddr),
 		)
 		return req, err
+	} else if v.registrar23 != nil {
+		//if isLogTrigger {
+		//	var topic0InBytes [32]byte
+		//	// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
+		//	bytes0 := [32]byte{
+		//		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		//	}
+		//	if isMercury {
+		//		// bytes representation of 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
+		//		topic0InBytes = [32]byte{209, 255, 233, 228, 85, 129, 193, 29, 125, 159, 46, 213, 247, 82, 23, 205, 75, 233, 248, 183, 238, 230, 175, 15, 109, 3, 244, 109, 229, 57, 86, 205}
+		//	} else {
+		//		// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+		//		topic0InBytes = [32]byte{
+		//			61, 83, 163, 149, 80, 224, 70, 136,
+		//			6, 88, 39, 243, 187, 134, 88, 76,
+		//			176, 7, 171, 158, 188, 167, 235,
+		//			213, 40, 231, 48, 28, 156, 49, 235, 93,
+		//		}
+		//	}
+		//
+		//	logTriggerConfigStruct := acutils.IAutomationV21PlusCommonLogTriggerConfig{
+		//		ContractAddress: common.HexToAddress(upkeepAddr),
+		//		FilterSelector:  0,
+		//		Topic0:          topic0InBytes,
+		//		Topic1:          bytes0,
+		//		Topic2:          bytes0,
+		//		Topic3:          bytes0,
+		//	}
+		//	encodedLogTriggerConfig, err := compatibleUtils.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//
+		//	// TODO update params
+		//	req, err := registrarABI.Pack(
+		//		"register",
+		//		name,
+		//		email,
+		//		common.HexToAddress(upkeepAddr),
+		//		gasLimit,
+		//		common.HexToAddress(adminAddr),
+		//		uint8(1), // trigger type
+		//		checkData,
+		//		encodedLogTriggerConfig, // triggerConfig
+		//		[]byte{},                // offchainConfig
+		//		amount,
+		//		common.HexToAddress(senderAddr),
+		//	)
+		//
+		//	return req, err
+		//}
+
+		//struct RegistrationParams {
+		//	address upkeepContract;
+		//	uint96 amount;
+		//	// 1 word full
+		//	address adminAddress;
+		//	uint32 gasLimit;
+		//	uint8 triggerType;
+		//	// 7 bytes left in 2nd word
+		//	IERC20 billingToken;
+		//	// 12 bytes left in 3rd word
+		//	string name;
+		//	bytes encryptedEmail;
+		//	bytes checkData;
+		//	bytes triggerConfig;
+		//	bytes offchainConfig;
+		//}
+
+		registrarABI = cltypes.MustGetABI(registrar23.AutomationRegistrarABI)
+
+		//type RegistrationParams struct {
+		//	UpkeepContract common.Address
+		//	Amount         *big.Int
+		//	AdminAddress   common.Address
+		//	GasLimit       uint32
+		//	TriggerType    uint8
+		//	BillingToken   common.Address
+		//	Name           string
+		//	EncryptedEmail []byte
+		//	CheckData      []byte
+		//	TriggerConfig  []byte
+		//	OffchainConfig []byte
+		//}
+
+		params := registrar23.AutomationRegistrar23RegistrationParams{
+			UpkeepContract: common.HexToAddress(upkeepAddr),
+			Amount:         amount,
+			AdminAddress:   common.HexToAddress(adminAddr),
+			GasLimit:       gasLimit,
+			TriggerType:    uint8(0), // trigger type
+			BillingToken:   common.HexToAddress(linkTokenAddr),
+			Name:           name,
+			EncryptedEmail: email,
+			CheckData:      checkData,
+			TriggerConfig:  []byte{},
+			OffchainConfig: []byte{},
+		}
+
+		//req, err := registrarABI.Pack(
+		//	"registerUpkeep",
+		//	params,
+		//)
+
+		encodedRegistrationParamsStruct, err := registrarABI.Methods["registerUpkeep"].Inputs.Pack(&params)
+
+		return encodedRegistrationParamsStruct, err
 	}
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.ABI))
 	if err != nil {
@@ -1690,6 +1960,7 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 	return req, nil
 }
 
+// TODO add registrar 23
 func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 	if registryVersion == eth_contracts.RegistryVersion_2_0 {
 		abi, err := keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
@@ -1748,6 +2019,56 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 		return &EthereumKeeperRegistrar{
 			client:      client,
 			registrar21: instance,
+			address:     &data.Address,
+		}, nil
+	} else if registryVersion == eth_contracts.RegistryVersion_2_3 {
+		abi, err := registrar23.AutomationRegistrarMetaData.GetAbi()
+		if err != nil {
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to get KeeperRegistrar2_3 ABI: %w", err)
+		}
+		// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
+		triggerConfigs := []registrar23.AutomationRegistrar23InitialTriggerConfig{
+			{TriggerType: 0, AutoApproveType: registrarSettings.AutoApproveConfigType,
+				AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+			{TriggerType: 1, AutoApproveType: registrarSettings.AutoApproveConfigType,
+				AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+		}
+
+		//address LINKAddress,
+		//	IAutomationRegistryMaster2_3 registry,
+		//	InitialTriggerConfig[] memory triggerConfigs,
+		//	IERC20[] memory billingTokens,
+		//	uint256[] memory minRegistrationFees,
+		//	IWrappedNative wrappedNativeToken
+
+		billingTokens := []common.Address{
+			common.HexToAddress(linkAddr),
+		}
+		minRegistrationFees := []*big.Int{
+			big.NewInt(10),
+		}
+
+		// TODO update params
+		data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistrar2_3", *abi, common.FromHex(registrar23.AutomationRegistrarMetaData.Bin),
+			common.HexToAddress(linkAddr),
+			common.HexToAddress(registrarSettings.RegistryAddr),
+			triggerConfigs,
+			billingTokens,
+			minRegistrationFees,
+			common.HexToAddress(registrarSettings.WETHTokenAddr),
+		)
+		if err != nil {
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("KeeperRegistrar2_3 instance deployment have failed: %w", err)
+		}
+
+		instance, err := registrar23.NewAutomationRegistrar(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+		if err != nil {
+			return &EthereumKeeperRegistrar{}, fmt.Errorf("failed to instantiate KeeperRegistrar2_3 instance: %w", err)
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:      client,
+			registrar23: instance,
 			address:     &data.Address,
 		}, nil
 	}
