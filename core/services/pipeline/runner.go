@@ -120,6 +120,8 @@ func NewRunner(
 	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
 ) *runner {
+	lggr = lggr.Named("PipelineRunner")
+
 	r := &runner{
 		orm:                    orm,
 		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
@@ -131,7 +133,7 @@ func NewRunner(
 		chStop:                 make(chan struct{}),
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
-		lggr:                   lggr.Named("PipelineRunner"),
+		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
