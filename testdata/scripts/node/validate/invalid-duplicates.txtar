@@ -49,20 +49,6 @@ URL = 'http://solana.web'
 Name = 'primary'
 URL = 'http://solana.web'
 
-[[Starknet]]
-ChainID = 'foobar'
-
-[[Starknet]]
-ChainID = 'foobar'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-
 
 -- secrets.toml --
 [Database]
@@ -74,7 +60,7 @@ Keystore = ''
 
 -- out.txt --
 -- err.txt --
-Error running app: invalid configuration: 4 errors:
+Error running app: invalid configuration: 3 errors:
 	- EVM: 4 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique
@@ -88,7 +74,3 @@ Error running app: invalid configuration: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 1.Nodes.1.URL: invalid value (http://solana.web): duplicate - must be unique
-	- Starknet: 3 errors:
-		- 1.ChainID: invalid value (foobar): duplicate - must be unique
-		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-		- 1.Nodes.1.URL: invalid value (http://stark.node): duplicate - must be unique
