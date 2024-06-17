@@ -12,7 +12,7 @@ If you have previously run these smoke tests using GitHub Actions or some sort o
 2. [Docker](https://www.docker.com/)
 3. You'll probably want to [increase the resources available to Docker](https://stackoverflow.com/questions/44533319/how-to-assign-more-memory-to-docker-container) as most tests require quite a few containers (e.g. OCR requires 6 Chainlink nodes, 6 databases, a simulated blockchain, and a mock server).
 
-## Configure
+## Configure   
 
 We have finished the first pass at moving all test configuration from env vars to TOML files. All product-related configuration is already in TOML files, but env vars are still used to control the log level, Slack notifications, and Kubernetes-related settings. See the [example.env](./example.env) file for how to set these environment variables.
 
