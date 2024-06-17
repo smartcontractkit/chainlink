@@ -381,7 +381,8 @@ func (ccipModule *CCIPCommon) ApproveTokens() error {
 	for _, token := range ccipModule.BridgeTokens {
 		// TODO: We send half of token funds back to the CCIP Deployer account, which isn't particularly realistic.
 		// See CCIP-2477
-		if token.OwnerWallet.Address() != ccipModule.ChainClient.GetDefaultWallet().Address() {
+		if token.OwnerWallet.Address() != ccipModule.ChainClient.GetDefaultWallet().Address() &&
+			!ccipModule.ExistingDeployment {
 			tokenBalance, err := token.BalanceOf(context.Background(), token.OwnerWallet.Address())
 			if err != nil {
 				return fmt.Errorf("failed to get balance of token %s: %w", token.ContractAddress.Hex(), err)
@@ -1241,9 +1242,12 @@ func DefaultCCIPModule(
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("failed to create token deployment chain client for %s: %w", networkCfg.Name, err))
 	}
+	// If we want to deploy tokens as a non CCIP owner, we need to set the default wallet to something other than the first one. The first wallet is used as default CCIP owner for all other ccip contract deployment.
+	// This is not needed for existing deployment as the tokens and pools are already deployed.
 	if contracts.NeedTokenAdminRegistry() &&
 		!pointer.GetBool(testGroupConf.TokenConfig.CCIPOwnerTokens) &&
-		len(tokenDeployerChainClient.GetWallets()) > 1 { // If we want to deploy tokens as a non CCIP owner, we need to set the default wallet to something other than the first one. The first wallet is used as default CCIP owner for all other ccip contract deployment.
+		!pointer.GetBool(testGroupConf.ExistingDeployment) &&
+		len(tokenDeployerChainClient.GetWallets()) > 1 {
 		if err = tokenDeployerChainClient.SetDefaultWallet(1); err != nil {
 			return nil, errors.WithStack(fmt.Errorf("failed to set default wallet for token deployment client %s: %w", networkCfg.Name, err))
 		}
