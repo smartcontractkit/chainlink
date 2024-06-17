@@ -110,8 +110,8 @@ github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migc
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/NethermindEth/juno v0.3.1 h1:AW72LiAm9gqUeCVJWvepnZcTnpU4Vkl0KzPMxS+42FA=
 github.com/NethermindEth/juno v0.3.1/go.mod h1:SGbTpgGaCsxhFsKOid7Ylnz//WZ8swtILk+NbHGsk/Q=
-github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1 h1:9SBvy3eZut1X+wEyAFqfb7ADGj8IQw7ZnlkMwz0YOTY=
-github.com/NethermindEth/starknet.go v0.6.1-0.20231218140327-915109ab5bc1/go.mod h1:V6qrbi1+fTDCftETIT1grBXIf+TvWP/4Aois1a9EF1E=
+github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb h1:Mv8SscePPyw2ju4igIJAjFgcq5zCQfjgbz53DwYu5mc=
+github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb/go.mod h1:gQkhWpAs9/QR6reZU2xoi1UIYlMS64FLTlh9CrgHH/Y=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
