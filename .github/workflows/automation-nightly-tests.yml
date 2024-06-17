@@ -114,7 +114,7 @@ jobs:
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ca550b8232861ba4b52dbf3c7d20c46a0427a879 # v2.3.19
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:

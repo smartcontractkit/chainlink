@@ -253,7 +253,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ca550b8232861ba4b52dbf3c7d20c46a0427a879 # v2.3.19
         with:
           test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

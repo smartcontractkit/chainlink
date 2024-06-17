@@ -256,7 +256,7 @@ jobs:
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
 
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ca550b8232861ba4b52dbf3c7d20c46a0427a879 # v2.3.19
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 45m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
