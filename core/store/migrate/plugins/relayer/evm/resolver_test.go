@@ -2,7 +2,11 @@ package evm
 
 import (
 	"bytes"
+	"embed"
+	"path/filepath"
 	"testing"
+
+	_ "embed"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,31 +60,45 @@ func Test_resolve(t *testing.T) {
 	}
 }
 
-func Test_resolveup(t *testing.T) {
+func Test_generateMigrations(t *testing.T) {
+	tDir := t.TempDir()
 	type args struct {
-		val Cfg
+		fsys    embed.FS
+		rootDir string
+		tmpDir  string
+		val     Cfg
 	}
 	tests := []struct {
 		name    string
 		args    args
+		want    []string
 		wantErr bool
 	}{
 		{
 			name: "evm template",
 			args: args{
+				fsys:    embeddedTmplFS,
+				rootDir: MigrationRootDir,
+				tmpDir:  filepath.Join(tDir, "evm_42"),
 				val: Cfg{
-					Schema:  "evm",
-					ChainID: 3266,
+					Schema:  "evm_42",
+					ChainID: 42,
 				},
+			},
+			want: []string{
+				filepath.Join(tDir, "evm_42/0001_create_schema.sql"),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			out := &bytes.Buffer{}
-			err := resolveUp(out, tt.args.val)
-			require.NoError(t, err)
-			assert.NotEmpty(t, out.String())
+			got, err := generateMigrations(tt.args.fsys, tt.args.rootDir, tt.args.tmpDir, tt.args.val)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

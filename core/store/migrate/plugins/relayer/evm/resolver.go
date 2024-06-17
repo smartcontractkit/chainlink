@@ -1,15 +1,17 @@
-package migrate
+package evm
 
 import (
-	"bytes"
+	"embed"
 	"fmt"
-	"html/template"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
+/*
 type SQLConfig struct {
 	Schema string
 }
@@ -27,16 +29,47 @@ func resolve(out io.Writer, in io.Reader, val SQLConfig) error {
 	err = tmpl.Execute(out, val)
 	return err
 }
+*/
+
+// 4 digit version prefix to match the goose versioning
+//
+//go:embed [0-9][0-9][0-9][0-9]_*.tmpl.sql
+var embeddedTmplFS embed.FS
+
+var MigrationRootDir = "."
+
+type Cfg struct {
+	Schema  string
+	ChainID int
+}
+
+func RegisterSchemaMigration(val Cfg) error {
+	return Register(val)
+}
 
 var migrationSuffix = ".tmpl.sql"
 
-func generateMigrations(rootDir string, tmpDir string, val SQLConfig) ([]string, error) {
+func resolve(out io.Writer, in string, val Cfg) error {
+	id := fmt.Sprintf("init_%s_%d", val.Schema, val.ChainID)
+	tmpl, err := template.New(id).Parse(in)
+	if err != nil {
+		return fmt.Errorf("failed to parse template %s: %w", in, err)
+	}
+	err = tmpl.Execute(out, val)
+	if err != nil {
+		return fmt.Errorf("failed to execute template %s: %w", in, err)
+	}
+	return nil
+}
+
+func generateMigrations(fsys fs.FS, rootDir string, tmpDir string, val Cfg) ([]string, error) {
 	err := os.MkdirAll(tmpDir, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 	var migrations = []string{}
-	var resolverFunc = func(path string, info os.FileInfo, err error) error {
+	var resolverFunc fs.WalkDirFunc
+	resolverFunc = func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -56,7 +89,7 @@ func generateMigrations(rootDir string, tmpDir string, val SQLConfig) ([]string,
 			return fmt.Errorf("failed to create file %s: %w", outPath, err)
 		}
 		defer out.Close()
-		err = resolve(out, bytes.NewBuffer(b), val)
+		err = resolve(out, string(b), val)
 		if err != nil {
 			return fmt.Errorf("failed to resolve template %s: %w", path, err)
 		}
@@ -64,7 +97,7 @@ func generateMigrations(rootDir string, tmpDir string, val SQLConfig) ([]string,
 		return nil
 	}
 
-	err = filepath.Walk(rootDir, resolverFunc)
+	err = fs.WalkDir(fsys, rootDir, resolverFunc)
 	if err != nil {
 		return nil, err
 	}
