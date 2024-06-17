@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
@@ -38,6 +40,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -71,8 +74,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		sethClient, err := actions.GetChainClient(testConfig, network)
-		require.NoError(t, err, "Error creating seth client")
 
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
@@ -100,13 +101,10 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	var consumers []contracts.VRFv2PlusLoadTestConsumer
-
-	sethClient, err := actions.GetChainClient(testConfig, network)
-	require.NoError(t, err, "Error creating seth client")
 
 	subIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 		testcontext.Get(t),
@@ -184,6 +182,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -218,9 +217,6 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		sethClient, err := actions.GetChainClient(testConfig, network)
-		require.NoError(t, err, "Error creating seth client")
-
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -248,7 +244,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
@@ -256,9 +252,6 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		//Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
-
-		sethClient, err := actions.GetChainClient(testConfig, network)
-		require.NoError(t, err, "Error creating seth client")
 
 		underfundedSubIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 			testcontext.Get(t),

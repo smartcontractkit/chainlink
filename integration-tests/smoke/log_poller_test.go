@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/seth"
+
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -108,6 +110,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 
 	lpTestEnv := prepareEnvironment(l, t, &testConfig, logScannerSettings)
 	testEnv := lpTestEnv.testEnv
+	sethClient := lpTestEnv.sethClient
 
 	ctx := testcontext.Get(t)
 
@@ -117,12 +120,6 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	require.NoError(t, err, "Error registering filters")
 
 	l.Info().Msg("No duplicate filters found. OK!")
-
-	evmNetwork, err := testEnv.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-
-	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
 
 	expectedFilters := logpoller.GetExpectedFilters(lpTestEnv.logEmitters, cfg)
 	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, testEnv, &testConfig, expectedFilters)
@@ -178,7 +175,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	require.NoError(t, err, "Error getting config")
 	overrideEphemeralAddressesCount(&testConfig)
 
-	eventsToEmit := []abi.Event{}
+	var eventsToEmit []abi.Event
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
@@ -191,13 +188,11 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 
 	lpTestEnv := prepareEnvironment(l, t, &testConfig, test_env.DefaultChainlinkNodeLogScannerSettings)
 	testEnv := lpTestEnv.testEnv
+	sethClient := lpTestEnv.sethClient
 
 	ctx := testcontext.Get(t)
 	evmNetwork, err := testEnv.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
-
-	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
@@ -267,6 +262,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 }
 
 type logPollerEnvironment struct {
+	sethClient    *seth.Client
 	logEmitters   []*contracts.LogEmitter
 	testEnv       *test_env.CLClusterTestEnv
 	registry      contracts.KeeperRegistry
@@ -331,6 +327,7 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		upkeepIDs:     upkeepIDs,
 		upKeepsNeeded: upKeepsNeeded,
 		testEnv:       testEnv,
+		sethClient:    chainClient,
 	}
 }
 

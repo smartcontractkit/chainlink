@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+	"github.com/smartcontractkit/seth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
@@ -45,6 +45,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -54,11 +55,6 @@ func TestVRFv2Plus(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -87,17 +83,12 @@ func TestVRFv2Plus(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2Plus universe")
 
 	t.Run("Link Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -157,11 +148,6 @@ func TestVRFv2Plus(t *testing.T) {
 		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
 			sethClient,
@@ -218,11 +204,6 @@ func TestVRFv2Plus(t *testing.T) {
 		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
 			sethClient,
@@ -267,11 +248,6 @@ func TestVRFv2Plus(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
 			sethClient,
@@ -311,11 +287,6 @@ func TestVRFv2Plus(t *testing.T) {
 	})
 	t.Run("Direct Funding", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			testcontext.Get(t),
@@ -432,11 +403,6 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Canceling Sub And Returning Funds", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		_, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
 			sethClient,
@@ -539,11 +505,6 @@ func TestVRFv2Plus(t *testing.T) {
 		//underfund subs in order rand fulfillments to fail
 		testConfig.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 		testConfig.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -692,11 +653,6 @@ func TestVRFv2Plus(t *testing.T) {
 	t.Run("Owner Withdraw", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
 			sethClient,
@@ -786,6 +742,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -795,10 +752,6 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -827,17 +780,12 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	t.Run("Request Randomness with multiple sending keys", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = true
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -899,6 +847,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -908,10 +857,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -940,7 +885,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	// Migrate subscription from old coordinator to new coordinator, verify if balances
@@ -948,11 +893,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	// new coordinator
 	t.Run("Test migration of Subscription Billing subID", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -1121,11 +1061,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	// new coordinator
 	t.Run("Test migration of direct billing using VRFV2PlusWrapper subID", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 			testcontext.Get(t),
@@ -1306,6 +1241,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1315,11 +1251,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
-
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -1352,7 +1283,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	var isNativeBilling = true
@@ -1364,11 +1295,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		//Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -1450,11 +1376,6 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		//Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -1549,6 +1470,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1558,10 +1480,6 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -1601,7 +1519,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: chainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(
 		testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err)
 
@@ -1611,11 +1529,6 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		// Underfund Subscription
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -1714,6 +1627,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1723,10 +1637,6 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -1761,13 +1671,8 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	config.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 	config.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
-
-	evmNetwork, err := env.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
 
 	t.Run("Timed out request fulfilled after node restart with replay", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -1891,6 +1796,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -1900,10 +1806,6 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -1937,13 +1839,8 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	config.VRFv2Plus.General.MinimumConfirmations = ptr.Ptr[uint16](0)
 	config.VRFv2Plus.General.VRFJobSimulationBlock = ptr.Ptr[string]("pending")
 
-	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
-
-	evmNetwork, err := env.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
 
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 		testcontext.Get(t),
@@ -1993,6 +1890,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		subIDsForCancellingAfterTest []*big.Int
 		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -2005,10 +1903,6 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	}
 	chainID := network.ChainID
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -2049,16 +1943,10 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: chainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2Plus universe")
 
 	var isNativeBilling = true
-
-	evmNetwork, err := env.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
-
 	consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 		testcontext.Get(t),
 		sethClient,
@@ -2179,6 +2067,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		defaultWalletAddress         string
 		vrfKey                       *vrfcommon.VRFKeyData
 		nodeTypeToNodeMap            map[vrfcommon.VRFNodeType]*vrfcommon.VRFNode
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -2188,10 +2077,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	chainID := network.ChainID
 	cleanupFn := func() {
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -2220,7 +2105,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		UseTestCoordinator:              false,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	env, vrfContracts, vrfKey, nodeTypeToNodeMap, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	env, vrfContracts, vrfKey, nodeTypeToNodeMap, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "Error setting up VRFv2Plus universe")
 
 	//batchMaxGas := config.MaxGasLimit() (2.5 mill) + 400_000 = 2.9 mill
@@ -2271,11 +2156,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		)
 		require.NoError(t, err, "error creating job with higher timeout")
 		vrfNode.Job = job
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
@@ -2390,11 +2270,6 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 		)
 		require.NoError(t, err, "error creating job with higher timeout")
 		vrfNode.Job = job
-
-		evmNetwork, err := env.GetFirstEvmNetwork()
-		require.NoError(t, err, "Error getting first evm network")
-		sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
-		require.NoError(t, err, "Error getting seth client")
 
 		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
 			testcontext.Get(t),
