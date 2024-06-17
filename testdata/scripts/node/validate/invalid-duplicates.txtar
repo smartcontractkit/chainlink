@@ -49,20 +49,6 @@ URL = 'http://solana.web'
 Name = 'primary'
 URL = 'http://solana.web'
 
-[[Starknet]]
-ChainID = 'foobar'
-
-[[Starknet]]
-ChainID = 'foobar'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-
-[[Starknet.Nodes]]
-Name = 'primary'
-URL = 'http://stark.node'
-
 
 -- secrets.toml --
 [Database]
