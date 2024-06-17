@@ -83,8 +83,9 @@ type OCRSoakTest struct {
 	ocrV2Instances   []contracts.OffchainAggregatorV2
 	ocrV2InstanceMap map[string]contracts.OffchainAggregatorV2 // address : instance
 
-	rpcNetwork    blockchain.EVMNetwork // network configuration for the blockchain node
-	reorgHappened bool                  // flag to indicate if a reorg happened during the test
+	rpcNetwork            blockchain.EVMNetwork // network configuration for the blockchain node
+	reorgHappened         bool                  // flag to indicate if a reorg happened during the test
+	gasSimulationHappened bool                  // flag to indicate if a gas simulation happened during the test
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -208,6 +209,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		} else {
 			// Test is running locally, set forwarded URL of Anvil blockchain node
 			o.rpcNetwork.URLs = []string{anvilChart.ForwardedWSURL}
+			o.rpcNetwork.HTTPURLs = []string{anvilChart.ForwardedHTTPURL}
 		}
 	} else if o.rpcNetwork.Simulated && o.rpcNetwork.Name == blockchain.SimulatedEVMNetwork.Name {
 		if testEnv.Cfg.InsideK8s {
@@ -585,10 +587,11 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
+	n := o.Config.GetNetworkConfig()
+
 	// Schedule blockchain re-org if needed
 	// Reorg only avaible for Simulated Geth
 	var reorgCh <-chan time.Time
-	n := o.Config.GetNetworkConfig()
 	if n.IsSimulatedGethSelected() && n.GethReorgConfig.Enabled {
 		var reorgDelay time.Duration
 		if n.GethReorgConfig.DelayCreate.Duration > testDuration {
@@ -599,6 +602,28 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			reorgDelay = n.GethReorgConfig.DelayCreate.Duration
 		}
 		reorgCh = time.After(reorgDelay)
+	}
+	// TODO: refactor to use AfterFunc
+
+	// Schedule gas simulation if needed
+	// Gas simulation only available for Anvil
+	if o.rpcNetwork.Name == "Anvil" {
+		anvilConfig := o.Config.GetNetworkConfig().AnvilConfigs["ANVIL"]
+		if anvilConfig != nil && anvilConfig.GasSimulation.Enabled {
+			var delay time.Duration
+			if anvilConfig.GasSimulation.DelayCreate.Duration > testDuration {
+				// This may happen when test is resumed and the reorg delay is longer than the time left
+				o.log.Warn().Msg("Gas simulation delay is longer than test duration, gas simulation scheduled immediately")
+				delay = 0
+			} else {
+				delay = anvilConfig.GasSimulation.DelayCreate.Duration
+			}
+			time.AfterFunc(delay, func() {
+				if !o.gasSimulationHappened {
+					o.startAnvilGasSimulation(o.rpcNetwork, anvilConfig.GasSimulation)
+				}
+			})
+		}
 	}
 
 	for {
@@ -669,6 +694,20 @@ func (o *OCRSoakTest) startBlockchainReorg(depth int) {
 	err := client.GethSetHead(depth)
 	require.NoError(o.t, err, "Error starting blockchain reorg on Simulated Geth chain")
 	o.reorgHappened = true
+}
+
+func (o *OCRSoakTest) startAnvilGasSimulation(network blockchain.EVMNetwork, conf ctf_config.GasSimulationConfig) {
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	o.log.Info().
+		Str("URL", client.URL).
+		Int64("StartGasPrice", conf.StartGasPrice).
+		Float64("GasRisePercentage", conf.GasRisePercentage).
+		Dur("Duration", conf.Duration.Duration).
+		Bool("GasSpike", conf.GasSpike).
+		Msg("Starting gas simulation on Anvil chain")
+	err := client.ModulateBaseFeeOverDuration(o.log, conf.StartGasPrice, conf.GasRisePercentage, conf.Duration.Duration, conf.GasSpike)
+	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
+	o.gasSimulationHappened = true
 }
 
 // setFilterQuery to look for all events that happened

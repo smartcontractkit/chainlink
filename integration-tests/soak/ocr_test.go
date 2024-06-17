@@ -37,6 +37,12 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	runOCRSoakTest(t, config, "")
 }
 
+func TestOCRSoak_GasSpike(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, "")
+}
+
 func runOCRSoakTest(t *testing.T, config tc.TestConfig, customNetworkTOML string) {
 	l := logging.GetTestLogger(t)
 
