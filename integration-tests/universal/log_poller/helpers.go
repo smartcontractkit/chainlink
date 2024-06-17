@@ -982,7 +982,7 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, errorCh chan error) {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, sethClient *seth.Client, testConfig *tc.TestConfig, errorCh chan error) {
 	if testConfig == nil || testConfig.LogPoller.ChaosConfig == nil || *testConfig.LogPoller.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -990,17 +990,6 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 
 	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
-
-	evmNetwork, err := testEnv.GetFirstEvmNetwork()
-	if err != nil {
-		errorCh <- err
-		return
-	}
-	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
-	if err != nil {
-		errorCh <- err
-		return
-	}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one

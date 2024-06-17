@@ -9,8 +9,6 @@ import (
 
 	"github.com/smartcontractkit/seth"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
@@ -122,7 +120,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	l.Info().Msg("No duplicate filters found. OK!")
 
 	expectedFilters := logpoller.GetExpectedFilters(lpTestEnv.logEmitters, cfg)
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, testEnv, &testConfig, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, lpTestEnv, expectedFilters)
 
 	// Save block number before starting to emit events, so that we can later use it when querying logs
 	sb, err := sethClient.Client.BlockNumber(testcontext.Get(t))
@@ -135,7 +133,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	// Start chaos experimnents by randomly pausing random containers (Chainlink nodes or their DBs)
 	chaosDoneCh := make(chan error, 1)
 	go func() {
-		logpoller.ExecuteChaosExperiment(l, testEnv, &testConfig, chaosDoneCh)
+		logpoller.ExecuteChaosExperiment(l, testEnv, sethClient, &testConfig, chaosDoneCh)
 	}()
 
 	totalLogsEmitted, err := logpoller.ExecuteGenerator(t, cfg, sethClient, lpTestEnv.logEmitters)
@@ -228,7 +226,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	err = logpoller.RegisterFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
-	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, testEnv, &testConfig, expectedFilters)
+	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, coreLogger, t, lpTestEnv, expectedFilters)
 
 	blockFinalisationWaitDuration := "5m"
 	l.Warn().Str("Duration", blockFinalisationWaitDuration).Msg("Waiting for all CL nodes to have end block finalised")
@@ -332,14 +330,11 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 }
 
 // waitForAllNodesToHaveExpectedFiltersRegisteredOrFail waits until all nodes have expected filters registered until timeout
-func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, expectedFilters []logpoller.ExpectedFilter) {
+func waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx context.Context, l zerolog.Logger, coreLogger core_logger.SugaredLogger, t *testing.T, lpTestEnv logPollerEnvironment, expectedFilters []logpoller.ExpectedFilter) {
 	// Make sure that all nodes have expected filters registered before starting to emit events
 
-	evmNetwork, err := testEnv.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-
-	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
+	sethClient := lpTestEnv.sethClient
+	testEnv := lpTestEnv.testEnv
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
@@ -376,15 +371,9 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 	logCountWaitDuration, err := time.ParseDuration(waitDuration)
 	require.NoError(t, err, "Error parsing log count wait duration")
 
-	evmNetwork, err := lpTestEnv.testEnv.GetFirstEvmNetwork()
-	require.NoError(t, err, "Error getting first evm network")
-
-	sethClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
-	require.NoError(t, err, "Error getting seth client")
-
 	allNodesHaveAllExpectedLogs := false
 	if !allNodesLogCountMatches {
-		missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, sethClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
+		missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, lpTestEnv.sethClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
 		if err == nil {
 			if !missingLogs.IsEmpty() {
 				logpoller.PrintMissingLogsInfo(missingLogs, l, testConfig.LogPoller)
@@ -408,7 +397,7 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 
 		gom := gomega.NewGomegaWithT(t)
 		gom.Eventually(func(g gomega.Gomega) {
-			missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, sethClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
+			missingLogs, err := logpoller.GetMissingLogs(startBlock, endBlock, lpTestEnv.logEmitters, lpTestEnv.sethClient, lpTestEnv.testEnv.ClCluster, l, coreLogger, testConfig.LogPoller)
 			if err != nil {
 				l.Warn().
 					Err(err).
