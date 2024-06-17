@@ -193,28 +193,72 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Usage:  "Display the current database version.",
 					Action: s.VersionDatabase,
 					Before: s.validateDB,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:   "plugin-type",
+							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Hidden: true,
+						},
+						cli.StringFlag{
+							Name:   "plugin-kind",
+							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Hidden: true,
+						},
+					},
 				},
 				{
 					Name:   "status",
 					Usage:  "Display the current database migration status.",
 					Action: s.StatusDatabase,
 					Before: s.validateDB,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:   "plugin-type",
+							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Hidden: true,
+						},
+						cli.StringFlag{
+							Name:   "plugin-kind",
+							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Hidden: true,
+						},
+					},
 				},
 				{
 					Name:   "migrate",
 					Usage:  "Migrate the database to the latest version.",
 					Action: s.MigrateDatabase,
 					Before: s.validateDB,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:   "plugin-type",
+							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Hidden: true,
+						},
+						cli.StringFlag{
+							Name:   "plugin-kind",
+							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Hidden: true,
+						},
+					},
 				},
 				{
 					Name:   "rollback",
 					Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
 					Action: s.RollbackDatabase,
 					Before: s.validateDB,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:   "plugin-type",
+							Usage:  "if set, only roll back migrations for the specified plugin type.[relayer,app] ",
+							Hidden: true,
+						},
+						cli.StringFlag{
+							Name:   "plugin-kind",
+							Usage:  "if set, only roll back migrations for the specified plugin kind for the given plugin type ",
+							Hidden: true,
+						},
+					},
 				},
 				{
 					Name:   "create-migration",
@@ -226,6 +270,16 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						cli.StringFlag{
 							Name:  "type",
 							Usage: "set to `go` to generate a .go migration (instead of .sql)",
+						},
+						cli.StringFlag{
+							Name:   "plugin-type",
+							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Hidden: true,
+						},
+						cli.StringFlag{
+							Name:   "plugin-kind",
+							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Hidden: true,
 						},
 					},
 				},
