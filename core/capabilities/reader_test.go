@@ -154,7 +154,7 @@ func TestReader_Integration(t *testing.T) {
 		randomWord(),
 	}
 
-	nodes := []kcr.CapabilityRegistryNodeInfo{
+	nodes := []kcr.CapabilityRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -225,11 +225,44 @@ func TestReader_Integration(t *testing.T) {
 		CapabilityConfigurations: cfgs,
 	}, s.IDsToDONs[1])
 
+	nodesInfo := []kcr.CapabilityRegistryNodeInfo{
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              randomWord(),
+			P2pId:               nodeSet[0],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              randomWord(),
+			P2pId:               nodeSet[1],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              randomWord(),
+			P2pId:               nodeSet[2],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+	}
+
 	assert.Len(t, s.IDsToNodes, 3)
 	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
-		nodeSet[0]: nodes[0],
-		nodeSet[1]: nodes[1],
-		nodeSet[2]: nodes[2],
+		nodeSet[0]: nodesInfo[0],
+		nodeSet[1]: nodesInfo[1],
+		nodeSet[2]: nodesInfo[2],
 	}, s.IDsToNodes)
 
 	node, err := reader.LocalNode(ctx)

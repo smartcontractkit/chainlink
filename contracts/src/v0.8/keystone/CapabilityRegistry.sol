@@ -623,15 +623,15 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   }
 
   /// @notice Gets all nodes
-  /// @return nodeInfos NodeInfo[] All nodes in the capability registry
-  function getNodes() external view returns (NodeInfo[] memory nodeInfos) {
+  /// @return nodesInfo NodeInfo[] All nodes in the capability registry
+  function getNodes() external view returns (NodeInfo[] memory nodesInfo) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
-    nodeInfos = new NodeInfo[](p2pIds.length);
+    nodesInfo = new NodeInfo[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      nodeInfos[i] = getNode(p2pIds[i]);
+      nodesInfo[i] = getNode(p2pIds[i]);
     }
-    return nodeInfos;
+    return nodesInfo;
   }
 
   /// @notice Adds a new capability to the capability registry
