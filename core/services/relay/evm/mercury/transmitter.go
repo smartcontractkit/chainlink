@@ -350,6 +350,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 
 func (mt *mercuryTransmitter) Close() error {
 	return mt.StopOnce("MercuryTransmitter", func() error {
+		mt.lggr.Debug("Closing MercuryTransmitter and it's resources")
 		// Drain all the queues first
 		var qs []io.Closer
 		for _, s := range mt.servers {

@@ -182,7 +182,9 @@ func (w *client) runloop() {
 // resetTransport disconnects and reconnects to the mercury server
 func (w *client) resetTransport() {
 	w.connectionResetCountMetric.Inc()
+	w.logger.Debug("ResetTransport starting")
 	ok := w.IfStarted(func() {
+		w.logger.Debugw("ResetTransport closing wsrpc connection", "state", w.conn.GetState())
 		w.conn.Close() // Close is safe to call multiple times
 	})
 	if !ok {
@@ -209,6 +211,7 @@ func (w *client) resetTransport() {
 
 func (w *client) Close() error {
 	return w.StopOnce("WSRPC Client", func() error {
+		w.logger.Debugw("Closing WSRPC client", "state", w.conn.GetState())
 		close(w.chStop)
 		w.conn.Close()
 		w.wg.Wait()
