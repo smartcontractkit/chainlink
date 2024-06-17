@@ -158,6 +158,6 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
 		m:    map[string]capabilities.BaseCapability{},
-		lggr: lggr.Named("CapabilityRegistry"),
+		lggr: lggr.Named("CapabilitiesRegistry"),
 	}
 }
