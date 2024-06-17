@@ -69,7 +69,7 @@ jobs:
           gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Notify Slack
-        if: ${{ failure() && (github.event_name == 'merge_group' || github.event.branch == 'develop') &&  needs.filter.outputs.changes == 'true' }}
+        if: ${{ failure() && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

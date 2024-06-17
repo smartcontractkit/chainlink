@@ -95,7 +95,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		},
 		Payload: marshaled,
 	}
-	subscriber.Receive(triggerEvent)
+	subscriber.Receive(ctx, triggerEvent)
 	response := <-triggerEventCallbackCh
 	require.Equal(t, response.Value, triggerEventValue)
 

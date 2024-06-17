@@ -5,6 +5,8 @@
 package types
 
 import (
+	"context"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -25,7 +27,7 @@ type Dispatcher interface {
 
 //go:generate mockery --quiet --name Receiver --output ./mocks/ --case=underscore
 type Receiver interface {
-	Receive(msg *MessageBody)
+	Receive(ctx context.Context, msg *MessageBody)
 }
 
 type Aggregator interface {
