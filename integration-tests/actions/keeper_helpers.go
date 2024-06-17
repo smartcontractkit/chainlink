@@ -355,6 +355,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 			client.GetDefaultWallet().Address(),
 			isLogTrigger,
 			isMercury,
+			linkToken.Address(),
 		)
 		require.NoError(t, err, "Encoding the register request shouldn't fail")
 		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)

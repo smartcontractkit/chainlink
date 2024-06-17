@@ -29,6 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
@@ -576,6 +579,110 @@ func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*
 	return e.contract.ParseAnswerUpdated(log)
 }
 
+// EthereumWETHToken represents a WETH address
+type EthereumWETHToken struct {
+	client   *seth.Client
+	instance *weth9_wrapper.WETH9
+	address  common.Address
+	l        zerolog.Logger
+}
+
+func DeployWETHTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumWETHToken, error) {
+	wethTokenAbi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	if err != nil {
+		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
+	}
+	wethDeploymentData, err := client.DeployContract(client.NewTXOpts(), "WETHToken", *wethTokenAbi, common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+	if err != nil {
+		return &EthereumWETHToken{}, fmt.Errorf("WETH token instance deployment failed: %w", err)
+	}
+
+	wethToken, err := weth9_wrapper.NewWETH9(wethDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
+	}
+
+	return &EthereumWETHToken{
+		client:   client,
+		instance: wethToken,
+		address:  wethDeploymentData.Address,
+		l:        l,
+	}, nil
+}
+
+func LoadWETHTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumWETHToken, error) {
+	abi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	if err != nil {
+		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
+	}
+
+	client.ContractStore.AddABI("WETHToken", *abi)
+	client.ContractStore.AddBIN("WETHToken", common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+
+	wethToken, err := weth9_wrapper.NewWETH9(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
+	}
+
+	return &EthereumWETHToken{
+		client:   client,
+		instance: wethToken,
+		address:  address,
+		l:        l,
+	}, nil
+}
+
+// Fund the WETH Token contract with ETH to distribute the token
+func (l *EthereumWETHToken) Fund(_ *big.Float) error {
+	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (l *EthereumWETHToken) Decimals() uint {
+	return 18
+}
+
+func (l *EthereumWETHToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	return l.instance.BalanceOf(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	}, common.HexToAddress(addr))
+
+}
+
+// Name returns the name of the weth token
+func (l *EthereumWETHToken) Name(ctx context.Context) (string, error) {
+	return l.instance.Name(&bind.CallOpts{
+		From:    l.client.Addresses[0],
+		Context: ctx,
+	})
+}
+
+func (l *EthereumWETHToken) Address() string {
+	return l.address.Hex()
+}
+
+func (l *EthereumWETHToken) Approve(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Approving WETH Transfer")
+	_, err := l.client.Decode(l.instance.Approve(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+func (l *EthereumWETHToken) Transfer(to string, amount *big.Int) error {
+	l.l.Info().
+		Str("From", l.client.Addresses[0].Hex()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Msg("Transferring WETH")
+	_, err := l.client.Decode(l.instance.Transfer(l.client.NewTXOpts(), common.HexToAddress(to), amount))
+	return err
+}
+
+// TODO end of weth token
+
 // EthereumLinkToken represents a LinkToken address
 type EthereumLinkToken struct {
 	client   *seth.Client
@@ -632,6 +739,10 @@ func LoadLinkTokenContract(l zerolog.Logger, client *seth.Client, address common
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions_seth.SendFunds instead")
+}
+
+func (l *EthereumLinkToken) Decimals() uint {
+	return 18
 }
 
 func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
@@ -1007,6 +1118,43 @@ type EthereumMockETHLINKFeed struct {
 	address *common.Address
 }
 
+// EthereumMockETHUSDFeed represents mocked ETH/USD feed contract
+type EthereumMockETHUSDFeed struct {
+	client  *seth.Client
+	feed    *mock_ethusd_aggregator_wrapper.MockETHUSDAggregator
+	address *common.Address
+}
+
+func (l *EthereumMockETHUSDFeed) Decimals() uint {
+	return 8
+}
+
+func (v *EthereumMockETHUSDFeed) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.Ans, nil
+}
+
+func (v *EthereumMockETHUSDFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := v.feed.LatestRoundData(&bind.CallOpts{
+		From:    v.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data.UpdatedAt, nil
+}
+
 func (v *EthereumMockETHLINKFeed) Address() string {
 	return v.address.Hex()
 }
@@ -1069,6 +1217,48 @@ func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLI
 	}
 
 	return &EthereumMockETHLINKFeed{
+		address: &address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func DeployMockETHUSDFeed(client *seth.Client, answer *big.Int) (MockETHUSDFeed, error) {
+	abi, err := mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to get MockETHUSDFeed ABI: %w", err)
+	}
+	data, err := client.DeployContract(client.NewTXOpts(), "MockETHUSDFeed", *abi, common.FromHex(mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.Bin), answer)
+	if err != nil {
+		return &EthereumMockETHUSDFeed{}, fmt.Errorf("MockETHUSDFeed instance deployment have failed: %w", err)
+	}
+
+	instance, err := mock_ethusd_aggregator_wrapper.NewMockETHUSDAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to instantiate MockETHUSDFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHUSDFeed{
+		address: &data.Address,
+		client:  client,
+		feed:    instance,
+	}, nil
+}
+
+func LoadMockETHUSDFeed(client *seth.Client, address common.Address) (MockETHUSDFeed, error) {
+	abi, err := mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.GetAbi()
+	if err != nil {
+		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to get MockETHUSDFeed ABI: %w", err)
+	}
+	client.ContractStore.AddABI("MockETHUSDFeed", *abi)
+	client.ContractStore.AddBIN("MockETHUSDFeed", common.FromHex(mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.Bin))
+
+	instance, err := mock_ethusd_aggregator_wrapper.NewMockETHUSDAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to instantiate MockETHUSDFeed instance: %w", err)
+	}
+
+	return &EthereumMockETHUSDFeed{
 		address: &address,
 		client:  client,
 		feed:    instance,

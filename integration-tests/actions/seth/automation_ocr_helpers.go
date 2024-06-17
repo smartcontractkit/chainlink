@@ -159,6 +159,9 @@ func deployRegistry(
 	transcoder, err := contracts.DeployUpkeepTranscoder(client)
 	require.NoError(t, err, "Deploying upkeep transcoder shouldn't fail")
 
+	//a.Logger.Info().Msg("========hello = ocr")
+	require.True(t, 1 == 2, "========hello = ocr")
+	// TODO does it come here or actions? i think it is actions.
 	registry, err := contracts.DeployKeeperRegistry(
 		client,
 		&contracts.KeeperRegistryOpts{

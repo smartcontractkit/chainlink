@@ -255,6 +255,29 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 		uuid := uuid.New().String()
 		keyNum := executorNum + 1 // key 0 is the root key
 
+		// TODO v23 has different structure
+		//registry.
+		//if registry.Version() == ethereum.RegistryVersion_2_3 {
+		//
+		//} else {
+		//
+		//struct RegistrationParams {
+		//	address upkeepContract;
+		//	uint96 amount;
+		//	// 1 word full
+		//	address adminAddress;
+		//	uint32 gasLimit;
+		//	uint8 triggerType;
+		//	// 7 bytes left in 2nd word
+		//	IERC20 billingToken;
+		//	// 12 bytes left in 3rd word
+		//	string name;
+		//	bytes encryptedEmail;
+		//	bytes checkData;
+		//	bytes triggerConfig;
+		//	bytes offchainConfig;
+		//}
+		//}
 		req, err := registrar.EncodeRegisterRequest(
 			fmt.Sprintf("upkeep_%s", uuid),
 			[]byte("test@mail.com"),
@@ -267,6 +290,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			client.Addresses[keyNum].Hex(),
 			isLogTrigger,
 			isMercury,
+			linkToken.Address(),
 		)
 
 		if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -1218,6 +1219,10 @@ func (l *LegacyEthereumLinkToken) Fund(ethAmount *big.Float) error {
 	return l.client.Fund(l.address.Hex(), ethAmount, gasEstimates)
 }
 
+func (l *LegacyEthereumLinkToken) Decimals() uint {
+	return 18
+}
+
 func (l *LegacyEthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
@@ -1950,8 +1955,12 @@ type OCRv2Config struct {
 	OnchainConfig         []byte
 	TypedOnchainConfig21  i_keeper_registry_master_wrapper_2_1.IAutomationV21PlusCommonOnchainConfigLegacy
 	TypedOnchainConfig22  i_automation_registry_master_wrapper_2_2.AutomationRegistryBase22OnchainConfig
+	TypedOnchainConfig23  i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig
 	OffchainConfigVersion uint64
 	OffchainConfig        []byte
+	// TODO add billingToken and billingConfig
+	BillingTokens  []common.Address
+	BillingConfigs []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig
 }
 
 func (e *LegacyEthereumOffchainAggregatorV2) Address() string {
