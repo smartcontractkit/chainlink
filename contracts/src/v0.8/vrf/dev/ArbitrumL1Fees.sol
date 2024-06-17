@@ -14,7 +14,6 @@ abstract contract ArbitrumL1Fees {
   /**
    * @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
    * @notice for the current transaction. It uses ArbGas.getCurrentTxL1GasFees to get the fees.
-   * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
    */
   function _getL1CostWeiForCalldata() internal view returns (uint256) {
     return ARBGAS.getCurrentTxL1GasFees();

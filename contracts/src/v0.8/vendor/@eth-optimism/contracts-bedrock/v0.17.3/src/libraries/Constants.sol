@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ResourceMetering} from "../L1/ResourceMetering.sol";
+/// @notice: IMPORTANT NOTICE for anyone who wants to use this contract
+/// @notice Source: https://github.com/ethereum-optimism/optimism/blob/71b93116738ee98c9f8713b1a5dfe626ce06c1b2/packages/contracts-bedrock/src/libraries/Constants.sol
+/// @notice The original code was trimmed down to include only the necessary interface elements required to interact with GasPriceOracle
+/// @notice We need this file so that Solidity compiler will not complain because some functions don't exist
+/// @notice In reality, we don't embed this code into our own contracts, instead we make cross-contract calls on predeployed GasPriceOracle contract
 
 /// @title Constants
 /// @notice Constants is a library for storing constants. Simple! Don't put everything in here, just
@@ -36,18 +40,4 @@ library Constants {
   /// @notice The address that represents the system caller responsible for L1 attributes
   ///         transactions.
   address internal constant DEPOSITOR_ACCOUNT = 0xDeaDDEaDDeAdDeAdDEAdDEaddeAddEAdDEAd0001;
-
-  /// @notice Returns the default values for the ResourceConfig. These are the recommended values
-  ///         for a production network.
-  function DEFAULT_RESOURCE_CONFIG() internal pure returns (ResourceMetering.ResourceConfig memory) {
-    ResourceMetering.ResourceConfig memory config = ResourceMetering.ResourceConfig({
-      maxResourceLimit: 20_000_000,
-      elasticityMultiplier: 10,
-      baseFeeMaxChangeDenominator: 8,
-      minimumBaseFee: 1 gwei,
-      systemTxMaxGas: 1_000_000,
-      maximumBaseFee: type(uint128).max
-    });
-    return config;
-  }
 }
