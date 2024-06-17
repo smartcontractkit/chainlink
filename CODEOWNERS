@@ -139,6 +139,9 @@ flake.lock @smartcontractkit/prodsec-public
 /core/ @smartcontractkit/ccip
 /contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
 
+# leave snapshots as ownerless
+/contracts/gas-snapshots/
+
 # CCIP LM
 /core/services/ocr2/plugins/liquiditymanager/ @smartcontractkit/liquidity-manager
 /core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
