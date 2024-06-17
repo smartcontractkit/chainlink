@@ -6,14 +6,9 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"github.com/pressly/goose/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
-
-func init() {
-	goose.AddMigrationContext(Up195, Down195)
-}
 
 const (
 	addNullConstraintsToSpecs = `

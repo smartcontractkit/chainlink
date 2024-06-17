@@ -44,6 +44,7 @@ func setupCoreMigrations() {
 	goose.SetBaseFS(embedMigrations)
 	goose.SetSequential(true)
 	goose.SetTableName("goose_migrations")
+	migrations.RegisterCustomMigrations()
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
@@ -111,29 +112,13 @@ func ensureMigrated(ctx context.Context, db *sql.DB) error {
 	})
 }
 
-type MigrationConfig struct {
-	Type     string //relayer,app
-	Template string //chain family
-	Schema   string // evm, optimism, arbitrum
-	Dir      string
-}
-
-func (o MigrationConfig) validate() error {
-	if o.Type != "relayer" {
-		return fmt.Errorf("unknown migration type: %s", o.Type)
-	}
-	if o.Template != "evm" {
-		return fmt.Errorf("unknown migration template: %s", o.Template)
-	}
-	return nil
-}
-
 func Migrate(ctx context.Context, db *sql.DB) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
 	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
 	// includes out-of-order migrations
+	setupCoreMigrations()
 	err := goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
 	if err != nil {
 		return fmt.Errorf("failed to do core database migration: %w", err)
@@ -141,102 +126,30 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-// MigratePlugin migrates a subsystem of the chainlink database.
-// It generates migrations based on the template for the subsystem and applies them to the database.
-func MigratePlugin(ctx context.Context, db *sql.DB, cfg MigrationConfig) error {
-
-	if err := cfg.validate(); err != nil {
-		return fmt.Errorf("invalid migration option: %w", err)
-	}
-
-	tmpDir := os.TempDir()
-	defer os.RemoveAll(tmpDir)
-
-	defer setupCoreMigrations()
-	setupPluginMigrations(cfg)
-	/*
-		d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
-		migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
-		if err != nil {
-			return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
-		}
-		fmt.Printf("Generated migrations: %v\n", migrations)
-
-		err = goose.Up(db, d)
-		if err != nil {
-			return fmt.Errorf("failed to do %s database migration: %w", cfg.Type, err)
-		}
-	*/
-	return nil
-}
-
 func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
+	setupCoreMigrations()
 	if version.Valid {
 		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
 	}
 	return goose.Down(db, MIGRATIONS_DIR)
 }
 
-func RollbackPlugin(ctx context.Context, db *sql.DB, version null.Int, cfg MigrationConfig) error {
-	if err := cfg.validate(); err != nil {
-		return fmt.Errorf("invalid migration option: %w", err)
-	}
-
-	tmpDir := os.TempDir()
-	defer os.RemoveAll(tmpDir)
-
-	defer setupCoreMigrations()
-	setupPluginMigrations(cfg)
-	/*
-	   // TODO: should these be saved somewhere? if so where, if not if the db itself?)
-	   d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
-	   migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
-
-	   	if err != nil {
-	   		return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
-	   	}
-
-	   fmt.Printf("Generated migrations: %v\n", migrations)
-
-	   	if version.Valid {
-	   		return goose.DownTo(db, d, version.Int64)
-	   	}
-
-	   return goose.Down(db, d)
-	*/
-	return nil
-}
-
 func Current(ctx context.Context, db *sql.DB) (int64, error) {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return -1, err
 	}
+	setupCoreMigrations()
 	return goose.EnsureDBVersion(db)
-}
-
-func CurrentPlugin(ctx context.Context, db *sql.DB, cfg MigrationConfig) (int64, error) {
-	if err := ensureMigrated(ctx, db); err != nil {
-		return -1, err
-	}
-	defer setupCoreMigrations()
-	setupPluginMigrations(cfg)
-
-	return goose.EnsureDBVersion(db)
-}
-
-func setupPluginMigrations(cfg MigrationConfig) {
-	goose.SetBaseFS(nil)
-	goose.ResetGlobalMigrations()
-	goose.SetTableName(fmt.Sprintf("goose_migration_%s_%s", cfg.Template, cfg.Schema))
 }
 
 func Status(ctx context.Context, db *sql.DB) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
+	setupCoreMigrations()
 	return goose.Status(db, MIGRATIONS_DIR)
 }
 

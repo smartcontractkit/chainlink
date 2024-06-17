@@ -44,7 +44,7 @@ type Cfg struct {
 }
 
 func RegisterSchemaMigration(val Cfg) error {
-	return Register(val)
+	return Register0002(val)
 }
 
 var migrationSuffix = ".tmpl.sql"

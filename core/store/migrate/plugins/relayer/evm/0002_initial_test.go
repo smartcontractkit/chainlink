@@ -46,7 +46,7 @@ func TestRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := Register(tt.args.val)
+			err := Register0002(tt.args.val)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -128,7 +128,7 @@ func Test_init_functional(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err = Register(tt.args.cfg)
+			err = Register0002(tt.args.cfg)
 			require.NoError(t, err)
 
 			// we need a table to store the goose version for this cfg

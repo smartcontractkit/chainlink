@@ -3,14 +3,12 @@ package migrate_test
 import (
 	"math/big"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/pressly/goose/v3"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -412,31 +410,6 @@ func TestMigrate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(99), ver)
 	})
-
-	t.Run("core migration with optional relayer migration", func(t *testing.T) {
-		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
-
-		cfg := migrate.MigrationConfig{
-			Dir:      filepath.Join(migrate.PLUGIN_MIGRATIONS_DIR, "relayer/evm"),
-			Type:     "relayer",
-			Template: "evm",
-			Schema:   "someevmchain",
-		}
-		err := migrate.MigratePlugin(ctx, db.DB, cfg)
-		require.NoError(t, err)
-
-		v2, err := migrate.CurrentPlugin(ctx, db.DB, cfg)
-		require.NoError(t, err)
-		assert.Equal(t, int64(3), v2)
-
-		err = migrate.RollbackPlugin(ctx, db.DB, null.IntFrom(2), cfg)
-		require.NoError(t, err)
-
-		v2_new, err := migrate.CurrentPlugin(ctx, db.DB, cfg)
-		require.NoError(t, err)
-		assert.Equal(t, int64(2), v2_new)
-	})
-
 }
 
 func TestSetMigrationENVVars(t *testing.T) {

@@ -28,8 +28,8 @@ func resolveDown(out io.Writer, val Cfg) error {
 	return resolve(out, downTmpl, val)
 }
 
-// Register registers the migration with goose
-func Register(val Cfg) error {
+// Register0002 registers the migration with goose
+func Register0002(val Cfg) error {
 	upSQL := &bytes.Buffer{}
 	err := resolveUp(upSQL, val)
 	if err != nil {
