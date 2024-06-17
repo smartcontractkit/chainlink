@@ -148,32 +148,50 @@ func TestReader_Integration(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	nodeSet := [][32]byte{
+	nodesP2pIDs := [][32]byte{
 		randomWord(),
 		randomWord(),
 		randomWord(),
+	}
+
+	nodeSet := []struct {
+		P2pID  [32]byte
+		Signer [32]byte
+	}{
+		{
+			P2pID:  nodesP2pIDs[0],
+			Signer: randomWord(),
+		},
+		{
+			P2pID:  nodesP2pIDs[1],
+			Signer: randomWord(),
+		},
+		{
+			P2pID:  nodesP2pIDs[2],
+			Signer: randomWord(),
+		},
 	}
 
 	nodes := []kcr.CapabilityRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
-			P2pId:               nodeSet[0],
+			Signer:              nodeSet[0].Signer,
+			P2pId:               nodeSet[0].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
-			P2pId:               nodeSet[1],
+			Signer:              nodeSet[1].Signer,
+			P2pId:               nodeSet[1].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
-			P2pId:               nodeSet[2],
+			Signer:              nodeSet[2].Signer,
+			P2pId:               nodeSet[2].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 	}
@@ -188,7 +206,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 	_, err = reg.AddDON(
 		owner,
-		nodeSet,
+		nodesP2pIDs,
 		cfgs,
 		true,
 		true,
@@ -201,7 +219,7 @@ func TestReader_Integration(t *testing.T) {
 	factory := newContractReaderFactory(t, sim)
 	pw := mockWrapper{
 		peer: mockPeer{
-			peerID: nodeSet[0],
+			peerID: nodeSet[0].P2pID,
 		},
 	}
 	reader, err := newRemoteRegistryReader(ctx, logger.TestLogger(t), pw, factory, regAddress.Hex())
@@ -221,7 +239,7 @@ func TestReader_Integration(t *testing.T) {
 		IsPublic:                 true,
 		AcceptsWorkflows:         true,
 		F:                        1,
-		NodeP2PIds:               nodeSet,
+		NodeP2PIds:               nodesP2pIDs,
 		CapabilityConfigurations: cfgs,
 	}, s.IDsToDONs[1])
 
@@ -231,8 +249,8 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
-			Signer:              randomWord(),
-			P2pId:               nodeSet[0],
+			Signer:              nodeSet[0].Signer,
+			P2pId:               nodeSet[0].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -241,8 +259,8 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
-			Signer:              randomWord(),
-			P2pId:               nodeSet[1],
+			Signer:              nodeSet[1].Signer,
+			P2pId:               nodeSet[1].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -251,8 +269,8 @@ func TestReader_Integration(t *testing.T) {
 			NodeOperatorId:      uint32(1),
 			ConfigCount:         1,
 			WorkflowDONId:       1,
-			Signer:              randomWord(),
-			P2pId:               nodeSet[2],
+			Signer:              nodeSet[2].Signer,
+			P2pId:               nodeSet[2].P2pID,
 			HashedCapabilityIds: [][32]byte{cid},
 			CapabilitiesDONIds:  []*big.Int{},
 		},
@@ -260,14 +278,14 @@ func TestReader_Integration(t *testing.T) {
 
 	assert.Len(t, s.IDsToNodes, 3)
 	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
-		nodeSet[0]: nodesInfo[0],
-		nodeSet[1]: nodesInfo[1],
-		nodeSet[2]: nodesInfo[2],
+		nodeSet[0].P2pID: nodesInfo[0],
+		nodeSet[1].P2pID: nodesInfo[1],
+		nodeSet[2].P2pID: nodesInfo[2],
 	}, s.IDsToNodes)
 
 	node, err := reader.LocalNode(ctx)
 	require.NoError(t, err)
 
-	assert.Equal(t, p2ptypes.PeerID(nodeSet[0]), *node.PeerID)
+	assert.Equal(t, p2ptypes.PeerID(nodeSet[0].P2pID), *node.PeerID)
 	assert.Equal(t, fmt.Sprint(1), node.WorkflowDON.ID)
 }
