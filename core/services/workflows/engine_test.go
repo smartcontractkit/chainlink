@@ -563,6 +563,82 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	assert.Equal(t, obs.([]any)[1], o)
 }
 
+func TestEngine_CustomErrors(t *testing.T) {
+	t.Parallel()
+	var wfe *WorkflowExecutionError
+	var we *WorkflowError
+	var se *StepError
+	var see *StepExecutionError
+
+	underlyingErr := errors.New("underlying error")
+	executionID := "<execution-id>"
+	capabilityID := "<capability-id>"
+
+	t.Run("workflow error", func(t *testing.T) {
+		workflowError := newWorkflowError(underlyingErr, testWorkflowId, "my-workflow-error")
+		assert.Equal(t,
+			"workflow id: <workflow-id> my-workflow-error: underlying error",
+			fmt.Sprintf("%s", workflowError),
+		)
+		assert.ErrorAs(t, workflowError, &we)
+	})
+
+	t.Run("workflow execution error", func(t *testing.T) {
+		workflowExecutionError := newWorkflowExecutionError(underlyingErr, testWorkflowId, executionID, "my-workflow-execution-error")
+		assert.Equal(t,
+			"execution id: <execution-id> workflow id: <workflow-id> my-workflow-execution-error: underlying error",
+			fmt.Sprintf("%s", workflowExecutionError),
+		)
+		assert.ErrorAs(t, workflowExecutionError, &we)
+		assert.ErrorAs(t, workflowExecutionError, &wfe)
+
+		noReasonError := newWorkflowExecutionError(underlyingErr, testWorkflowId, executionID, "")
+		assert.Equal(t,
+			"execution id: <execution-id> workflow id: <workflow-id> underlying error",
+			fmt.Sprintf("%s", noReasonError),
+		)
+	})
+
+	t.Run("step error", func(t *testing.T) {
+		stepError := newStepError(underlyingErr, testWorkflowId, "<capability-id>", "<step-ref>", "my-step-error")
+		assert.Equal(t,
+			"step ref: <step-ref> capability id: <capability-id> workflow id: <workflow-id> my-step-error: underlying error",
+			fmt.Sprintf("%s", stepError),
+		)
+		assert.ErrorAs(t, stepError, &we)
+		assert.ErrorAs(t, stepError, &se)
+	})
+	t.Run("capability error", func(t *testing.T) {
+		capabilityError := newCapabilityError(underlyingErr, testWorkflowId, capabilityID, "my-capability-error")
+		assert.Equal(t,
+			fmt.Sprintf("capability id: %s workflow id: %s my-capability-error: %v", capabilityID, testWorkflowId, underlyingErr),
+			fmt.Sprintf("%s", capabilityError),
+		)
+		assert.ErrorAs(t, capabilityError, &we)
+	})
+
+	triggerID := "<trigger-id>"
+	t.Run("trigger error", func(t *testing.T) {
+		triggerError := newTriggerError(underlyingErr, testWorkflowId, capabilityID, triggerID, "my-trigger-error")
+		assert.Equal(t,
+			fmt.Sprintf("trigger id: %s capability id: %s workflow id: %s my-trigger-error: %v", triggerID, capabilityID, testWorkflowId, underlyingErr),
+			fmt.Sprintf("%s", triggerError),
+		)
+		assert.ErrorAs(t, triggerError, &we)
+	})
+
+	t.Run("step execution error", func(t *testing.T) {
+		stepExecutionError := newStepExecutionError(underlyingErr, testWorkflowId, executionID, "<capability-id>", "<step-ref>", "my-step-execution-error")
+		assert.Equal(t,
+			"step ref: <step-ref> capability id: <capability-id> execution id: <execution-id> workflow id: <workflow-id> my-step-execution-error: underlying error",
+			fmt.Sprintf("%s", stepExecutionError),
+		)
+		assert.ErrorAs(t, stepExecutionError, &wfe)
+		assert.ErrorAs(t, stepExecutionError, &we)
+		assert.ErrorAs(t, stepExecutionError, &see)
+	})
+}
+
 func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
