@@ -668,13 +668,13 @@ jobs:
         run: |
           cd .github/scripts/workflowresultparser
           go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884} -githubToken ${{ github.token }} -githubRepo " ${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepository ${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo " " ${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
+          go run main.go -workflowRunID 9548642884 -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
           
           echo "Raw results:"
           jq . output.json
@@ -706,7 +706,7 @@ jobs:
           echo "raw results:"
           echo "$raw_results"
           echo $raw_results >> output.json
-          cd .github/scripts/workflowresultparser
+          cd .github/scripts/asciiresults
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "automation" --namedKey "automation"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "keeper" --namedKey "keeper"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "log_poller" --namedKey "log_poller"
