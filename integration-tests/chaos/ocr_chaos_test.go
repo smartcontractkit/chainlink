@@ -167,7 +167,7 @@ func TestOCRChaos(t *testing.T) {
 			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
 			network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-			seth, err := actions.GetChainClient(&cfg, network)
+			seth, err := seth_utils.GetChainClient(&cfg, network)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)

@@ -17,12 +17,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
@@ -1067,104 +1065,6 @@ func SendLinkFundsToDeploymentAddresses(
 	}
 
 	return nil
-}
-
-var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
-
-type SethConfigFunction = func(*seth.Config) error
-
-// OneEphemeralKeysLiveTestnetCheckFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
-// and that there are no ephemeral keys on a live network. Root key is excluded from the check.
-var OneEphemeralKeysLiveTestnetCheckFn = func(sethCfg *seth.Config) error {
-	concurrency := sethCfg.GetMaxConcurrency()
-
-	if sethCfg.IsSimulatedNetwork() {
-		if concurrency < 1 {
-			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
-		}
-
-		return nil
-	}
-
-	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
-		ephMsg := `
-			Error: Ephemeral Addresses Detected on Live Network
-
-			Ephemeral addresses are currently set for use on a live network, which is not permitted. The number of ephemeral addresses set is %d. Please make the following update to your TOML configuration file to correct this:
-			'[Seth] ephemeral_addresses_number = 0'
-
-			Additionally, ensure the following requirements are met to run this test on a live network:
-			1. Use more than one private key in your network configuration.
-			`
-
-		return errors.New(ephMsg)
-	}
-
-	if concurrency < 1 {
-		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
-	}
-
-	return nil
-}
-
-// OneEphemeralKeysLiveTestnetAutoFixFn checks whether there's at least one ephemeral key on a simulated network or at least one static key on a live network,
-// and that there are no epehemeral keys on a live network (if ephemeral keys count is different from zero, it will disable them). Root key is excluded from the check.
-var OneEphemeralKeysLiveTestnetAutoFixFn = func(sethCfg *seth.Config) error {
-	concurrency := sethCfg.GetMaxConcurrency()
-
-	if sethCfg.IsSimulatedNetwork() {
-		if concurrency < 1 {
-			return fmt.Errorf(INSUFFICIENT_EPHEMERAL_KEYS, 0)
-		}
-
-		return nil
-	}
-
-	if sethCfg.EphemeralAddrs != nil && int(*sethCfg.EphemeralAddrs) > 0 {
-		var zero int64 = 0
-		sethCfg.EphemeralAddrs = &zero
-	}
-
-	if concurrency < 1 {
-		return fmt.Errorf(INSUFFICIENT_STATIC_KEYS, len(sethCfg.Network.PrivateKeys))
-	}
-
-	return nil
-}
-
-// GetChainClient returns a seth client for the given network after validating the config
-func GetChainClient(config ctf_config.SethConfig, network blockchain.EVMNetwork) (*seth.Client, error) {
-	return GetChainClientWithConfigFunction(config, network, noOpSethConfigFn)
-}
-
-// GetChainClientWithConfigFunction returns a seth client for the given network after validating the config and applying the config function
-func GetChainClientWithConfigFunction(config ctf_config.SethConfig, network blockchain.EVMNetwork, configFn SethConfigFunction) (*seth.Client, error) {
-	readSethCfg := config.GetSethConfig()
-	if readSethCfg == nil {
-		return nil, fmt.Errorf("Seth config not found")
-	}
-
-	sethCfg, err := seth_utils.MergeSethAndEvmNetworkConfigs(network, *readSethCfg)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error merging seth and evm network configs")
-	}
-
-	err = configFn(&sethCfg)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error applying seth config function")
-	}
-
-	err = seth_utils.ValidateSethNetworkConfig(sethCfg.Network)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error validating seth network config")
-	}
-
-	chainClient, err := seth.NewClientWithConfig(&sethCfg)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error creating seth client")
-	}
-
-	return chainClient, nil
 }
 
 // GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us

@@ -46,7 +46,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions.GetChainClientWithConfigFunction(config, testNetwork, actions.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(config, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -98,7 +98,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
+	testConfig, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions.GetChainClientWithConfigFunction(config, testNetwork, actions.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(testConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -118,7 +118,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config)
+		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 

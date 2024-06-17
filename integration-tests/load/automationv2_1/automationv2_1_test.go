@@ -319,8 +319,7 @@ Load Config:
 	require.NoError(t, err, "Error running chainlink DON")
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-
-	chainClient, err := actions.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, actions.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(loadedTestConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)

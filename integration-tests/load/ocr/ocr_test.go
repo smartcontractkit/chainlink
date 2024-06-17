@@ -3,13 +3,14 @@ package ocr
 import (
 	"testing"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/k8s"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -30,7 +31,7 @@ func TestOCRLoad(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := actions.GetChainClient(config, *evmNetwork)
+	seth, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
@@ -66,7 +67,7 @@ func TestOCRVolume(t *testing.T) {
 	evmNetwork, msClient, bootstrapNode, workerNodes, err := k8s.ConnectRemote()
 	require.NoError(t, err)
 
-	seth, err := actions.GetChainClient(config, *evmNetwork)
+	seth, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error creating seth client")
 
 	lta, err := SetupCluster(l, seth, workerNodes)
