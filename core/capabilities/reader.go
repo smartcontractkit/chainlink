@@ -91,14 +91,14 @@ func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
 		idsToCapabilities[caps.HashedCapabilityIds[i]] = c
 	}
 
-	nodes := &kcr.GetNodes{}
+	nodes := []kcr.CapabilityRegistryNodeInfo{}
 	err = r.r.GetLatestValue(ctx, "capabilityRegistry", "getNodes", nil, &nodes)
 	if err != nil {
 		return state{}, err
 	}
 
 	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{}
-	for _, node := range nodes.NodeInfo {
+	for _, node := range nodes {
 		idsToNodes[node.P2pId] = node
 	}
 

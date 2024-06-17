@@ -16,19 +16,19 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
     s_capabilityRegistry.addNodeOperators(_getNodeOperators());
     s_capabilityRegistry.addCapabilities(capabilities);
 
-    CapabilityRegistry.NodeInfo[] memory nodes = new CapabilityRegistry.NodeInfo[](2);
+    CapabilityRegistry.NodeParams[] memory nodes = new CapabilityRegistry.NodeParams[](2);
     bytes32[] memory hashedCapabilityIds = new bytes32[](2);
     hashedCapabilityIds[0] = s_basicHashedCapabilityId;
     hashedCapabilityIds[1] = s_capabilityWithConfigurationContractId;
 
-    nodes[0] = CapabilityRegistry.NodeInfo({
+    nodes[0] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID,
       signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
       hashedCapabilityIds: hashedCapabilityIds
     });
 
-    nodes[1] = CapabilityRegistry.NodeInfo({
+    nodes[1] = CapabilityRegistry.NodeParams({
       nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
       p2pId: P2P_ID_TWO,
       signer: NODE_OPERATOR_TWO_SIGNER_ADDRESS,
@@ -41,7 +41,7 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
   }
 
   function test_CorrectlyFetchesNodes() public view {
-    (CapabilityRegistry.NodeInfo[] memory nodes, uint32[] memory configCounts) = s_capabilityRegistry.getNodes();
+    CapabilityRegistry.NodeInfo[] memory nodes = s_capabilityRegistry.getNodes();
     assertEq(nodes.length, 2);
 
     assertEq(nodes[0].nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
@@ -50,7 +50,7 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
     assertEq(nodes[0].hashedCapabilityIds.length, 2);
     assertEq(nodes[0].hashedCapabilityIds[0], s_basicHashedCapabilityId);
     assertEq(nodes[0].hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
-    assertEq(configCounts[0], 1);
+    assertEq(nodes[0].configCount, 1);
 
     assertEq(nodes[1].nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
     assertEq(nodes[1].signer, NODE_OPERATOR_TWO_SIGNER_ADDRESS);
@@ -58,7 +58,7 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
     assertEq(nodes[1].hashedCapabilityIds.length, 2);
     assertEq(nodes[1].hashedCapabilityIds[0], s_basicHashedCapabilityId);
     assertEq(nodes[1].hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
-    assertEq(configCounts[1], 1);
+    assertEq(nodes[1].configCount, 1);
   }
 
   function test_DoesNotIncludeRemovedNodes() public {
@@ -67,7 +67,7 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
     nodesToRemove[0] = P2P_ID_TWO;
     s_capabilityRegistry.removeNodes(nodesToRemove);
 
-    (CapabilityRegistry.NodeInfo[] memory nodes, uint32[] memory configCounts) = s_capabilityRegistry.getNodes();
+    CapabilityRegistry.NodeInfo[] memory nodes = s_capabilityRegistry.getNodes();
     assertEq(nodes.length, 1);
 
     assertEq(nodes[0].nodeOperatorId, TEST_NODE_OPERATOR_ONE_ID);
@@ -76,6 +76,6 @@ contract CapabilityRegistry_GetNodesTest is BaseTest {
     assertEq(nodes[0].hashedCapabilityIds.length, 2);
     assertEq(nodes[0].hashedCapabilityIds[0], s_basicHashedCapabilityId);
     assertEq(nodes[0].hashedCapabilityIds[1], s_capabilityWithConfigurationContractId);
-    assertEq(configCounts[0], 1);
+    assertEq(nodes[0].configCount, 1);
   }
 }

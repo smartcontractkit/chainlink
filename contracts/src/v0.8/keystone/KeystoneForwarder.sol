@@ -91,7 +91,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
   uint256 internal constant SIGNATURE_LENGTH = 65;
 
   // ================================================================
-  // │                          IRouter                             │
+  // │                          Router                              │
   // ================================================================
 
   mapping(address forwarder => bool) internal s_forwarders;
