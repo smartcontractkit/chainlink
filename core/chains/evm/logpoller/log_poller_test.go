@@ -24,7 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -337,7 +337,7 @@ func Test_BackupLogPoller(t *testing.T) {
 				if n.Int64() != 32 {
 					return nil
 				}
-				th.SetActiveClient(backupRpc, config.ChainOptimismBedrock)
+				th.SetActiveClient(backupRpc, chaintype.ChainOptimismBedrock)
 				return nil
 			})
 
@@ -353,7 +353,7 @@ func Test_BackupLogPoller(t *testing.T) {
 
 			b, ok := primaryRpc.(*simulated.Backend)
 			require.True(t, ok)
-			th.SetActiveClient(b, config.ChainOptimismBedrock) // restore primary rpc
+			th.SetActiveClient(b, chaintype.ChainOptimismBedrock) // restore primary rpc
 
 			// Run ordinary poller + backup poller at least once
 			require.NoError(t, err)

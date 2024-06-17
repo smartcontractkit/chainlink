@@ -144,8 +144,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()

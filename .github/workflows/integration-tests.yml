@@ -322,7 +322,7 @@ jobs:
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -437,7 +437,7 @@ jobs:
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -538,6 +538,12 @@ jobs:
             os: ubuntu-latest
             file: ocr
             pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: reorg_above_finality
+            id: reorg_above_finality
+            nodes: 1
+            os: ubuntu-latest
+            file: reorg_above_finality
+            pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
           - name: ocr2
             id: ocr2
             nodes: 6
@@ -660,7 +666,7 @@ jobs:
         run: |
           docker logs otel-collector
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}

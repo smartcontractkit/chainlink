@@ -18,14 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
-
-type donInfo struct {
-	*capabilities.DON
-	PeerID func() *p2ptypes.PeerID
-}
 
 type stepRequest struct {
 	stepRef string
@@ -38,7 +32,8 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	donInfo              donInfo
+	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
+	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.CapabilityResponse
@@ -136,18 +131,20 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return fmt.Errorf("failed to get capability with ref %s: %s", step.ID, err)
 	}
 
-	// Special treatment for local targets - wrap into a transmission capability
-	target, isTarget := cp.(capabilities.TargetCapability)
-	if isTarget {
-		capInfo, err2 := target.Info(ctx)
-		if err2 != nil {
-			return fmt.Errorf("failed to get info of target capability: %w", err2)
-		}
+	info, err := cp.Info(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get info of capability with id %s: %w", step.ID, err)
+	}
 
-		// If the DON is nil this is a local target
-		if capInfo.DON == nil {
-			cp = transmission.NewLocalTargetCapability(e.logger, *e.donInfo.PeerID(), *e.donInfo.DON, target)
-		}
+	// Special treatment for local targets - wrap into a transmission capability
+	// If the DON is nil, this is a local target.
+	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
+		e.logger.Debugf("wrapping capability %s in local transmission protocol", info.ID)
+		cp = transmission.NewLocalTargetCapability(
+			e.logger,
+			e.localNode,
+			cp.(capabilities.TargetCapability),
+		)
 	}
 
 	// We configure actions, consensus and targets here, and
@@ -183,16 +180,25 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 // init does the following:
 //
-//  1. Resolves the underlying capability for each trigger
-//  2. Registers each step's capability to this workflow
-//  3. Registers for trigger events now that all capabilities are resolved
+//  1. Resolves the LocalDON information
+//  2. Resolves the underlying capability for each trigger
+//  3. Registers each step's capability to this workflow
+//  4. Registers for trigger events now that all capabilities are resolved
 //
-// Steps 1 and 2 are retried every 5 seconds until successful.
+// Steps 1-3 are retried every 5 seconds until successful.
 func (e *Engine) init(ctx context.Context) {
 	defer e.wg.Done()
 
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
-		err := e.resolveWorkflowCapabilities(ctx)
+		// first wait for localDON to return a non-error response; this depends
+		// on the underlying peerWrapper returning the PeerID.
+		node, err := e.getLocalNode(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get donInfo: %w", err)
+		}
+		e.localNode = node
+
+		err = e.resolveWorkflowCapabilities(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to resolve workflow: %s", err)
 		}
@@ -208,7 +214,7 @@ func (e *Engine) init(ctx context.Context) {
 	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
 	err := e.resumeInProgressExecutions(ctx)
 	if err != nil {
-		e.logger.Errorf("failed to resume workflows: %w", err)
+		e.logger.Errorf("failed to resume workflows: %v", err)
 	}
 
 	e.logger.Debug("registering triggers")
@@ -297,7 +303,7 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.donInfo.ID,
+			WorkflowDonID: e.localNode.WorkflowDON.ID,
 			WorkflowName:  e.workflow.name,
 			WorkflowOwner: e.workflow.owner,
 		},
@@ -347,26 +353,26 @@ func (e *Engine) loop(ctx context.Context) {
 			}
 
 			if resp.Err != nil {
-				e.logger.Errorf("trigger event was an error; not executing", resp.Err)
+				e.logger.Errorf("trigger event was an error %v; not executing", resp.Err)
 				continue
 			}
 
 			te := &capabilities.TriggerEvent{}
 			err := resp.Value.UnwrapTo(te)
 			if err != nil {
-				e.logger.Errorf("could not unwrap trigger event", resp.Err)
+				e.logger.Errorf("could not unwrap trigger event; error %v", resp.Err)
 				continue
 			}
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
-				e.logger.Errorf("could not generate execution ID", resp.Err)
+				e.logger.Errorf("could not generate execution ID; error %v", resp.Err)
 				continue
 			}
 
 			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
-				e.logger.Errorf("failed to start execution: %w", err)
+				e.logger.Errorf("failed to start execution: %v", err)
 			}
 		case pendingStepRequest := <-e.pendingStepRequests:
 			// Wait for a new worker to be available before dispatching a new one.
@@ -582,7 +588,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	inputs, outputs, err := e.executeStep(ctx, l, msg)
 	var stepStatus string
 	switch {
-	case errors.Is(err, capabilities.ErrStopExecution):
+	case errors.Is(capabilities.ErrStopExecution, err):
 		l.Infow("step executed successfully with a termination")
 		stepStatus = store.StatusCompletedEarlyExit
 	case err != nil:
@@ -606,7 +612,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// like this one will get picked up again and will be reprocessed.
 	select {
 	case <-ctx.Done():
-		l.Errorf("context canceled before step update could be issued", err)
+		l.Errorf("context canceled before step update could be issued; error %v", err)
 	case e.stepUpdateCh <- *stepState:
 	}
 }
@@ -636,7 +642,7 @@ func (e *Engine) executeStep(ctx context.Context, l logger.Logger, msg stepReque
 			WorkflowExecutionID: msg.state.ExecutionID,
 			WorkflowOwner:       e.workflow.owner,
 			WorkflowName:        e.workflow.name,
-			WorkflowDonID:       e.donInfo.ID,
+			WorkflowDonID:       e.localNode.WorkflowDON.ID,
 		},
 	}
 
@@ -660,7 +666,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.donInfo.ID,
+			WorkflowDonID: e.localNode.WorkflowDON.ID,
 			WorkflowName:  e.workflow.name,
 			WorkflowOwner: e.workflow.owner,
 		},
@@ -741,8 +747,7 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	DONInfo              *capabilities.DON
-	PeerID               func() *p2ptypes.PeerID
+	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	Store                store.Store
 
 	// For testing purposes only
@@ -761,6 +766,10 @@ const (
 )
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
+	if cfg.Store == nil {
+		return nil, errors.New("must provide store")
+	}
+
 	if cfg.MaxWorkerLimit == 0 {
 		cfg.MaxWorkerLimit = defaultWorkerLimit
 	}
@@ -777,8 +786,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.Store == nil {
-		cfg.Store = store.NewInMemoryStore()
+	if cfg.GetLocalNode == nil {
+		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
+			return capabilities.Node{}, nil
+		}
 	}
 
 	if cfg.retryMs == 0 {
@@ -821,13 +832,10 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 	}
 
 	engine = &Engine{
-		logger:   cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
-		registry: cfg.Registry,
-		workflow: workflow,
-		donInfo: donInfo{
-			DON:    cfg.DONInfo,
-			PeerID: cfg.PeerID,
-		},
+		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
+		registry:             cfg.Registry,
+		workflow:             workflow,
+		getLocalNode:         cfg.GetLocalNode,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		newWorkerCh:          newWorkerCh,

@@ -319,6 +319,8 @@ fromBlock = %d
 				if test.chainReaderAndCodec {
 					chainReaderSpec = `
 [relayConfig.chainReader.contracts.median]
+contractPollingFilter.genericEventNames = ["LatestRoundRequested"]
+
 contractABI = '''
 [
   {

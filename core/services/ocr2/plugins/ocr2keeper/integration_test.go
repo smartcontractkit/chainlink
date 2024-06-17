@@ -200,6 +200,11 @@ func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 }
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
+	runKeeperPluginBasic(t)
+}
+
+func runKeeperPluginBasic(t *testing.T) {
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 

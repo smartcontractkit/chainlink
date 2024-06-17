@@ -19,8 +19,7 @@ import (
 )
 
 func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -47,8 +46,7 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -75,8 +73,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -138,14 +135,18 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 		F:       workflowDonF,
 	}
 
-	broker := newTestMessageBroker()
+	var srvcs []services.Service
+	broker := newTestAsyncMessageBroker(t, 1000)
+	err := broker.Start(context.Background())
+	require.NoError(t, err)
+	srvcs = append(srvcs, broker)
 
 	workflowDONs := map[string]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
-	srvcs := make([]services.Service, numCapabilityPeers)
+
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
@@ -154,7 +155,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
-		srvcs[i] = capabilityNode
+		srvcs = append(srvcs, capabilityNode)
 	}
 
 	workflowNodes := make([]*serverTestClient, numWorkflowPeers)
@@ -182,7 +183,7 @@ type serverTestClient struct {
 	callerDonID       string
 }
 
-func (r *serverTestClient) Receive(msg *remotetypes.MessageBody) {
+func (r *serverTestClient) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.receivedMessages <- msg
 }
 
