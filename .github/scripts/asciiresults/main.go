@@ -56,6 +56,11 @@ func main() {
 		}
 	}
 
+	if len(jobs) == 0 {
+		fmt.Println("No results found in the JSON file")
+		return
+	}
+
 	// Determine column widths
 	maxFirstColumnLen := len(*firstColumnHeader)
 	maxSecondColumnLen := len(*secondColumnHeader)
@@ -133,7 +138,12 @@ func main() {
 		panic(fmt.Errorf("error writing to file:", err))
 	}
 
-	fmt.Println("Table updated successfully in", outputFileName)
+	msg := fmt.Sprintf("Found results for '%s'. Updating file %s", *namedKey, outputFileName)
+	if *namedKey == "" {
+		msg = fmt.Sprintf("Results updated successfully in %s", outputFileName)
+	}
+
+	fmt.Println(msg)
 }
 
 // centerText centers a string within a given width

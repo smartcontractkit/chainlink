@@ -702,8 +702,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
-      - name: Prepare aggregated test results
-        id: prepare-aggregated-test-results
+      - name: Print aggregated test results
         shell: bash
         run: |
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"          
@@ -711,7 +710,7 @@ jobs:
           echo "$raw_results"
           cd .github/scripts/asciiresults
           echo $raw_results >> input.json
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
@@ -720,16 +719,11 @@ jobs:
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
           
-          echo "Aggregated results:"
+          echo 
+          echo "AGGREGATED RESULTS"
           cat output.txt
+          cat output.txt >> $GITHUB_STEP_SUMMARY
           echo "results=$(cat output.txt | base64)" >> $GITHUB_OUTPUT
-      - name: Print aggregated test results
-        shell: bash
-        run: |
-          parsed=$(echo "${{ steps.prepare-aggregated-test-results.outputs.results }}" | base64 -d)
-          echo "decoded table:"
-          echo $parsed
-          echo "$parsed" >> $GITHUB_STEP_SUMMARY
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
