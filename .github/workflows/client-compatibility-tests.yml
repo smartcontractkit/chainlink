@@ -28,13 +28,17 @@ on:
         required: false
         type: string
 
+# tag, schedule and workflow dispatch -- run always
+# merge queue and pull request -- run only if go-ethereum dependency was bumped
+
 env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
   MOD_CACHE_VERSION: 2
 
-# Tag, schedule and workflow dispatch -- always
-# merge queue and pull request -- only if go-ethereum dependency was bumped
+concurrency:
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--evm-compatibility-tests
+  cancel-in-progress: true
 
 jobs:
   # Build Test Dependencies
