@@ -17,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	pkgcapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -205,6 +206,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
+	var getLocalNode func(ctx context.Context) (pkgcapabilities.Node, error)
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
@@ -217,10 +219,29 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
 		}
 
-		// NOTE: RegistrySyncer will depend on a Relayer when fully implemented
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
-		registrySyncer := capabilities.NewRegistrySyncer(externalPeerWrapper, opts.CapabilitiesRegistry, dispatcher, globalLogger, networkSetup)
 
+		rid := cfg.Capabilities().ExternalRegistry().RelayID()
+		registryAddress := cfg.Capabilities().ExternalRegistry().Address()
+		relayer, err := relayerChainInterops.Get(rid)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
+		}
+
+		registrySyncer, err := capabilities.NewRegistrySyncer(
+			externalPeerWrapper,
+			opts.CapabilitiesRegistry,
+			dispatcher,
+			globalLogger,
+			networkSetup,
+			relayer,
+			registryAddress,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not configure syncer: %w", err)
+		}
+
+		getLocalNode = registrySyncer.LocalNode
 		srvcs = append(srvcs, dispatcher, registrySyncer)
 	}
 
@@ -412,14 +433,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
-		func() *p2ptypes.PeerID {
-			if externalPeerWrapper == nil {
-				return nil
-			}
-
-			peerID := externalPeerWrapper.GetPeer().ID()
-			return &peerID
-		},
+		getLocalNode,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

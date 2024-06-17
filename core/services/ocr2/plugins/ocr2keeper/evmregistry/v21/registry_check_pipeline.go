@@ -148,7 +148,7 @@ func (r *EvmRegistry) verifyLogExists(ctx context.Context, upkeepId *big.Int, p 
 		// if this block number/hash combo exists in block subscriber, this block and tx still exists on chain and is valid
 		// the block hash in block subscriber might be slightly outdated, if it doesn't match then we fetch the latest from RPC.
 		if ok && h == logBlockHash.Hex() {
-			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
+			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, logBlockHash.Hex(), upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
 		// if this block does not exist in the block subscriber, the block which this log lived on was probably re-orged

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1806,12 +1807,15 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow(t *testing.T) {
+	var addr1 = "0x0123456789012345678901234567890123456789"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+	t.Parallel()
 	type fields struct {
 		ds sqlutil.DataSource
 	}
 	type args struct {
-		spec   job.WorkflowSpec
-		before func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32
+		spec   *job.WorkflowSpec
+		before func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32
 	}
 	tests := []struct {
 		name    string
@@ -1819,6 +1823,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
+
 		{
 			name: "wf not job found",
 			fields: fields{
@@ -1826,28 +1831,23 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			},
 			args: args{
 				// before is nil, so no job is inserted
-				spec: job.WorkflowSpec{
-					ID:            1,
-					WorkflowID:    "workflow 1",
-					Workflow:      "abcd",
-					WorkflowOwner: "me",
-					WorkflowName:  "myworkflow",
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow00", addr1),
 				},
 			},
 			wantErr: true,
 		},
+
 		{
 			name: "wf job found",
 			fields: fields{
 				ds: pgtest.NewSqlxDB(t),
 			},
 			args: args{
-				spec: job.WorkflowSpec{
-					ID:            1,
-					WorkflowID:    "workflow 2",
-					Workflow:      "anything",
-					WorkflowOwner: "me",
-					WorkflowName:  "myworkflow",
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", addr1),
 				},
 				before: mustInsertWFJob,
 			},
@@ -1860,16 +1860,15 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 				ds: pgtest.NewSqlxDB(t),
 			},
 			args: args{
-				spec: job.WorkflowSpec{
-					ID:            1,
-					WorkflowID:    "workflow 3",
-					Workflow:      "anything",
-					WorkflowOwner: "me",
-					WorkflowName:  "wf3",
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow02", addr1),
 				},
-				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
-					s.WorkflowName = "notmyworkflow"
-					return mustInsertWFJob(t, o, s)
+				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
+					var c job.WorkflowSpec
+					c.ID = s.ID
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow99", addr1) // insert with mismatched name
+					return mustInsertWFJob(t, o, &c)
 				},
 			},
 			wantErr: true,
@@ -1880,16 +1879,15 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 				ds: pgtest.NewSqlxDB(t),
 			},
 			args: args{
-				spec: job.WorkflowSpec{
-					ID:            1,
-					WorkflowID:    "workflow 4",
-					Workflow:      "anything",
-					WorkflowOwner: "me",
-					WorkflowName:  "wf4",
+				spec: &job.WorkflowSpec{
+					ID:       1,
+					Workflow: pkgworkflows.WFYamlSpec(t, "workflow03", addr1),
 				},
-				before: func(t *testing.T, o job.ORM, s job.WorkflowSpec) int32 {
-					s.WorkflowOwner = "not me"
-					return mustInsertWFJob(t, o, s)
+				before: func(t *testing.T, o job.ORM, s *job.WorkflowSpec) int32 {
+					var c job.WorkflowSpec
+					c.ID = s.ID
+					c.Workflow = pkgworkflows.WFYamlSpec(t, "workflow03", addr2) // insert with mismatched owner
+					return mustInsertWFJob(t, o, &c)
 				},
 			},
 			wantErr: true,
@@ -1907,7 +1905,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 				wantJobID = tt.args.before(t, o, tt.args.spec)
 			}
 			ctx := testutils.Context(t)
-			gotJ, err := o.FindJobIDByWorkflow(ctx, tt.args.spec)
+			gotJ, err := o.FindJobIDByWorkflow(ctx, *tt.args.spec)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("orm.FindJobByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1917,7 +1915,12 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
 
+func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
+	var addr1 = "0x012345678901234567890123456789012345ffff"
+	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
+	t.Parallel()
 	t.Run("multiple jobs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		o := NewTestORM(t,
@@ -1928,29 +1931,24 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			bridges.NewORM(db),
 			cltest.NewKeyStore(t, db))
 		ctx := testutils.Context(t)
+
+		wfYaml1 := pkgworkflows.WFYamlSpec(t, "workflow00", addr1)
 		s1 := job.WorkflowSpec{
-			WorkflowID:    "workflowid",
-			Workflow:      "anything",
-			WorkflowOwner: "me",
-			WorkflowName:  "a_common_name",
+			Workflow: wfYaml1,
 		}
-		wantJobID1 := mustInsertWFJob(t, o, s1)
+		wantJobID1 := mustInsertWFJob(t, o, &s1)
 
+		wfYaml2 := pkgworkflows.WFYamlSpec(t, "workflow01", addr1)
 		s2 := job.WorkflowSpec{
-			WorkflowID:    "another workflowid",
-			Workflow:      "anything",
-			WorkflowOwner: "me",
-			WorkflowName:  "another workflow name",
+			Workflow: wfYaml2,
 		}
-		wantJobID2 := mustInsertWFJob(t, o, s2)
+		wantJobID2 := mustInsertWFJob(t, o, &s2)
 
+		wfYaml3 := pkgworkflows.WFYamlSpec(t, "workflow00", addr2)
 		s3 := job.WorkflowSpec{
-			WorkflowID:    "xworkflowid",
-			Workflow:      "anything",
-			WorkflowOwner: "someone else",
-			WorkflowName:  "a_common_name",
+			Workflow: wfYaml3,
 		}
-		wantJobID3 := mustInsertWFJob(t, o, s3)
+		wantJobID3 := mustInsertWFJob(t, o, &s3)
 
 		expectedIDs := []int32{wantJobID1, wantJobID2, wantJobID3}
 		for i, s := range []job.WorkflowSpec{s1, s2, s3} {
@@ -1969,20 +1967,23 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 	})
 }
 
-func mustInsertWFJob(t *testing.T, orm job.ORM, s job.WorkflowSpec) int32 {
+func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	t.Helper()
+	err := s.Validate()
+	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := testutils.Context(t)
-	_, err := toml.Marshal(s.Workflow)
-	require.NoError(t, err)
+	_, err = toml.Marshal(s.Workflow)
+	require.NoError(t, err, "failed to TOML marshal workflow %v", s.Workflow)
 	j := job.Job{
 		Type:          job.Workflow,
-		WorkflowSpec:  &s,
+		WorkflowSpec:  s,
 		ExternalJobID: uuid.New(),
 		Name:          null.StringFrom(s.WorkflowOwner + "_" + s.WorkflowName),
 		SchemaVersion: 1,
 	}
+
 	err = orm.CreateJob(ctx, &j)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to insert job with wf spec %v %s", s, s.Workflow)
 	return j.ID
 }
 
