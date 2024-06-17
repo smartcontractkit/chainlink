@@ -26,7 +26,7 @@ require (
 	github.com/segmentio/ksuid v1.0.4
 	github.com/shopspring/decimal v1.3.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-automation v1.0.3
+	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240614134652-1fb0b48758af
 	github.com/smartcontractkit/chainlink-testing-framework v1.30.4
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
