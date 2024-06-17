@@ -30,11 +30,11 @@ func newAptosKeyring(material io.Reader) (*aptosKeyring, error) {
 	return &aptosKeyring{pubKey: pubKey, privKey: privKey}, nil
 }
 
-func (ckr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
-	return []byte(ckr.pubKey)
+func (akr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
+	return []byte(akr.pubKey)
 }
 
-func (ckr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
 	h, err := blake2s.New256(nil)
 	if err != nil {
@@ -50,41 +50,41 @@ func (ckr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repor
 	return h.Sum(nil), nil
 }
 
-func (ckr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
-	sigData, err := ckr.reportToSigData(reportCtx, report)
+func (akr *aptosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+	sigData, err := akr.reportToSigData(reportCtx, report)
 	if err != nil {
 		return nil, err
 	}
-	return ckr.signBlob(sigData)
+	return akr.signBlob(sigData)
 }
 
-func (ckr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
+func (akr *aptosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (ckr *aptosKeyring) signBlob(b []byte) ([]byte, error) {
-	signedMsg := ed25519.Sign(ckr.privKey, b)
+func (akr *aptosKeyring) signBlob(b []byte) ([]byte, error) {
+	signedMsg := ed25519.Sign(akr.privKey, b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
-	return utils.ConcatBytes(ckr.PublicKey(), signedMsg), nil
+	return utils.ConcatBytes(akr.PublicKey(), signedMsg), nil
 }
 
-func (ckr *aptosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
-	hash, err := ckr.reportToSigData(reportCtx, report)
+func (akr *aptosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+	hash, err := akr.reportToSigData(reportCtx, report)
 	if err != nil {
 		return false
 	}
-	return ckr.verifyBlob(publicKey, hash, signature)
+	return akr.verifyBlob(publicKey, hash, signature)
 }
 
-func (ckr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+func (akr *aptosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	return false
 }
 
-func (ckr *aptosKeyring) verifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+func (akr *aptosKeyring) verifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
 	// Ed25519 signatures are always 64 bytes and the
 	// public key (always prefixed, see Sign above) is always,
 	// 32 bytes, so we always require the max signature length.
-	if len(sig) != ckr.MaxSignatureLength() {
+	if len(sig) != akr.MaxSignatureLength() {
 		return false
 	}
 	if len(pubkey) != ed25519.PublicKeySize {
@@ -93,21 +93,21 @@ func (ckr *aptosKeyring) verifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []b
 	return ed25519consensus.Verify(ed25519.PublicKey(pubkey), b, sig[32:])
 }
 
-func (ckr *aptosKeyring) MaxSignatureLength() int {
+func (akr *aptosKeyring) MaxSignatureLength() int {
 	// Reference: https://pkg.go.dev/crypto/ed25519
 	return ed25519.PublicKeySize + ed25519.SignatureSize // 32 + 64
 }
 
-func (ckr *aptosKeyring) Marshal() ([]byte, error) {
-	return ckr.privKey.Seed(), nil
+func (akr *aptosKeyring) Marshal() ([]byte, error) {
+	return akr.privKey.Seed(), nil
 }
 
-func (ckr *aptosKeyring) Unmarshal(in []byte) error {
+func (akr *aptosKeyring) Unmarshal(in []byte) error {
 	if len(in) != ed25519.SeedSize {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), ed25519.SeedSize)
 	}
 	privKey := ed25519.NewKeyFromSeed(in)
-	ckr.privKey = privKey
-	ckr.pubKey = privKey.Public().(ed25519.PublicKey)
+	akr.privKey = privKey
+	akr.pubKey = privKey.Public().(ed25519.PublicKey)
 	return nil
 }
