@@ -28,7 +28,6 @@ var (
 		VRF:                     {},
 		Webhook:                 {},
 		Workflow:                {},
-		StandardCapabilities:    {},
 	}
 )
 

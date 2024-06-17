@@ -129,7 +129,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -207,7 +206,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -295,7 +293,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -360,7 +357,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -420,7 +416,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
                         "errors": []
                     }
                 }
@@ -478,7 +473,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -564,7 +558,6 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,	
 						"errors": []
 					}
 				}
@@ -646,7 +639,6 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -728,7 +720,6 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -794,7 +785,6 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -852,7 +842,6 @@ func TestJob(t *testing.T) {
 							"createdAt":"0001-01-01T00:00:00Z",
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
-						"standardCapabilitiesSpec": null,
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -914,67 +903,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
-						"pipelineSpec": {
-							"id": 1,
-							"jobID": 0,
-							"dotDagSource": ""
-						},
-						"errors": []
-					}
-				}
-			}`,
-		},
-		{
-			name: "standardcapabilities spec",
-			job: job.Job{
-				ID: 1,
-				StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
-					ID:      3,
-					Command: "testcommand",
-					Config:  "testconfig",
-				},
-				PipelineSpec: &pipeline.Spec{
-					ID:           1,
-					DotDagSource: "",
-				},
-				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
-				Type:          job.StandardCapabilities,
-				SchemaVersion: 1,
-				Name:          null.StringFrom("standardcapabilities test"),
-			},
-			want: `
-			{
-				"data": {
-					"type": "jobs",
-					"id": "1",
-					"attributes": {
-						"name": "standardcapabilities test",
-						"type": "standardcapabilities",
-						"schemaVersion": 1,
-						"maxTaskDuration": "0s",
-						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
-						"directRequestSpec": null,
-						"fluxMonitorSpec": null,
-						"gasLimit": null,
-						"forwardingAllowed": false,
-						"cronSpec": null,
-						"offChainReportingOracleSpec": null,
-						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
-						"vrfSpec": null,
-						"webhookSpec": null,
-						"workflowSpec": null,
-						"blockhashStoreSpec": null,
-						"blockHeaderFeederSpec": null,
-						"bootstrapSpec": null,
-						"gatewaySpec": null,
-						"standardCapabilitiesSpec": {
-							"command":"testcommand",
-							"config":"testconfig",
-							"createdAt":"0001-01-01T00:00:00Z",
-							"updatedAt":"0001-01-01T00:00:00Z"
-						},
 						"pipelineSpec": {
 							"id": 1,
 							"jobID": 0,
@@ -1053,7 +981,6 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

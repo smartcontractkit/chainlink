@@ -125,14 +125,6 @@ func (r *SpecResolver) ToWorkflowSpec() (*WorkflowSpecResolver, bool) {
 	return &WorkflowSpecResolver{spec: *r.j.WorkflowSpec}, true
 }
 
-func (r *SpecResolver) ToStandardCapabilitiesSpec() (*StandardCapabilitiesSpecResolver, bool) {
-	if r.j.Type != job.StandardCapabilities {
-		return nil, false
-	}
-
-	return &StandardCapabilitiesSpecResolver{spec: *r.j.StandardCapabilitiesSpec}, true
-}
-
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -1013,24 +1005,4 @@ func (r *WorkflowSpecResolver) CreatedAt() graphql.Time {
 
 func (r *WorkflowSpecResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.UpdatedAt}
-}
-
-type StandardCapabilitiesSpecResolver struct {
-	spec job.StandardCapabilitiesSpec
-}
-
-func (r *StandardCapabilitiesSpecResolver) ID() graphql.ID {
-	return graphql.ID(stringutils.FromInt32(r.spec.ID))
-}
-
-func (r *StandardCapabilitiesSpecResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.spec.CreatedAt}
-}
-
-func (r *StandardCapabilitiesSpecResolver) Command() string {
-	return r.spec.Command
-}
-
-func (r *StandardCapabilitiesSpecResolver) Config() *string {
-	return &r.spec.Config
 }
