@@ -146,7 +146,6 @@ func NewRunner(
 // Start starts Runner.
 func (r *runner) Start(ctx context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
-		// starting cache can happen here for ORM
 		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
 		if r.config.ReaperInterval() != time.Duration(0) {
@@ -154,9 +153,10 @@ func (r *runner) Start(ctx context.Context) error {
 			go r.runReaperLoop()
 		}
 
-		cache, isCache := r.btORM.(*bridges.Cache)
-		if isCache {
-			return cache.Start(ctx)
+		// the btORM can be a cache service or a static ORM if the constructor changes
+		service, isService := r.btORM.(services.Service)
+		if isService {
+			return service.Start(ctx)
 		}
 
 		return nil
@@ -168,6 +168,7 @@ func (r *runner) Close() error {
 		close(r.chStop)
 		r.wgDone.Wait()
 
+		// the btORM can be a cache service or a static ORM if the constructor changes
 		if closer, isCloser := r.btORM.(io.Closer); isCloser {
 			return closer.Close()
 		}

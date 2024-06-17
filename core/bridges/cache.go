@@ -152,10 +152,7 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
 	// prefer to get latest value from cache
-	c.mu.RLock()
-	cached, inCache := c.bridgeLastValueCache[responseKey(dotId, specId)]
-	c.mu.RUnlock()
-
+	cached, inCache := c.latestValue(dotId, specId)
 	if inCache && cached.FinishedAt.After(time.Now().Add(-maxElapsed)) {
 		return cached.Value, nil
 	}
@@ -165,28 +162,31 @@ func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int3
 		return nil, err
 	}
 
-	c.mu.Lock()
-	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
+	c.setValue(dotId, specId, BridgeResponse{
 		DotID:      dotId,
 		SpecID:     specId,
 		Value:      response,
 		FinishedAt: finishedAt,
-	}
-	c.mu.Unlock()
+	})
 
 	return response, nil
 }
 
 func (c *Cache) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	upsertTime := time.Now()
 
-	c.bridgeLastValueCache[responseKey(dotId, specId)] = BridgeResponse{
+	// catch the rare case of a save race
+	cached, inCache := c.latestValue(dotId, specId)
+	if inCache && cached.FinishedAt.After(upsertTime) {
+		return nil
+	}
+
+	c.setValue(dotId, specId, BridgeResponse{
 		DotID:      dotId,
 		SpecID:     specId,
 		Value:      response,
-		FinishedAt: time.Now(),
-	}
+		FinishedAt: upsertTime,
+	})
 
 	return nil
 }
@@ -246,6 +246,22 @@ func (c *Cache) doBulkUpsert() {
 	if err := c.ORM.BulkUpsertBridgeResponse(ctx, values); err != nil {
 		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
+}
+
+func (c *Cache) latestValue(dotId string, specId int32) (BridgeResponse, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	cached, inCache := c.bridgeLastValueCache[responseKey(dotId, specId)]
+
+	return cached, inCache
+}
+
+func (c *Cache) setValue(dotId string, specId int32, resp BridgeResponse) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.bridgeLastValueCache[responseKey(dotId, specId)] = resp
 }
 
 func responseKey(dotId string, specId int32) string {
