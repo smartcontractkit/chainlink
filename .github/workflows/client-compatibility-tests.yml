@@ -758,11 +758,17 @@ jobs:
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
           echo "raw results:"
           echo "$raw_results"
-          product_result="$(echo "$raw_results" | jq -c ".${{ matrix.product }}[]" | paste -sd "," -)"
-          echo "product results:"
-          echo "$product_result"
-          base64_result=$(echo $product_result | base64 -w 0)
-          echo "base64_result=$base64_result" >> $GITHUB_OUTPUT
+          product_result=$(echo "$raw_results" | jq -c ".${{ matrix.product }}[]")
+          if [ -n "$product_result" ]; then
+            product_result=$(echo $product_result | paste -sd "," -)
+            echo "product results:"
+            echo "$product_result"
+            base64_result=$(echo $product_result | base64 -w 0)
+            echo "base64_result=$base64_result" >> $GITHUB_OUTPUT
+          else
+            echo "No results found for ${{ matrix.product }}"
+            echo "base64_result=" >> $GITHUB_OUTPUT
+          fi
       - name: Post Test Results to Slack
         uses: ./.github/actions/notify-slack-jobs-result
         with:
@@ -774,4 +780,4 @@ jobs:
           slack_channel_id: ${{ secrets.QA_SLACK_CHANNEL }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
           slack_thread_ts: ${{ needs.start-slack-thread.outputs.thread_ts }}
-          base64_result: ${{ steps.get-product-results.outputs.base64_result }}
+          base64_parsed_results: ${{ steps.get-product-results.outputs.base64_result }}
