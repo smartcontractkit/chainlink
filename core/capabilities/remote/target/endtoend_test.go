@@ -74,9 +74,9 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -106,9 +106,9 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -409,8 +409,12 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 
 	value := request.Inputs.Underlying["executeValue1"]
 
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return nil, err
+	}
 	ch <- commoncap.CapabilityResponse{
-		Value: value,
+		Value: response,
 	}
 
 	return ch, nil
