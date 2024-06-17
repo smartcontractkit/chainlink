@@ -13,15 +13,16 @@ contract CapabilitiesRegistry_GetCapabilitiesTest is BaseTest {
     s_CapabilitiesRegistry.addCapabilities(capabilities);
   }
 
-  function test_ReturnsCapabilities() public view {
-    (
-      bytes32[] memory hashedCapabilityIds,
-      CapabilitiesRegistry.Capability[] memory capabilities
-    ) = s_CapabilitiesRegistry.getCapabilities();
+  function test_ReturnsCapabilities() public {
+    bytes32 hashedCapabilityId = s_CapabilitiesRegistry.getHashedCapabilityId(
+      s_basicCapability.labelledName,
+      s_basicCapability.version
+    );
+    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
+    deprecatedCapabilities[0] = hashedCapabilityId;
+    s_CapabilitiesRegistry.deprecateCapabilities(deprecatedCapabilities);
 
-    assertEq(hashedCapabilityIds.length, 2);
-    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
-    assertEq(hashedCapabilityIds[1], keccak256(abi.encode(capabilities[1].labelledName, capabilities[1].version)));
+    CapabilitiesRegistry.CapabilityInfo[] memory capabilities = s_CapabilitiesRegistry.getCapabilities();
 
     assertEq(capabilities.length, 2);
 
@@ -30,6 +31,8 @@ contract CapabilitiesRegistry_GetCapabilitiesTest is BaseTest {
     assertEq(uint256(capabilities[0].responseType), uint256(CapabilitiesRegistry.CapabilityResponseType.REPORT));
     assertEq(uint256(capabilities[0].capabilityType), uint256(CapabilitiesRegistry.CapabilityType.TRIGGER));
     assertEq(capabilities[0].configurationContract, address(0));
+    assertEq(capabilities[0].hashedId, keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
+    assertEq(capabilities[0].isDeprecated, true);
 
     assertEq(capabilities[1].labelledName, "read-ethereum-mainnet-gas-price");
     assertEq(capabilities[1].version, "1.0.2");
@@ -39,33 +42,7 @@ contract CapabilitiesRegistry_GetCapabilitiesTest is BaseTest {
     );
     assertEq(uint256(capabilities[1].capabilityType), uint256(CapabilitiesRegistry.CapabilityType.ACTION));
     assertEq(capabilities[1].configurationContract, address(s_capabilityConfigurationContract));
-  }
-
-  function test_ExcludesDeprecatedCapabilities() public {
-    bytes32 hashedCapabilityId = s_CapabilitiesRegistry.getHashedCapabilityId(
-      s_basicCapability.labelledName,
-      s_basicCapability.version
-    );
-    bytes32[] memory deprecatedCapabilities = new bytes32[](1);
-    deprecatedCapabilities[0] = hashedCapabilityId;
-    s_CapabilitiesRegistry.deprecateCapabilities(deprecatedCapabilities);
-
-    (
-      bytes32[] memory hashedCapabilityIds,
-      CapabilitiesRegistry.Capability[] memory capabilities
-    ) = s_CapabilitiesRegistry.getCapabilities();
-
-    assertEq(hashedCapabilityIds.length, 1);
-    assertEq(hashedCapabilityIds[0], keccak256(abi.encode(capabilities[0].labelledName, capabilities[0].version)));
-
-    assertEq(capabilities.length, 1);
-
-    assertEq(capabilities[0].labelledName, "read-ethereum-mainnet-gas-price");
-    assertEq(capabilities[0].version, "1.0.2");
-    assertEq(
-      uint256(capabilities[0].responseType),
-      uint256(CapabilitiesRegistry.CapabilityResponseType.OBSERVATION_IDENTICAL)
-    );
-    assertEq(capabilities[0].configurationContract, address(s_capabilityConfigurationContract));
+    assertEq(capabilities[1].hashedId, keccak256(abi.encode(capabilities[1].labelledName, capabilities[1].version)));
+    assertEq(capabilities[1].isDeprecated, false);
   }
 }

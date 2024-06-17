@@ -432,8 +432,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Set of deprecated hashed capability IDs,
   /// A hashed ID is created by the function `getHashedCapabilityId`.
-  ///
-  /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
 
   /// @notice Encoded node signer addresses
@@ -721,7 +719,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
       if (!s_deprecatedHashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
-      delete s_capabilities[hashedCapabilityId];
       emit CapabilityDeprecated(hashedCapabilityId);
     }
   }
