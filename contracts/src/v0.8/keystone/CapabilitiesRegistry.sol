@@ -328,6 +328,13 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeP2PId The P2P Id of the node
   error NodePartOfWorkflowDON(uint32 donId, bytes32 nodeP2PId);
 
+  /// @notice This error is thrown when removing a capability from the node
+  /// when that capability is still required by one of the DONs the node
+  /// belongs to.
+  /// @param hashedCapabilityId The hashed ID of the capability
+  /// @param donId The ID of the DON that requires the capability
+  error CapabilityRequiredByDON(bytes32 hashedCapabilityId, uint32 donId);
+
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
   /// @param proposedConfigurationContract The address of the proposed
@@ -571,13 +578,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
-
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
       if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
-
       if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
       bytes32 previousSigner = storedNode.signer;
@@ -596,6 +601,19 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
+      }
+
+      // Validate that capabilities required by a Workflow DON are still supported
+      uint32 nodeWorkflowDONId = storedNode.workflowDONId;
+      if (nodeWorkflowDONId != 0) {
+        bytes32[] memory workflowDonCapabilityIds = s_dons[nodeWorkflowDONId]
+          .config[s_dons[nodeWorkflowDONId].configCount]
+          .capabilityIds;
+
+        for (uint256 j; j < workflowDonCapabilityIds.length; ++j) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(workflowDonCapabilityIds[j]))
+            revert CapabilityRequiredByDON(workflowDonCapabilityIds[j], nodeWorkflowDONId);
+        }
       }
 
       storedNode.nodeOperatorId = node.nodeOperatorId;
