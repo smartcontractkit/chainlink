@@ -107,7 +107,6 @@ ok TelemetryManager
         "output": ""
       }
     },
-
     {
       "type": "checks",
       "id": "PromReporter",
