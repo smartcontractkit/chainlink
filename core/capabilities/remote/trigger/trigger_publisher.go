@@ -1,4 +1,4 @@
-package remote
+package trigger
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -72,7 +73,7 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 }
 
 func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
-	sender := ToPeerID(msg.Sender)
+	sender := remote.ToPeerID(msg.Sender)
 	if msg.Method == types.MethodRegisterTrigger {
 		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 		if err != nil {
@@ -102,7 +103,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Debugw("not ready to aggregate yet", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "minRequired", minRequired)
 			return
 		}
-		aggregated, err := AggregateModeRaw(payloads, uint32(callerDon.F+1))
+		aggregated, err := remote.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if err != nil {
 			p.lggr.Errorw("failed to aggregate trigger registrations", "capabilityId", p.capInfo.ID, "workflowId", req.Metadata.WorkflowID, "err", err)
 			return

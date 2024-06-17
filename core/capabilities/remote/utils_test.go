@@ -27,6 +27,11 @@ const (
 	payload2 = "goodbye world"
 )
 
+var (
+	triggerEvent1 = map[string]any{"event": "triggerEvent1"}
+	triggerEvent2 = map[string]any{"event": "triggerEvent2"}
+)
+
 func TestValidateMessage(t *testing.T) {
 	privKey1, peerId1 := newKeyPair(t)
 	_, peerId2 := newKeyPair(t)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/trigger"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -90,7 +90,7 @@ func TestStreamsTrigger(t *testing.T) {
 	config := &remotetypes.RemoteTriggerConfig{
 		MinResponsesToAggregate: uint32(F + 1),
 	}
-	subscriber := remote.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, lggr)
+	subscriber := trigger.NewTriggerSubscriber(config, capInfo, capDonInfo, capabilities.DON{}, nil, agg, lggr)
 
 	// register trigger
 	req := capabilities.CapabilityRequest{

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -154,6 +155,16 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 		return nil, err
 	}
+
+	for {
+		stat, err := cap.cw.GetTransactionStatus(ctx, txID.String())
+		time.Sleep(1 * time.Second)
+		if err != nil {
+			fmt.Printf("Error getting transaction status: %v\n", err)
+		}
+		fmt.Printf("Transaction status: %v\n", stat)
+	}
+
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
 	return success(), nil
 }

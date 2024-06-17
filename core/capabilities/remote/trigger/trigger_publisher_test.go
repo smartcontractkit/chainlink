@@ -1,4 +1,4 @@
-package remote_test
+package trigger_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/trigger"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -53,7 +53,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		info:            capInfo,
 		registrationsCh: make(chan commoncap.CapabilityRequest, 2),
 	}
-	publisher := remote.NewTriggerPublisher(config, underlying, capInfo, capDonInfo, workflowDONs, dispatcher, lggr)
+	publisher := trigger.NewTriggerPublisher(config, underlying, capInfo, capDonInfo, workflowDONs, dispatcher, lggr)
 	require.NoError(t, publisher.Start(ctx))
 
 	// trigger registration event

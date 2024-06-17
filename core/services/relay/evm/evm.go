@@ -155,6 +155,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		if err := relayer.capabilitiesRegistry.Add(ctx, capability); err != nil {
 			return nil, err
 		}
+
 		lggr.Infow("Registered write target", "chain_id", chain.ID())
 	}
 

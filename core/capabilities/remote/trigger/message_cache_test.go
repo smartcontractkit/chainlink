@@ -1,11 +1,11 @@
-package remote_test
+package trigger_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/trigger"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 )
 
 func TestMessageCache_InsertReady(t *testing.T) {
-	cache := remote.NewMessageCache[string, string]()
+	cache := trigger.NewMessageCache[string, string]()
 
 	// not ready with one message
 	ts := cache.Insert(eventId1, peerId1, 100, []byte(payloadA))
@@ -43,7 +43,7 @@ func TestMessageCache_InsertReady(t *testing.T) {
 }
 
 func TestMessageCache_DeleteOlderThan(t *testing.T) {
-	cache := remote.NewMessageCache[string, string]()
+	cache := trigger.NewMessageCache[string, string]()
 
 	ts := cache.Insert(eventId1, peerId1, 100, []byte(payloadA))
 	require.Equal(t, int64(100), ts)

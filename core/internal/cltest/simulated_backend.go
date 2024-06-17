@@ -42,8 +42,8 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 
 	flagsAndDeps = append(flagsAndDeps, client, chainID)
 
-	//  app.Stop() will call client.Close on the simulated backend
 	app := NewApplicationWithConfig(t, cfg, flagsAndDeps...)
+	//  app.Stop() will call client.Close on the simulated backend
 
 	return app
 }

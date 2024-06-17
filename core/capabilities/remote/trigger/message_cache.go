@@ -1,4 +1,4 @@
-package remote
+package trigger
 
 // MessageCache is a simple store for messages, grouped by event ID and peer ID.
 // It is used to collect messages from multiple peers until they are ready for aggregation
