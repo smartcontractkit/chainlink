@@ -25,8 +25,8 @@ inputs:
   slack_thread_ts:
     description: "The Slack thread timestamp to post the message to, handy for keeping multiple related results in a single thread"
     required: false
-  base64_results:
-    description: "Base64 encoded results to post"
+  base64_parsed_results:
+    description: "Base64 encoded parsed results to use"
     required: false
 
 runs:
@@ -35,21 +35,25 @@ runs:
     - name: Get Results
       shell: bash
       id: test-results
-      if: ${{ inputs.base64_results == '' }}
       run: |
-        # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-        echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
+        if [ -n ${{ inputs.base64_parsed_results }} ]; then
+          echo "Using base64 parsed results"
+          PARSED_RESULTS=$(echo ${{ inputs.base64_parsed_results }} | base64 -d)
+        else
+          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
+          echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
 
-        # we can get a maximum of 100 jobs per page, after that we need to start using pagination
-        PARSED_RESULTS=$(curl \
-        -H "Authorization: Bearer ${{ inputs.github_token }}" \
-        'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs?per_page=100' \
-        | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
-        | select(.name | test($pattern)) as $job
-        | $job.steps[]
-        | select(.name == "Run Tests")
-        | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*"), html_url: $job.html_url }')
-
+          # we can get a maximum of 100 jobs per page, after that we need to start using pagination
+          PARSED_RESULTS=$(curl \
+          -H "Authorization: Bearer ${{ inputs.github_token }}" \
+          'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs?per_page=100' \
+          | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
+          | select(.name | test($pattern)) as $job
+          | $job.steps[]
+          | select(.name == "Run Tests")
+          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*"), html_url: $job.html_url }')
+        fi   
+        
         echo "Parsed Results:"
         echo $PARSED_RESULTS
 
@@ -88,13 +92,7 @@ runs:
         echo "Clean Results"
         echo $CLEAN_RESULTS
 
-        echo RESULTS=$CLEAN_RESULTS >> $GITHUB_ENV
-    - name: Parse Base64 Results
-      if: ${{ inputs.base64_results != '' }}
-      shell: bash
-      run: |
-        echo "Parsing base64 results"
-        echo RESULTS=$(echo "${{ inputs.base64_results }}" | base64 -d) >> $GITHUB_ENV
+        echo results=$CLEAN_RESULTS >> $GITHUB_ENV
     - name: Post Results
       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
       env:
@@ -119,7 +117,7 @@ runs:
                   {
                     "type": "divider"
                   },
-                  ${{ env.RESULTS }}
+                  ${{ steps.test-results.outputs.results }}
                 ]
               }
             ]
