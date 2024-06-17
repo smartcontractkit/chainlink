@@ -1231,7 +1231,7 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 7 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
 	- P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
@@ -1312,12 +1312,6 @@ func TestConfig_Validate(t *testing.T) {
 				- 0.URL: missing: required for all nodes
 				- 1.URL: missing: required for all nodes
 		- 2: 2 errors:
-			- ChainID: missing: required for all chains
-			- Nodes: missing: must have at least one node
-	- Starknet: 3 errors:
-		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-		- 0.ChainID: missing: required for all chains
-		- 1: 2 errors:
 			- ChainID: missing: required for all chains
 			- Nodes: missing: must have at least one node`},
 	} {
