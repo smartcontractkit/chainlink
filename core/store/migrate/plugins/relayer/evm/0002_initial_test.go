@@ -108,9 +108,10 @@ func Test_init_functional(t *testing.T) {
 		cfg Cfg
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
+		name       string
+		args       args
+		wantErr    bool
+		wantTables []string
 	}{
 		{
 			name: "evm template",
@@ -119,6 +120,9 @@ func Test_init_functional(t *testing.T) {
 					Schema:  "evm_3266",
 					ChainID: 3266,
 				},
+			},
+			wantTables: []string{
+				"forwarders",
 			},
 		},
 	}
@@ -130,8 +134,12 @@ func Test_init_functional(t *testing.T) {
 			// we need a table to store the goose version for this cfg
 			goose.SetTableName(fmt.Sprintf("goose_version_%s", tt.args.cfg.Schema))
 			// run the migrations from the embedded templates
-			goose.SetBaseFS(embeddedTmplFS)
-			err = goose.Up(db.DB, MigrationRootDir)
+
+			tDir := t.TempDir()
+			_, err := generateMigrations(embeddedTmplFS, MigrationRootDir, tDir, tt.args.cfg)
+			require.NoError(t, err, "failed to generate migrations")
+			//goose.SetBaseFS(tDir)
+			err = goose.UpTo(db.DB, tDir, 2)
 			require.NoError(t, err, "failed to run migrations")
 
 			// test that the migrations were applied
@@ -140,14 +148,41 @@ func Test_init_functional(t *testing.T) {
 			rows, err := db.DB.Query("SELECT schemaname, tablename FROM pg_catalog.pg_tables where schemaname = $1", tt.args.cfg.Schema)
 			require.NoError(t, err)
 			defer rows.Close()
+			var gotTables []string
 			for rows.Next() {
 				var schema, table string
 				err = rows.Scan(&schema, &table)
 				t.Logf("schema: %s, table: %s", schema, table)
+				require.NoError(t, err)
+				gotTables = append(gotTables, table)
 			}
 			// check the error from rows
 			err = rows.Err()
 			require.NoError(t, err)
+			assert.Equal(t, tt.wantTables, gotTables)
+
+			// check the goose version
+			v, err := goose.EnsureDBVersion(db.DB)
+			require.NoError(t, err)
+			assert.Equal(t, int64(2), v)
+
+			// run the down migrations
+			err = goose.DownTo(db.DB, tDir, 0)
+			require.NoError(t, err, "failed to run down migrations")
+			v, err = goose.EnsureDBVersion(db.DB)
+			require.NoError(t, err)
+			rows, err = db.DB.Query("SELECT schemaname, tablename FROM pg_catalog.pg_tables where schemaname = $1", tt.args.cfg.Schema)
+			require.NoError(t, err)
+			defer rows.Close()
+			var gotDownTables []string
+			for rows.Next() {
+				var schema, table string
+				err = rows.Scan(&schema, &table)
+				t.Logf("schema: %s, table: %s", schema, table)
+				require.NoError(t, err)
+				gotTables = append(gotTables, table)
+			}
+			assert.Len(t, gotDownTables, 0)
 		})
 	}
 	t.FailNow()

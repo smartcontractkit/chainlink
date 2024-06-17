@@ -6,7 +6,6 @@ import (
 	"embed"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -155,19 +154,19 @@ func MigratePlugin(ctx context.Context, db *sql.DB, cfg MigrationConfig) error {
 
 	defer setupCoreMigrations()
 	setupPluginMigrations(cfg)
+	/*
+		d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
+		migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
+		if err != nil {
+			return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
+		}
+		fmt.Printf("Generated migrations: %v\n", migrations)
 
-	d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
-	migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
-	if err != nil {
-		return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
-	}
-	fmt.Printf("Generated migrations: %v\n", migrations)
-
-	err = goose.Up(db, d)
-	if err != nil {
-		return fmt.Errorf("failed to do %s database migration: %w", cfg.Type, err)
-	}
-
+		err = goose.Up(db, d)
+		if err != nil {
+			return fmt.Errorf("failed to do %s database migration: %w", cfg.Type, err)
+		}
+	*/
 	return nil
 }
 
@@ -191,19 +190,24 @@ func RollbackPlugin(ctx context.Context, db *sql.DB, version null.Int, cfg Migra
 
 	defer setupCoreMigrations()
 	setupPluginMigrations(cfg)
+	/*
+	   // TODO: should these be saved somewhere? if so where, if not if the db itself?)
+	   d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
+	   migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
 
-	// TODO: should these be saved somewhere? if so where, if not if the db itself?)
-	d := filepath.Join(tmpDir, cfg.Template, cfg.Schema)
-	migrations, err := generateMigrations(cfg.Dir, d, SQLConfig{Schema: cfg.Schema})
-	if err != nil {
-		return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
-	}
-	fmt.Printf("Generated migrations: %v\n", migrations)
+	   	if err != nil {
+	   		return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
+	   	}
 
-	if version.Valid {
-		return goose.DownTo(db, d, version.Int64)
-	}
-	return goose.Down(db, d)
+	   fmt.Printf("Generated migrations: %v\n", migrations)
+
+	   	if version.Valid {
+	   		return goose.DownTo(db, d, version.Int64)
+	   	}
+
+	   return goose.Down(db, d)
+	*/
+	return nil
 }
 
 func Current(ctx context.Context, db *sql.DB) (int64, error) {
