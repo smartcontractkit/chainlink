@@ -108,7 +108,7 @@ jobs:
           fi
 
   select-versions:
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     name: Select Versions
     needs: should-run
     runs-on: ubuntu-latest
@@ -228,7 +228,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
@@ -262,7 +262,7 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
 
   build-chainlink:
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       id-token: write
@@ -297,7 +297,7 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
@@ -370,7 +370,7 @@ jobs:
 
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       checks: write
@@ -482,7 +482,7 @@ jobs:
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
-    if: success() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success'
     environment: integration
     permissions:
       checks: write
