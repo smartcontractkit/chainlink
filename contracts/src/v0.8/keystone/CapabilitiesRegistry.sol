@@ -616,6 +616,18 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         }
       }
 
+      // Validate that capabilities required by capabilities DONs are still supported
+      uint256[] memory capabilitiesDONIds = storedNode.capabilitiesDONIds.values();
+      for (uint32 j; j < capabilitiesDONIds.length; ++j) {
+        uint32 donId = uint32(capabilitiesDONIds[j]);
+        bytes32[] memory donCapabilityIds = s_dons[donId].config[s_dons[donId].configCount].capabilityIds;
+
+        for (uint256 k; k < donCapabilityIds.length; ++k) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(donCapabilityIds[k]))
+            revert CapabilityRequiredByDON(donCapabilityIds[k], donId);
+        }
+      }
+
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
 
