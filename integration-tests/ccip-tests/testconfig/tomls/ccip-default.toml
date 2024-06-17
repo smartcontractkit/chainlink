@@ -272,6 +272,10 @@ TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-ou
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
 NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens will be deployed by a non-owner account, only applicable for 1.5 pools and onwards
+
+#NoOfTokensWithDynamicPrice = 15 # number of tokens with dynamic price to be deployed
+#DynamicPriceUpdateInterval ='15s' # Periodic interval to update the price of tokens, if there are tokens with dynamic price
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered
@@ -347,6 +351,12 @@ TimeoutForPriceUpdate = '15m' # Duration to wait for the price update to time-ou
 # Could be removed once the pipeline is completely removed.
 WithPipeline = false
 NoOfTokensPerChain = 2 # number of bridge tokens to be deployed per network; if MsgType = 'Token'/'DataWithToken'
+CCIPOwnerTokens = false # if true, the test will use deploy the tokens by the CCIPOwner, otherwise the tokens and pools will be deployed by a non-owner account,
+# only applicable for 1.5 pools and onwards, if you are running with pre-1.5 pools, then set this to true to deploy token pools by CCIPOwner, otherwise
+# the test will fail
+
+#NoOfTokensWithDynamicPrice = 15 # number of tokens with dynamic price to be deployed
+#DynamicPriceUpdateInterval ='15s' # Periodic interval to update the price of tokens, if there are tokens with dynamic price
 
 # uncomment the following if you want to run your tests with specific number of lanes;
 # in this case out of all the possible lane combinations, only the ones with the specified number of lanes will be considered

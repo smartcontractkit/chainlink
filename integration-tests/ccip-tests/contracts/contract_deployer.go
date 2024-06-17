@@ -56,6 +56,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/testhelpers_1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -1385,6 +1387,113 @@ func stripKeyPrefix(key string) string {
 		return chunks[2]
 	}
 	return key
+}
+
+func NewCommitOffchainConfig(
+	GasPriceHeartBeat config.Duration,
+	DAGasPriceDeviationPPB uint32,
+	ExecGasPriceDeviationPPB uint32,
+	TokenPriceHeartBeat config.Duration,
+	TokenPriceDeviationPPB uint32,
+	InflightCacheExpiry config.Duration) (ccipconfig.OffchainConfig, error) {
+	switch VersionMap[CommitStoreContract] {
+	case Latest:
+		return testhelpers.NewCommitOffchainConfig(
+			GasPriceHeartBeat,
+			DAGasPriceDeviationPPB,
+			ExecGasPriceDeviationPPB,
+			TokenPriceHeartBeat,
+			TokenPriceDeviationPPB,
+			InflightCacheExpiry,
+		), nil
+	case V1_2_0:
+		return testhelpers_1_4_0.NewCommitOffchainConfig(
+			GasPriceHeartBeat,
+			DAGasPriceDeviationPPB,
+			ExecGasPriceDeviationPPB,
+			TokenPriceHeartBeat,
+			TokenPriceDeviationPPB,
+			InflightCacheExpiry,
+		), nil
+	default:
+		return nil, fmt.Errorf("version not supported: %s", VersionMap[CommitStoreContract])
+	}
+}
+
+func NewCommitOnchainConfig(
+	PriceRegistry common.Address,
+) (abihelpers.AbiDefined, error) {
+	switch VersionMap[CommitStoreContract] {
+	case Latest:
+		return testhelpers.NewCommitOnchainConfig(PriceRegistry), nil
+	case V1_2_0:
+		return testhelpers_1_4_0.NewCommitOnchainConfig(PriceRegistry), nil
+	default:
+		return nil, fmt.Errorf("version not supported: %s", VersionMap[CommitStoreContract])
+	}
+}
+
+func NewExecOnchainConfig(
+	PermissionLessExecutionThresholdSeconds uint32,
+	Router common.Address,
+	PriceRegistry common.Address,
+	MaxNumberOfTokensPerMsg uint16,
+	MaxDataBytes uint32,
+	MaxPoolReleaseOrMintGas uint32,
+	MaxTokenTransferGas uint32,
+) (abihelpers.AbiDefined, error) {
+	switch VersionMap[OffRampContract] {
+	case Latest:
+		return testhelpers.NewExecOnchainConfig(
+			PermissionLessExecutionThresholdSeconds,
+			Router,
+			PriceRegistry,
+			MaxNumberOfTokensPerMsg,
+			MaxDataBytes,
+			MaxPoolReleaseOrMintGas,
+			MaxTokenTransferGas,
+		), nil
+	case V1_2_0:
+		return testhelpers_1_4_0.NewExecOnchainConfig(
+			PermissionLessExecutionThresholdSeconds,
+			Router,
+			PriceRegistry,
+			MaxNumberOfTokensPerMsg,
+			MaxDataBytes,
+			MaxPoolReleaseOrMintGas,
+		), nil
+	default:
+		return nil, fmt.Errorf("version not supported: %s", VersionMap[OffRampContract])
+	}
+}
+
+func NewExecOffchainConfig(
+	destOptimisticConfirmations uint32,
+	batchGasLimit uint32,
+	relativeBoostPerWaitHour float64,
+	inflightCacheExpiry config.Duration,
+	rootSnoozeTime config.Duration,
+) (ccipconfig.OffchainConfig, error) {
+	switch VersionMap[OffRampContract] {
+	case Latest:
+		return testhelpers.NewExecOffchainConfig(
+			destOptimisticConfirmations,
+			batchGasLimit,
+			relativeBoostPerWaitHour,
+			inflightCacheExpiry,
+			rootSnoozeTime,
+		), nil
+	case V1_2_0:
+		return testhelpers_1_4_0.NewExecOffchainConfig(
+			destOptimisticConfirmations,
+			batchGasLimit,
+			relativeBoostPerWaitHour,
+			inflightCacheExpiry,
+			rootSnoozeTime,
+		), nil
+	default:
+		return nil, fmt.Errorf("version not supported: %s", VersionMap[OffRampContract])
+	}
 }
 
 func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](

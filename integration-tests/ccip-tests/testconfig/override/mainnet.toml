@@ -757,6 +757,7 @@ ReuseContracts = true
 
 [CCIP.Groups.smoke.TokenConfig]
 NoOfTokensPerChain = 1
+CCIPOwnerTokens = true
 
 [CCIP.Groups.smoke.MsgDetails]
 MsgType = 'Data'

@@ -285,6 +285,13 @@ jobs:
             file: ccip
             dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$
+          - name: ccip-smoke-1.4-pools
+            nodes: 1
+            os: ubuntu-latest
+            file: ccip
+            dir: ccip-tests/smoke
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+            config_path: ./integration-tests/ccip-tests/testconfig/tomls/contract-version1.4.toml
           - name: ccip-smoke-usdc
             nodes: 1
             os: ubuntu-latest

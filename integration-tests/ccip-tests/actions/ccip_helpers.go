@@ -117,11 +117,12 @@ var (
 
 	RootSnoozeTime = 3 * time.Minute
 	GethLabel      = func(name string) string {
+		name = NetworkName(name)
 		switch NetworkChart {
 		case reorg.TXNodesAppLabel:
 			return fmt.Sprintf("%s-ethereum-geth", name)
 		case foundry.ChartName:
-			return fmt.Sprintf("%s-foundry", name)
+			return name
 		}
 		return ""
 	}
@@ -1150,11 +1151,10 @@ type StaticPriceConfig struct {
 func NewCCIPCommonFromConfig(
 	logger zerolog.Logger,
 	testGroupConf *testconfig.CCIPTestGroupConfig,
-	testEnv *CCIPTestEnv,
 	chainClient blockchain.EVMClient,
 	laneConfig *laneconfig.LaneConfig,
 ) (*CCIPCommon, error) {
-	newCCIPModule, err := DefaultCCIPModule(logger, testGroupConf, testEnv, chainClient)
+	newCCIPModule, err := DefaultCCIPModule(logger, testGroupConf, chainClient)
 	if err != nil {
 		return nil, err
 	}
@@ -1234,18 +1234,10 @@ func NewCCIPCommonFromConfig(
 func DefaultCCIPModule(
 	logger zerolog.Logger,
 	testGroupConf *testconfig.CCIPTestGroupConfig,
-	testEnv *CCIPTestEnv,
 	chainClient blockchain.EVMClient,
 ) (*CCIPCommon, error) {
 	networkCfg := chainClient.GetNetworkConfig()
-	var k8Env *environment.Environment
-	if testEnv != nil {
-		k8Env = testEnv.K8Env
-	}
-	if k8Env != nil && chainClient.NetworkSimulated() {
-		networkCfg.URLs = k8Env.URLs[chainClient.GetNetworkConfig().Name]
-	}
-	tokenDeployerChainClient, err := blockchain.ConcurrentEVMClient(*networkCfg, k8Env, chainClient, logger)
+	tokenDeployerChainClient, err := blockchain.ConcurrentEVMClient(*networkCfg, nil, chainClient, logger)
 	if err != nil {
 		return nil, errors.WithStack(fmt.Errorf("failed to create token deployment chain client for %s: %w", networkCfg.Name, err))
 	}
@@ -1790,14 +1782,13 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 func DefaultSourceCCIPModule(
 	logger zerolog.Logger,
 	testConf *testconfig.CCIPTestGroupConfig,
-	testEnv *CCIPTestEnv,
 	chainClient blockchain.EVMClient,
 	destChainId uint64,
 	destChain string,
 	laneConf *laneconfig.LaneConfig,
 ) (*SourceCCIPModule, error) {
 	cmn, err := NewCCIPCommonFromConfig(
-		logger, testConf, testEnv, chainClient, laneConf,
+		logger, testConf, chainClient, laneConf,
 	)
 	if err != nil {
 		return nil, err
@@ -2019,6 +2010,13 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		if destCCIP.Common.ExistingDeployment {
 			return fmt.Errorf("offramp address not provided in lane config")
 		}
+		var tokenAdminReg common.Address
+		if contracts.NeedTokenAdminRegistry() {
+			if destCCIP.Common.TokenAdminRegistry == nil {
+				return fmt.Errorf("token admin registry contract address is not provided in lane config")
+			}
+			tokenAdminReg = destCCIP.Common.TokenAdminRegistry.EthAddress
+		}
 		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
 			destCCIP.SourceChainSelector,
 			destChainSelector,
@@ -2028,7 +2026,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			[]common.Address{},
 			[]common.Address{},
 			*destCCIP.Common.ARMContract,
-			destCCIP.Common.TokenAdminRegistry.EthAddress,
+			tokenAdminReg,
 		)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %w", err)
@@ -2537,14 +2535,13 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 func DefaultDestinationCCIPModule(
 	logger zerolog.Logger,
 	testConf *testconfig.CCIPTestGroupConfig,
-	testEnv *CCIPTestEnv,
 	chainClient blockchain.EVMClient,
 	sourceChainId uint64,
 	sourceChain string,
 	laneConf *laneconfig.LaneConfig,
 ) (*DestCCIPModule, error) {
 	cmn, err := NewCCIPCommonFromConfig(
-		logger, testConf, testEnv, chainClient, laneConf,
+		logger, testConf, chainClient, laneConf,
 	)
 	if err != nil {
 		return nil, err
@@ -3475,7 +3472,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	lane.Source, err = DefaultSourceCCIPModule(
 		lane.Logger,
 		testConf,
-		env,
 		sourceChainClient, destChainClient.GetChainID().Uint64(),
 		destChainClient.GetNetworkName(),
 		srcConf,
@@ -3484,7 +3480,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("failed to create source module: %w", err)
 	}
 	lane.Dest, err = DefaultDestinationCCIPModule(
-		lane.Logger, testConf, env,
+		lane.Logger, testConf,
 		destChainClient, sourceChainClient.GetChainID().Uint64(),
 		sourceChainClient.GetNetworkName(), destConf,
 	)
@@ -3698,17 +3694,26 @@ func SetOCR2Config(
 		Interface("OCRParmsForCommit", OCR2ParamsForCommit).
 		Interface("OCRParmsForExec", OCR2ParamsForExec).
 		Msg("Setting OCR2 config")
+	commitOffchainCfg, err := contracts.NewCommitOffchainConfig(
+		*commonconfig.MustNewDuration(5 * time.Second),
+		1e6,
+		1e6,
+		*commonconfig.MustNewDuration(5 * time.Second),
+		1e6,
+		*inflightExpiryCommit,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create commit offchain config: %w", err)
+	}
+
+	commitOnchainCfg, err := contracts.NewCommitOnchainConfig(
+		destCCIP.Common.PriceRegistry.EthAddress,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create commit onchain config: %w", err)
+	}
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
-		commitNodes, testhelpers.NewCommitOffchainConfig(
-			*commonconfig.MustNewDuration(5 * time.Second),
-			1e6,
-			1e6,
-			*commonconfig.MustNewDuration(5 * time.Second),
-			1e6,
-			*inflightExpiryCommit,
-		), testhelpers.NewCommitOnchainConfig(
-			destCCIP.Common.PriceRegistry.EthAddress,
-		), OCR2ParamsForCommit, 3*time.Minute)
+		commitNodes, commitOffchainCfg, commitOnchainCfg, OCR2ParamsForCommit, 3*time.Minute)
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2 config params for commit: %w", err)
 	}
@@ -3724,24 +3729,32 @@ func SetOCR2Config(
 		nodes = execNodes
 	}
 	if destCCIP.OffRamp != nil {
+		execOffchainCfg, err := contracts.NewExecOffchainConfig(
+			1,
+			BatchGasLimit,
+			0.7,
+			*inflightExpiryExec,
+			*commonconfig.MustNewDuration(RootSnoozeTime),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create exec offchain config: %w", err)
+		}
+		execOnchainCfg, err := contracts.NewExecOnchainConfig(
+			uint32(DefaultPermissionlessExecThreshold.Seconds()),
+			destCCIP.Common.Router.EthAddress,
+			destCCIP.Common.PriceRegistry.EthAddress,
+			DefaultMaxNoOfTokensInMsg,
+			MaxDataBytes,
+			200_000,
+			50_000,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create exec onchain config: %w", err)
+		}
 		signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
 			nodes,
-			testhelpers.NewExecOffchainConfig(
-				1,
-				BatchGasLimit,
-				0.7,
-				*inflightExpiryExec,
-				*commonconfig.MustNewDuration(RootSnoozeTime),
-			),
-			testhelpers.NewExecOnchainConfig(
-				uint32(DefaultPermissionlessExecThreshold.Seconds()),
-				destCCIP.Common.Router.EthAddress,
-				destCCIP.Common.PriceRegistry.EthAddress,
-				DefaultMaxNoOfTokensInMsg,
-				MaxDataBytes,
-				200_000,
-				50_000,
-			),
+			execOffchainCfg,
+			execOnchainCfg,
 			OCR2ParamsForExec,
 			3*time.Minute,
 		)

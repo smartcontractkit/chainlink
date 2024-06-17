@@ -481,7 +481,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 	mainChainClient.ParallelTransactions(true)
 	defer mainChainClient.Close()
 	ccipCommon, err := actions.DefaultCCIPModule(
-		lggr, o.Cfg.TestGroupInput, o.Env, mainChainClient,
+		lggr, o.Cfg.TestGroupInput, mainChainClient,
 	)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %w", networkCfg.Name, err))
@@ -906,12 +906,14 @@ func CCIPDefaultTestSetUp(
 	if contracts.NeedTokenAdminRegistry() && !pointer.GetBool(testConfig.TestGroupInput.TokenConfig.CCIPOwnerTokens) {
 		for _, net := range testConfig.AllNetworks {
 			chainClient := chainClientByChainID[net.ChainID]
-			// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
-			// There aren't a lot of good ways to estimate this though. See CCIP-2471.
-			_, err = chainClient.NewWallet(big.NewFloat(0.1))
-			require.NoError(t, err, "failed to create new wallet to deploy tokens from")
-			err = chainClient.WaitForEvents()
-			require.NoError(t, err, "failed to wait for events after creating new wallet")
+			if !pointer.GetBool(testConfig.TestGroupInput.ExistingDeployment) {
+				// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
+				// There aren't a lot of good ways to estimate this though. See CCIP-2471.
+				_, err = chainClient.NewWallet(big.NewFloat(0.1))
+				require.NoError(t, err, "failed to create new wallet to deploy tokens from")
+				err = chainClient.WaitForEvents()
+				require.NoError(t, err, "failed to wait for events after creating new wallet")
+			}
 		}
 	}
 

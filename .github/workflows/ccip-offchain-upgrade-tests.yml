@@ -94,14 +94,14 @@ jobs:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-  build-test-image-current-sha:
+  build-test-image:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     needs: [ changes ]
     environment: integration
     permissions:
       id-token: write
       contents: read
-    name: Build Test Image with Current Sha
+    name: Build Test Image
     runs-on: ubuntu-latest
     steps:
       - name: Collect Metrics
@@ -109,7 +109,7 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
-          id: ccip-offchain-upgrade-compatibility-tests-build-test-image-current-sha
+          id: ccip-offchain-upgrade-compatibility-tests-build-test-image
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -125,19 +125,19 @@ jobs:
         uses: ./.github/actions/build-test-image
         with:
           # we just want to build the load tests
-          suites: ccip-tests/load
+          suites: ccip-tests/load ccip-tests/smoke
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
-  build-test-image-for-last-release:
+  last-release-info:
     if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
     needs: [ changes ]
     environment: integration
     permissions:
       id-token: write
       contents: read
-    name: Build Test Image for Last Release
+    name: Fetch Info for Last Release
     runs-on: ubuntu-latest
     outputs:
       release_name: ${{ steps.fetch_last_release.outputs.release_name }}
@@ -149,7 +149,7 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
-          id: ccip-offchain-upgrade-compatibility-tests-build-test-image-for-last-release
+          id: ccip-offchain-upgrade-compatibility-tests-last-release-info
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -165,20 +165,6 @@ jobs:
           echo "release_name=${release_name}" >> $GITHUB_OUTPUT
           sha_ref=$(curl -s --header "Authorization: token ${{ secrets.GITHUB_TOKEN }}" --request GET https://api.github.com/repos/${{ github.repository }}/git/refs/tags/${release_name} | jq -r '.object.sha' | sort -V | tail -n 1)
           echo "sha_ref=${sha_ref}" >> $GITHUB_OUTPUT
-      - name: Checkout the repo
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-        with:
-          repository: smartcontractkit/ccip
-          ref: ${{ steps.fetch_last_release.outputs.sha_ref }}
-      - name: Build Test Image
-        if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: ./.github/actions/build-test-image
-        with:
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          tag: ${{ steps.fetch_last_release.outputs.sha_ref }}
-          other_tags: ${{ steps.fetch_last_release.outputs.release_name }}
   # End Build Test Dependencies
 
   # run test with previous image
@@ -190,7 +176,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ changes, build-test-image-for-last-release ]
+    needs: [ changes, last-release-info, build-test-image ]
     outputs:
       existing_namespace: ${{ steps.fetch_namespace.outputs.existing_namespace }}
       triggered_by: ${{ steps.fetch_namespace.outputs.triggered_by }}
@@ -203,11 +189,11 @@ jobs:
             run: ^TestSmokeCCIPForBidirectionalLane$
             config_path: ./integration-tests/ccip-tests/testconfig/tomls/node-pre-upgrade-compatibility.toml
     runs-on: ubuntu-latest
-    name: CCIP Deployment with ${{ needs.build-test-image-for-last-release.outputs.release_tag }} - ${{ matrix.product.name }}
+    name: CCIP Deployment with ${{ needs.last-release-info.outputs.release_tag }} - ${{ matrix.product.name }}
     env:
-      RELEASE_TAG: ${{ needs.build-test-image-for-last-release.outputs.release_tag }}
-      RELEASE_SHA: ${{ needs.build-test-image-for-last-release.outputs.release_sha }}
-      RELEASE_NAME: ${{ needs.build-test-image-for-last-release.outputs.release_name }}
+      RELEASE_TAG: ${{ needs.last-release-info.outputs.release_tag }}
+      RELEASE_SHA: ${{ needs.last-release-info.outputs.release_sha }}
+      RELEASE_NAME: ${{ needs.last-release-info.outputs.release_name }}
       TEST_TRIGGERED_BY: ${{ matrix.product.name }}-${{ github.run_id }}
     steps:
       - name: Collect Metrics
@@ -219,7 +205,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: CCIP Deployment with ${{ needs.build-test-image-for-last-release.outputs.release_tag }} - ${{ matrix.product.name }}
+          this-job-name: CCIP Deployment with ${{ needs.last-release-info.outputs.release_tag }} - ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
       - name: Checkout the repo
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
@@ -253,11 +239,7 @@ jobs:
         env:
           BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
           TEST_BASE64_CCIP_CONFIG_OVERRIDE: ${{ steps.set_override_config.outputs.base_64_override }}
-          # uncomment this later for next release
-          # ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ env.RELEASE_SHA }}
-          # for now we run test with a specific test image pertaining to previous release with some added fixes
-          # this image use 1.2 ramps instead of incompatible 1.5-dev ramps from offchain v2.10.0-ccip1.4-release
-          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:release-v2.10.0-ccip1.4
+          ENV_JOB_IMAGE: ${{ env.ENV_JOB_IMAGE_BASE }}:${{ github.sha }}
           TEST_SUITE: smoke
           TEST_ARGS: -test.timeout 30m
           TEST_LOG_LEVEL: info
@@ -317,7 +299,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [ build-chainlink, changes, build-test-image-current-sha, run-test-with-last-release ]
+    needs: [ build-chainlink, changes, build-test-image, run-test-with-last-release ]
     strategy:
       fail-fast: false
       matrix:
