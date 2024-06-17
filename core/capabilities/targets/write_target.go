@@ -151,7 +151,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
-	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID, cap.forwarderAddress, &meta, *value); err != nil {
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
