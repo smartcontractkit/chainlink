@@ -691,8 +691,8 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-#    needs: [start-slack-thread, should-run, parse-test-results]
-    needs: [should-run, parse-test-results]
+#    needs: [start-slack-thread, should-run, select-versions, parse-test-results]
+    needs: [should-run, select-versions, parse-test-results]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -705,8 +705,8 @@ jobs:
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"          
           echo "raw results:"
           echo "$raw_results"
-          echo $raw_results >> output.json
           cd .github/scripts/asciiresults
+          echo $raw_results >> output.json
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "automation" --namedKey "automation"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "keeper" --namedKey "keeper"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "log_poller" --namedKey "log_poller"
