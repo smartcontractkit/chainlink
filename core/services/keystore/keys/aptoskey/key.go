@@ -18,9 +18,7 @@ type Raw []byte
 func (raw Raw) Key() Key {
 	privKey := ed25519.NewKeyFromSeed(raw)
 	pubKey := privKey.Public().(ed25519.PublicKey)
-	accountAddress := PubkeyToAddress(pubKey)
 	return Key{
-		Address: accountAddress,
 		privkey: privKey,
 		pubKey:  pubKey,
 	}
@@ -40,7 +38,6 @@ var _ fmt.GoStringer = &Key{}
 
 // Key represents Aptos key
 type Key struct {
-	Address AccountAddress
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
 }
@@ -71,9 +68,7 @@ func newFrom(reader io.Reader) (Key, error) {
 	if err != nil {
 		return Key{}, err
 	}
-	accountAddress := PubkeyToAddress(pub)
 	return Key{
-		Address: accountAddress,
 		privkey: priv,
 		pubKey:  pub,
 	}, nil
@@ -81,7 +76,7 @@ func newFrom(reader io.Reader) (Key, error) {
 
 // ID gets Key ID
 func (key Key) ID() string {
-	return key.Address.String()
+	return key.PublicKeyStr()
 }
 
 // GetPublic get Key's public key
@@ -101,7 +96,7 @@ func (key Key) Raw() Raw {
 
 // String is the print-friendly format of the Key
 func (key Key) String() string {
-	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Address: %s}", key.Address)
+	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Address: %s}", key.PublicKeyStr())
 }
 
 // GoString wraps String()

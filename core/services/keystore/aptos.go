@@ -169,8 +169,7 @@ type AptosLooppSigner struct {
 
 var _ loop.Keystore = &AptosLooppSigner{}
 
-// Returns a list of Aptos Addresses. Public key is not used as Aptos Public key can be rotated.
-// https://aptos.dev/concepts/accounts/#rotating-the-keys
+// Returns a list of Aptos Public Keys
 func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
 	if err != nil {
