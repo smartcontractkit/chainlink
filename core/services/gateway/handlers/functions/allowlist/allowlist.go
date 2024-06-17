@@ -237,12 +237,12 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 
 		err = a.orm.PurgeAllowedSenders(ctx)
 		if err != nil {
-			a.lggr.Errorf("failed to purge allowedSenderList: %w", err)
+			a.lggr.Errorf("failed to purge allowedSenderList: %v", err)
 		}
 
 		err = a.orm.CreateAllowedSenders(ctx, allowedSenderList)
 		if err != nil {
-			a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+			a.lggr.Errorf("failed to update stored allowedSenderList: %v", err)
 		}
 
 		a.update(allowedSenderList)
@@ -343,7 +343,7 @@ func (a *onchainAllowlist) updateAllowedSendersBatch(
 	// persist each batch to the underalying orm layer
 	err = a.orm.CreateAllowedSenders(ctx, allowedSendersBatch)
 	if err != nil {
-		a.lggr.Errorf("failed to update stored allowedSenderList: %w", err)
+		a.lggr.Errorf("failed to update stored allowedSenderList: %v", err)
 	}
 	return nil
 }
@@ -380,7 +380,7 @@ func (a *onchainAllowlist) syncBlockedSenders(ctx context.Context, tosContract *
 
 		err = a.orm.DeleteAllowedSenders(ctx, blockedSendersBatch)
 		if err != nil {
-			a.lggr.Errorf("failed to delete blocked address from allowed list in storage: %w", err)
+			a.lggr.Errorf("failed to delete blocked address from allowed list in storage: %v", err)
 		}
 	}
 	throttleTicker.Stop()
@@ -403,7 +403,7 @@ func (a *onchainAllowlist) loadStoredAllowedSenderList(ctx context.Context) {
 	for {
 		asBatch, err := a.orm.GetAllowedSenders(ctx, offset, a.config.StoredAllowlistBatchSize)
 		if err != nil {
-			a.lggr.Errorf("failed to get stored allowed senders: %w", err)
+			a.lggr.Errorf("failed to get stored allowed senders: %v", err)
 			break
 		}
 

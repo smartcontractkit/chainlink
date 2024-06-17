@@ -48,3 +48,10 @@ message TriggerEventMetadata {
   string trigger_event_id = 1;
   repeated string workflow_ids = 2;
 }
+
+message RemoteTriggerConfig {
+  uint32 registrationRefreshMs = 1;
+  uint32 registrationExpiryMs = 2;
+  uint32 minResponsesToAggregate = 3;
+  uint32 messageExpiryMs = 4;
+}
