@@ -591,7 +591,6 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	// Schedule blockchain re-org if needed
 	// Reorg only avaible for Simulated Geth
-	var reorgCh <-chan time.Time
 	if n.IsSimulatedGethSelected() && n.GethReorgConfig.Enabled {
 		var reorgDelay time.Duration
 		if n.GethReorgConfig.DelayCreate.Duration > testDuration {
@@ -601,9 +600,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		} else {
 			reorgDelay = n.GethReorgConfig.DelayCreate.Duration
 		}
-		reorgCh = time.After(reorgDelay)
+		time.AfterFunc(reorgDelay, func() {
+			if !o.reorgHappened {
+				o.startGethBlockchainReorg(o.rpcNetwork, n.GethReorgConfig)
+			}
+		})
 	}
-	// TODO: refactor to use AfterFunc
 
 	// Schedule gas simulation if needed
 	// Gas simulation only available for Anvil
@@ -659,12 +661,6 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
 			}
 			lastValue = newValue
-
-		// Schedule blockchain re-org if needed
-		case <-reorgCh:
-			if !o.reorgHappened {
-				o.startBlockchainReorg(o.Config.GetNetworkConfig().GethReorgConfig.Depth)
-			}
 		}
 	}
 }
@@ -680,18 +676,13 @@ func (o *OCRSoakTest) complete() {
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
-func (o *OCRSoakTest) startBlockchainReorg(depth int) {
-	if !o.Config.GetNetworkConfig().IsSimulatedGethSelected() {
-		require.FailNow(o.t, "Reorg only available for Simulated Geth")
-		return
-	}
-
-	client := ctf_client.NewRPCClient(o.rpcNetwork.HTTPURLs[0])
+func (o *OCRSoakTest) startGethBlockchainReorg(network blockchain.EVMNetwork, conf ctf_config.ReorgConfig) {
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
 	o.log.Info().
 		Str("URL", client.URL).
-		Int("depth", depth).
+		Int("Depth", conf.Depth).
 		Msg("Starting blockchain reorg on Simulated Geth chain")
-	err := client.GethSetHead(depth)
+	err := client.GethSetHead(conf.Depth)
 	require.NoError(o.t, err, "Error starting blockchain reorg on Simulated Geth chain")
 	o.reorgHappened = true
 }

@@ -137,7 +137,7 @@ ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
-
+# OCR soak test configuration with gas spike on Anvil network
 [TestOCRSoak_GasSpike.Network]
 selected_networks=["Anvil"]
 [TestOCRSoak_GasSpike.Network.AnvilConfigs.anvil.GasSimulation]
