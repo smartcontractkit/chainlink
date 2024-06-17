@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -166,7 +168,7 @@ func TestAutomationReorg(t *testing.T) {
 			}
 
 			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
-			chainClient, err := actions.GetChainClient(config, network)
+			chainClient, err := seth_utils.GetChainClient(config, network)
 			require.NoError(t, err, "Error connecting to blockchain")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")

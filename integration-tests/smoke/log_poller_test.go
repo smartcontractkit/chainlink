@@ -110,6 +110,11 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	testEnv := lpTestEnv.testEnv
 	sethClient := lpTestEnv.sethClient
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(testEnv.ClCluster.NodeAPIs()))
+	})
+
 	ctx := testcontext.Get(t)
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
@@ -187,6 +192,11 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	lpTestEnv := prepareEnvironment(l, t, &testConfig, test_env.DefaultChainlinkNodeLogScannerSettings)
 	testEnv := lpTestEnv.testEnv
 	sethClient := lpTestEnv.sethClient
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(testEnv.ClCluster.NodeAPIs()))
+	})
 
 	ctx := testcontext.Get(t)
 	evmNetwork, err := testEnv.GetFirstEvmNetwork()

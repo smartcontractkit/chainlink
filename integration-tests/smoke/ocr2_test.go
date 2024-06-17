@@ -175,6 +175,11 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(testEnv.ClCluster.NodeAPIs()))
+	})
+
 	// Gather transmitters
 	var transmitters []string
 	for _, node := range workerNodes {

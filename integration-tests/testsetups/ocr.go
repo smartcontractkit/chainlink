@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -230,7 +232,7 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	seth, err := actions.GetChainClient(o.Config, o.rpcNetwork)
+	seth, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
 	o.seth = seth
 

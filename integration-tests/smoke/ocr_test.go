@@ -110,6 +110,11 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
 	linkContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Error deploying link token contract")
 

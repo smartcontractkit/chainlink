@@ -145,7 +145,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := actions.GetChainClientWithConfigFunction(&config, testNetwork, actions.OneEphemeralKeysLiveTestnetAutoFixFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(&config, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetAutoFixFn)
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)

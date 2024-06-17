@@ -1249,6 +1249,11 @@ func setupKeeperTest(l zerolog.Logger, t *testing.T, config *tc.TestConfig) (
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Failed to fund the nodes")
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
 	linkTokenContract, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 

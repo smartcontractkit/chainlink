@@ -244,7 +244,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-					chainClient, err := actions.GetChainClientWithConfigFunction(&config, network, actions.OneEphemeralKeysLiveTestnetAutoFixFn)
+					chainClient, err := seth_utils.GetChainClientWithConfigFunction(&config, network, seth_utils.OneEphemeralKeysLiveTestnetAutoFixFn)
 					require.NoError(t, err, "Error creating seth client")
 
 					// Register cleanup for any test

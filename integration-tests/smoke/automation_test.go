@@ -1428,6 +1428,11 @@ func setupAutomationTestDocker(
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*automationTestConfig.GetCommonConfig().ChainlinkNodeFunding))
 	require.NoError(t, err, "Failed to fund the nodes")
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
 	a := automationv2.NewAutomationTestDocker(l, sethClient, nodeClients)
 	a.SetMercuryCredentialName("cred1")
 	a.RegistrySettings = registryConfig

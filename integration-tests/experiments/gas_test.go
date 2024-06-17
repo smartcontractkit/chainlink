@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -20,7 +22,7 @@ func TestGasExperiment(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	seth, err := actions.GetChainClient(&config, network)
+	seth, err := seth_utils.GetChainClient(&config, network)
 	require.NoError(t, err, "Error creating seth client")
 
 	_, err = actions.SendFunds(l, seth, actions.FundsToSendPayload{

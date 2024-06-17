@@ -371,6 +371,7 @@ func SetupVRFV2PlusUniverse(
 			return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "Error setting up VRF V2 Plus for New env", err)
 		}
 	}
+
 	return env, vrfContracts, vrfKey, nodeTypeToNode, sethClient, nil
 }
 
@@ -412,6 +413,12 @@ func SetupVRFV2PlusForNewEnv(
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("%s, err: %w", "error setting up VRF v2_5 env", err)
 	}
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
 	return vrfContracts, vrfKey, env, nodeTypeToNode, sethClient, nil
 }
 
