@@ -113,7 +113,7 @@ func (tc *telemetryIngressBatchClient) Start(ctx context.Context) error {
 						if ctx2.Err() != nil {
 							tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
 						} else {
-							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err, "server pubkey", tc.serverPubKeyHex)
+							tc.lggr.Criticalw("telemetry endpoint dial errored unexpectedly", "err", err)
 							tc.SvcErrBuffer.Append(err)
 						}
 						return

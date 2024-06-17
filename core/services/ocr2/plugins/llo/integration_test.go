@@ -173,10 +173,10 @@ func TestIntegration_LLO(t *testing.T) {
 			t.Logf("Expect report from oracle %s", o.OracleIdentity.TransmitAccount)
 			seen[o.OracleIdentity.TransmitAccount] = make(map[llotypes.ChannelID]struct{})
 		}
+
 		for req := range reqs {
 			if _, exists := seen[req.TransmitterID()]; !exists {
 				// oracle already reported on all channels; discard
-				// if this test timeouts, check for expected transmitter ID
 				continue
 			}
 
@@ -188,7 +188,7 @@ func TestIntegration_LLO(t *testing.T) {
 				t.Fatalf("FAIL: expected payload %#v to contain 'report'", v)
 			}
 
-			t.Logf("Got report from oracle %s with format: %d", req.pk, req.req.ReportFormat)
+			t.Logf("Got report from oracle %x with format: %d", req.pk, req.req.ReportFormat)
 
 			var r datastreamsllo.Report
 
@@ -199,7 +199,7 @@ func TestIntegration_LLO(t *testing.T) {
 				r, err = (datastreamsllo.JSONReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid JSON")
 			case uint32(llotypes.ReportFormatEVM):
-				t.Logf("Got report (EVM) from oracle %s: 0x%x", req.pk, report.([]byte))
+				t.Logf("Got report (EVM) from oracle %x: 0x%x", req.pk, report.([]byte))
 				var err error
 				r, err = (lloevm.ReportCodec{}).Decode(report.([]byte))
 				require.NoError(t, err, "expected valid EVM encoding")
