@@ -152,7 +152,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 		ID:      "workflow-don",
 	}
 
-	broker := newTestAsyncMessageBroker(100)
+	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -229,7 +229,7 @@ func newTestServer(peerID p2ptypes.PeerID, dispatcher remotetypes.Dispatcher, wo
 	}
 }
 
-func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
+func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
@@ -297,7 +297,7 @@ func NewTestDispatcher() *TestDispatcher {
 }
 
 func (t *TestDispatcher) SendToReceiver(msgBody *remotetypes.MessageBody) {
-	t.receiver.Receive(msgBody)
+	t.receiver.Receive(context.Background(), msgBody)
 }
 
 func (t *TestDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {
