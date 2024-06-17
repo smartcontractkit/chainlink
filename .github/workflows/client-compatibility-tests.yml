@@ -722,12 +722,14 @@ jobs:
           
           echo "Aggregated results:"
           cat output.txt
-          echo "results=$(cat output.txt)" >> $GITHUB_OUTPUT
+          echo "results=$(cat output.txt | base64)" >> $GITHUB_OUTPUT
       - name: Print aggregated test results
         shell: bash
         run: |
-          echo "${{ steps.prepare-aggregated-test-results.outputs.results }}"
-          echo "${{ steps.prepare-aggregated-test-results.outputs.results }}" >> $GITHUB_STEP_SUMMARY
+          parsed=$(echo "${{ steps.prepare-aggregated-test-results.outputs.results }}" | base64 -d)
+          echo "decoded table:"
+          echo $parsed
+          echo "$parsed" >> $GITHUB_STEP_SUMMARY
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}

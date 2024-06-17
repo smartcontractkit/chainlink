@@ -148,7 +148,7 @@ func main() {
 		if err != nil {
 			fmt.Println("Error writing results to file:", err)
 		} else {
-			fmt.Printf("Results for '%s' regex and workflow id %s saved to %s\n", *outputFile, *jobNameRegex, *workflowRunID)
+			fmt.Printf("Results for '%s' regex and workflow id %s saved to %s\n", *jobNameRegex, *workflowRunID, *outputFile)
 		}
 	} else {
 		fmt.Println(string(formattedResults))
