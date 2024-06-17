@@ -51,7 +51,7 @@ func main() {
 		if val, ok := results[*namedKey]; ok {
 			jobs = val
 		} else {
-			fmt.Printf("key %s not found in the JSON file. Exiting", *namedKey)
+			fmt.Printf("key %s not found in the JSON file\n", *namedKey)
 			return
 		}
 	}

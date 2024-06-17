@@ -710,24 +710,24 @@ jobs:
           echo "raw results:"
           echo "$raw_results"
           cd .github/scripts/asciiresults
-          echo $raw_results >> output.json
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "automation" --namedKey "automation"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "keeper" --namedKey "keeper"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "log_poller" --namedKey "log_poller"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "ocr" --namedKey "ocr"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "ocr2" --namedKey "ocr2"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "vrf" --namedKey "vrf"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "vrfv2" --namedKey "vrfv2"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile output.json --section "vrfv2plus" --namedKey "vrfv2plus"
+          echo $raw_results >> input.json
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
           
           echo "Aggregated results:"
-          cat output.json
-          echo "results=$(cat output.json)" >> $GITHUB_OUTPUT
+          cat output.txt
+          echo "results=$(cat output.txt)" >> $GITHUB_OUTPUT
       - name: Print aggregated test results
         shell: bash
         run: |
           echo "${{ steps.prepare-aggregated-test-results.outputs.results }}"
-          cat "${{ steps.prepare-aggregated-test-results.outputs.results }}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.prepare-aggregated-test-results.outputs.results }}" >> $GITHUB_STEP_SUMMARY
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
