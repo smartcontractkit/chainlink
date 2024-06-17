@@ -1,4 +1,4 @@
-## Ticket
+### Ticket
 <!---
   Does this work have a corresponding ticket?
 
@@ -14,7 +14,7 @@
   [LINK-777](https://smartcontract-it.atlassian.net/browse/LINK-777)
 --> 
 
-## Requires Dependencies
+### Requires Dependencies
 <!---
   Does this work depend on other open PRs?
 
@@ -25,7 +25,7 @@
   - https://github.com/smartcontractkit/chainlink-common/pull/7777777
 -->
 
-## Resolves Dependencies
+### Resolves Dependencies
 <!---
   Does this work support other open PRs? 
 
