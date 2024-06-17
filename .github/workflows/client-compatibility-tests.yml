@@ -600,7 +600,7 @@ jobs:
       id-token: write
       contents: read
     runs-on: ubuntu-latest
-    needs: [run-client-compatibility-matrix,should-run]
+    needs: [run-client-compatibility-matrix, should-run, select-versions]
     steps:
       - name: Debug Result
         run: echo ${{ join(needs.*.result, ',') }}
