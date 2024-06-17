@@ -25,9 +25,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")

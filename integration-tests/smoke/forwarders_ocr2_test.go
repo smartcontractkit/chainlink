@@ -26,9 +26,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")

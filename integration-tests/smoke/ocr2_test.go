@@ -219,7 +219,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 
 func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCount int, testData ocr2test, testEnv *test_env.CLClusterTestEnv) {
 	expectedNodesWithConfiguration := totalNodeCount - 1 // minus bootstrap node
-	expectedPatterns := []string{}
+	var expectedPatterns []string
 
 	if testData.env[string(env.MedianPlugin.Cmd)] != "" {
 		expectedPatterns = append(expectedPatterns, "Registered loopp.*OCR2.*Median.*")

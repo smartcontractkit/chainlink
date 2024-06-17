@@ -95,7 +95,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	require.NoError(t, err, "Error getting config")
 	overrideEphemeralAddressesCount(&testConfig)
 
-	eventsToEmit := []abi.Event{}
+	var eventsToEmit []abi.Event
 	for _, event := range logpoller.EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}

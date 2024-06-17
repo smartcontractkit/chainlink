@@ -378,6 +378,11 @@ func BuildNewCLEnvForVRF(l zerolog.Logger, t *testing.T, envConfig VRFEnvConfig,
 		return nil, nil, fmt.Errorf("%s, err: %w", "failed to fund the nodes", err)
 	}
 
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
 	return env, sethClient, nil
 }
 
