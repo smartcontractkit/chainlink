@@ -67,7 +67,7 @@ func (conn *connection) ensureStartedClient(ctx context.Context) error {
 }
 
 func (conn *connection) checkin(checkinCco *clientCheckout) {
-	conn.lggr.Debug("Checking in client", "serverURL", conn.serverURL)
+	conn.lggr.Debug("Checking in client", "serverURL", conn.serverURL, "checkouts", len(conn.checkouts))
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	var removed bool
