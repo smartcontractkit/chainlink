@@ -30,13 +30,13 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-var writeChainCapability = kcr.CapabilityRegistryCapability{
+var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 	LabelledName: "write-chain",
 	Version:      "1.0.1",
 	ResponseType: uint8(1),
 }
 
-func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilityRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
+func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
 	owner := testutils.MustNewSimTransactor(t)
 
 	oneEth, _ := new(big.Int).SetString("100000000000000000000", 10)
@@ -47,13 +47,13 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilityRegistry, common.Ad
 	}}, gasLimit)
 	simulatedBackend.Commit()
 
-	capabilityRegistryAddress, _, capabilityRegistry, err := kcr.DeployCapabilityRegistry(owner, simulatedBackend)
-	require.NoError(t, err, "DeployCapabilityRegistry failed")
+	CapabilitiesRegistryAddress, _, CapabilitiesRegistry, err := kcr.DeployCapabilitiesRegistry(owner, simulatedBackend)
+	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
 
-	fmt.Println("Deployed CapabilityRegistry at", capabilityRegistryAddress.Hex())
+	fmt.Println("Deployed CapabilitiesRegistry at", CapabilitiesRegistryAddress.Hex())
 	simulatedBackend.Commit()
 
-	return capabilityRegistry, capabilityRegistryAddress, owner, simulatedBackend
+	return CapabilitiesRegistry, CapabilitiesRegistryAddress, owner, simulatedBackend
 }
 
 type crFactory struct {
@@ -133,14 +133,14 @@ func TestReader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
-	_, err := reg.AddCapabilities(owner, []kcr.CapabilityRegistryCapability{writeChainCapability})
+	_, err := reg.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{writeChainCapability})
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
 	cid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
 
-	_, err = reg.AddNodeOperators(owner, []kcr.CapabilityRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []kcr.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP",
@@ -160,7 +160,7 @@ func TestReader_Integration(t *testing.T) {
 		randomWord(),
 	}
 
-	nodes := []kcr.CapabilityRegistryNodeParams{
+	nodes := []kcr.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -186,7 +186,7 @@ func TestReader_Integration(t *testing.T) {
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
 
-	cfgs := []kcr.CapabilityRegistryCapabilityConfiguration{
+	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: cid,
 			Config:       []byte(`{"hello": "world"}`),
@@ -221,7 +221,7 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, writeChainCapability, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	assert.Equal(t, kcr.CapabilityRegistryDONInfo{
+	assert.Equal(t, kcr.CapabilitiesRegistryDONInfo{
 		Id:                       1, // initial Id
 		ConfigCount:              1, // initial Count
 		IsPublic:                 true,
@@ -231,7 +231,7 @@ func TestReader_Integration(t *testing.T) {
 		CapabilityConfigurations: cfgs,
 	}, s.IDsToDONs[1])
 
-	nodesInfo := []kcr.CapabilityRegistryNodeInfo{
+	nodesInfo := []kcr.CapabilitiesRegistryNodeInfo{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
@@ -265,7 +265,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 		nodeSet[0]: nodesInfo[0],
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
