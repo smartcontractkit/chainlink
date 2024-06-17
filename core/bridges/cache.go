@@ -18,9 +18,8 @@ import (
 )
 
 const (
-	CacheServiceName         = "BridgeCache"
-	DefaultUpsertInterval    = 500 * time.Millisecond
-	DefaultBulkInsertTimeout = 250 * time.Millisecond
+	CacheServiceName      = "BridgeCache"
+	DefaultUpsertInterval = 5 * time.Second
 )
 
 type Cache struct {
@@ -240,10 +239,7 @@ func (c *Cache) doBulkUpsert() {
 	values := maps.Values(c.bridgeLastValueCache)
 	c.mu.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultBulkInsertTimeout)
-	defer cancel()
-
-	if err := c.ORM.BulkUpsertBridgeResponse(ctx, values); err != nil {
+	if err := c.ORM.BulkUpsertBridgeResponse(context.Background(), values); err != nil {
 		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
 }
