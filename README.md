@@ -17,7 +17,7 @@
 
 This repo contains the Chainlink core node and contracts. The core node is the bundled binary available to be run by node operators participating in a [decentralized oracle network](https://link.smartcontract.com/whitepaper).
 All major release versions have pre-built docker images available for download from the [Chainlink dockerhub](https://hub.docker.com/r/smartcontract/chainlink/tags).
-If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
+If you are interested in contributing to this repo please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
 For more information about how to get started with Chainlink, check our [official documentation](https://docs.chain.link/).
 Resources for Solidity developers can be found in the [Chainlink Hardhat Box](https://github.com/smartcontractkit/hardhat-starter-kit).

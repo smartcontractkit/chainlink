@@ -16,7 +16,7 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240429120925-907b29311feb
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240614192253-77cca30c8a12
 	github.com/smartcontractkit/chainlink-testing-framework v1.28.7
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
@@ -185,7 +185,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.15.5 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
-	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/go-webauthn/webauthn v0.9.4 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -368,7 +367,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240419213354-ea34a948e2ee // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 // indirect
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240422130241-13c17a91b2ab // indirect
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240614220007-09c7371a98e1 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240422172640-59d47c73ba58 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240325075535-0f7eb05ee595 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240227164431-18a7065e23ea // indirect

@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"time"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -123,6 +125,10 @@ func (r *SpecResolver) ToWorkflowSpec() (*WorkflowSpecResolver, bool) {
 	}
 
 	return &WorkflowSpecResolver{spec: *r.j.WorkflowSpec}, true
+}
+
+func (r *SpecResolver) ToStandardCapabilitiesSpec() (*StandardCapabilitiesSpecResolver, bool) {
+	return nil, false
 }
 
 type CronSpecResolver struct {
@@ -1005,4 +1011,22 @@ func (r *WorkflowSpecResolver) CreatedAt() graphql.Time {
 
 func (r *WorkflowSpecResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+type StandardCapabilitiesSpecResolver struct{}
+
+func (r *StandardCapabilitiesSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(0))
+}
+
+func (r *StandardCapabilitiesSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: time.Now()}
+}
+
+func (r *StandardCapabilitiesSpecResolver) Command() string {
+	return "not supported"
+}
+
+func (r *StandardCapabilitiesSpecResolver) Config() *string {
+	return nil
 }
