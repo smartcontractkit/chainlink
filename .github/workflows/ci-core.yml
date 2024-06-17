@@ -269,7 +269,7 @@ jobs:
       - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
-        run: go get github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
