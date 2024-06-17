@@ -120,8 +120,9 @@ func Test_Poller(t *testing.T) {
 
 	t.Run("Test unsubscribe during polling", func(t *testing.T) {
 		wait := make(chan struct{})
+		closeOnce := sync.OnceFunc(func() { close(wait) })
 		pollFunc := func(ctx context.Context) (Head, error) {
-			close(wait)
+			closeOnce()
 			// Block in polling function until context is cancelled
 			if <-ctx.Done(); true {
 				return nil, ctx.Err()
