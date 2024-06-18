@@ -67,6 +67,7 @@ func (conn *connection) ensureStartedClient(ctx context.Context) error {
 }
 
 func (conn *connection) checkin(checkinCco *clientCheckout) {
+	conn.lggr.Debug("Checking in client", "serverURL", conn.serverURL, "checkouts", len(conn.checkouts))
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	var removed bool
@@ -91,6 +92,7 @@ func (conn *connection) checkin(checkinCco *clientCheckout) {
 }
 
 func (conn *connection) forceCloseAll() (err error) {
+	conn.lggr.Debug("Force closing connection", "serverURL", conn.serverURL)
 	conn.mu.Lock()
 	defer conn.mu.Unlock()
 	if conn.Client != nil {
@@ -199,6 +201,7 @@ func (p *pool) Start(ctx context.Context) error {
 }
 
 func (p *pool) Close() (merr error) {
+	p.lggr.Debugw("Closing connection resources in WSRPC connection pool", "numConnections", len(p.connections))
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.closed = true
