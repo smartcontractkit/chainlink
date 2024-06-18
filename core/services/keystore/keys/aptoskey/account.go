@@ -37,18 +37,13 @@ func (aa *AccountAddress) IsSpecial() bool {
 func (aa *AccountAddress) String() string {
 	if aa.IsSpecial() {
 		return fmt.Sprintf("0x%x", aa[31])
-	} else {
-		return BytesToHex(aa[:])
 	}
+	return BytesToHex(aa[:])
 }
 
 // ParseStringRelaxed parses a string into an AccountAddress
-// TODO: This is not currently used, should it be removed?
-// TODO: add strict mode checking
 func (aa *AccountAddress) ParseStringRelaxed(x string) error {
-	if strings.HasPrefix(x, "0x") {
-		x = x[2:]
-	}
+	x = strings.TrimPrefix(x, "0x")
 	if len(x) < 1 {
 		return ErrAddressTooShort
 	}
