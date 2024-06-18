@@ -94,8 +94,6 @@ type Head interface {
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.
-//
-//go:generate mockery --quiet --name NodeClient --structname mockNodeClient --filename "mock_node_client_test.go" --inpackage --case=underscore
 type NodeClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
