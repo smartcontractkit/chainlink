@@ -39,7 +39,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		require.Eventually(t, func() bool {
 			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, input, output) == nil
-		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+		}, it.MaxWaitTimeForEvents(), 100*time.Millisecond)
 
 		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
 		topic, err := abi.MakeTopics([]any{anyString})

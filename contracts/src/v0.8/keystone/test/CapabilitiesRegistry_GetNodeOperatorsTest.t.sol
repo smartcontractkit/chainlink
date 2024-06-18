@@ -2,17 +2,17 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {CapabilityRegistry} from "../CapabilityRegistry.sol";
+import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
-contract CapabilityRegistry_GetNodeOperatorsTest is BaseTest {
+contract CapabilitiesRegistry_GetNodeOperatorsTest is BaseTest {
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
-    s_capabilityRegistry.addNodeOperators(_getNodeOperators());
+    s_CapabilitiesRegistry.addNodeOperators(_getNodeOperators());
   }
 
   function test_CorrectlyFetchesNodeOperators() public view {
-    CapabilityRegistry.NodeOperator[] memory nodeOperators = s_capabilityRegistry.getNodeOperators();
+    CapabilitiesRegistry.NodeOperator[] memory nodeOperators = s_CapabilitiesRegistry.getNodeOperators();
     assertEq(nodeOperators.length, 3);
 
     assertEq(nodeOperators[0].admin, NODE_OPERATOR_ONE_ADMIN);
@@ -29,9 +29,9 @@ contract CapabilityRegistry_GetNodeOperatorsTest is BaseTest {
     changePrank(ADMIN);
     uint32[] memory nodeOperatorsToRemove = new uint32[](1);
     nodeOperatorsToRemove[0] = 2;
-    s_capabilityRegistry.removeNodeOperators(nodeOperatorsToRemove);
+    s_CapabilitiesRegistry.removeNodeOperators(nodeOperatorsToRemove);
 
-    CapabilityRegistry.NodeOperator[] memory nodeOperators = s_capabilityRegistry.getNodeOperators();
+    CapabilitiesRegistry.NodeOperator[] memory nodeOperators = s_CapabilitiesRegistry.getNodeOperators();
     assertEq(nodeOperators.length, 2);
 
     assertEq(nodeOperators[0].admin, NODE_OPERATOR_ONE_ADMIN);

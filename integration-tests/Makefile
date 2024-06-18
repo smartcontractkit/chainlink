@@ -173,6 +173,15 @@ test_soak_ocr_reorg_2:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$$ ./soak
 
+.PHONY: test_soak_ocr_gas_spike
+test_soak_ocr_gas_spike:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GasSpike$$ ./soak
+
+.PHONY: test_soak_ocr_gas_limit_change
+test_soak_ocr_gas_limit_change:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_ChangeBlockGasLimit$$ ./soak
 
 .PHONY: test_soak_automation
 test_soak_automation:
