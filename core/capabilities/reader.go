@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -26,9 +26,9 @@ type hashedCapabilityID [32]byte
 type donID uint32
 
 type state struct {
-	IDsToDONs         map[donID]kcr.CapabilityRegistryDONInfo
-	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo
-	IDsToCapabilities map[hashedCapabilityID]kcr.CapabilityRegistryCapability
+	IDsToDONs         map[donID]kcr.CapabilitiesRegistryDONInfo
+	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
+	IDsToCapabilities map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
 }
 
 func (r *remoteRegistryReader) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -69,36 +69,36 @@ func (r *remoteRegistryReader) LocalNode(ctx context.Context) (capabilities.Node
 }
 
 func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
-	dons := []kcr.CapabilityRegistryDONInfo{}
-	err := r.r.GetLatestValue(ctx, "capabilityRegistry", "getDONs", nil, &dons)
+	dons := []kcr.CapabilitiesRegistryDONInfo{}
+	err := r.r.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", nil, &dons)
 	if err != nil {
 		return state{}, err
 	}
 
-	idsToDONs := map[donID]kcr.CapabilityRegistryDONInfo{}
+	idsToDONs := map[donID]kcr.CapabilitiesRegistryDONInfo{}
 	for _, d := range dons {
 		idsToDONs[donID(d.Id)] = d
 	}
 
-	caps := kcr.GetCapabilities{}
-	err = r.r.GetLatestValue(ctx, "capabilityRegistry", "getCapabilities", nil, &caps)
+	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
+	err = r.r.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", nil, &caps)
 	if err != nil {
 		return state{}, err
 	}
 
-	idsToCapabilities := map[hashedCapabilityID]kcr.CapabilityRegistryCapability{}
-	for i, c := range caps.Capabilities {
-		idsToCapabilities[caps.HashedCapabilityIds[i]] = c
+	idsToCapabilities := map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{}
+	for _, c := range caps {
+		idsToCapabilities[c.HashedId] = c
 	}
 
-	nodes := &kcr.GetNodes{}
-	err = r.r.GetLatestValue(ctx, "capabilityRegistry", "getNodes", nil, &nodes)
+	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
+	err = r.r.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", nil, &nodes)
 	if err != nil {
 		return state{}, err
 	}
 
-	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{}
-	for _, node := range nodes.NodeInfo {
+	idsToNodes := map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{}
+	for _, node := range nodes {
 		idsToNodes[node.P2pId] = node
 	}
 
@@ -112,8 +112,8 @@ type contractReaderFactory interface {
 func newRemoteRegistryReader(ctx context.Context, lggr logger.Logger, peerWrapper p2ptypes.PeerWrapper, relayer contractReaderFactory, remoteRegistryAddress string) (*remoteRegistryReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
-			"capabilityRegistry": {
-				ContractABI: kcr.CapabilityRegistryABI,
+			"CapabilitiesRegistry": {
+				ContractABI: kcr.CapabilitiesRegistryABI,
 				Configs: map[string]*evmrelaytypes.ChainReaderDefinition{
 					"getDONs": {
 						ChainSpecificName: "getDONs",
@@ -142,7 +142,7 @@ func newRemoteRegistryReader(ctx context.Context, lggr logger.Logger, peerWrappe
 	err = cr.Bind(ctx, []types.BoundContract{
 		{
 			Address: remoteRegistryAddress,
-			Name:    "capabilityRegistry",
+			Name:    "CapabilitiesRegistry",
 		},
 	})
 	if err != nil {

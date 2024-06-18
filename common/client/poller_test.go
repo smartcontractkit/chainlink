@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 func Test_Poller(t *testing.T) {
@@ -89,7 +90,7 @@ func Test_Poller(t *testing.T) {
 			}
 			return true
 		}
-		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
+		require.Eventually(t, logsSeen, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	t.Run("Test polling timeout", func(t *testing.T) {
@@ -114,13 +115,14 @@ func Test_Poller(t *testing.T) {
 		logsSeen := func() bool {
 			return observedLogs.FilterMessage("polling error: context deadline exceeded").Len() >= 1
 		}
-		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
+		require.Eventually(t, logsSeen, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	t.Run("Test unsubscribe during polling", func(t *testing.T) {
 		wait := make(chan struct{})
+		closeOnce := sync.OnceFunc(func() { close(wait) })
 		pollFunc := func(ctx context.Context) (Head, error) {
-			close(wait)
+			closeOnce()
 			// Block in polling function until context is cancelled
 			if <-ctx.Done(); true {
 				return nil, ctx.Err()
@@ -145,7 +147,7 @@ func Test_Poller(t *testing.T) {
 		logsSeen := func() bool {
 			return observedLogs.FilterMessage("polling error: context canceled").Len() >= 1
 		}
-		require.Eventually(t, logsSeen, time.Second, time.Millisecond)
+		require.Eventually(t, logsSeen, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 }
 

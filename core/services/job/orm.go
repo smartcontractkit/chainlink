@@ -600,6 +600,9 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Starknet key matching: %q", key)
 		}
+	case types.NetworkAptos:
+		// TODO BCI-2953
+		return nil
 	}
 	return nil
 }
