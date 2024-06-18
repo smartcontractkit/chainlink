@@ -40,7 +40,7 @@ func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContr
 		return err
 	}
 
-	if len(byteCode) < 0 {
+	if len(byteCode) == 0 {
 		return fmt.Errorf("%w: %s", ErrNoContractExists, addr)
 	}
 
