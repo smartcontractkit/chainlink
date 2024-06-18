@@ -53,7 +53,7 @@ func (cs *cacheSet) Start(context.Context) error {
 
 func (cs *cacheSet) Close() error {
 	return cs.StopOnce("CacheSet", func() error {
-		cs.lggr.Debug("Clearing out CacheSet")
+		cs.lggr.Debug("Closing CacheSet")
 		cs.Lock()
 		defer cs.Unlock()
 		caches := maps.Values(cs.caches)
