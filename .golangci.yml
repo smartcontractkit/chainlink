@@ -2,20 +2,21 @@ run:
   timeout: 15m0s
 linters:
   enable:
+    - containedctx
+    - depguard
+    - errorlint
     - exhaustive
     - exportloopref
-    - revive
     - goimports
     - gosec
     - misspell
-    - rowserrcheck
-    - errorlint
-    - unconvert
-    - sqlclosecheck
     - noctx
-    - depguard
+    - revive
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - unconvert
     - whitespace
-    - containedctx
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
