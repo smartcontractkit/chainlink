@@ -109,7 +109,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 	headsC, sub, err := n.rpc.SubscribeToHeads(ctx)
 	if err != nil {
-		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
+		lggr.Errorw("Initial subscribe for heads failed", "err", err, "nodeState", n.State())
 		n.declareUnreachable()
 		return
 	}
