@@ -474,6 +474,7 @@ func DeployEnvironments(
 								"forkTimeout":               anvilConfig.Timeout,
 								"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
 								"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
+								"blocksToKeepInMemory":      anvilConfig.BlocksToKeepInMem,
 							},
 							"resources": testInputs.GethResourceProfile,
 						},
