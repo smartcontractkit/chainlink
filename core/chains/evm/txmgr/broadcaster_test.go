@@ -60,7 +60,7 @@ func NewTestEthBroadcaster(
 	checkerFactory txmgr.TransmitCheckerFactory,
 	nonceAutoSync bool,
 	nonceTracker txmgr.NonceTracker,
-) *txmgr.Broadcaster {
+) *txmgr.EvmBroadcaster {
 	t.Helper()
 
 	lggr := logger.Test(t)
