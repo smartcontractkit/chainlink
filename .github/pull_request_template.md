@@ -1,4 +1,3 @@
-### Ticket
 <!---
   Does this work have a corresponding ticket?
 
