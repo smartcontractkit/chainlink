@@ -1,5 +1,13 @@
 # Changelog Chainlink Core
 
+## 2.12.1-mercury - 2024-06-18
+
+### Patch Changes
+
+- [#13595](https://github.com/smartcontractkit/chainlink/pull/13595) [`58f1286245`](https://github.com/smartcontractkit/chainlink/commit/58f12862452bbcb366ed9bedab2645da2185c365) Thanks [@akuzni2](https://github.com/akuzni2)! - debug log additions #internal
+
+- [#13587](https://github.com/smartcontractkit/chainlink/pull/13587) [`74a4d16c72`](https://github.com/smartcontractkit/chainlink/commit/74a4d16c72d1578914bf1478649f281b14df4fb4) Thanks [@akuzni2](https://github.com/akuzni2)! - revert wsrpc 0.8.1 upgrade back to 0.7.2 #bugfix
+
 ## 2.12.1 - 2024-06-06
 
 ### Patch Changes
