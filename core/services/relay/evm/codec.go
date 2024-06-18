@@ -29,7 +29,13 @@ import (
 // SliceToArrayVerifySizeHook verifies that slices have the correct size when converting to an array
 // sizeVerifyBigIntHook allows our custom types that verify the number fits in the on-chain type to be converted as-if
 // it was a *big.Int
-var evmDecoderHooks = []mapstructure.DecodeHookFunc{decodeAccountAndAllowArraySliceHook, codec.BigIntHook, codec.SliceToArrayVerifySizeHook, sizeVerifyBigIntHook}
+var evmDecoderHooks = []mapstructure.DecodeHookFunc{
+	decodeAccountAndAllowArraySliceHook,
+	codec.BigIntHook,
+	codec.SliceToArrayVerifySizeHook,
+	sizeVerifyBigIntHook,
+	codec.NumberHook,
+}
 
 // NewCodec creates a new [commontypes.RemoteCodec] for EVM.
 // Note that names in the ABI are converted to Go names using [abi.ToCamelCase],
