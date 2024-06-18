@@ -16,6 +16,8 @@ linters:
     - depguard
     - whitespace
     - containedctx
+    - fatcontext
+    - mirror
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -31,8 +33,8 @@ linters-settings:
       # - G304
       # - G404
   govet:
-    # report about shadowed variables
-    check-shadowing: true
+    enable:
+      - shadow
     settings:
       printf:
         # Additionally check chainlink custom loggers
