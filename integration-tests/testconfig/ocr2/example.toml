@@ -141,11 +141,11 @@ BumpMin = '100 gwei'
 """
 
 # load test specific configuration
-[Load.OCR]
-[Load.OCR.Common]
+[Load.OCR2]
+[Load.OCR2.Common]
 eth_funds = 3
 
-[Load.OCR.Load]
+[Load.OCR2.Load]
 test_duration = "3m"
 rate_limit_unit_duration = "1m"
 rate = 3
@@ -157,11 +157,10 @@ ea_change_interval = "5s"
 [Soak.Common]
 chainlink_node_funding = 100
 
-[Soak.OCR]
+[Soak.OCR2]
 [Soak.OCR.Common]
 test_duration="15m"
 
-[Soak.OCR.Soak]
-ocr_version="1"
+[Soak.OCR2.Soak]
 number_of_contracts=2
 time_between_rounds="1m"

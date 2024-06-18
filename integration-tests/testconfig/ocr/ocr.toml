@@ -79,7 +79,6 @@ chainlink_node_funding = 100
 test_duration="15m"
 
 [Soak.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
@@ -105,7 +104,6 @@ chainlink_node_funding = 100
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
@@ -133,6 +131,5 @@ chainlink_node_funding = 100
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
