@@ -16,7 +16,7 @@ import (
 	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -140,7 +140,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 	// no entries should be added to the registry.
 	mr := &mockReader{
 		s: state{
-			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+			IDsToDONs: map[donID]kcr.CapabilitiesRegistryDONInfo{
 				donID(dID): {
 					Id:               dID,
 					ConfigCount:      uint32(0),
@@ -148,7 +148,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					IsPublic:         true,
 					AcceptsWorkflows: true,
 					NodeP2PIds:       nodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: triggerCapID,
 							Config:       []byte(""),
@@ -160,7 +160,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -172,7 +172,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -242,7 +242,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// We expect no action to be taken by the syncer.
 	mr := &mockReader{
 		s: state{
-			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+			IDsToDONs: map[donID]kcr.CapabilitiesRegistryDONInfo{
 				donID(dID): {
 					Id:               dID,
 					ConfigCount:      uint32(0),
@@ -250,7 +250,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					IsPublic:         false,
 					AcceptsWorkflows: true,
 					NodeP2PIds:       nodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: triggerCapID,
 							Config:       []byte(""),
@@ -262,7 +262,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -274,7 +274,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 				nodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -356,7 +356,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
 	mr := &mockReader{
 		s: state{
-			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+			IDsToDONs: map[donID]kcr.CapabilitiesRegistryDONInfo{
 				donID(dID): {
 					Id:               dID,
 					ConfigCount:      uint32(0),
@@ -372,7 +372,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					IsPublic:         true,
 					AcceptsWorkflows: false,
 					NodeP2PIds:       capabilityDonNodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: triggerCapID,
 							Config:       []byte(""),
@@ -384,7 +384,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -396,7 +396,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 				capabilityDonNodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
@@ -501,7 +501,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 	// We expect receivers to be wired up and both capabilities to be added to the registry.
 	mr := &mockReader{
 		s: state{
-			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+			IDsToDONs: map[donID]kcr.CapabilitiesRegistryDONInfo{
 				donID(dID): {
 					Id:               dID,
 					ConfigCount:      uint32(0),
@@ -517,7 +517,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					IsPublic:         true,
 					AcceptsWorkflows: false,
 					NodeP2PIds:       capabilityDonNodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: triggerCapID,
 							Config:       []byte(""),
@@ -531,7 +531,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					IsPublic:         false,
 					AcceptsWorkflows: false,
 					NodeP2PIds:       capabilityDonNodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: targetCapID,
 							Config:       []byte(""),
@@ -539,7 +539,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -551,7 +551,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					CapabilityType: 3,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 				capabilityDonNodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
