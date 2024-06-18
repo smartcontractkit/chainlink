@@ -35,7 +35,7 @@ interface ILinkAvailable {
 ///  this is a "trustless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor2 is AccessControl, AutomationCompatibleInterface, Pausable {
+contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
   using EnumerableSet for EnumerableSet.AddressSet;
 
