@@ -728,12 +728,10 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 
 	ethClient := mustNewChainClientWithChainID(t, wsURL, chainId)
 	err := ethClient.Dial(tests.Context(t))
-	fmt.Println("DIALLED!!")
 	require.NoError(t, err)
 
 	headCh, sub, err := ethClient.SubscribeNewHead(ctx)
 	require.NoError(t, err)
-	fmt.Println("SUBSCRIBED!!")
 
 	select {
 	case err := <-sub.Err():
