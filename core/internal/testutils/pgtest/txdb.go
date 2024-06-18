@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
@@ -64,7 +62,7 @@ func init() {
 		panic(msg)
 	}
 	name := string(dialects.TransactionWrappedPostgres)
-	sql.Register(name, &txDriver{
+	sql.Register(name, &TxDriver{
 		dbURL: dbURL,
 		conns: make(map[string]*conn),
 	})
@@ -76,9 +74,9 @@ var _ driver.Conn = &conn{}
 var _ driver.Validator = &conn{}
 var _ driver.SessionResetter = &conn{}
 
-// txDriver is an sql driver which runs on a single transaction.
+// TxDriver is an sql driver which runs on a single transaction.
 // When `Close` is called, transaction is rolled back.
-type txDriver struct {
+type TxDriver struct {
 	sync.Mutex
 	db    *sql.DB
 	conns map[string]*conn
@@ -86,7 +84,14 @@ type txDriver struct {
 	dbURL string
 }
 
-func (d *txDriver) Open(dsn string) (driver.Conn, error) {
+func NewTxDriver(dbURL string) *TxDriver {
+	return &TxDriver{
+		dbURL: dbURL,
+		conns: make(map[string]*conn),
+	}
+}
+
+func (d *TxDriver) Open(dsn string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()
 	// Open real db connection if its the first call
@@ -104,7 +109,6 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = d.handleConn(dsn)
 		if err != nil {
 			return nil, fmt.Errorf("failed to handle conn: %w", err)
 		}
@@ -117,37 +121,9 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 	return c, nil
 }
 
-func (d *txDriver) handleConn(dsn string) error {
-	if strings.HasPrefix(dsn, "relayer/evm") {
-		parts := strings.Split(dsn, "/")
-		chainId := parts[2]
-		schema := fmt.Sprintf("evm_%s", chainId)
-		cid, err := strconv.Atoi(chainId)
-		if err != nil {
-			return err
-		}
-		v, err := evm.Current(context.Background(), d.db, evm.Cfg{Schema: schema, ChainID: cid})
-		if err != nil {
-			return fmt.Errorf("failed to get current version: %w", err)
-		}
-		if v > 0 {
-			return nil
-		}
-		err = evm.Migrate(context.Background(), d.db, evm.Cfg{
-			Schema:  schema,
-			ChainID: cid,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to migrate: %w", err)
-		}
-		evm.Status(context.Background(), d.db, evm.Cfg{Schema: schema, ChainID: cid})
-	}
-	return nil
-}
-
 // deleteConn is called by a connection when it is closed via the `close` method.
 // It also auto-closes the DB when the last checked out connection is closed.
-func (d *txDriver) deleteConn(c *conn) error {
+func (d *TxDriver) deleteConn(c *conn) error {
 	// must lock here to avoid racing with Open
 	d.Lock()
 	defer d.Unlock()

@@ -1,4 +1,4 @@
-package forwarders
+package forwarders_test
 
 import (
 	"database/sql"
@@ -11,20 +11,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm/testutils"
 )
 
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation
 func Test_DeleteForwarder(t *testing.T) {
 	t.Parallel()
 	chainID := testutils.FixtureChainID
-	orm := NewScopedORM(pgtest.NewSqlxDBWithResource(t, "relayer/evm/"+chainID.String()), big.New(chainID))
-	//orm := NewORM(pgtest.NewSqlxDB(t))
+	orm := forwarders.NewScopedORM(evmtestdb.NewDB(t, evm.Cfg{
+		Schema:  "evm_" + chainID.String(),
+		ChainID: int(chainID.Int64()),
+	}), big.New(chainID))
 
 	addr := testutils.NewAddress()
-	//chainID := testutils.FixtureChainID
 	ctx := testutils.Context(t)
 
 	fwd, err := orm.CreateForwarder(ctx, addr, *big.New(chainID))

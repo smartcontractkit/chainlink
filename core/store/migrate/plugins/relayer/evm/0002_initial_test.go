@@ -98,7 +98,9 @@ func Test_init_functional(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	defer db.Close()
 
-	b, err := os.ReadFile("./testdata/evm_initial_state.sql")
+	// must load the initial state, derivied from the core migrations at v244
+	// because the evm migrations try to move try from the core schema to the evm schema
+	b, err := os.ReadFile("./testutils/evm_initial_state.sql")
 	require.NoError(t, err)
 
 	_, err = db.DB.Exec(string(b))
