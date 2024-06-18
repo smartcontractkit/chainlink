@@ -754,9 +754,8 @@ jobs:
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
           echo "raw results:"
           echo "$raw_results"
-          product_result=$(echo "$raw_results" | jq -c ".${{ matrix.product }}[]")
+          product_result=$(echo "$raw_results" | jq -c "select(has(\"${{ matrix.product }}\")) | .${{ matrix.product }}[]" | paste -sd "," -)
           if [ -n "$product_result" ]; then
-            product_result=$(echo $product_result | paste -sd "," -)
             echo "product results:"
             echo "$product_result"
             base64_result=$(echo $product_result | base64 -w 0)
