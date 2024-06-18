@@ -21,6 +21,7 @@ const (
 	timestampFieldName = "block_timestamp"
 	txHashFieldName    = "tx_hash"
 	eventSigFieldName  = "event_sig"
+	defaultSort        = "block_number DESC, log_index DESC"
 )
 
 var (
@@ -305,7 +306,7 @@ func (v *pgDSLParser) orderClause(limiter query.LimitAndSort) (string, error) {
 	}
 
 	if len(sorting) == 0 {
-		return "", nil
+		return fmt.Sprintf("ORDER BY %s", defaultSort), nil
 	}
 
 	sort := make([]string, len(sorting))
