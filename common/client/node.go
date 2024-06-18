@@ -244,6 +244,8 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Start(startCtx context.Context) error
 // Node lifecycle is synchronous: only one goroutine should be running at a
 // time.
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) start(startCtx context.Context) {
+	fmt.Println("NODE START")
+	startCtx = context.Background() // TODO: remove this line
 	if n.state != NodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
