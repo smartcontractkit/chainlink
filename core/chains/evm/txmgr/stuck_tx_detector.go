@@ -343,7 +343,7 @@ func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs 
 	for i, req := range txReqs {
 		txHash := req.Args[0].(common.Hash)
 		if req.Error != nil {
-			d.lggr.Debugf("failed to get transaction by hash (%s): %w", txHash.String(), req.Error)
+			d.lggr.Debugf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
 			continue
 		}
 		result := *txRes[i]
