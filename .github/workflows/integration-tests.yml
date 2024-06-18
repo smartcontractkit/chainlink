@@ -209,6 +209,15 @@ jobs:
         with:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref || github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Setup Github Token
+        if: ${{ inputs.evm-ref }}
+        id: get-gh-token
+        uses: smartcontractkit/.github/actions/setup-github-token@main
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          set-git-config: "true"
       - name: Build Chainlink Image
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
