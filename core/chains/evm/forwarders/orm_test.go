@@ -24,7 +24,7 @@ func Test_DeleteForwarder(t *testing.T) {
 	chainID := testutils.FixtureChainID
 	orm := forwarders.NewScopedORM(evmtestdb.NewDB(t, evm.Cfg{
 		Schema:  "evm_" + chainID.String(),
-		ChainID: int(chainID.Int64()),
+		ChainID: big.New(chainID),
 	}), big.New(chainID))
 
 	addr := testutils.NewAddress()

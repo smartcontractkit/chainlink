@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v2"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -21,7 +22,7 @@ func TestMigrate(t *testing.T) {
 		ctx := testutils.Context(t)
 		cfg := evm.Cfg{
 			Schema:  "evm_42",
-			ChainID: 42,
+			ChainID: big.NewI(int64(42)),
 		}
 		// the evm migrations only work if the core migrations have been run
 		// because we are moving existing tables

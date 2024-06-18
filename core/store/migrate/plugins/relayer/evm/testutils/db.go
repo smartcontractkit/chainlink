@@ -30,7 +30,7 @@ func NewDB(t testing.TB, cfg evm.Cfg) *sqlx.DB {
 	require.NotEmpty(t, evmInitialState, "evm initial state must not be empty")
 	testutils.SkipShortDB(t)
 	// fetch the db for the schema
-	id := fmt.Sprintf("%s_%d", cfg.Schema, cfg.ChainID)
+	id := fmt.Sprintf("%s_%s", cfg.Schema, cfg.ChainID.String())
 	evmMu.RLock()
 	_, ok := migratedDBs[id]
 	evmMu.RUnlock()

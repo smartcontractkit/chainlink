@@ -10,6 +10,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 func Test_resolve(t *testing.T) {
@@ -28,7 +30,7 @@ func Test_resolve(t *testing.T) {
 			args: args{
 				val: Cfg{
 					Schema:  "evm",
-					ChainID: 3266,
+					ChainID: big.NewI(int64(3266)),
 				},
 				in: "schema={{.Schema}}, chainID={{.ChainID}}",
 			},
@@ -39,7 +41,7 @@ func Test_resolve(t *testing.T) {
 			args: args{
 				val: Cfg{
 					Schema:  "evm",
-					ChainID: 3266,
+					ChainID: big.NewI(int64(3266)),
 				},
 				in: "schema={{.WrongField}}, chainID={{.ChainID}}",
 			},
@@ -82,7 +84,7 @@ func Test_generateMigrations(t *testing.T) {
 				tmpDir:  filepath.Join(tDir, "evm_42"),
 				val: Cfg{
 					Schema:  "evm_42",
-					ChainID: 42,
+					ChainID: big.NewI(int64(42)),
 				},
 			},
 			want: []string{

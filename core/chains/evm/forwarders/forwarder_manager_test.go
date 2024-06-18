@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -41,7 +43,8 @@ var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Meth
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
+	testChainId := testutils.FixtureChainID
+	emvPlugindb := evmtestdb.NewDB(t, evm.Cfg{Schema: "evm_" + testChainId.String(), ChainID: ubig.New(testChainId)})
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
@@ -66,7 +69,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(authorized)
 
-	evmClient := client.NewSimulatedBackendClient(t, ec, testutils.FixtureChainID)
+	evmClient := client.NewSimulatedBackendClient(t, ec, testChainId)
 
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -75,13 +78,14 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, lpOpts)
-	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
-	fwdMgr.ORM = forwarders.NewORM(db)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testChainId, emvPlugindb, lggr), evmClient, lggr, lpOpts)
+	fwdMgr := forwarders.NewFwdMgr(emvPlugindb, evmClient, lp, lggr, evmcfg.EVM())
+	cid := ubig.Big(*testChainId)
+	fwdMgr.ORM = forwarders.NewScopedORM(emvPlugindb, &cid)
 
-	fwd, err := fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, ubig.Big(*testutils.FixtureChainID))
+	fwd, err := fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, cid)
 	require.NoError(t, err)
-	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, ubig.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, cid)
 	require.NoError(t, err)
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
@@ -95,7 +99,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 
 	cleanupCalled := false
 	cleanup := func(tx sqlutil.DataSource, evmChainId int64, addr common.Address) error {
-		require.Equal(t, testutils.FixtureChainID.Int64(), evmChainId)
+		require.Equal(t, testChainId.Int64(), evmChainId)
 		require.Equal(t, forwarderAddr, addr)
 		require.NotNil(t, tx)
 		cleanupCalled = true
@@ -138,11 +142,12 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
-	fwdMgr.ORM = forwarders.NewORM(db)
+	testChainID := ubig.Big(*testutils.FixtureChainID)
+	fwdMgr.ORM = forwarders.NewScopedORM(db, &testChainID)
 
-	_, err = fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, ubig.Big(*testutils.FixtureChainID))
+	_, err = fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, testChainID)
 	require.NoError(t, err)
-	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, ubig.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, testChainID)
 	require.NoError(t, err)
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)
@@ -203,11 +208,12 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	}
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), evmClient, lggr, lpOpts)
 	fwdMgr := forwarders.NewFwdMgr(db, evmClient, lp, lggr, evmcfg.EVM())
-	fwdMgr.ORM = forwarders.NewORM(db)
+	testChainID := ubig.Big(*testutils.FixtureChainID)
+	fwdMgr.ORM = forwarders.NewScopedORM(db, &testChainID)
 
-	_, err = fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, ubig.Big(*testutils.FixtureChainID))
+	_, err = fwdMgr.ORM.CreateForwarder(ctx, forwarderAddr, testChainID)
 	require.NoError(t, err)
-	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, ubig.Big(*testutils.FixtureChainID))
+	lst, err := fwdMgr.ORM.FindForwardersByChain(ctx, testChainID)
 	require.NoError(t, err)
 	require.Equal(t, len(lst), 1)
 	require.Equal(t, lst[0].Address, forwarderAddr)

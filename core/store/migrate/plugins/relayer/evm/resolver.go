@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 // 4 digit version prefix to match the goose versioning
@@ -20,7 +22,7 @@ var MigrationRootDir = "."
 
 type Cfg struct {
 	Schema  string
-	ChainID int
+	ChainID *big.Big
 }
 
 func RegisterSchemaMigration(val Cfg) error {
@@ -30,7 +32,7 @@ func RegisterSchemaMigration(val Cfg) error {
 var migrationSuffix = ".tmpl.sql"
 
 func resolve(out io.Writer, in string, val Cfg) error {
-	id := fmt.Sprintf("init_%s_%d", val.Schema, val.ChainID)
+	id := fmt.Sprintf("init_%s_%s", val.Schema, val.ChainID)
 	tmpl, err := template.New(id).Parse(in)
 	if err != nil {
 		return fmt.Errorf("failed to parse template %s: %w", in, err)

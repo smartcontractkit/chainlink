@@ -14,7 +14,7 @@ import (
 func setupPluginMigrations(cfg Cfg) {
 	goose.SetBaseFS(nil)
 	goose.ResetGlobalMigrations()
-	goose.SetTableName(fmt.Sprintf("goose_migration_relayer_%s_%d", cfg.Schema, cfg.ChainID))
+	goose.SetTableName(fmt.Sprintf("goose_migration_relayer_%s_%s", cfg.Schema, cfg.ChainID.String()))
 	Register0002(cfg)
 }
 
@@ -27,7 +27,7 @@ func Migrate(ctx context.Context, db *sql.DB, cfg Cfg) error {
 	//defer setupCoreMigrations()
 	setupPluginMigrations(cfg)
 
-	d := filepath.Join(tmpDir, cfg.Schema, fmt.Sprintf("%d", cfg.ChainID))
+	d := filepath.Join(tmpDir, cfg.Schema, fmt.Sprintf("%s", cfg.ChainID))
 	err := os.MkdirAll(d, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", d, err)
@@ -54,7 +54,7 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int, cfg Cfg) error 
 	setupPluginMigrations(cfg)
 
 	// TODO: should these be saved somewhere? if so where, if not if the db itself?)
-	d := filepath.Join(tmpDir, cfg.Schema, fmt.Sprintf("%d", cfg.ChainID))
+	d := filepath.Join(tmpDir, cfg.Schema, fmt.Sprintf("%s", cfg.ChainID))
 	err := os.MkdirAll(d, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", d, err)

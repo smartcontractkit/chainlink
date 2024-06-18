@@ -342,8 +342,9 @@ func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, chainID int64, e
 	}
 
 	// Create forwarder for management in forwarder_manager.go.
-	orm := forwarders.NewORM(db)
-	_, err = orm.CreateForwarder(ctx, common.HexToAddress(forwarderAddress), *ubig.NewI(chainID))
+	chainId := ubig.NewI(chainID)
+	orm := forwarders.NewScopedORM(db, chainId)
+	_, err = orm.CreateForwarder(ctx, common.HexToAddress(forwarderAddress), *chainId)
 	if err != nil {
 		return err
 	}

@@ -62,7 +62,7 @@ func NewFwdMgr(ds sqlutil.DataSource, client evmclient.Client, logpoller evmlogp
 		logger:       lggr,
 		cfg:          cfg,
 		evmClient:    client,
-		ORM:          NewORM(ds),
+		ORM:          NewScopedORM(ds, (*big.Big)(client.ConfiguredChainID())),
 		logpoller:    logpoller,
 		sendersCache: make(map[common.Address][]common.Address),
 	}

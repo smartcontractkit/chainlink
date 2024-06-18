@@ -1205,7 +1205,7 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger, opts *r
 		if err != nil {
 			return fmt.Errorf("failed to parse chain as int id: %v", err)
 		}
-		err = evmdb.Migrate(ctx, db.DB, evmdb.Cfg{Schema: opts.Relayer + "_" + opts.ChainID, ChainID: cid})
+		err = evmdb.Migrate(ctx, db.DB, evmdb.Cfg{Schema: opts.Relayer + "_" + opts.ChainID, ChainID: ubig.NewI(int64(cid))})
 		if err != nil {
 			return fmt.Errorf("migrateDB failed: %v", err)
 		}

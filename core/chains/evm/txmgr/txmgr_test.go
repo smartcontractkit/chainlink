@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore/mocks"
@@ -304,23 +303,20 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
+
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
 		evmConfig.MaxQueued = uint64(1)
 
-		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db)
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(tests.Context(t), fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
-		require.Equal(t, fwdr.Address, fwdrAddr)
 
 		etx, err := txm.CreateTransaction(tests.Context(t), txmgr.TxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
 			FeeLimit:         gasLimit,
-			ForwarderAddress: fwdr.Address,
+			ForwarderAddress: fwdrAddr,
 			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
