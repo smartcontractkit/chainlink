@@ -722,8 +722,10 @@ jobs:
           echo 
           echo "AGGREGATED RESULTS"
           cat output.txt
+          echo "## Aggregated test results summary" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           cat output.txt >> $GITHUB_STEP_SUMMARY
-          echo "results=$(cat output.txt | base64)" >> $GITHUB_OUTPUT
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
