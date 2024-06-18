@@ -658,7 +658,7 @@ func TestSyncer_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	// We expect receivers to be wired up.
 	mr := &mockReader{
 		s: state{
-			IDsToDONs: map[donID]kcr.CapabilityRegistryDONInfo{
+			IDsToDONs: map[donID]kcr.CapabilitiesRegistryDONInfo{
 				donID(dID): {
 					Id:               dID,
 					ConfigCount:      uint32(0),
@@ -674,7 +674,7 @@ func TestSyncer_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					IsPublic:         true,
 					AcceptsWorkflows: false,
 					NodeP2PIds:       capabilityDonNodes,
-					CapabilityConfigurations: []kcr.CapabilityRegistryCapabilityConfiguration{
+					CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
 						{
 							CapabilityId: triggerCapID,
 							Config:       []byte(""),
@@ -682,14 +682,14 @@ func TestSyncer_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilityRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
 					CapabilityType: 0,
 				},
 			},
-			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
+			IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
 				capabilityDonNodes[0]: {
 					NodeOperatorId:      1,
 					Signer:              randomWord(),
