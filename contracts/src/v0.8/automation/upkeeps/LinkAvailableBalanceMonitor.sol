@@ -35,7 +35,7 @@ interface ILinkAvailable {
 ///  this is a "trustless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
-contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
+contract LinkAvailableBalanceMonitor2 is AccessControl, AutomationCompatibleInterface, Pausable {
   using EnumerableMap for EnumerableMap.UintToAddressMap;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -44,6 +44,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   event UpkeepIntervalSet(uint256 oldUpkeepInterval, uint256 newUpkeepInterval);
   event MaxCheckSet(uint256 oldMaxCheck, uint256 newMaxCheck);
   event MaxPerformSet(uint256 oldMaxPerform, uint256 newMaxPerform);
+  event MinPerformSet(uint256 oldMinPerform, uint256 newMinPerform);
   event MinWaitPeriodSet(uint256 s_minWaitPeriodSeconds, uint256 minWaitPeriodSeconds);
   event TopUpBlocked(address indexed topUpAddress);
   event TopUpFailed(address indexed recipient);
@@ -77,6 +78,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
 
   uint256 private s_minWaitPeriodSeconds;
   uint16 private s_maxPerform;
+  uint16 private s_minPerform;
   uint16 private s_maxCheck;
   uint8 private s_upkeepInterval;
 
@@ -105,6 +107,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     IERC20 linkToken,
     uint256 minWaitPeriodSeconds,
     uint16 maxPerform,
+    uint16 minPerform,
     uint16 maxCheck,
     uint8 upkeepInterval
   ) {
@@ -333,7 +336,8 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     bytes calldata
   ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
-    if (needsFunding.length == 0) {
+    uint16 minPerform = s_minPerform;
+    if (needsFunding.length <= minPerform) {
       return (false, "");
     }
     uint96 total_batch_balance;
@@ -389,6 +393,12 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     s_maxPerform = maxPerform;
   }
 
+  /// @notice Update s_minPerform
+  function setMinPerform(uint16 minPerform) public onlyRole(ADMIN_ROLE) {
+    emit MinPerformSet(s_minPerform, minPerform);
+    s_minPerform = minPerform;
+  }
+
   /// @notice Update s_maxCheck
   function setMaxCheck(uint16 maxCheck) public onlyRole(ADMIN_ROLE) {
     emit MaxCheckSet(s_maxCheck, maxCheck);
@@ -411,6 +421,10 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @notice Gets maxPerform
   function getMaxPerform() external view returns (uint16) {
     return s_maxPerform;
+  }
+  /// @notice Gets minPerform
+  function getMinPerform() external view returns (uint16) {
+    return s_minPerform;
   }
 
   /// @notice Gets maxCheck
