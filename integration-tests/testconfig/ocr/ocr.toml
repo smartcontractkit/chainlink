@@ -148,10 +148,27 @@ number_of_contracts=2
 time_between_rounds="1m"
 [TestOCRSoak_GasSpike.Network]
 selected_networks=["Anvil"]
-[TestOCRSoak_GasSpike.Network.AnvilConfigs.anvil.GasSimulation]
+[TestOCRSoak_GasSpike.Network.AnvilConfigs.anvil.GasSpikeSimulation]
 enabled = true
 start_gas_price = 2000000000
 gas_rise_percentage = 0.7
 gas_spike = true
+delay_create = "1m"
+duration = "3m"
+
+# OCR soak test configuration with change to gas limit on Anvil network
+[TestOCRSoak_ChangeBlockGasLimit.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_ChangeBlockGasLimit.Network]
+selected_networks=["Anvil"]
+[TestOCRSoak_ChangeBlockGasLimit.Network.AnvilConfigs.anvil.GasLimitSimulation]
+enabled = true
+next_gas_limit_percentage = 0.5
 delay_create = "1m"
 duration = "3m"

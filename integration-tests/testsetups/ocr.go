@@ -83,9 +83,10 @@ type OCRSoakTest struct {
 	ocrV2Instances   []contracts.OffchainAggregatorV2
 	ocrV2InstanceMap map[string]contracts.OffchainAggregatorV2 // address : instance
 
-	rpcNetwork            blockchain.EVMNetwork // network configuration for the blockchain node
-	reorgHappened         bool                  // flag to indicate if a reorg happened during the test
-	gasSimulationHappened bool                  // flag to indicate if a gas simulation happened during the test
+	rpcNetwork                 blockchain.EVMNetwork // network configuration for the blockchain node
+	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
+	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
+	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -607,22 +608,37 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		})
 	}
 
-	// Schedule gas simulation if needed
+	// Schedule gas simulations if needed
 	// Gas simulation only available for Anvil
 	if o.rpcNetwork.Name == "Anvil" {
-		anvilConfig := o.Config.GetNetworkConfig().AnvilConfigs["ANVIL"]
-		if anvilConfig != nil && anvilConfig.GasSimulation.Enabled {
+		ac := o.Config.GetNetworkConfig().AnvilConfigs["ANVIL"]
+		if ac != nil && ac.GasSpikeSimulation.Enabled {
 			var delay time.Duration
-			if anvilConfig.GasSimulation.DelayCreate.Duration > testDuration {
+			if ac.GasSpikeSimulation.DelayCreate.Duration > testDuration {
 				// This may happen when test is resumed and the reorg delay is longer than the time left
-				o.log.Warn().Msg("Gas simulation delay is longer than test duration, gas simulation scheduled immediately")
+				o.log.Warn().Msg("Gas spike simulation delay is longer than test duration, gas simulation scheduled immediately")
 				delay = 0
 			} else {
-				delay = anvilConfig.GasSimulation.DelayCreate.Duration
+				delay = ac.GasSpikeSimulation.DelayCreate.Duration
 			}
 			time.AfterFunc(delay, func() {
-				if !o.gasSimulationHappened {
-					o.startAnvilGasSimulation(o.rpcNetwork, anvilConfig.GasSimulation)
+				if !o.gasSpikeSimulationHappened {
+					o.startAnvilGasSpikeSimulation(o.rpcNetwork, ac.GasSpikeSimulation)
+				}
+			})
+		}
+		if ac != nil && ac.GasLimitSimulation.Enabled {
+			var delay time.Duration
+			if ac.GasLimitSimulation.DelayCreate.Duration > testDuration {
+				// This may happen when test is resumed and the reorg delay is longer than the time left
+				o.log.Warn().Msg("Gas limit simulation delay is longer than test duration, gas simulation scheduled immediately")
+				delay = 0
+			} else {
+				delay = ac.GasLimitSimulation.DelayCreate.Duration
+			}
+			time.AfterFunc(delay, func() {
+				if !o.gasLimitSimulationHappened {
+					o.startAnvilGasLimitSimulation(o.rpcNetwork, ac.GasLimitSimulation)
 				}
 			})
 		}
@@ -687,18 +703,41 @@ func (o *OCRSoakTest) startGethBlockchainReorg(network blockchain.EVMNetwork, co
 	o.reorgHappened = true
 }
 
-func (o *OCRSoakTest) startAnvilGasSimulation(network blockchain.EVMNetwork, conf ctf_config.GasSimulationConfig) {
+func (o *OCRSoakTest) startAnvilGasSpikeSimulation(network blockchain.EVMNetwork, conf ctf_config.GasSpikeSimulationConfig) {
 	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
 	o.log.Info().
 		Str("URL", client.URL).
-		Int64("StartGasPrice", conf.StartGasPrice).
-		Float64("GasRisePercentage", conf.GasRisePercentage).
-		Dur("Duration", conf.Duration.Duration).
-		Bool("GasSpike", conf.GasSpike).
-		Msg("Starting gas simulation on Anvil chain")
+		Any("GasSpikeSimulationConfig", conf).
+		Msg("Starting gas spike simulation on Anvil chain")
 	err := client.ModulateBaseFeeOverDuration(o.log, conf.StartGasPrice, conf.GasRisePercentage, conf.Duration.Duration, conf.GasSpike)
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
-	o.gasSimulationHappened = true
+	o.gasSpikeSimulationHappened = true
+}
+
+func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork, conf ctf_config.GasLimitSimulationConfig) {
+	client := ctf_client.NewRPCClient(network.HTTPURLs[0])
+	latestBlock, err := o.seth.Client.BlockByNumber(context.Background(), nil)
+	require.NoError(o.t, err)
+	newGasLimit := int64(math.Ceil(float64(latestBlock.GasUsed()) * conf.NextGasLimitPercentage))
+	o.log.Info().
+		Str("URL", client.URL).
+		Any("GasLimitSimulationConfig", conf).
+		Uint64("LatestBlock", latestBlock.Number().Uint64()).
+		Uint64("LatestGasUsed", latestBlock.GasUsed()).
+		Uint64("LatestGasLimit", latestBlock.GasLimit()).
+		Int64("NewGasLimit", newGasLimit).
+		Msg("Starting new gas limit simulation on Anvil chain")
+	err = client.AnvilSetBlockGasLimit([]interface{}{newGasLimit})
+	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
+	time.Sleep(conf.Duration.Duration)
+	o.log.Info().
+		Str("URL", client.URL).
+		Any("GasLimitSimulationConfig", conf).
+		Uint64("LatestGasLimit", latestBlock.GasLimit()).
+		Msg("Returning to old gas limit simulation on Anvil chain")
+	err = client.AnvilSetBlockGasLimit([]interface{}{latestBlock.GasLimit()})
+	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
+	o.gasLimitSimulationHappened = true
 }
 
 // setFilterQuery to look for all events that happened
