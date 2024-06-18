@@ -704,6 +704,7 @@ func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexuti
 	x.sentCount.Add(1)
 	return nil
 }
+*/
 
 func TestEthClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
@@ -727,10 +728,12 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 
 	ethClient := mustNewChainClientWithChainID(t, wsURL, chainId)
 	err := ethClient.Dial(tests.Context(t))
+	fmt.Println("DIALLED!!")
 	require.NoError(t, err)
 
 	headCh, sub, err := ethClient.SubscribeNewHead(ctx)
 	require.NoError(t, err)
+	fmt.Println("SUBSCRIBED!!")
 
 	select {
 	case err := <-sub.Err():
@@ -743,7 +746,6 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	}
 	sub.Unsubscribe()
 }
-*/
 
 func newMockRpc(t *testing.T) *client.MockChainClientRPC {
 	mockRpc := client.NewMockChainClientRPC(t)

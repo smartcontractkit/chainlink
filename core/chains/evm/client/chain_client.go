@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -259,7 +258,6 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	fmt.Println("CHAINCLIENT DIAL") // TODO: REMOVE
 	return c.multiNode.Dial(ctx)
 }
 

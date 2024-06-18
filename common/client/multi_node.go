@@ -172,7 +172,6 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Dial(ctx context.Context) error {
-	fmt.Println("MULTINODE DIAL")
 	ctx = context.Background() // TODO: remove this line
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.primaryNodes) == 0 {

@@ -74,8 +74,6 @@ const (
 	msgDegradedState = "Chainlink is now operating in a degraded state and urgent action is required to resolve the issue"
 )
 
-// const rpcSubscriptionMethodNewHeads = "newHeads"
-
 // Node is a FSM
 // Each state has a loop that goes with it, which monitors the node and moves it into another state as necessary.
 // Only one loop must run at a time.

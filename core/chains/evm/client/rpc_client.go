@@ -117,6 +117,8 @@ var (
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
+const rpcSubscriptionMethodNewHeads = "newHeads"
+
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
 //
 //go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
@@ -215,7 +217,7 @@ func NewRPCClient(
 
 func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	channel := make(chan *evmtypes.Head)
-	sub, err := r.subscribe(ctx, channel)
+	sub, err := r.subscribe(ctx, channel, rpcSubscriptionMethodNewHeads)
 	return channel, sub, err
 }
 
