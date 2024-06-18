@@ -435,7 +435,6 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
 
 	lggr.Infow("Success! Received bytes equal payload2", "payload2", string(payload2))
-
 }
 
 func setupForwarderForNode(
