@@ -58,7 +58,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := remotetypes.RemoteTriggerConfig{
+	config := &remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100,
 		MinResponsesToAggregate: 1,
@@ -95,7 +95,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		},
 		Payload: marshaled,
 	}
-	subscriber.Receive(triggerEvent)
+	subscriber.Receive(ctx, triggerEvent)
 	response := <-triggerEventCallbackCh
 	require.Equal(t, response.Value, triggerEventValue)
 
