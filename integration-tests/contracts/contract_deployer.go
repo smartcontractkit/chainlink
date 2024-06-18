@@ -1257,7 +1257,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		registryLogicAAddr, _, _, err := e.client.DeployContract("AutomationRegistryLogicA2_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 
 			return registrylogica22.DeployAutomationRegistryLogicA(
@@ -1275,7 +1275,7 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 
 		address, _, _, err := e.client.DeployContract("AutomationRegistry2_2", func(
 			auth *bind.TransactOpts,
-			backend bind.ContractBackend,
+			_ bind.ContractBackend,
 		) (common.Address, *types.Transaction, interface{}, error) {
 			return registry22.DeployAutomationRegistry(
 				auth,
@@ -1460,7 +1460,7 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogUpkeepCounter", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testInterval,
@@ -1498,7 +1498,7 @@ func (e *EthereumContractDeployer) DeployAutomationSimpleLogTriggerConsumer(isSt
 func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testRange, interval, useArbBlock, staging, verify,
@@ -1517,7 +1517,7 @@ func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(t
 func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
 	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
 			auth, wrappers.MustNewWrappedContractBackend(e.client, nil), false, false, false,
@@ -1536,7 +1536,7 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpke
 func (e *EthereumContractDeployer) DeployUpkeepCounter(testRange *big.Int, interval *big.Int) (UpkeepCounter, error) {
 	address, _, instance, err := e.client.DeployContract("UpkeepCounter", func(
 		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
+		_ bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
 		return upkeep_counter_wrapper.DeployUpkeepCounter(auth, wrappers.MustNewWrappedContractBackend(e.client, nil), testRange, interval)
 	})

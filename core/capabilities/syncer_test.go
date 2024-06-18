@@ -160,7 +160,7 @@ func TestSyncer_WiresUpExternalCapabilities(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -262,7 +262,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -384,7 +384,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
@@ -539,7 +539,7 @@ func TestSyncer_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",

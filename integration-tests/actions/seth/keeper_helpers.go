@@ -346,7 +346,7 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 
 	executor := ctf_concurrency.NewConcurrentExecutor[contracts.KeeperConsumer, keeperConsumerResult, ctf_concurrency.NoTaskType](l)
 
-	var deployContractFn = func(channel chan keeperConsumerResult, errorCh chan error, executorNum int) {
+	var deployContractFn = func(channel chan keeperConsumerResult, _ chan error, executorNum int) {
 		keyNum := executorNum + 1 // key 0 is the root key
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error

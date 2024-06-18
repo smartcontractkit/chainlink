@@ -80,7 +80,9 @@ contract CapabilitiesRegistry_AddCapabilitiesTest is BaseTest {
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
     emit CapabilitiesRegistry.CapabilityConfigured(hashedCapabilityId);
     s_CapabilitiesRegistry.addCapabilities(capabilities);
-    CapabilitiesRegistry.Capability memory storedCapability = s_CapabilitiesRegistry.getCapability(hashedCapabilityId);
+    CapabilitiesRegistry.CapabilityInfo memory storedCapability = s_CapabilitiesRegistry.getCapability(
+      hashedCapabilityId
+    );
 
     assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
     assertEq(storedCapability.version, s_basicCapability.version);
@@ -100,7 +102,9 @@ contract CapabilitiesRegistry_AddCapabilitiesTest is BaseTest {
     emit CapabilitiesRegistry.CapabilityConfigured(hashedCapabilityId);
     s_CapabilitiesRegistry.addCapabilities(capabilities);
 
-    CapabilitiesRegistry.Capability memory storedCapability = s_CapabilitiesRegistry.getCapability(hashedCapabilityId);
+    CapabilitiesRegistry.CapabilityInfo memory storedCapability = s_CapabilitiesRegistry.getCapability(
+      hashedCapabilityId
+    );
 
     assertEq(storedCapability.labelledName, s_capabilityWithConfigurationContract.labelledName);
     assertEq(storedCapability.version, s_capabilityWithConfigurationContract.version);
