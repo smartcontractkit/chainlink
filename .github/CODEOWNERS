@@ -3,7 +3,7 @@
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Root
-/* @smartcontractkit/foundations
+* @smartcontractkit/foundations
 
 # Chains
 /common @smartcontractkit/bix-framework
