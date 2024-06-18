@@ -1,6 +1,7 @@
 package pgtest
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -18,6 +19,17 @@ import (
 func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+
+	return db
+}
+
+func NewSqlxDBWithResource(t testing.TB, resource string) *sqlx.DB {
+	testutils.SkipShortDB(t)
+	id := fmt.Sprintf("%s/%s", resource, uuid.New().String())
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), id)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 	db.MapperFunc(reflectx.CamelToSnakeASCII)

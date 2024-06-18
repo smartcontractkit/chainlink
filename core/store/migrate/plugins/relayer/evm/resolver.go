@@ -67,6 +67,7 @@ func generateMigrations(fsys fs.FS, rootDir string, tmpDir string, val Cfg) ([]s
 	if err != nil {
 		return nil, err
 	}
+	b := make([]byte, 1024*1024)
 	var migrations = []string{}
 	var resolverFunc fs.WalkDirFunc
 	resolverFunc = func(path string, info fs.DirEntry, err error) error {
@@ -79,17 +80,23 @@ func generateMigrations(fsys fs.FS, rootDir string, tmpDir string, val Cfg) ([]s
 		if !strings.HasSuffix(path, migrationSuffix) {
 			return nil
 		}
-		b, err := os.ReadFile(path)
+		f, err := fsys.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open file %s: %w", path, err)
+		}
+		defer f.Close()
+		n, err := f.Read(b)
 		if err != nil {
 			return fmt.Errorf("failed to read file %s: %w", path, err)
 		}
+		content := b[:n]
 		outPath := filepath.Join(tmpDir, strings.Replace(filepath.Base(path), migrationSuffix, ".sql", 1))
 		out, err := os.Create(outPath)
 		if err != nil {
 			return fmt.Errorf("failed to create file %s: %w", outPath, err)
 		}
 		defer out.Close()
-		err = resolve(out, string(b), val)
+		err = resolve(out, string(content), val)
 		if err != nil {
 			return fmt.Errorf("failed to resolve template %s: %w", path, err)
 		}

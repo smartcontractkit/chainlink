@@ -19,9 +19,12 @@ import (
 // Tests the atomicity of cleanup function passed to DeleteForwarder, during DELETE operation
 func Test_DeleteForwarder(t *testing.T) {
 	t.Parallel()
-	orm := NewORM(pgtest.NewSqlxDB(t))
-	addr := testutils.NewAddress()
 	chainID := testutils.FixtureChainID
+	orm := NewScopedORM(pgtest.NewSqlxDBWithResource(t, "relayer/evm/"+chainID.String()), big.New(chainID))
+	//orm := NewORM(pgtest.NewSqlxDB(t))
+
+	addr := testutils.NewAddress()
+	//chainID := testutils.FixtureChainID
 	ctx := testutils.Context(t)
 
 	fwd, err := orm.CreateForwarder(ctx, addr, *big.New(chainID))

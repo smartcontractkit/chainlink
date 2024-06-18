@@ -3,6 +3,7 @@ package forwarders
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -24,13 +25,18 @@ type ORM interface {
 }
 
 type DSORM struct {
-	ds sqlutil.DataSource
+	ds  sqlutil.DataSource
+	cid *big.Big
 }
 
 var _ ORM = &DSORM{}
 
 func NewORM(ds sqlutil.DataSource) *DSORM {
 	return &DSORM{ds: ds}
+}
+
+func NewScopedORM(ds sqlutil.DataSource, evmChainId *big.Big) *DSORM {
+	return &DSORM{ds: ds, cid: evmChainId}
 }
 
 func (o *DSORM) Transact(ctx context.Context, fn func(*DSORM) error) (err error) {
@@ -40,10 +46,23 @@ func (o *DSORM) Transact(ctx context.Context, fn func(*DSORM) error) (err error)
 // new returns a NewORM like o, but backed by q.
 func (o *DSORM) new(q sqlutil.DataSource) *DSORM { return NewORM(q) }
 
+func (o *DSORM) schemaName() string {
+	if o.cid != nil {
+		return fmt.Sprintf("evm_%s", o.cid.String())
+	}
+	return "evm"
+
+}
+
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
 func (o *DSORM) CreateForwarder(ctx context.Context, addr common.Address, evmChainId big.Big) (fwd Forwarder, err error) {
-	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
-	err = o.ds.GetContext(ctx, &fwd, sql, addr, evmChainId)
+	if o.cid != nil && !o.cid.Equal(&evmChainId) {
+		// hacking
+		evmChainId = *o.cid
+	}
+	//	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
+	sql := fmt.Sprintf("INSERT INTO %s.forwarders (address, created_at, updated_at) VALUES ($1, now(), now()) RETURNING *", o.schemaName())
+	err = o.ds.GetContext(ctx, &fwd, sql, addr)
 	return fwd, err
 }
 
@@ -56,7 +75,8 @@ func (o *DSORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx s
 			EvmChainId int64
 			Address    common.Address
 		}
-		err := orm.ds.GetContext(ctx, &dest, `SELECT evm_chain_id, address FROM evm.forwarders WHERE id = $1`, id)
+		selectStmt := fmt.Sprintf("SELECT  address FROM %s.forwarders WHERE id = $1", o.schemaName())
+		err := orm.ds.GetContext(ctx, &dest, selectStmt, id)
 		if err != nil {
 			return err
 		}
@@ -65,8 +85,8 @@ func (o *DSORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(tx s
 				return err
 			}
 		}
-
-		result, err := orm.ds.ExecContext(ctx, `DELETE FROM evm.forwarders WHERE id = $1`, id)
+		deleteStmt := fmt.Sprintf("DELETE FROM %s.forwarders WHERE id = $1", o.schemaName())
+		result, err := orm.ds.ExecContext(ctx, deleteStmt, id)
 		// If the forwarder wasn't found, we still want to delete the filter.
 		// In that case, the transaction must return nil, even though DeleteForwarder
 		// will return sql.ErrNoRows

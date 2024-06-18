@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 )
 
 // txdb is a simplified version of https://github.com/DATA-DOG/go-txdb
@@ -95,11 +97,16 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		}
 		d.db = db
 	}
+
 	c, exists := d.conns[dsn]
 	if !exists || !c.tryOpen() {
 		tx, err := d.db.Begin()
 		if err != nil {
 			return nil, err
+		}
+		err = d.handleConn(dsn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to handle conn: %w", err)
 		}
 		c = &conn{tx: tx, opened: 1, dsn: dsn}
 		c.removeSelf = func() error {
@@ -108,6 +115,34 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		d.conns[dsn] = c
 	}
 	return c, nil
+}
+
+func (d *txDriver) handleConn(dsn string) error {
+	if strings.HasPrefix(dsn, "relayer/evm") {
+		parts := strings.Split(dsn, "/")
+		chainId := parts[2]
+		schema := fmt.Sprintf("evm_%s", chainId)
+		cid, err := strconv.Atoi(chainId)
+		if err != nil {
+			return err
+		}
+		v, err := evm.Current(context.Background(), d.db, evm.Cfg{Schema: schema, ChainID: cid})
+		if err != nil {
+			return fmt.Errorf("failed to get current version: %w", err)
+		}
+		if v > 0 {
+			return nil
+		}
+		err = evm.Migrate(context.Background(), d.db, evm.Cfg{
+			Schema:  schema,
+			ChainID: cid,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to migrate: %w", err)
+		}
+		evm.Status(context.Background(), d.db, evm.Cfg{Schema: schema, ChainID: cid})
+	}
+	return nil
 }
 
 // deleteConn is called by a connection when it is closed via the `close` method.
