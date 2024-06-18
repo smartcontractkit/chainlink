@@ -52,10 +52,3 @@ func Register0002(val Cfg) error {
 	goose.AddMigrationContext(upFunc, downFunc)
 	return nil
 }
-
-func generateExec(execString string) func(ctx context.Context, tx *sql.Tx) error {
-	return func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, execString)
-		return err
-	}
-}

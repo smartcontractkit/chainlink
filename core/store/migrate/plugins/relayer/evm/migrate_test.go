@@ -15,7 +15,6 @@ import (
 )
 
 func TestMigrate(t *testing.T) {
-
 	t.Run("core migration with optional relayer migration", func(t *testing.T) {
 		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 

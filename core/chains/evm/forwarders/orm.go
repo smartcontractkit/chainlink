@@ -45,7 +45,6 @@ func (o *DSORM) schemaName() string {
 		return fmt.Sprintf("evm_%s", o.cid.String())
 	}
 	return "evm"
-
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.

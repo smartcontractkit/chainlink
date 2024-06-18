@@ -303,7 +303,6 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
-
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
 		evmConfig.MaxQueued = uint64(1)

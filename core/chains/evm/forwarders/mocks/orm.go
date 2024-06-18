@@ -66,43 +66,6 @@ func (_m *ORM) DeleteForwarder(ctx context.Context, id int64, cleanup func(sqlut
 	return r0
 }
 
-// FindForwarders provides a mock function with given fields: ctx, offset, limit
-func (_m *ORM) FindForwarders(ctx context.Context, offset int, limit int) ([]forwarders.Forwarder, int, error) {
-	ret := _m.Called(ctx, offset, limit)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindForwarders")
-	}
-
-	var r0 []forwarders.Forwarder
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]forwarders.Forwarder, int, error)); ok {
-		return rf(ctx, offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []forwarders.Forwarder); ok {
-		r0 = rf(ctx, offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]forwarders.Forwarder)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) int); ok {
-		r1 = rf(ctx, offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, int, int) error); ok {
-		r2 = rf(ctx, offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
 // FindForwardersByChain provides a mock function with given fields: ctx, evmChainId
 func (_m *ORM) FindForwardersByChain(ctx context.Context, evmChainId big.Big) ([]forwarders.Forwarder, error) {
 	ret := _m.Called(ctx, evmChainId)
@@ -126,36 +89,6 @@ func (_m *ORM) FindForwardersByChain(ctx context.Context, evmChainId big.Big) ([
 
 	if rf, ok := ret.Get(1).(func(context.Context, big.Big) error); ok {
 		r1 = rf(ctx, evmChainId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FindForwardersInListByChain provides a mock function with given fields: ctx, evmChainId, addrs
-func (_m *ORM) FindForwardersInListByChain(ctx context.Context, evmChainId big.Big, addrs []common.Address) ([]forwarders.Forwarder, error) {
-	ret := _m.Called(ctx, evmChainId, addrs)
-
-	if len(ret) == 0 {
-		panic("no return value specified for FindForwardersInListByChain")
-	}
-
-	var r0 []forwarders.Forwarder
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, big.Big, []common.Address) ([]forwarders.Forwarder, error)); ok {
-		return rf(ctx, evmChainId, addrs)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, big.Big, []common.Address) []forwarders.Forwarder); ok {
-		r0 = rf(ctx, evmChainId, addrs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]forwarders.Forwarder)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, big.Big, []common.Address) error); ok {
-		r1 = rf(ctx, evmChainId, addrs)
 	} else {
 		r1 = ret.Error(1)
 	}

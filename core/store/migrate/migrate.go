@@ -23,15 +23,7 @@ import (
 //go:embed migrations/*.sql migrations/*.go
 var embedMigrations embed.FS
 
-// go:embed plugins/relayers/**/*.tmpl.sql
-var embedRelayerMigrations embed.FS
-
-const PLUGIN_MIGRATIONS_DIR string = "plugins"
-
 const MIGRATIONS_DIR string = "migrations"
-
-// go:embed manifest.txt
-var migrationManifest string
 
 func init() {
 	setupCoreMigrations()

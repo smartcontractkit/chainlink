@@ -988,7 +988,6 @@ func newRelayMigrationOpts(c *cli.Context) *relayMigrationOpts {
 		Relayer: c.String("relayer"),
 		ChainID: c.String("chain-id"),
 	}
-
 }
 
 // MigrateDatabase migrates the database
@@ -1049,8 +1048,6 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		err = fmt.Errorf("unknown relayer '%s'", opts.Relayer)
 	}
 	return err
-
-	return nil
 }
 
 // VersionDatabase displays the current database version.
