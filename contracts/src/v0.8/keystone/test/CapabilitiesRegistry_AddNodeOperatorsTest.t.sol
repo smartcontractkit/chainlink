@@ -5,8 +5,6 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_AddNodeOperatorsTest is BaseTest {
-  event NodeOperatorAdded(uint32 indexed nodeOperatorId, address indexed admin, string name);
-
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
     vm.expectRevert("Only callable by owner");
@@ -25,9 +23,17 @@ contract CapabilitiesRegistry_AddNodeOperatorsTest is BaseTest {
     changePrank(ADMIN);
 
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
-    emit NodeOperatorAdded(TEST_NODE_OPERATOR_ONE_ID, NODE_OPERATOR_ONE_ADMIN, NODE_OPERATOR_ONE_NAME);
+    emit CapabilitiesRegistry.NodeOperatorAdded(
+      TEST_NODE_OPERATOR_ONE_ID,
+      NODE_OPERATOR_ONE_ADMIN,
+      NODE_OPERATOR_ONE_NAME
+    );
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
-    emit NodeOperatorAdded(TEST_NODE_OPERATOR_TWO_ID, NODE_OPERATOR_TWO_ADMIN, NODE_OPERATOR_TWO_NAME);
+    emit CapabilitiesRegistry.NodeOperatorAdded(
+      TEST_NODE_OPERATOR_TWO_ID,
+      NODE_OPERATOR_TWO_ADMIN,
+      NODE_OPERATOR_TWO_NAME
+    );
     s_CapabilitiesRegistry.addNodeOperators(_getNodeOperators());
 
     CapabilitiesRegistry.NodeOperator memory nodeOperatorOne = s_CapabilitiesRegistry.getNodeOperator(

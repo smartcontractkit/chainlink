@@ -5,8 +5,6 @@ import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
-  event NodeRemoved(bytes32 p2pId);
-
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
@@ -179,7 +177,7 @@ contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
     nodes[0] = P2P_ID;
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeRemoved(P2P_ID);
+    emit CapabilitiesRegistry.NodeRemoved(P2P_ID);
     s_CapabilitiesRegistry.removeNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);
@@ -228,7 +226,7 @@ contract CapabilitiesRegistry_RemoveNodesTest is BaseTest {
     nodes[0] = P2P_ID;
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeRemoved(P2P_ID);
+    emit CapabilitiesRegistry.NodeRemoved(P2P_ID);
     s_CapabilitiesRegistry.removeNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);
