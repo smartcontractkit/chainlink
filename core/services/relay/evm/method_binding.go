@@ -6,12 +6,15 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
+
+var ErrNoContractExists = errors.New("contract does not exist at address")
 
 type methodBinding struct {
 	address      common.Address
@@ -28,9 +31,22 @@ func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
 	m.codec = codec
 }
 
-func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
-	m.address = common.HexToAddress(binding.Address)
+func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	addr := common.HexToAddress(binding.Address)
+
+	// check for contract byte code at the latest block and provided address
+	byteCode, err := m.client.CodeAt(ctx, addr, nil)
+	if err != nil {
+		return err
+	}
+
+	if len(byteCode) < 0 {
+		return fmt.Errorf("%w: %s", ErrNoContractExists, addr)
+	}
+
+	m.address = addr
 	m.bound = true
+
 	return nil
 }
 
