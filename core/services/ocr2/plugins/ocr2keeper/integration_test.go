@@ -405,19 +405,37 @@ func TestIntegration_KeeperPluginBasic(t *testing.T) {
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {
 		received, err2 := upkeepContract.ReceivedBytes(nil)
+		lggr.Infow("ReceivedBytes", "err2", err2, "received", string(received))
+
 		require.NoError(t, err2)
 		return received
 	}
+
+	lggr.Infow("Waiting to see if received bytes equal payload1", "payload1", string(payload1))
+
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+
+	lggr.Infow("Success! Received bytes equal payload1", "payload1", string(payload1))
+
+	lggr.Infow("About to change the payload")
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
+	lggr.Infow("Called SetBytesToSend", "err", err)
+
 	require.NoError(t, err)
+
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	lggr.Infow("Called SetShouldPerformUpkeep", "err", err)
 	require.NoError(t, err)
+
+	lggr.Infow("Waiting to see if received bytes equal payload2", "payload2", string(payload2))
 
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+
+	lggr.Infow("Success! Received bytes equal payload2", "payload2", string(payload2))
+
 }
 
 func setupForwarderForNode(
