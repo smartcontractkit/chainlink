@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 
 	"github.com/pressly/goose/v3"
-	"gopkg.in/guregu/null.v2"
+	"gopkg.in/guregu/null.v4"
 )
 
 func setupPluginMigrations(cfg Cfg) {
-	goose.SetBaseFS(nil)
+	// reset the base fs and the global migrations
+	goose.SetBaseFS(nil) // we don't want to use the base fs for plugin migrations because the embedded fs contains templates, not sql files
 	goose.ResetGlobalMigrations()
 	goose.SetTableName(fmt.Sprintf("goose_migration_relayer_%s_%s", cfg.Schema, cfg.ChainID.String()))
 	Register0002(cfg)
@@ -47,7 +48,6 @@ func Migrate(ctx context.Context, db *sql.DB, cfg Cfg) error {
 }
 
 func Rollback(ctx context.Context, db *sql.DB, version null.Int, cfg Cfg) error {
-
 	tmpDir := os.TempDir()
 	defer os.RemoveAll(tmpDir)
 
@@ -80,5 +80,9 @@ func Current(ctx context.Context, db *sql.DB, cfg Cfg) (int64, error) {
 
 func Status(ctx context.Context, db *sql.DB, cfg Cfg) error {
 	setupPluginMigrations(cfg)
+	// set the base fs only for status so that the templates are listed
+	// an alternative would be to somehow keep track of the generated sql files, but that would be more complex
+	// and error prone WRT to restarts
+	goose.SetBaseFS(embeddedTmplFS)
 	return goose.Status(db, MigrationRootDir)
 }

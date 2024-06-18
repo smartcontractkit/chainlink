@@ -196,13 +196,13 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Before: s.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
-							Name:   "plugin-type",
-							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Name:   "relayer",
+							Usage:  "type of relayer migration to run",
 							Hidden: true,
 						},
 						cli.StringFlag{
-							Name:   "plugin-kind",
-							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Name:   "chain-id",
+							Usage:  "chain id for the relayer migration",
 							Hidden: true,
 						},
 					},
@@ -214,13 +214,13 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Before: s.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
-							Name:   "plugin-type",
-							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Name:   "relayer",
+							Usage:  "type of relayer migration to run",
 							Hidden: true,
 						},
 						cli.StringFlag{
-							Name:   "plugin-kind",
-							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Name:   "chain-id",
+							Usage:  "chain id for the relayer migration",
 							Hidden: true,
 						},
 					},
@@ -250,13 +250,13 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Before: s.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
-							Name:   "plugin-type",
-							Usage:  "if set, only roll back migrations for the specified plugin type.[relayer,app] ",
+							Name:   "relayer",
+							Usage:  "type of relayer migration to run",
 							Hidden: true,
 						},
 						cli.StringFlag{
-							Name:   "plugin-kind",
-							Usage:  "if set, only roll back migrations for the specified plugin kind for the given plugin type ",
+							Name:   "chain-id",
+							Usage:  "chain id for the relayer migration",
 							Hidden: true,
 						},
 					},
@@ -969,6 +969,17 @@ type relayMigrationOpts struct {
 	ChainID string
 }
 
+func (r *relayMigrationOpts) evmDbCfg() (evmdb.Cfg, error) {
+	id, err := strconv.Atoi(r.ChainID)
+	if err != nil {
+		return evmdb.Cfg{}, fmt.Errorf("failed to parse evm chain id %s: %w", r.ChainID, err)
+	}
+	return evmdb.Cfg{
+		Schema:  "evm_" + r.ChainID,
+		ChainID: ubig.NewI(int64(id)),
+	}, nil
+}
+
 func newRelayMigrationOpts(c *cli.Context) *relayMigrationOpts {
 	if c.String("relayer") == "" || c.String("chain-id") == "" {
 		return nil
@@ -1019,42 +1030,87 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(ctx, db.DB, version); err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
+	opts := newRelayMigrationOpts(c)
+	if opts == nil {
+		if err := migrate.Rollback(ctx, db.DB, version); err != nil {
+			return fmt.Errorf("migrateDB failed: %v", err)
+		}
+	} else if opts.Relayer == "evm" {
+		cfg, err := opts.evmDbCfg()
+		if err != nil {
+			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
+		}
+
+		err = evmdb.Rollback(ctx, db.DB, version, cfg)
+		if err != nil {
+			return fmt.Errorf("evm for cfg %v rollback failed: %w", cfg, err)
+		}
+	} else {
+		err = fmt.Errorf("unknown relayer '%s'", opts.Relayer)
 	}
+	return err
 
 	return nil
 }
 
 // VersionDatabase displays the current database version.
-func (s *Shell) VersionDatabase(_ *cli.Context) error {
+func (s *Shell) VersionDatabase(c *cli.Context) error {
 	ctx := s.ctx()
 	db, err := newConnection(s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(ctx, db.DB)
-	if err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
-	}
+	opts := newRelayMigrationOpts(c)
+	if opts == nil {
+		version, err := migrate.Current(ctx, db.DB)
+		if err != nil {
+			return fmt.Errorf("migrateDB failed: %v", err)
+		}
 
-	s.Logger.Infof("Database version: %v", version)
-	return nil
+		s.Logger.Infof("Database version: %v", version)
+	} else if opts.Relayer == "evm" {
+		cfg, err := opts.evmDbCfg()
+		if err != nil {
+			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
+		}
+		version, err := evmdb.Current(ctx, db.DB, cfg)
+		if err != nil {
+			return fmt.Errorf("evm for cfg %v current failed: %w", cfg, err)
+		}
+		s.Logger.Infof("EVM database version: %v", version)
+	} else {
+		err = fmt.Errorf("unknown relayer '%s'", opts.Relayer)
+	}
+	return err
 }
 
 // StatusDatabase displays the database migration status
-func (s *Shell) StatusDatabase(_ *cli.Context) error {
+func (s *Shell) StatusDatabase(c *cli.Context) error {
 	ctx := s.ctx()
 	db, err := newConnection(s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(ctx, db.DB); err != nil {
-		return fmt.Errorf("Status failed: %v", err)
+	opts := newRelayMigrationOpts(c)
+	if opts == nil {
+		if err = migrate.Status(ctx, db.DB); err != nil {
+			return fmt.Errorf("Status failed: %v", err)
+		}
+	} else if opts.Relayer == "evm" {
+		cfg, err := opts.evmDbCfg()
+		if err != nil {
+			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
+		}
+		err = evmdb.Status(ctx, db.DB, cfg)
+		if err != nil {
+			return fmt.Errorf("evm for cfg %v status failed: %w", cfg, err)
+		}
+	} else {
+		err = fmt.Errorf("unknown relayer '%s'", opts.Relayer)
 	}
-	return nil
+	return err
 }
 
 // CreateMigration displays the database migration status
@@ -1195,22 +1251,23 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger, opts *r
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if opts != nil {
+	if opts == nil {
 		if err = migrate.Migrate(ctx, db.DB); err != nil {
 			return fmt.Errorf("migrateDB failed: %v", err)
 		}
 	} else if opts.Relayer == "evm" {
-
-		cid, err := strconv.Atoi(opts.ChainID)
+		cfg, err := opts.evmDbCfg()
 		if err != nil {
-			return fmt.Errorf("failed to parse chain as int id: %v", err)
+			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
 		}
-		err = evmdb.Migrate(ctx, db.DB, evmdb.Cfg{Schema: opts.Relayer + "_" + opts.ChainID, ChainID: ubig.NewI(int64(cid))})
+		err = evmdb.Migrate(ctx, db.DB, cfg)
 		if err != nil {
-			return fmt.Errorf("migrateDB failed: %v", err)
+			return fmt.Errorf("evm db migrate failed for cfg %v: %w", cfg, err)
 		}
+	} else {
+		err = fmt.Errorf("unknown migration type %s", opts.Relayer)
 	}
-	return fmt.Errorf("unknown migration type %s", opts.Relayer)
+	return err
 }
 
 func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {

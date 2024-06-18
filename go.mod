@@ -112,7 +112,6 @@ require (
 	gonum.org/v1/gonum v0.14.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.33.0
-	gopkg.in/guregu/null.v2 v2.1.2
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
@@ -332,6 +331,7 @@ require (
 	google.golang.org/genproto v0.0.0-20231030173426-d783a09b4405 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
+	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
