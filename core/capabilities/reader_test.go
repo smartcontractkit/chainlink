@@ -218,7 +218,14 @@ func TestReader_Integration(t *testing.T) {
 	assert.Len(t, s.IDsToCapabilities, 1)
 
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, writeChainCapability, gotCap)
+	assert.Equal(t, kcr.CapabilitiesRegistryCapabilityInfo{
+		HashedId:       cid,
+		LabelledName:   "write-chain",
+		Version:        "1.0.1",
+		ResponseType:   uint8(1),
+		CapabilityType: uint8(0),
+		IsDeprecated:   false,
+	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
 	assert.Equal(t, kcr.CapabilitiesRegistryDONInfo{
