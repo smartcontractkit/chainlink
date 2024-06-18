@@ -648,7 +648,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   parse-test-results:
-    name: Parse Test Results for ${{ matrix.product }}
+    name: Parse Test Results
     if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
     environment: integration
     permissions:
@@ -677,7 +677,10 @@ jobs:
           go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
           go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
           go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json               
+          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
+          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
+          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
+          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^cron compatibility with (.*?)$" -namedKey="cron" -outputFile=output.json
                     
           echo "base64_parsed_results=$(base64 -w 0 output.json)" >> $GITHUB_OUTPUT
 
@@ -711,6 +714,9 @@ jobs:
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
           go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
+          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
           
           echo 
           echo "AGGREGATED RESULTS"
@@ -735,7 +741,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [automation, keeper, log_poller, ocr, ocr2, vrf, vrfv2, vrfv2plus]
+        product: [automation, keeper, log_poller, ocr, ocr2, vrf, vrfv2, vrfv2plus, cron, flux, runlog]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
