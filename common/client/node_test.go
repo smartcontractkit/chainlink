@@ -67,9 +67,13 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 		opts.lggr = logger.Test(t)
 	}
 
+	opts.lggr.Debugw("First Test")
+
 	if opts.name == "" {
 		opts.name = "tes node"
 	}
+
+	opts.lggr.Debugw("Second Test")
 
 	if opts.chainFamily == "" {
 		opts.chainFamily = "test node chain family"
@@ -85,6 +89,8 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 
 	nodeI := NewNode[types.ID, Head, NodeClient[types.ID, Head]](opts.config, opts.chainConfig, opts.lggr,
 		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
+
+	opts.lggr.Debugw("Third Test")
 
 	return testNode{
 		nodeI.(*node[types.ID, Head, NodeClient[types.ID, Head]]),

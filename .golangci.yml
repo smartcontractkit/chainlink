@@ -18,6 +18,7 @@ linters:
     - containedctx
     - fatcontext
     - mirror
+    - loggercheck
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -47,6 +48,14 @@ linters-settings:
           - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalf
           - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicf
           - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Tracef
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Debugf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Infof
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Warnf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Errorf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Criticalf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Panicf
+          - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Fatalf
   errorlint:
     # Allow formatting of errors without %w
     errorf: false
@@ -127,6 +136,25 @@ linters-settings:
             desc: Use gopkg.in/guregu/null.v4 instead
           - pkg: github.com/go-gorm/gorm
             desc: Use github.com/jmoiron/sqlx directly instead
+  loggercheck:
+    # Check that *w logging functions have even number of args (i.e., well formed key-value pairs).
+    rules:
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracew
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Infow
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Warnw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Errorw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Tracew
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Debugw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Infow
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Warnw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Errorw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Criticalw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Panicw
+      - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).Fatalw
 issues:
   exclude-rules:
     - path: test

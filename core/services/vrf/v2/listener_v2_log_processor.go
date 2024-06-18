@@ -148,7 +148,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 		)
 		sID, ok := new(big.Int).SetString(subID, 10)
 		if !ok {
-			l.Criticalw("Unable to convert %s to Int", subID)
+			l.Criticalw("Unable to convert %s to Int", "subID", subID)
 			return
 		}
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{

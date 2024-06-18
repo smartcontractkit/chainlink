@@ -36,9 +36,11 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 	t.Run("returns on closed", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
+		node.lfcLog.Debugw("Forth test")
 		node.setState(nodeStateClosed)
 		node.wg.Add(1)
 		node.aliveLoop()
+		node.lfcLog.Debugw("Paveltest")
 	})
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
