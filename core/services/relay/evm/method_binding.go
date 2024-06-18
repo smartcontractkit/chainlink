@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
@@ -14,7 +13,13 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
-var ErrNoContractExists = errors.New("contract does not exist at address")
+type NoContractExistsError struct {
+	Address common.Address
+}
+
+func (e NoContractExistsError) Error() string {
+	return fmt.Sprintf("contract does not exist at address: %s", e.Address)
+}
 
 type methodBinding struct {
 	address      common.Address
@@ -41,7 +46,7 @@ func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContr
 	}
 
 	if len(byteCode) == 0 {
-		return fmt.Errorf("%w: %s", ErrNoContractExists, addr)
+		return NoContractExistsError{Address: addr}
 	}
 
 	m.address = addr
