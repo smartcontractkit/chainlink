@@ -29,6 +29,6 @@ compileContract () {
       "$ROOT"/contracts/src/v0.8/"$1"
 }
 
-compileContract keystone/CapabilityRegistry.sol
+compileContract keystone/CapabilitiesRegistry.sol
 compileContract keystone/KeystoneForwarder.sol
 compileContract keystone/OCR3Capability.sol
