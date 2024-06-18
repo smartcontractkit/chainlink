@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -231,13 +232,13 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Before: s.validateDB,
 					Flags: []cli.Flag{
 						cli.StringFlag{
-							Name:   "plugin-type",
-							Usage:  "if set, limit results the specified plugin type. [relayer,app] ",
+							Name:   "relayer",
+							Usage:  "type of relayer migration to run",
 							Hidden: true,
 						},
 						cli.StringFlag{
-							Name:   "plugin-kind",
-							Usage:  "if set, limit results for specified plugin kind for the given plugin type ",
+							Name:   "chain-id",
+							Usage:  "chain id for the relayer migration",
 							Hidden: true,
 						},
 					},
@@ -814,7 +815,8 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 		return s.errorOut(err)
 	}
 	lggr.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, lggr); err != nil {
+	// TODO: how to handle migrations for plugins?
+	if err := migrateDB(ctx, cfg, lggr, nil); err != nil {
 		return s.errorOut(err)
 	}
 	schema, err := dumpSchema(parsed)
@@ -962,8 +964,24 @@ func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 	return nil
 }
 
+type relayMigrationOpts struct {
+	Relayer string
+	ChainID string
+}
+
+func newRelayMigrationOpts(c *cli.Context) *relayMigrationOpts {
+	if c.String("relayer") == "" || c.String("chain-id") == "" {
+		return nil
+	}
+	return &relayMigrationOpts{
+		Relayer: c.String("relayer"),
+		ChainID: c.String("chain-id"),
+	}
+
+}
+
 // MigrateDatabase migrates the database
-func (s *Shell) MigrateDatabase(_ *cli.Context) error {
+func (s *Shell) MigrateDatabase(c *cli.Context) error {
 	ctx := s.ctx()
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -975,9 +993,9 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
+	opts := newRelayMigrationOpts(c)
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg, s.Logger); err != nil {
+	if err := migrateDB(ctx, cfg, s.Logger, opts); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -1171,16 +1189,28 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	return nil
 }
 
-func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger) error {
+func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger, opts *relayMigrationOpts) error {
 	db, err := newConnection(config)
+	defer db.Close()
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
+	if opts != nil {
+		if err = migrate.Migrate(ctx, db.DB); err != nil {
+			return fmt.Errorf("migrateDB failed: %v", err)
+		}
+	} else if opts.Relayer == "evm" {
 
-	if err = migrate.Migrate(ctx, db.DB); err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
+		cid, err := strconv.Atoi(opts.ChainID)
+		if err != nil {
+			return fmt.Errorf("failed to parse chain as int id: %v", err)
+		}
+		err = evmdb.Migrate(ctx, db.DB, evmdb.Cfg{Schema: opts.Relayer + "_" + opts.ChainID, ChainID: cid})
+		if err != nil {
+			return fmt.Errorf("migrateDB failed: %v", err)
+		}
 	}
-	return db.Close()
+	return fmt.Errorf("unknown migration type %s", opts.Relayer)
 }
 
 func downAndUpDB(ctx context.Context, cfg dbConfig, lggr logger.Logger, baseVersionID int64) error {
