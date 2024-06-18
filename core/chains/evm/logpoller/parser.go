@@ -21,7 +21,7 @@ const (
 	timestampFieldName = "block_timestamp"
 	txHashFieldName    = "tx_hash"
 	eventSigFieldName  = "event_sig"
-	defaultSort        = "block_number DESC, log_index DESC"
+	defaultSort        = "block_number ASC, log_index ASC"
 )
 
 var (
