@@ -328,6 +328,8 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		}
 	}
 
+	p.lggr.Debugw("getLogsFromBuffer returning payloads", "payloads", len(payloads))
+
 	return payloads
 }
 
