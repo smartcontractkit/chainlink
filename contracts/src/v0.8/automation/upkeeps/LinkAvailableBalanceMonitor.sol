@@ -117,6 +117,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     i_linkToken = linkToken;
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
     setMaxPerform(maxPerform);
+    setMinPerform(minPerform);
     setMaxCheck(maxCheck);
     setUpkeepInterval(upkeepInterval);
   }
