@@ -177,6 +177,10 @@ func execute(githubToken, githubRepo, workflowRunID, jobNameRegex, namedKey, out
 		return err
 	}
 
+	if len(parsedResults) == 0 {
+		return nil
+	}
+
 	return processResults(parsedResults, namedKey, jobNameRegex, workflowRunID, outputFile)
 }
 
