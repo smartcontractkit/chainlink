@@ -37,7 +37,7 @@ func parseJSON(jsonData []byte, namedKey string) ([]ParsedResult, error) {
 		return val, nil
 	}
 
-	return nil, fmt.Errorf("key %s not found in the JSON file", namedKey)
+	return jobs, nil
 }
 
 func calculateColumnWidths(firstColumnHeader, secondColumnHeader string, sections map[string][]ParsedResult) (int, int) {
@@ -192,7 +192,7 @@ func main() {
 	}
 
 	if len(jobs) == 0 {
-		fmt.Println("No results found in the JSON file")
+		_, _ = fmt.Fprintln(os.Stderr, "No results found in the JSON file")
 		return
 	}
 
