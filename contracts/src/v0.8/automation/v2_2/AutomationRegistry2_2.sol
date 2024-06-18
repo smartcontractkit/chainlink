@@ -163,6 +163,7 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
 
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes
+    // this place will underflow
     gasOverhead = (gasOverhead - gasleft()) + (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD;
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
@@ -190,6 +191,12 @@ contract AutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chain
             upkeepTransmitInfo[i].gasUsed,
             gasOverhead,
             report.triggers[i]
+          );
+
+          emit UpkeepPerformedDetails(
+            reimbursement + premium,
+            upkeepTransmitInfo[i].gasUsed,
+            gasOverhead
           );
         }
       }
