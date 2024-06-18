@@ -18,6 +18,7 @@ linters:
     - containedctx
     - fatcontext
     - mirror
+    - gomoddirectives
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
@@ -127,6 +128,8 @@ linters-settings:
             desc: Use gopkg.in/guregu/null.v4 instead
           - pkg: github.com/go-gorm/gorm
             desc: Use github.com/jmoiron/sqlx directly instead
+  gomoddirectives:
+    replace-local: false
 issues:
   exclude-rules:
     - path: test
