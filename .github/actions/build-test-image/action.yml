@@ -73,7 +73,7 @@ runs:
       id: check-base-image
       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
       with:
-        repository: ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
+        repository: test-base-image
         tag: ${{ steps.long_sha.outputs.long_sha }}
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}

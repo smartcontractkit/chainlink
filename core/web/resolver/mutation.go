@@ -1060,7 +1060,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Gateway:
 		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	case job.Workflow:
-		jb, err = workflows.ValidatedWorkflowSpec(args.Input.TOML)
+		jb, err = workflows.ValidatedWorkflowJobSpec(args.Input.TOML)
 	case job.StandardCapabilities:
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(args.Input.TOML)
 	default:

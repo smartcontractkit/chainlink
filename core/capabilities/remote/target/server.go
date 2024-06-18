@@ -106,9 +106,7 @@ func (r *server) expireRequests() {
 	}
 }
 
-// Receive handles incoming messages from remote nodes and dispatches them to the corresponding request without blocking
-// the client.
-func (r *server) Receive(msg *types.MessageBody) {
+func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
@@ -136,16 +134,10 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 	req := r.requestIDToRequest[requestID]
 
-	r.wg.Add(1)
-	go func() {
-		defer r.wg.Done()
-		ctx, cancel := r.stopCh.NewCtx()
-		defer cancel()
-		err := req.OnMessage(ctx, msg)
-		if err != nil {
-			r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
-		}
-	}()
+	err := req.OnMessage(ctx, msg)
+	if err != nil {
+		r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
+	}
 }
 
 func GetMessageID(msg *types.MessageBody) string {

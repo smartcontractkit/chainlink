@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -273,85 +274,60 @@ func TestOCR2OracleSpec(t *testing.T) {
 
 func TestWorkflowSpec_Validate(t *testing.T) {
 	type fields struct {
-		ID            int32
-		WorkflowID    string
-		Workflow      string
-		WorkflowOwner string
-		WorkflowName  string
-		CreatedAt     time.Time
-		UpdatedAt     time.Time
+		Workflow string
 	}
 	tests := []struct {
-		name        string
-		fields      fields
-		expectedErr error
+		name              string
+		fields            fields
+		wantWorkflowOwner string
+		wantWorkflowName  string
+
+		wantError bool
 	}{
 		{
 			name: "valid",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "ten bytes!",
+				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", "0x0123456789012345678901234567890123456789"),
 			},
+			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
+			wantWorkflowName:  "workflow01",
 		},
 		{
-			name: "valid 0x prefix hex owner",
+			name: "valid no name",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "0x00000000000000000000000000000000000000ff",
-				WorkflowName:  "ten bytes!",
+				Workflow: pkgworkflows.WFYamlSpec(t, "", "0x0123456789012345678901234567890123456789"),
 			},
+			wantWorkflowOwner: "0123456789012345678901234567890123456789", // the workflow job spec strips the 0x prefix to limit to 40	characters
+			wantWorkflowName:  "",
 		},
 		{
-			name: "not hex owner",
+			name: "valid no owner",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000az",
-				WorkflowName:  "ten bytes!",
+				Workflow: pkgworkflows.WFYamlSpec(t, "workflow01", ""),
 			},
-			expectedErr: ErrInvalidWorkflowOwner,
+			wantWorkflowOwner: "",
+			wantWorkflowName:  "workflow01",
 		},
 		{
-			name: "not len 40 owner",
+			name: "invalid ",
 			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "0000000000",
-				WorkflowName:  "ten bytes!",
+				Workflow: "garbage",
 			},
-			expectedErr: ErrInvalidWorkflowOwner,
-		},
-		{
-			name: "not len 10 name",
-			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "not ten bytes!",
-			},
-			expectedErr: ErrInvalidWorkflowName,
-		},
-		{
-			name: "not len 64 id",
-			fields: fields{
-				WorkflowID:    "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f",
-				WorkflowOwner: "00000000000000000000000000000000000000aa",
-				WorkflowName:  "ten bytes!",
-			},
-			expectedErr: ErrInvalidWorkflowID,
+			wantError: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := &WorkflowSpec{
-				ID:            tt.fields.ID,
-				WorkflowID:    tt.fields.WorkflowID,
-				Workflow:      tt.fields.Workflow,
-				WorkflowOwner: tt.fields.WorkflowOwner,
-				WorkflowName:  tt.fields.WorkflowName,
-				CreatedAt:     tt.fields.CreatedAt,
-				UpdatedAt:     tt.fields.UpdatedAt,
+				Workflow: tt.fields.Workflow,
 			}
 			err := w.Validate()
-			assert.ErrorIs(t, err, tt.expectedErr)
+			require.Equal(t, tt.wantError, err != nil)
+			if !tt.wantError {
+				assert.NotEmpty(t, w.WorkflowID)
+				assert.Equal(t, tt.wantWorkflowOwner, w.WorkflowOwner)
+				assert.Equal(t, tt.wantWorkflowName, w.WorkflowName)
+			}
 		})
 	}
 }

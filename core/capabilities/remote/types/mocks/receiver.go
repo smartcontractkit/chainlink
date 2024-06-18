@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	types "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -12,9 +14,9 @@ type Receiver struct {
 	mock.Mock
 }
 
-// Receive provides a mock function with given fields: msg
-func (_m *Receiver) Receive(msg *types.MessageBody) {
-	_m.Called(msg)
+// Receive provides a mock function with given fields: ctx, msg
+func (_m *Receiver) Receive(ctx context.Context, msg *types.MessageBody) {
+	_m.Called(ctx, msg)
 }
 
 // NewReceiver creates a new instance of Receiver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

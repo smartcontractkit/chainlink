@@ -263,9 +263,9 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
 			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv, healthReportPort); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
+					appLggr.Debugf("Failed to find any node version in the DB: %v", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+					appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %v", err)
 				} else {
 					return fmt.Errorf("initializeORM#FindLatestNodeVersion: %w", err)
 				}
@@ -830,7 +830,7 @@ func (t *promptingAPIInitializer) Initialize(ctx context.Context, orm sessions.B
 				continue
 			}
 			if err = orm.CreateUser(ctx, &user); err != nil {
-				lggr.Errorf("Error creating API user: ", err, "err")
+				lggr.Errorw("Error creating API user", "err", err)
 			}
 			return user, err
 		}

@@ -39,7 +39,7 @@ jobs:
             expression: '^[0-9]+\.[0-9]+\.[0-9]+(\-slots\-per\-epoch)?'    
     steps:
       - name: Update internal ECR if the latest Ethereum client image does not exist
-        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@7eb04a030823b316d8dd5bb555f1e49593a503fc
+        uses: smartcontractkit/chainlink-testing-framework/.github/actions/update-internal-mirrors@5eea86ee4f7742b4e944561a570a6b268e712d9e # v1.30.3
         with:
           aws_region: ${{ secrets.QA_AWS_REGION }}
           role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -253,7 +253,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           touch .root_dir
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests/smoke && go test -timeout ${{ matrix.timeout }} -count=1 -json -test.run ${{ matrix.test }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
