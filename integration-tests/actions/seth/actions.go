@@ -919,7 +919,7 @@ func SendLinkFundsToDeploymentAddresses(
 	return nil
 }
 
-var noOpSethConfigFn = func(cfg *seth.Config) error { return nil }
+var noOpSethConfigFn = func(_ *seth.Config) error { return nil }
 
 type SethConfigFunction = func(*seth.Config) error
 
