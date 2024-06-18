@@ -11,26 +11,6 @@ import (
 	"text/template"
 )
 
-/*
-type SQLConfig struct {
-	Schema string
-}
-
-// resolve resolves the template with the given RelayerDB
-func resolve(out io.Writer, in io.Reader, val SQLConfig) error {
-	unresolved, err := io.ReadAll(in)
-	if err != nil {
-		return err
-	}
-	tmpl, err := template.New("schema-resolver").Parse(string(unresolved))
-	if err != nil {
-		return fmt.Errorf("failed to parse template %s: %w", unresolved, err)
-	}
-	err = tmpl.Execute(out, val)
-	return err
-}
-*/
-
 // 4 digit version prefix to match the goose versioning
 //
 //go:embed [0-9][0-9][0-9][0-9]_*.tmpl.sql
