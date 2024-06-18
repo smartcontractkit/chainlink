@@ -63,7 +63,7 @@ contract ArbitrumL2BridgeAdapter is IBridgeAdapter {
     address /* remoteSender */,
     address /* localReceiver */,
     bytes calldata /* bridgeSpecificPayload */
-  ) external override returns (bool) {
+  ) external pure override returns (bool) {
     return true;
   }
 

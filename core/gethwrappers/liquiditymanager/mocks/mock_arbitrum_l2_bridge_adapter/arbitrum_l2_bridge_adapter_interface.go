@@ -69,27 +69,25 @@ func (_m *ArbitrumL2BridgeAdapterInterface) DepositNativeToL1(opts *bind.Transac
 }
 
 // FinalizeWithdrawERC20 provides a mock function with given fields: opts, arg0, arg1, arg2
-func (_m *ArbitrumL2BridgeAdapterInterface) FinalizeWithdrawERC20(opts *bind.TransactOpts, arg0 common.Address, arg1 common.Address, arg2 []byte) (*types.Transaction, error) {
+func (_m *ArbitrumL2BridgeAdapterInterface) FinalizeWithdrawERC20(opts *bind.CallOpts, arg0 common.Address, arg1 common.Address, arg2 []byte) (bool, error) {
 	ret := _m.Called(opts, arg0, arg1, arg2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FinalizeWithdrawERC20")
 	}
 
-	var r0 *types.Transaction
+	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, common.Address, []byte) (*types.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address, common.Address, []byte) (bool, error)); ok {
 		return rf(opts, arg0, arg1, arg2)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, common.Address, common.Address, []byte) *types.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address, common.Address, []byte) bool); ok {
 		r0 = rf(opts, arg0, arg1, arg2)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
+		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address, common.Address, []byte) error); ok {
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address, common.Address, []byte) error); ok {
 		r1 = rf(opts, arg0, arg1, arg2)
 	} else {
 		r1 = ret.Error(1)

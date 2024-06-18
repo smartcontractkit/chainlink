@@ -185,7 +185,7 @@ contract MockL2BridgeAdapter is IBridgeAdapter {
     address /* remoteSender */,
     address /* localReceiver */,
     bytes calldata /* bridgeSpecificData */
-  ) external override returns (bool) {
+  ) external pure override returns (bool) {
     return true;
   }
 }
