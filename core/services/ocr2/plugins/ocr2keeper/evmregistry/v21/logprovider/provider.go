@@ -224,6 +224,12 @@ func (p *logEventProvider) HealthReport() map[string]error {
 }
 
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		p.lggr.Debugw("GetLatestPayloads finished", "elapsed", elapsed.String())
+	}()
+
 	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
@@ -277,6 +283,12 @@ func (p *logEventProvider) getBufferDequeueArgs() (blockRate, logLimitLow, maxRe
 }
 
 func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.UpkeepPayload {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		p.lggr.Debugw("getLogsFromBuffer finished", "elapsed", elapsed.String())
+	}()
+
 	var payloads []ocr2keepers.UpkeepPayload
 
 	start := latestBlock - p.opts.LookbackBlocks
