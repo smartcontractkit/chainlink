@@ -4,7 +4,6 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -379,31 +378,6 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 
 	// If we fail to return funds from some addresses, we still want to try to return funds from the rest
 	encounteredErrors := []error{}
-
-	if len(blockchainClient.GetWallets()) > 1 {
-		if err := blockchainClient.SetDefaultWallet(0); err != nil {
-			encounteredErrors = append(encounteredErrors, err)
-		} else {
-			for walletIndex := 1; walletIndex < len(blockchainClient.GetWallets()); walletIndex++ {
-				decodedKey, err := hex.DecodeString(blockchainClient.GetWallets()[walletIndex].PrivateKey())
-				if err != nil {
-					encounteredErrors = append(encounteredErrors, err)
-					continue
-				}
-				privKey, err := crypto.ToECDSA(decodedKey)
-				if err != nil {
-					encounteredErrors = append(encounteredErrors, err)
-					continue
-				}
-
-				err = blockchainClient.ReturnFunds(privKey)
-				if err != nil {
-					encounteredErrors = append(encounteredErrors, err)
-					continue
-				}
-			}
-		}
-	}
 
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
