@@ -21,6 +21,7 @@ const (
 	timestampFieldName = "block_timestamp"
 	txHashFieldName    = "tx_hash"
 	eventSigFieldName  = "event_sig"
+	defaultSort        = "block_number ASC, log_index ASC"
 )
 
 var (
@@ -249,9 +250,13 @@ func (v *pgDSLParser) whereClause(expressions []query.Expression, limiter query.
 	segment := "WHERE evm_chain_id = :evm_chain_id"
 
 	if len(expressions) > 0 {
-		exp, err := v.combineExpressions(expressions, query.AND)
+		exp, hasFinalized, err := v.combineExpressions(expressions, query.AND)
 		if err != nil {
 			return "", err
+		}
+
+		if limiter.HasCursorLimit() && !hasFinalized {
+			return "", errors.New("cursor-base queries limited to only finalized blocks")
 		}
 
 		segment = fmt.Sprintf("%s AND %s", segment, exp)
@@ -268,15 +273,14 @@ func (v *pgDSLParser) whereClause(expressions []query.Expression, limiter query.
 			return "", errors.New("invalid cursor direction")
 		}
 
-		block, txHash, logIdx, err := valuesFromCursor(limiter.Limit.Cursor)
+		block, logIdx, _, err := valuesFromCursor(limiter.Limit.Cursor)
 		if err != nil {
 			return "", err
 		}
 
-		segment = fmt.Sprintf("%s AND block_number %s= :cursor_block AND tx_hash %s= :cursor_txhash AND log_index %s :cursor_log_index", segment, op, op, op)
+		segment = fmt.Sprintf("%s AND (block_number %s :cursor_block_number OR (block_number = :cursor_block_number AND log_index %s :cursor_log_index))", segment, op, op)
 
 		v.args.withField("cursor_block_number", block).
-			withField("cursor_txhash", common.HexToHash(txHash)).
 			withField("cursor_log_index", logIdx)
 	}
 
@@ -302,7 +306,7 @@ func (v *pgDSLParser) orderClause(limiter query.LimitAndSort) (string, error) {
 	}
 
 	if len(sorting) == 0 {
-		return "", nil
+		return fmt.Sprintf("ORDER BY %s", defaultSort), nil
 	}
 
 	sort := make([]string, len(sorting))
@@ -319,7 +323,7 @@ func (v *pgDSLParser) orderClause(limiter query.LimitAndSort) (string, error) {
 		case query.SortByBlock:
 			name = blockFieldName
 		case query.SortBySequence:
-			sort[idx] = fmt.Sprintf("block_number %s, tx_hash %s, log_index %s", order, order, order)
+			sort[idx] = fmt.Sprintf("block_number %s, log_index %s, tx_hash %s", order, order, order)
 
 			continue
 		case query.SortByTimestamp:
@@ -352,24 +356,37 @@ func (v *pgDSLParser) getLastExpression() (string, error) {
 	return exp, err
 }
 
-func (v *pgDSLParser) combineExpressions(expressions []query.Expression, op query.BoolOperator) (string, error) {
+func (v *pgDSLParser) combineExpressions(expressions []query.Expression, op query.BoolOperator) (string, bool, error) {
 	grouped := len(expressions) > 1
 	clauses := make([]string, len(expressions))
+
+	var isFinalized bool
 
 	for idx, exp := range expressions {
 		if exp.IsPrimitive() {
 			exp.Primitive.Accept(v)
 
+			switch prim := exp.Primitive.(type) {
+			case *primitives.Confidence:
+				isFinalized = prim.ConfidenceLevel == primitives.Finalized
+			case *confirmationsFilter:
+				isFinalized = prim.Confirmations == evmtypes.Finalized
+			}
+
 			clause, err := v.getLastExpression()
 			if err != nil {
-				return "", err
+				return "", isFinalized, err
 			}
 
 			clauses[idx] = clause
 		} else {
-			clause, err := v.combineExpressions(exp.BoolExpression.Expressions, exp.BoolExpression.BoolOperator)
+			clause, fin, err := v.combineExpressions(exp.BoolExpression.Expressions, exp.BoolExpression.BoolOperator)
 			if err != nil {
-				return "", err
+				return "", isFinalized, err
+			}
+
+			if fin {
+				isFinalized = fin
 			}
 
 			clauses[idx] = clause
@@ -382,7 +399,7 @@ func (v *pgDSLParser) combineExpressions(expressions []query.Expression, op quer
 		output = fmt.Sprintf("(%s)", output)
 	}
 
-	return output, nil
+	return output, isFinalized, nil
 }
 
 func cmpOpToString(op primitives.ComparisonOperator) (string, error) {
@@ -415,23 +432,30 @@ func orderToString(dir query.SortDirection) (string, error) {
 	}
 }
 
-func valuesFromCursor(cursor string) (int64, string, int, error) {
+func valuesFromCursor(cursor string) (int64, int, []byte, error) {
+	partCount := 3
+
 	parts := strings.Split(cursor, "-")
-	if len(parts) != 3 {
-		return 0, "", 0, fmt.Errorf("%w: must be composed as block-txhash-logindex", ErrUnexpectedCursorFormat)
+	if len(parts) != partCount {
+		return 0, 0, nil, fmt.Errorf("%w: must be composed as block-logindex-txHash", ErrUnexpectedCursorFormat)
 	}
 
 	block, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return 0, "", 0, fmt.Errorf("%w: block number not parsable as int64", ErrUnexpectedCursorFormat)
+		return 0, 0, nil, fmt.Errorf("%w: block number not parsable as int64", ErrUnexpectedCursorFormat)
 	}
 
-	logIdx, err := strconv.ParseInt(parts[2], 10, 32)
+	logIdx, err := strconv.ParseInt(parts[1], 10, 32)
 	if err != nil {
-		return 0, "", 0, fmt.Errorf("%w: log index not parsable as int", ErrUnexpectedCursorFormat)
+		return 0, 0, nil, fmt.Errorf("%w: log index not parsable as int", ErrUnexpectedCursorFormat)
 	}
 
-	return block, parts[1], int(logIdx), nil
+	txHash, err := hexutil.Decode(parts[2])
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("%w: invalid transaction hash: %s", ErrUnexpectedCursorFormat, err.Error())
+	}
+
+	return block, int(logIdx), txHash, nil
 }
 
 type addressFilter struct {

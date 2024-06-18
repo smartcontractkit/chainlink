@@ -188,8 +188,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
 		return &commontypes.ChainFeeComponents{
-			ExecutionFee:        *gasPrice,
-			DataAvailabilityFee: *big.NewInt(0),
+			ExecutionFee:        gasPrice,
+			DataAvailabilityFee: big.NewInt(0),
 		}, nil
 	}
 	l1OracleFee, err := l1Oracle.GasPrice(ctx)
@@ -198,8 +198,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}
 
 	return &commontypes.ChainFeeComponents{
-		ExecutionFee:        *gasPrice,
-		DataAvailabilityFee: *big.NewInt(l1OracleFee.Int64()),
+		ExecutionFee:        gasPrice,
+		DataAvailabilityFee: big.NewInt(l1OracleFee.Int64()),
 	}, nil
 }
 

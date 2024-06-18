@@ -5,5 +5,5 @@ pnpm 8.15.8
 postgres 15.1
 helm 3.10.3
 zig 0.11.0
-golangci-lint 1.55.2
+golangci-lint 1.59.1
 protoc 25.1
