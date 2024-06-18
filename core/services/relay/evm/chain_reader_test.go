@@ -141,7 +141,6 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 }
 
 func TestChainReader(t *testing.T) {
-	// TODO QueryKey test is flaky BCF-3258
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
 	RunChainReaderEvmTests(t, it)
