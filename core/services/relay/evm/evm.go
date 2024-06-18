@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -46,6 +48,7 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 )
 
 var (
@@ -99,6 +102,7 @@ type CSAETHKeystore interface {
 
 type RelayerOpts struct {
 	DS sqlutil.DataSource
+	DB *sql.DB // hack for migrations. need a way to get this from the DS, or other move the migration logic out of here
 	CSAETHKeystore
 	MercuryPool          wsrpc.Pool
 	TransmitterConfig    mercury.TransmitterConfig
@@ -128,6 +132,15 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	lggr = lggr.Named("Relayer")
+	// run the migrations for the relayer
+	// TODO: this is a hack. migration require a sql.DB because that's what goose uses
+	err = evmdb.Migrate(context.Background(), opts.DB, evmdb.Cfg{
+		Schema:  "evm_" + chain.ID().String(),
+		ChainID: ubig.New(chain.ID()),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate evm relayer for chain %s: %w", chain.ID().String(), err)
+	}
 
 	mercuryORM := mercury.NewORM(opts.DS)
 	lloORM := llo.NewORM(opts.DS, chain.ID())

@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -42,6 +43,8 @@ type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
 	evmrelay.CSAETHKeystore
 	coreconfig.MercuryTransmitter
+	// hack to allow for the factory to be used in the context of the relayer
+	DB *sql.DB
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[types.RelayID]evmrelay.LoopRelayAdapter, error) {
@@ -76,6 +79,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 			MercuryPool:          r.MercuryPool,
 			TransmitterConfig:    config.MercuryTransmitter,
 			CapabilitiesRegistry: r.CapabilitiesRegistry,
+			DB:                   config.DB, //hack
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
