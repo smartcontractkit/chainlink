@@ -590,7 +590,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -649,7 +649,7 @@ jobs:
 
   parse-test-results:
     name: Parse Test Results
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
     environment: integration
     permissions:
       checks: write
@@ -686,7 +686,7 @@ jobs:
 
   display-test-results:
     name: Aggregated test results
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    if:  always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
     environment: integration
     permissions:
       checks: write
