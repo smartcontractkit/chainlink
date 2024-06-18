@@ -86,6 +86,12 @@ func (c *CCIPTestConfig) useExistingDeployment() bool {
 	return pointer.GetBool(c.TestGroupInput.ExistingDeployment)
 }
 
+func (c *CCIPTestConfig) useSeparateTokenDeployer() bool {
+	return contracts.NeedTokenAdminRegistry() &&
+		!pointer.GetBool(c.TestGroupInput.TokenConfig.CCIPOwnerTokens) &&
+		!c.useExistingDeployment()
+}
+
 func (c *CCIPTestConfig) MultiCallEnabled() bool {
 	return pointer.GetBool(c.TestGroupInput.MulticallInOneTx)
 }
@@ -231,10 +237,13 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 			}
 			name := fmt.Sprintf("private-chain-%d", len(c.SelectedNetworks)+1)
 			c.SelectedNetworks = append(c.SelectedNetworks, blockchain.EVMNetwork{
-				Name:                      name,
-				ChainID:                   chainID,
-				Simulated:                 true,
-				PrivateKeys:               []string{networks.AdditionalSimulatedPvtKeys[i]},
+				Name:      name,
+				ChainID:   chainID,
+				Simulated: true,
+				PrivateKeys: []string{
+					networks.AdditionalSimulatedPvtKeys[i],
+					"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80", // second key for token deployments
+				},
 				ChainlinkTransactionLimit: n.ChainlinkTransactionLimit,
 				Timeout:                   n.Timeout,
 				MinimumConfirmations:      n.MinimumConfirmations,
@@ -351,7 +360,8 @@ func (c *CCIPTestConfig) SetOCRParams() error {
 // This is useful for setting up test specific configurations.
 type TestConfigOverrideOption func(*CCIPTestConfig) string
 
-// WithCCIPOwnerTokens sets the number of tokens to be deployed and owned by the same account that owns all CCIP contracts
+// WithCCIPOwnerTokens dictates that tokens be deployed and owned by the same account that owns all CCIP contracts.
+// With Self-Serve tokens, this is unrealistic.
 func WithCCIPOwnerTokens() TestConfigOverrideOption {
 	return func(c *CCIPTestConfig) string {
 		c.TestGroupInput.TokenConfig.CCIPOwnerTokens = pointer.ToBool(true)
@@ -900,19 +910,25 @@ func CCIPDefaultTestSetUp(
 	chainAddGrp, _ := errgroup.WithContext(setUpArgs.SetUpContext)
 	lggr.Info().Msg("Deploying common contracts")
 
-	// If we have a token admin registry, we need to create a new wallet to deploy our test tokens from so that the tokens
+	// If we have a token admin registry, we need to use a separate to deploy our test tokens from so that the tokens
 	// are not owned by the same account that owns the other CCIP contracts. This emulates self-serve token setups where
 	// the token owner is different from the CCIP contract owner.
-	if contracts.NeedTokenAdminRegistry() && !pointer.GetBool(testConfig.TestGroupInput.TokenConfig.CCIPOwnerTokens) {
+	if testConfig.useSeparateTokenDeployer() {
 		for _, net := range testConfig.AllNetworks {
 			chainClient := chainClientByChainID[net.ChainID]
-			if !pointer.GetBool(testConfig.TestGroupInput.ExistingDeployment) {
-				// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
-				// There aren't a lot of good ways to estimate this though. See CCIP-2471.
-				_, err = chainClient.NewWallet(big.NewFloat(0.1))
-				require.NoError(t, err, "failed to create new wallet to deploy tokens from")
-				err = chainClient.WaitForEvents()
-				require.NoError(t, err, "failed to wait for events after creating new wallet")
+			require.GreaterOrEqual(t, len(chainClient.GetWallets()), 2, "The test is using a TokenAdminRegistry, and has CCIPOwnerTokens set to 'false'. The test needs a second wallet to deploy token contracts from. Please add a second wallet to the 'evm_clients' config option.")
+			tokenDeployerWallet := chainClient.GetWallets()[1]
+			// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
+			// There aren't a lot of good ways to estimate this though. See CCIP-2471.
+			recommendedTokenBalance := new(big.Int).Mul(big.NewInt(5e18), big.NewInt(int64(pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain))))
+			currentTokenBalance, err := chainClient.BalanceAt(context.Background(), common.HexToAddress(tokenDeployerWallet.Address()))
+			require.NoError(t, err)
+			if currentTokenBalance.Cmp(recommendedTokenBalance) < 0 {
+				lggr.Warn().
+					Str("Token Deployer Address", tokenDeployerWallet.Address()).
+					Uint64("Current Balance", currentTokenBalance.Uint64()).
+					Uint64("Recommended Balance", recommendedTokenBalance.Uint64()).
+					Msg("Token Deployer wallet may be underfunded. Please ensure it has enough funds to deploy the tokens.")
 			}
 		}
 	}

@@ -448,6 +448,7 @@ func TestSmokeCCIPSelfServeRateLimitOnRamp(t *testing.T) {
 			require.GreaterOrEqual(t, len(src.Common.BridgeTokenPools), 2, "At least two bridge token pools needed for test")
 			require.GreaterOrEqual(t, len(dest.Common.BridgeTokens), 2, "At least two bridge tokens needed for test")
 			require.GreaterOrEqual(t, len(dest.Common.BridgeTokenPools), 2, "At least two bridge token pools needed for test")
+			require.NotEqualValues(t, src.Common.ChainClient.GetDefaultWallet().Address(), src.Common.BridgeTokens[0].OwnerAddress.Hex(), "Token owner and CCIP wallet should be different")
 			// add liquidity to pools on both networks
 			if !pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {
 				addFund := func(ccipCommon *actions.CCIPCommon) {
@@ -589,6 +590,7 @@ func TestSmokeCCIPSelfServeRateLimitOffRamp(t *testing.T) {
 			require.GreaterOrEqual(t, len(src.Common.BridgeTokenPools), 2, "At least two bridge token pools needed for test")
 			require.GreaterOrEqual(t, len(dest.Common.BridgeTokens), 2, "At least two bridge tokens needed for test")
 			require.GreaterOrEqual(t, len(dest.Common.BridgeTokenPools), 2, "At least two bridge token pools needed for test")
+			require.NotEqualValues(t, src.Common.ChainClient.GetDefaultWallet().Address(), src.Common.BridgeTokens[0].OwnerAddress.Hex(), "Token owner and CCIP wallet should be different")
 			// add liquidity to pools on both networks
 			if !pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {
 				addFund := func(ccipCommon *actions.CCIPCommon) {
