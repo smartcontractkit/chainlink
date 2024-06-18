@@ -28,7 +28,7 @@ type donID uint32
 type state struct {
 	IDsToDONs         map[donID]kcr.CapabilitiesRegistryDONInfo
 	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
-	IDsToCapabilities map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability
+	IDsToCapabilities map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
 }
 
 func (r *remoteRegistryReader) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -80,15 +80,15 @@ func (r *remoteRegistryReader) state(ctx context.Context) (state, error) {
 		idsToDONs[donID(d.Id)] = d
 	}
 
-	caps := kcr.GetCapabilities{}
+	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
 	err = r.r.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", nil, &caps)
 	if err != nil {
 		return state{}, err
 	}
 
-	idsToCapabilities := map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{}
-	for i, c := range caps.Capabilities {
-		idsToCapabilities[caps.HashedCapabilityIds[i]] = c
+	idsToCapabilities := map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{}
+	for _, c := range caps {
+		idsToCapabilities[c.HashedId] = c
 	}
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}

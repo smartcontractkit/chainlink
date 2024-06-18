@@ -399,7 +399,7 @@ type capabilityService interface {
 	services.Service
 }
 
-func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapability, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
+func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capabilityInfo.LabelledName, capabilityInfo.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,
@@ -520,7 +520,7 @@ type receiverService interface {
 	remotetypes.Receiver
 }
 
-func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapability, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
+func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capability.LabelledName, capability.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,
