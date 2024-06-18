@@ -388,28 +388,26 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 
 func TestMigrate(t *testing.T) {
 	ctx := testutils.Context(t)
-	t.Run("core migration", func(t *testing.T) {
-		_, db := heavyweight.FullTestDBEmptyV2(t, nil)
-		err := goose.UpTo(db.DB, migrationDir, 100)
-		require.NoError(t, err)
+	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
+	err := goose.UpTo(db.DB, migrationDir, 100)
+	require.NoError(t, err)
 
-		err = migrate.Status(ctx, db.DB)
-		require.NoError(t, err)
+	err = migrate.Status(ctx, db.DB)
+	require.NoError(t, err)
 
-		ver, err := migrate.Current(ctx, db.DB)
-		require.NoError(t, err)
-		require.Equal(t, int64(100), ver)
+	ver, err := migrate.Current(ctx, db.DB)
+	require.NoError(t, err)
+	require.Equal(t, int64(100), ver)
 
-		err = migrate.Migrate(ctx, db.DB)
-		require.NoError(t, err)
+	err = migrate.Migrate(ctx, db.DB)
+	require.NoError(t, err)
 
-		err = migrate.Rollback(ctx, db.DB, null.IntFrom(99))
-		require.NoError(t, err)
+	err = migrate.Rollback(ctx, db.DB, null.IntFrom(99))
+	require.NoError(t, err)
 
-		ver, err = migrate.Current(ctx, db.DB)
-		require.NoError(t, err)
-		require.Equal(t, int64(99), ver)
-	})
+	ver, err = migrate.Current(ctx, db.DB)
+	require.NoError(t, err)
+	require.Equal(t, int64(99), ver)
 }
 
 func TestSetMigrationENVVars(t *testing.T) {

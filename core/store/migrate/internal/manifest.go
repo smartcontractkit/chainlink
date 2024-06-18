@@ -8,6 +8,14 @@ import (
 	"strings"
 )
 
+// Manifest is an attempt to programmatically handle rollbacks to a consistent state
+// the problem is that migrations for core and plugin instances are versioned independently
+// but a functional core node requires a consistent state between core and plugin migrations
+// the solution employed here is to list all the sql and go migrations by the date added to repo.
+// it's quite brittle...
+// a better way would be to have a manifest file that lists all the migrations by release version
+// so that we can rollback by release and abstract the details of the individual migrations
+
 type Manifest struct {
 	Entries []ManifestEntry
 	m       map[string]ManifestEntry
