@@ -36,7 +36,7 @@ runs:
       shell: bash
       id: test-results
       run: |
-        if [ -n ${{ inputs.base64_parsed_results }} ]; then
+        if [ -n "${{ inputs.base64_parsed_results }}" ]; then
           echo "Using base64 parsed results"
           PARSED_RESULTS=$(echo ${{ inputs.base64_parsed_results }} | base64 -d)
         else
@@ -92,7 +92,7 @@ runs:
         echo "Clean Results"
         echo $CLEAN_RESULTS
 
-        echo results=$CLEAN_RESULTS >> $GITHUB_ENV
+        echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
     - name: Post Results
       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
       env:
