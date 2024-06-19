@@ -44,7 +44,7 @@ runs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
         
-          workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ github_job_name_regex }}" -outputFile=output.json      
+          workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ inputs.github_job_name_regex }}" -outputFile=output.json
           PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results")) | .results[]")         
         fi   
         
