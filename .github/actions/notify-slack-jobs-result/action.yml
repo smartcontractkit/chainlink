@@ -84,8 +84,6 @@ runs:
           exit 0
         fi
       
-        FORMATTED_RESULTS="{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"No test run: :ballot_box_with_check:\"}}"
-
         echo "Formatted Results:"
         echo $FORMATTED_RESULTS
 
