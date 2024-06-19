@@ -175,6 +175,10 @@ goreleaser-dev-release: ## run goreleaser snapshot release
 modgraph:
 	./tools/bin/modgraph > go.md
 
+.PHONY: test-short
+test-short: ## Run 'go test -short' and suppress uninteresting output
+	go test -short ./... | grep -v "[no test files]" | grep -v "\(cached\)"
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
