@@ -173,16 +173,24 @@ next_gas_limit_percentage = 0.5
 delay_create = "1m"
 duration = "3m"
 
-[TestOCRSoak_RPCDown.Common]
+[TestOCRSoak_RPCDownForAllCLNodes.Common]
 chainlink_node_funding = 100
-[TestOCRSoak_RPCDown.OCR.Common]
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Common]
 test_duration="15m"
-[TestOCRSoak_RPCDown.OCR.Soak]
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Soak]
 ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
-[TestOCRSoak_RPCDown.Network]
+[TestOCRSoak_RPCDownForAllCLNodes.Network]
 selected_networks=["simulated"]
-[TestOCRSoak_RPCDown.ChaosSimulation]
-geth_network_delay_create = "2m"
-geth_network_down_duration = "3m"
+
+[TestOCRSoak_RPCDownForHalfCLNodes.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDownForHalfCLNodes.Network]
+selected_networks=["simulated"]

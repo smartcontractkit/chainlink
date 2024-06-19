@@ -18,6 +18,7 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
-	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -39,10 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/havoc/k8schaos"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -91,11 +89,25 @@ type OCRSoakTest struct {
 	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
 	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
 	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
-	chaosSimulations           []*k8schaos.Chaos
+	chaosList                  []*k8schaos.Chaos     // list of chaos simulations to run during the test
+}
+
+type OCRSoakTestOption = func(c *OCRSoakTest)
+
+func WithChaos(chaosList []*k8schaos.Chaos) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.chaosList = chaosList
+	}
+}
+
+func WithNamespace(ns string) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.namespace = ns
+	}
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
-func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*OCRSoakTest, error) {
+func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
 	test := &OCRSoakTest{
 		Config:                config,
 		OperatorForwarderFlow: forwarderFlow,
@@ -111,6 +123,9 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
 	}
+	for _, opt := range opts {
+		opt(test)
+	}
 	t.Cleanup(func() {
 		test.deleteChaosSimulations()
 	})
@@ -120,16 +135,23 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
 	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
-	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
-	if o.OperatorForwarderFlow {
-		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+
+	// Define namespace if default not set
+	if o.namespace == "" {
+		nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
+		if o.OperatorForwarderFlow {
+			nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+		}
+
+		nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
+		nsPre = strings.ReplaceAll(nsPre, "_", "-")
+
+		o.namespace = fmt.Sprintf("%s-%s", nsPre, uuid.NewString()[0:5])
 	}
 
-	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
-	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
-		NamespacePrefix:    nsPre,
+		Namespace:          o.namespace,
 		Test:               o.t,
 		PreventPodEviction: true,
 	}
@@ -652,13 +674,17 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		}
 	}
 
-	if o.Config.ChaosSimulation != nil {
-		// Schedule RPC down simulation if needed
-		if o.Config.ChaosSimulation.GethNetworkDownDuration.Duration > 0 {
-			if n.IsSimulatedGethSelected() {
-				o.startGethNetworkDownSimulation(*o.Config.ChaosSimulation)
-			} else {
-				require.Fail(o.t, "Geth network down chaos simulation is only available for Simulated Geth")
+	// Schedule chaos simulations if needed
+	if len(o.chaosList) > 0 {
+		for _, chaos := range o.chaosList {
+			chaos.Create(context.Background())
+			chaos.AddListener(k8schaos.NewChaosLogger(o.log))
+			chaos.AddListener(ocrTestChaosListener{t: o.t})
+			// Add Grafana annotation if configured
+			if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
+				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(
+					*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken,
+					*o.Config.Logging.Grafana.DashboardUID, o.log))
 			}
 		}
 	}
@@ -760,73 +786,10 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 	o.gasLimitSimulationHappened = true
 }
 
-func (o *OCRSoakTest) startGethNetworkDownSimulation(conf tc.ChaosSimulation) {
-	chaosName := "ocr-soak-test-geth-network-down"
-	namespace := o.testEnvironment.Cfg.Namespace
-	k8sClient, err := k8schaos.NewChaosMeshClient()
-	require.NoError(o.t, err, "Error creating chaos mesh client")
-
-	chaos, err := k8schaos.NewChaos(k8schaos.ChaosOpts{
-		Description: "RPC Down Chaos",
-		DelayCreate: conf.GethNetworkDownDelayCreate.Duration,
-		Object: &v1alpha1.NetworkChaos{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "NetworkChaos",
-				APIVersion: "chaos-mesh.org/v1alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      chaosName,
-				Namespace: namespace,
-			},
-			Spec: v1alpha1.NetworkChaosSpec{
-				Action: v1alpha1.LossAction,
-				PodSelector: v1alpha1.PodSelector{
-					Mode: v1alpha1.AllMode,
-					Selector: v1alpha1.PodSelectorSpec{
-						GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
-							Namespaces:     []string{namespace},
-							LabelSelectors: map[string]string{"app": "geth"},
-						},
-					},
-				},
-				Duration:  ptr.Ptr(conf.GethNetworkDownDuration.String()),
-				Direction: v1alpha1.Both,
-				Target: &v1alpha1.PodSelector{
-					Selector: v1alpha1.PodSelectorSpec{
-						GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
-							Namespaces:     []string{namespace},
-							LabelSelectors: map[string]string{"app": "chainlink-0"},
-						},
-					},
-					Mode: v1alpha1.AllMode, // Applying to all other OCR nodes
-				},
-				TcParameter: v1alpha1.TcParameter{
-					Loss: &v1alpha1.LossSpec{
-						Loss: "100",
-					},
-				},
-			},
-		},
-		Client: k8sClient,
-		Logger: &k8schaos.Logger,
-	})
-	require.NoError(o.t, err, "Error creating chaos object")
-	chaos.Create(context.Background())
-	chaos.AddListener(k8schaos.NewChaosLogger(o.log))
-	chaos.AddListener(ocrTestChaosListener{t: o.t})
-	// Add Grafana annotation if configured
-	if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
-		chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(
-			*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken,
-			*o.Config.Logging.Grafana.DashboardUID, o.log))
-	}
-	o.chaosSimulations = append(o.chaosSimulations, chaos)
-}
-
 // Delete k8s chaos objects it any of them still exist
 // This is needed to clean up the chaos objects if the test is interrupted or it finishes
 func (o *OCRSoakTest) deleteChaosSimulations() {
-	for _, chaos := range o.chaosSimulations {
+	for _, chaos := range o.chaosList {
 		err := chaos.Delete(context.Background())
 		if err != nil {
 			o.log.Error().Err(err).Msg("Error deleting chaos object")
