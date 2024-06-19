@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
@@ -33,6 +34,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -48,6 +50,7 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 )
 
@@ -133,20 +136,31 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 	lggr = lggr.Named("Relayer")
 	// run the migrations for the relayer
-	// TODO: this is a hack. migration require a sql.DB because that's what goose uses
-	err = evmdb.Migrate(context.Background(), opts.DB, evmdb.Cfg{
+	// TODO: need a dburl in options. this is a hack. migration require a sql.DB because that's what goose uses
+	dburl := string(env.DatabaseURL)
+	if dburl == "" {
+		return nil, errors.New("missing DatabaseURL")
+	}
+	db, err := sql.Open(string(dialects.Postgres), dburl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
+
+	err = evmdb.Migrate(context.Background(), db, evmdb.Cfg{
 		Schema:  "evm_" + chain.ID().String(),
 		ChainID: ubig.New(chain.ID()),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate evm relayer for chain %s: %w", chain.ID().String(), err)
 	}
-
+	dbx := sqlx.NewDb(db, string(dialects.Postgres))
+	ds := sqlutil.WrapDataSource(dbx, lggr)
 	mercuryORM := mercury.NewORM(opts.DS)
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	relayer := &Relayer{
-		ds:                   opts.DS,
+		ds:                   ds,
 		chain:                chain,
 		lggr:                 lggr,
 		ks:                   opts.CSAETHKeystore,

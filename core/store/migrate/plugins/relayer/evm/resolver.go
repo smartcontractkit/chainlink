@@ -25,10 +25,6 @@ type Cfg struct {
 	ChainID *big.Big
 }
 
-func RegisterSchemaMigration(val Cfg) error {
-	return Register0002(val)
-}
-
 var migrationSuffix = ".tmpl.sql"
 
 func resolve(out io.Writer, in string, val Cfg) error {
