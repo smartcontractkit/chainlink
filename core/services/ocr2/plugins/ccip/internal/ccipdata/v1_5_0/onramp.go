@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
 
 var (
@@ -106,7 +106,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 		client:                     source,
 		destChainSelectorBytes:     ccipcommon.SelectorToBytes(destSelector),
 		lp:                         sourceLP,
-		leafHasher:                 NewLeafHasher(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
+		leafHasher:                 NewLeafHasher(sourceSelector, destSelector, onRampAddress, hashutil.NewKeccak(), onRamp),
 		onRamp:                     onRamp,
 		filters:                    filters,
 		address:                    onRampAddress,

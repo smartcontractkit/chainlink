@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -22,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	db "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
@@ -510,7 +510,7 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 	if !ccipcalc.ContiguousReqs(lggr, interval.Min, interval.Max, seqNrs) {
 		return cciptypes.CommitStoreReport{}, errors.Errorf("do not have full range [%v, %v] have %v", interval.Min, interval.Max, seqNrs)
 	}
-	tree, err := merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
+	tree, err := merklemulti.NewTree(hashutil.NewKeccak(), leaves)
 	if err != nil {
 		return cciptypes.CommitStoreReport{}, err
 	}

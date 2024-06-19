@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
 
 func TestHasherV1_0_0(t *testing.T) {
@@ -21,7 +22,7 @@ func TestHasherV1_0_0(t *testing.T) {
 
 	ramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampAddress, nil)
 	require.NoError(t, err)
-	hashingCtx := hashlib.NewKeccakCtx()
+	hashingCtx := hashutil.NewKeccak()
 	hasher := NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)
 
 	message := evm_2_evm_onramp_1_0_0.InternalEVM2EVMMessage{
@@ -77,7 +78,7 @@ func TestHasherV1_0_0(t *testing.T) {
 func TestMetaDataHash(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
-	ctx := hashlib.NewKeccakCtx()
+	ctx := hashutil.NewKeccak()
 	hash := GetMetaDataHash(ctx, ctx.Hash([]byte(MetaDataHashPrefix)), sourceChainSelector, onRampAddress, destChainSelector)
 	require.Equal(t, "1409948abde219f43870c3d6d1c16beabd8878eb5039a3fa765eb56e4b8ded9e", hex.EncodeToString(hash[:]))
 }

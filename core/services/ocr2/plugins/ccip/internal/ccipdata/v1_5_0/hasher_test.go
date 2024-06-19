@@ -9,9 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
 
 func TestHasherV1_4_0(t *testing.T) {
@@ -19,7 +20,7 @@ func TestHasherV1_4_0(t *testing.T) {
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
 
-	hashingCtx := hashlib.NewKeccakCtx()
+	hashingCtx := hashutil.NewKeccak()
 	ramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, nil)
 	require.NoError(t, err)
 	hasher := NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx, ramp)

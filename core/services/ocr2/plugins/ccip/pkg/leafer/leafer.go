@@ -7,13 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
 )
 
 // LeafHasher converts a CCIPSendRequested event into something that can be hashed and hashes it.
@@ -31,7 +32,7 @@ const (
 )
 
 // MakeLeafHasher is a factory function to construct the onramp implementing the HashLeaf function for a given version.
-func MakeLeafHasher(ver Version, cl bind.ContractBackend, sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx hashlib.Ctx[[32]byte]) (LeafHasher, error) {
+func MakeLeafHasher(ver Version, cl bind.ContractBackend, sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx hashutil.Hasher[[32]byte]) (LeafHasher, error) {
 	switch ver {
 	case V1_0_0:
 		or, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampId, cl)
