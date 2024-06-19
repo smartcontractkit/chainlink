@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/hashlib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/pkg/merklemulti"
 )
 
 func getProofData(
@@ -35,7 +35,7 @@ func getProofData(
 	for _, req := range sendReqs {
 		leaves = append(leaves, req.Hash)
 	}
-	tree, err = merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
+	tree, err = merklemulti.NewTree(hashutil.NewKeccak(), leaves)
 	if err != nil {
 		return nil, nil, nil, err
 	}
