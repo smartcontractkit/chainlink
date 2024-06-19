@@ -461,4 +461,4 @@ Currently, Seth doesn't support splitting non-native tokens between keys. If you
 3. **Prepare payload for Multicall contract** that will call `transfer` function on the token contract for each key.
 4. **Execute Multicall contract** with the payload prepared in the previous step.
 
-You can find sample code for doing that for LINK token in [actions.(./actions/seth/actions.go) file as `SendLinkFundsToDeploymentAddresses()` method.
+You can find sample code for doing that for LINK token in [actions](./actions/actions.go) file as `SendLinkFundsToDeploymentAddresses()` method.
