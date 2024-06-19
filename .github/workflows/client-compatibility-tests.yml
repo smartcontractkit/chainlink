@@ -37,9 +37,6 @@ concurrency:
   group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--evm-compatibility-tests
   cancel-in-progress: true
 
-# tag, schedule and workflow dispatch -- run always
-# merge queue and pull request -- run only if go-ethereum dependency was bumped
-
 jobs:
   # Build Test Dependencies
 
