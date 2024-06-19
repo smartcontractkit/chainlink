@@ -2,12 +2,12 @@ package evm
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
 	"gopkg.in/guregu/null.v4"
@@ -17,15 +17,28 @@ import (
 var mu sync.Mutex
 var providerCache = make(map[string]*goose.Provider)
 
-func newProvider(db *sql.DB, cfg Cfg) (*goose.Provider, error) {
-	mTable := fmt.Sprintf("goose_migration_evmrelayer_%s_%s", cfg.Schema, cfg.ChainID.String())
+type session struct {
+	User string
+	DB   string
+}
 
+func newProvider(db *sqlx.DB, cfg Cfg) (*goose.Provider, error) {
+	// cache doesn't seem to work, with tests; see errors with missed emv_XX tables
+	// best guess the the db object is different between calls.
+	mTable := fmt.Sprintf("goose_migration_evmrelayer_%s_%s", cfg.Schema, cfg.ChainID.String())
+	var s session
+	err := db.Get(&s, `SELECT user, current_database() as db;`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session info: %w", err)
+	}
+	id := fmt.Sprintf("%s@%s:%s", s.User, s.DB, mTable)
 	mu.Lock()
 	defer mu.Unlock()
-	if p, ok := providerCache[mTable]; ok {
+	if p, ok := providerCache[id]; ok {
 		return p, nil
 	}
-
+	// TODO: could be another layer of sharing to reuse generated migrations for the same cfg across different dbs
+	// maybe that would be more error prone and not worth it
 	store, err := database.NewStore(goose.DialectPostgres, mTable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create goose store for table %s: %w", mTable, err)
@@ -63,14 +76,14 @@ func newProvider(db *sql.DB, cfg Cfg) (*goose.Provider, error) {
 	goose.ResetGlobalMigrations()
 	p, err := goose.NewProvider(
 		"",
-		db, fsys,
+		db.DB, fsys,
 		goose.WithStore(store),
 		goose.WithDisableGlobalRegistry(true), // until/if we refactor the core migrations to use goose provider
 		goose.WithGoMigrations(goMigrations...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create goose provider: %w", err)
 	}
-	providerCache[mTable] = p
+	providerCache[id] = p
 	return p, nil
 }
 
@@ -89,7 +102,7 @@ func setupPluginMigrations(cfg Cfg) error {
 */
 // Migrate migrates a subsystem of the chainlink database.
 // It generates migrations based on the template for the subsystem and applies them to the database.
-func Migrate(ctx context.Context, db *sql.DB, cfg Cfg) error {
+func Migrate(ctx context.Context, db *sqlx.DB, cfg Cfg) error {
 	p, err := newProvider(db, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create goose provider: %w", err)
@@ -128,7 +141,7 @@ func Migrate(ctx context.Context, db *sql.DB, cfg Cfg) error {
 	return nil
 }
 
-func Rollback(ctx context.Context, db *sql.DB, version null.Int, cfg Cfg) error {
+func Rollback(ctx context.Context, db *sqlx.DB, version null.Int, cfg Cfg) error {
 	p, err := newProvider(db, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create goose provider: %w", err)
@@ -142,7 +155,7 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int, cfg Cfg) error 
 	return err
 }
 
-func Current(ctx context.Context, db *sql.DB, cfg Cfg) (int64, error) {
+func Current(ctx context.Context, db *sqlx.DB, cfg Cfg) (int64, error) {
 	p, err := newProvider(db, cfg)
 	if err != nil {
 		return -1, fmt.Errorf("failed to create goose provider: %w", err)
@@ -151,7 +164,7 @@ func Current(ctx context.Context, db *sql.DB, cfg Cfg) (int64, error) {
 
 }
 
-func Status(ctx context.Context, db *sql.DB, cfg Cfg) error {
+func Status(ctx context.Context, db *sqlx.DB, cfg Cfg) error {
 	p, err := newProvider(db, cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create goose provider: %w", err)

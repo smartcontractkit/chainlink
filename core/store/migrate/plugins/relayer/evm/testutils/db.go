@@ -51,7 +51,7 @@ func NewDB(t testing.TB, cfg evm.Cfg) *sqlx.DB {
 			_, err := evmHeavyDB.DB.Exec(evmInitialState)
 			require.NoError(t, err, "failed to exec SQL for the initial state of the EVM database")
 			// now we can run the migrations
-			err = evm.Migrate(testutils.Context(t), evmHeavyDB.DB, cfg)
+			err = evm.Migrate(testutils.Context(t), evmHeavyDB, cfg)
 			require.NoError(t, err, "failed to migrate EVM database for cfg %v", cfg)
 			migratedDBs[id] = evmHeavyDB
 			url := c.Database().URL()

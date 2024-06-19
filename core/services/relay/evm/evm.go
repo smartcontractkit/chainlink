@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -136,12 +137,13 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 	lggr = lggr.Named("Relayer")
 	// run the migrations for the relayer
-	// TODO: need a dburl in options. this is a hack. migration require a sql.DB because that's what goose uses
-	dburl := string(env.DatabaseURL)
+	// TODO: need a dburlVar in options. this is a hack. migration require a sql.DB because that's what goose uses
+	dburl := os.Getenv(string(env.DatabaseURL))
 	if dburl == "" {
 		return nil, errors.New("missing DatabaseURL")
 	}
-	db, err := sql.Open(string(dialects.Postgres), dburl)
+
+	db, err := sqlx.Open(string(dialects.Postgres), dburl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
@@ -154,8 +156,8 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate evm relayer for chain %s: %w", chain.ID().String(), err)
 	}
-	dbx := sqlx.NewDb(db, string(dialects.Postgres))
-	ds := sqlutil.WrapDataSource(dbx, lggr)
+
+	ds := sqlutil.WrapDataSource(db, lggr)
 	mercuryORM := mercury.NewORM(opts.DS)
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())

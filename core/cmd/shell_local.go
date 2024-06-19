@@ -1040,7 +1040,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
 		}
 
-		err = evmdb.Rollback(ctx, db.DB, version, cfg)
+		err = evmdb.Rollback(ctx, db, version, cfg)
 		if err != nil {
 			return fmt.Errorf("evm for cfg %v rollback failed: %w", cfg, err)
 		}
@@ -1071,7 +1071,7 @@ func (s *Shell) VersionDatabase(c *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
 		}
-		version, err := evmdb.Current(ctx, db.DB, cfg)
+		version, err := evmdb.Current(ctx, db, cfg)
 		if err != nil {
 			return fmt.Errorf("evm for cfg %v current failed: %w", cfg, err)
 		}
@@ -1100,7 +1100,7 @@ func (s *Shell) StatusDatabase(c *cli.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
 		}
-		err = evmdb.Status(ctx, db.DB, cfg)
+		err = evmdb.Status(ctx, db, cfg)
 		if err != nil {
 			return fmt.Errorf("evm for cfg %v status failed: %w", cfg, err)
 		}
@@ -1257,7 +1257,7 @@ func migrateDB(ctx context.Context, config dbConfig, lggr logger.Logger, opts *r
 		if err != nil {
 			return fmt.Errorf("failed to convert opts %v to evm db cfg %w", opts, err)
 		}
-		err = evmdb.Migrate(ctx, db.DB, cfg)
+		err = evmdb.Migrate(ctx, db, cfg)
 		if err != nil {
 			return fmt.Errorf("evm db migrate failed for cfg %v: %w", cfg, err)
 		}

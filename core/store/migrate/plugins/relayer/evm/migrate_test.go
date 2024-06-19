@@ -25,22 +25,22 @@ func TestMigrate(t *testing.T) {
 		}
 		// the evm migrations only work if the core migrations have been run
 		// because we are moving existing tables
-		err := evm.Migrate(ctx, db.DB, cfg)
+		err := evm.Migrate(ctx, db, cfg)
 		require.Error(t, err)
 		err = migrate.Migrate(ctx, db.DB)
 		require.NoError(t, err)
 
-		err = evm.Migrate(ctx, db.DB, cfg)
+		err = evm.Migrate(ctx, db, cfg)
 		require.NoError(t, err)
 
-		v2, err := evm.Current(ctx, db.DB, cfg)
+		v2, err := evm.Current(ctx, db, cfg)
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, int64(2), v2)
 
-		err = evm.Rollback(ctx, db.DB, null.IntFrom(0), cfg)
+		err = evm.Rollback(ctx, db, null.IntFrom(0), cfg)
 		require.NoError(t, err)
 
-		v2, err = evm.Current(ctx, db.DB, cfg)
+		v2, err = evm.Current(ctx, db, cfg)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), v2)
 	})
