@@ -337,8 +337,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     bytes calldata
   ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
-    uint16 minPerform = s_minPerform;
-    if (needsFunding.length <= minPerform) {
+    if (needsFunding.length <= s_minPerform) {
       return (false, "");
     }
     uint96 total_batch_balance;
@@ -395,9 +394,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   }
 
   /// @notice Update s_minPerform
-  function setMinPerform(uint16 minPerform) public onlyRole(ADMIN_ROLE) {
-    emit MinPerformSet(s_minPerform, minPerform);
+  function setMinPerform(uint16 minPerform) external onlyRole(ADMIN_ROLE) {
     s_minPerform = minPerform;
+    emit MinPerformSet(s_minPerform, minPerform);
   }
 
   /// @notice Update s_maxCheck
