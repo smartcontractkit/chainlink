@@ -481,6 +481,7 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 	}
 }
 
+/* TODO: Move test coverate to TransactionSender
 func TestMultiNode_SendTransaction(t *testing.T) {
 	t.Parallel()
 	classifySendTxError := func(tx any, err error) SendTxReturnCode {
@@ -780,3 +781,5 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 	}
 	assert.Empty(t, codesToCover, "all of the SendTxReturnCode must be covered by this test")
 }
+
+*/

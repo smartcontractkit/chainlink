@@ -37,6 +37,7 @@ import (
 //go:generate mockery --quiet --name ChainClientRPC --structname MockChainClientRPC --filename "mock_chain_client_rpc_test.go" --inpackage --case=underscore
 type ChainClientRPC interface {
 	commonclient.RPCClient[*big.Int, *evmtypes.Head]
+	commonclient.SendTxRPCClient[*types.Transaction]
 	BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error)
@@ -180,8 +181,9 @@ type RpcClient struct {
 	chStopInFlight chan struct{}
 }
 
-var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = &RpcClient{}
-var _ commonclient.TransactionSender[*types.Transaction] = &RpcClient{}
+var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = (*RpcClient)(nil)
+var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RpcClient)(nil)
+var _ ChainClientRPC = (*RpcClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -689,7 +691,7 @@ func (r *RpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 	return
 }
 
-func (r *RpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) (commonclient.SendTxReturnCode, error) {
+func (r *RpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)

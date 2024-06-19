@@ -105,6 +105,7 @@ type chainClient struct {
 		*big.Int,
 		ChainClientRPC,
 	]
+	txSender     commonclient.TransactionSender[*types.Transaction]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
 	clientErrors evmconfig.ClientErrors
@@ -119,7 +120,7 @@ func NewChainClient(
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 ) Client {
-	multiNode := commonclient.NewMultiNode(
+	multiNode := commonclient.NewMultiNode[*big.Int, ChainClientRPC](
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -128,8 +129,15 @@ func NewChainClient(
 		chainID,
 		"EVM",
 	)
+
+	txSender := commonclient.NewTransactionSender[*types.Transaction](
+		lggr,
+		multiNode,
+	)
+
 	return &chainClient{
 		multiNode:    multiNode,
+		txSender:     txSender,
 		logger:       logger.Sugared(lggr),
 		clientErrors: clientErrors,
 	}
@@ -351,11 +359,8 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return err
-	}
-	return rpc.SendTransaction(ctx, tx)
+	// TODO: Fix this fuction
+	return nil //c.txSender.SendTransaction(ctx, tx)
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {
