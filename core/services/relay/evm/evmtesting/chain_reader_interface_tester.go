@@ -2,6 +2,7 @@ package evmtesting
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -201,7 +202,14 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
+	// encode and decode the config to ensure the test covers type issues
+	confBytes, err := json.Marshal(it.chainConfig)
+	require.NoError(t, err)
+
+	conf, err := types.ChainReaderConfigFromBytes(confBytes)
+	require.NoError(t, err)
+
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, conf)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr

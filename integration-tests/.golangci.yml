@@ -21,8 +21,8 @@ linters-settings:
     excludes:
       - G101
   govet:
-    # report about shadowed variables
-    check-shadowing: true
+    enable:
+      - shadow
   revive:
     confidence: 0.8
     rules:
