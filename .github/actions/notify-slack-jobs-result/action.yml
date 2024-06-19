@@ -38,39 +38,51 @@ runs:
       run: |
         if [ -n "${{ inputs.base64_parsed_results }}" ]; then
           echo "Using base64 parsed results"
-          PARSED_RESULTS=$(echo ${{ inputs.base64_parsed_results }} | base64 -d)
+          PARSED_RESULTS=$(echo "${{ inputs.base64_parsed_results }}" | base64 -d)
         else
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
         
           workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ inputs.github_job_name_regex }}" -outputFile=output.json
-          PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results\")) | .results[]")         
-        fi   
+        
+          if [ ! -f output.json ]; then
+            PARSED_RESULTS='""'
+          else 
+            PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results\")) | .results[]")
+          fi
+        
+        fi
         
         echo "Parsed Results:"
         echo $PARSED_RESULTS
-
+        
         ALL_SUCCESS=true
-        echo "Checking for failures"
-        echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
-        for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
-            ALL_SUCCESS=false
-            break
-        done
-        echo "Success: $ALL_SUCCESS"
-
-        echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-
-        FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
-        | {
-          conclusion: .conclusion,
-          cap: .cap,
-          html_url: .html_url
-          }
-        ]
-        | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
-        | join(",")')
+        
+        if [ "$PARSED_RESULTS" != '""' ]; then
+          echo "Checking for failures"
+          echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
+          for row in $(echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'); do
+              ALL_SUCCESS=false
+              break
+          done
+          echo "Success: $ALL_SUCCESS"
+  
+          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
+  
+          FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
+          | {
+            conclusion: .conclusion,
+            cap: .cap,
+            html_url: .html_url
+            }
+          ]
+          | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
+          | join(",")')
+        else
+          echo all_success=false >> $GITHUB_OUTPUT
+          FORMATTED_RESULTS='""'
+        fi
       
         if [ "$FORMATTED_RESULTS" = '""' ]; then
           echo skipped=true >> $GITHUB_OUTPUT
