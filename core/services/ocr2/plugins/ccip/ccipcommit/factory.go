@@ -91,13 +91,18 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 		return nil, types.ReportingPluginInfo{}, err
 	}
 
+	err = rf.config.priceService.UpdateDynamicConfig(ctx, gasPriceEstimator, rf.destPriceRegReader)
+	if err != nil {
+		return nil, types.ReportingPluginInfo{}, err
+	}
+
 	lggr := rf.config.lggr.Named("CommitReportingPlugin")
 	return &CommitReportingPlugin{
 			sourceChainSelector:     rf.config.sourceChainSelector,
 			sourceNative:            rf.config.sourceNative,
 			onRampReader:            rf.config.onRampReader,
+			destChainSelector:       rf.config.destChainSelector,
 			commitStoreReader:       rf.config.commitStore,
-			priceGetter:             rf.config.priceGetter,
 			F:                       config.F,
 			lggr:                    lggr,
 			destPriceRegistryReader: rf.destPriceRegReader,
@@ -106,6 +111,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			offchainConfig:          pluginOffChainConfig,
 			metricsCollector:        rf.config.metricsCollector,
 			chainHealthcheck:        rf.config.chainHealthcheck,
+			priceService:            rf.config.priceService,
 		},
 		types.ReportingPluginInfo{
 			Name:          "CCIPCommit",
