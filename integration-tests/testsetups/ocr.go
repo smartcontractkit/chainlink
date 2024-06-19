@@ -814,6 +814,12 @@ func (o *OCRSoakTest) startGethNetworkDownSimulation(conf tc.ChaosSimulation) {
 	chaos.Create(context.Background())
 	chaos.AddListener(k8schaos.NewChaosLogger(o.log))
 	chaos.AddListener(ocrTestChaosListener{t: o.t})
+	// Add Grafana annotation if configured
+	if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
+		chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(
+			*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken,
+			*o.Config.Logging.Grafana.DashboardUID, o.log))
+	}
 	o.chaosSimulations = append(o.chaosSimulations, chaos)
 }
 
