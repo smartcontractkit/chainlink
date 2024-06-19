@@ -150,7 +150,7 @@ func (v *EthereumKeeperRegistry) Address() string {
 }
 
 func (v *EthereumKeeperRegistry) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 
 func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
@@ -1575,7 +1575,7 @@ func (v *EthereumKeeperRegistrar) Address() string {
 }
 
 func (v *EthereumKeeperRegistrar) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
@@ -2008,7 +2008,7 @@ func (v *EthereumUpkeepCounter) Address() string {
 }
 
 func (v *EthereumUpkeepCounter) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 func (v *EthereumUpkeepCounter) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.Counter(&bind.CallOpts{
@@ -2065,7 +2065,7 @@ func (v *EthereumUpkeepPerformCounterRestrictive) Address() string {
 }
 
 func (v *EthereumUpkeepPerformCounterRestrictive) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 func (v *EthereumUpkeepPerformCounterRestrictive) Counter(ctx context.Context) (*big.Int, error) {
 	return v.consumer.GetCountPerforms(&bind.CallOpts{
@@ -2159,7 +2159,7 @@ func (v *EthereumKeeperConsumerPerformance) Address() string {
 }
 
 func (v *EthereumKeeperConsumerPerformance) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 
 func (v *EthereumKeeperConsumerPerformance) CheckEligible(ctx context.Context) (bool, error) {
@@ -2278,7 +2278,7 @@ func (v *EthereumAutomationConsumerBenchmark) Address() string {
 }
 
 func (v *EthereumAutomationConsumerBenchmark) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds instead")
+	panic("do not use this function, use actions.SendFunds instead")
 }
 
 func (v *EthereumAutomationConsumerBenchmark) CheckEligible(ctx context.Context, id *big.Int, _range *big.Int, firstEligibleBuffer *big.Int) (bool, error) {

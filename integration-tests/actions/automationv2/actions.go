@@ -28,7 +28,7 @@ import (
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 
@@ -590,7 +590,7 @@ func (r registrationResult) GetResult() common.Hash {
 }
 
 func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int) ([]common.Hash, error) {
-	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
+	concurrency, err := actions.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -691,7 +691,7 @@ func (c confirmationResult) GetResult() UpkeepId {
 }
 
 func (a *AutomationTest) ConfirmUpkeepsRegistered(registrationTxHashes []common.Hash, maxConcurrency int) ([]*big.Int, error) {
-	concurrency, err := actions_seth.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
+	concurrency, err := actions.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err
 	}
