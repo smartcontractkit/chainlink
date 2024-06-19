@@ -272,6 +272,17 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 }
 
 func (w *client) handleWSClientError(err error) {
+	// if the underlying client is closed by another goroutine we need to reset the transport
+	state := w.conn.GetState()
+	if state != connectivity.Ready && state != connectivity.Connecting {
+		w.logger.Infow("Transport is resetting - connection state unusable", "state", w.conn.GetState())
+		select {
+		case w.chResetTransport <- struct{}{}:
+		default:
+			w.logger.Debugf("Transport is already resetting")
+		}
+	}
+
 	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
@@ -304,12 +315,12 @@ func (w *client) handleWSClientError(err error) {
 		w.consecutiveTimeoutCnt.Store(0)
 	}
 
-	// if the underlying client is closed by another
-	state := w.conn.GetState()
-	if state != connectivity.Ready && state != connectivity.Connecting {
-		w.logger.Warnw("Transport is resetting - connection state unusable", "state", w.conn.GetState())
-		w.chResetTransport <- struct{}{}
-	}
+}
+
+func (w *client) RawLatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+	resp, err = w.rawClient.LatestReport(ctx, req)
+	w.handleWSClientError(err)
+	return
 }
 
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
@@ -320,12 +331,10 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	}
 	var cached bool
 	if w.cache == nil {
-		resp, err = w.rawClient.LatestReport(ctx, req)
-		w.handleWSClientError(err)
+		resp, err = w.RawLatestReport(ctx, req)
 	} else {
 		cached = true
 		resp, err = w.cache.LatestReport(ctx, req)
-		w.handleWSClientError(err)
 	}
 	if err != nil {
 		lggr.Errorw("LatestReport failed", "err", err, "resp", resp, "cached", cached)

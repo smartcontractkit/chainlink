@@ -13,9 +13,13 @@ type mockClient struct {
 	err  error
 }
 
-func (m *mockClient) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+func (m *mockClient) RawLatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
 	return m.resp, m.err
 }
+
+//func (m *mockClient) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+//	return m.resp, m.err
+//}
 
 func (m *mockClient) ServerURL() string {
 	return "mock client url"
