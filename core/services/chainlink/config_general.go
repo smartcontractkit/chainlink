@@ -345,6 +345,11 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
+// TODO: Once Aptos config is ready for public repo, update this method
+func (g *generalConfig) AptosEnabled() bool {
+	return false
+}
+
 func (g *generalConfig) WebServer() config.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }

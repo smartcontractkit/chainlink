@@ -42,6 +42,8 @@ type Config struct {
 	Solana solcfg.TOMLConfigs `toml:",omitempty"`
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
+
+	Aptos map[string]any `toml:",omitempty"`
 }
 
 // TOMLString returns a TOML encoded string.
