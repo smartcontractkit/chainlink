@@ -91,7 +91,7 @@ ea_change_interval = "5s"
 
 # soak test specific configuration
 [Soak.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 1
 
 [Soak.OCR2.Common]
 test_duration="15m"
