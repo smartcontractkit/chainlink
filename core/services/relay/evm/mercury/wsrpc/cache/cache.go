@@ -311,6 +311,7 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 		// NOTE: must drop down to RawClient here otherwise we enter an
 		// infinite loop of calling a client that calls back to this same cache
 		// and on and on
+		// TODO this call a method that handle the raw client and raw client errors
 		val, err = m.client.RawClient().LatestReport(ctx, req)
 		cancel()
 		v.setError(err)

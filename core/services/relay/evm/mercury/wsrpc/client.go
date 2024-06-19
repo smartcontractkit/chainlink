@@ -259,7 +259,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 	resp, err = w.rawClient.Transmit(ctx, req)
-	w.handleTimeout(err)
+	w.handleWSClientError(err)
 	if err != nil {
 		w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
@@ -271,7 +271,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	return
 }
 
-func (w *client) handleTimeout(err error) {
+func (w *client) handleWSClientError(err error) {
 	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
@@ -298,9 +298,17 @@ func (w *client) handleTimeout(err error) {
 				// Debug log in case my reasoning is wrong.
 				w.logger.Debugf("Transport is resetting, cnt=%d", cnt)
 			}
+			return
 		}
 	} else {
 		w.consecutiveTimeoutCnt.Store(0)
+	}
+
+	// if the underlying client is closed by another
+	state := w.conn.GetState()
+	if state != connectivity.Ready && state != connectivity.Connecting {
+		w.logger.Warnw("Transport is resetting - connection state unusable", "state", w.conn.GetState())
+		w.chResetTransport <- struct{}{}
 	}
 }
 
@@ -313,10 +321,11 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	var cached bool
 	if w.cache == nil {
 		resp, err = w.rawClient.LatestReport(ctx, req)
-		w.handleTimeout(err)
+		w.handleWSClientError(err)
 	} else {
 		cached = true
 		resp, err = w.cache.LatestReport(ctx, req)
+		w.handleWSClientError(err)
 	}
 	if err != nil {
 		lggr.Errorw("LatestReport failed", "err", err, "resp", resp, "cached", cached)
