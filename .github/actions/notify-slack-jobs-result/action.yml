@@ -80,14 +80,11 @@ runs:
           | map("{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"<\(.html_url)|\(.cap)>: \(.conclusion)\"}}")
           | join(",")')
         else
-          echo all_success=false >> $GITHUB_OUTPUT
-          FORMATTED_RESULTS='""'
+          echo "Nothing to post, no results found"
+          exit 0
         fi
       
-        if [ "$FORMATTED_RESULTS" = '""' ]; then
-          echo skipped=true >> $GITHUB_OUTPUT
-          FORMATTED_RESULTS="{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"No test run: :ballot_box_with_check:\"}}"
-        fi
+        FORMATTED_RESULTS="{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"No test run: :ballot_box_with_check:\"}}"
 
         echo "Formatted Results:"
         echo $FORMATTED_RESULTS
@@ -110,13 +107,13 @@ runs:
             "thread_ts": "${{ inputs.slack_thread_ts }}",
             "attachments": [
               {
-                "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || steps.check-skipped.outputs.skipped == 'true' && '#7F7F7F' || '#C62828' }}",
+                "color": "${{ steps.test-results.outputs.all_success == 'true' && '#2E7D32' || '#C62828' }}",
                 "blocks": [
                   {
                     "type": "header",
                     "text": {
                       "type": "plain_text",
-                      "text": "${{ inputs.message_title }} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || steps.check-skipped.outputs.skipped == 'true' && ':ballot_box_with_check:' || ':x:'}}",
+                      "text": "${{ inputs.message_title }} ${{ steps.test-results.outputs.all_success == 'true' && ':white_check_mark:' || ':x:'}}",
                       "emoji": true
                     }
                   },
