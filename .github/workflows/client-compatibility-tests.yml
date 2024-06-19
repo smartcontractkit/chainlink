@@ -717,8 +717,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [start-slack-thread, should-run, select-versions, parse-test-results]
     steps:
-      # asciiresults is a tool that prints results in a nice ASCII table
-      - name: Set Up asciiresults
+      # asciitable is a tool that prints results in a nice ASCII table
+      - name: Set Up asciitable
         shell: bash
         run: |
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/asciitable@v1.0.1
@@ -729,17 +729,17 @@ jobs:
           export PATH
           
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
-          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
+          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
           
           echo
           echo "AGGREGATED RESULTS"
