@@ -83,7 +83,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	for _, t := range e.workflow.triggers {
 		tg, err := e.registry.GetTrigger(ctx, t.ID)
 		if err != nil {
-			e.logger.With(capabilityIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
+			e.logger.With(cIDKey, t.ID).Errorf("failed to get trigger capability: %s", err)
 			// we don't immediately return here, since we want to retry all triggers
 			// to notify the user of all errors at once.
 			triggersInitialized = false
@@ -92,7 +92,10 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 		}
 	}
 	if !triggersInitialized {
-		return newWorkflowError(errors.New("failed to resolve triggers"), e.workflow.id, "")
+		return &workflowError{reason: "failed to resolve triggers", labels: map[string]string{
+			wIDKey: e.workflow.id,
+		},
+		}
 	}
 
 	// Step 2. Walk the graph and register each step's capability to this workflow
@@ -111,7 +114,12 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 
 		err := e.initializeCapability(ctx, s)
 		if err != nil {
-			return newStepError(err, e.workflow.id, s.ID, s.Ref, "failed to initialize capability for step")
+			return &workflowError{err: err, reason: "failed to initialize capability for step",
+				labels: map[string]string{
+					wIDKey: e.workflow.id,
+					sIDKey: s.ID,
+					sRKey:  s.Ref,
+				}}
 		}
 
 		return nil
@@ -121,6 +129,20 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 }
 
 func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
+	// We use varadic err here so that err can be optional, but we assume that
+	// its length is either 0 or 1
+	newCPErr := func(reason string, errs ...error) *workflowError {
+		var err error
+		if len(errs) > 0 {
+			err = errs[0]
+		}
+
+		return &workflowError{reason: reason, err: err, labels: map[string]string{
+			wIDKey: e.workflow.id,
+			sIDKey: step.ID,
+		}}
+	}
+
 	// If the capability already exists, that means we've already registered it
 	if step.capability != nil {
 		return nil
@@ -128,12 +150,12 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	cp, err := e.registry.Get(ctx, step.ID)
 	if err != nil {
-		return newCapabilityError(err, e.workflow.id, step.ID, "failed to get capability")
+		return newCPErr("failed to get capability", err)
 	}
 
 	info, err := cp.Info(ctx)
 	if err != nil {
-		return newCapabilityError(err, e.workflow.id, step.ID, "failed to get capability info")
+		return newCPErr("failed to get capability info", err)
 	}
 
 	// Special treatment for local targets - wrap into a transmission capability
@@ -153,13 +175,13 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	// they all satisfy the `CallbackCapability` interface
 	cc, ok := cp.(capabilities.CallbackCapability)
 	if !ok {
-		return newCapabilityError(errors.New("capability does not satisfy CallbackCapability"), e.workflow.id, step.ID, "")
+		return newCPErr("capability does not satisfy CallbackCapability")
 	}
 
 	if step.config == nil {
 		configMap, newMapErr := values.NewMap(step.Config)
 		if newMapErr != nil {
-			return newCapabilityError(newMapErr, e.workflow.id, step.ID, "failed to convert config to values.Map")
+			return newCPErr("failed to convert config to values.Map", newMapErr)
 		}
 		step.config = configMap
 	}
@@ -173,9 +195,8 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
 	if err != nil {
-		return newCapabilityError(
-			err, e.workflow.id, step.ID,
-			fmt.Sprintf("failed to register capability to workflow (%+v)", registrationRequest))
+		return newCPErr(fmt.Sprintf("failed to register capability to workflow (%+v)", registrationRequest), err)
+
 	}
 
 	step.capability = cc
@@ -204,7 +225,10 @@ func (e *Engine) init(ctx context.Context) {
 
 		err = e.resolveWorkflowCapabilities(ctx)
 		if err != nil {
-			return newWorkflowError(err, e.workflow.id, "failed to resolve workflow capabilities")
+			return &workflowError{err: err, reason: "failed to resolve workflow capabilities",
+				labels: map[string]string{
+					wIDKey: e.workflow.id,
+				}}
 		}
 		return nil
 	})
@@ -225,7 +249,7 @@ func (e *Engine) init(ctx context.Context) {
 	for idx, t := range e.workflow.triggers {
 		err := e.registerTrigger(ctx, t, idx)
 		if err != nil {
-			e.logger.With(capabilityIDKey, t.ID).Errorf("failed to register trigger: %s", err)
+			e.logger.With(cIDKey, t.ID).Errorf("failed to register trigger: %s", err)
 		}
 	}
 
@@ -325,7 +349,12 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		//
 		// For example, t.ID might be "streams-trigger:network=mainnet@1.0.0"
 		// and triggerID might be "wf_123_trigger_0"
-		return newTriggerError(err, e.workflow.id, t.ID, triggerID, "failed to register trigger")
+		return &workflowError{err: err, reason: fmt.Sprintf("failed to register trigger: %+v", triggerRegRequest),
+			labels: map[string]string{
+				wIDKey: e.workflow.id,
+				cIDKey: t.ID,
+				tIDKey: triggerID,
+			}}
 	}
 
 	go func() {
@@ -379,13 +408,13 @@ func (e *Engine) loop(ctx context.Context) {
 
 			executionID, err := generateExecutionID(e.workflow.id, te.ID)
 			if err != nil {
-				e.logger.With(triggerIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
+				e.logger.With(tIDKey, te.ID).Errorf("could not generate execution ID: %v", err)
 				continue
 			}
 
 			err = e.startExecution(ctx, executionID, resp.Value)
 			if err != nil {
-				e.logger.With(executionIDKey, executionID).Errorf("failed to start execution: %v", err)
+				e.logger.With(eIDKey, executionID).Errorf("failed to start execution: %v", err)
 			}
 		case pendingStepRequest := <-e.pendingStepRequests:
 			// Wait for a new worker to be available before dispatching a new one.
@@ -397,7 +426,7 @@ func (e *Engine) loop(ctx context.Context) {
 				e.wg.Add(1)
 				go e.workerForStepRequest(ctx, pendingStepRequest)
 			case <-t.Chan():
-				e.logger.With(executionIDKey, pendingStepRequest.state.ExecutionID, stepRefKey, pendingStepRequest.stepRef).
+				e.logger.With(eIDKey, pendingStepRequest.state.ExecutionID, sRKey, pendingStepRequest.stepRef).
 					Errorf("timed out when spinning off worker for pending step request %+v", pendingStepRequest)
 				e.pendingStepRequests <- pendingStepRequest
 			}
@@ -406,7 +435,7 @@ func (e *Engine) loop(ctx context.Context) {
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
 			err := e.handleStepUpdate(ctx, stepUpdate)
 			if err != nil {
-				e.logger.With(executionIDKey, stepUpdate.ExecutionID, stepRefKey, stepUpdate.Ref).
+				e.logger.With(eIDKey, stepUpdate.ExecutionID, sRKey, stepUpdate.Ref).
 					Errorf("failed to update step state: %+v, %s", stepUpdate, err)
 			}
 		}
@@ -430,7 +459,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event values.Value) error {
-	e.logger.With("event", event, executionIDKey, executionID).Debug("executing on a trigger event")
+	e.logger.With("event", event, eIDKey, executionID).Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -472,7 +501,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 	if err != nil {
 		return err
 	}
-	l := e.logger.With(executionIDKey, state.ExecutionID, stepRefKey, stepUpdate.Ref)
+	l := e.logger.With(eIDKey, state.ExecutionID, sRKey, stepUpdate.Ref)
 
 	switch stepUpdate.Status {
 	case store.StatusCompleted:
@@ -567,7 +596,7 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.With(stepRefKey, step.Ref, executionIDKey, state.ExecutionID, "state", copyState(state)).
+		e.logger.With(sRKey, step.Ref, eIDKey, state.ExecutionID, "state", copyState(state)).
 			Debug("step request enqueued")
 		e.pendingStepRequests <- stepRequest{
 			state:   copyState(state),
@@ -577,7 +606,7 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 }
 
 func (e *Engine) finishExecution(ctx context.Context, executionID string, status string) error {
-	e.logger.With(executionIDKey, executionID, "status", status).Info("finishing execution")
+	e.logger.With(eIDKey, executionID, "status", status).Info("finishing execution")
 	err := e.executionStates.UpdateStatus(ctx, executionID, status)
 	if err != nil {
 		return err
@@ -593,7 +622,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	// Instantiate a child logger; in addition to the WorkflowID field the workflow
 	// logger will already have, this adds the `stepRef` and `executionID`
-	l := e.logger.With(stepRefKey, msg.stepRef, executionIDKey, msg.state.ExecutionID)
+	l := e.logger.With(sRKey, msg.stepRef, eIDKey, msg.state.ExecutionID)
 
 	l.Debug("executing on a step event")
 	stepState := &store.WorkflowExecutionStep{
@@ -740,7 +769,13 @@ func (e *Engine) Close() error {
 
 			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
 			if innerErr != nil {
-				return newStepError(innerErr, e.workflow.id, s.ID, s.Ref, fmt.Sprintf("failed to unregister capability from workflow: %+v", reg))
+				return &workflowError{err: innerErr,
+					reason: fmt.Sprintf("failed to unregister capability from workflow: %+v", reg),
+					labels: map[string]string{
+						wIDKey: e.workflow.id,
+						sIDKey: s.ID,
+						sRKey:  s.Ref,
+					}}
 			}
 
 			return nil
@@ -784,7 +819,11 @@ const (
 
 func NewEngine(cfg Config) (engine *Engine, err error) {
 	if cfg.Store == nil {
-		return nil, newWorkflowError(errors.New("store is nil"), cfg.WorkflowID, "")
+		return nil, &workflowError{reason: "store is nil",
+			labels: map[string]string{
+				wIDKey: cfg.WorkflowID,
+			},
+		}
 	}
 
 	if cfg.MaxWorkerLimit == 0 {
@@ -891,130 +930,45 @@ func executeSyncAndUnwrapSingleValue(ctx context.Context, cap capabilities.Callb
 
 // Logging keys
 const (
-	capabilityIDKey = "capabilityID"
-	triggerIDKey    = "triggerID"
-	workflowIDKey   = "workflowID"
-	executionIDKey  = "executionID"
-	stepRefKey      = "stepRef"
+	cIDKey = "capabilityID"
+	tIDKey = "triggerID"
+	wIDKey = "workflowID"
+	eIDKey = "executionID"
+	sIDKey = "stepID"
+	sRKey  = "stepRef"
 )
 
-// We don't define Unwrap since we don't want to expose the underlying error.
-type WorkflowError struct {
-	Err        error
-	Reason     string
-	WorkflowID string
+type workflowError struct {
+	labels map[string]string
+	// err is the underlying error that caused this error
+	err error
+	// reason is a human-readable string that describes the error
+	reason string
 }
 
-func (e *WorkflowError) Error() string {
-	if e.Reason == "" {
-		return fmt.Sprintf("workflow id: %s %v", e.WorkflowID, e.Err)
+func (e *workflowError) Error() string {
+	// declare in reverse order so that the error message is ordered correctly
+	orderedLabels := []string{sRKey, sIDKey, tIDKey, cIDKey, eIDKey, wIDKey}
+
+	errStr := ""
+	if e.err != nil {
+		if e.reason != "" {
+			errStr = fmt.Sprintf("%s: %v", e.reason, e.err)
+		} else {
+			errStr = e.err.Error()
+		}
+	} else {
+		errStr = e.reason
 	}
 
-	return fmt.Sprintf("workflow id: %s %s: %v", e.WorkflowID, e.Reason, e.Err)
-}
-
-func newWorkflowError(err error, workflowID, reason string) *WorkflowError {
-	return &WorkflowError{Err: err, WorkflowID: workflowID, Reason: reason}
-}
-
-type WorkflowExecutionError struct {
-	*WorkflowError
-	ExecutionID string
-}
-
-func (e *WorkflowExecutionError) Error() string {
-	return fmt.Sprintf("execution id: %s %v", e.ExecutionID, e.WorkflowError)
-}
-
-func (e *WorkflowExecutionError) Unwrap() error {
-	return e.WorkflowError
-}
-
-type CapabilityError struct {
-	*WorkflowError
-	CapabilityID string
-}
-
-func newCapabilityError(err error, workflowID, capabilityID, reason string) *CapabilityError {
-	return &CapabilityError{
-		WorkflowError: newWorkflowError(err, workflowID, reason),
-		CapabilityID:  capabilityID,
+	// prefix the error with the labels
+	for _, label := range orderedLabels {
+		// This will silently ignore any labels that are not present in the map
+		// are we ok with this?
+		if value, ok := e.labels[label]; ok {
+			errStr = fmt.Sprintf("%s %s: %s", label, value, errStr)
+		}
 	}
-}
 
-func (e *CapabilityError) Error() string {
-	return fmt.Sprintf("capability id: %s %v", e.CapabilityID, e.WorkflowError)
-}
-
-func (e *CapabilityError) Unwrap() error {
-	return e.WorkflowError
-}
-
-type TriggerError struct {
-	*CapabilityError
-	TriggerID string
-}
-
-func newTriggerError(err error, workflowID, capabilityID, triggerID, reason string) *TriggerError {
-	return &TriggerError{
-		CapabilityError: newCapabilityError(err, workflowID, capabilityID, reason),
-		TriggerID:       triggerID,
-	}
-}
-
-func (e *TriggerError) Error() string {
-	return fmt.Sprintf("trigger id: %s %v", e.TriggerID, e.CapabilityError)
-}
-
-func (e *TriggerError) Unwrap() error {
-	return e.CapabilityError
-}
-
-func newWorkflowExecutionError(err error, workflowID, executionID, reason string) *WorkflowExecutionError {
-	return &WorkflowExecutionError{WorkflowError: newWorkflowError(err, workflowID, reason), ExecutionID: executionID}
-}
-
-type StepError struct {
-	*WorkflowError
-	CapabilityID string
-	StepRef      string
-}
-
-func newStepError(err error, workflowID, capabilityID, stepRef, reason string) *StepError {
-	return &StepError{
-		WorkflowError: newWorkflowError(err, workflowID, reason),
-		CapabilityID:  capabilityID,
-		StepRef:       stepRef,
-	}
-}
-
-func (e *StepError) Error() string {
-	return fmt.Sprintf("step ref: %s capability id: %s %v", e.StepRef, e.CapabilityID, e.WorkflowError)
-}
-
-func (e *StepError) Unwrap() error {
-	return e.WorkflowError
-}
-
-type StepExecutionError struct {
-	*WorkflowExecutionError
-	CapabilityID string
-	StepRef      string
-}
-
-func newStepExecutionError(err error, workflowID, executionID, capabilityID, stepRef, reason string) *StepExecutionError {
-	return &StepExecutionError{
-		WorkflowExecutionError: newWorkflowExecutionError(err, workflowID, executionID, reason),
-		CapabilityID:           capabilityID,
-		StepRef:                stepRef,
-	}
-}
-
-func (e *StepExecutionError) Error() string {
-	return fmt.Sprintf("step ref: %s capability id: %s %v", e.StepRef, e.CapabilityID, e.WorkflowExecutionError)
-}
-
-// Unwrap method to allow errors.Is and errors.As to work
-func (e *StepExecutionError) Unwrap() error {
-	return e.WorkflowExecutionError
+	return errStr
 }
