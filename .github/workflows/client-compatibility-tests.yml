@@ -721,7 +721,7 @@ jobs:
       - name: Set Up asciitable
         shell: bash
         run: |
-          go install github.com/smartcontractkit/chainlink-testing-framework/tools/asciitable@v1.0.1
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/asciitable@v1.0.2
       - name: Print aggregated test results
         shell: bash
         run: |
