@@ -9,37 +9,86 @@
 # NOTE: Even though the specification is written in a high-level programming language, it's purpose
 # is not to be executed. It is meant to be just a reference for the Go implementation.
 #
+from dataclasses import dataclass
+from typing import List, Dict
+
+ChainSelector = int
+
+@dataclass
+class Interval:
+    min: int
+    max: int
+
+@dataclass
+class Message:
+    seq_nr: int
+    message_id: bytes
+    # TODO:
+
+@dataclass
+class Commit:
+    interval: Interval
+    root: bytes
+
+@dataclass
+class CommitOutcome:
+    latest_committed_seq_nums: Dict[ChainSelector, int]
+    commits: Dict[ChainSelector, Commit]
+    token_prices: Dict[str, int]
+    gas_prices: Dict[ChainSelector, int]
+
+@dataclass
+class CommitObservation:
+    latest_committed_seq_nums: Dict[ChainSelector, int]
+    new_msgs: Dict[ChainSelector, List[Message]]
+    token_prices: Dict[str, int]
+    gas_prices: Dict[ChainSelector, int]
+    f_chain: Dict[ChainSelector, int]
+
+@dataclass
+class CommitConfig:
+    oracle: int # our own observer
+    dest_chain: ChainSelector
+    f_chain: Dict[ChainSelector, int]
+    # oracleIndex -> supported chains
+    oracle_info: Dict[int, Dict[ChainSelector, bool]]
+    priced_tokens: List[str]
+
 class CommitPlugin:
     def __init__(self):
-         self.cfg = {
-             "dest_chain": "chainD",
-             "f_chain": {"chainA": 2, "chainB": 3, "chainD": 3},
-             "observer_info": {
-                 "nodeA": {
-                     "supported_chains": {"chainA", "chainB", "chainD"},
-                     "token_prices_observer": True,
-                 }
-             },
-             "priced_tokens": {"tokenA", "tokenB"},
-         }
+         self.cfg = CommitConfig(
+            oracle=1,
+            dest_chain=10,
+            f_chain={1: 2, 2: 3, 10: 3},
+            oracle_info={
+                0: {1: True, 2: True, 10: True},
+                # TODO: other oracles
+            },
+            # TODO: will likely need aggregator address as well to
+            # actually get the price.
+            priced_tokens=["tokenA", "tokenB"],
+         )
          self.keep_cfg_in_sync()
+
+    def get_token_prices(self):
+        # Read token prices which are required for the destination chain.
+        # We only read them if we have the capability to read from the price chain (e.g. arbitrum)
+        pass
+
+    def get_gas_prices(self):
+        # Read all gas prices for the chains we support.
+        pass
 
     def query(self):
         pass
 
-    def observation(self, previous_outcome):
-        # Observe last msg sequence numbers for each source chain: {sourceChain: sequenceNumber}
-        observed_seq_nums = previous_outcome.get("observed_seq_nums", default={})
-        if self.can_read_dest():
-            on_chain_seq_nums = self.offRamp.get_sequence_numbers()
-            for (chain, seq_num) in on_chain_seq_nums.items():
-                if chain not in observed_seq_nums or seq_num > observed_seq_nums[chain]:
-                    observed_seq_nums[chain] = seq_num
-
-        # Observe new msgs: {sourceChain: [(id, seq_num)]}
+    def observation(self, previous_outcome: CommitOutcome) -> CommitObservation:
+        # max_committed_seq_nr={sourceChainA: 10, sourceChainB: 20,...}
+        # Provided by the nodes that can read from the destination on the previous round.
+        # Observe msgs for our supported chains since the prev outcome.
         new_msgs = {}
-        for (chain, seq_num) in observed_seq_nums.items():
-            if self.can_read(chain):
+        for (chain, seq_num) in previous_outcome.latest_committed_seq_nums:
+            if chain in self.cfg.oracle_info[self.cfg.oracle]:
                 new_msgs[chain] = self.onRamp(chain).get_msgs(chain, start=seq_num+1, limit=256)
                 for msg in new_msgs[chain]:
                     assert(msg.id == msg.compute_id())
@@ -48,51 +97,55 @@ class CommitPlugin:
         token_prices = self.get_token_prices()
 
         # Observe gas prices. {chain: gasPrice}
+        # TODO: Should be a way to combine the loops over support chains for gas prices and new messages.
         gas_prices = self.get_gas_prices()
 
         # Observe fChain for each chain. {chain: f_chain}
-        f_chain = self.cfg["f_chain"]
+        # We observe this because configuration changes may be detected at different times by different nodes.
+        # We always use the configuration which is seen by a majority of nodes.
+        f_chain = self.cfg.f_chain
 
-        if not self.can_read_dest():
-            # If node is not able to read updated sequence numbers from the destination,
-            # it should not observe the outdated ones that are coming from the previous outcome.
-            observed_seq_nums = {}
+        # If we support the destination chain, then we contribute an observation of the max committed seq nums.
+        # We use these in outcome to filter out messages that have already been committed.
+        latest_committed_seq_nums = {}
+        if self.cfg.dest_chain in self.cfg.oracle_info[self.cfg.oracle]:
+            latest_committed_seq_nums = self.offRamp.latest_committed_seq_nums()
 
-        return (observed_seq_nums, new_msgs, token_prices, gas_prices, f_chain)
+        return CommitObservation(latest_committed_seq_nums, new_msgs, token_prices, gas_prices, f_chain)
 
 
     def validate_observation(self, attributed_observation):
         observation = attributed_observation.observation
-        observer = attributed_observation.observer
+        oracle = attributed_observation.oracle
 
-        if "seq_nums" in observation:
-            assert observer.can_read_dest()
+        # Only accept dest observations from nodes that support the dest chain
+        if observation.latest_committed_seq_nums is not None:
+            assert self.cfg.dest_chain in self.cfg.oracle_info[oracle]
 
-        observer_supported_chains = self.cfg["observer_info"][observer]["supported_chains"]
-        for (chain, msgs) in observation["new_msgs"].items():
-            assert(chain in observer_supported_chains)
-
-            if "seq_nums" in observation:
-                for msg in msgs:
-                    assert(msg.seq_num > observation["observed_seq_nums"][msg.source_chain])
-
+        # Only accept source observations from nodes which support those sources.
+        for (chain, msgs) in observation.new_msgs.items():
+            assert(chain in self.cfg.oracle_info[oracle])
+            # Don't allow duplicates by seqNr or id. Required to prevent double counting.
             assert(len(msgs) == len(set([msg.seq_num for msg in msgs])))
             assert(len(msgs) == len(set([msg.id for msg in msgs])))
 
     def observation_quorum(self):
         return "2F+1"
 
-    def outcome(self, observations):
+    def outcome(self, observations: List[CommitObservation])->CommitOutcome:
         f_chain = consensus_f_chain(observations)
-        seq_nums = consensus_seq_nums(observations, f_chain)
+        latest_committed_seq_nums = consensus_latest_committed_seq_nums(observations, f_chain)
 
         # all_msgs contains all messages from all observations, grouped by source chain
-        all_msgs = [observation["new_msgs"] for observation in observations].group_by_source_chain()
+        all_msgs = [observation.new_msgs for observation in observations].group_by_source_chain()
 
-        trees = {} # { chain: (root, min_seq_num, max_seq_num) }
+        commits = {} # { chain: (root, min_seq_num, max_seq_num) }
         for (chain, msgs) in all_msgs:
-            # keep only msgs with seq nums greater than the consensus max commited seq nums
-            msgs = [msg for msg in msgs if msg.seq_num > seq_nums[chain]]
+            # Keep only msgs with seq nums greater than the consensus max commited seq nums.
+            # Note right after a report has been submitted, we'll expect those same messages
+            # to appear in the next observation, because the message observations are built
+            # on the previous max committed seq nums.
+            msgs = [msg for msg in msgs if msg.seq_num > latest_committed_seq_nums[chain]]
 
             msgs_by_seq_num = msgs.group_by_seq_num() # { 423: [0x1, 0x1, 0x2] }
                                                       # 2 nodes say that msg id is 0x1 and 1 node says it's 0x2
@@ -107,12 +160,14 @@ class CommitPlugin:
                     break # gap in sequence numbers, stop here
                 msgs_for_tree.append((seq_num, id))
 
-            trees[chain] = build_merkle_tree(msgs_for_tree, leaves="ids")
+            commits[chain] = Commit(root=build_merkle_tree(msgs_for_tree), interval=Interval(min=msgs_for_tree[0].seq_num, max=msgs_for_tree[-1].seq_num))
 
+        # TODO: we only want to put token/gas prices onchain
+        # on a regular cadence unless huge deviation.
         token_prices = { tk: median(prices) for (tk, prices) in observations.group_token_prices_by_token() }
         gas_prices = { chain: median(prices) for (chain, prices) in observations.group_gas_prices_by_chain() }
 
-        return (seq_nums, trees, token_prices, gas_prices)
+        return CommitOutcome(latest_committed_seq_nums=latest_committed_seq_nums, commits=commits, token_price=token_prices, gas_prices=gas_prices)
 
     def reports(self, outcome):
         report = report_from_outcome(outcome)
@@ -120,14 +175,14 @@ class CommitPlugin:
         return [encoded]
 
     def should_accept(self, report):
-        if report is empty or invalid:
+        if len(report) == 0 or self.validate_report(report):
             return False
 
     def should_transmit(self, report):
         if not self.is_writer():
             return False
 
-        if report is empty or invalid:
+        if len(report) == 0 or not self.validate_report(report):
             return False
 
         on_chain_seq_nums = self.offRamp.get_sequence_numbers()
@@ -136,6 +191,9 @@ class CommitPlugin:
                 return False
 
         return True
+
+    def validate_report(self, report):
+        pass
 
     def keep_cfg_in_sync(self):
         # Polling the configuration on the on-chain contract.
@@ -146,12 +204,30 @@ def consensus_f_chain(observations):
     f_chain_votes = observations["f_chain"].group_by_chain() # { chainA: [1, 1, 16, 16, 16, 16] }
     return { ch: elem_most_occurrences(fs) for (ch, fs) in f_chain_votes.items() } # { chainA: 16 }
 
-def consensus_seq_nums(observations, f_chain):
-    observed_seq_nums = observations["observed_seq_nums"].group_by_chain(sort="asc") # { chainA: [4, 5, 5, 5, 5, 6, 6] }
-    seq_nums_consensus = {}
+def consensus_latest_committed_seq_nums(observations, f_chains):
+    all_latest_committed_seq_nums = {}
+    for observation in observations:
+        for (chain, seq_num) in observation.latest_committed_seq_nums.items():
+            if chain not in all_latest_committed_seq_nums:
+                all_latest_committed_seq_nums[chain] = []
+            all_latest_committed_seq_nums[chain].append(seq_num)
 
-    for chain, seq_nums in observed_seq_nums.items():
-        if len(observed_seq_nums) >= 2*f_chain[chain]+1:
-            seq_nums_consensus[chain] = observed_seq_nums[f_chain[chain]] # with f=4 { chainA: 5 }
+    latest_committed_seq_nums_consensus = {}
+    # { chainA: [4, 5, 5, 5, 5, 6, 6] }
+    for (chain, latest_committed_seq_nums) in all_latest_committed_seq_nums.items():
+        if len(latest_committed_seq_nums) >= 2*f_chains[chain]+1:
+             # 2f+1 = 2*5+1 = 11
+             latest_committed_seq_nums_consensus[chain] = sorted(latest_committed_seq_nums)[f_chains[chain]]# with f=4 { chainA: 5 }
+    return latest_committed_seq_nums_consensus
 
-    return seq_nums_consensus
+def elem_most_occurrences(lst):
+    pass
+
+def build_merkle_tree(messages):
+    pass
+
+def median(lst):
+    pass
+
+def report_from_outcome(outcome: CommitOutcome)->bytes:
+    pass

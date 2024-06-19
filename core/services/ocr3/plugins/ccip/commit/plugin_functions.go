@@ -19,80 +19,48 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 )
 
-// observeMaxSeqNums finds the maximum committed sequence numbers for each source chain.
-// If a sequence number is pending (is not on-chain yet), it will be included in the results.
-func observeMaxSeqNums(
+// observeLatestCommittedSeqNums finds the maximum committed sequence numbers for each source chain.
+// If we cannot observe the dest we return an empty slice and no error..
+func observeLatestCommittedSeqNums(
 	ctx context.Context,
 	lggr logger.Logger,
 	ccipReader cciptypes.CCIPReader,
-	previousOutcomeBytes []byte,
 	readableChains mapset.Set[cciptypes.ChainSelector],
 	destChain cciptypes.ChainSelector,
 	knownSourceChains []cciptypes.ChainSelector,
-) ([]cciptypes.SeqNumChain, bool, error) {
-	seqNumsInSync := false
-
-	// If there is a previous outcome, start with the sequence numbers of it.
-	seqNumPerChain := make(map[cciptypes.ChainSelector]cciptypes.SeqNum)
-	if previousOutcomeBytes != nil {
-		lggr.Debugw("observing based on previous outcome")
-		prevOutcome, err := cciptypes.DecodeCommitPluginOutcome(previousOutcomeBytes)
-		if err != nil {
-			return nil, false, fmt.Errorf("decode commit plugin previous outcome: %w", err)
-		}
-		lggr.Debugw("previous outcome decoded", "outcome", prevOutcome.String())
-
-		for _, seqNumChain := range prevOutcome.MaxSeqNums {
-			if seqNumChain.SeqNum > seqNumPerChain[seqNumChain.ChainSel] {
-				seqNumPerChain[seqNumChain.ChainSel] = seqNumChain.SeqNum
-			}
-		}
-		lggr.Debugw("discovered sequence numbers from prev outcome", "seqNumPerChain", seqNumPerChain)
-	}
-
-	// If reading destination chain is supported find the latest sequence numbers per chain from the onchain state.
+) ([]cciptypes.SeqNumChain, error) {
+	sort.Slice(knownSourceChains, func(i, j int) bool { return knownSourceChains[i] < knownSourceChains[j] })
+	latestCommittedSeqNumsObservation := make([]cciptypes.SeqNumChain, 0)
 	if readableChains.Contains(destChain) {
-		lggr.Debugw("reading sequence numbers from destination")
-		onChainSeqNums, err := ccipReader.NextSeqNum(ctx, knownSourceChains)
+		lggr.Debugw("reading latest committed sequence from destination")
+		onChainLatestCommittedSeqNums, err := ccipReader.NextSeqNum(ctx, knownSourceChains)
 		if err != nil {
-			return nil, false, fmt.Errorf("get next seq nums: %w", err)
+			return latestCommittedSeqNumsObservation, fmt.Errorf("get next seq nums: %w", err)
 		}
-		lggr.Debugw("discovered sequence numbers from destination", "onChainSeqNums", onChainSeqNums)
-
-		// Update the seq nums if the on-chain sequence number is greater than previous outcome.
+		lggr.Debugw("observed latest committed sequence numbers on destination", "latestCommittedSeqNumsObservation", onChainLatestCommittedSeqNums)
 		for i, ch := range knownSourceChains {
-			if onChainSeqNums[i] > seqNumPerChain[ch] {
-				seqNumPerChain[ch] = onChainSeqNums[i]
-				lggr.Debugw("updated sequence number", "chain", ch, "seqNum", onChainSeqNums[i])
-			}
+			latestCommittedSeqNumsObservation = append(latestCommittedSeqNumsObservation, cciptypes.NewSeqNumChain(ch, onChainLatestCommittedSeqNums[i]))
 		}
-		seqNumsInSync = true
 	}
-
-	maxChainSeqNums := make([]cciptypes.SeqNumChain, 0)
-	for ch, seqNum := range seqNumPerChain {
-		maxChainSeqNums = append(maxChainSeqNums, cciptypes.NewSeqNumChain(ch, seqNum))
-	}
-
-	sort.Slice(maxChainSeqNums, func(i, j int) bool { return maxChainSeqNums[i].ChainSel < maxChainSeqNums[j].ChainSel })
-	return maxChainSeqNums, seqNumsInSync, nil
+	return latestCommittedSeqNumsObservation, nil
 }
 
 // observeNewMsgs finds the new messages for each supported chain based on the provided max sequence numbers.
+// If latestCommitSeqNums is empty (first ever OCR round), it will return an empty slice.
 func observeNewMsgs(
 	ctx context.Context,
 	lggr logger.Logger,
 	ccipReader cciptypes.CCIPReader,
 	msgHasher cciptypes.MessageHasher,
 	readableChains mapset.Set[cciptypes.ChainSelector],
-	maxSeqNumsPerChain []cciptypes.SeqNumChain,
+	latestCommittedSeqNums []cciptypes.SeqNumChain,
 	msgScanBatchSize int,
 ) ([]cciptypes.CCIPMsg, error) {
 	// Find the new msgs for each supported chain based on the discovered max sequence numbers.
-	newMsgsPerChain := make([][]cciptypes.CCIPMsg, len(maxSeqNumsPerChain))
+	newMsgsPerChain := make([][]cciptypes.CCIPMsg, len(latestCommittedSeqNums))
 	eg := new(errgroup.Group)
 
-	for chainIdx, seqNumChain := range maxSeqNumsPerChain {
+	for chainIdx, seqNumChain := range latestCommittedSeqNums {
 		if !readableChains.Contains(seqNumChain.ChainSel) {
 			lggr.Debugw("reading chain is not supported", "chain", seqNumChain.ChainSel)
 			continue
@@ -140,7 +108,7 @@ func observeNewMsgs(
 	}
 
 	observedNewMsgs := make([]cciptypes.CCIPMsg, 0)
-	for chainIdx := range maxSeqNumsPerChain {
+	for chainIdx := range latestCommittedSeqNums {
 		observedNewMsgs = append(observedNewMsgs, newMsgsPerChain[chainIdx]...)
 	}
 	return observedNewMsgs, nil

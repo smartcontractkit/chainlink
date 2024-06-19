@@ -36,11 +36,12 @@ type OCR3Runner[RI any] struct {
 	previousOutcome ocr3types.Outcome
 }
 
-func NewOCR3Runner[RI any](nodes []ocr3types.ReportingPlugin[RI], nodeIDs []commontypes.OracleID) *OCR3Runner[RI] {
+func NewOCR3Runner[RI any](nodes []ocr3types.ReportingPlugin[RI], nodeIDs []commontypes.OracleID, initialOutcome ocr3types.Outcome) *OCR3Runner[RI] {
 	return &OCR3Runner[RI]{
-		nodes:   nodes,
-		nodeIDs: nodeIDs,
-		round:   0,
+		nodes:           nodes,
+		nodeIDs:         nodeIDs,
+		round:           0,
+		previousOutcome: initialOutcome,
 	}
 }
 
