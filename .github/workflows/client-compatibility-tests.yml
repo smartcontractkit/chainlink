@@ -399,6 +399,19 @@ jobs:
           is_valid=$(echo "$DECODED_BASE64_TEST_LIST" | jq . > /dev/null 2>&1; echo $?)
           if [ "$is_valid" -ne 0 ]; then
               echo "Invalid base64 input. Please provide a valid base64 encoded JSON list of tests."
+              echo "Here is an example of valid JSON:"
+              cat <<EOF
+          [
+            {
+              "name": "evm-implementation-compatibility-test-68",
+              "os": "ubuntu-latest",
+              "product": "runlog",
+              "eth_implementation": "erigon",
+              "docker_image": "thorax/erigon:v2.59.2",
+              "run": "-run 'TestRunLogBasic' ./smoke/runlog_test.go"
+            }
+          ]
+          EOF          
               exit 1
           fi
           JOB_MATRIX_JSON=$(echo $DECODED_BASE64_TEST_LIST)
