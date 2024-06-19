@@ -149,7 +149,6 @@ linters-settings:
       - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Criticalw
       - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Panicw
       - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Fatalw
-      - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).With
       - (github.com/smartcontractkit/chainlink/v2/core/logger.SugaredLogger).AssumptionViolationw
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Debugw
       - (github.com/smartcontractkit/chainlink-common/pkg/logger.Logger).Infow
