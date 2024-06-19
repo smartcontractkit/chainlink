@@ -52,7 +52,7 @@ func (e *CCIPContractsDeployer) DeployArmProxy(arm common.Address) (*ArmProxy, e
 
 type LiquidityManager struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *liquiditymanager.LiquidityManager
 	EthAddress *common.Address
 }

@@ -76,17 +76,15 @@ func NeedTokenAdminRegistry() bool {
 
 // CCIPContractsDeployer provides the implementations for deploying CCIP ETH contracts
 type CCIPContractsDeployer struct {
-	evmClient   blockchain.EVMClient
-	logger      zerolog.Logger
-	EthDeployer *contracts.EthereumContractDeployer
+	evmClient blockchain.EVMClient
+	logger    *zerolog.Logger
 }
 
 // NewCCIPContractsDeployer returns an instance of a contract deployer for CCIP
-func NewCCIPContractsDeployer(logger zerolog.Logger, bcClient blockchain.EVMClient) (*CCIPContractsDeployer, error) {
+func NewCCIPContractsDeployer(logger *zerolog.Logger, bcClient blockchain.EVMClient) (*CCIPContractsDeployer, error) {
 	return &CCIPContractsDeployer{
-		evmClient:   bcClient,
-		logger:      logger,
-		EthDeployer: contracts.NewEthereumContractDeployer(bcClient, logger),
+		evmClient: bcClient,
+		logger:    logger,
 	}, nil
 }
 

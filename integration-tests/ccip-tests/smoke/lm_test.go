@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 )
@@ -17,7 +18,7 @@ func TestLmBasic(t *testing.T) {
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	require.NotNil(t, TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
 	//gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
-	lmTestSetup := testsetups.LMDefaultTestSetup(t, log, "smoke-lm", TestCfg)
+	lmTestSetup := testsetups.LMDefaultTestSetup(t, &log, "smoke-lm", TestCfg)
 
 	l1ChainId := lmTestSetup.Cfg.SelectedNetworks[0].ChainID
 	l2ChainId := lmTestSetup.Cfg.SelectedNetworks[1].ChainID

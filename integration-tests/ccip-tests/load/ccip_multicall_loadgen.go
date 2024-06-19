@@ -197,7 +197,7 @@ func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.Response {
 		}
 		for i, stat := range rValues.Stats {
 			msg := rValues.Msgs[i]
-			stat.UpdateState(lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Success,
+			stat.UpdateState(&lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Success,
 				testreporters.TransactionStats{
 					Fee:                msg.Fee.String(),
 					GasUsed:            gasUsed,

@@ -468,7 +468,7 @@ func (o *CCIPTestSetUpOutputs) ReadLanes() []*BiDirectionalLaneConfig {
 }
 
 func (o *CCIPTestSetUpOutputs) DeployChainContracts(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	chainClient blockchain.EVMClient,
 	networkCfg blockchain.EVMNetwork,
 	noOfTokens int,
@@ -483,7 +483,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 		networkCfg.URLs = k8Env.URLs[chainClient.GetNetworkConfig().Name]
 	}
 
-	mainChainClient, err := blockchain.ConcurrentEVMClient(networkCfg, k8Env, chainClient, lggr)
+	mainChainClient, err := blockchain.ConcurrentEVMClient(networkCfg, k8Env, chainClient, *lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkCfg.Name, err))
 	}
@@ -533,7 +533,7 @@ func (o *CCIPTestSetUpOutputs) SetupDynamicTokenPriceUpdates() error {
 }
 
 func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	networkA, networkB blockchain.EVMNetwork,
 	chainClientA, chainClientB blockchain.EVMClient,
 ) error {
@@ -563,14 +563,14 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	// on one lane will keep on waiting for transactions on other lane for the same network)
 	// Currently for simulated network clients(from same network) created with NewEVMClient does not sync nonce
 	// ConcurrentEVMClient is a work-around for that.
-	sourceChainClientA2B, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, lggr)
+	sourceChainClientA2B, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, *lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkA.Name, err))
 	}
 
 	sourceChainClientA2B.ParallelTransactions(true)
 
-	destChainClientA2B, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, lggr)
+	destChainClientA2B, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, *lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkB.Name, err))
 	}
@@ -601,8 +601,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	destCfg := contractsB.(*laneconfig.LaneConfig)
 	ccipLaneA2B.DstNetworkLaneCfg = destCfg
 
-	ccipLaneA2B.Logger = lggr.With().Str("env", namespace).Str("Lane",
+	a2blogger := lggr.With().Str("env", namespace).Str("Lane",
 		fmt.Sprintf("%s-->%s", ccipLaneA2B.SourceNetworkName, ccipLaneA2B.DestNetworkName)).Logger()
+	ccipLaneA2B.Logger = &a2blogger
 	ccipLaneA2B.Reports = o.Reporter.AddNewLane(fmt.Sprintf("%s To %s",
 		networkA.Name, networkB.Name), ccipLaneA2B.Logger)
 
@@ -615,13 +616,13 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	var ccipLaneB2A *actions.CCIPLane
 
 	if bidirectional {
-		sourceChainClientB2A, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, lggr)
+		sourceChainClientB2A, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, *lggr)
 		if err != nil {
 			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkB.Name, err))
 		}
 		sourceChainClientB2A.ParallelTransactions(true)
 
-		destChainClientB2A, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, lggr)
+		destChainClientB2A, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, *lggr)
 		if err != nil {
 			return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkA.Name, err))
 		}
@@ -641,8 +642,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			SrcNetworkLaneCfg: ccipLaneA2B.DstNetworkLaneCfg,
 			DstNetworkLaneCfg: ccipLaneA2B.SrcNetworkLaneCfg,
 		}
-		ccipLaneB2A.Logger = lggr.With().Str("env", namespace).Str("Lane",
+		b2aLogger := lggr.With().Str("env", namespace).Str("Lane",
 			fmt.Sprintf("%s-->%s", ccipLaneB2A.SourceNetworkName, ccipLaneB2A.DestNetworkName)).Logger()
+		ccipLaneB2A.Logger = &b2aLogger
 		ccipLaneB2A.Reports = o.Reporter.AddNewLane(
 			fmt.Sprintf("%s To %s", networkB.Name, networkA.Name), ccipLaneB2A.Logger)
 		bidirectionalLane.ReverseLane = ccipLaneB2A
@@ -822,7 +824,7 @@ func (o *CCIPTestSetUpOutputs) WaitForPriceUpdates() {
 // 3. If configureCLNode is true, the tearDown func to call when environment needs to be destroyed
 func CCIPDefaultTestSetUp(
 	t *testing.T,
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	envName string,
 	tokenDeployerFns []blockchain.ContractDeployer,
 	testConfig *CCIPTestConfig,
@@ -1042,7 +1044,7 @@ func CCIPDefaultTestSetUp(
 // CreateEnvironment creates the environment for the test and registers the test clean-up function to tear down the set-up environment
 // It returns the map of chainID to EVMClient
 func (o *CCIPTestSetUpOutputs) CreateEnvironment(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	envName string,
 	reportPath string,
 ) map[int64]blockchain.EVMClient {
@@ -1121,7 +1123,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
 		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
 		for _, n := range ccipEnv.LocalCluster.EVMNetworks {
-			if evmClient, err := blockchain.NewEVMClientFromNetwork(*n, lggr); err == nil {
+			if evmClient, err := blockchain.NewEVMClientFromNetwork(*n, *lggr); err == nil {
 				chainByChainID[evmClient.GetChainID().Int64()] = evmClient
 				chains = append(chains, evmClient)
 			} else {
@@ -1135,10 +1137,10 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			}
 			var ec blockchain.EVMClient
 			if k8Env == nil {
-				ec, err = blockchain.ConnectEVMClient(n, lggr)
+				ec, err = blockchain.ConnectEVMClient(n, *lggr)
 			} else {
 				log.Info().Interface("urls", k8Env.URLs).Msg("URLs")
-				ec, err = blockchain.NewEVMClient(n, k8Env, lggr)
+				ec, err = blockchain.NewEVMClient(n, k8Env, *lggr)
 			}
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 			chains = append(chains, ec)

@@ -34,7 +34,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	require.NotNil(t, TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
 	gasLimit := big.NewInt(*TestCfg.TestGroupInput.MsgDetails.DestGasLimit)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		log.Info().Msg("No lanes found")
 		return
@@ -96,7 +96,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 	log := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	require.True(t, TestCfg.TestGroupInput.MsgDetails.IsTokenTransfer(), "Test config should have token transfer message type")
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
@@ -420,7 +420,7 @@ func TestSmokeCCIPSelfServeRateLimitOnRamp(t *testing.T) {
 		require.FailNow(t, "OnRamp contract version not found in test config")
 	}
 
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
@@ -562,7 +562,7 @@ func TestSmokeCCIPSelfServeRateLimitOffRamp(t *testing.T) {
 	// Set the default permissionless exec threshold lower so that we can manually execute the transactions faster
 	// Tuning this too low stops any transactions from being realistically executed
 	actions.DefaultPermissionlessExecThreshold = 1 * time.Minute
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
@@ -705,7 +705,7 @@ func TestSmokeCCIPMulticall(t *testing.T) {
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
 	// enable multicall in one tx for this test
 	TestCfg.TestGroupInput.MulticallInOneTx = ptr.Ptr(true)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
@@ -752,7 +752,7 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 	t.Parallel()
 	log := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, log, "smoke-ccip", nil, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, &log, "smoke-ccip", nil, TestCfg)
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}

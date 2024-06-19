@@ -35,7 +35,7 @@ type ChaosConfig struct {
 type LoadArgs struct {
 	t                *testing.T
 	Ctx              context.Context
-	lggr             zerolog.Logger
+	lggr             *zerolog.Logger
 	schedules        []*wasp.Segment
 	RunnerWg         *errgroup.Group // to wait on individual load generators run
 	LoadStarterWg    *sync.WaitGroup // waits for all the runners to start
@@ -275,7 +275,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test
 			CallTimeout:           (l.TestCfg.TestGroupInput.PhaseTimeout.Duration()) * 5,
 			Gun:                   ccipLoad,
-			Logger:                ccipLoad.Lane.Logger,
+			Logger:                *ccipLoad.Lane.Logger,
 			LokiConfig:            wasp.NewLokiConfig(lokiConfig.Endpoint, lokiConfig.TenantId, nil, nil),
 			Labels:                labels,
 			FailOnErr:             pointer.GetBool(l.TestCfg.TestGroupInput.LoadProfile.FailOnFirstErrorInLoad),
@@ -448,7 +448,7 @@ func NewLoadArgs(t *testing.T, lggr zerolog.Logger, chaosExps ...ChaosConfig) *L
 	return &LoadArgs{
 		t:             t,
 		Ctx:           ctx,
-		lggr:          lggr,
+		lggr:          &lggr,
 		RunnerWg:      wg,
 		TestCfg:       testsetups.NewCCIPTestConfig(t, lggr, testconfig.Load),
 		ChaosExps:     chaosExps,

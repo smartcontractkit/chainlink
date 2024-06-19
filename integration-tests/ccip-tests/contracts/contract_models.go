@@ -122,7 +122,7 @@ type TokenTransmitter struct {
 
 type ERC677Token struct {
 	client          blockchain.EVMClient
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 	instance        *burn_mint_erc677.BurnMintERC677
 	ContractAddress common.Address
 	OwnerAddress    common.Address
@@ -183,7 +183,7 @@ func (token *ERC677Token) Mint(to common.Address, amount *big.Int) error {
 
 type ERC20Token struct {
 	client          blockchain.EVMClient
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 	instance        *erc20.ERC20
 	ContractAddress common.Address
 	OwnerAddress    common.Address
@@ -273,7 +273,7 @@ func (token *ERC20Token) Transfer(from *blockchain.EthereumWallet, to string, am
 
 type LinkToken struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	instance   *link_token_interface.LinkToken
 	EthAddress common.Address
 }
@@ -568,7 +568,7 @@ func (w TokenPoolWrapper) GetRebalancer(opts *bind.CallOpts) (common.Address, er
 // TokenPool represents a TokenPool address
 type TokenPool struct {
 	client       blockchain.EVMClient
-	logger       zerolog.Logger
+	logger       *zerolog.Logger
 	Instance     *TokenPoolWrapper
 	EthAddress   common.Address
 	OwnerAddress common.Address
@@ -947,7 +947,7 @@ func (w CommitStoreWrapper) GetExpectedNextSequenceNumber(opts *bind.CallOpts) (
 
 type CommitStore struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *CommitStoreWrapper
 	EthAddress common.Address
 }
@@ -1012,7 +1012,7 @@ func (b *CommitStore) WatchReportAccepted(opts *bind.WatchOpts, acceptedEvent ch
 
 type ReceiverDapp struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	instance   *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 	EthAddress common.Address
 }
@@ -1131,7 +1131,7 @@ type InternalTokenPriceUpdate struct {
 type PriceRegistry struct {
 	client     blockchain.EVMClient
 	Instance   *PriceRegistryWrapper
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	EthAddress common.Address
 }
 
@@ -1264,7 +1264,7 @@ func (c *PriceRegistry) WatchUsdPerTokenUpdated(opts *bind.WatchOpts, latest cha
 
 type TokenAdminRegistry struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *token_admin_registry.TokenAdminRegistry
 	EthAddress common.Address
 }
@@ -1317,7 +1317,7 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 
 type Router struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *router.Router
 	EthAddress common.Address
 }
@@ -1599,7 +1599,7 @@ func (w OnRampWrapper) CurrentRateLimiterState(opts *bind.CallOpts) (*RateLimite
 
 type OnRamp struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *OnRampWrapper
 	EthAddress common.Address
 }
@@ -1736,7 +1736,7 @@ func (onRamp *OnRamp) ApplyPoolUpdates(tokens []common.Address, pools []common.A
 // OffRamp represents the OffRamp CCIP contract on the destination chain
 type OffRamp struct {
 	client     blockchain.EVMClient
-	logger     zerolog.Logger
+	logger     *zerolog.Logger
 	Instance   *OffRampWrapper
 	EthAddress common.Address
 }
@@ -2083,7 +2083,7 @@ type EVM2EVMOffRampExecutionStateChanged struct {
 
 type MockAggregator struct {
 	client          blockchain.EVMClient
-	logger          zerolog.Logger
+	logger          *zerolog.Logger
 	Instance        *mock_v3_aggregator_contract.MockV3Aggregator
 	ContractAddress common.Address
 	RoundId         *big.Int

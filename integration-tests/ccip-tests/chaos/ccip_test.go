@@ -107,7 +107,7 @@ func TestChaosCCIP(t *testing.T) {
 			var numOfRequests = 3
 
 			setUpArgs := testsetups.CCIPDefaultTestSetUp(
-				t, l, "chaos-ccip", nil, testCfg)
+				t, &l, "chaos-ccip", nil, testCfg)
 
 			if len(setUpArgs.Lanes) == 0 {
 				return

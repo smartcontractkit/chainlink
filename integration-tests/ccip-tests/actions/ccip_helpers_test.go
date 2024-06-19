@@ -97,7 +97,7 @@ func TestIsPhaseValid(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			shouldReturn, err := isPhaseValid(logger, tc.currentPhase, tc.opts, tc.phaseErr)
+			shouldReturn, err := isPhaseValid(&logger, tc.currentPhase, tc.opts, tc.phaseErr)
 			require.Equal(t, tc.expectedShouldReturn, shouldReturn, "shouldReturn not as expected")
 			require.Equal(t, tc.expectedErr, err, "err not as expected")
 		})

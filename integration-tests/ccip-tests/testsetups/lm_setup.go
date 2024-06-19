@@ -46,6 +46,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -60,7 +61,7 @@ type LMTestSetupOutputs struct {
 
 // TODO - Copied over from ccip tests as such. Refactor and remove unused code
 func (o *LMTestSetupOutputs) CreateLMEnvironment(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	envName string,
 	reportPath string,
 ) map[int64]blockchain.EVMClient {
@@ -135,7 +136,7 @@ func (o *LMTestSetupOutputs) CreateLMEnvironment(
 	if pointer.GetBool(testConfig.TestGroupInput.LocalCluster) {
 		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
 		for _, n := range ccipEnv.LocalCluster.EVMNetworks {
-			if evmClient, err := blockchain.NewEVMClientFromNetwork(*n, lggr); err == nil {
+			if evmClient, err := blockchain.NewEVMClientFromNetwork(*n, *lggr); err == nil {
 				chainByChainID[evmClient.GetChainID().Int64()] = evmClient
 				chains = append(chains, evmClient)
 			} else {
@@ -149,10 +150,10 @@ func (o *LMTestSetupOutputs) CreateLMEnvironment(
 			}
 			var ec blockchain.EVMClient
 			if k8Env == nil {
-				ec, err = blockchain.ConnectEVMClient(n, lggr)
+				ec, err = blockchain.ConnectEVMClient(n, *lggr)
 			} else {
 				log.Info().Interface("urls", k8Env.URLs).Msg("URLs")
-				ec, err = blockchain.NewEVMClient(n, k8Env, lggr)
+				ec, err = blockchain.NewEVMClient(n, k8Env, *lggr)
 			}
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 			chains = append(chains, ec)
@@ -236,7 +237,7 @@ func (o *LMTestSetupOutputs) CreateLMEnvironment(
 }
 
 func (o *LMTestSetupOutputs) DeployLMChainContracts(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	networkCfg blockchain.EVMNetwork,
 	lmCommon actions.LMCommon,
 	l2ChainID int64,
@@ -251,7 +252,7 @@ func (o *LMTestSetupOutputs) DeployLMChainContracts(
 		networkCfg.URLs = k8Env.URLs[chainClient.GetNetworkConfig().Name]
 	}
 
-	chain, err := blockchain.ConcurrentEVMClient(networkCfg, k8Env, chainClient, lggr)
+	chain, err := blockchain.ConcurrentEVMClient(networkCfg, k8Env, chainClient, *lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %w", networkCfg.Name, err))
 	}
@@ -503,7 +504,7 @@ func (o *LMTestSetupOutputs) SetOCR3Config(chainId int64) error {
 	return nil
 }
 
-func (o *LMTestSetupOutputs) FundPool(chainId int64, lggr zerolog.Logger, fundingAmount *big.Int) error {
+func (o *LMTestSetupOutputs) FundPool(chainId int64, lggr *zerolog.Logger, fundingAmount *big.Int) error {
 	token, err := erc20.NewERC20(*o.LMModules[chainId].WrapperNative, o.LMModules[chainId].ChainClient.Backend())
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ERC20 contract instance: %w", err))
@@ -572,7 +573,7 @@ func (o *LMTestSetupOutputs) FundPool(chainId int64, lggr zerolog.Logger, fundin
 	return nil
 }
 
-func (o *LMTestSetupOutputs) FundLM(chainId int64, lggr zerolog.Logger, fundingAmount *big.Int) error {
+func (o *LMTestSetupOutputs) FundLM(chainId int64, lggr *zerolog.Logger, fundingAmount *big.Int) error {
 	transactor, err := o.LMModules[chainId].ChainClient.TransactionOpts(o.LMModules[chainId].ChainClient.GetDefaultWallet())
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to get transaction options: %w", err))
@@ -624,7 +625,7 @@ func (o *LMTestSetupOutputs) FundLM(chainId int64, lggr zerolog.Logger, fundingA
 	return nil
 }
 
-func (o *LMTestSetupOutputs) AddJobs(chainId int64, lggr zerolog.Logger) error {
+func (o *LMTestSetupOutputs) AddJobs(chainId int64, lggr *zerolog.Logger) error {
 	// Add bootstrap job
 	clNodesWithKeys := o.Env.CLNodesWithKeys[strconv.FormatInt(chainId, 10)]
 	bootstrapNode := clNodesWithKeys[0]
@@ -677,7 +678,7 @@ func (o *LMTestSetupOutputs) AddJobs(chainId int64, lggr zerolog.Logger) error {
 
 func LMDefaultTestSetup(
 	t *testing.T,
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	envName string,
 	testConfig *CCIPTestConfig,
 ) *LMTestSetupOutputs {

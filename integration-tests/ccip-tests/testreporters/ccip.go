@@ -72,7 +72,7 @@ type RequestStat struct {
 }
 
 func (stat *RequestStat) UpdateState(
-	lggr zerolog.Logger,
+	lggr *zerolog.Logger,
 	seqNum uint64,
 	step Phase,
 	duration time.Duration,
@@ -132,7 +132,7 @@ func NewCCIPRequestStats(reqNo int64, source, dest string) *RequestStat {
 
 type CCIPLaneStats struct {
 	lane                    string
-	lggr                    zerolog.Logger
+	lggr                    *zerolog.Logger
 	TotalRequests           int64                       `json:"total_requests,omitempty"`          // TotalRequests is the total number of requests made
 	SuccessCountsByPhase    map[Phase]int64             `json:"success_counts_by_phase,omitempty"` // SuccessCountsByPhase is the number of requests that succeeded in each phase
 	FailedCountsByPhase     map[Phase]int64             `json:"failed_counts_by_phase,omitempty"`  // FailedCountsByPhase is the number of requests that failed in each phase
@@ -216,7 +216,7 @@ func (testStats *CCIPLaneStats) Finalize(lane string) {
 
 type CCIPTestReporter struct {
 	t                  *testing.T
-	logger             zerolog.Logger
+	logger             *zerolog.Logger
 	startTime          int64
 	endTime            int64
 	grafanaURLProvider testreporters.GrafanaURLProvider
@@ -439,7 +439,7 @@ func (r *CCIPTestReporter) SetGrafanaURLProvider(provider testreporters.GrafanaU
 	r.grafanaURLProvider = provider
 }
 
-func (r *CCIPTestReporter) AddNewLane(name string, lggr zerolog.Logger) *CCIPLaneStats {
+func (r *CCIPTestReporter) AddNewLane(name string, lggr *zerolog.Logger) *CCIPLaneStats {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	i := &CCIPLaneStats{
@@ -461,7 +461,7 @@ func (r *CCIPTestReporter) SendReport(t *testing.T, namespace string, slackSend 
 	return testreporters.SendReport(t, namespace, logsPath, r, nil)
 }
 
-func NewCCIPTestReporter(t *testing.T, lggr zerolog.Logger) *CCIPTestReporter {
+func NewCCIPTestReporter(t *testing.T, lggr *zerolog.Logger) *CCIPTestReporter {
 	return &CCIPTestReporter{
 		LaneStats:   make(map[string]*CCIPLaneStats),
 		startTime:   time.Now().UTC().UnixMilli(),
