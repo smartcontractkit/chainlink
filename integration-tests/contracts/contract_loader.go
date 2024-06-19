@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_no_native"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
@@ -314,7 +315,7 @@ func (e *EthereumContractLoader) LoadMercuryVerifierProxy(addr common.Address) (
 }
 
 func (e *EthereumContractLoader) LoadMercuryFeeManager(addr common.Address) (MercuryFeeManager, error) {
-	instance, err := e.client.LoadContract("Mercury Fee Manager", addr, func(
+	instance, err := e.client.LoadContract("Mercury FeeManager", addr, func(
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
@@ -326,6 +327,23 @@ func (e *EthereumContractLoader) LoadMercuryFeeManager(addr common.Address) (Mer
 	return &EthereumMercuryFeeManager{
 		client:   e.client,
 		instance: instance.(*fee_manager.FeeManager),
+		address:  addr,
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadMercuryFeeManagerNoNative(addr common.Address) (MercuryFeeManager, error) {
+	instance, err := e.client.LoadContract("Mercury FeeManagerNoNative", addr, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return fee_manager_no_native.NewFeeManagerNoNative(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryFeeManagerNoNative{
+		client:   e.client,
+		instance: instance.(*fee_manager_no_native.FeeManagerNoNative),
 		address:  addr,
 	}, err
 }

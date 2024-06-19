@@ -6,6 +6,7 @@ errored_verifier: ../../../contracts/solc/v0.8.19/ErroredVerifier/ErroredVerifie
 exposed_channel_verifier: ../../../contracts/solc/v0.8.19/ExposedChannelVerifier/ExposedChannelVerifier.abi ../../../contracts/solc/v0.8.19/ExposedChannelVerifier/ExposedChannelVerifier.bin c21cde078900241c06de69e2bc5d906c5ef558b52db66caa68bed065940a2253
 exposed_verifier: ../../../contracts/solc/v0.8.19/ExposedVerifier/ExposedVerifier.abi ../../../contracts/solc/v0.8.19/ExposedVerifier/ExposedVerifier.bin 00816ab345f768e522c79abadeadf9155c2c688067e18f8f73e5d6ab71037663
 fee_manager: ../../../contracts/solc/v0.8.19/FeeManager/FeeManager.abi ../../../contracts/solc/v0.8.19/FeeManager/FeeManager.bin edc85f34294ae7c90d45c4c71eb5c105c60a4842dfbbf700c692870ffcc403a1
+fee_manager_no_native: ../../../contracts/solc/v0.8.19/FeeManagerNoNative/FeeManagerNoNative.abi ../../../contracts/solc/v0.8.19/FeeManagerNoNative/FeeManagerNoNative.bin 640d50e0160afdeb0cad6a5c9783ec607d0a08661ecf82ae9b284b053c7876c7
 llo_feeds: ../../../contracts/solc/v0.8.19/FeeManager.abi ../../../contracts/solc/v0.8.19/FeeManager.bin cb71e018f67e49d7bc0e194c822204dfd59f79ff42e4fc8fd8ab63f3acd71361
 llo_feeds_test: ../../../contracts/solc/v0.8.19/ExposedVerifier.abi ../../../contracts/solc/v0.8.19/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 reward_manager: ../../../contracts/solc/v0.8.19/RewardManager/RewardManager.abi ../../../contracts/solc/v0.8.19/RewardManager/RewardManager.bin 7996cbc89a7f9af85b1ca4079ecf782d7138626b3f4bdb3bfa996248c9ccb9f4

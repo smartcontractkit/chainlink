@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_no_native"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
@@ -2381,6 +2382,30 @@ func (e *EthereumMercuryFeeManager) UpdateSubscriberDiscount(subscriber common.A
 	}
 	tx, err := e.instance.UpdateSubscriberDiscount(opts, subscriber, feedId, token, discount)
 	e.l.Info().Err(err).Msg("Called EthereumMercuryFeeManager.UpdateSubscriberDiscount()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryFeeManagerNoNative struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *fee_manager_no_native.FeeManagerNoNative
+	l        zerolog.Logger
+}
+
+func (e *EthereumMercuryFeeManagerNoNative) Address() common.Address {
+	return e.address
+}
+
+func (e *EthereumMercuryFeeManagerNoNative) UpdateSubscriberDiscount(subscriber common.Address, feedId [32]byte, token common.Address, discount uint64) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.UpdateSubscriberDiscount(opts, subscriber, feedId, token, discount)
+	e.l.Info().Err(err).Msg("Called EthereumMercuryFeeManagerNoNative.UpdateSubscriberDiscount()")
 	if err != nil {
 		return nil, err
 	}
