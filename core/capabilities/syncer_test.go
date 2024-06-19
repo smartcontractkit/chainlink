@@ -682,7 +682,7 @@ func TestSyncer_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 					},
 				},
 			},
-			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapability{
+			IDsToCapabilities: map[hashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
 				triggerCapID: {
 					LabelledName:   "streams-trigger",
 					Version:        "1.0.0",
