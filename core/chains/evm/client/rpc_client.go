@@ -181,6 +181,7 @@ type RpcClient struct {
 }
 
 var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = &RpcClient{}
+var _ commonclient.TransactionSender[*types.Transaction] = &RpcClient{}
 
 func NewRPCClient(
 	cfg config.NodePool,
@@ -688,7 +689,7 @@ func (r *RpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (blo
 	return
 }
 
-func (r *RpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (r *RpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) (commonclient.SendTxReturnCode, error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("tx", tx)
