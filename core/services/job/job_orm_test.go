@@ -996,6 +996,18 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run(("test Aptos key validation"), func(t *testing.T) {
+		ctx := testutils.Context(t)
+		jb.OCR2OracleSpec.Relay = types.NetworkAptos
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Aptos key matching: \"bad key\"")
+
+		aptosKey, err := keyStore.Aptos().Create(ctx)
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, aptosKey.ID())
+		require.NoError(t, err)
+	})
+
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.PluginType = types.Mercury

@@ -101,7 +101,7 @@ func setupAptosKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keys
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	aptosKeyStore := app.GetKeyStore().Aptos()
 	require.NotNil(t, aptosKeyStore)
-	require.NoError(t, app.KeyStore.Aptos().Add(ctx, cltest.DefaultAptosKey))
+	require.NoError(t, aptosKeyStore.Add(ctx, cltest.DefaultAptosKey))
 
 	client := app.NewHTTPClient(nil)
 
