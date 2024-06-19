@@ -160,6 +160,7 @@ func Test_Client_LatestReport(t *testing.T) {
 
 			conn := &mocks.MockConn{
 				Ready: true,
+				State: connectivity.Ready,
 			}
 			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet)
 			c.conn = conn
