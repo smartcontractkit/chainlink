@@ -546,7 +546,7 @@ func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.Capabil
 	if errors.Is(err, remote.ErrReceiverExists) {
 		// If a receiver already exists, let's log the error for debug purposes, but
 		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		s.lggr.Debugf("failed to set receiver for cap ID %s and don ID %d: %s", fullCapID, don.Id, err)
+		s.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", fullCapID, don.Id, err)
 		return nil
 	} else if err != nil {
 		return err

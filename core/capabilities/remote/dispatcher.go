@@ -99,7 +99,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId string, rec remotety
 	k := key{capabilityId, donId}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: capability %s and don %s", ErrReceiverExists, capabilityId, donId)
+		return ErrReceiverExists
 	}
 
 	receiverCh := make(chan *remotetypes.MessageBody, receiverBufferSize)
