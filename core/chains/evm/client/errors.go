@@ -70,6 +70,8 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 	if err == nil {
 		return false
 	}
+
+	cause := pkgerrors.Cause(err).Error()
 	for _, errorType := range errorTypes {
 		if _, ok := (*e)[errorType]; !ok {
 			return false
@@ -77,7 +79,7 @@ func (e *ClientErrors) ErrIs(err error, errorTypes ...int) bool {
 		if (*e)[errorType].String() == "" {
 			return false
 		}
-		if (*e)[errorType].MatchString(pkgerrors.Cause(err).Error()) {
+		if (*e)[errorType].MatchString(cause) {
 			return true
 		}
 	}
@@ -249,7 +251,16 @@ var zkEvm = ClientErrors{
 	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+var hederaFatal = regexp.MustCompile(`(: |^)(execution reverted)(:|$) | ^Transaction gas limit '(\d+)' exceeds block gas limit '(\d+)' | ^Transaction gas limit provided '(\d+)' is insufficient of intrinsic gas required '(\d+)' | ^Oversized data:|status INVALID_SIGNATURE`)
+var hedera = ClientErrors{
+	NonceTooLow:           regexp.MustCompile(`Nonce too low`),
+	NonceTooHigh:          regexp.MustCompile(`Nonce too high`),
+	TerminallyUnderpriced: regexp.MustCompile(`(Gas price '(\d+)' is below configured minimum gas price '(\d+)')|(Gas price too low)`),
+	InsufficientEth:       regexp.MustCompile(`Insufficient funds for transfer| failed precheck with status INSUFFICIENT_PAYER_BALANCE`),
+	Fatal:                 hederaFatal,
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, hedera}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
