@@ -40,18 +40,12 @@ runs:
           echo "Using base64 parsed results"
           PARSED_RESULTS=$(echo ${{ inputs.base64_parsed_results }} | base64 -d)
         else
-          # I feel like there's some clever, fully jq way to do this, but I ain't got the motivation to figure it out
-          echo "Querying test results at https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs"
-
-          # we can get a maximum of 100 jobs per page, after that we need to start using pagination
-          PARSED_RESULTS=$(curl \
-          -H "Authorization: Bearer ${{ inputs.github_token }}" \
-          'https://api.github.com/repos/${{inputs.github_repository}}/actions/runs/${{ inputs.workflow_run_id }}/jobs?per_page=100' \
-          | jq -r --arg pattern "${{ inputs.github_job_name_regex }}" '.jobs[]
-          | select(.name | test($pattern)) as $job
-          | $job.steps[]
-          | select(.name == "Run Tests")
-          | { conclusion: (if .conclusion == "success" then ":white_check_mark:" else ":x:" end), cap: ("*" + ($job.name | capture($pattern).cap) + "*"), html_url: $job.html_url }')
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+        
+          workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ github_job_name_regex }}" -outputFile=output.json      
+          PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results")) | .results[]")         
         fi   
         
         echo "Parsed Results:"

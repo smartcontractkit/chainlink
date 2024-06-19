@@ -679,26 +679,29 @@ jobs:
     outputs:
       base64_parsed_results: ${{ steps.get-test-results.outputs.base64_parsed_results }}
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+      # workflowresultparser is a tool to get job results from a workflow run
+      - name: Set Up workflowresultparser
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
       - name: Get and parse Test Results
         shell: bash
         id: get-test-results
         run: |
-          cd .github/scripts/workflowresultparser
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
-          go run main.go -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^cron compatibility with (.*?)$" -namedKey="cron" -outputFile=output.json
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+          
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^automation compatibility with (.*?)$" -namedKey="automation" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^keeper compatibility with (.*?)$" -namedKey="keeper" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^log_poller compatibility with (.*?)$" -namedKey="log_poller" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
+          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^cron compatibility with (.*?)$" -namedKey="cron" -outputFile=output.json
                     
           echo "base64_parsed_results=$(base64 -w 0 output.json)" >> $GITHUB_OUTPUT
 
@@ -714,26 +717,29 @@ jobs:
     runs-on: ubuntu-latest
     needs: [start-slack-thread, should-run, select-versions, parse-test-results]
     steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          ref: ${{ needs.select-versions.outputs.chainlink_version }}
+      # asciiresults is a tool that prints results in a nice ASCII table
+      - name: Set Up asciiresults
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/asciiresults@v1.0.0
       - name: Print aggregated test results
         shell: bash
         run: |
-          cd .github/scripts/asciiresults
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+          
           raw_results="$(echo ${{ needs.parse-test-results.outputs.base64_parsed_results }} | base64 -d)"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
-          go run main.go --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "automation" --namedKey "automation" 
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "keeper" --namedKey "keeper"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "log_poller" --namedKey "log_poller"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
+          asciiresults --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "runlog" --namedKey "runlog"
           
           echo
           echo "AGGREGATED RESULTS"
