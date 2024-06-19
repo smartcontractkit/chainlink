@@ -65,11 +65,10 @@ ForwardersEnabled = true
  """
 
 # load test specific configuration
-[Load.OCR]
-[Load.OCR.Common]
+[Load.OCR2.Common]
 eth_funds = 3
 
-[Load.OCR.Load]
+[Load.OCR2.Load]
 test_duration = "3m"
 rate_limit_unit_duration = "1m"
 rate = 3
@@ -78,11 +77,10 @@ verification_timeout = "3m"
 ea_change_interval = "5s"
 
 # volume test specific configuration
-[Volume.OCR]
-[Volume.OCR.Common]
+[Volume.OCR2.Common]
 eth_funds = 3
 
-[Volume.OCR.Volume]
+[Volume.OCR2.Volume]
 test_duration = "3m"
 rate_limit_unit_duration = "1m"
 vu_requests_per_unit = 10
@@ -95,12 +93,10 @@ ea_change_interval = "5s"
 [Soak.Common]
 chainlink_node_funding = 100
 
-[Soak.OCR]
-[Soak.OCR.Common]
+[Soak.OCR2.Common]
 test_duration="15m"
 
-[Soak.OCR.Soak]
-ocr_version="2"
+[Soak.OCR2.Soak]
 number_of_contracts=2
 time_between_rounds="1m"
 

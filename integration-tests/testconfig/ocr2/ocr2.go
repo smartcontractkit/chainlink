@@ -1,4 +1,4 @@
-package ocr
+package ocr2
 
 import (
 	"errors"

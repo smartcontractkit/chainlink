@@ -104,7 +104,6 @@ chainlink_node_funding = 100
 test_duration="15m"
 
 [Soak.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
