@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -41,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -234,7 +235,7 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	seth, err := actions_seth.GetChainClient(o.Config, o.rpcNetwork)
+	seth, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
 	o.seth = seth
 
@@ -249,14 +250,14 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
 
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
-		operators, forwarders, _ = actions_seth.DeployForwarderContracts(
+		operators, forwarders, _ = actions.DeployForwarderContracts(
 			o.t, o.seth, common.HexToAddress(linkContract.Address()), len(o.workerNodes),
 		)
 		require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
@@ -264,15 +265,15 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 		require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		for i := range o.workerNodes {
-			actions_seth.AcceptAuthorizedReceiversOperator(
+			actions.AcceptAuthorizedReceiversOperator(
 				o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 
-			actions_seth.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
+			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
 	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
 		if o.OperatorForwarderFlow {
-			o.ocrV1Instances, err = actions_seth.DeployOCRContractsForwarderFlow(
+			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
 				o.seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
@@ -282,7 +283,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			)
 			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 		} else {
-			o.ocrV1Instances, err = actions_seth.DeployOCRv1Contracts(
+			o.ocrV1Instances, err = actions.DeployOCRv1Contracts(
 				o.log,
 				seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
@@ -307,7 +308,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		}
 
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-		o.ocrV2Instances, err = actions_seth.DeployOCRv2Contracts(
+		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
 			o.log,
 			o.seth,
 			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
@@ -318,7 +319,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
 		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
 		require.NoError(o.t, err, "Error building median config")
-		err = actions_seth.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
+		err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
 		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
 	}
 

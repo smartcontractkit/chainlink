@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 
@@ -322,7 +322,7 @@ func SetupOCR2VRFUniverse(
 
 	// fund OCR Nodes (so that they can transmit)
 	nodes := contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)
-	err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, nodes, ocr2vrf_constants.EthFundingAmount)
+	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, nodes, ocr2vrf_constants.EthFundingAmount)
 	require.NoError(t, err, "Error funding Nodes")
 
 	bootstrapNode := chainlinkNodes[0]
