@@ -98,6 +98,7 @@ runs:
         echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
     - name: Post Results
       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      if: steps.test-results.outputs.results != ''
       env:
         SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
       with:
