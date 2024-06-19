@@ -396,6 +396,7 @@ jobs:
           DECODED_BASE64_TEST_LIST=$(echo $BASE64_TEST_LIST | base64 -d)
           echo "Decoded input:"
           echo "$DECODED_BASE64_TEST_LIST"
+          echo "$DECODED_BASE64_TEST_LIST" | base64 -d | jq .
           JOB_MATRIX_JSON=$(echo $DECODED_BASE64_TEST_LIST)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV
       # testlistgenerator is a tool that builds a matrix of tests to run
