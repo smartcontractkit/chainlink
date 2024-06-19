@@ -22,9 +22,9 @@ BumpPercent = 20
 
 [Transactions]
 # to hit throttling you'd need to maintain 15 m gas /sec over a prolonged period of time.
-# Because our block times are every 2 secs it's less less likely to happen as compared to other chains
-# so setting a gap of 5 blocks to prevent sending transaction during throttling
-ResendAfterThreshold = '10s'
+# Because Hedera's block times are every 2 secs it's less less likely to happen as compared to other chains
+# Setting this to little higher even though Hedera has High TPS, We have seen 10-12s to get the trasaction mined & 20-25s incase of failures
+ResendAfterThreshold = '1m'
 
 
 [NodePool]
