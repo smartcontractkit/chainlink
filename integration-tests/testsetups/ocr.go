@@ -791,7 +791,8 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 func (o *OCRSoakTest) deleteChaosSimulations() {
 	for _, chaos := range o.chaosList {
 		err := chaos.Delete(context.Background())
-		if err != nil {
+		// Check if the error is because the chaos object is already deleted
+		if err != nil && !strings.Contains(err.Error(), "not found") {
 			o.log.Error().Err(err).Msg("Error deleting chaos object")
 		}
 	}
