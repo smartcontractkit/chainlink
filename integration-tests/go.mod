@@ -53,8 +53,6 @@ require (
 exclude github.com/hashicorp/consul v1.2.1
 
 replace (
-	// github.com/smartcontractkit/chainlink-testing-framework => /Users/lukasz/Documents/smartcontractkit/chainlink-testing-framework
-	// github.com/smartcontractkit/havoc/k8schaos => /Users/lukasz/Documents/smartcontractkit/havoc/k8schaos
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
