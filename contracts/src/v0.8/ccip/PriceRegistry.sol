@@ -237,8 +237,7 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, ITypeAndVersion {
   // │                         Fee tokens                           │
   // ================================================================
 
-  /// @notice Get the list of fee tokens.
-  /// @return The tokens set as fee tokens.
+  /// @inheritdoc IPriceRegistry
   function getFeeTokens() external view returns (address[] memory) {
     return s_feeTokens.values();
   }

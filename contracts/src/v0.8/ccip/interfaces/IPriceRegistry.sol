@@ -67,4 +67,8 @@ interface IPriceRegistry {
     uint256 fromTokenAmount,
     address toToken
   ) external view returns (uint256 toTokenAmount);
+
+  /// @notice Get the list of fee tokens.
+  /// @return The tokens set as fee tokens.
+  function getFeeTokens() external view returns (address[] memory);
 }

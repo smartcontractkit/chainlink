@@ -15,6 +15,7 @@ contract BaseTest is Test {
   address internal constant DUMMY_CONTRACT_ADDRESS = 0x1111111111111111111111111111111111111112;
   address internal constant ON_RAMP_ADDRESS = 0x11118e64e1FB0c487f25dD6D3601FF6aF8d32E4e;
   address internal constant ZERO_ADDRESS = address(0);
+  address internal constant FEE_AGGREGATOR = 0xa33CDB32eAEce34F6affEfF4899cef45744EDea3;
 
   address internal constant USER_1 = address(1);
   address internal constant USER_2 = address(2);
@@ -32,6 +33,7 @@ contract BaseTest is Test {
 
   // Onramp
   uint96 internal constant MAX_NOP_FEES_JUELS = 1e27;
+  uint96 internal constant MAX_MSG_FEES_JUELS = 1e18;
   uint32 internal constant DEST_GAS_OVERHEAD = 350_000;
   uint16 internal constant DEST_GAS_PER_PAYLOAD_BYTE = 16;
 
