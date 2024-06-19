@@ -7,7 +7,7 @@ import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/interfac
 import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.sol";
 
-/// @notice CapabilityRegistry is used to manage Nodes (including their links to Node
+/// @notice CapabilitiesRegistry is used to manage Nodes (including their links to Node
 /// Operators), Capabilities, and DONs (Decentralized Oracle Networks) which are
 /// sets of nodes that support those Capabilities.
 /// @dev The contract currently stores the entire state of Node Operators, Nodes,
@@ -15,7 +15,7 @@ import {ICapabilityConfiguration} from "./interfaces/ICapabilityConfiguration.so
 /// if an upgrade is ever required.  The team acknowledges this and is fine
 /// reconfiguring the upgraded contract in the future so as to not add extra
 /// complexity to this current version.
-contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
+contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   // Add the library methods
   using EnumerableSet for EnumerableSet.Bytes32Set;
   using EnumerableSet for EnumerableSet.UintSet;
@@ -31,17 +31,39 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     string name;
   }
 
-  struct NodeInfo {
+  struct NodeParams {
     /// @notice The id of the node operator that manages this node
     uint32 nodeOperatorId;
     /// @notice The signer address for application-layer message verification.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
     /// @notice The list of hashed capability IDs supported by the node
     bytes32[] hashedCapabilityIds;
+  }
+
+  struct NodeInfo {
+    /// @notice The id of the node operator that manages this node
+    uint32 nodeOperatorId;
+    /// @notice The number of times the node's configuration has been updated
+    uint32 configCount;
+    /// @notice The ID of the Workflow DON that the node belongs to. A node can
+    /// only belong to one DON that accepts Workflows.
+    uint32 workflowDONId;
+    /// @notice The signer address for application-layer message verification.
+    bytes32 signer;
+    /// @notice This is an Ed25519 public key that is used to identify a node.
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
+    /// used to identify a node in the the P2P network.
+    bytes32 p2pId;
+    /// @notice The list of hashed capability IDs supported by the node
+    bytes32[] hashedCapabilityIds;
+    /// @notice The list of capabilities DON Ids supported by the node. A node
+    /// can belong to multiple capabilities DONs. This list does not include a
+    /// Workflow DON id if the node belongs to one.
+    uint256[] capabilitiesDONIds;
   }
 
   struct Node {
@@ -50,8 +72,11 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     uint32 nodeOperatorId;
     /// @notice The number of times the node's configuration has been updated
     uint32 configCount;
+    /// @notice The ID of the Workflow DON that the node belongs to. A node can
+    /// only belong to one DON that accepts Workflows.
+    uint32 workflowDONId;
     /// @notice The signer address for application-layer message verification.
-    /// @dev This key is guaranteed to be unique in the CapabilityRegistry
+    /// @dev This key is guaranteed to be unique in the CapabilitiesRegistry
     /// as a signer address can only belong to one node.
     /// @dev This should be the ABI encoded version of the node's address.
     /// I.e 0x0000address.  The Capability Registry does not store it as an address so that
@@ -59,7 +84,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// in the future.
     bytes32 signer;
     /// @notice This is an Ed25519 public key that is used to identify a node.
-    /// This key is guaranteed to be unique in the CapabilityRegistry. It is
+    /// This key is guaranteed to be unique in the CapabilitiesRegistry. It is
     /// used to identify a node in the the P2P network.
     bytes32 p2pId;
     /// @notice The node's supported capabilities
@@ -67,8 +92,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// new capabilities by incrementing the configCount and creating a
     /// new set of supported capability IDs
     mapping(uint32 configCount => EnumerableSet.Bytes32Set capabilityId) supportedHashedCapabilityIds;
-    /// @notice The list of DON Ids supported by the node.
-    EnumerableSet.UintSet supportedDONIds;
+    /// @notice The list of capabilities DON Ids supported by the node. A node
+    /// can belong to multiple capabilities DONs. This list does not include a
+    /// Workflow DON id if the node belongs to one.
+    EnumerableSet.UintSet capabilitiesDONIds;
   }
 
   /// @notice CapabilityResponseType indicates whether remote response requires
@@ -101,8 +128,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     ///
     /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
     ///     labelledName = "data-streams-reports:chain:ethereum"
-    ///
-    /// validation regex: ^[a-z0-9_\-:]{1,32}$
     string labelledName;
     /// @notice Semver, e.g., "1.2.3"
     /// @dev must be valid Semver + max 32 characters.
@@ -127,6 +152,43 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     // It is not recommended to store configuration which requires knowledge of
     // the DON membership.
     address configurationContract;
+  }
+
+  struct CapabilityInfo {
+    /// @notice A hashed ID created by the `getHashedCapabilityId` function.
+    bytes32 hashedId;
+    /// @notice The partially qualified ID for the capability.
+    /// @dev Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
+    // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
+    ///
+    /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
+    ///     labelledName = "data-streams-reports:chain:ethereum"
+    string labelledName;
+    /// @notice Semver, e.g., "1.2.3"
+    /// @dev must be valid Semver + max 32 characters.
+    string version;
+    /// @notice CapabilityType indicates the type of capability which determines
+    /// where the capability can be used in a Workflow Spec.
+    CapabilityType capabilityType;
+    /// @notice CapabilityResponseType indicates whether remote response requires
+    // aggregation or is an already aggregated report. There are multiple
+    // possible ways to aggregate.
+    CapabilityResponseType responseType;
+    /// @notice An address to the capability configuration contract. Having this defined
+    // on a capability enforces consistent configuration across DON instances
+    // serving the same capability. Configuration contract MUST implement
+    // CapabilityConfigurationContractInterface.
+    //
+    /// @dev The main use cases are:
+    // 1) Sharing capability configuration across DON instances
+    // 2) Inspect and modify on-chain configuration without off-chain
+    // capability code.
+    //
+    // It is not recommended to store configuration which requires knowledge of
+    // the DON membership.
+    address configurationContract;
+    /// @notice True if the capability is deprecated
+    bool isDeprecated;
   }
 
   /// @notice CapabilityConfiguration is a struct that holds the capability configuration
@@ -163,7 +225,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
     /// @notice True if the DON is public. A public DON means that it accepts
     /// external capability requests
     bool isPublic;
-    /// @notice True if the DON accepts Workflows.
+    /// @notice True if the DON accepts Workflows. A DON that accepts Workflows
+    /// is called Workflow DON and it can process Workflow Specs. A Workflow
+    /// DON also support one or more capabilities as well.
     bool acceptsWorkflows;
     /// @notice Mapping of config counts to configurations
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
@@ -287,9 +351,24 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   error NodeOperatorDoesNotExist(uint32 nodeOperatorId);
 
   /// @notice This error is thrown when trying to remove a node that is still
-  /// part of a DON
+  /// part of a capabitlities DON
+  /// @param donId The Id of the DON the node belongs to
   /// @param nodeP2PId The P2P Id of the node being removed
-  error NodePartOfDON(bytes32 nodeP2PId);
+  error NodePartOfCapabilitiesDON(uint32 donId, bytes32 nodeP2PId);
+
+  /// @notice This error is thrown when attempting to add a node to a second
+  /// Workflow DON or when trying to remove a node that belongs to a Workflow
+  /// DON
+  /// @param donId The Id of the DON the node belongs to
+  /// @param nodeP2PId The P2P Id of the node
+  error NodePartOfWorkflowDON(uint32 donId, bytes32 nodeP2PId);
+
+  /// @notice This error is thrown when removing a capability from the node
+  /// when that capability is still required by one of the DONs the node
+  /// belongs to.
+  /// @param hashedCapabilityId The hashed ID of the capability
+  /// @param donId The ID of the DON that requires the capability
+  error CapabilityRequiredByDON(bytes32 hashedCapabilityId, uint32 donId);
 
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
@@ -353,8 +432,6 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Set of deprecated hashed capability IDs,
   /// A hashed ID is created by the function `getHashedCapabilityId`.
-  ///
-  /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
 
   /// @notice Encoded node signer addresses
@@ -383,7 +460,7 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   uint32 private s_nextDONId = 1;
 
   function typeAndVersion() external pure override returns (string memory) {
-    return "CapabilityRegistry 1.0.0";
+    return "CapabilitiesRegistry 1.0.0";
   }
 
   /// @notice Adds a list of node operators
@@ -469,10 +546,10 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Adds nodes. Nodes can be added with deprecated capabilities to
   /// avoid breaking changes when deprecating capabilities.
   /// @param nodes The nodes to add
-  function addNodes(NodeInfo[] calldata nodes) external {
+  function addNodes(NodeParams[] calldata nodes) external {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
-      NodeInfo memory node = nodes[i];
+      NodeParams memory node = nodes[i];
 
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (nodeOperator.admin == address(0)) revert NodeOperatorDoesNotExist(node.nodeOperatorId);
@@ -515,7 +592,9 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       Node storage node = s_nodes[p2pId];
 
       if (node.signer == bytes32("")) revert NodeDoesNotExist(p2pId);
-      if (node.supportedDONIds.length() > 0) revert NodePartOfDON(p2pId);
+      if (node.capabilitiesDONIds.length() > 0)
+        revert NodePartOfCapabilitiesDON(uint32(node.capabilitiesDONIds.at(i)), p2pId);
+      if (node.workflowDONId != 0) revert NodePartOfWorkflowDON(node.workflowDONId, p2pId);
 
       if (!isOwner && msg.sender != s_nodeOperators[node.nodeOperatorId].admin) revert AccessForbidden(msg.sender);
       s_nodeSigners.remove(node.signer);
@@ -528,73 +607,94 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @notice Updates nodes.  The node admin can update the node's signer address
   /// and reconfigure its supported capabilities
   /// @param nodes The nodes to update
-  function updateNodes(NodeInfo[] calldata nodes) external {
+  function updateNodes(NodeParams[] calldata nodes) external {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
-      NodeInfo memory node = nodes[i];
-
+      NodeParams memory node = nodes[i];
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
       if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
+      if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
-      if (node.signer == bytes32("") || (storedNode.signer != node.signer && s_nodeSigners.contains(node.signer)))
-        revert InvalidNodeSigner();
+      bytes32 previousSigner = storedNode.signer;
+      if (previousSigner != node.signer) {
+        if (s_nodeSigners.contains(node.signer)) revert InvalidNodeSigner();
+        storedNode.signer = node.signer;
+        s_nodeSigners.remove(previousSigner);
+        s_nodeSigners.add(node.signer);
+      }
 
       bytes32[] memory supportedHashedCapabilityIds = node.hashedCapabilityIds;
       if (supportedHashedCapabilityIds.length == 0) revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
 
-      storedNode.configCount++;
-      uint32 capabilityConfigCount = storedNode.configCount;
+      uint32 capabilityConfigCount = ++storedNode.configCount;
       for (uint256 j; j < supportedHashedCapabilityIds.length; ++j) {
         if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
       }
 
+      // Validate that capabilities required by a Workflow DON are still supported
+      uint32 nodeWorkflowDONId = storedNode.workflowDONId;
+      if (nodeWorkflowDONId != 0) {
+        bytes32[] memory workflowDonCapabilityIds = s_dons[nodeWorkflowDONId]
+          .config[s_dons[nodeWorkflowDONId].configCount]
+          .capabilityIds;
+
+        for (uint256 j; j < workflowDonCapabilityIds.length; ++j) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(workflowDonCapabilityIds[j]))
+            revert CapabilityRequiredByDON(workflowDonCapabilityIds[j], nodeWorkflowDONId);
+        }
+      }
+
+      // Validate that capabilities required by capabilities DONs are still supported
+      uint256[] memory capabilitiesDONIds = storedNode.capabilitiesDONIds.values();
+      for (uint32 j; j < capabilitiesDONIds.length; ++j) {
+        uint32 donId = uint32(capabilitiesDONIds[j]);
+        bytes32[] memory donCapabilityIds = s_dons[donId].config[s_dons[donId].configCount].capabilityIds;
+
+        for (uint256 k; k < donCapabilityIds.length; ++k) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(donCapabilityIds[k]))
+            revert CapabilityRequiredByDON(donCapabilityIds[k], donId);
+        }
+      }
+
       storedNode.nodeOperatorId = node.nodeOperatorId;
       storedNode.p2pId = node.p2pId;
 
-      bytes32 previousSigner = storedNode.signer;
-
-      if (storedNode.signer != node.signer) {
-        s_nodeSigners.remove(previousSigner);
-        storedNode.signer = node.signer;
-        s_nodeSigners.add(node.signer);
-      }
       emit NodeUpdated(node.p2pId, node.nodeOperatorId, node.signer);
     }
   }
 
   /// @notice Gets a node's data
   /// @param p2pId The P2P ID of the node to query for
-  /// @return NodeInfo The node data
-  /// @return configCount The number of times the node has been configured
-  function getNode(bytes32 p2pId) public view returns (NodeInfo memory, uint32 configCount) {
+  /// @return nodeInfo NodeInfo The node data
+  function getNode(bytes32 p2pId) public view returns (NodeInfo memory nodeInfo) {
     return (
       NodeInfo({
         nodeOperatorId: s_nodes[p2pId].nodeOperatorId,
         p2pId: s_nodes[p2pId].p2pId,
         signer: s_nodes[p2pId].signer,
-        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values()
-      }),
-      s_nodes[p2pId].configCount
+        hashedCapabilityIds: s_nodes[p2pId].supportedHashedCapabilityIds[s_nodes[p2pId].configCount].values(),
+        configCount: s_nodes[p2pId].configCount,
+        workflowDONId: s_nodes[p2pId].workflowDONId,
+        capabilitiesDONIds: s_nodes[p2pId].capabilitiesDONIds.values()
+      })
     );
   }
 
   /// @notice Gets all nodes
-  /// @return nodeInfo NodeInfo[] All nodes in the capability registry
-  /// @return configCounts uint32[] All the config counts for the nodes in the capability registry
-  function getNodes() external view returns (NodeInfo[] memory nodeInfo, uint32[] memory configCounts) {
+  /// @return NodeInfo[] All nodes in the capability registry
+  function getNodes() external view returns (NodeInfo[] memory) {
     bytes32[] memory p2pIds = s_nodeP2PIds.values();
-    nodeInfo = new NodeInfo[](p2pIds.length);
-    configCounts = new uint32[](p2pIds.length);
+    NodeInfo[] memory nodesInfo = new NodeInfo[](p2pIds.length);
 
     for (uint256 i; i < p2pIds.length; ++i) {
-      (nodeInfo[i], configCounts[i]) = getNode(p2pIds[i]);
+      nodesInfo[i] = getNode(p2pIds[i]);
     }
-    return (nodeInfo, configCounts);
+    return nodesInfo;
   }
 
   /// @notice Adds a new capability to the capability registry
@@ -619,51 +719,38 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
       if (!s_deprecatedHashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
-      delete s_capabilities[hashedCapabilityId];
       emit CapabilityDeprecated(hashedCapabilityId);
     }
   }
 
   /// @notice Returns a Capability by its hashed ID.
   /// @dev Use `getHashedCapabilityId` to get the hashed ID.
-  function getCapability(bytes32 hashedId) external view returns (Capability memory) {
-    return s_capabilities[hashedId];
+  function getCapability(bytes32 hashedId) public view returns (CapabilityInfo memory) {
+    return (
+      CapabilityInfo({
+        hashedId: hashedId,
+        labelledName: s_capabilities[hashedId].labelledName,
+        version: s_capabilities[hashedId].version,
+        capabilityType: s_capabilities[hashedId].capabilityType,
+        responseType: s_capabilities[hashedId].responseType,
+        configurationContract: s_capabilities[hashedId].configurationContract,
+        isDeprecated: s_deprecatedHashedCapabilityIds.contains(hashedId)
+      })
+    );
   }
 
   /// @notice Returns all capabilities. This operation will copy capabilities
   /// to memory, which can be quite expensive. This is designed to mostly be
   /// used by view accessors that are queried without any gas fees.
-  /// @return hashedCapabilityIds bytes32[] List of hashed capability Ids
-  /// @return capabilities Capability[] List of capabilities
-  function getCapabilities()
-    external
-    view
-    returns (bytes32[] memory hashedCapabilityIds, Capability[] memory capabilities)
-  {
-    hashedCapabilityIds = s_hashedCapabilityIds.values();
-
-    uint256 numSupportedCapabilities = hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length();
-
-    // Solidity does not support dynamic arrays in memory, so we create a
-    // fixed-size array and copy the capabilities into it.
-    capabilities = new Capability[](numSupportedCapabilities);
-    bytes32[] memory supportedHashedCapabilityIds = new bytes32[](numSupportedCapabilities);
-
-    // We need to keep track of the new index because we are skipping
-    // deprecated capabilities.
-    uint256 newIndex;
+  /// @return CapabilityInfo[] List of capabilities
+  function getCapabilities() external view returns (CapabilityInfo[] memory) {
+    bytes32[] memory hashedCapabilityIds = s_hashedCapabilityIds.values();
+    CapabilityInfo[] memory capabilitiesInfo = new CapabilityInfo[](hashedCapabilityIds.length);
 
     for (uint256 i; i < hashedCapabilityIds.length; ++i) {
-      bytes32 hashedCapabilityId = hashedCapabilityIds[i];
-
-      if (!s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) {
-        capabilities[newIndex] = s_capabilities[hashedCapabilityId];
-        supportedHashedCapabilityIds[newIndex] = hashedCapabilityId;
-        ++newIndex;
-      }
+      capabilitiesInfo[i] = getCapability(hashedCapabilityIds[i]);
     }
-
-    return (supportedHashedCapabilityIds, capabilities);
+    return capabilitiesInfo;
   }
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access
@@ -740,8 +827,13 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       uint32 configCount = don.configCount;
       EnumerableSet.Bytes32Set storage nodeP2PIds = don.config[configCount].nodes;
 
+      bool isWorkflowDON = don.acceptsWorkflows;
       for (uint256 j; j < nodeP2PIds.length(); ++j) {
-        s_nodes[nodeP2PIds.at(j)].supportedDONIds.remove(donId);
+        if (isWorkflowDON) {
+          delete s_nodes[nodeP2PIds.at(j)].workflowDONId;
+        } else {
+          s_nodes[nodeP2PIds.at(j)].capabilitiesDONIds.remove(donId);
+        }
       }
 
       // DON config count starts at index 1
@@ -827,16 +919,23 @@ contract CapabilityRegistry is OwnerIsCreator, TypeAndVersionInterface {
       // needed as the previous config will be overwritten by storing the latest config
       // at configCount
       for (uint256 i; i < prevDONCapabilityConfig.nodes.length(); ++i) {
-        s_nodes[prevDONCapabilityConfig.nodes.at(i)].supportedDONIds.remove(donParams.id);
+        s_nodes[prevDONCapabilityConfig.nodes.at(i)].capabilitiesDONIds.remove(donParams.id);
+        delete s_nodes[prevDONCapabilityConfig.nodes.at(i)].workflowDONId;
       }
     }
 
     for (uint256 i; i < nodes.length; ++i) {
       if (!donCapabilityConfig.nodes.add(nodes[i])) revert DuplicateDONNode(donParams.id, nodes[i]);
 
-      /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
-      /// will only store unique DON IDs
-      s_nodes[nodes[i]].supportedDONIds.add(donParams.id);
+      if (donParams.acceptsWorkflows) {
+        if (s_nodes[nodes[i]].workflowDONId != donParams.id && s_nodes[nodes[i]].workflowDONId != 0)
+          revert NodePartOfWorkflowDON(donParams.id, nodes[i]);
+        s_nodes[nodes[i]].workflowDONId = donParams.id;
+      } else {
+        /// Fine to add a duplicate DON ID to the set of supported DON IDs again as the set
+        /// will only store unique DON IDs
+        s_nodes[nodes[i]].capabilitiesDONIds.add(donParams.id);
+      }
     }
 
     for (uint256 i; i < capabilityConfigurations.length; ++i) {

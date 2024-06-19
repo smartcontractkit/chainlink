@@ -37,6 +37,19 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	runOCRSoakTest(t, config, "")
 }
 
+func TestOCRSoak_GasSpike(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, "")
+}
+
+// TestOCRSoak_ChangeBlockGasLimit changes next block gas limit and sets it to percentage of last gasUsed in previous block creating congestion
+func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
+	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	require.NoError(t, err, "Error getting config")
+	runOCRSoakTest(t, config, "")
+}
+
 func runOCRSoakTest(t *testing.T, config tc.TestConfig, customNetworkTOML string) {
 	l := logging.GetTestLogger(t)
 

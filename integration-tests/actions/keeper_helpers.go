@@ -411,7 +411,10 @@ func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts 
 			keeperConsumerInstance, err = contracts.DeployUpkeepCounterFromKey(client, keyNum, big.NewInt(999999), big.NewInt(5))
 		}
 
-		require.NoError(t, err, "Deploying Consumer shouldn't fail")
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "Failed to deploy keeper consumer contract")
+			return
+		}
 
 		channel <- keeperConsumerResult{contract: keeperConsumerInstance}
 	}
