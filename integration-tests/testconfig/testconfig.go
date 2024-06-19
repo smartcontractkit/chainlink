@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -73,16 +74,17 @@ type Ocr2TestConfig interface {
 type TestConfig struct {
 	ctf_config.TestConfig
 
-	Common     *Common                  `toml:"Common"`
-	Automation *a_config.Config         `toml:"Automation"`
-	Functions  *f_config.Config         `toml:"Functions"`
-	Keeper     *keeper_config.Config    `toml:"Keeper"`
-	LogPoller  *lp_config.Config        `toml:"LogPoller"`
-	OCR        *ocr_config.Config       `toml:"OCR"`
-	OCR2       *ocr2_config.Config      `toml:"OCR2"`
-	VRF        *vrf_config.Config       `toml:"VRF"`
-	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
-	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
+	Common          *Common                  `toml:"Common"`
+	ChaosSimulation *ChaosSimulation         `toml:"ChaosSimulation"`
+	Automation      *a_config.Config         `toml:"Automation"`
+	Functions       *f_config.Config         `toml:"Functions"`
+	Keeper          *keeper_config.Config    `toml:"Keeper"`
+	LogPoller       *lp_config.Config        `toml:"LogPoller"`
+	OCR             *ocr_config.Config       `toml:"OCR"`
+	OCR2            *ocr2_config.Config      `toml:"OCR2"`
+	VRF             *vrf_config.Config       `toml:"VRF"`
+	VRFv2           *vrfv2_config.Config     `toml:"VRFv2"`
+	VRFv2Plus       *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
 	ConfigurationName string `toml:"-"`
 }
@@ -211,6 +213,15 @@ func (c *TestConfig) AsBase64() (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(content), nil
+}
+
+type ChaosSimulation struct {
+	RPCDownDuration    blockchain.StrDuration `toml:"rpc_down_duration"`
+	RPCDownDelayCreate blockchain.StrDuration `toml:"rpc_down_delay_create"`
+}
+
+func (c *ChaosSimulation) Validate() error {
+	return nil
 }
 
 type Common struct {

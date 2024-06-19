@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
+	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -38,7 +39,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
+	"github.com/smartcontractkit/havoc/k8schaos"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
@@ -644,6 +648,13 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		}
 	}
 
+	if o.Config.ChaosSimulation != nil {
+		// Schedule RPC down simulation if needed
+		if o.Config.ChaosSimulation.RPCDownDuration.Duration > 0 {
+			o.startRPCDownSimulation(*o.Config.ChaosSimulation)
+		}
+	}
+
 	for {
 		select {
 		case <-interruption:
@@ -738,6 +749,64 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 	err = client.AnvilSetBlockGasLimit([]interface{}{latestBlock.GasLimit()})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	o.gasLimitSimulationHappened = true
+}
+
+func (o *OCRSoakTest) startRPCDownSimulation(conf tc.ChaosSimulation) {
+	chaosName := "rpc-down-1"
+	namespace := o.testEnvironment.Cfg.Namespace
+	k8sClient, err := k8schaos.NewChaosMeshClient()
+	require.NoError(o.t, err, "Error creating chaos mesh client")
+
+	// TODO: support only geth network
+
+	chaos, err := k8schaos.NewChaos(k8schaos.ChaosOpts{
+		Description: "RPC Down Chaos",
+		DelayCreate: conf.RPCDownDelayCreate.Duration,
+		Object: &v1alpha1.NetworkChaos{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "NetworkChaos",
+				APIVersion: "chaos-mesh.org/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      chaosName,
+				Namespace: namespace,
+			},
+			Spec: v1alpha1.NetworkChaosSpec{
+				Action: v1alpha1.LossAction,
+				PodSelector: v1alpha1.PodSelector{
+					Mode: v1alpha1.AllMode,
+					Selector: v1alpha1.PodSelectorSpec{
+						GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
+							Namespaces:     []string{namespace},
+							LabelSelectors: map[string]string{"app": "geth"},
+						},
+					},
+				},
+				Duration:  ptr.Ptr(conf.RPCDownDuration.String()),
+				Direction: v1alpha1.Both,
+				Target: &v1alpha1.PodSelector{
+					Selector: v1alpha1.PodSelectorSpec{
+						GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
+							Namespaces:     []string{namespace},
+							LabelSelectors: map[string]string{"app": "chainlink-0"},
+						},
+					},
+					Mode: v1alpha1.AllMode, // Applying to all other OCR nodes
+				},
+				TcParameter: v1alpha1.TcParameter{
+					Loss: &v1alpha1.LossSpec{
+						Loss: "100",
+					},
+				},
+			},
+		},
+		Client: k8sClient,
+		Logger: &k8schaos.Logger,
+	})
+	require.NoError(o.t, err, "Error creating chaos object")
+	chaos.Create(context.Background())
+	chaos.AddListener(k8schaos.NewChaosLogger(o.log))
+	chaos.AddListener(ocrTestChaosListener{t: o.t})
 }
 
 // setFilterQuery to look for all events that happened
@@ -1007,4 +1076,40 @@ func (o *OCRSoakTest) getContractAddresses() []common.Address {
 	}
 
 	return contractAddresses
+}
+
+type ocrTestChaosListener struct {
+	t *testing.T
+}
+
+func (l ocrTestChaosListener) OnChaosCreated(chaos k8schaos.Chaos) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
+	require.Fail(l.t, "Error creating chaos", reason.Error())
+}
+
+func (l ocrTestChaosListener) OnChaosStarted(chaos k8schaos.Chaos) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnChaosPaused(chaos k8schaos.Chaos) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnChaosEnded(chaos k8schaos.Chaos) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnChaosStatusUnknown(chaos k8schaos.Chaos) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnScheduleCreated(chaos k8schaos.Schedule) {
+	// Implementation here
+}
+
+func (l ocrTestChaosListener) OnScheduleDeleted(chaos k8schaos.Schedule) {
+	// Implementation here
 }

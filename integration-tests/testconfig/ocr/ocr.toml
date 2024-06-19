@@ -172,3 +172,17 @@ enabled = true
 next_gas_limit_percentage = 0.5
 delay_create = "1m"
 duration = "3m"
+
+[TestOCRSoak_RPCDown.Common]
+chainlink_node_funding = 100
+[TestOCRSoak_RPCDown.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDown.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDown.Network]
+selected_networks=["simulated"]
+[TestOCRSoak_RPCDown.ChaosSimulation]
+rpc_down_delay_create = "2m"
+rpc_down_duration = "3m"
