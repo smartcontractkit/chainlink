@@ -345,11 +345,27 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
+// func (g *generalConfig) AptosEnabled() bool {
+// 	for _, c := range g.c.Aptos {
+// 		if c != nil { // Ensure c is not nil before dereferencing
+// 			if v, ok := (*c)["Enabled"]; ok && v.(bool) {
+// 				return true
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
+
 func (g *generalConfig) AptosEnabled() bool {
 	for _, c := range g.c.Aptos {
 		if c != nil { // Ensure c is not nil before dereferencing
-			if v, ok := (*c)["Enabled"]; ok && v == true {
-				return true
+			if v, ok := (*c)["Enabled"]; ok {
+				switch v := v.(type) {
+				case *bool: // Should be this
+					return v == nil || *v
+				case bool:
+					return v
+				}
 			}
 		}
 	}
