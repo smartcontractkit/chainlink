@@ -216,8 +216,8 @@ func (c *TestConfig) AsBase64() (string, error) {
 }
 
 type ChaosSimulation struct {
-	RPCDownDuration    blockchain.StrDuration `toml:"rpc_down_duration"`
-	RPCDownDelayCreate blockchain.StrDuration `toml:"rpc_down_delay_create"`
+	GethNetworkDownDuration    blockchain.StrDuration `toml:"geth_network_down_duration"` // GethNetworkDownDuration is the duration for which the Geth network will be down
+	GethNetworkDownDelayCreate blockchain.StrDuration `toml:"geth_network_delay_create"`  // GethNetworkDownDelayCreate is the delay before the Geth network is down
 }
 
 func (c *ChaosSimulation) Validate() error {

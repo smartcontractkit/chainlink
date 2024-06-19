@@ -184,5 +184,5 @@ time_between_rounds="1m"
 [TestOCRSoak_RPCDown.Network]
 selected_networks=["simulated"]
 [TestOCRSoak_RPCDown.ChaosSimulation]
-rpc_down_delay_create = "2m"
-rpc_down_duration = "3m"
+geth_network_delay_create = "2m"
+geth_network_down_duration = "3m"

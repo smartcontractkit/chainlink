@@ -91,6 +91,7 @@ type OCRSoakTest struct {
 	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
 	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
 	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
+	chaosSimulations           []*k8schaos.Chaos
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
@@ -110,6 +111,9 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
 	}
+	t.Cleanup(func() {
+		test.deleteChaosSimulations()
+	})
 	return test, test.ensureInputValues()
 }
 
@@ -650,8 +654,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	if o.Config.ChaosSimulation != nil {
 		// Schedule RPC down simulation if needed
-		if o.Config.ChaosSimulation.RPCDownDuration.Duration > 0 {
-			o.startRPCDownSimulation(*o.Config.ChaosSimulation)
+		if o.Config.ChaosSimulation.GethNetworkDownDuration.Duration > 0 {
+			if n.IsSimulatedGethSelected() {
+				o.startGethNetworkDownSimulation(*o.Config.ChaosSimulation)
+			} else {
+				require.Fail(o.t, "Geth network down chaos simulation is only available for Simulated Geth")
+			}
 		}
 	}
 
@@ -668,6 +676,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
 			o.log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			o.deleteChaosSimulations()
 			os.Exit(interruptedExitCode) // Exit with interrupted code to indicate test was interrupted, not just a normal failure
 		case <-endTest:
 			return
@@ -751,17 +760,15 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 	o.gasLimitSimulationHappened = true
 }
 
-func (o *OCRSoakTest) startRPCDownSimulation(conf tc.ChaosSimulation) {
-	chaosName := "rpc-down-1"
+func (o *OCRSoakTest) startGethNetworkDownSimulation(conf tc.ChaosSimulation) {
+	chaosName := "ocr-soak-test-geth-network-down"
 	namespace := o.testEnvironment.Cfg.Namespace
 	k8sClient, err := k8schaos.NewChaosMeshClient()
 	require.NoError(o.t, err, "Error creating chaos mesh client")
 
-	// TODO: support only geth network
-
 	chaos, err := k8schaos.NewChaos(k8schaos.ChaosOpts{
 		Description: "RPC Down Chaos",
-		DelayCreate: conf.RPCDownDelayCreate.Duration,
+		DelayCreate: conf.GethNetworkDownDelayCreate.Duration,
 		Object: &v1alpha1.NetworkChaos{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "NetworkChaos",
@@ -782,7 +789,7 @@ func (o *OCRSoakTest) startRPCDownSimulation(conf tc.ChaosSimulation) {
 						},
 					},
 				},
-				Duration:  ptr.Ptr(conf.RPCDownDuration.String()),
+				Duration:  ptr.Ptr(conf.GethNetworkDownDuration.String()),
 				Direction: v1alpha1.Both,
 				Target: &v1alpha1.PodSelector{
 					Selector: v1alpha1.PodSelectorSpec{
@@ -807,6 +814,18 @@ func (o *OCRSoakTest) startRPCDownSimulation(conf tc.ChaosSimulation) {
 	chaos.Create(context.Background())
 	chaos.AddListener(k8schaos.NewChaosLogger(o.log))
 	chaos.AddListener(ocrTestChaosListener{t: o.t})
+	o.chaosSimulations = append(o.chaosSimulations, chaos)
+}
+
+// Delete k8s chaos objects it any of them still exist
+// This is needed to clean up the chaos objects if the test is interrupted or it finishes
+func (o *OCRSoakTest) deleteChaosSimulations() {
+	for _, chaos := range o.chaosSimulations {
+		err := chaos.Delete(context.Background())
+		if err != nil {
+			o.log.Error().Err(err).Msg("Error deleting chaos object")
+		}
+	}
 }
 
 // setFilterQuery to look for all events that happened
@@ -1083,33 +1102,27 @@ type ocrTestChaosListener struct {
 }
 
 func (l ocrTestChaosListener) OnChaosCreated(chaos k8schaos.Chaos) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
-	require.Fail(l.t, "Error creating chaos", reason.Error())
+	// Fail the test if chaos creation fails during chaos simulation
+	require.Fail(l.t, "Error creating chaos simulation", reason.Error())
 }
 
 func (l ocrTestChaosListener) OnChaosStarted(chaos k8schaos.Chaos) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnChaosPaused(chaos k8schaos.Chaos) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnChaosEnded(chaos k8schaos.Chaos) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnChaosStatusUnknown(chaos k8schaos.Chaos) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnScheduleCreated(chaos k8schaos.Schedule) {
-	// Implementation here
 }
 
 func (l ocrTestChaosListener) OnScheduleDeleted(chaos k8schaos.Schedule) {
-	// Implementation here
 }
