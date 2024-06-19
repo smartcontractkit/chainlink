@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 
 	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -167,24 +168,24 @@ func TestAutomationReorg(t *testing.T) {
 			}
 
 			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
-			chainClient, err := actions_seth.GetChainClient(config, network)
+			chainClient, err := seth_utils.GetChainClient(config, network)
 			require.NoError(t, err, "Error connecting to blockchain")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
+				err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
+			err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
 			require.NoError(t, err, "Error funding Chainlink nodes")
 
 			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
-			registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
 				chainClient,
 				registryVersion,
@@ -210,7 +211,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
+			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				chainClient,
 				registry,
