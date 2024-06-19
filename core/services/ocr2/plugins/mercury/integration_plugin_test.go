@@ -10,7 +10,6 @@ import (
 )
 
 func TestIntegration_MercuryV1_Plugin(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-5697")
 	t.Setenv(string(env.MercuryPlugin.Cmd), "chainlink-mercury")
 
 	integration_MercuryV1(t)
