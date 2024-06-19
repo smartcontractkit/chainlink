@@ -345,8 +345,14 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
-// TODO: Once Aptos config is ready for public repo, update this method
 func (g *generalConfig) AptosEnabled() bool {
+	for _, c := range g.c.Aptos {
+		if c != nil { // Ensure c is not nil before dereferencing
+			if v, ok := (*c)["Enabled"]; ok && v == true {
+				return true
+			}
+		}
+	}
 	return false
 }
 

@@ -43,8 +43,11 @@ type Config struct {
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 
-	Aptos map[string]any `toml:",omitempty"`
+	Aptos []*RawConfig `toml:",omitempty"`
 }
+
+// RawConfig is the config used for chains that are not yet public.
+type RawConfig map[string]any
 
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
