@@ -1504,8 +1504,8 @@ github.com/smartcontractkit/chain-selectors v1.0.10 h1:t9kJeE6B6G+hKD0GYR4kGJSCq
 github.com/smartcontractkit/chain-selectors v1.0.10/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
 github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8umfIfVVlwC7+n5izbLSFgjw8=
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618184654-00da2df58815 h1:Ak6x7Dhv3WUMd27gMMCCsJZxFsPPsj+0P5777pJ1jNg=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618184654-00da2df58815/go.mod h1:L32xvCpk84Nglit64OhySPMP1tM3TTBK7Tw0qZl7Sd4=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618210005-a88f179ffc16 h1:+0ElI3A3mKxYbw//a34d1GmLXyfWsw3IuDHv07dImWQ=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618210005-a88f179ffc16/go.mod h1:L32xvCpk84Nglit64OhySPMP1tM3TTBK7Tw0qZl7Sd4=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240524214833-c362c2ebbd2d h1:5tgMC5Gi2UAOKZ+m28W8ubjLeR0pQCAcrz6eQ0rW510=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240524214833-c362c2ebbd2d/go.mod h1:0UNuO3nDt9MFsZPaHJBEUolxVkN0iC69j1ccDp95e8k=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 h1:xFSv8561jsLtF6gYZr/zW2z5qUUAkcFkApin2mnbYTo=
@@ -1528,8 +1528,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJ
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c h1:lIyMbTaF2H0Q71vkwZHX/Ew4KF2BxiKhqEXwF8rn+KI=
 github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c/go.mod h1:fb1ZDVXACvu4frX3APHZaEBp0xi1DIm34DcA0CwTsZM=
-github.com/smartcontractkit/seth v1.0.11 h1:Ct8wSifW2ZXnyHtYRKaawBnpW7Ef0m8zItUcqYPallM=
-github.com/smartcontractkit/seth v1.0.11/go.mod h1:fVCE+8LD6AbU7d8BHZ1uS/ceJ+8JO0iVTUcDdQmGPAc=
+github.com/smartcontractkit/seth v1.0.12 h1:iVdgMx42XWanPPnBaM5StR4c1XsTr/0/B/kKRZL5BsY=
+github.com/smartcontractkit/seth v1.0.12/go.mod h1:thWtbLyW4nRHJGzC5heknQDORoJPErE15sF34LHkorg=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 h1:Dai1bn+Q5cpeGMQwRdjOdVjG8mmFFROVkSKuUgBErRQ=

@@ -13,7 +13,7 @@ import (
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/havoc/k8schaos"
@@ -144,7 +144,7 @@ func runOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config tc.TestCo
 		return
 	}
 	t.Cleanup(func() {
-		if err := actions_seth.TeardownRemoteSuite(test.TearDownVals(t)); err != nil {
+		if err := actions.TeardownRemoteSuite(test.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})

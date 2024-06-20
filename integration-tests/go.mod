@@ -28,13 +28,13 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618184654-00da2df58815
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618210005-a88f179ffc16
 	github.com/smartcontractkit/chainlink-testing-framework v1.31.1
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
-	github.com/smartcontractkit/seth v1.0.11
+	github.com/smartcontractkit/seth v1.0.12
 	github.com/smartcontractkit/wasp v0.4.7
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
