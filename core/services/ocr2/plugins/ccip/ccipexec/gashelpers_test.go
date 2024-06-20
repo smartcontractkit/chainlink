@@ -25,7 +25,7 @@ func TestOverheadGas(t *testing.T) {
 		{
 			dataLength:     len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 			numberOfTokens: 1,
-			want:           163448,
+			want:           475948,
 		},
 	}
 
@@ -56,7 +56,7 @@ func TestMaxGasOverHeadGas(t *testing.T) {
 			numMsgs:        3,
 			dataLength:     len([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 			numberOfTokens: 1,
-			want:           166008,
+			want:           478508,
 		},
 	}
 
@@ -169,7 +169,7 @@ func TestWaitBoostedFee(t *testing.T) {
 			diff := big.NewInt(0).Sub(boosted, tc.fee)
 			assert.Equal(t, diff, tc.diff)
 			// we check that the actual diff is approximately equals to expected diff,
-			// as we might get slightly different results locally vs. CI therefore normal Equal() would be instable
+			// as we might get slightly different results locally vs. CI therefore normal Equal() would be unstable
 			//diffUpperLimit := big.NewInt(0).Add(tc.diff, big.NewInt(1e9))
 			//diffLowerLimit := big.NewInt(0).Add(tc.diff, big.NewInt(-1e9))
 			//require.Equalf(t, -1, diff.Cmp(diffUpperLimit), "actual diff (%s) is larger than expected (%s)", diff.String(), diffUpperLimit.String())
