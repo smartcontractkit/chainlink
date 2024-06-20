@@ -702,24 +702,24 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 70_000 gas.
+    // The cost of fulfillRandomWords is approximately 72_100 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft())
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // baseFeeWei = 5e12 * (50_000 + 70_000)
-    // baseFeeWei = 6e17
+    // baseFeeWei = 5e12 * (50_000 + 72_100)
+    // baseFeeWei = 6.11e17
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM)
     // flatFeeWei = 1e12 * 500_000 = 5e17
     // ...
     // billed_fee = baseFeeWei * (linkPremiumPercentage / 100) + 5e17
-    // billed_fee = 6e17 * 0.15 + 5e17
-    // billed_fee = 5.9e+17
+    // billed_fee = 6.11e17 * 0.15 + 5e17
+    // billed_fee = 5.9157e+17
     (, uint96 nativeBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 5.9 * 1e17, 1e15);
-    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 5.9157 * 1e17, 1e15);
+    assertApproxEqAbs(nativeBalanceAfter, nativeBalanceBefore - 5.9157 * 1e17, 1e15);
     assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
@@ -750,26 +750,26 @@ contract VRFV2Plus is BaseTest {
     (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
-    // The cost of fulfillRandomWords is approximately 86_000 gas.
+    // The cost of fulfillRandomWords is approximately 86_700 gas.
     // gasAfterPaymentCalculation is 50_000.
     //
     // The cost of the VRF fulfillment charged to the user is:
     // paymentNoFee = (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft() + l1CostWei) / link_native_ratio)
     // network gas price is capped at gas lane max gas (5000 gwei)
-    // paymentNoFee = (5e12 * (50_000 + 86_000 + 0)) / .5
-    // paymentNoFee = 1.36e+18
+    // paymentNoFee = (5e12 * (50_000 + 86_700 + 0)) / .5
+    // paymentNoFee = 1.367e+18
     // flatFeeWei = 1e12 * (fulfillmentFlatFeeNativePPM - fulfillmentFlatFeeLinkDiscountPPM)
     // flatFeeWei = 1e12 * (500_000 - 100_000)
     // flatFeeJuels = 1e18 * flatFeeWei / link_native_ratio
     // flatFeeJuels = 4e17 / 0.5 = 8e17
     // billed_fee = paymentNoFee * (10 / 100) + 8e17
-    // billed_fee = 1.36e+18 * 0.1 + 8e17
-    // billed_fee = 9.36e+17
+    // billed_fee = 1.367e+18 * 0.1 + 8e17
+    // billed_fee = 9.367e+17
     // note: delta is doubled from the native test to account for more variance due to the link/native ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     // 1e15 is less than 1 percent discrepancy
-    assertApproxEqAbs(payment, 9.36 * 1e17, 1e15);
-    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.36 * 1e17, 1e15);
+    assertApproxEqAbs(payment, 9.367 * 1e17, 1e15);
+    assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 9.367 * 1e17, 1e15);
     assertFalse(s_testCoordinator.pendingRequestExists(subId));
   }
 
