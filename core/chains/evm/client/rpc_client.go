@@ -61,7 +61,6 @@ type ChainClientRPC interface {
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error)
 	SendEmptyTransaction(ctx context.Context, newTxAttempt func(evmtypes.Nonce, uint32, *assets.Wei, common.Address) (interface{}, error), seq evmtypes.Nonce, gasLimit uint32, fee *assets.Wei, fromAddress common.Address) (string, error)
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
 	SetAliveLoopSub(_a0 commontypes.Subscription)
 	SimulateTransaction(ctx context.Context, tx *types.Transaction) error

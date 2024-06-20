@@ -12,28 +12,42 @@ type TransactionSender[TX any] interface {
 	SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error)
 }
 
-func NewTransactionSender[TX any](
+// TxErrorClassifier - defines interface of a function that transforms raw RPC error into the SendTxReturnCode enum
+// (e.g. Successful, Fatal, Retryable, etc.)
+type TxErrorClassifier[TX any] func(tx TX, err error) SendTxReturnCode
+
+// SendTxRPCClient - defines interface of an RPC used by TransactionSender to broadcast transaction
+type SendTxRPCClient[TX any] interface {
+	SendTransaction(ctx context.Context, tx TX) error
+}
+
+func NewTransactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]](
 	lggr logger.Logger,
-	multiNode *MultiNode[types.ID, SendTxRPCClient[TX]],
+	chainID CHAIN_ID,
+	multiNode *MultiNode[CHAIN_ID, RPC],
+	txErrorClassifier TxErrorClassifier[TX],
 ) TransactionSender[TX] {
-	return &transactionSender[TX]{
-		lggr:      lggr,
-		multiNode: multiNode,
+	return &transactionSender[TX, CHAIN_ID, RPC]{
+		chainID:           chainID,
+		lggr:              logger.Sugared(lggr).Named("TransactionSender").With("chainID", chainID.String()),
+		multiNode:         multiNode,
+		txErrorClassifier: txErrorClassifier,
 	}
 }
 
-type transactionSender[TX any] struct {
-	lggr          logger.Logger
-	multiNode     *MultiNode[types.ID, SendTxRPCClient[TX]]
-	classifyError TxErrorClassifier[TX]
+type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struct {
+	chainID           CHAIN_ID
+	lggr              logger.Logger
+	multiNode         *MultiNode[CHAIN_ID, RPC]
+	txErrorClassifier TxErrorClassifier[TX]
 }
 
-func (txSender *transactionSender[TX]) SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error) {
+func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error) {
 	txResults := make(chan SendTxReturnCode, len(txSender.multiNode.primaryNodes))
 	txResultsToReport := make(chan SendTxReturnCode, len(txSender.multiNode.primaryNodes))
 	primaryBroadcastWg := sync.WaitGroup{}
 
-	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc SendTxRPCClient[TX], isSendOnly bool) bool {
+	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) bool {
 		if isSendOnly {
 			txSender.multiNode.wg.Add(1)
 			go func() {
@@ -50,7 +64,7 @@ func (txSender *transactionSender[TX]) SendTransaction(ctx context.Context, tx T
 		go func() {
 			defer primaryBroadcastWg.Done()
 			txErr := rpc.SendTransaction(ctx, tx)
-			result := txSender.classifyError(tx, txErr)
+			result := txSender.txErrorClassifier(tx, txErr)
 
 			txResultsToReport <- result
 			txResults <- result
@@ -68,13 +82,4 @@ func (txSender *transactionSender[TX]) SendTransaction(ctx context.Context, tx T
 	// TODO: Collect Tx Results
 
 	return 0, nil
-}
-
-// TxErrorClassifier - defines interface of a function that transforms raw RPC error into the SendTxReturnCode enum
-// (e.g. Successful, Fatal, Retryable, etc.)
-type TxErrorClassifier[TX any] func(tx TX, err error) SendTxReturnCode
-
-// SendTxRPCClient - defines interface of an RPC used by TransactionSender to broadcast transaction
-type SendTxRPCClient[TX any] interface {
-	SendTransaction(ctx context.Context, tx TX) error
 }

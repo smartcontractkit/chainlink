@@ -130,9 +130,15 @@ func NewChainClient(
 		"EVM",
 	)
 
-	txSender := commonclient.NewTransactionSender[*types.Transaction](
+	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
+		return ClassifySendErrorEVM(err, clientErrors, logger.Sugared(lggr), tx, false)
+	}
+
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, ChainClientRPC](
 		lggr,
+		chainID,
 		multiNode,
+		classifySendError,
 	)
 
 	return &chainClient{
@@ -359,8 +365,8 @@ func (c *chainClient) PendingNonceAt(ctx context.Context, account common.Address
 }
 
 func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	// TODO: Fix this fuction
-	return nil //c.txSender.SendTransaction(ctx, tx)
+	_, err := c.txSender.SendTransaction(ctx, tx)
+	return err
 }
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error) {

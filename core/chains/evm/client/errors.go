@@ -567,3 +567,89 @@ func ClassifySendError(err error, clientErrors config.ClientErrors, lggr logger.
 	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
 	return commonclient.Unknown
 }
+
+func ClassifySendErrorEVM(err error, clientErrors config.ClientErrors, lggr logger.SugaredLogger, tx *types.Transaction, isL2 bool) commonclient.SendTxReturnCode {
+	sendError := NewSendError(err)
+	if sendError == nil {
+		return commonclient.Successful
+	}
+
+	configErrors := ClientErrorRegexes(clientErrors)
+
+	if sendError.Fatal(configErrors) {
+		lggr.Criticalw("Fatal error sending transaction", "err", sendError, "etx", tx)
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return commonclient.Fatal
+	}
+	if sendError.IsNonceTooLowError(configErrors) || sendError.IsTransactionAlreadyMined(configErrors) {
+		lggr.Debugw(fmt.Sprintf("Transaction already confirmed for this nonce: %d", tx.Nonce()), "err", sendError, "etx", tx)
+		// Nonce too low indicated that a transaction at this nonce was confirmed already.
+		// Mark it as TransactionAlreadyKnown.
+		return commonclient.TransactionAlreadyKnown
+	}
+	if sendError.IsReplacementUnderpriced(configErrors) {
+		lggr.Errorw(fmt.Sprintf("Replacement transaction underpriced for eth_tx %x. "+
+			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
+			tx.Hash()), "gasPrice", tx.GasPrice, "gasTipCap", tx.GasTipCap, "gasFeeCap", tx.GasFeeCap, "err", sendError, "etx", tx)
+
+		// Assume success and hand off to the next cycle.
+		return commonclient.Successful
+	}
+	if sendError.IsTransactionAlreadyInMempool(configErrors) {
+		lggr.Debugw("Transaction already in mempool", "etx", tx, "err", sendError)
+		return commonclient.Successful
+	}
+	if sendError.IsTemporarilyUnderpriced(configErrors) {
+		lggr.Infow("Transaction temporarily underpriced", "err", sendError)
+		return commonclient.Successful
+	}
+	if sendError.IsTerminallyUnderpriced(configErrors) {
+		lggr.Errorw("Transaction terminally underpriced", "etx", tx, "err", sendError)
+		return commonclient.Underpriced
+	}
+	if sendError.L2FeeTooLow(configErrors) || sendError.IsL2FeeTooHigh(configErrors) || sendError.IsL2Full(configErrors) {
+		if isL2 {
+			lggr.Errorw("Transaction fee out of range", "err", sendError, "etx", tx)
+			return commonclient.FeeOutOfValidRange
+		}
+		lggr.Errorw("this error type only handled for L2s", "err", sendError, "etx", tx)
+		return commonclient.Unsupported
+	}
+	if sendError.IsNonceTooHighError(configErrors) {
+		// This error occurs when the tx nonce is greater than current_nonce + tx_count_in_mempool,
+		// instead of keeping the tx in mempool. This can happen if previous transactions haven't
+		// reached the client yet. The correct thing to do is to mark it as retryable.
+		lggr.Warnw("Transaction has a nonce gap.", "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	// TODO: Had to remove fromAddress from the log message because it's not available in txSender?
+	if sendError.IsInsufficientEth(configErrors) {
+		lggr.Criticalw(fmt.Sprintf("Tx %x with type 0x%d was rejected due to insufficient eth: %s\n"+
+			"ACTION REQUIRED: Chainlink wallet is OUT OF FUNDS",
+			tx.Hash(), tx.Type(), sendError.Error(),
+		), "err", sendError, "etx", tx)
+		return commonclient.InsufficientFunds
+	}
+	if sendError.IsServiceUnavailable(configErrors) {
+		lggr.Errorw(fmt.Sprintf("service unavailable while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsTimeout() {
+		lggr.Errorw(fmt.Sprintf("timeout while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsCanceled() {
+		lggr.Errorw(fmt.Sprintf("context was canceled while sending transaction %x", tx.Hash()), "err", sendError, "etx", tx)
+		return commonclient.Retryable
+	}
+	if sendError.IsTxFeeExceedsCap(configErrors) {
+		lggr.Criticalw(fmt.Sprintf("Sending transaction failed: %s", label.RPCTxFeeCapConfiguredIncorrectlyWarning),
+			"etx", tx,
+			"err", sendError,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		return commonclient.ExceedsMaxFee
+	}
+	lggr.Criticalw("Unknown error encountered when sending transaction", "err", err, "etx", tx)
+	return commonclient.Unknown
+}
