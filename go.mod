@@ -51,7 +51,6 @@ require (
 	github.com/leanovate/gopter v0.2.10-0.20210127095200-9abe2343507a
 	github.com/lib/pq v1.10.9
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
-	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mr-tron/base58 v1.2.0

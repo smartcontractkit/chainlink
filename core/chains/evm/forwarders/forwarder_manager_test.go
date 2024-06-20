@@ -34,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 var GetAuthorisedSendersABI = evmtypes.MustGetABI(authorized_receiver.AuthorizedReceiverABI).Methods["getAuthorizedSenders"]
@@ -113,10 +112,15 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 
 func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	//	db := pgtest.NewSqlxDB(t)
+	testChainId := ubig.New(evmcfg.EVM().ChainID())
+	// db := pgtest.NewSqlxDB(t)
+
+	db := evmtestdb.NewDB(t, evm.Cfg{Schema: "evm_" + testChainId.String(), ChainID: testChainId})
+
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {
@@ -163,10 +167,12 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 
 func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	lggr := logger.Test(t)
-	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
+	testChainId := ubig.New(evmcfg.EVM().ChainID())
+	// db := pgtest.NewSqlxDB(t)
+	db := evmtestdb.NewDB(t, evm.Cfg{Schema: "evm_" + testChainId.String(), ChainID: testChainId})
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{
 		owner.From: {

@@ -2,11 +2,10 @@ package evm
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -106,14 +105,15 @@ type CSAETHKeystore interface {
 
 type RelayerOpts struct {
 	DS sqlutil.DataSource
-	DB *sql.DB // hack for migrations. need a way to get this from the DS, or other move the migration logic out of here
+	// we need the db url to run migrations
+	DBURL *url.URL
 	CSAETHKeystore
 	MercuryPool          wsrpc.Pool
 	TransmitterConfig    mercury.TransmitterConfig
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
-func (c RelayerOpts) Validate() error {
+func (c *RelayerOpts) Validate() error {
 	var err error
 	if c.DS == nil {
 		err = errors.Join(err, errors.New("nil DataSource"))
@@ -123,6 +123,19 @@ func (c RelayerOpts) Validate() error {
 	}
 	if c.CapabilitiesRegistry == nil {
 		err = errors.Join(err, errors.New("nil CapabilitiesRegistry"))
+	}
+	// compatibility check with existing code
+	if c.DBURL == nil {
+		dburl := string(env.DatabaseURL.Get())
+		if dburl == "" {
+			err = errors.Join(err, fmt.Errorf("no DBURL provided and CL_DATABASE_URL unset"))
+		} else {
+			var perr error
+			c.DBURL, perr = url.Parse(dburl)
+			if perr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to parse CL_DATABASE_URL %s: %w", dburl, perr))
+			}
+		}
 	}
 	if err != nil {
 		err = fmt.Errorf("invalid RelayerOpts: %w", err)
@@ -137,13 +150,7 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 	lggr = lggr.Named("Relayer")
 	// run the migrations for the relayer
-	// TODO: need a dburlVar in options. this is a hack. migration require a sql.DB because that's what goose uses
-	dburl := os.Getenv(string(env.DatabaseURL))
-	if dburl == "" {
-		return nil, errors.New("missing DatabaseURL")
-	}
-
-	db, err := sqlx.Open(string(dialects.Postgres), dburl)
+	db, err := sqlx.Open(string(dialects.Postgres), opts.DBURL.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}

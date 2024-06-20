@@ -44,6 +44,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm/testutils"
 )
 
 func makeTestEvmTxm(
@@ -469,12 +471,16 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 }
 
 func TestTxm_Lifecycle(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
+	//db := pgtest.NewSqlxDB(t)
 
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	kst := ksmocks.NewEth(t)
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	testChainId := ubig.New(&cltest.FixtureChainID)
+	// db := pgtest.NewSqlxDB(t)
+	db := evmtestdb.NewDB(t, evmdb.Cfg{Schema: "evm_" + testChainId.String(), ChainID: testChainId})
+
 	config.SetFinalityDepth(uint32(42))
 	config.RpcDefaultBatchSize = uint32(4)
 

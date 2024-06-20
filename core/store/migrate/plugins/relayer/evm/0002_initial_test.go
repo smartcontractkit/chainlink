@@ -5,8 +5,6 @@ import (
 	_ "embed"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 
 	"github.com/stretchr/testify/assert"

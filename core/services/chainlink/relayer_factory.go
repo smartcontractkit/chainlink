@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -43,8 +42,6 @@ type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
 	evmrelay.CSAETHKeystore
 	coreconfig.MercuryTransmitter
-	// hack to allow for the factory to be used in the context of the relayer
-	DB *sql.DB
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[types.RelayID]evmrelay.LoopRelayAdapter, error) {
@@ -66,6 +63,8 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		return nil, err
 	}
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
+	dburl := config.AppConfig.Database().URL()
+
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := types.RelayID{Network: types.NetworkEVM, ChainID: ext.Chain().ID().String()}
 		chain, err2 := legacyChains.Get(relayID.ChainID)
@@ -75,11 +74,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 		relayerOpts := evmrelay.RelayerOpts{
 			DS:                   ccOpts.DS,
+			DBURL:                &dburl,
 			CSAETHKeystore:       config.CSAETHKeystore,
 			MercuryPool:          r.MercuryPool,
 			TransmitterConfig:    config.MercuryTransmitter,
 			CapabilitiesRegistry: r.CapabilitiesRegistry,
-			DB:                   config.DB, //hack
 		}
 		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
