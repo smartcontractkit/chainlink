@@ -21,6 +21,7 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
@@ -425,6 +426,18 @@ func (c *TestConfig) readNetworkConfiguration() error {
 	// this is the only value we need to generate dynamically before starting a new simulated chain
 	if c.PrivateEthereumNetwork != nil && c.PrivateEthereumNetwork.EthereumChainConfig != nil {
 		c.PrivateEthereumNetwork.EthereumChainConfig.GenerateGenesisTimestamp()
+
+		for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
+			for _, key := range network.PrivateKeys {
+				address, err := conversions.PrivateKeyHexToAddress(key)
+				if err != nil {
+					return errors.Wrapf(err, "error converting private key to address")
+				}
+				c.PrivateEthereumNetwork.EthereumChainConfig.AddressesToFund = append(
+					c.PrivateEthereumNetwork.EthereumChainConfig.AddressesToFund, address.Hex(),
+				)
+			}
+		}
 	}
 
 	return nil
