@@ -872,9 +872,8 @@ func integration_MercuryV3(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			var b []byte
-			b, err = io.ReadAll(req.Body)
-			require.NoError(t, err)
+			b, herr := io.ReadAll(req.Body)
+			require.NoError(t, herr)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 			r := rand.Int63n(101)
@@ -882,13 +881,13 @@ func integration_MercuryV3(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			}
 		}))
 		t.Cleanup(bridge.Close)
