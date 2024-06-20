@@ -189,7 +189,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
   /// @notice Hook that is called after a plugin's OCR3 config changes
   /// @param ocrPluginType Plugin type for which the config changed
-  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual {}
+  function _afterOCR3ConfigSet(uint8 ocrPluginType) internal virtual;
 
   /// @notice Clears oracle roles for the provided oracle addresses
   /// @param ocrPluginType OCR plugin type to clear roles for

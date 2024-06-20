@@ -21,9 +21,8 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/
 // change if you introduce upgradeability. An immutable dapp building on top of CCIP
 // like the example below will inherit the trust properties of CCIP (i.e. the oracle network).
 // @dev The receiver's are encoded offchain and passed as direct arguments to permit supporting
-// new chain family receivers (e.g. a solana encoded receiver address) without upgrading.
+// new chain family receivers (e.g. a Solana encoded receiver address) without upgrading.
 contract CCIPClientExample is CCIPReceiver, OwnerIsCreator {
-  error InvalidConfig();
   error InvalidChain(uint64 chainSelector);
 
   event MessageSent(bytes32 messageId);

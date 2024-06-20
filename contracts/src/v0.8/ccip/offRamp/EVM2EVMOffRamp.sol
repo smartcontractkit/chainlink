@@ -202,7 +202,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   /// @inheritdoc IAny2EVMOffRamp
-  function getSenderNonce(address sender) public view returns (uint64 nonce) {
+  function getSenderNonce(address sender) external view returns (uint64 nonce) {
     uint256 senderNonce = s_senderNonce[sender];
 
     if (senderNonce == 0 && i_prevOffRamp != address(0)) {

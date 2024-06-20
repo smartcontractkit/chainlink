@@ -60,7 +60,7 @@ contract SelfFundedPingPong is PingPongDemo {
     return s_countIncrBeforeFunding;
   }
 
-  function setCountIncrBeforeFunding(uint8 countIncrBeforeFunding) public onlyOwner {
+  function setCountIncrBeforeFunding(uint8 countIncrBeforeFunding) external onlyOwner {
     s_countIncrBeforeFunding = countIncrBeforeFunding;
     emit CountIncrBeforeFundingSet(countIncrBeforeFunding);
   }

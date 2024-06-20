@@ -25,7 +25,6 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
 
   error UnauthorizedCaller(address caller);
   error PriceNotFoundForToken(address token);
-  error UpdateLengthMismatch();
   error ZeroAddressNotAllowed();
   error ZeroChainSelectorNotAllowed();
 

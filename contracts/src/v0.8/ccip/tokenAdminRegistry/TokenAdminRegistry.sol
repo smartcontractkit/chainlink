@@ -155,7 +155,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   // ================================================================
 
   /// @notice Public getter to check for permissions of an administrator
-  function isAdministrator(address localToken, address administrator) public view returns (bool) {
+  function isAdministrator(address localToken, address administrator) external view returns (bool) {
     return s_tokenConfig[localToken].administrator == administrator;
   }
 

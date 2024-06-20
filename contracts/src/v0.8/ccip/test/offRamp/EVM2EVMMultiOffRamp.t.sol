@@ -3122,6 +3122,12 @@ contract EVM2EVMMultiOffRamp_isUnpausedAndRMNHealthy is EVM2EVMMultiOffRampSetup
 contract EVM2EVMMultiOffRamp_setLatestPriceEpochAndRound is EVM2EVMMultiOffRampSetup {
   function test_SetLatestPriceEpochAndRound_Success() public {
     uint40 latestRoundAndEpoch = 1782155;
+
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.LatestPriceEpochAndRoundSet(
+      uint40(s_offRamp.getLatestPriceEpochAndRound()), latestRoundAndEpoch
+    );
+
     s_offRamp.setLatestPriceEpochAndRound(latestRoundAndEpoch);
     assertEq(s_offRamp.getLatestPriceEpochAndRound(), latestRoundAndEpoch);
   }

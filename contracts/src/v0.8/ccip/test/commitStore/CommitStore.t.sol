@@ -123,6 +123,9 @@ contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
 
 contract CommitStore_setMinSeqNr is CommitStoreSetup {
   function test_Fuzz_SetMinSeqNr_Success(uint64 minSeqNr) public {
+    vm.expectEmit();
+    emit CommitStore.SequenceNumberSet(s_commitStore.getExpectedNextSequenceNumber(), minSeqNr);
+
     s_commitStore.setMinSeqNr(minSeqNr);
 
     assertEq(s_commitStore.getExpectedNextSequenceNumber(), minSeqNr);
@@ -597,9 +600,15 @@ contract CommitStore_isUnpausedAndRMNHealthy is CommitStoreSetup {
 contract CommitStore_setLatestPriceEpochAndRound is CommitStoreSetup {
   function test_SetLatestPriceEpochAndRound_Success() public {
     uint40 latestRoundAndEpoch = 1782155;
+
+    vm.expectEmit();
+    emit CommitStore.LatestPriceEpochAndRoundSet(
+      uint40(s_commitStore.getLatestPriceEpochAndRound()), latestRoundAndEpoch
+    );
+
     s_commitStore.setLatestPriceEpochAndRound(latestRoundAndEpoch);
 
-    assertEq(s_commitStore.getLatestPriceEpochAndRound(), latestRoundAndEpoch);
+    assertEq(uint40(s_commitStore.getLatestPriceEpochAndRound()), latestRoundAndEpoch);
   }
 
   // Reverts

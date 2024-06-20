@@ -133,6 +133,36 @@ func (_m *CommitStoreInterface) FilterConfigSet0(opts *bind.FilterOpts) (*commit
 	return r0, r1
 }
 
+// FilterLatestPriceEpochAndRoundSet provides a mock function with given fields: opts
+func (_m *CommitStoreInterface) FilterLatestPriceEpochAndRoundSet(opts *bind.FilterOpts) (*commit_store.CommitStoreLatestPriceEpochAndRoundSetIterator, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterLatestPriceEpochAndRoundSet")
+	}
+
+	var r0 *commit_store.CommitStoreLatestPriceEpochAndRoundSetIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*commit_store.CommitStoreLatestPriceEpochAndRoundSetIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *commit_store.CommitStoreLatestPriceEpochAndRoundSetIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*commit_store.CommitStoreLatestPriceEpochAndRoundSetIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterOwnershipTransferRequested provides a mock function with given fields: opts, from, to
 func (_m *CommitStoreInterface) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*commit_store.CommitStoreOwnershipTransferRequestedIterator, error) {
 	ret := _m.Called(opts, from, to)
@@ -271,6 +301,36 @@ func (_m *CommitStoreInterface) FilterRootRemoved(opts *bind.FilterOpts) (*commi
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*commit_store.CommitStoreRootRemovedIterator)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
+		r1 = rf(opts)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FilterSequenceNumberSet provides a mock function with given fields: opts
+func (_m *CommitStoreInterface) FilterSequenceNumberSet(opts *bind.FilterOpts) (*commit_store.CommitStoreSequenceNumberSetIterator, error) {
+	ret := _m.Called(opts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterSequenceNumberSet")
+	}
+
+	var r0 *commit_store.CommitStoreSequenceNumberSetIterator
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*commit_store.CommitStoreSequenceNumberSetIterator, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *commit_store.CommitStoreSequenceNumberSetIterator); ok {
+		r0 = rf(opts)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*commit_store.CommitStoreSequenceNumberSetIterator)
 		}
 	}
 
@@ -717,6 +777,36 @@ func (_m *CommitStoreInterface) ParseConfigSet0(log types.Log) (*commit_store.Co
 	return r0, r1
 }
 
+// ParseLatestPriceEpochAndRoundSet provides a mock function with given fields: log
+func (_m *CommitStoreInterface) ParseLatestPriceEpochAndRoundSet(log types.Log) (*commit_store.CommitStoreLatestPriceEpochAndRoundSet, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseLatestPriceEpochAndRoundSet")
+	}
+
+	var r0 *commit_store.CommitStoreLatestPriceEpochAndRoundSet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*commit_store.CommitStoreLatestPriceEpochAndRoundSet, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *commit_store.CommitStoreLatestPriceEpochAndRoundSet); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*commit_store.CommitStoreLatestPriceEpochAndRoundSet)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseLog provides a mock function with given fields: log
 func (_m *CommitStoreInterface) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
@@ -885,6 +975,36 @@ func (_m *CommitStoreInterface) ParseRootRemoved(log types.Log) (*commit_store.C
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*commit_store.CommitStoreRootRemoved)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ParseSequenceNumberSet provides a mock function with given fields: log
+func (_m *CommitStoreInterface) ParseSequenceNumberSet(log types.Log) (*commit_store.CommitStoreSequenceNumberSet, error) {
+	ret := _m.Called(log)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ParseSequenceNumberSet")
+	}
+
+	var r0 *commit_store.CommitStoreSequenceNumberSet
+	var r1 error
+	if rf, ok := ret.Get(0).(func(types.Log) (*commit_store.CommitStoreSequenceNumberSet, error)); ok {
+		return rf(log)
+	}
+	if rf, ok := ret.Get(0).(func(types.Log) *commit_store.CommitStoreSequenceNumberSet); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*commit_store.CommitStoreSequenceNumberSet)
 		}
 	}
 
@@ -1343,6 +1463,36 @@ func (_m *CommitStoreInterface) WatchConfigSet0(opts *bind.WatchOpts, sink chan<
 	return r0, r1
 }
 
+// WatchLatestPriceEpochAndRoundSet provides a mock function with given fields: opts, sink
+func (_m *CommitStoreInterface) WatchLatestPriceEpochAndRoundSet(opts *bind.WatchOpts, sink chan<- *commit_store.CommitStoreLatestPriceEpochAndRoundSet) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchLatestPriceEpochAndRoundSet")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreLatestPriceEpochAndRoundSet) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreLatestPriceEpochAndRoundSet) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreLatestPriceEpochAndRoundSet) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // WatchOwnershipTransferRequested provides a mock function with given fields: opts, sink, from, to
 func (_m *CommitStoreInterface) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *commit_store.CommitStoreOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
 	ret := _m.Called(opts, sink, from, to)
@@ -1485,6 +1635,36 @@ func (_m *CommitStoreInterface) WatchRootRemoved(opts *bind.WatchOpts, sink chan
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreRootRemoved) error); ok {
+		r1 = rf(opts, sink)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// WatchSequenceNumberSet provides a mock function with given fields: opts, sink
+func (_m *CommitStoreInterface) WatchSequenceNumberSet(opts *bind.WatchOpts, sink chan<- *commit_store.CommitStoreSequenceNumberSet) (event.Subscription, error) {
+	ret := _m.Called(opts, sink)
+
+	if len(ret) == 0 {
+		panic("no return value specified for WatchSequenceNumberSet")
+	}
+
+	var r0 event.Subscription
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreSequenceNumberSet) (event.Subscription, error)); ok {
+		return rf(opts, sink)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreSequenceNumberSet) event.Subscription); ok {
+		r0 = rf(opts, sink)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(event.Subscription)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *commit_store.CommitStoreSequenceNumberSet) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)
