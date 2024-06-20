@@ -15,9 +15,12 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -25,6 +28,8 @@ import (
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+
+	"github.com/smartcontractkit/havoc/k8schaos"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -41,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -87,13 +91,33 @@ type OCRSoakTest struct {
 	reorgHappened              bool                  // flag to indicate if a reorg happened during the test
 	gasSpikeSimulationHappened bool                  // flag to indicate if a gas spike simulation happened during the test
 	gasLimitSimulationHappened bool                  // flag to indicate if a gas limit simulation happened during the test
+	chaosList                  []*k8schaos.Chaos     // list of chaos simulations to run during the test
+}
+
+type OCRSoakTestOption = func(c *OCRSoakTest)
+
+func WithChaos(chaosList []*k8schaos.Chaos) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.chaosList = chaosList
+	}
+}
+
+func WithNamespace(ns string) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.namespace = ns
+	}
+}
+
+func WithForwarderFlow(forwarderFlow bool) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.OperatorForwarderFlow = forwarderFlow
+	}
 }
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
-func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*OCRSoakTest, error) {
+func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
 	test := &OCRSoakTest{
-		Config:                config,
-		OperatorForwarderFlow: forwarderFlow,
+		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
 			OCRVersion: *config.OCR.Soak.OCRVersion,
 			StartTime:  time.Now(),
@@ -106,22 +130,35 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool) (*O
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
 	}
+	for _, opt := range opts {
+		opt(test)
+	}
+	t.Cleanup(func() {
+		test.deleteChaosSimulations()
+	})
 	return test, test.ensureInputValues()
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
 	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
-	nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
-	if o.OperatorForwarderFlow {
-		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+
+	// Define namespace if default not set
+	if o.namespace == "" {
+		nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
+		if o.OperatorForwarderFlow {
+			nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+		}
+
+		nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
+		nsPre = strings.ReplaceAll(nsPre, "_", "-")
+
+		o.namespace = fmt.Sprintf("%s-%s", nsPre, uuid.NewString()[0:5])
 	}
 
-	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
-	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
-		NamespacePrefix:    nsPre,
+		Namespace:          o.namespace,
 		Test:               o.t,
 		PreventPodEviction: true,
 	}
@@ -234,7 +271,7 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	seth, err := actions_seth.GetChainClient(o.Config, o.rpcNetwork)
+	seth, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
 	o.seth = seth
 
@@ -249,14 +286,14 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions_seth.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
 
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
-		operators, forwarders, _ = actions_seth.DeployForwarderContracts(
+		operators, forwarders, _ = actions.DeployForwarderContracts(
 			o.t, o.seth, common.HexToAddress(linkContract.Address()), len(o.workerNodes),
 		)
 		require.Equal(o.t, len(o.workerNodes), len(operators), "Number of operators should match number of nodes")
@@ -264,15 +301,15 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
 		require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		for i := range o.workerNodes {
-			actions_seth.AcceptAuthorizedReceiversOperator(
+			actions.AcceptAuthorizedReceiversOperator(
 				o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 
-			actions_seth.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
+			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
 	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
 		if o.OperatorForwarderFlow {
-			o.ocrV1Instances, err = actions_seth.DeployOCRContractsForwarderFlow(
+			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
 				o.seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
@@ -282,7 +319,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			)
 			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 		} else {
-			o.ocrV1Instances, err = actions_seth.DeployOCRv1Contracts(
+			o.ocrV1Instances, err = actions.DeployOCRv1Contracts(
 				o.log,
 				seth,
 				*o.Config.OCR.Soak.NumberOfContracts,
@@ -307,7 +344,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		}
 
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-		o.ocrV2Instances, err = actions_seth.DeployOCRv2Contracts(
+		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
 			o.log,
 			o.seth,
 			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
@@ -318,7 +355,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
 		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
 		require.NoError(o.t, err, "Error building median config")
-		err = actions_seth.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
+		err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
 		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
 	}
 
@@ -644,6 +681,21 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		}
 	}
 
+	// Schedule chaos simulations if needed
+	if len(o.chaosList) > 0 {
+		for _, chaos := range o.chaosList {
+			chaos.Create(context.Background())
+			chaos.AddListener(k8schaos.NewChaosLogger(o.log))
+			chaos.AddListener(ocrTestChaosListener{t: o.t})
+			// Add Grafana annotation if configured
+			if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
+				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(
+					*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken,
+					*o.Config.Logging.Grafana.DashboardUID, o.log))
+			}
+		}
+	}
+
 	for {
 		select {
 		case <-interruption:
@@ -657,6 +709,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
 			o.log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			o.deleteChaosSimulations()
 			os.Exit(interruptedExitCode) // Exit with interrupted code to indicate test was interrupted, not just a normal failure
 		case <-endTest:
 			return
@@ -738,6 +791,18 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 	err = client.AnvilSetBlockGasLimit([]interface{}{latestBlock.GasLimit()})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	o.gasLimitSimulationHappened = true
+}
+
+// Delete k8s chaos objects it any of them still exist
+// This is needed to clean up the chaos objects if the test is interrupted or it finishes
+func (o *OCRSoakTest) deleteChaosSimulations() {
+	for _, chaos := range o.chaosList {
+		err := chaos.Delete(context.Background())
+		// Check if the error is because the chaos object is already deleted
+		if err != nil && !strings.Contains(err.Error(), "not found") {
+			o.log.Error().Err(err).Msg("Error deleting chaos object")
+		}
+	}
 }
 
 // setFilterQuery to look for all events that happened
@@ -1007,4 +1072,34 @@ func (o *OCRSoakTest) getContractAddresses() []common.Address {
 	}
 
 	return contractAddresses
+}
+
+type ocrTestChaosListener struct {
+	t *testing.T
+}
+
+func (l ocrTestChaosListener) OnChaosCreated(_ k8schaos.Chaos) {
+}
+
+func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
+	// Fail the test if chaos creation fails during chaos simulation
+	require.FailNow(l.t, "Error creating chaos simulation", reason.Error(), chaos)
+}
+
+func (l ocrTestChaosListener) OnChaosStarted(_ k8schaos.Chaos) {
+}
+
+func (l ocrTestChaosListener) OnChaosPaused(_ k8schaos.Chaos) {
+}
+
+func (l ocrTestChaosListener) OnChaosEnded(_ k8schaos.Chaos) {
+}
+
+func (l ocrTestChaosListener) OnChaosStatusUnknown(_ k8schaos.Chaos) {
+}
+
+func (l ocrTestChaosListener) OnScheduleCreated(_ k8schaos.Schedule) {
+}
+
+func (l ocrTestChaosListener) OnScheduleDeleted(_ k8schaos.Schedule) {
 }

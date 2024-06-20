@@ -73,8 +73,8 @@ func TestChainWriter(t *testing.T) {
 		t.Run("Returns valid FeeComponents", func(t *testing.T) {
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000002), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(1000000004), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000002), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(1000000004), feeComponents.DataAvailabilityFee)
 		})
 
 		ge.On("L1Oracle", mock.Anything).Return(nil).Twice()
@@ -82,8 +82,8 @@ func TestChainWriter(t *testing.T) {
 		t.Run("Returns valid FeeComponents with no L1Oracle", func(t *testing.T) {
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000002), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000002), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(0), feeComponents.DataAvailabilityFee)
 		})
 
 		t.Run("Returns Legacy Fee in absence of Dynamic Fee", func(t *testing.T) {
@@ -94,8 +94,8 @@ func TestChainWriter(t *testing.T) {
 			}, uint64(0), nil).Once()
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000001), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000001), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(0), feeComponents.DataAvailabilityFee)
 		})
 
 		t.Run("Fails when neither legacy or dynamic fee is available", func(t *testing.T) {
