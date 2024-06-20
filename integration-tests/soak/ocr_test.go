@@ -12,12 +12,13 @@ import (
 
 	"github.com/chaos-mesh/chaos-mesh/api/v1alpha1"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/havoc/k8schaos"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-	"github.com/smartcontractkit/havoc/k8schaos"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestOCRSoak(t *testing.T) {

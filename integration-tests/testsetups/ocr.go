@@ -29,6 +29,8 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
+	"github.com/smartcontractkit/havoc/k8schaos"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -42,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	"github.com/smartcontractkit/havoc/k8schaos"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -1072,28 +1073,28 @@ type ocrTestChaosListener struct {
 	t *testing.T
 }
 
-func (l ocrTestChaosListener) OnChaosCreated(chaos k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosCreated(_ k8schaos.Chaos) {
 }
 
 func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
 	// Fail the test if chaos creation fails during chaos simulation
-	require.Fail(l.t, "Error creating chaos simulation", reason.Error())
+	require.Fail(l.t, "Error creating chaos simulation", reason.Error(), chaos)
 }
 
-func (l ocrTestChaosListener) OnChaosStarted(chaos k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStarted(_ k8schaos.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosPaused(chaos k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosPaused(_ k8schaos.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosEnded(chaos k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosEnded(_ k8schaos.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnChaosStatusUnknown(chaos k8schaos.Chaos) {
+func (l ocrTestChaosListener) OnChaosStatusUnknown(_ k8schaos.Chaos) {
 }
 
-func (l ocrTestChaosListener) OnScheduleCreated(chaos k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleCreated(_ k8schaos.Schedule) {
 }
 
-func (l ocrTestChaosListener) OnScheduleDeleted(chaos k8schaos.Schedule) {
+func (l ocrTestChaosListener) OnScheduleDeleted(_ k8schaos.Schedule) {
 }
