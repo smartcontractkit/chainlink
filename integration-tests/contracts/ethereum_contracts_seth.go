@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_usd_based_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
@@ -681,8 +681,6 @@ func (l *EthereumWETHToken) Transfer(to string, amount *big.Int) error {
 	return err
 }
 
-// TODO end of weth token
-
 // EthereumLinkToken represents a LinkToken address
 type EthereumLinkToken struct {
 	client   *seth.Client
@@ -1118,22 +1116,22 @@ type EthereumMockETHLINKFeed struct {
 	address *common.Address
 }
 
-// EthereumMockETHUSDFeed represents mocked ETH/USD feed contract
-type EthereumMockETHUSDFeed struct {
+// EthereumMockUSDBasedFeed represents mocked ETH/USD feed contract
+type EthereumMockUSDBasedFeed struct {
 	client  *seth.Client
-	feed    *mock_ethusd_aggregator_wrapper.MockETHUSDAggregator
+	feed    *mock_usd_based_aggregator_wrapper.MockUSDBasedAggregator
 	address *common.Address
 }
 
-func (l *EthereumMockETHUSDFeed) Decimals() uint {
+func (l *EthereumMockUSDBasedFeed) Decimals() uint {
 	return 8
 }
 
-func (v *EthereumMockETHUSDFeed) Address() string {
+func (v *EthereumMockUSDBasedFeed) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
+func (v *EthereumMockUSDBasedFeed) LatestRoundData() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
 		From:    v.client.Addresses[0],
 		Context: context.Background(),
@@ -1144,7 +1142,7 @@ func (v *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
 	return data.Ans, nil
 }
 
-func (v *EthereumMockETHUSDFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+func (v *EthereumMockUSDBasedFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
 	data, err := v.feed.LatestRoundData(&bind.CallOpts{
 		From:    v.client.Addresses[0],
 		Context: context.Background(),
@@ -1223,42 +1221,42 @@ func LoadMockETHLINKFeed(client *seth.Client, address common.Address) (MockETHLI
 	}, nil
 }
 
-func DeployMockETHUSDFeed(client *seth.Client, answer *big.Int) (MockETHUSDFeed, error) {
-	abi, err := mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.GetAbi()
+func DeployMockUSDBasedFeed(client *seth.Client, answer *big.Int) (MockUSDBasedFeed, error) {
+	abi, err := mock_usd_based_aggregator_wrapper.MockUSDBasedAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to get MockETHUSDFeed ABI: %w", err)
+		return &EthereumMockUSDBasedFeed{}, fmt.Errorf("failed to get MockUSDBasedFeed ABI: %w", err)
 	}
-	data, err := client.DeployContract(client.NewTXOpts(), "MockETHUSDFeed", *abi, common.FromHex(mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.Bin), answer)
+	data, err := client.DeployContract(client.NewTXOpts(), "MockUSDBasedFeed", *abi, common.FromHex(mock_usd_based_aggregator_wrapper.MockUSDBasedAggregatorMetaData.Bin), answer)
 	if err != nil {
-		return &EthereumMockETHUSDFeed{}, fmt.Errorf("MockETHUSDFeed instance deployment have failed: %w", err)
-	}
-
-	instance, err := mock_ethusd_aggregator_wrapper.NewMockETHUSDAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to instantiate MockETHUSDFeed instance: %w", err)
+		return &EthereumMockUSDBasedFeed{}, fmt.Errorf("MockUSDBasedFeed instance deployment have failed: %w", err)
 	}
 
-	return &EthereumMockETHUSDFeed{
+	instance, err := mock_usd_based_aggregator_wrapper.NewMockUSDBasedAggregator(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &EthereumMockUSDBasedFeed{}, fmt.Errorf("failed to instantiate MockUSDBasedFeed instance: %w", err)
+	}
+
+	return &EthereumMockUSDBasedFeed{
 		address: &data.Address,
 		client:  client,
 		feed:    instance,
 	}, nil
 }
 
-func LoadMockETHUSDFeed(client *seth.Client, address common.Address) (MockETHUSDFeed, error) {
-	abi, err := mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.GetAbi()
+func LoadMockUSDBasedFeed(client *seth.Client, address common.Address) (MockUSDBasedFeed, error) {
+	abi, err := mock_usd_based_aggregator_wrapper.MockUSDBasedAggregatorMetaData.GetAbi()
 	if err != nil {
-		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to get MockETHUSDFeed ABI: %w", err)
+		return &EthereumMockUSDBasedFeed{}, fmt.Errorf("failed to get MockUSDBasedFeed ABI: %w", err)
 	}
-	client.ContractStore.AddABI("MockETHUSDFeed", *abi)
-	client.ContractStore.AddBIN("MockETHUSDFeed", common.FromHex(mock_ethusd_aggregator_wrapper.MockETHUSDAggregatorMetaData.Bin))
+	client.ContractStore.AddABI("MockUSDBasedFeed", *abi)
+	client.ContractStore.AddBIN("MockUSDBasedFeed", common.FromHex(mock_usd_based_aggregator_wrapper.MockUSDBasedAggregatorMetaData.Bin))
 
-	instance, err := mock_ethusd_aggregator_wrapper.NewMockETHUSDAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	instance, err := mock_usd_based_aggregator_wrapper.NewMockUSDBasedAggregator(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
-		return &EthereumMockETHUSDFeed{}, fmt.Errorf("failed to instantiate MockETHUSDFeed instance: %w", err)
+		return &EthereumMockUSDBasedFeed{}, fmt.Errorf("failed to instantiate MockUSDBasedFeed instance: %w", err)
 	}
 
-	return &EthereumMockETHUSDFeed{
+	return &EthereumMockUSDBasedFeed{
 		address: &address,
 		client:  client,
 		feed:    instance,

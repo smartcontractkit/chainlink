@@ -107,5 +107,5 @@ compileContract automation/v2_3/AutomationRegistryLogicC2_3.sol
 compileContract automation/v2_3/AutomationUtils2_3.sol
 compileContract automation/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
 
-compileContract automation/testhelpers/MockETHUSDAggregator.sol
+compileContract automation/testhelpers/MockUSDBasedAggregator.sol
 compileContract automation/test/v2_3/WETH9.sol

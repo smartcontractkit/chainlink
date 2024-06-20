@@ -1958,9 +1958,8 @@ type OCRv2Config struct {
 	TypedOnchainConfig23  i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig
 	OffchainConfigVersion uint64
 	OffchainConfig        []byte
-	// TODO add billingToken and billingConfig
-	BillingTokens  []common.Address
-	BillingConfigs []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig
+	BillingTokens         []common.Address
+	BillingConfigs        []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig
 }
 
 func (e *LegacyEthereumOffchainAggregatorV2) Address() string {

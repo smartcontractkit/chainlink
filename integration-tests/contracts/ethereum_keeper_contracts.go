@@ -257,12 +257,9 @@ func (v *LegacyEthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 
 func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig {
 	return i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig{
-		//PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
-		//FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
-		CheckGasLimit:        rcs.CheckGasLimit,
-		StalenessSeconds:     rcs.StalenessSeconds,
-		GasCeilingMultiplier: rcs.GasCeilingMultiplier,
-		//MinUpkeepSpend:         rcs.MinUpkeepSpend,
+		CheckGasLimit:          rcs.CheckGasLimit,
+		StalenessSeconds:       rcs.StalenessSeconds,
+		GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
 		MaxPerformGas:          rcs.MaxPerformGas,
 		MaxCheckDataSize:       rcs.MaxCheckDataSize,
 		MaxPerformDataSize:     rcs.MaxPerformDataSize,
@@ -272,7 +269,7 @@ func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, regis
 		Transcoder:             common.Address{},
 		Registrars:             []common.Address{common.HexToAddress(registrar)},
 		UpkeepPrivilegeManager: registryOwnerAddress,
-		ChainModule:            chainModuleAddress, // TODO here is the chainModule
+		ChainModule:            chainModuleAddress,
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 		FinanceAdmin:           registryOwnerAddress,
 		FallbackNativePrice:    big.NewInt(1),

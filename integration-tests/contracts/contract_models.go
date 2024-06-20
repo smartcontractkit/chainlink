@@ -73,7 +73,6 @@ type FluxAggregator interface {
 	WatchSubmissionReceived(ctx context.Context, eventChan chan<- *SubmissionEvent) error
 }
 
-// TODO add Decimals
 type LinkToken interface {
 	Address() string
 	Approve(to string, amount *big.Int) error
@@ -231,7 +230,7 @@ type MockETHLINKFeed interface {
 	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
-type MockETHUSDFeed interface {
+type MockUSDBasedFeed interface {
 	Address() string
 	LatestRoundData() (*big.Int, error)
 	LatestRoundDataUpdatedAt() (*big.Int, error)

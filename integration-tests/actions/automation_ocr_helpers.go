@@ -359,7 +359,6 @@ func deployRegistry(
 	client blockchain.EVMClient,
 	linkToken contracts.LinkToken,
 ) contracts.KeeperRegistry {
-	// TODO if it is v23, deploy ETHUSD instead
 	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
@@ -376,7 +375,7 @@ func deployRegistry(
 			ETHFeedAddr:     ef.Address(),
 			GasFeedAddr:     gf.Address(),
 			TranscoderAddr:  transcoder.Address(),
-			RegistrarAddr:   ZeroAddress.Hex(), // TODO change to real address
+			RegistrarAddr:   ZeroAddress.Hex(),
 			Settings:        registrySettings,
 		},
 	)

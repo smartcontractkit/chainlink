@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "../../shared/interfaces/AggregatorV3Interface.sol";
 
-contract MockETHUSDAggregator is AggregatorV3Interface {
+contract MockUSDBasedAggregator is AggregatorV3Interface {
   int256 public answer;
   uint256 private blockTimestampDeduction = 0;
 
@@ -16,7 +16,7 @@ contract MockETHUSDAggregator is AggregatorV3Interface {
   }
 
   function description() external pure override returns (string memory) {
-    return "MockETHUSDAggregator";
+    return "MockUSDBasedAggregator";
   }
 
   function version() external pure override returns (uint256) {
