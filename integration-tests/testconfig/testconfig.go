@@ -62,7 +62,7 @@ type AutomationTestConfig interface {
 }
 
 type OcrTestConfig interface {
-	GetOCRConfig() *ocr_config.Config
+	GetActiveOCRConfig() *ocr_config.Config
 }
 
 type Ocr2TestConfig interface {

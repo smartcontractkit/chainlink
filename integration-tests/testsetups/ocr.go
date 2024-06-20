@@ -272,7 +272,6 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			actions.AcceptAuthorizedReceiversOperator(
 				o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-
 			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
 	} else if o.OCRVersion == "1" {
@@ -315,7 +314,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
 			o.log,
 			o.seth,
-			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
+			*ocrTestConfig.GetActiveOCRConfig().Soak.NumberOfContracts,
 			common.HexToAddress(linkContract.Address()),
 			transmitters,
 			ocrOffchainOptions,
@@ -949,7 +948,13 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	o.log.Info().
 		Str("Time", time.Since(start).String()).
+		Int("Events collected", len(contractEvents)).
 		Msg("Collected on-chain events")
+
+	if len(contractEvents) == 0 {
+		return fmt.Errorf("no events were collected")
+	}
+
 	return nil
 }
 
