@@ -28,6 +28,7 @@ func TestOCRv1Soak(t *testing.T) {
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
@@ -36,6 +37,7 @@ func TestOCRv2Soak(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
@@ -43,6 +45,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
@@ -50,6 +53,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
@@ -57,6 +61,7 @@ func TestOCRSoak_GasSpike(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
@@ -65,6 +70,7 @@ func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
 	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 

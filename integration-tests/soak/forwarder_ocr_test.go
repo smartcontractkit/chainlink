@@ -13,6 +13,8 @@ import (
 )
 
 func TestForwarderOCRv1Soak(t *testing.T) {
+	//nolint:revive
+	t.Fatalf("This test is disabled because the implementation is broken")
 	config, err := tc.GetConfig("Soak", tc.ForwarderOcr)
 	require.NoError(t, err, "Error getting config")
 
@@ -20,6 +22,8 @@ func TestForwarderOCRv1Soak(t *testing.T) {
 }
 
 func TestForwarderOCRv2Soak(t *testing.T) {
+	//nolint:revive
+	t.Fatalf("This test is disabled because the implementation is broken")
 	config, err := tc.GetConfig("Soak", tc.ForwarderOcr2)
 	require.NoError(t, err, "Error getting config")
 
