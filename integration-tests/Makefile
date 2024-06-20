@@ -168,13 +168,13 @@ test_soak_ocr_gas_limit_change:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run ^TestOCRSoak_ChangeBlockGasLimit$$ ./soak
 
-.PHONY: test_soak_ocr_rpc_down_all_core_nodes
-test_soak_ocr_rpc_down_all_core_nodes:
+.PHONY: test_soak_ocr_rpc_down_all_cl_nodes
+test_soak_ocr_rpc_down_all_cl_nodes:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run ^TestOCRSoak_RPCDownForAllCLNodes$$ ./soak
 
-.PHONY: test_soak_ocr_rpc_down_half_core_nodes
-test_soak_ocr_rpc_down_half_core_nodes:
+.PHONY: test_soak_ocr_rpc_down_half_cl_nodes
+test_soak_ocr_rpc_down_half_cl_nodes:
 	. ./scripts/check_base64_env_var.sh
 	go test -v -count=1 -run ^TestOCRSoak_RPCDownForHalfCLNodes$$ ./soak
 
