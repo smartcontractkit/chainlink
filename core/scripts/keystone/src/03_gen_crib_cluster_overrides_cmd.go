@@ -23,7 +23,11 @@ func (g *generateCribClusterOverrides) Name() string {
 func (g *generateCribClusterOverrides) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 11155111, "chain id")
-	outputPath := fs.String("outpath", "../crib", "the path to output the generated overrides")
+	cribRepoPath := os.Getenv("KEYSTONE_CRIB_REPO_PATH")
+	if cribRepoPath == "" {
+		cribRepoPath = "../../crib"
+	}
+	outputPath := fs.String("outpath", cribRepoPath, "the path to output the generated overrides")
 
 	deployedContracts, err := LoadDeployedContracts()
 	helpers.PanicErr(err)
