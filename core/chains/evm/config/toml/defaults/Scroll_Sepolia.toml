@@ -1,5 +1,6 @@
 ChainID = '534351'
 FinalityDepth = 10
+FinalityTagEnabled = true
 ChainType = 'scroll'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
