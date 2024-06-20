@@ -7,61 +7,62 @@ import (
 )
 
 const (
-	EVM_ADDRESS_LENGTH_BYTES = 20
-	EVM_WORD_BYTES           = 32
-	CALLDATA_GAS_PER_BYTE    = 16
-	PER_TOKEN_OVERHEAD_GAS   = 2_100 + // COLD_SLOAD_COST for first reading the pool
-		2_100 + // COLD_SLOAD_COST for pool to ensure allowed offramp calls it
-		2_100 + // COLD_SLOAD_COST for accessing pool balance slot
-		5_000 + // SSTORE_RESET_GAS for decreasing pool balance from non-zero to non-zero
-		2_100 + // COLD_SLOAD_COST for accessing receiver balance
-		20_000 + // SSTORE_SET_GAS for increasing receiver balance from zero to non-zero
-		2_100 // COLD_SLOAD_COST for obtanining price of token to use for aggregate token bucket
-	RATE_LIMITER_OVERHEAD_GAS = 2_100 + // COLD_SLOAD_COST for accessing token bucket
-		5_000 // SSTORE_RESET_GAS for updating & decreasing token bucket
-	EXTERNAL_CALL_OVERHEAD_GAS = 2600 + // because the receiver will be untouched initially
+	EvmAddressLengthBytes           = 20
+	EvmWordBytes                    = 32
+	CalldataGasPerByte              = 16
+	TokenAdminRegistryWarmupCost    = 2_500
+	TokenAdminRegistryPoolLookupGas = 100 + // WARM_ACCESS_COST TokenAdminRegistry
+		700 + // CALL cost for TokenAdminRegistry
+		2_100 // COLD_SLOAD_COST loading the pool address
+	SupportsInterfaceCheck = 2600 + // because the receiver will be untouched initially
 		30_000*3 // supportsInterface of ERC165Checker library performs 3 static-calls of 30k gas each
-	FEE_BOOSTING_OVERHEAD_GAS               = 200_000
-	CONSTANT_MESSAGE_PART_BYTES             = 10 * 32 // A message consists of 10 abi encoded fields 32B each (after encoding)
-	EXECUTION_STATE_PROCESSING_OVERHEAD_GAS = 2_100 + // COLD_SLOAD_COST for first reading the state
+	PerTokenOverheadGas = TokenAdminRegistryPoolLookupGas +
+		SupportsInterfaceCheck +
+		200_000 + // releaseOrMint using callWithExactGas
+		50_000 // transfer using callWithExactGas
+	RateLimiterOverheadGas = 2_100 + // COLD_SLOAD_COST for accessing token bucket
+		5_000 // SSTORE_RESET_GAS for updating & decreasing token bucket
+	ConstantMessagePartBytes            = 10 * 32 // A message consists of 10 abi encoded fields 32B each (after encoding)
+	ExecutionStateProcessingOverheadGas = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
-	EVM_MESSAGE_FIXED_BYTES     = 448 // Byte size of fixed-size fields in EVM2EVMMessage
-	EVM_MESSAGE_BYTES_PER_TOKEN = 128 // Byte size of each token transfer, consisting of 1 EVMTokenAmount and 1 bytes, excl length of bytes
-	DA_MULTIPLIER_BASE          = int64(10000)
 )
 
 // return the size of bytes for msg tokens
 func bytesForMsgTokens(numTokens int) int {
 	// token address (address) + token amount (uint256)
-	return (EVM_ADDRESS_LENGTH_BYTES + EVM_WORD_BYTES) * numTokens
+	return (EvmAddressLengthBytes + EvmWordBytes) * numTokens
 }
 
 // Offchain: we compute the max overhead gas to determine msg executability.
 func overheadGas(dataLength, numTokens int) uint64 {
-	messageBytes := CONSTANT_MESSAGE_PART_BYTES +
+	messageBytes := ConstantMessagePartBytes +
 		bytesForMsgTokens(numTokens) +
 		dataLength
 
-	messageCallDataGas := uint64(messageBytes * CALLDATA_GAS_PER_BYTE)
+	messageCallDataGas := uint64(messageBytes * CalldataGasPerByte)
 
 	// Rate limiter only limits value in tokens. It's not called if there are no
-	// tokens in the message.
+	// tokens in the message. The same goes for the admin registry, it's only loaded
+	// if there are tokens, and it's only loaded once.
 	rateLimiterOverhead := uint64(0)
+	adminRegistryOverhead := uint64(0)
 	if numTokens >= 1 {
-		rateLimiterOverhead = RATE_LIMITER_OVERHEAD_GAS
+		rateLimiterOverhead = RateLimiterOverheadGas
+		adminRegistryOverhead = TokenAdminRegistryWarmupCost
 	}
 
 	return messageCallDataGas +
-		EXECUTION_STATE_PROCESSING_OVERHEAD_GAS +
-		PER_TOKEN_OVERHEAD_GAS*uint64(numTokens) +
+		ExecutionStateProcessingOverheadGas +
+		SupportsInterfaceCheck +
+		adminRegistryOverhead +
 		rateLimiterOverhead +
-		EXTERNAL_CALL_OVERHEAD_GAS
+		PerTokenOverheadGas*uint64(numTokens)
 }
 
 func maxGasOverHeadGas(numMsgs, dataLength, numTokens int) uint64 {
 	merkleProofBytes := (math.Ceil(math.Log2(float64(numMsgs))))*32 + (1+2)*32 // only ever one outer root hash
-	merkleGasShare := uint64(merkleProofBytes * CALLDATA_GAS_PER_BYTE)
+	merkleGasShare := uint64(merkleProofBytes * CalldataGasPerByte)
 
 	return overheadGas(dataLength, numTokens) + merkleGasShare
 }
