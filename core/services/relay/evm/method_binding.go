@@ -13,6 +13,14 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
 
+type NoContractExistsError struct {
+	Address common.Address
+}
+
+func (e NoContractExistsError) Error() string {
+	return fmt.Sprintf("contract does not exist at address: %s", e.Address)
+}
+
 type methodBinding struct {
 	address      common.Address
 	contractName string
@@ -28,15 +36,30 @@ func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
 	m.codec = codec
 }
 
+func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	addr := common.HexToAddress(binding.Address)
+
+	// check for contract byte code at the latest block and provided address
+	byteCode, err := m.client.CodeAt(ctx, addr, nil)
+	if err != nil {
+		return err
+	}
+
+	if len(byteCode) == 0 {
+		return NoContractExistsError{Address: addr}
+	}
+
+	m.address = addr
+	m.bound = true
+
+	return nil
+}
+
 func (m *methodBinding) Register(_ context.Context) error {
 	return nil
 }
 
 func (m *methodBinding) Unregister(_ context.Context) error {
-	return nil
-}
-
-func (m *methodBinding) UnregisterAll(_ context.Context) error {
 	return nil
 }
 
@@ -66,10 +89,4 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 
 func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
 	return nil, nil
-}
-
-func (m *methodBinding) Bind(_ context.Context, binding commontypes.BoundContract) error {
-	m.address = common.HexToAddress(binding.Address)
-	m.bound = true
-	return nil
 }

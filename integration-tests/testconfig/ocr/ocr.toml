@@ -100,7 +100,7 @@ enabled = true
 depth = 15
 delay_create = "3s"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 0.5
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR]
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
 test_duration="15m"
@@ -128,7 +128,7 @@ enabled = true
 depth = 15
 delay_create = "3s"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 0.5
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR]
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
 test_duration="15m"
@@ -136,3 +136,61 @@ test_duration="15m"
 ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
+
+# OCR soak test configuration with gas spike on Anvil network
+[TestOCRSoak_GasSpike.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_GasSpike.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_GasSpike.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_GasSpike.Network]
+selected_networks=["Anvil"]
+[TestOCRSoak_GasSpike.Network.AnvilConfigs.anvil.GasSpikeSimulation]
+enabled = true
+start_gas_price = 2000000000
+gas_rise_percentage = 0.7
+gas_spike = true
+delay_create = "1m"
+duration = "3m"
+
+# OCR soak test configuration with change to gas limit on Anvil network
+[TestOCRSoak_ChangeBlockGasLimit.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_ChangeBlockGasLimit.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_ChangeBlockGasLimit.Network]
+selected_networks=["Anvil"]
+[TestOCRSoak_ChangeBlockGasLimit.Network.AnvilConfigs.anvil.GasLimitSimulation]
+enabled = true
+next_gas_limit_percentage = 0.5
+delay_create = "1m"
+duration = "3m"
+
+[TestOCRSoak_RPCDownForAllCLNodes.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDownForAllCLNodes.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDownForAllCLNodes.Network]
+selected_networks=["simulated"]
+
+[TestOCRSoak_RPCDownForHalfCLNodes.Common]
+chainlink_node_funding = 0.5
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Common]
+test_duration="15m"
+[TestOCRSoak_RPCDownForHalfCLNodes.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"
+[TestOCRSoak_RPCDownForHalfCLNodes.Network]
+selected_networks=["simulated"]

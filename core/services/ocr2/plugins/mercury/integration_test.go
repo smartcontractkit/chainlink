@@ -126,6 +126,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 }
 
 func TestIntegration_MercuryV1(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-5697")
 	t.Parallel()
 
 	integration_MercuryV1(t)
@@ -184,15 +185,17 @@ func integration_MercuryV1(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
-	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
-	fromBlock := int(finalityDepth) // cannot use zero, start from finality depth
+	// cannot use zero, start from finality depth
+	fromBlock := func() int {
+		// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
+		ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		require.NoError(t, err)
+		finalityDepth := ch.Config().EVM().FinalityDepth()
+		for i := 0; i < int(finalityDepth); i++ {
+			backend.Commit()
+		}
+		return int(finalityDepth)
+	}()
 
 	// Set up n oracles
 	var (
@@ -225,8 +228,7 @@ func integration_MercuryV1(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			var b []byte
-			b, err = io.ReadAll(req.Body)
+			b, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 

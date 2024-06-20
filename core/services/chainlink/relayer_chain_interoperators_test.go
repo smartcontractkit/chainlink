@@ -368,6 +368,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedSolanaChainCnt, tt.expectedSolanaNodeCnt
 				case types.NetworkStarkNet:
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
+				case types.NetworkAptos:
+					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
+
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
 				}

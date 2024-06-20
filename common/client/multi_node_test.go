@@ -909,7 +909,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
 			ResultsByCode: sendTxErrors{
-				OutOfCounters: {errors.New("not enough keccak counters to continue the execution")},
+				TerminallyStuck: {errors.New("not enough keccak counters to continue the execution")},
 			},
 		},
 	}
