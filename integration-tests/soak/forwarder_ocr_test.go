@@ -29,7 +29,7 @@ func TestForwarderOCRv2Soak(t *testing.T) {
 func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 	l := logging.GetTestLogger(t)
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, config, true)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, config, testsetups.WithForwarderFlow(true))
 	require.NoError(t, err, "Error creating soak test")
 	ocrSoakTest.DeployEnvironment(config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
