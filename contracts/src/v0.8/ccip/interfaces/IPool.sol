@@ -5,9 +5,9 @@ import {Pool} from "../libraries/Pool.sol";
 
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/introspection/IERC165.sol";
 
-// Shared public interface for multiple pool types.
-// Each pool type handles a different child token model (lock/unlock, mint/burn.)
-interface IPool is IERC165 {
+/// @notice Shared public interface for multiple V1 pool types.
+/// Each pool type handles a different child token model (lock/unlock, mint/burn.)
+interface IPoolV1 is IERC165 {
   /// @notice Lock tokens into the pool or burn the tokens.
   /// @param lockOrBurnIn Encoded data fields for the processing of tokens on the source chain.
   /// @return lockOrBurnOut Encoded data fields for the processing of tokens on the destination chain.
@@ -16,9 +16,9 @@ interface IPool is IERC165 {
     returns (Pool.LockOrBurnOutV1 memory lockOrBurnOut);
 
   /// @notice Releases or mints tokens to the receiver address.
-  /// * localToken The address of the local token.
-  /// * destinationAmount The amount of tokens released or minted on the destination chain,
-  /// denominated in the local token's decimals.
+  /// @param releaseOrMintIn All data required to release or mint tokens.
+  /// @return releaseOrMintOut The amount of tokens released or minted on the local chain, denominated
+  /// in the local token's decimals.
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     returns (Pool.ReleaseOrMintOutV1 memory);

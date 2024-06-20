@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import {IPool} from "../../interfaces/IPool.sol";
+import {IPoolV1} from "../../interfaces/IPool.sol";
 
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
@@ -46,23 +46,10 @@ contract TokenAdminRegistry_getPool is TokenAdminRegistrySetup {
   }
 }
 
-contract TokenAdminRegistry_isTokenSupportedOnRemoteChain is TokenAdminRegistrySetup {
-  function test_isTokenSupportedOnRemoteChain_Success() public {
-    uint64 nonExistentChainSelector = 2523356;
-
-    assertTrue(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(s_sourceTokens[0], DEST_CHAIN_SELECTOR));
-    assertFalse(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(s_sourceTokens[0], nonExistentChainSelector));
-
-    address nonExistentToken = makeAddr("nonExistentToken");
-
-    assertFalse(s_tokenAdminRegistry.isTokenSupportedOnRemoteChain(nonExistentToken, DEST_CHAIN_SELECTOR));
-  }
-}
-
 contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
   function test_setPool_Success() public {
     address pool = makeAddr("pool");
-    vm.mockCall(pool, abi.encodeWithSelector(IPool.isSupportedToken.selector), abi.encode(true));
+    vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(true));
 
     vm.expectEmit();
     emit TokenAdminRegistry.PoolSet(s_sourceTokens[0], s_sourcePoolByToken[s_sourceTokens[0]], pool);
@@ -80,7 +67,7 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
 
   function test_setPool_ZeroAddressRemovesPool_Success() public {
     address pool = makeAddr("pool");
-    vm.mockCall(pool, abi.encodeWithSelector(IPool.isSupportedToken.selector), abi.encode(true));
+    vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(true));
     s_tokenAdminRegistry.setPool(s_sourceTokens[0], pool);
 
     assertEq(s_tokenAdminRegistry.getPool(s_sourceTokens[0]), pool);
@@ -95,7 +82,7 @@ contract TokenAdminRegistry_setPool is TokenAdminRegistrySetup {
 
   function test_setPool_InvalidTokenPoolToken_Revert() public {
     address pool = makeAddr("pool");
-    vm.mockCall(pool, abi.encodeWithSelector(IPool.isSupportedToken.selector), abi.encode(false));
+    vm.mockCall(pool, abi.encodeWithSelector(IPoolV1.isSupportedToken.selector), abi.encode(false));
 
     vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.InvalidTokenPoolToken.selector, s_sourceTokens[0]));
     s_tokenAdminRegistry.setPool(s_sourceTokens[0], pool);
@@ -115,7 +102,7 @@ contract TokenAdminRegistry_getAllConfiguredTokens is TokenAdminRegistrySetup {
   function test_Fuzz_getAllConfiguredTokens_Success(uint8 numberOfTokens) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
     for (uint160 i = 0; i < numberOfTokens; ++i) {
-      cleanTokenAdminRegistry.registerAdministratorPermissioned(address(i), address(i + 1000));
+      cleanTokenAdminRegistry.proposeAdministrator(address(i), address(i + 1000));
     }
 
     uint160 count = 0;
@@ -221,139 +208,132 @@ contract TokenAdminRegistry_acceptAdminRole is TokenAdminRegistrySetup {
   }
 }
 
-contract TokenAdminRegistry_setDisableReRegistration is TokenAdminRegistrySetup {
-  function test_setDisableReRegistration_Success() public {
-    vm.expectEmit();
-    emit TokenAdminRegistry.DisableReRegistrationSet(s_sourceTokens[0], true);
-
-    s_tokenAdminRegistry.setDisableReRegistration(s_sourceTokens[0], true);
-
-    assertTrue(s_tokenAdminRegistry.getTokenConfig(s_sourceTokens[0]).disableReRegistration);
-
-    vm.expectEmit();
-    emit TokenAdminRegistry.DisableReRegistrationSet(s_sourceTokens[0], false);
-
-    s_tokenAdminRegistry.setDisableReRegistration(s_sourceTokens[0], false);
-
-    assertFalse(s_tokenAdminRegistry.getTokenConfig(s_sourceTokens[0]).disableReRegistration);
-  }
-}
-
 contract TokenAdminRegistry_isAdministrator is TokenAdminRegistrySetup {
   function test_isAdministrator_Success() public {
-    address newOwner = makeAddr("newOwner");
+    address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
-    assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
+    assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
     assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, OWNER));
 
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+    changePrank(newAdmin);
+    s_tokenAdminRegistry.acceptAdminRole(newToken);
 
-    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
+    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
     assertFalse(s_tokenAdminRegistry.isAdministrator(newToken, OWNER));
   }
 }
 
-contract TokenAdminRegistry_registerAdministrator is TokenAdminRegistrySetup {
-  function test_registerAdministrator_Success() public {
+contract TokenAdminRegistry_proposeAdministrator is TokenAdminRegistrySetup {
+  function test_proposeAdministrator_module_Success() public {
     vm.startPrank(s_registryModule);
-    address newOwner = makeAddr("newOwner");
-    address newToken = makeAddr("newToken");
-
-    vm.expectEmit();
-    emit TokenAdminRegistry.AdministratorRegistered(newToken, newOwner);
-
-    s_tokenAdminRegistry.registerAdministrator(newToken, newOwner);
-
-    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newOwner));
-  }
-
-  function test_registerAdministrator__disableReRegistration_Revert() public {
-    vm.startPrank(s_registryModule);
-    address newOwner = makeAddr("newOwner");
-    address newToken = makeAddr("newToken");
-
-    s_tokenAdminRegistry.registerAdministrator(newToken, newOwner);
-
-    vm.startPrank(newOwner);
-
-    s_tokenAdminRegistry.setDisableReRegistration(newToken, true);
-
-    vm.startPrank(s_registryModule);
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.AlreadyRegistered.selector, newToken));
-
-    s_tokenAdminRegistry.registerAdministrator(newToken, newOwner);
-  }
-
-  function test_registerAdministrator_OnlyRegistryModule_Revert() public {
-    address newToken = makeAddr("newToken");
-    vm.stopPrank();
-
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.OnlyRegistryModule.selector, address(this)));
-    s_tokenAdminRegistry.registerAdministrator(newToken, OWNER);
-  }
-}
-
-contract TokenAdminRegistry_registerAdministratorPermissioned is TokenAdminRegistrySetup {
-  function test_registerAdministratorPermissioned_Success() public {
     address newAdmin = makeAddr("newAdmin");
     address newToken = makeAddr("newToken");
 
     vm.expectEmit();
-    emit TokenAdminRegistry.AdministratorRegistered(newToken, newAdmin);
+    emit TokenAdminRegistry.AdministratorTransferRequested(newToken, address(0), newAdmin);
 
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).pendingAdministrator, newAdmin);
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).administrator, address(0));
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).tokenPool, address(0));
+
+    changePrank(newAdmin);
+    s_tokenAdminRegistry.acceptAdminRole(newToken);
 
     assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
-    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).isRegistered, true);
+  }
+
+  function test_proposeAdministrator_owner_Success() public {
+    address newAdmin = makeAddr("newAdmin");
+    address newToken = makeAddr("newToken");
+
+    vm.expectEmit();
+    emit TokenAdminRegistry.AdministratorTransferRequested(newToken, address(0), newAdmin);
+
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).pendingAdministrator, newAdmin);
+
+    changePrank(newAdmin);
+    s_tokenAdminRegistry.acceptAdminRole(newToken);
+
+    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
+  }
+
+  function test_proposeAdministrator_reRegisterWhileUnclaimed_Success() public {
+    address newAdmin = makeAddr("wrongAddress");
+    address newToken = makeAddr("newToken");
+
+    vm.expectEmit();
+    emit TokenAdminRegistry.AdministratorTransferRequested(newToken, address(0), newAdmin);
+
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+
+    assertEq(s_tokenAdminRegistry.getTokenConfig(newToken).pendingAdministrator, newAdmin);
+
+    newAdmin = makeAddr("correctAddress");
+
+    vm.expectEmit();
+    emit TokenAdminRegistry.AdministratorTransferRequested(newToken, address(0), newAdmin);
+
+    // Ensure we can still register the correct admin while the previous admin is unclaimed.
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+
+    changePrank(newAdmin);
+    s_tokenAdminRegistry.acceptAdminRole(newToken);
+
+    assertTrue(s_tokenAdminRegistry.isAdministrator(newToken, newAdmin));
   }
 
   mapping(address token => address admin) internal s_AdminByToken;
 
-  function test_Fuzz_registerAdministratorPermissioned_Success(
-    address[50] memory tokens,
-    address[50] memory admins
-  ) public {
+  function test_Fuzz_proposeAdministrator_Success(address[50] memory tokens, address[50] memory admins) public {
     TokenAdminRegistry cleanTokenAdminRegistry = new TokenAdminRegistry();
     for (uint256 i = 0; i < tokens.length; i++) {
       if (admins[i] == address(0)) {
         continue;
       }
-      if (cleanTokenAdminRegistry.getTokenConfig(tokens[i]).isRegistered) {
+      if (cleanTokenAdminRegistry.getTokenConfig(tokens[i]).administrator != address(0)) {
         continue;
       }
-      cleanTokenAdminRegistry.registerAdministratorPermissioned(tokens[i], admins[i]);
+      cleanTokenAdminRegistry.proposeAdministrator(tokens[i], admins[i]);
       s_AdminByToken[tokens[i]] = admins[i];
     }
 
     for (uint256 i = 0; i < tokens.length; i++) {
-      assertTrue(cleanTokenAdminRegistry.isAdministrator(tokens[i], s_AdminByToken[tokens[i]]));
+      assertEq(cleanTokenAdminRegistry.getTokenConfig(tokens[i]).pendingAdministrator, s_AdminByToken[tokens[i]]);
     }
   }
 
-  function test_registerAdministratorPermissioned_ZeroAddress_Revert() public {
-    address newToken = makeAddr("newToken");
-
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.ZeroAddress.selector));
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, address(0));
-  }
-
-  function test_registerAdministratorPermissioned_AlreadyRegistered_Revert() public {
-    address newAdmin = makeAddr("newAdmin");
-    address newToken = makeAddr("newToken");
-
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
-
-    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.AlreadyRegistered.selector, newToken));
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newAdmin);
-  }
-
-  function test_registerAdministratorPermissioned_OnlyOwner_Revert() public {
-    address newOwner = makeAddr("newOwner");
+  function test_proposeAdministrator_OnlyRegistryModule_Revert() public {
     address newToken = makeAddr("newToken");
     vm.stopPrank();
 
-    vm.expectRevert("Only callable by owner");
-    s_tokenAdminRegistry.registerAdministratorPermissioned(newToken, newOwner);
+    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.OnlyRegistryModuleOrOwner.selector, address(this)));
+    s_tokenAdminRegistry.proposeAdministrator(newToken, OWNER);
+  }
+
+  function test_proposeAdministrator_ZeroAddress_Revert() public {
+    address newToken = makeAddr("newToken");
+
+    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.ZeroAddress.selector));
+    s_tokenAdminRegistry.proposeAdministrator(newToken, address(0));
+  }
+
+  function test_proposeAdministrator_AlreadyRegistered_Revert() public {
+    address newAdmin = makeAddr("newAdmin");
+    address newToken = makeAddr("newToken");
+
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
+    changePrank(newAdmin);
+    s_tokenAdminRegistry.acceptAdminRole(newToken);
+
+    changePrank(OWNER);
+
+    vm.expectRevert(abi.encodeWithSelector(TokenAdminRegistry.AlreadyRegistered.selector, newToken));
+    s_tokenAdminRegistry.proposeAdministrator(newToken, newAdmin);
   }
 }
 

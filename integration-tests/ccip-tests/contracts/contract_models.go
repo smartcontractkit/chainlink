@@ -1278,7 +1278,7 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
-	tx, err := r.Instance.RegisterAdministratorPermissioned(opts, tokenAddr, opts.From)
+	tx, err := r.Instance.ProposeAdministrator(opts, tokenAddr, opts.From)
 	if err != nil {
 		return fmt.Errorf("error setting admin for token %s : %w", tokenAddr.Hex(), err)
 	}
@@ -1299,12 +1299,32 @@ func (r *TokenAdminRegistry) SetAdminAndRegisterPool(tokenAddr, poolAddr common.
 	if err != nil {
 		return fmt.Errorf("error getting transaction opts: %w", err)
 	}
+	tx, err = r.Instance.AcceptAdminRole(opts, tokenAddr)
+	if err != nil {
+		return fmt.Errorf("error accepting admin role for token %s : %w", tokenAddr.Hex(), err)
+	}
+	err = r.client.ProcessTransaction(tx)
+	if err != nil {
+		return fmt.Errorf("error processing tx for accepting admin role for token %w", err)
+	}
+	r.logger.Info().
+		Str("Token", tokenAddr.Hex()).
+		Str("TokenAdminRegistry", r.Address()).
+		Msg("Admin role is accepted for token on TokenAdminRegistry")
+	err = r.client.WaitForEvents()
+	if err != nil {
+		return fmt.Errorf("error waiting for tx for accepting admin role for token %w", err)
+	}
+	opts, err = r.client.TransactionOpts(r.client.GetDefaultWallet())
+	if err != nil {
+		return fmt.Errorf("error getting transaction opts: %w", err)
+	}
 	tx, err = r.Instance.SetPool(opts, tokenAddr, poolAddr)
 	if err != nil {
 		return fmt.Errorf("error setting token %s and pool %s : %w", tokenAddr.Hex(), poolAddr.Hex(), err)
 	}
 	r.logger.Info().
-		Str("token", tokenAddr.Hex()).
+		Str("Token", tokenAddr.Hex()).
 		Str("Pool", poolAddr.Hex()).
 		Str("TokenAdminRegistry", r.Address()).
 		Msg("token and pool are set on TokenAdminRegistry")

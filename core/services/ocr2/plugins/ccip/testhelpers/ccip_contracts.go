@@ -652,9 +652,10 @@ func SetAdminAndRegisterPool(t *testing.T,
 	tokenAdminRegistry *token_admin_registry.TokenAdminRegistry,
 	tokenAddress common.Address,
 	poolAddress common.Address) {
-	_, err := tokenAdminRegistry.RegisterAdministratorPermissioned(user, tokenAddress, user.From)
+	_, err := tokenAdminRegistry.ProposeAdministrator(user, tokenAddress, user.From)
 	require.NoError(t, err)
-
+	_, err = tokenAdminRegistry.AcceptAdminRole(user, tokenAddress)
+	require.NoError(t, err)
 	_, err = tokenAdminRegistry.SetPool(user, tokenAddress, poolAddress)
 	require.NoError(t, err)
 

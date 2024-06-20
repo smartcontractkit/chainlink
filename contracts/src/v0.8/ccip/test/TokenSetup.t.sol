@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPool} from "../interfaces/IPool.sol";
+import {IPoolV1} from "../interfaces/IPool.sol";
 
 import {BurnMintERC677} from "../../shared/token/ERC677/BurnMintERC677.sol";
 import {Client} from "../libraries/Client.sol";
@@ -123,7 +123,8 @@ contract TokenSetup is RouterSetup {
     for (uint256 i = 0; i < s_destTokens.length; ++i) {
       address token = s_destTokens[i];
       address pool = s_destPoolByToken[token];
-      s_tokenAdminRegistry.registerAdministratorPermissioned(token, OWNER);
+      s_tokenAdminRegistry.proposeAdministrator(token, OWNER);
+      s_tokenAdminRegistry.acceptAdminRole(token);
       s_tokenAdminRegistry.setPool(token, pool);
 
       _setPool(
@@ -157,7 +158,8 @@ contract TokenSetup is RouterSetup {
     address remoteToken
   ) internal {
     if (!tokenAdminRegistry.isAdministrator(token, OWNER)) {
-      tokenAdminRegistry.registerAdministratorPermissioned(token, OWNER);
+      tokenAdminRegistry.proposeAdministrator(token, OWNER);
+      tokenAdminRegistry.acceptAdminRole(token);
     }
 
     tokenAdminRegistry.setPool(token, pool);

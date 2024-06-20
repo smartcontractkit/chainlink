@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPool} from "../../interfaces/IPool.sol";
+import {IPoolV1} from "../../interfaces/IPool.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 import {IRouter} from "../../interfaces/IRouter.sol";
 
@@ -14,7 +14,7 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/ut
 import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice This contract is a proof of concept and should NOT be used in production.
-abstract contract MultiTokenPool is IPool, OwnerIsCreator {
+abstract contract MultiTokenPool is IPoolV1, OwnerIsCreator {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableSet for EnumerableSet.UintSet;
   using RateLimiter for RateLimiter.TokenBucket;
@@ -107,7 +107,7 @@ abstract contract MultiTokenPool is IPool, OwnerIsCreator {
     return i_rmnProxy;
   }
 
-  /// @inheritdoc IPool
+  /// @inheritdoc IPoolV1
   function isSupportedToken(address token) public view virtual returns (bool) {
     return s_tokens.contains(token);
   }
@@ -140,7 +140,7 @@ abstract contract MultiTokenPool is IPool, OwnerIsCreator {
 
   /// @notice Signals which version of the pool interface is supported
   function supportsInterface(bytes4 interfaceId) public pure virtual override returns (bool) {
-    return interfaceId == Pool.CCIP_POOL_V1 || interfaceId == type(IPool).interfaceId
+    return interfaceId == Pool.CCIP_POOL_V1 || interfaceId == type(IPoolV1).interfaceId
       || interfaceId == type(IERC165).interfaceId;
   }
 
@@ -225,7 +225,7 @@ abstract contract MultiTokenPool is IPool, OwnerIsCreator {
     emit RemotePoolSet(remoteChainSelector, prevAddress, remotePoolAddress);
   }
 
-  /// @inheritdoc IPool
+  /// @inheritdoc IPoolV1
   function isSupportedChain(uint64 remoteChainSelector) public view returns (bool) {
     return s_remoteChainSelectors.contains(remoteChainSelector);
   }

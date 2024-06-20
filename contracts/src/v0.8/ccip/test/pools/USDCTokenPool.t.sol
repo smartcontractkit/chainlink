@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
-import {IPool} from "../../interfaces/IPool.sol";
+import {IPoolV1} from "../../interfaces/IPool.sol";
 import {ITokenMessenger} from "../../pools/USDC/ITokenMessenger.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
@@ -519,7 +519,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
 contract USDCTokenPool_supportsInterface is USDCTokenPoolSetup {
   function test_SupportsInterface_Success() public view {
-    assertTrue(s_usdcTokenPool.supportsInterface(type(IPool).interfaceId));
+    assertTrue(s_usdcTokenPool.supportsInterface(type(IPoolV1).interfaceId));
     assertTrue(s_usdcTokenPool.supportsInterface(type(IERC165).interfaceId));
   }
 }

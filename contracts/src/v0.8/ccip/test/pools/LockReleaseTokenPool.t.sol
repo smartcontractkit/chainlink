@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
-import {IPool} from "../../interfaces/IPool.sol";
+import {IPoolV1} from "../../interfaces/IPool.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../Router.sol";
@@ -389,7 +389,7 @@ contract LockReleaseTokenPool_withdrawalLiquidity is LockReleaseTokenPoolSetup {
 
 contract LockReleaseTokenPool_supportsInterface is LockReleaseTokenPoolSetup {
   function test_SupportsInterface_Success() public view {
-    assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IPool).interfaceId));
+    assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IPoolV1).interfaceId));
     assertTrue(s_lockReleaseTokenPool.supportsInterface(type(IERC165).interfaceId));
   }
 }

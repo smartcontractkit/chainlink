@@ -5,7 +5,7 @@ import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IAny2EVMMessageReceiver} from "../interfaces/IAny2EVMMessageReceiver.sol";
 import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../interfaces/ICommitStore.sol";
-import {IPool} from "../interfaces/IPool.sol";
+import {IPoolV1} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {IRouter} from "../interfaces/IRouter.sol";
@@ -605,7 +605,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
     (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
       abi.encodeWithSelector(
-        IPool.releaseOrMint.selector,
+        IPoolV1.releaseOrMint.selector,
         Pool.ReleaseOrMintInV1({
           originalSender: originalSender,
           receiver: receiver,

@@ -88,7 +88,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return IEVM2AnyOnRamp(onRamp).getFee(destinationChainSelector, message);
   }
 
-  /// @inheritdoc IRouterClient
+  /// @notice This functionality has been removed and will revert when called.
   function getSupportedTokens(uint64 chainSelector) external view returns (address[] memory) {
     if (!isChainSupported(chainSelector)) {
       return new address[](0);

@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IPool} from "../interfaces/IPool.sol";
+import {IPoolV1} from "../interfaces/IPool.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
@@ -16,14 +16,13 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts
 contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCreator {
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  error OnlyRegistryModule(address sender);
+  error OnlyRegistryModuleOrOwner(address sender);
   error OnlyAdministrator(address sender, address token);
   error OnlyPendingAdministrator(address sender, address token);
   error AlreadyRegistered(address token);
   error ZeroAddress();
   error InvalidTokenPoolToken(address token);
 
-  event AdministratorRegistered(address indexed token, address indexed administrator);
   event PoolSet(address indexed token, address indexed previousPool, address indexed newPool);
   event AdministratorTransferRequested(address indexed token, address indexed currentAdmin, address indexed newAdmin);
   event AdministratorTransferred(address indexed token, address indexed newAdmin);
@@ -35,10 +34,8 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   // The struct is packed in a way that optimizes the attributes that are accessed together.
   // solhint-disable-next-line gas-struct-packing
   struct TokenConfig {
-    bool isRegistered; //  ─────────╮ if true, the token is registered in the registry
-    bool disableReRegistration; //  │ if true, the token cannot be permissionlessly re-registered
-    address administrator; // ──────╯ the current administrator of the token
-    address pendingAdministrator; //  the address that is pending to become the new owner
+    address administrator; // the current administrator of the token
+    address pendingAdministrator; // the address that is pending to become the new administrator
     address tokenPool; // the token pool for this token. Can be address(0) if not deployed or not configured.
   }
 
@@ -66,21 +63,6 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   /// @inheritdoc ITokenAdminRegistry
   function getPool(address token) external view returns (address) {
     return s_tokenConfig[token].tokenPool;
-  }
-
-  /// @notice Returns whether the given token can be sent to the given chain.
-  /// @param token The token to check.
-  /// @param remoteChainSelector The chain selector of the remote chain.
-  /// @return True if the token can be sent to the given chain, false otherwise.
-  /// @dev Due to the permissionless nature of the token pools, this function could return true even
-  /// when any actual CCIP transaction containing this token to the given chain would fail. If the
-  /// pool is properly written and configured, this function should be accurate.
-  function isTokenSupportedOnRemoteChain(address token, uint64 remoteChainSelector) external view returns (bool) {
-    address pool = s_tokenConfig[token].tokenPool;
-    if (pool == address(0)) {
-      return false;
-    }
-    return IPool(pool).isSupportedChain(remoteChainSelector);
   }
 
   /// @notice Returns the configuration for a token.
@@ -127,7 +109,7 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
   function setPool(address localToken, address pool) external onlyTokenAdmin(localToken) {
     // The pool has to support the token, but we want to allow removing the pool, so we only check
     // if the pool supports the token if it is not address(0).
-    if (pool != address(0) && !IPool(pool).isSupportedToken(localToken)) {
+    if (pool != address(0) && !IPoolV1(pool).isSupportedToken(localToken)) {
       revert InvalidTokenPoolToken(localToken);
     }
 
@@ -168,15 +150,6 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
     emit AdministratorTransferred(localToken, msg.sender);
   }
 
-  /// @notice Disables the re-registration of a token.
-  /// @param localToken The token to disable re-registration for.
-  /// @param disabled True to disable re-registration, false to enable it.
-  function setDisableReRegistration(address localToken, bool disabled) external onlyTokenAdmin(localToken) {
-    s_tokenConfig[localToken].disableReRegistration = disabled;
-
-    emit DisableReRegistrationSet(localToken, disabled);
-  }
-
   // ================================================================
   // │                    Administrator config                      │
   // ================================================================
@@ -188,46 +161,25 @@ contract TokenAdminRegistry is ITokenAdminRegistry, ITypeAndVersion, OwnerIsCrea
 
   /// @inheritdoc ITokenAdminRegistry
   /// @dev Can only be called by a registry module.
-  function registerAdministrator(address localToken, address administrator) external {
-    // Only allow permissioned registry modules to register administrators
-    if (!isRegistryModule(msg.sender)) {
-      revert OnlyRegistryModule(msg.sender);
+  function proposeAdministrator(address localToken, address administrator) external {
+    if (!isRegistryModule(msg.sender) && msg.sender != owner()) {
+      revert OnlyRegistryModuleOrOwner(msg.sender);
     }
-    TokenConfig storage config = s_tokenConfig[localToken];
-
-    // disableReRegistration can only be true if the token is already registered
-    if (config.disableReRegistration) {
-      revert AlreadyRegistered(localToken);
-    }
-
-    _registerToken(config, localToken, administrator);
-  }
-
-  /// @notice Registers a local administrator for a token. This will overwrite any potential current administrator
-  /// and set the permissionedAdmin to true.
-  /// @param localToken The token to register the administrator for.
-  /// @param administrator The address of the new administrator.
-  /// @dev Can only be called by the owner.
-  function registerAdministratorPermissioned(address localToken, address administrator) external onlyOwner {
     if (administrator == address(0)) {
       revert ZeroAddress();
     }
     TokenConfig storage config = s_tokenConfig[localToken];
 
-    if (config.isRegistered) {
+    if (config.administrator != address(0)) {
       revert AlreadyRegistered(localToken);
     }
 
-    _registerToken(config, localToken, administrator);
-  }
+    config.pendingAdministrator = administrator;
 
-  function _registerToken(TokenConfig storage config, address localToken, address administrator) internal {
-    config.administrator = administrator;
-    config.isRegistered = true;
-
+    // We don't care if it's already in the set, as it's a no-op.
     s_tokens.add(localToken);
 
-    emit AdministratorRegistered(localToken, administrator);
+    emit AdministratorTransferRequested(localToken, address(0), administrator);
   }
 
   // ================================================================

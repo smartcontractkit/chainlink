@@ -13,13 +13,6 @@ interface IRouterClient {
   /// @return supported is true if it is supported, false if not.
   function isChainSupported(uint64 destChainSelector) external view returns (bool supported);
 
-  /// @notice Gets a list of all tokens that have been configured through permissioned methods
-  /// for the local chain. Do note that this list may not be exhaustive as some tokens may be
-  /// supported permissionlessly. The list does not take the destChainSelector into account.
-  /// @param destChainSelector No longer used.
-  /// @return tokens The addresses of the tokens that are supported.
-  function getSupportedTokens(uint64 destChainSelector) external view returns (address[] memory tokens);
-
   /// @param destinationChainSelector The destination chainSelector
   /// @param message The cross-chain CCIP message including data and/or tokens
   /// @return fee returns execution fee for the message

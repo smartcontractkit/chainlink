@@ -43,7 +43,7 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
       revert CanOnlySelfRegister(admin, token);
     }
 
-    i_tokenAdminRegistry.registerAdministrator(token, admin);
+    i_tokenAdminRegistry.proposeAdministrator(token, admin);
 
     emit AdministratorRegistered(token, admin);
   }

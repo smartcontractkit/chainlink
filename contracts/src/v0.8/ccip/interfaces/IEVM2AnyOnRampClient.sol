@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IPool} from "./IPool.sol";
+import {IPoolV1} from "./IPool.sol";
 
 import {Client} from "../libraries/Client.sol";
 
@@ -18,7 +18,7 @@ interface IEVM2AnyOnRampClient {
   /// @param destChainSelector The destination chain selector
   /// @param sourceToken The source chain token to get the pool for
   /// @return pool Token pool
-  function getPoolBySourceToken(uint64 destChainSelector, IERC20 sourceToken) external view returns (IPool);
+  function getPoolBySourceToken(uint64 destChainSelector, IERC20 sourceToken) external view returns (IPoolV1);
 
   /// @notice Gets a list of all supported source chain tokens.
   /// @param destChainSelector The destination chain selector

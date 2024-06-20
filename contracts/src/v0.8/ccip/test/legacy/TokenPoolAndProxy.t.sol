@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.0;
 
-import {IPool} from "../../interfaces/IPool.sol";
+import {IPoolV1} from "../../interfaces/IPool.sol";
 import {IPoolPriorTo1_5} from "../../interfaces/IPoolPriorTo1_5.sol";
 
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
@@ -319,7 +319,9 @@ contract TokenPoolAndProxyMigration is EVM2EVMOnRampSetup {
     s_newPool.applyChainUpdates(chainUpdates);
 
     // Register the token on the token admin registry
-    s_tokenAdminRegistry.registerAdministratorPermissioned(address(s_token), OWNER);
+    s_tokenAdminRegistry.proposeAdministrator(address(s_token), OWNER);
+    // Accept ownership of the token
+    s_tokenAdminRegistry.acceptAdminRole(address(s_token));
     // Set the pool on the admin registry
     s_tokenAdminRegistry.setPool(address(s_token), address(s_newPool));
   }
@@ -329,7 +331,7 @@ contract TokenPoolAndProxy is EVM2EVMOnRampSetup {
   event Burned(address indexed sender, uint256 amount);
   event Minted(address indexed sender, address indexed recipient, uint256 amount);
 
-  IPool internal s_pool;
+  IPoolV1 internal s_pool;
   BurnMintERC677 internal s_token;
   IPoolPriorTo1_5 internal s_legacyPool;
   address internal s_fakeOffRamp = makeAddr("off_ramp");
@@ -639,7 +641,7 @@ contract LockReleaseTokenPoolPoolAndProxy_withdrawalLiquidity is LockReleaseToke
 
 contract LockReleaseTokenPoolPoolAndProxy_supportsInterface is LockReleaseTokenPoolAndProxySetup {
   function test_SupportsInterface_Success() public view {
-    assertTrue(s_lockReleaseTokenPoolAndProxy.supportsInterface(type(IPool).interfaceId));
+    assertTrue(s_lockReleaseTokenPoolAndProxy.supportsInterface(type(IPoolV1).interfaceId));
     assertTrue(s_lockReleaseTokenPoolAndProxy.supportsInterface(type(IERC165).interfaceId));
   }
 }
