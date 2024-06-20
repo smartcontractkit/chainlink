@@ -107,17 +107,6 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
   }
 
   function test_Constructor_InvalidConfigLinkChainSelectorEqZero_Revert() public {
-    EVM2EVMMultiOnRamp.DynamicConfig memory dynamicConfig =
-      _generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry));
-    EVM2EVMMultiOnRamp.DestChainConfigArgs[] memory destChainConfigArgs = _generateDestChainConfigArgs();
-    EVM2EVMMultiOnRamp.StaticConfig memory staticConfig = EVM2EVMMultiOnRamp.StaticConfig({
-      linkToken: s_sourceTokens[0],
-      chainSelector: 0,
-      maxFeeJuelsPerMsg: MAX_NOP_FEES_JUELS,
-      rmnProxy: address(s_mockRMN),
-      tokenAdminRegistry: address(s_tokenAdminRegistry)
-    });
-
     vm.expectRevert(EVM2EVMMultiOnRamp.InvalidConfig.selector);
     new EVM2EVMMultiOnRampHelper(
       EVM2EVMMultiOnRamp.StaticConfig({

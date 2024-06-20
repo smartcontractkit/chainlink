@@ -358,8 +358,12 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // Since it's hard to estimate whether manual execution will succeed, we
       // revert the entire transaction if it fails. This will show the user if
       // their manual exec will fail before they submit it.
-      if (manualExecution && newState == Internal.MessageExecutionState.FAILURE) {
-        // If manual execution fails, we revert the entire transaction.
+      if (
+        manualExecution && newState == Internal.MessageExecutionState.FAILURE
+          && originalState != Internal.MessageExecutionState.UNTOUCHED
+      ) {
+        // If manual execution fails, we revert the entire transaction, unless the originalState is UNTOUCHED as we
+        // would still be making progress by changing the state from UNTOUCHED to FAILURE.
         revert ExecutionError(returnData);
       }
 
@@ -427,10 +431,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         // prepended by the 4 bytes of ReceiverError.selector, TokenHandlingError.selector or InvalidPoolAddress.selector.
         // Max length of revert data is Router.MAX_RET_BYTES, max length of err is 4 + Router.MAX_RET_BYTES
         return (Internal.MessageExecutionState.FAILURE, err);
-      } else {
-        // If revert is not caused by CCIP receiver, it is unexpected, bubble up the revert.
-        revert ExecutionError(err);
       }
+      // If revert is not caused by CCIP receiver, it is unexpected, bubble up the revert.
+      revert ExecutionError(err);
     }
     // If message execution succeeded, no CCIP receiver return data is expected, return with empty bytes.
     return (Internal.MessageExecutionState.SUCCESS, "");

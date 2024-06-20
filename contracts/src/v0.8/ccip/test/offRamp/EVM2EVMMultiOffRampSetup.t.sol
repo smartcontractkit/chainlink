@@ -326,7 +326,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     return message;
   }
 
-  function _generateBasicMessages(
+  function _generateSingleBasicMessage(
     uint64 sourceChainSelector,
     address onRamp
   ) internal view returns (Internal.EVM2EVMMessage[] memory) {

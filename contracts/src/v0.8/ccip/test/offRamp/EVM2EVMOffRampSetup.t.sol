@@ -32,11 +32,6 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
   EVM2EVMOffRampHelper internal s_offRamp;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
-  event ExecutionStateChanged(
-    uint64 indexed sequenceNumber, bytes32 indexed messageId, Internal.MessageExecutionState state, bytes returnData
-  );
-  event SkippedIncorrectNonce(uint64 indexed nonce, address indexed sender);
-
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, OCR2BaseSetup) {
     TokenSetup.setUp();
     PriceRegistrySetup.setUp();
@@ -190,7 +185,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     return message;
   }
 
-  function _generateBasicMessages() internal view returns (Internal.EVM2EVMMessage[] memory) {
+  function _generateSingleBasicMessage() internal view returns (Internal.EVM2EVMMessage[] memory) {
     Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](1);
     messages[0] = _generateAny2EVMMessageNoTokens(1);
     return messages;

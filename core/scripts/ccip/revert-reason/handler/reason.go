@@ -18,10 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
@@ -81,9 +84,9 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 				}
 
 				// If exec error, the actual error is within the revert reason
-				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" || errorName == "TokenHandlingError" {
+				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" || errorName == "TokenHandlingError" || errorName == "ReceiverError" {
 					// Get the inner type, which is `bytes`
-					fmt.Printf("Error is \"%v\" inner error: ", errorName)
+					fmt.Printf("Error is \"%v\" \ninner error: ", errorName)
 					errorBytes := v.([]interface{})[0].([]byte)
 					if len(errorBytes) < 4 {
 						return "[reverted without error code]", nil
@@ -145,6 +148,9 @@ func getAllABIs() []string {
 		evm_2_evm_onramp.EVM2EVMOnRampABI,
 		evm_2_evm_offramp.EVM2EVMOffRampABI,
 		router.RouterABI,
+		evm_2_evm_multi_onramp.EVM2EVMMultiOnRampABI,
+		evm_2_evm_multi_offramp.EVM2EVMMultiOffRampABI,
+		maybe_revert_message_receiver.MaybeRevertMessageReceiverABI,
 	}
 }
 
