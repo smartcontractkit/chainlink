@@ -1078,7 +1078,7 @@ func (l ocrTestChaosListener) OnChaosCreated(_ k8schaos.Chaos) {
 
 func (l ocrTestChaosListener) OnChaosCreationFailed(chaos k8schaos.Chaos, reason error) {
 	// Fail the test if chaos creation fails during chaos simulation
-	require.Fail(l.t, "Error creating chaos simulation", reason.Error(), chaos)
+	require.FailNow(l.t, "Error creating chaos simulation", reason.Error(), chaos)
 }
 
 func (l ocrTestChaosListener) OnChaosStarted(_ k8schaos.Chaos) {
