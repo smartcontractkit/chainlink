@@ -390,7 +390,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
-	networkConfig := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())[0]
+	networksConfigs := networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig())
+	networkConfig := networksConfigs[0]
 	// This has some hidden behavior so I'm not the biggest fan, but it matches expected behavior.
 	// That is, when we specify we want to run on a live network in our config, we will run on the live network and not bother with a private network.
 	// Even if we explicitly declare that we want to run on a private network in the test.
@@ -424,8 +425,8 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	if len(b.privateEthereumNetworks) == 0 {
 		b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
-		for _, network := range networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig()) {
-			b.te.EVMNetworks = append(b.te.EVMNetworks, &network)
+		for i := range networksConfigs {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networksConfigs[i])
 		}
 	}
 
