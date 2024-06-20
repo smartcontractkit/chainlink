@@ -9,7 +9,7 @@ import {IAutomationZKSyncForwarder} from "../interfaces/IAutomationZKSyncForward
 import {IChainModule} from "../interfaces/IChainModule.sol";
 import {IAutomationV21PlusCommon} from "../interfaces/IAutomationV21PlusCommon.sol";
 
-contract AutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
+contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;

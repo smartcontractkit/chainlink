@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2.sol";
-import {AutomationRegistryLogicB2_2} from "./AutomationRegistryLogicB2_2.sol";
+import {ZKSyncAutomationRegistryLogicB2_2} from "./ZKSyncAutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../Chainable.sol";
 import {AutomationZKSyncForwarder} from "../AutomationZKSyncForwarder.sol";
 import {IAutomationZKSyncForwarder} from "../interfaces/IAutomationZKSyncForwarder.sol";
@@ -14,7 +14,7 @@ import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeepe
 /**
  * @notice Logic contract, works in tandem with AutomationRegistry as a proxy
  */
-contract AutomationRegistryLogicA2_2 is ZKSyncAutomationRegistryBase2_2, Chainable {
+contract ZKSyncAutomationRegistryLogicA2_2 is ZKSyncAutomationRegistryBase2_2, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -23,7 +23,7 @@ contract AutomationRegistryLogicA2_2 is ZKSyncAutomationRegistryBase2_2, Chainab
    * @param logicB the address of the second logic contract
    */
   constructor(
-    AutomationRegistryLogicB2_2 logicB
+    ZKSyncAutomationRegistryLogicB2_2 logicB
   )
     ZKSyncAutomationRegistryBase2_2(
       logicB.getLinkAddress(),
