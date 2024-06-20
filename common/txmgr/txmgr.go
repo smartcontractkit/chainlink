@@ -2,7 +2,6 @@ package txmgr
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"math/big"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -28,6 +28,8 @@ import (
 
 // ResumeCallback is assumed to be idempotent
 type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
+
+type NewErrorClassifier func(err error) txmgrtypes.ErrorClassifier
 
 // TxManager is the main component of the transaction manager.
 // It is also the interface to external callers.
@@ -62,6 +64,7 @@ type TxManager[
 	FindEarliestUnconfirmedBroadcastTime(ctx context.Context) (nullv4.Time, error)
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
+	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
 }
 
 type reset struct {
@@ -102,13 +105,14 @@ type Txm[
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper           *Reaper[CHAIN_ID]
-	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	tracker          *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	reaper             *Reaper[CHAIN_ID]
+	resender           *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	broadcaster        *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	confirmer          *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	tracker            *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
+	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	newErrorClassifier NewErrorClassifier
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -141,26 +145,28 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	newErrorClassifierFunc NewErrorClassifier,
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		logger:           logger.Sugared(lggr),
-		txStore:          txStore,
-		config:           cfg,
-		txConfig:         txCfg,
-		keyStore:         keyStore,
-		chainID:          chainId,
-		checkerFactory:   checkerFactory,
-		chHeads:          make(chan HEAD),
-		trigger:          make(chan ADDR),
-		chStop:           make(chan struct{}),
-		chSubbed:         make(chan struct{}),
-		reset:            make(chan reset),
-		fwdMgr:           fwdMgr,
-		txAttemptBuilder: txAttemptBuilder,
-		broadcaster:      broadcaster,
-		confirmer:        confirmer,
-		resender:         resender,
-		tracker:          tracker,
+		logger:             logger.Sugared(lggr),
+		txStore:            txStore,
+		config:             cfg,
+		txConfig:           txCfg,
+		keyStore:           keyStore,
+		chainID:            chainId,
+		checkerFactory:     checkerFactory,
+		chHeads:            make(chan HEAD),
+		trigger:            make(chan ADDR),
+		chStop:             make(chan struct{}),
+		chSubbed:           make(chan struct{}),
+		reset:              make(chan reset),
+		fwdMgr:             fwdMgr,
+		txAttemptBuilder:   txAttemptBuilder,
+		broadcaster:        broadcaster,
+		confirmer:          confirmer,
+		resender:           resender,
+		tracker:            tracker,
+		newErrorClassifier: newErrorClassifierFunc,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -498,7 +504,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	if txRequest.IdempotencyKey != nil {
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err != nil {
 			return tx, fmt.Errorf("Failed to search for transaction with IdempotencyKey: %w", err)
 		}
 		if existingTx != nil {
@@ -625,6 +631,38 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CountTrans
 	return b.txStore.CountTransactionsByState(ctx, state, b.chainID)
 }
 
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
+	// Loads attempts and receipts in the transaction
+	tx, err := b.txStore.FindTxWithIdempotencyKey(ctx, transactionID, b.chainID)
+	if err != nil {
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID, err)
+	}
+	// This check is required since a no-rows error returns nil err
+	if tx == nil {
+		return status, fmt.Errorf("failed to find transaction with IdempotencyKey %s", transactionID)
+	}
+	switch tx.State {
+	case TxUnconfirmed, TxConfirmedMissingReceipt:
+		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
+		return commontypes.Unconfirmed, nil
+	case TxConfirmed:
+		// TODO: Check for finality and return finalized status
+		// Return unconfirmed if tx receipt's block is newer than the latest finalized block
+		return commontypes.Unconfirmed, nil
+	case TxFatalError:
+		// Use an ErrorClassifier to determine if the transaction is considered Fatal
+		txErr := b.newErrorClassifier(tx.GetError())
+		if txErr != nil && txErr.IsFatal() {
+			return commontypes.Fatal, tx.GetError()
+		}
+		// Return failed for all other tx's marked as FatalError
+		return commontypes.Failed, tx.GetError()
+	default:
+		// Unstarted and InProgress are classified as unknown since they are not supported by the ChainWriter interface
+		return commontypes.Unknown, nil
+	}
+}
+
 type NullTxManager[
 	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
@@ -706,6 +744,10 @@ func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Fin
 
 func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error) {
 	return count, errors.New(n.ErrMsg)
+}
+
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
+	return
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
