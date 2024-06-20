@@ -420,7 +420,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.isSimulatedNetwork = false
 		}
 		b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+	}
 
+	if len(b.privateEthereumNetworks) == 0 {
+		b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
+		for _, network := range networks.MustGetSelectedNetworkConfig(b.testConfig.GetNetworkConfig()) {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &network)
+		}
 	}
 
 	if b.isEVM {
