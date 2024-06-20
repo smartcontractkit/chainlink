@@ -49,8 +49,8 @@ type Config struct {
 // RawConfig is the config used for chains that are not yet public.
 type RawConfig map[string]any
 
-// RawConfigs is a list of RawConfig pointers.
-type RawConfigs []*RawConfig
+// RawConfigs is a list of RawConfig.
+type RawConfigs []RawConfig
 
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
