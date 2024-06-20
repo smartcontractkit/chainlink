@@ -25,7 +25,7 @@ ForwardersEnabled = true`
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, true)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, testsetups.WithForwarderFlow(true))
 	require.NoError(t, err, "Error creating soak test")
 	ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
