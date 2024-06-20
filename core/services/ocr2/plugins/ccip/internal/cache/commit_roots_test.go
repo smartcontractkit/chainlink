@@ -232,7 +232,7 @@ func Test_UnexecutedRootsStaleQueue(t *testing.T) {
 	assert.Equal(t, t1.Add(-time.Second), commitTs)
 
 	// Reducing permissionLessExecutionThreshold works as speeding the clock
-	c.permissionLessExecutionThresholdDuration = 1 * time.Hour
+	c.messageVisibilityInterval = 1 * time.Hour
 
 	commitTs = c.OldestRootTimestamp()
 	assert.True(t, commitTs.Before(time.Now().Add(-1*time.Hour)))

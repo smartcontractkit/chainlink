@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// EvictionGracePeriod defines how long after the permissionless execution threshold a root is still kept in the cache
+	// EvictionGracePeriod defines how long after the messageVisibilityInterval a root is still kept in the cache
 	EvictionGracePeriod = 1 * time.Hour
 	// CleanupInterval defines how often roots cache is scanned to evict stale roots
 	CleanupInterval = 30 * time.Minute
@@ -25,7 +25,7 @@ type CommitsRootsCache interface {
 	Snooze(merkleRoot [32]byte)
 
 	// OldestRootTimestamp returns the oldest root timestamp that is not executed yet (minus 1 second).
-	// If there are no roots in the queue, it returns the permissionlessExecThreshold
+	// If there are no roots in the queue, it returns the messageVisibilityInterval
 	OldestRootTimestamp() time.Time
 	// AppendUnexecutedRoot appends the root to the unexecuted roots queue to keep track of the roots that are not executed yet
 	// Roots has to be added in the order they are fetched from the database
@@ -40,15 +40,15 @@ type commitRootsCache struct {
 	// snoozedRoots is used to keep track of the roots that are temporary snoozed
 	snoozedRoots *cache.Cache
 	// unexecutedRootsQueue is used to keep track of the unexecuted roots in the order they are fetched from database (should be ordered by block_number, log_index)
-	// First run of Exec will fill the queue with all the roots that are not executed yet within the [now-permissionlessExecThreshold, now] window.
-	// When a root is executed, it is removed from the queue. Next database query instead of using entire permissionlessExecThrehsold window
+	// First run of Exec will fill the queue with all the roots that are not executed yet within the [now-messageVisibilityInterval, now] window.
+	// When a root is executed, it is removed from the queue. Next database query instead of using entire messageVisibilityInterval window
 	// will use oldestRootTimestamp as the lower bound filter for block_timestamp.
 	// This way we can reduce the number of database rows fetched with every OCR round.
 	// We do it this way because roots for most of the cases are executed sequentially.
 	// Instead of skipping snoozed roots after we fetch them from the database, we do that on the db level by narrowing the search window.
 	//
 	// Example
-	// permissionLessExecThresholds - 10 days, now - 2010-10-15
+	// messageVisibilityInterval - 10 days, now - 2010-10-15
 	// We fetch all the roots that within the [2010-10-05, 2010-10-15] window and load them to the queue
 	// [0xA - 2010-10-10, 0xB - 2010-10-11, 0xC - 2010-10-12] -> 0xA is the oldest root
 	// We executed 0xA and a couple of rounds later, we mark 0xA as executed and snoozed that forever which removes it from the queue.
@@ -60,40 +60,40 @@ type commitRootsCache struct {
 	oldestRootTimestamp  time.Time
 	rootsQueueMu         sync.RWMutex
 
-	// Both rootSnoozedTime and permissionLessExecutionThresholdDuration can be kept in the commitRootsCache without need to be updated.
+	// Both rootSnoozedTime and messageVisibilityInterval can be kept in the commitRootsCache without need to be updated.
 	// Those config properties are populates via onchain/offchain config. When changed, OCR plugin will be restarted and cache initialized with new config.
-	rootSnoozedTime                          time.Duration
-	permissionLessExecutionThresholdDuration time.Duration
+	rootSnoozedTime           time.Duration
+	messageVisibilityInterval time.Duration
 }
 
 func newCommitRootsCache(
 	lggr logger.Logger,
-	permissionLessExecutionThresholdDuration time.Duration,
+	messageVisibilityInterval time.Duration,
 	rootSnoozeTime time.Duration,
 	evictionGracePeriod time.Duration,
 	cleanupInterval time.Duration,
 ) *commitRootsCache {
-	executedRoots := cache.New(permissionLessExecutionThresholdDuration+evictionGracePeriod, cleanupInterval)
+	executedRoots := cache.New(messageVisibilityInterval+evictionGracePeriod, cleanupInterval)
 	snoozedRoots := cache.New(rootSnoozeTime, cleanupInterval)
 
 	return &commitRootsCache{
-		lggr:                                     lggr,
-		executedRoots:                            executedRoots,
-		snoozedRoots:                             snoozedRoots,
-		unexecutedRootsQueue:                     orderedmap.New[string, time.Time](),
-		rootSnoozedTime:                          rootSnoozeTime,
-		permissionLessExecutionThresholdDuration: permissionLessExecutionThresholdDuration,
+		lggr:                      lggr,
+		executedRoots:             executedRoots,
+		snoozedRoots:              snoozedRoots,
+		unexecutedRootsQueue:      orderedmap.New[string, time.Time](),
+		rootSnoozedTime:           rootSnoozeTime,
+		messageVisibilityInterval: messageVisibilityInterval,
 	}
 }
 
 func NewCommitRootsCache(
 	lggr logger.Logger,
-	permissionLessExecutionThresholdDuration time.Duration,
+	messageVisibilityInterval time.Duration,
 	rootSnoozeTime time.Duration,
 ) *commitRootsCache {
 	return newCommitRootsCache(
 		lggr,
-		permissionLessExecutionThresholdDuration,
+		messageVisibilityInterval,
 		rootSnoozeTime,
 		EvictionGracePeriod,
 		CleanupInterval,
@@ -131,8 +131,8 @@ func (s *commitRootsCache) Snooze(merkleRoot [32]byte) {
 }
 
 func (s *commitRootsCache) OldestRootTimestamp() time.Time {
-	permissionlessExecWindow := time.Now().Add(-s.permissionLessExecutionThresholdDuration)
-	timestamp, ok := s.pickOldestRootBlockTimestamp(permissionlessExecWindow)
+	messageVisibilityInterval := time.Now().Add(-s.messageVisibilityInterval)
+	timestamp, ok := s.pickOldestRootBlockTimestamp(messageVisibilityInterval)
 
 	if ok {
 		return timestamp
@@ -141,22 +141,22 @@ func (s *commitRootsCache) OldestRootTimestamp() time.Time {
 	s.rootsQueueMu.Lock()
 	defer s.rootsQueueMu.Unlock()
 
-	// If rootsSearchFilter is before permissionlessExecWindow, it means that we have roots that are stuck forever and will never be executed
-	// In that case, we wipe out the entire queue. Next round should start from the permissionlessExecThreshold and rebuild cache from scratch.
+	// If rootsSearchFilter is before messageVisibilityInterval, it means that we have roots that are stuck forever and will never be executed
+	// In that case, we wipe out the entire queue. Next round should start from the messageVisibilityInterval and rebuild cache from scratch.
 	s.unexecutedRootsQueue = orderedmap.New[string, time.Time]()
-	return permissionlessExecWindow
+	return messageVisibilityInterval
 }
 
-func (s *commitRootsCache) pickOldestRootBlockTimestamp(permissionlessExecWindow time.Time) (time.Time, bool) {
+func (s *commitRootsCache) pickOldestRootBlockTimestamp(messageVisibilityInterval time.Time) (time.Time, bool) {
 	s.rootsQueueMu.RLock()
 	defer s.rootsQueueMu.RUnlock()
 
-	// If there are no roots in the queue, we can return the permissionlessExecWindow
+	// If there are no roots in the queue, we can return the messageVisibilityInterval
 	if s.oldestRootTimestamp.IsZero() {
-		return permissionlessExecWindow, true
+		return messageVisibilityInterval, true
 	}
 
-	if s.oldestRootTimestamp.After(permissionlessExecWindow) {
+	if s.oldestRootTimestamp.After(messageVisibilityInterval) {
 		// Query used for fetching roots from the database is exclusive (block_timestamp > :timestamp)
 		// so we need to subtract 1 second from the head timestamp to make sure that this root is included in the results
 		return s.oldestRootTimestamp.Add(-time.Second), true

@@ -36,6 +36,7 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 				RelativeBoostPerWaitHour:    0.07,
 				InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
 				RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
+				MessageVisibilityInterval:   *config.MustNewDuration(6 * time.Hour),
 			},
 		},
 		{
@@ -48,6 +49,7 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 				RelativeBoostPerWaitHour:    0,
 				InflightCacheExpiry:         *config.MustNewDuration(0),
 				RootSnoozeTime:              *config.MustNewDuration(0),
+				MessageVisibilityInterval:   *config.MustNewDuration(0),
 			},
 			expectErr: true,
 		},
@@ -83,7 +85,7 @@ func TestExecOffchainConfig100_Encoding(t *testing.T) {
 }
 
 func TestExecOffchainConfig100_AllFieldsRequired(t *testing.T) {
-	config := ExecOffchainConfig{
+	cfg := ExecOffchainConfig{
 		SourceFinalityDepth:         3,
 		DestOptimisticConfirmations: 6,
 		DestFinalityDepth:           3,
@@ -92,13 +94,17 @@ func TestExecOffchainConfig100_AllFieldsRequired(t *testing.T) {
 		InflightCacheExpiry:         *config.MustNewDuration(64 * time.Second),
 		RootSnoozeTime:              *config.MustNewDuration(128 * time.Minute),
 	}
-	encoded, err := ccipconfig.EncodeOffchainConfig(&config)
+	encoded, err := ccipconfig.EncodeOffchainConfig(&cfg)
 	require.NoError(t, err)
 
 	var configAsMap map[string]any
 	err = json.Unmarshal(encoded, &configAsMap)
 	require.NoError(t, err)
 	for keyToDelete := range configAsMap {
+		if keyToDelete == "MessageVisibilityInterval" {
+			continue // this field is optional
+		}
+
 		partialConfig := make(map[string]any)
 		for k, v := range configAsMap {
 			if k != keyToDelete {

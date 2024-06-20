@@ -90,10 +90,6 @@ func (d ExecOnchainConfig) Validate() error {
 	return nil
 }
 
-func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Duration {
-	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
-}
-
 // ExecOffchainConfig is the configuration for nodes executing committed CCIP messages (v1.0–v1.2).
 // It comes from the OffchainConfig field of the corresponding OCR2 plugin configuration.
 // NOTE: do not change the JSON format of this struct without consulting with the RDD people first.
@@ -112,6 +108,8 @@ type ExecOffchainConfig struct {
 	InflightCacheExpiry config.Duration
 	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
 	RootSnoozeTime config.Duration
+	// See [ccipdata.ExecOffchainConfig.MessageVisibilityInterval]
+	MessageVisibilityInterval config.Duration
 }
 
 func (c ExecOffchainConfig) Validate() error {
@@ -416,12 +414,14 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
+		MessageVisibilityInterval:   offchainConfigParsed.MessageVisibilityInterval,
 	}
 	onchainConfig := cciptypes.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
 		Router:                                  cciptypes.Address(onchainConfigParsed.Router.String()),
 	}
 	gasPriceEstimator := prices.NewExecGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0)
+
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, gasPriceEstimator)
 
 	o.Logger.Infow("Starting exec plugin",
