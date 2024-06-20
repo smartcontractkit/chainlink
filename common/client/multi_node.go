@@ -277,7 +277,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			nLiveNodes++
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
-			ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
+			ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
 		}
 	}
 	return nLiveNodes, ch
@@ -292,7 +292,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		nodeChainInfo := n.HighestUserObservations()
 		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
-		ch.SetTotalDifficultyIfGt(nodeChainInfo.TotalDifficulty)
+		ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
 	}
 	return ch
 }

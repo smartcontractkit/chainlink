@@ -180,11 +180,18 @@ type ChainInfo struct {
 	TotalDifficulty      *big.Int
 }
 
-func (c *ChainInfo) SetTotalDifficultyIfGt(td *big.Int) {
-	if td == nil || (c.TotalDifficulty != nil && c.TotalDifficulty.Cmp(td) >= 0) {
-		return
+func MaxTotalDifficulty(a, b *big.Int) *big.Int {
+	if a == nil {
+		if b == nil {
+			return nil
+		}
+
+		return big.NewInt(0).Set(b)
 	}
 
-	// allocate new Int, to prevent read/write race
-	c.TotalDifficulty = big.NewInt(0).Set(td)
+	if b == nil || a.Cmp(b) >= 0 {
+		return big.NewInt(0).Set(a)
+	}
+
+	return big.NewInt(0).Set(b)
 }

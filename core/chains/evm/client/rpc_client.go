@@ -1209,7 +1209,7 @@ func (r *rpcClient) onNewHead(ctx context.Context, requestCh <-chan struct{}, he
 	defer r.stateMu.Unlock()
 	if !commonclient.CtxIsHeathCheckRequest(ctx) {
 		r.highestUserObservations.BlockNumber = max(r.highestUserObservations.BlockNumber, head.Number)
-		r.highestUserObservations.SetTotalDifficultyIfGt(head.TotalDifficulty)
+		r.highestUserObservations.TotalDifficulty = commonclient.MaxTotalDifficulty(r.highestUserObservations.TotalDifficulty, head.TotalDifficulty)
 	}
 	select {
 	case <-requestCh: // no need to update latestChainInfo, as rpcClient already started new life cycle
