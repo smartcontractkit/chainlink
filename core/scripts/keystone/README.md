@@ -20,26 +20,26 @@ The easiest way to set this up is to download [Metamask](https://metamask.io/) a
 
 ### Your first deployment
 
-Using devspace, we can deploy a cluster and provision it via the `keystone` devspace profile. You'll want to follow the instructions in the [CRIB README](../../../crib/README.md) to set up your environment and deploy the cluster.
+Using devspace, we can deploy a cluster and provision it via the `keystone` devspace profile. You'll want to follow the instructions in the README on the crib repo to set up your environment and deploy the cluster.
 
-**NOTE**: You'll want to deploy using the `keystone` profile, not the default profile file.
+**NOTE**: You'll want to deploy using the `keystone` profile, not the default profile file. All of these commands should be ran from the `./core` directory of the crib repo.
 
 ```bash
-# From /crib
 devspace deploy --profile keystone
 ```
 
 For convenience, setting the TTL to be a much longer value is helpful, otherwise the testnet native tokens that you send to nodes will be lost. You can set this in your crib `.env` file, or interactively via:
 
 ```bash
-# From /crib
 devspace run ttl ${namespace} 7d
 ```
 
-Everytime the interactive command is run, the TTL is reset.
+Every time the interactive command is run, the TTL is reset.
 
 ### Iterate
+
 Let's say you made some changes to the codebase, and you want to see that reflected within the cluster. Simply redeploy via:
+
 ```bash
 devspace deploy --profile keystone
 ```
@@ -49,7 +49,6 @@ devspace deploy --profile keystone
 If you want to redeploy all resources, then you'll want to do the following:
 
 ```bash
-# From /crib
 devspace purge --profile keystone # Remove all k8s resources
 ./cribbit.sh crib-<new-namespace> # Purge currently leaves some hanging resources, make a new namespace
 devspace deploy --profile keysone --clean # Wipe any keystone related persisted data, like artefacts and caches.
@@ -80,12 +79,16 @@ After updated TOML configuration overrides are generated per node, the cluster i
 ## Future Work
 
 ### Keystone workflow deployment
+
 Workflow style job spec deployments are not currently support, but it should be a minor modification to the existing OCR job spec deployment logic
 
 ### Multi-DON support
+
 Multiple DONs are not currently supported
+
 - the devspace profile will need to be expanded so that we have multiple deployments, one per DON.
 - network policy / open ports will likely have to be adjusted in the chart
 
 ### Smarter jobspec deployment
+
 Currently, job specs deployment logic is dumb. The scripts don't check if the jobspec to deploy already exists. If you need to redeploy a job spec that has the same name as a currently uploaded one, you'll want to delete the existing job specs via `./04_delete_ocr3_jobs.sh`.
