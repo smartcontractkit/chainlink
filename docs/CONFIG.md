@@ -1199,6 +1199,33 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
 but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 
+## Capabilities.ExternalRegistry
+```toml
+[Capabilities.ExternalRegistry]
+Address = '0x0' # Example
+NetworkID = 'evm' # Default
+ChainID = '1' # Default
+```
+
+
+### Address
+```toml
+Address = '0x0' # Example
+```
+Address is the address for the capabilities registry contract.
+
+### NetworkID
+```toml
+NetworkID = 'evm' # Default
+```
+NetworkID identifies the target network where the remote registry is located.
+
+### ChainID
+```toml
+ChainID = '1' # Default
+```
+ChainID identifies the target chain id where the remote registry is located.
+
 ## Capabilities.Peering
 ```toml
 [Capabilities.Peering]

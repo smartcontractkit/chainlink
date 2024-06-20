@@ -414,7 +414,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			RETURNING id;`
 			specID, err := tx.prepareQuerySpecID(ctx, sql, jb.WorkflowSpec)
 			if err != nil {
-				return errors.Wrap(err, "failed to create WorkflowSpec for jobSpec")
+				return fmt.Errorf("failed to create WorkflowSpec for jobSpec given %v: %w", *jb.WorkflowSpec, err)
 			}
 			jb.WorkflowSpecID = &specID
 		case StandardCapabilities:
@@ -600,6 +600,9 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Starknet key matching: %q", key)
 		}
+	case types.NetworkAptos:
+		// TODO BCI-2953
+		return nil
 	}
 	return nil
 }

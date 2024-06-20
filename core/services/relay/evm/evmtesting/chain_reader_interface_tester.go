@@ -2,6 +2,7 @@ package evmtesting
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -83,6 +84,9 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+				ContractPollingFilter: types.ContractPollingFilter{
+					GenericEventNames: []string{EventName, EventWithFilterName},
+				},
 				Configs: map[string]*types.ChainReaderDefinition{
 					MethodTakingLatestParamsReturningTestStruct: {
 						ChainSpecificName: "getElementAtIndex",
@@ -110,22 +114,30 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					EventWithFilterName: {
 						ChainSpecificName:       "Triggered",
 						ReadType:                types.Event,
-						EventInputFields:        []string{"Field"},
+						EventDefinitions:        &types.EventDefinitions{InputFields: []string{"Field"}},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
 						ReadType:          types.Event,
-						EventInputFields:  []string{"fieldHash"},
+						EventDefinitions: &types.EventDefinitions{
+							InputFields: []string{"fieldHash"},
+							// no specific reason for filter being defined here insted on contract level,
+							// this is just for test case variety
+							PollingFilter: &types.PollingFilter{},
+						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
-						ChainSpecificName:       triggerWithAllTopics,
-						ReadType:                types.Event,
-						EventInputFields:        []string{"Field1", "Field2", "Field3"},
+						ChainSpecificName: triggerWithAllTopics,
+						ReadType:          types.Event,
+						EventDefinitions: &types.EventDefinitions{
+							InputFields:   []string{"Field1", "Field2", "Field3"},
+							PollingFilter: &types.PollingFilter{},
+						},
 						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
@@ -190,7 +202,14 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.client, lggr, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
+	// encode and decode the config to ensure the test covers type issues
+	confBytes, err := json.Marshal(it.chainConfig)
+	require.NoError(t, err)
+
+	conf, err := types.ChainReaderConfigFromBytes(confBytes)
+	require.NoError(t, err)
+
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, conf)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr

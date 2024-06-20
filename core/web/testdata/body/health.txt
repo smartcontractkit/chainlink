@@ -17,5 +17,6 @@ ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
+ok PipelineRunner.BridgeCache
 ok PromReporter
 ok TelemetryManager

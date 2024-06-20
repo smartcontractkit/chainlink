@@ -366,9 +366,10 @@ func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) boo
 	return s.is(TerminallyStuck, configErrors)
 }
 
-// Naming discrepancy is due to the generic transaction states introduced by ChainWriter
-// Errors classified as terminally stuck are considered fatal since the transaction payload should NOT be retried by external callers
+// IsFatal indicates if a transaction error is considered fatal for external callers
+// The naming discrepancy is due to the generic transaction statuses introduced by ChainWriter
 func (s *SendError) IsFatal() bool {
+	// An error classified as terminally stuck is considered fatal since the transaction payload should NOT be retried by external callers
 	return s.IsTerminallyStuckConfigError(nil)
 }
 
