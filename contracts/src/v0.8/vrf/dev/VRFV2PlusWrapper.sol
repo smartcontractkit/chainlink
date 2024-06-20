@@ -9,7 +9,6 @@ import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interfa
 import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
 import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
 import {VRFV2PlusWrapperConsumerBase} from "./VRFV2PlusWrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -106,15 +105,16 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
 
-  // Configuration fetched from VRFCoordinatorV2
+  // Configuration fetched from VRFCoordinatorV2_5
 
-  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
+  /// @dev this is the size of a VRF v2plus fulfillment's calldata abi-encoded in bytes.
   /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
-  /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
-  /// @dev dataSize = proofSize + commitmentSize = 4608 bits
-  /// @dev selector = 32 bits
-  /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
-  uint32 public s_fulfillmentTxSizeBytes = 580;
+  /// @dev commitmentSize = 10 words = 10 * 256 = 2560 bits
+  /// @dev onlyPremiumParameterSize = 256 bits
+  /// @dev dataSize = proofSize + commitmentSize + onlyPremiumParameterSize = 6144 bits
+  /// @dev function selector = 32 bits
+  /// @dev total data size = 6144 bits + 32 bits = 6176 bits = 772 bytes
+  uint32 public s_fulfillmentTxSizeBytes = 772;
 
   // s_coordinatorGasOverheadNative reflects the gas overhead of the coordinator's fulfillRandomWords
   // function for native payment. The cost for this gas is billed to the subscription, and must therefor be included
@@ -188,12 +188,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   /**
    * @notice setFulfillmentTxSize sets the size of the fulfillment transaction in bytes.
-   * @param size is the size of the fulfillment transaction in bytes.
+   * @param _size is the size of the fulfillment transaction in bytes.
    */
-  function setFulfillmentTxSize(uint32 size) external onlyOwner {
-    s_fulfillmentTxSizeBytes = size;
+  function setFulfillmentTxSize(uint32 _size) external onlyOwner {
+    s_fulfillmentTxSizeBytes = _size;
 
-    emit FulfillmentTxSizeSet(size);
+    emit FulfillmentTxSizeSet(_size);
   }
 
   /**
@@ -411,6 +411,14 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return _calculateRequestPriceNative(_callbackGasLimit, _numWords, _requestGasPriceWei);
   }
 
+  /**
+   * @notice Returns the L1 fee for the fulfillment calldata payload (always return 0 on L1 chains).
+   * @notice Override this function in chain specific way for L2 chains.
+   */
+  function _getL1CostWei() internal view virtual returns (uint256) {
+    return 0;
+  }
+
   function _calculateRequestPriceNative(
     uint256 _gas,
     uint32 _numWords,
@@ -424,7 +432,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, true)) +
-      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes);
+      _getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
@@ -448,7 +456,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // (wei/gas) * gas + l1wei
     uint256 coordinatorCostWei = _requestGasPrice *
       (_gas + _getCoordinatorGasOverhead(_numWords, false)) +
-      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes);
+      _getL1CostWei();
 
     // coordinatorCostWithPremiumAndFlatFeeWei is the coordinator cost with the percentage premium and flat fee applied
     // coordinator cost * premium multiplier + flat fee
