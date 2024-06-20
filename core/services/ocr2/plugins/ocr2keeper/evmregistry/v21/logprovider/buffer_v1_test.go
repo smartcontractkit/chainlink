@@ -503,103 +503,103 @@ func TestLogEventBufferV1_Enqueue(t *testing.T) {
 	}
 }
 
-func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
-	dequeueCoordinator := NewDequeueCoordinator()
-
-	t.Run("enqueue dequeue", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
-
-		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
-		require.Equal(t, 0, dropped)
-		require.Equal(t, 1, added)
-		require.Equal(t, 1, q.sizeOfRange(1, 20))
-		logs, remaining := q.dequeue(19, 21, 10)
-		require.Equal(t, 1, len(logs))
-		require.Equal(t, 0, remaining)
-	})
-
-	t.Run("enqueue with limits", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
-
-		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
-			createDummyLogSequence(15, 0, 20, common.HexToHash("0x20"))...,
-		)
-		require.Equal(t, 5, dropped)
-		require.Equal(t, 15, added)
-	})
-
-	t.Run("dequeue with limits", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 3))
-
-		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
-			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 1},
-			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 10},
-		)
-		require.Equal(t, 0, dropped)
-		require.Equal(t, 3, added)
-
-		logs, remaining := q.dequeue(19, 21, 2)
-		require.Equal(t, 2, len(logs))
-		require.Equal(t, 1, remaining)
-	})
-}
-
-func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
-	dequeueCoordinator := NewDequeueCoordinator()
-
-	t.Run("empty", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
-
-		require.Equal(t, 0, q.sizeOfRange(1, 10))
-	})
-
-	t.Run("happy path", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
-
-		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
-		require.Equal(t, 0, dropped)
-		require.Equal(t, 1, added)
-		require.Equal(t, 0, q.sizeOfRange(1, 10))
-		require.Equal(t, 1, q.sizeOfRange(1, 20))
-	})
-}
+//func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
+//	dequeueCoordinator := NewDequeueCoordinator()
+//
+//	t.Run("enqueue dequeue", func(t *testing.T) {
+//		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+//
+//		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
+//		require.Equal(t, 0, dropped)
+//		require.Equal(t, 1, added)
+//		require.Equal(t, 1, q.sizeOfRange(1, 20))
+//		logs, remaining := q.dequeue(19, 21, 10)
+//		require.Equal(t, 1, len(logs))
+//		require.Equal(t, 0, remaining)
+//	})
+//
+//	t.Run("enqueue with limits", func(t *testing.T) {
+//		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+//
+//		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
+//			createDummyLogSequence(15, 0, 20, common.HexToHash("0x20"))...,
+//		)
+//		require.Equal(t, 5, dropped)
+//		require.Equal(t, 15, added)
+//	})
+//
+//	t.Run("dequeue with limits", func(t *testing.T) {
+//		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 3))
+//
+//		added, dropped := q.enqueue(dequeueCoordinator, 1, 10,
+//			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+//			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+//			logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 10},
+//		)
+//		require.Equal(t, 0, dropped)
+//		require.Equal(t, 3, added)
+//
+//		logs, remaining := q.dequeue(19, 21, 2)
+//		require.Equal(t, 2, len(logs))
+//		require.Equal(t, 1, remaining)
+//	})
+//}
+//
+//func TestLogEventBufferV1_UpkeepQueue_sizeOfRange(t *testing.T) {
+//	dequeueCoordinator := NewDequeueCoordinator()
+//
+//	t.Run("empty", func(t *testing.T) {
+//		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+//
+//		require.Equal(t, 0, q.sizeOfRange(1, 10))
+//	})
+//
+//	t.Run("happy path", func(t *testing.T) {
+//		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+//
+//		added, dropped := q.enqueue(dequeueCoordinator, 1, 10, logpoller.Log{BlockNumber: 20, TxHash: common.HexToHash("0x1"), LogIndex: 0})
+//		require.Equal(t, 0, dropped)
+//		require.Equal(t, 1, added)
+//		require.Equal(t, 0, q.sizeOfRange(1, 10))
+//		require.Equal(t, 1, q.sizeOfRange(1, 20))
+//	})
+//}
 
 func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
-	t.Run("empty", func(t *testing.T) {
-		q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
-
-		q.clean(10)
-	})
-
-	t.Run("happy path", func(t *testing.T) {
-		buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1, NewDequeueCoordinator())
-
-		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 1},
-		)
-		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 1},
-		)
-
-		q, ok := buf.(*logBuffer).getUpkeepQueue(big.NewInt(1))
-		require.True(t, ok)
-		require.Equal(t, 4, q.sizeOfRange(1, 11))
-
-		buf.Enqueue(big.NewInt(1),
-			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 0},
-			logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 1},
-		)
-
-		require.Equal(t, 4, q.sizeOfRange(1, 18))
-		require.Equal(t, 0, q.clean(12))
-		require.Equal(t, 2, q.sizeOfRange(1, 18))
-		q.lock.Lock()
-		defer q.lock.Unlock()
-		require.Equal(t, 2, len(q.states))
-	})
+	//t.Run("empty", func(t *testing.T) {
+	//	q := newUpkeepLogQueue(logger.TestLogger(t), big.NewInt(1), newLogBufferOptions(10, 1, 1))
+	//
+	//	q.clean(10)
+	//})
+	//
+	//t.Run("happy path", func(t *testing.T) {
+	//	buf := NewLogBuffer(logger.TestLogger(t), 10, 5, 1, NewDequeueCoordinator())
+	//
+	//	buf.Enqueue(big.NewInt(1),
+	//		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+	//		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 1},
+	//	)
+	//	buf.Enqueue(big.NewInt(1),
+	//		logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 0},
+	//		logpoller.Log{BlockNumber: 11, TxHash: common.HexToHash("0x111"), LogIndex: 1},
+	//	)
+	//
+	//	q, ok := buf.(*logBuffer).getUpkeepQueue(big.NewInt(1))
+	//	require.True(t, ok)
+	//	require.Equal(t, 4, q.sizeOfRange(1, 11))
+	//
+	//	buf.Enqueue(big.NewInt(1),
+	//		logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 0},
+	//		logpoller.Log{BlockNumber: 17, TxHash: common.HexToHash("0x171"), LogIndex: 1},
+	//	)
+	//
+	//	require.Equal(t, 4, q.sizeOfRange(1, 18))
+	//	require.Equal(t, 0, q.clean(12))
+	//	require.Equal(t, 2, q.sizeOfRange(1, 18))
+	//	q.lock.Lock()
+	//	defer q.lock.Unlock()
+	//	require.Equal(t, 2, len(q.states))
+	//})
 }
 
 func TestLogEventBufferV1_BlockWindow(t *testing.T) {

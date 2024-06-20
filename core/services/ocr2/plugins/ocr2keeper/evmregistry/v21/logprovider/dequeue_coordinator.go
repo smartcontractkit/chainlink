@@ -22,26 +22,56 @@ type DequeueCoordinator interface {
 	MarkReorg(block int64, blockRate uint32)
 	// Clean removes any data that is older than the block window of the blockThreshold from the dequeueCoordinator
 	Clean(blockThreshold int64, blockRate uint32)
+	// Sync updates the state of the coordinator based on the queue states
+	Sync(map[string]*upkeepLogQueue, uint32)
 }
 
 type dequeueCoordinator struct {
-	dequeuedMinimum    map[int64]bool
-	enqueuedLogs       map[int64]int
-	enqueuedUpkeepLogs map[int64]map[string]int
-	dequeuedLogs       map[int64]int
-	dequeuedUpkeepLogs map[int64]map[string]int
-	completeWindows    map[int64]bool
-	mu                 sync.Mutex
+	dequeuedMinimum                map[int64]bool
+	dequeuedMinimumUpkeepsByWindow map[int64]map[string]bool
+	enqueuedLogs                   map[int64]int
+	enqueuedUpkeepLogs             map[int64]map[string]int
+	dequeuedLogs                   map[int64]int
+	dequeuedUpkeepLogs             map[int64]map[string]int
+	completeWindows                map[int64]bool
+	mu                             sync.Mutex
 }
 
 func NewDequeueCoordinator() *dequeueCoordinator {
 	return &dequeueCoordinator{
-		dequeuedMinimum:    map[int64]bool{},
-		enqueuedLogs:       map[int64]int{},
-		enqueuedUpkeepLogs: map[int64]map[string]int{},
-		dequeuedLogs:       map[int64]int{},
-		dequeuedUpkeepLogs: map[int64]map[string]int{},
-		completeWindows:    map[int64]bool{},
+		dequeuedMinimum:                map[int64]bool{},
+		dequeuedMinimumUpkeepsByWindow: map[int64]map[string]bool{},
+		enqueuedLogs:                   map[int64]int{},
+		enqueuedUpkeepLogs:             map[int64]map[string]int{},
+		dequeuedLogs:                   map[int64]int{},
+		dequeuedUpkeepLogs:             map[int64]map[string]int{},
+		completeWindows:                map[int64]bool{},
+	}
+}
+
+func (c *dequeueCoordinator) Sync(queues map[string]*upkeepLogQueue, blockRate uint32) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.enqueuedLogs = map[int64]int{}
+	c.enqueuedUpkeepLogs = map[int64]map[string]int{}
+
+	for uid, queue := range queues {
+		for blockNumber, logs := range queue.logs {
+
+			startWindow, _ := getBlockWindow(blockNumber, int(blockRate))
+
+			c.enqueuedLogs[startWindow] += len(logs)
+
+			if _, ok := c.enqueuedUpkeepLogs[startWindow]; ok {
+				c.enqueuedUpkeepLogs[startWindow][uid] += len(logs)
+			} else {
+				c.enqueuedUpkeepLogs[startWindow] = map[string]int{
+					uid: len(logs),
+				}
+			}
+
+		}
 	}
 }
 
@@ -58,9 +88,7 @@ func (c *dequeueCoordinator) CountEnqueuedLogsForWindow(uid *big.Int, blockNumbe
 			perUpkeepLogs[uid.String()] = logs + 1
 			c.enqueuedUpkeepLogs[startWindow] = perUpkeepLogs
 		} else {
-			c.enqueuedUpkeepLogs[startWindow] = map[string]int{
-				uid.String(): 1,
-			}
+			c.enqueuedUpkeepLogs[startWindow][uid.String()] = 1
 		}
 	} else {
 		c.enqueuedUpkeepLogs[startWindow] = map[string]int{
@@ -75,12 +103,18 @@ func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int6
 
 	upkeepIDs := map[string]bool{}
 
+	startBlockWindow, _ := getBlockWindow(start, blockRate)
+
 	// check if minimum logs have been dequeued
-	for i := start; i <= latestBlock; i += int64(blockRate) {
+	for blockWindow := startBlockWindow; blockWindow <= latestBlock; blockWindow += int64(blockRate) {
+
+		if c.dequeuedMinimum[blockWindow] || len(c.enqueuedUpkeepLogs[blockWindow]) == 0 {
+			continue
+		}
 
 		// find the upkeep IDs in this window that need min dequeue
-		for upkeepID, remainingLogCount := range c.enqueuedUpkeepLogs[i] {
-			if windowDequeues, ok := c.dequeuedUpkeepLogs[i]; ok {
+		for upkeepID, remainingLogCount := range c.enqueuedUpkeepLogs[blockWindow] {
+			if windowDequeues, ok := c.dequeuedUpkeepLogs[blockWindow]; ok {
 				if upkeepDequeue := windowDequeues[upkeepID]; upkeepDequeue < minGuarantee {
 					upkeepIDs[upkeepID] = true
 				}
@@ -92,7 +126,7 @@ func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int6
 			}
 		}
 
-		startWindow, end := getBlockWindow(i, blockRate)
+		startWindow, end := getBlockWindow(blockWindow, blockRate)
 		if latestBlock >= end {
 			c.completeWindows[startWindow] = true
 		} else if c.enqueuedLogs[startWindow] <= 0 { // the latest window is incomplete and has no logs to provide yet
@@ -116,7 +150,7 @@ func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int6
 	return 0, 0, nil, false
 }
 
-func (c *dequeueCoordinator) CountDequeuedLogsForWindow(startWindow int64, logs []BufferedLog, minGuaranteedLogs int) {
+func (c *dequeueCoordinator) CountDequeuedLogsForWindow(startWindow int64, logs []BufferedLog, logLimitLow int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -145,14 +179,34 @@ func (c *dequeueCoordinator) CountDequeuedLogsForWindow(startWindow int64, logs 
 		c.dequeuedUpkeepLogs[startWindow] = newDequeuedCounts
 	}
 
+	for _, dequeueCounts := range c.dequeuedUpkeepLogs {
+		for uid, count := range dequeueCounts {
+			if count >= logLimitLow {
+				if completeUpkeeps, ok := c.dequeuedMinimumUpkeepsByWindow[startWindow]; ok {
+					completeUpkeeps[uid] = true
+					c.dequeuedMinimumUpkeepsByWindow[startWindow] = completeUpkeeps
+				} else {
+					c.dequeuedMinimumUpkeepsByWindow[startWindow] = map[string]bool{
+						uid: true,
+					}
+				}
+			}
+		}
+	}
+
 	if c.completeWindows[startWindow] {
-		if c.enqueuedLogs[startWindow] <= 0 || c.dequeuedLogs[startWindow] >= minGuaranteedLogs {
+		// if all upkeeps in this window have had min dequeue met then the whole window has had min dequeue met
+		if len(c.dequeuedMinimumUpkeepsByWindow[startWindow]) == len(c.enqueuedUpkeepLogs[startWindow]) {
+			c.dequeuedMinimum[startWindow] = true
+		} else if c.enqueuedLogs[startWindow] <= 0 {
 			// if the window is complete, and there are no more logs, then we have to consider this as min dequeued, even if no logs were dequeued
 			c.dequeuedMinimum[startWindow] = true
 		}
-	} else if c.dequeuedLogs[startWindow] >= minGuaranteedLogs {
+	} else {
 		// if the window is not complete, but we were able to dequeue min guaranteed logs from the blocks that were available
-		c.dequeuedMinimum[startWindow] = true
+		if len(c.dequeuedMinimumUpkeepsByWindow[startWindow]) == len(c.enqueuedUpkeepLogs[startWindow]) {
+			c.dequeuedMinimum[startWindow] = true
+		}
 	}
 }
 
