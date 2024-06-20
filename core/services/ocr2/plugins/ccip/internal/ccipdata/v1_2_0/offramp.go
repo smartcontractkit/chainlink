@@ -72,10 +72,6 @@ func (d ExecOnchainConfig) Validate() error {
 	return nil
 }
 
-func (d ExecOnchainConfig) PermissionLessExecutionThresholdDuration() time.Duration {
-	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
-}
-
 // JSONExecOffchainConfig is the configuration for nodes executing committed CCIP messages (v1.2).
 // It comes from the OffchainConfig field of the corresponding OCR2 plugin configuration.
 // NOTE: do not change the JSON format of this struct without consulting with the RDD people first.
@@ -98,6 +94,8 @@ type JSONExecOffchainConfig struct {
 	InflightCacheExpiry config.Duration
 	// See [ccipdata.ExecOffchainConfig.RootSnoozeTime]
 	RootSnoozeTime config.Duration
+	// See [ccipdata.ExecOffchainConfig.MessageVisibilityInterval]
+	MessageVisibilityInterval config.Duration
 }
 
 func (c JSONExecOffchainConfig) Validate() error {
@@ -173,6 +171,7 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		RelativeBoostPerWaitHour:    offchainConfigParsed.RelativeBoostPerWaitHour,
 		InflightCacheExpiry:         offchainConfigParsed.InflightCacheExpiry,
 		RootSnoozeTime:              offchainConfigParsed.RootSnoozeTime,
+		MessageVisibilityInterval:   offchainConfigParsed.MessageVisibilityInterval,
 	}
 	onchainConfig := cciptypes.ExecOnchainConfig{
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
