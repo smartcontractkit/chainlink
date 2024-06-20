@@ -721,7 +721,7 @@ jobs:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
+      CHAINLINK_IMAGE: public.ecr.aws/w0i8p0z9/chainlink-ccip
       UPGRADE_VERSION: ${{ inputs.evm-ref || github.sha }}
       UPGRADE_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
       TEST_LOG_LEVEL: debug
