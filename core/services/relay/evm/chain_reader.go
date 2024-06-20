@@ -33,12 +33,12 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr             logger.Logger
-	lp               logpoller.LogPoller
-	client           evmclient.Client
-	contractBindings bindings
-	parsed           *parsedTypes
-	codec            commontypes.RemoteCodec
+	lggr   logger.Logger
+	lp     logpoller.LogPoller
+	client evmclient.Client
+	bindings
+	parsed *parsedTypes
+	codec  commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -49,11 +49,11 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:             lggr.Named("ChainReader"),
-		lp:               lp,
-		client:           client,
-		contractBindings: bindings{},
-		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		lggr:     lggr.Named("ChainReader"),
+		lp:       lp,
+		client:   client,
+		bindings: bindings{},
+		parsed:   &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -65,7 +65,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+	err = cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 		for _, rb := range cb.readBindings {
 			rb.SetCodec(cr.codec)
 		}
@@ -118,8 +118,17 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 				return err
 			}
 		}
-		cr.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
+		cr.bindings.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
+	cr.bindings.SetBatchCaller(
+		newDynamicLimitedBatchCaller(
+			cr.lggr,
+			cr.codec,
+			cr.client,
+			defaultRpcBatchSizeLimit,
+			defaultRpcBatchBackOffMultiplier,
+			defaultMaxParallelRpcCalls,
+		))
 	return nil
 }
 
@@ -128,7 +137,7 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Register(ctx); err != nil {
 					return err
@@ -144,7 +153,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Unregister(ctx); err != nil {
 					return err
@@ -161,8 +170,8 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, readName string, params any, returnVal any) error {
+	b, err := cr.bindings.GetReadBinding(contractName, readName)
 	if err != nil {
 		return err
 	}
@@ -170,12 +179,25 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
+type GetLatestValueRequest struct {
+	readName  string
+	params    any
+	returnVal any
+}
+
+// BatchGetLatestValueRequests string is contract name.
+type BatchGetLatestValueRequests map[string][]GetLatestValueRequest
+
+func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request BatchGetLatestValueRequests) error {
+	return cr.bindings.BatchGetLatestValue(ctx, request)
+}
+
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
+	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
+	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +226,7 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
+	cr.bindings.AddReadBinding(contractName, methodName, &methodBinding{
 		contractName: contractName,
 		method:       methodName,
 		client:       cr.client,
@@ -280,7 +302,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		cr.addQueryingReadBindings(contractName, eventDefinitions.GenericTopicNames, event.Inputs, eb)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
+	cr.bindings.AddReadBinding(contractName, eventName, eb)
 
 	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
 }
@@ -296,12 +318,12 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 				Index:    uint64(topicIndex),
 			}
 		}
-		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
+		cr.bindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
 
 	// add data word readBindings for QueryKey
 	for genericDataWordName := range eb.eventDataWords {
-		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
+		cr.bindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
 }
 
