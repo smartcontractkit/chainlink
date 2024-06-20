@@ -527,7 +527,10 @@ contract VRFCoordinatorTestV2 is
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof calldata proof, RequestCommitment calldata rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(
+    Proof calldata proof,
+    RequestCommitment calldata rc
+  ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
