@@ -153,7 +153,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
       // Deduct that gasUsed by upkeep from our running counter
       // for zksync, the L1 gas is deducted at the end of a transaction but gasUsed here already has all the cost
       // if we don't add l1GasUsed here for zksync, `gasOverhead - gasleft()` will underflow
-      gasOverhead -= upkeepTransmitInfo[i].gasUsed + upkeepTransmitInfo[i].l1GasUsed;
+      gasOverhead = gasOverhead - upkeepTransmitInfo[i].gasUsed + upkeepTransmitInfo[i].l1GasUsed;
 
       // Store last perform block number / deduping key for upkeep
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);

@@ -5,13 +5,6 @@ import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsu
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;
 
-interface ISystemContext {
-  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
-  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
-}
-
-ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
-
 /**
  * @title AutomationForwarder is a relayer that sits between the registry and the customer's target contract
  * @dev The purpose of the forwarder is to give customers a consistent address to authorize against,
@@ -26,8 +19,6 @@ contract AutomationForwarder {
   address private immutable i_logic;
 
   IAutomationRegistryConsumer private s_registry;
-
-  event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 p1, uint256 p2, uint256 g1, uint256 g2);
 
   constructor(address target, address registry, address logic) {
     s_registry = IAutomationRegistryConsumer(registry);
@@ -44,8 +35,7 @@ contract AutomationForwarder {
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
     if (msg.sender != address(s_registry)) revert();
     address target = i_target;
-    uint256 g1 = gasleft();
-    uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
+    gasUsed = gasleft();
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -65,13 +55,7 @@ contract AutomationForwarder {
       // call with exact gas
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
-    uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-    // need to check for 0
-    uint256 pubdataUsed = p2 - p1;
-    uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
-    uint256 g2 = gasleft();
-    gasUsed = g1 - g2 + pubdataUsed * gasPerPubdataByte;
-    emit GasDetails(pubdataUsed, gasPerPubdataByte, g1 - g2, p1, p2, g1, g2);
+    gasUsed = gasUsed - gasleft();
     return (success, gasUsed);
   }
 
