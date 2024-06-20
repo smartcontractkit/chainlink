@@ -108,11 +108,16 @@ func WithNamespace(ns string) OCRSoakTestOption {
 	}
 }
 
+func WithForwarderFlow(forwarderFlow bool) OCRSoakTestOption {
+	return func(c *OCRSoakTest) {
+		c.OperatorForwarderFlow = forwarderFlow
+	}
+}
+
 // NewOCRSoakTest creates a new OCR soak test to setup and run
-func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, forwarderFlow bool, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
+func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
 	test := &OCRSoakTest{
-		Config:                config,
-		OperatorForwarderFlow: forwarderFlow,
+		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
 			OCRVersion: *config.OCR.Soak.OCRVersion,
 			StartTime:  time.Now(),

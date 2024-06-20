@@ -31,7 +31,7 @@ func TestOCRSoak(t *testing.T) {
 	// fmt.Println("---------------------")
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
 	runOCRSoakTest(t, ocrSoakTest, config, customNetworkTOML)
 }
@@ -39,7 +39,7 @@ func TestOCRSoak(t *testing.T) {
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
 	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
@@ -47,7 +47,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
 	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
@@ -55,7 +55,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 func TestOCRSoak_GasSpike(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
 	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
@@ -64,7 +64,7 @@ func TestOCRSoak_GasSpike(t *testing.T) {
 func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
 	config, err := tc.GetConfig(t.Name(), tc.OCR)
 	require.NoError(t, err, "Error getting config")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
 	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
@@ -93,7 +93,7 @@ func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
 		},
 	})
 	require.NoError(t, err, "Error creating chaos")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false,
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config,
 		testsetups.WithNamespace(namespace),
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
@@ -126,7 +126,7 @@ func TestOCRSoak_RPCDownForHalfCLNodes(t *testing.T) {
 		},
 	})
 	require.NoError(t, err, "Error creating chaos")
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, false,
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config,
 		testsetups.WithNamespace(namespace),
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
