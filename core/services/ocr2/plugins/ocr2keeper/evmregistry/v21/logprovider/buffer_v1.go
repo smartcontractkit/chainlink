@@ -96,6 +96,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32, dequ
 // All logs for an upkeep on a particular block will be enqueued in a single Enqueue call.
 // Returns the number of logs that were added and number of logs that were  dropped.
 func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
+	// TODO: lock the whole enqueue so that we don't evict good logs
 	buf, ok := b.getUpkeepQueue(uid)
 	if !ok || buf == nil {
 		buf = newUpkeepLogQueue(b.lggr, uid, b.opts)
