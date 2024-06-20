@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -44,7 +43,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(testConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -53,7 +52,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
+		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -105,7 +104,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(testConfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(testConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -114,7 +113,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
+		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 

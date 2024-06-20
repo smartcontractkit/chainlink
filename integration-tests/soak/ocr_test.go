@@ -3,12 +3,13 @@ package soak
 import (
 	"testing"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
@@ -57,7 +58,7 @@ func executeOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 	// validate Seth config before anything else, but only for live networks (simulated will fail, since there's no chain started yet)
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	if !network.Simulated {
-		_, err := actions_seth.GetChainClient(config, network)
+		_, err := seth_utils.GetChainClient(config, network)
 		require.NoError(t, err, "Error creating seth client")
 	}
 
@@ -70,7 +71,7 @@ func executeOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 		return
 	}
 	t.Cleanup(func() {
-		if err := actions_seth.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
+		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})

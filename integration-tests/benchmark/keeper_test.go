@@ -21,7 +21,6 @@ import (
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -118,7 +117,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(&config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetAutoFixFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(&config, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetAutoFixFn)
 	require.NoError(t, err, "Error getting Seth client")
 
 	registryVersions := addRegistry(&config)
@@ -166,7 +165,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		},
 	)
 	t.Cleanup(func() {
-		if err = actions_seth.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
+		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})

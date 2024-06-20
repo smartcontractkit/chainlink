@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
@@ -36,7 +36,7 @@ func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 		return
 	}
 	t.Cleanup(func() {
-		if err := actions_seth.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
+		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
