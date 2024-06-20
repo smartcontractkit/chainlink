@@ -114,7 +114,11 @@ setup-testdb: ## Setup the test database.
 testdb: ## Prepares the test database.
 	go run . local db preparetest
 
-.PHONY: testdb
+.PHONY: testdb-force
+testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
+	go run . local db preparetest --force
+
+.PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
