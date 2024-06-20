@@ -164,7 +164,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 // attestation response. When called back to back, or multiple times
 // concurrently, responses are delayed according how the request interval is
 // configured.
-func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) (messageAndAttestation []byte, err error) {
+func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
 		return nil, fmt.Errorf("token index out of bounds")
 	}
@@ -177,7 +177,7 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	if s.rate != nil {
 		// Wait blocks until it the attestation API can be called or the
 		// context is Done.
-		if waitErr := s.rate.Wait(ctx); err != nil {
+		if waitErr := s.rate.Wait(ctx); waitErr != nil {
 			return nil, fmt.Errorf("usdc rate limiting error: %w", waitErr)
 		}
 	}
@@ -197,7 +197,7 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 	switch attestationResp.Status {
 	case attestationStatusSuccess:
 		// The USDC pool needs a combination of the message body and the attestation
-		messageAndAttestation, err = encodeMessageAndAttestation(messageBody, attestationResp.Attestation)
+		messageAndAttestation, err := encodeMessageAndAttestation(messageBody, attestationResp.Attestation)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode messageAndAttestation : %w", err)
 		}
