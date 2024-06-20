@@ -46,7 +46,7 @@ type Config struct {
 	Aptos []*RawConfig `toml:",omitempty"`
 }
 
-// RawConfig is the config used for chains that are not yet public.
+// RawConfig is the config used for chains that are not embedded.
 type RawConfig map[string]any
 
 // RawConfigs is a list of RawConfig.
