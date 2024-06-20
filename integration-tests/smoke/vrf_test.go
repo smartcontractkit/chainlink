@@ -13,12 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv1"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethcontracts "github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -27,7 +28,7 @@ import (
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	env, contracts, sethClient := prepareVRFtestEnv(t, l)
+	env, vrfContracts, sethClient := prepareVRFtestEnv(t, l)
 
 	for _, n := range env.ClCluster.Nodes {
 		nodeKey, err := n.API.MustCreateVRFKey()
@@ -36,13 +37,13 @@ func TestVRFBasic(t *testing.T) {
 		pubKeyCompressed := nodeKey.Data.ID
 		jobUUID := uuid.New()
 		os := &client.VRFTxPipelineSpec{
-			Address: contracts.Coordinator.Address(),
+			Address: vrfContracts.Coordinator.Address(),
 		}
 		ost, err := os.String()
 		require.NoError(t, err, "Building observation source spec shouldn't fail")
 		job, err := n.API.MustCreateJob(&client.VRFJobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
-			CoordinatorAddress:       contracts.Coordinator.Address(),
+			CoordinatorAddress:       vrfContracts.Coordinator.Address(),
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
@@ -55,7 +56,7 @@ func TestVRFBasic(t *testing.T) {
 		require.NoError(t, err, "Getting primary ETH address of chainlink node shouldn't fail")
 		provingKey, err := actions.EncodeOnChainVRFProvingKey(*nodeKey)
 		require.NoError(t, err, "Encoding on-chain VRF Proving key shouldn't fail")
-		err = contracts.Coordinator.RegisterProvingKey(
+		err = vrfContracts.Coordinator.RegisterProvingKey(
 			big.NewInt(1),
 			oracleAddr,
 			provingKey,
@@ -66,9 +67,9 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
 		//nolint:gosec // G602
-		requestHash, err := contracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
+		requestHash, err := vrfContracts.Coordinator.HashOfKey(testcontext.Get(t), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
-		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
+		err = vrfContracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
 
 		gom := gomega.NewGomegaWithT(t)
@@ -77,7 +78,7 @@ func TestVRFBasic(t *testing.T) {
 			jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := contracts.Consumer.RandomnessOutput(testcontext.Get(t))
+			out, err := vrfContracts.Consumer.RandomnessOutput(testcontext.Get(t))
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),
@@ -196,25 +197,33 @@ func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestE
 		WithTestConfig(&config).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	sethClient, err := env.GetSethClient(network.ChainID)
-	require.NoError(t, err, "Getting Seth client shouldn't fail")
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
 
 	lt, err := ethcontracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(sethClient, lt.Address())
+	vrfContracts, err := vrfv1.DeployVRFContracts(sethClient, lt.Address())
 	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
 
-	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
+	err = lt.Transfer(vrfContracts.Consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
 	_, err = ethcontracts.DeployVRFv1Contract(sethClient)
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
 
-	return env, contracts, sethClient
+	return env, vrfContracts, sethClient
 }

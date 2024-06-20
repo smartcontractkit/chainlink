@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-nightly-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -88,7 +88,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -96,11 +96,6 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
-          # metrics inputs
-          metrics-job-name: "grafana"
-          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-upgrade-config
         with:
@@ -119,11 +114,11 @@ jobs:
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: 'public.ecr.aws/chainlink/chainlink'
           cl_image_tag: 'latest'
@@ -147,7 +142,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: automation-nightly-upgrade-tests-${{ matrix.tests.id }}
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

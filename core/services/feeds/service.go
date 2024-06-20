@@ -276,7 +276,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	}
 
 	if err := s.restartConnection(ctx, mgr); err != nil {
-		s.lggr.Errorf("could not restart FMS connection: %w", err)
+		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
 	return nil
@@ -347,7 +347,7 @@ func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -371,7 +371,7 @@ func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -412,7 +412,7 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -579,6 +579,8 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	)
 
 	var id int64
+	// we need the specID to auto-approve workflow specs
+	var specID int64
 	err = s.orm.Transact(ctx, func(tx ORM) error {
 		var txerr error
 
@@ -598,7 +600,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 		}
 
 		// Create the spec version
-		_, txerr = tx.CreateSpec(ctx, JobProposalSpec{
+		specID, txerr = tx.CreateSpec(ctx, JobProposalSpec{
 			Definition:    args.Spec,
 			Status:        SpecStatusPending,
 			Version:       args.Version,
@@ -616,7 +618,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	// auto approve workflow specs
 	if isWFSpec(logger, args.Spec) {
 		promWorkflowRequests.Inc()
-		err = s.ApproveSpec(ctx, id, true)
+		err = s.ApproveSpec(ctx, specID, true)
 		if err != nil {
 			promWorkflowFailures.Inc()
 			logger.Errorw("Failed to auto approve workflow spec", "id", id, "err", err)
@@ -801,7 +803,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					}
 				}
 			case job.Workflow:
-				existingJobID, txerr = findExistingWorkflowJob(ctx, *j.WorkflowSpec, tx.jobORM)
+				existingJobID, txerr = tx.jobORM.FindJobIDByWorkflow(ctx, *j.WorkflowSpec)
 				if txerr != nil {
 					// Return an error if the repository errors. If there is a not found
 					// error we want to continue with approving the job.
@@ -1106,11 +1108,6 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	return nil
 }
 
-// TODO KS-205 implement this. Need to figure out how exactly how we want to handle this.
-func findExistingWorkflowJob(ctx context.Context, wfSpec job.WorkflowSpec, tx job.ORM) (int32, error) {
-	return 0, nil
-}
-
 // findExistingJobForOCR2 looks for existing job for OCR2
 func findExistingJobForOCR2(ctx context.Context, j *job.Job, tx job.ORM) (int32, error) {
 	var contractID string
@@ -1182,7 +1179,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}
@@ -1210,7 +1207,7 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		return nil, err
 	}
 
-	return &pb.ChainConfig{
+	pbChainConfig := pb.ChainConfig{
 		Chain: &pb.Chain{
 			Id:   cfg.ChainID,
 			Type: pb.ChainType_CHAIN_TYPE_EVM,
@@ -1220,7 +1217,13 @@ func (s *service) newChainConfigMsg(cfg ChainConfig) (*pb.ChainConfig, error) {
 		FluxMonitorConfig: s.newFluxMonitorConfigMsg(cfg.FluxMonitorConfig),
 		Ocr1Config:        ocr1Cfg,
 		Ocr2Config:        ocr2Cfg,
-	}, nil
+	}
+
+	if cfg.AccountAddressPublicKey.Valid {
+		pbChainConfig.AccountAddressPublicKey = &cfg.AccountAddressPublicKey.String
+	}
+
+	return &pbChainConfig, nil
 }
 
 // newFluxMonitorConfigMsg generates a FMConfig protobuf message. Flux Monitor does not

@@ -24,10 +24,11 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+
+	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -214,7 +215,7 @@ func TestConfig_Marshal(t *testing.T) {
 		require.NoError(t, err)
 		return &a
 	}
-	selectionMode := client.NodeSelectionMode_HighestHead
+	selectionMode := client.NodeSelectionModeHighestHead
 
 	global := Config{
 		Core: toml.Core{
@@ -443,6 +444,11 @@ func TestConfig_Marshal(t *testing.T) {
 				ListenAddresses: &[]string{"foo", "bar"},
 			},
 		},
+		ExternalRegistry: toml.ExternalRegistry{
+			Address:   ptr(""),
+			ChainID:   ptr("1"),
+			NetworkID: ptr("evm"),
+		},
 	}
 	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
@@ -494,7 +500,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				BlockBackfillDepth:   ptr[uint32](100),
 				BlockBackfillSkip:    ptr(true),
-				ChainType:            commonconfig.NewChainTypeConfig("Optimism"),
+				ChainType:            chaintype.NewChainTypeConfig("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
 				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
@@ -572,9 +578,11 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth:     ptr[uint32](15),
-					MaxBufferSize:    ptr[uint32](17),
-					SamplingInterval: &hour,
+					HistoryDepth:            ptr[uint32](15),
+					MaxBufferSize:           ptr[uint32](17),
+					SamplingInterval:        &hour,
+					FinalityTagBypass:       ptr[bool](false),
+					MaxAllowedFinalityDepth: ptr[uint32](1500),
 				},
 
 				NodePool: evmcfg.NodePool{
@@ -654,6 +662,7 @@ func TestConfig_Marshal(t *testing.T) {
 				ComputeUnitPriceMin:     ptr[uint64](10),
 				ComputeUnitPriceDefault: ptr[uint64](100),
 				FeeBumpPeriod:           commoncfg.MustNewDuration(time.Minute),
+				BlockHistoryPollPeriod:  commoncfg.MustNewDuration(time.Minute),
 			},
 			Nodes: []*solcfg.Node{
 				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web")},
@@ -1034,6 +1043,8 @@ TransactionPercentile = 15
 HistoryDepth = 15
 MaxBufferSize = 17
 SamplingInterval = '1h0m0s'
+MaxAllowedFinalityDepth = 1500
+FinalityTagBypass = false
 
 [[EVM.KeySpecific]]
 Key = '0x2a3e23c6f242F5345320814aC8a1b4E58707D292'
@@ -1138,6 +1149,7 @@ ComputeUnitPriceMax = 1000
 ComputeUnitPriceMin = 10
 ComputeUnitPriceDefault = 100
 FeeBumpPeriod = '1m0s'
+BlockHistoryPollPeriod = '1m0s'
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -1205,11 +1217,11 @@ func TestConfig_full(t *testing.T) {
 	for c := range got.EVM {
 		addr, err := types.NewEIP55Address("0x2a3e23c6f242F5345320814aC8a1b4E58707D292")
 		require.NoError(t, err)
-		if got.EVM[c].ChainWriter.FromAddress == nil {
-			got.EVM[c].ChainWriter.FromAddress = &addr
+		if got.EVM[c].Workflow.FromAddress == nil {
+			got.EVM[c].Workflow.FromAddress = &addr
 		}
-		if got.EVM[c].ChainWriter.ForwarderAddress == nil {
-			got.EVM[c].ChainWriter.ForwarderAddress = &addr
+		if got.EVM[c].Workflow.ForwarderAddress == nil {
+			got.EVM[c].Workflow.ForwarderAddress = &addr
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
@@ -1279,13 +1291,13 @@ func TestConfig_Validate(t *testing.T) {
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
 			- ChainType: invalid value (Foo): must be one of arbitrum, celo, gnosis, kroma, metis, optimismBedrock, scroll, wemix, xlayer, zkevm, zksync or omitted
-			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator.BumpThreshold: invalid value (0): cannot be 0 if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.Threshold: missing: needs to be set if auto-purge feature is enabled for Foo
 			- Transactions.AutoPurge.MinAttempts: missing: needs to be set if auto-purge feature is enabled for Foo
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
+			- HeadTracker.MaxAllowedFinalityDepth: invalid value (0): must be greater than or equal to 1
 			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
 		- 2: 5 errors:
 			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
@@ -1640,13 +1652,6 @@ func TestConfig_warnings(t *testing.T) {
 				},
 			},
 			expectedErrors: []string{"Tracing.TLSCertPath: invalid value (/path/to/cert.pem): must be empty when Tracing.Mode is 'unencrypted'"},
-		},
-		{
-			name: "Value warning - ChainType=xdai is deprecated",
-			config: Config{
-				EVM: evmcfg.EVMConfigs{{Chain: evmcfg.Chain{ChainType: commonconfig.NewChainTypeConfig("xdai")}}},
-			},
-			expectedErrors: []string{"EVM.ChainType: invalid value (xdai): deprecated and will be removed in v2.13.0, use 'gnosis' instead"},
 		},
 	}
 

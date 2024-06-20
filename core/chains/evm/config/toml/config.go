@@ -17,8 +17,8 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -341,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *config.ChainTypeConfig
+	ChainType                 *chaintype.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -367,22 +367,18 @@ type Chain struct {
 	NodePool       NodePool          `toml:",omitempty"`
 	OCR            OCR               `toml:",omitempty"`
 	OCR2           OCR2              `toml:",omitempty"`
-	ChainWriter    ChainWriter       `toml:",omitempty"`
+	Workflow       Workflow          `toml:",omitempty"`
 }
 
 func (c *Chain) ValidateConfig() (err error) {
 	if !c.ChainType.ChainType().IsValid() {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-			Msg: config.ErrInvalidChainType.Error()})
+			Msg: chaintype.ErrInvalidChainType.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
-	}
-	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
-			Msg: "must be equal to or greater than FinalityDepth"})
 	}
 	if *c.FinalityDepth < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
@@ -397,7 +393,7 @@ func (c *Chain) ValidateConfig() (err error) {
 	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
 		chainType := c.ChainType.ChainType()
 		switch chainType {
-		case config.ChainScroll:
+		case chaintype.ChainScroll:
 			if c.Transactions.AutoPurge.DetectionApiUrl == nil {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.DetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
 			} else if c.Transactions.AutoPurge.DetectionApiUrl.IsZero() {
@@ -409,7 +405,7 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case config.ChainZkEvm:
+		case chaintype.ChainZkEvm:
 			// No other configs are needed
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
@@ -507,12 +503,12 @@ func (a *Automation) setFrom(f *Automation) {
 	}
 }
 
-type ChainWriter struct {
+type Workflow struct {
 	FromAddress      *types.EIP55Address `toml:",omitempty"`
 	ForwarderAddress *types.EIP55Address `toml:",omitempty"`
 }
 
-func (m *ChainWriter) setFrom(f *ChainWriter) {
+func (m *Workflow) setFrom(f *Workflow) {
 	if v := f.FromAddress; v != nil {
 		m.FromAddress = v
 	}
@@ -740,9 +736,11 @@ func (e *KeySpecificGasEstimator) setFrom(f *KeySpecificGasEstimator) {
 }
 
 type HeadTracker struct {
-	HistoryDepth     *uint32
-	MaxBufferSize    *uint32
-	SamplingInterval *commonconfig.Duration
+	HistoryDepth            *uint32
+	MaxBufferSize           *uint32
+	SamplingInterval        *commonconfig.Duration
+	MaxAllowedFinalityDepth *uint32
+	FinalityTagBypass       *bool
 }
 
 func (t *HeadTracker) setFrom(f *HeadTracker) {
@@ -755,6 +753,21 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 	if v := f.SamplingInterval; v != nil {
 		t.SamplingInterval = v
 	}
+	if v := f.MaxAllowedFinalityDepth; v != nil {
+		t.MaxAllowedFinalityDepth = v
+	}
+	if v := f.FinalityTagBypass; v != nil {
+		t.FinalityTagBypass = v
+	}
+}
+
+func (t *HeadTracker) ValidateConfig() (err error) {
+	if *t.MaxAllowedFinalityDepth < 1 {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MaxAllowedFinalityDepth", Value: *t.MaxAllowedFinalityDepth,
+			Msg: "must be greater than or equal to 1"})
+	}
+
+	return
 }
 
 type ClientErrors struct {

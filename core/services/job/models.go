@@ -16,6 +16,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -48,6 +49,7 @@ const (
 	VRF                     Type = (Type)(pipeline.VRFJobType)
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
 	Workflow                Type = (Type)(pipeline.WorkflowJobType)
+	StandardCapabilities    Type = (Type)(pipeline.StandardCapabilitiesJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -87,6 +89,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	supportsAsync = map[Type]bool{
 		BlockHeaderFeeder:       false,
@@ -105,6 +108,7 @@ var (
 		VRF:                     true,
 		Webhook:                 true,
 		Workflow:                false,
+		StandardCapabilities:    false,
 	}
 	schemaVersions = map[Type]uint32{
 		BlockHeaderFeeder:       1,
@@ -123,6 +127,7 @@ var (
 		VRF:                     1,
 		Webhook:                 1,
 		Workflow:                1,
+		StandardCapabilities:    1,
 	}
 )
 
@@ -166,6 +171,10 @@ type Job struct {
 	PipelineSpec                  *pipeline.Spec
 	WorkflowSpecID                *int32
 	WorkflowSpec                  *WorkflowSpec
+	StandardCapabilitiesSpecID    *int32
+	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPBootstrapSpecID           *int32
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -841,32 +850,60 @@ type LiquidityBalancerSpec struct {
 }
 
 type WorkflowSpec struct {
-	ID            int32     `toml:"-"`
-	WorkflowID    string    `toml:"workflowId"`
-	Workflow      string    `toml:"workflow"`
-	WorkflowOwner string    `toml:"workflowOwner"`
-	WorkflowName  string    `toml:"workflowName"`
+	ID       int32  `toml:"-"`
+	Workflow string `toml:"workflow"` // the yaml representation of the workflow
+	// fields derived from the yaml spec, used for indexing the database
+	// note: i tried to make these private, but translating them to the database seems to require them to be public
+	WorkflowID    string    `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string    `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
+	WorkflowName  string    `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	CreatedAt     time.Time `toml:"-"`
 	UpdatedAt     time.Time `toml:"-"`
 }
 
-const (
-	workflowIDLen    = 64
-	workflowOwnerLen = 40
+var (
+	ErrInvalidWorkflowID       = errors.New("invalid workflow id")
+	ErrInvalidWorkflowYAMLSpec = errors.New("invalid workflow yaml spec")
 )
 
+const (
+	workflowIDLen = 64 // sha256 hash
+)
+
+// Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate() error {
+	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
+	if err != nil {
+		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
+	}
+	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
+	w.WorkflowName = s.Name
+	w.WorkflowID = s.CID()
+
 	if len(w.WorkflowID) != workflowIDLen {
-		return fmt.Errorf("incorrect length for id %s: expected %d, got %d", w.WorkflowID, workflowIDLen, len(w.WorkflowID))
+		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
 	}
 
-	if len(w.WorkflowOwner) != workflowOwnerLen {
-		return fmt.Errorf("incorrect length for owner %s: expected %d, got %d", w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
-	}
+	return nil
+}
 
-	if w.WorkflowName == "" {
-		return fmt.Errorf("workflow name is required")
-	}
+type StandardCapabilitiesSpec struct {
+	ID        int32
+	CreatedAt time.Time `toml:"-"`
+	UpdatedAt time.Time `toml:"-"`
+	Command   string    `toml:"command"`
+	Config    string    `toml:"config"`
+}
 
+func (w *StandardCapabilitiesSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *StandardCapabilitiesSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
 	return nil
 }

@@ -2,17 +2,14 @@ package test_env
 
 import (
 	"fmt"
-	"math/big"
 	"os"
 	"slices"
 	"strings"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/seth"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -25,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -47,8 +42,6 @@ type ChainlinkNodeLogScannerSettings struct {
 type CLTestEnvBuilder struct {
 	hasLogStream                    bool
 	hasKillgrave                    bool
-	hasSeth                         bool
-	hasEVMClient                    bool
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
 	clNodesCount                    int
@@ -65,9 +58,6 @@ type CLTestEnvBuilder struct {
 	privateEthereumNetworks         []*ctf_config.EthereumNetworkConfig
 	testConfig                      ctf_config.GlobalTestConfig
 	chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings
-
-	/* funding */
-	ETHFunds *big.Float
 }
 
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
@@ -94,7 +84,6 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		l:                               log.Logger,
 		hasLogStream:                    true,
-		hasEVMClient:                    true,
 		isEVM:                           true,
 		chainlinkNodeLogScannerSettings: &DefaultChainlinkNodeLogScannerSettings,
 	}
@@ -166,23 +155,6 @@ func (b *CLTestEnvBuilder) WithTestConfig(cfg ctf_config.GlobalTestConfig) *CLTe
 
 func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuilder {
 	b.clNodesOpts = append(b.clNodesOpts, opt...)
-	return b
-}
-
-func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
-	b.ETHFunds = eth
-	return b
-}
-
-func (b *CLTestEnvBuilder) WithSeth() *CLTestEnvBuilder {
-	b.hasSeth = true
-	b.hasEVMClient = false
-	return b
-}
-
-func (b *CLTestEnvBuilder) WithoutEvmClients() *CLTestEnvBuilder {
-	b.hasSeth = false
-	b.hasEVMClient = false
 	return b
 }
 
@@ -379,29 +351,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	if len(b.privateEthereumNetworks) > 1 {
 		b.te.rpcProviders = make(map[int64]*test_env.RpcProvider)
 		b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
-		b.te.evmClients = make(map[int64]blockchain.EVMClient)
 		for _, en := range b.privateEthereumNetworks {
 			en.DockerNetworkNames = []string{b.te.DockerNetwork.Name}
 			networkConfig, rpcProvider, err := b.te.StartEthereumNetwork(en)
 			if err != nil {
 				return nil, err
-			}
-
-			if b.hasEVMClient {
-				evmClient, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
-				if err != nil {
-					return nil, err
-				}
-				b.te.evmClients[networkConfig.ChainID] = evmClient
-			}
-
-			if b.hasSeth {
-				sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
-				if err != nil {
-					return nil, err
-				}
-
-				b.te.sethClients[networkConfig.ChainID] = sethClient
 			}
 
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
@@ -469,50 +423,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	}
 
-	if !b.hasSeth && !b.hasEVMClient {
-		log.Debug().Msg("No EVM client or SETH client specified, not starting any clients")
-	}
-
-	if b.hasSeth && b.hasEVMClient {
-		return nil, errors.New("you can't use both Seth and EMVClient at the same time")
-	}
-
 	if b.isEVM {
 		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {
 			for _, fn := range b.evmNetworkOption {
 				fn(&networkConfig)
 			}
-		}
-		if b.hasEVMClient {
-			bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
-			if err != nil {
-				return nil, err
-			}
-
-			b.te.evmClients = make(map[int64]blockchain.EVMClient)
-			b.te.evmClients[networkConfig.ChainID] = bc
-
-			cd, err := contracts.NewContractDeployer(bc, b.l)
-			if err != nil {
-				return nil, err
-			}
-			b.te.ContractDeployer = cd
-
-			cl, err := contracts.NewContractLoader(bc, b.l)
-			if err != nil {
-				return nil, err
-			}
-			b.te.ContractLoader = cl
-		}
-
-		if b.hasSeth {
-			b.te.sethClients = make(map[int64]*seth.Client)
-			sethClient, err := actions_seth.GetChainClient(b.testConfig, networkConfig)
-			if err != nil {
-				return nil, err
-			}
-
-			b.te.sethClients[networkConfig.ChainID] = sethClient
 		}
 	}
 
@@ -520,6 +435,11 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 	// Start Chainlink Nodes
 	if b.clNodesCount > 0 {
+		// needed for live networks
+		if len(b.te.EVMNetworks) == 0 {
+			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
+		}
+
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
 		for _, en := range b.te.EVMNetworks {
 			network := *en
@@ -556,23 +476,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 		b.defaultNodeCsaKeys = nodeCsaKeys
-	}
-
-	if len(b.privateEthereumNetworks) > 0 && b.clNodesCount > 0 && b.ETHFunds != nil {
-		if b.hasEVMClient {
-			b.te.ParallelTransactions(true)
-			defer b.te.ParallelTransactions(false)
-			if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {
-				return nil, err
-			}
-		}
-		if b.hasSeth {
-			for _, sethClient := range b.te.sethClients {
-				if err := actions_seth.FundChainlinkNodesFromRootAddress(b.l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(b.te.ClCluster.NodeAPIs()), b.ETHFunds); err != nil {
-					return nil, err
-				}
-			}
-		}
 	}
 
 	var enDesc string

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -21,16 +22,19 @@ import (
 )
 
 type eventBinding struct {
-	address        common.Address
-	contractName   string
-	eventName      string
-	lp             logpoller.LogPoller
-	hash           common.Hash
-	codec          commontypes.RemoteCodec
-	pending        bool
+	address      common.Address
+	contractName string
+	eventName    string
+	lp           logpoller.LogPoller
+	// filterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
+	// If filterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
+	*filterRegisterer
+	hash    common.Hash
+	codec   commontypes.RemoteCodec
+	pending bool
+	// bound determines if address is set to the contract binding.
 	bound          bool
-	registerCalled bool
-	lock           sync.Mutex
+	bindLock       sync.Mutex
 	inputInfo      types.CodecEntry
 	inputModifier  codec.Modifier
 	codecTopicInfo types.CodecEntry
@@ -38,9 +42,9 @@ type eventBinding struct {
 	topics map[string]topicDetail
 	// eventDataWords maps a generic name to a word index
 	// key is a predefined generic name for evm log event data word
-	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	eventDataWords map[string]uint8
-	id             string
+	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	eventDataWords       map[string]uint8
+	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
 }
 
 type topicDetail struct {
@@ -54,44 +58,90 @@ func (e *eventBinding) SetCodec(codec commontypes.RemoteCodec) {
 	e.codec = codec
 }
 
-func (e *eventBinding) Register(ctx context.Context) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
+func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
+	// it's enough to just lock bound here since Register/Unregister are only called from here and from Start/Close
+	// even if they somehow happen at the same time it will be fine because of filter lock and hasFilter check
+	e.bindLock.Lock()
+	defer e.bindLock.Unlock()
 
-	e.registerCalled = true
-	if !e.bound || e.lp.HasFilter(e.id) {
+	if e.bound {
+		// we are changing contract address reference, so we need to unregister old filter it exists
+		if err := e.Unregister(ctx); err != nil {
+			return err
+		}
+	}
+
+	e.address = common.HexToAddress(binding.Address)
+	e.pending = binding.Pending
+
+	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
+	if e.filterRegisterer != nil {
+		id := fmt.Sprintf("%s.%s.%s", e.contractName, e.eventName, uuid.NewString())
+		e.pollingFilter.Name = logpoller.FilterName(id, e.address)
+		e.pollingFilter.Addresses = evmtypes.AddressArray{e.address}
+		e.bound = true
+		if e.registerCalled {
+			return e.Register(ctx)
+		}
+	}
+	e.bound = true
+	return nil
+}
+
+func (e *eventBinding) Register(ctx context.Context) error {
+	if e.filterRegisterer == nil {
 		return nil
 	}
 
-	if err := e.lp.RegisterFilter(ctx, logpoller.Filter{
-		Name:      e.id,
-		EventSigs: evmtypes.HashArray{e.hash},
-		Addresses: evmtypes.AddressArray{e.address},
-	}); err != nil {
+	e.filterLock.Lock()
+	defer e.filterLock.Unlock()
+
+	e.registerCalled = true
+	// can't be true before filters params are set so there is no race with a bad filter outcome
+	if !e.bound {
+		return nil
+	}
+
+	if e.lp.HasFilter(e.pollingFilter.Name) {
+		return nil
+	}
+
+	if err := e.lp.RegisterFilter(ctx, e.pollingFilter); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+
 	return nil
 }
 
 func (e *eventBinding) Unregister(ctx context.Context) error {
-	e.lock.Lock()
-	defer e.lock.Unlock()
-
-	if !e.lp.HasFilter(e.id) {
+	if e.filterRegisterer == nil {
 		return nil
 	}
 
-	if err := e.lp.UnregisterFilter(ctx, e.id); err != nil {
+	e.filterLock.Lock()
+	defer e.filterLock.Unlock()
+
+	if !e.bound {
+		return nil
+	}
+
+	if !e.lp.HasFilter(e.pollingFilter.Name) {
+		return nil
+	}
+
+	if err := e.lp.UnregisterFilter(ctx, e.pollingFilter.Name); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
+
 	return nil
 }
 
 func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
-	if !e.bound {
-		return fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+	if err := e.validateBound(); err != nil {
+		return err
 	}
 
+	// TODO BCF-3247 change GetLatestValue to use chain agnostic confidence levels
 	confs := evmtypes.Finalized
 	if e.pending {
 		confs = evmtypes.Unconfirmed
@@ -105,8 +155,8 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) err
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	if !e.bound {
-		return nil, fmt.Errorf("%w: event not bound", commontypes.ErrInvalidType)
+	if err := e.validateBound(); err != nil {
+		return nil, err
 	}
 
 	remapped, err := e.remap(filter)
@@ -134,17 +184,14 @@ func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, lim
 	return e.decodeLogsIntoSequences(ctx, logs, sequenceDataType)
 }
 
-func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
-	if err := e.Unregister(ctx); err != nil {
-		return err
-	}
-
-	e.address = common.HexToAddress(binding.Address)
-	e.pending = binding.Pending
-	e.bound = true
-
-	if e.registerCalled {
-		return e.Register(ctx)
+func (e *eventBinding) validateBound() error {
+	if !e.bound {
+		return fmt.Errorf(
+			"%w: event %s that belongs to contract: %s, not bound",
+			commontypes.ErrInvalidType,
+			e.eventName,
+			e.contractName,
+		)
 	}
 	return nil
 }
@@ -397,9 +444,21 @@ func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (
 		}
 
 		return logpoller.NewEventByTopicFilter(e.topics[key].Index, primitive.ValueComparators), nil
+	case *primitives.Confidence:
+		return logpoller.NewConfirmationsFilter(e.confirmationsFrom(primitive.ConfidenceLevel)), nil
 	default:
 		return expression, nil
 	}
+}
+
+func (e *eventBinding) confirmationsFrom(confidence primitives.ConfidenceLevel) evmtypes.Confirmations {
+	value, ok := e.confirmationsMapping[confidence]
+	if ok {
+		return value
+	}
+
+	// if the mapping doesn't exist, default to finalized for safety
+	return evmtypes.Finalized
 }
 
 func wrapInternalErr(err error) error {

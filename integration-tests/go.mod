@@ -8,6 +8,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 require (
 	github.com/avast/retry-go/v4 v4.5.1
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
+	github.com/chaos-mesh/chaos-mesh/api/v1alpha1 v0.0.0-20220226050744-799408773657
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.13.8
 	github.com/fxamacker/cbor/v2 v2.5.0
@@ -19,20 +20,21 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/montanaflynn/stats v0.7.1
 	github.com/onsi/gomega v1.30.0
-	github.com/pelletier/go-toml/v2 v2.1.1
+	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/pkg/errors v0.9.1
-	github.com/rs/zerolog v1.30.0
+	github.com/rs/zerolog v1.31.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/shopspring/decimal v1.3.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-automation v1.0.3
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240524173852-a74b009c7303
-	github.com/smartcontractkit/chainlink-testing-framework v1.28.15
+	github.com/smartcontractkit/chainlink-automation v1.0.4
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240618210005-a88f179ffc16
+	github.com/smartcontractkit/chainlink-testing-framework v1.31.1
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
-	github.com/smartcontractkit/seth v1.0.9
+	github.com/smartcontractkit/seth v1.0.12
 	github.com/smartcontractkit/wasp v0.4.7
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.9.0
@@ -44,6 +46,7 @@ require (
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	k8s.io/apimachinery v0.28.2
 )
 
 // avoids ambigious imports of indirect dependencies
@@ -110,7 +113,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/chaos-mesh/chaos-mesh/api/v1alpha1 v0.0.0-20220226050744-799408773657 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d // indirect
 	github.com/chenzhuoyu/iasm v0.9.0 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
@@ -205,6 +207,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.15.5 // indirect
 	github.com/go-redis/redis/v8 v8.11.5 // indirect
+	github.com/go-test/deep v1.0.8 // indirect
 	github.com/go-webauthn/webauthn v0.9.4 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
@@ -378,9 +381,9 @@ require (
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240524214833-c362c2ebbd2d // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240524201401-88d0b3763b20 // indirect
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240524210559-72df72854128 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240328204215-ac91f55f1449 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240605170242-555ff582f36a // indirect
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240531021326-99118e47f696 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.1 // indirect
@@ -413,6 +416,7 @@ require (
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
+	github.com/urfave/cli/v2 v2.27.1 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -469,7 +473,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.28.2 // indirect
 	k8s.io/apiextensions-apiserver v0.25.3 // indirect
-	k8s.io/apimachinery v0.28.2 // indirect
 	k8s.io/cli-runtime v0.25.11 // indirect
 	k8s.io/client-go v0.28.2 // indirect
 	k8s.io/component-base v0.26.2 // indirect

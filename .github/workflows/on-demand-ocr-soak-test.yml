@@ -2,6 +2,19 @@ name: On Demand OCR Soak Test
 on:
   workflow_dispatch:
     inputs:
+      testToRun:
+        description: Select a test to run
+        required: true
+        default: TestOCRSoak
+        type: choice
+        options:
+          - TestOCRSoak
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
+          - TestOCRSoak_GasSpike
+          - TestOCRSoak_ChangeBlockGasLimit
+          - TestOCRSoak_RPCDownForAllCLNodes
+          - TestOCRSoak_RPCDownForHalfCLNodes
       base64Config:
         description: base64-ed config
         required: true
@@ -32,7 +45,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: on-demand-ocr-soak-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -73,7 +86,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b49a9d04744b0237908831730f8553f26d73a94b # v2.3.17
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
@@ -83,7 +96,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 )
 
@@ -60,7 +61,7 @@ const (
 	TransactionAlreadyMined
 	Fatal
 	ServiceUnavailable
-	OutOfCounters
+	TerminallyStuck
 )
 
 type ClientErrors map[int]*regexp.Regexp
@@ -106,7 +107,7 @@ var geth = ClientErrors{
 	ReplacementTransactionUnderpriced: regexp.MustCompile(`(: |^)replacement transaction underpriced$`),
 	TransactionAlreadyInMempool:       regexp.MustCompile(`(: |^)(?i)(known transaction|already known)`),
 	TerminallyUnderpriced:             regexp.MustCompile(`(: |^)transaction underpriced$`),
-	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer)$`),
+	InsufficientEth:                   regexp.MustCompile(`(: |^)(insufficient funds for transfer|insufficient funds for gas \* price \+ value|insufficient balance for transfer|transaction would cause overdraft)$`),
 	TxFeeExceedsCap:                   regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ [a-zA-Z]+\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	Fatal:                             gethFatal,
 }
@@ -149,7 +150,7 @@ var erigon = ClientErrors{
 var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address)$|(: |^)(execution reverted)(:|$)`)
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
-	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
+	// Archived ticket: story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow:           regexp.MustCompile(`(: |^)invalid transaction nonce$|(: |^)nonce too low(:|$)`),
 	NonceTooHigh:          regexp.MustCompile(`(: |^)nonce too high(:|$)`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
@@ -246,10 +247,17 @@ var zkSync = ClientErrors{
 }
 
 var zkEvm = ClientErrors{
-	OutOfCounters: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
+	TerminallyStuck: regexp.MustCompile(`(?:: |^)not enough .* counters to continue the execution$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm}
+const TerminallyStuckMsg = "transaction terminally stuck"
+
+// Tx.Error messages that are set internally so they are not chain or client specific
+var internal = ClientErrors{
+	TerminallyStuck: regexp.MustCompile(TerminallyStuckMsg),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo, zkSync, zkEvm, internal}
 
 // ClientErrorRegexes returns a map of compiled regexes for each error type
 func ClientErrorRegexes(errsRegex config.ClientErrors) *ClientErrors {
@@ -353,9 +361,16 @@ func (s *SendError) IsServiceUnavailable(configErrors *ClientErrors) bool {
 	return s.is(ServiceUnavailable, configErrors)
 }
 
-// IsOutOfCounters is a zk chain specific error returned if the transaction is too complex to prove on zk circuits
-func (s *SendError) IsOutOfCounters(configErrors *ClientErrors) bool {
-	return s.is(OutOfCounters, configErrors)
+// IsTerminallyStuck indicates if a transaction was stuck without any chance of inclusion
+func (s *SendError) IsTerminallyStuckConfigError(configErrors *ClientErrors) bool {
+	return s.is(TerminallyStuck, configErrors)
+}
+
+// IsFatal indicates if a transaction error is considered fatal for external callers
+// The naming discrepancy is due to the generic transaction statuses introduced by ChainWriter
+func (s *SendError) IsFatal() bool {
+	// An error classified as terminally stuck is considered fatal since the transaction payload should NOT be retried by external callers
+	return s.IsTerminallyStuckConfigError(nil)
 }
 
 // IsTimeout indicates if the error was caused by an exceeded context deadline
@@ -397,6 +412,10 @@ func NewSendError(e error) *SendError {
 	}
 	fatal := isFatalSendError(e)
 	return &SendError{err: pkgerrors.WithStack(e), fatal: fatal}
+}
+
+func NewTxError(e error) commontypes.ErrorClassifier {
+	return NewSendError(e)
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:

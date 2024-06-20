@@ -57,6 +57,24 @@ func (_m *ORM) BridgeTypes(ctx context.Context, offset int, limit int) ([]bridge
 	return r0, r1, r2
 }
 
+// BulkUpsertBridgeResponse provides a mock function with given fields: ctx, responses
+func (_m *ORM) BulkUpsertBridgeResponse(ctx context.Context, responses []bridges.BridgeResponse) error {
+	ret := _m.Called(ctx, responses)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BulkUpsertBridgeResponse")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []bridges.BridgeResponse) error); ok {
+		r0 = rf(ctx, responses)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CreateBridgeType provides a mock function with given fields: ctx, bt
 func (_m *ORM) CreateBridgeType(ctx context.Context, bt *bridges.BridgeType) error {
 	ret := _m.Called(ctx, bt)
@@ -310,6 +328,43 @@ func (_m *ORM) GetCachedResponse(ctx context.Context, dotId string, specId int32
 	}
 
 	return r0, r1
+}
+
+// GetCachedResponseWithFinished provides a mock function with given fields: ctx, dotId, specId, maxElapsed
+func (_m *ORM) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
+	ret := _m.Called(ctx, dotId, specId, maxElapsed)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCachedResponseWithFinished")
+	}
+
+	var r0 []byte
+	var r1 time.Time
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) ([]byte, time.Time, error)); ok {
+		return rf(ctx, dotId, specId, maxElapsed)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) []byte); ok {
+		r0 = rf(ctx, dotId, specId, maxElapsed)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, int32, time.Duration) time.Time); ok {
+		r1 = rf(ctx, dotId, specId, maxElapsed)
+	} else {
+		r1 = ret.Get(1).(time.Time)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, string, int32, time.Duration) error); ok {
+		r2 = rf(ctx, dotId, specId, maxElapsed)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // UpdateBridgeType provides a mock function with given fields: ctx, bt, btr

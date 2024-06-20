@@ -62,11 +62,6 @@ func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
 }
 
-func NewAddressPtr() *common.Address {
-	a := common.BytesToAddress(randomBytes(20))
-	return &a
-}
-
 // NewPrivateKeyAndAddress returns a new private key and the corresponding address
 func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
 	privateKey, err := crypto.GenerateKey()
@@ -126,12 +121,6 @@ func WaitTimeout(t *testing.T) time.Duration {
 		return time.Until(d) * 9 / 10
 	}
 	return DefaultWaitTimeout
-}
-
-// AfterWaitTimeout returns a channel that will send a time value when the
-// WaitTimeout is reached
-func AfterWaitTimeout(t *testing.T) <-chan time.Time {
-	return time.After(WaitTimeout(t))
 }
 
 // Context returns a context with the test's deadline, if available.

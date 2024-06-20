@@ -15,6 +15,8 @@ concurrency:
 
 jobs:
   changes:
+    # We don't directly merge dependabot PRs, so let's not waste the resources
+    if: ${{ github.actor != 'dependabot[bot]' }}
     name: Detect changes
     runs-on: ubuntu-latest
     outputs:
@@ -53,7 +55,7 @@ jobs:
         working-directory: ./contracts
 
       - name: Assume role capable of dispatching action
-        uses: smartcontractkit/.github/actions/setup-github-token@9e7cc0779934cae4a9028b8588c9adb64d8ce68c # setup-github-token@0.1.0 
+        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
         id: get-gh-token
         with:
           aws-role-arn:  ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
@@ -72,7 +74,7 @@ jobs:
 
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: solidity-update-wrappers
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

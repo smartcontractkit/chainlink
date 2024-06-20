@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -9,12 +10,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var (
+	ErrCapabilityAlreadyExists = errors.New("capability already exists")
+)
+
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
+	lggr logger.Logger
 	m    map[string]capabilities.BaseCapability
 	mu   sync.RWMutex
-	lggr logger.Logger
 }
 
 // Get gets a capability from the registry.
@@ -141,11 +146,11 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	id := info.ID
 	_, ok := r.m[id]
 	if ok {
-		return fmt.Errorf("capability with id: %s already exists", id)
+		return fmt.Errorf("%w: id %s found in registry", ErrCapabilityAlreadyExists, id)
 	}
 
 	r.m[id] = c
-	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version)
+	r.lggr.Infow("capability added", "id", id, "type", info.CapabilityType, "description", info.Description, "version", info.Version())
 	return nil
 }
 
@@ -153,6 +158,6 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
 		m:    map[string]capabilities.BaseCapability{},
-		lggr: lggr.Named("CapabilityRegistry"),
+		lggr: lggr.Named("CapabilitiesRegistry"),
 	}
 }

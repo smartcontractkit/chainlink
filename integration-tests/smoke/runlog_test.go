@@ -7,12 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -39,15 +40,23 @@ func TestRunLogBasic(t *testing.T) {
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(.5)).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err)
 
-	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	sethClient, err := env.GetSethClient(network.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
 
 	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")

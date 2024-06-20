@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -981,7 +982,7 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, errorCh chan error) {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, sethClient *seth.Client, testConfig *tc.TestConfig, errorCh chan error) {
 	if testConfig == nil || testConfig.LogPoller.ChaosConfig == nil || *testConfig.LogPoller.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -989,12 +990,6 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 
 	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
-
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
-	if err != nil {
-		errorCh <- err
-	}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
@@ -1119,37 +1114,26 @@ func SetupLogPollerTestDocker(
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
-		WithFunding(big.NewFloat(chainlinkNodeFunding)).
 		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
 		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	chainClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
-	var linkToken contracts.LinkToken
-
-	switch network.ChainID {
-	// Simulated
-	case 1337:
-		linkToken, err = contracts.DeployLinkTokenContract(l, chainClient)
-	// Ethereum Sepolia
-	case 11155111:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x779877A7B0D9E8603169DdbD7836e478b4624789")
-	// Polygon Mumbai
-	case 80001:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
-	default:
-		panic("Not implemented")
-	}
-	require.NoError(t, err, "Error loading/deploying LINK token")
+	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying LINK token")
 
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
@@ -1161,7 +1145,7 @@ func SetupLogPollerTestDocker(
 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s. but has only %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String(), big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String())
 	}
 
-	registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 		t,
 		chainClient,
 		registryVersion,

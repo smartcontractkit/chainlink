@@ -53,7 +53,7 @@ endif
 
 .PHONY: install_gotestloghelper
 install_gotestloghelper:
-	go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@v1.0.5
+	go install github.com/smartcontractkit/chainlink-testing-framework/tools/gotestloghelper@latest
 	set -euo pipefail
 
 lint:
@@ -112,12 +112,12 @@ test_chaos_network_raw:
 .PHONY: test_chaos_pods
 test_chaos_pods: install_gotestloghelper ## Run all chaos pod tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_network
 test_chaos_network: install_gotestloghelper ## Run all chaos network tests
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
+	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
 
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging
@@ -127,12 +127,12 @@ test_chaos_verbose: ## Run all smoke tests with verbose logging
 .PHONY: test_node_migrations
 test_node_migrations: install_gotestloghelper ## Run all node migration tests.
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -tlogprefix -color -singlepackage -hidepassinglogs
 
 .PHONY: test_node_migrations_simulated
 test_node_migrations_simulated: install_gotestloghelper
 	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -onlyerrors -tlogprefix -color -singlepackage
+	go test -timeout 1h -count=1 -json $(args) ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -json -tlogprefix -color -singlepackage -hidepassinglogs
 
 .PHONY: test_node_migrations_verbose
 test_node_migrations_verbose:
@@ -146,7 +146,37 @@ test_node_migrations_simulated_verbose:
 .PHONY: test_soak_ocr
 test_soak_ocr:
 	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestOCRSoak ./soak
+	go test -v -count=1 -run ^TestOCRSoak$$ ./soak
+
+.PHONY: test_soak_ocr_reorg_1
+test_soak_ocr_reorg_1:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$$ ./soak	
+
+.PHONY: test_soak_ocr_reorg_2
+test_soak_ocr_reorg_2:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$$ ./soak	
+
+.PHONY: test_soak_ocr_gas_spike
+test_soak_ocr_gas_spike:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_GasSpike$$ ./soak
+
+.PHONY: test_soak_ocr_gas_limit_change
+test_soak_ocr_gas_limit_change:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_ChangeBlockGasLimit$$ ./soak
+
+.PHONY: test_soak_ocr_rpc_down_all_cl_nodes
+test_soak_ocr_rpc_down_all_cl_nodes:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_RPCDownForAllCLNodes$$ ./soak
+
+.PHONY: test_soak_ocr_rpc_down_half_cl_nodes
+test_soak_ocr_rpc_down_half_cl_nodes:
+	. ./scripts/check_base64_env_var.sh
+	go test -v -count=1 -run ^TestOCRSoak_RPCDownForHalfCLNodes$$ ./soak
 
 .PHONY: test_soak_forwarder_ocr
 test_soak_forwarder_ocr:

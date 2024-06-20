@@ -37,11 +37,10 @@ jobs:
             tag-suffix: ""
     name: Build Chainlink Image ${{ matrix.image.name }}
     runs-on: ubuntu22.04-16cores-64GB
-    needs: [changes]
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-build-chainlink
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -94,8 +93,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs:
-      [build-chainlink, compare-tests]
+    needs: [build-chainlink, compare-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
@@ -110,7 +108,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-${{ matrix.product.name }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -153,9 +151,9 @@ jobs:
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@519851800779323566b7b7c22cc21bff95dbb639
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.evm-ref || github.sha }}
@@ -202,7 +200,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-matrix-results
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
@@ -235,7 +233,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ github.event_name == 'pull_request' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: ${{ env.COLLECTION_ID }}-env-cleanup
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
