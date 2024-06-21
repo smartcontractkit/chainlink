@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
@@ -25,14 +25,14 @@ ForwardersEnabled = true`
 	config, err := tc.GetConfig("Soak", tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, true)
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, testsetups.WithForwarderFlow(true))
 	require.NoError(t, err, "Error creating soak test")
 	ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
 	}
 	t.Cleanup(func() {
-		if err := actions_seth.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
+		if err := actions.TeardownRemoteSuite(ocrSoakTest.TearDownVals(t)); err != nil {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
