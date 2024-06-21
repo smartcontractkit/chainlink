@@ -3,25 +3,26 @@ package headreporter
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"go.uber.org/multierr"
-	"math/big"
-	"time"
 )
 
 type (
 	prometheusReporter struct {
 		ds      sqlutil.DataSource
 		chains  legacyevm.LegacyChainContainer
-		lggr    logger.Logger
 		backend PrometheusBackend
 	}
 
@@ -59,18 +60,19 @@ var (
 	})
 )
 
-func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *prometheusReporter {
+func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) HeadReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case PrometheusBackend:
 			backend = v
+		default:
+			lggr.Debugf("Unknown opt type '%T' passed to PrometheusReporter", v)
 		}
 	}
 	return &prometheusReporter{
 		ds:      ds,
 		chains:  chainContainer,
-		lggr:    lggr.Named(name),
 		backend: backend,
 	}
 }
@@ -83,17 +85,13 @@ func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, erro
 	return chain.TxManager(), nil
 }
 
-func (pr *prometheusReporter) reportOnHead(ctx context.Context, head *evmtypes.Head) {
+func (pr *prometheusReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	evmChainID := head.EVMChainID.ToInt()
-	err := multierr.Combine(
+	return multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx, evmChainID), "reportMaxUnconfirmedAge failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
 	)
-
-	if err != nil && ctx.Err() == nil {
-		pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
-	}
 }
 
 func (pr *prometheusReporter) reportPendingEthTxes(ctx context.Context, evmChainID *big.Int) (err error) {
@@ -148,10 +146,8 @@ func (pr *prometheusReporter) reportMaxUnconfirmedBlocks(ctx context.Context, he
 	return nil
 }
 
-func (pr *prometheusReporter) reportPeriodic(ctx context.Context) {
-	if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
-		pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
-	}
+func (pr *prometheusReporter) ReportPeriodic(ctx context.Context) error {
+	return errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed")
 }
 
 func (pr *prometheusReporter) reportPipelineRunStats(ctx context.Context) (err error) {

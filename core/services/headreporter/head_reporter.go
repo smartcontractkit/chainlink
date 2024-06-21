@@ -2,9 +2,12 @@ package headreporter
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -14,14 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name PrometheusBackend --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --quiet --name HeadReporter --output ../../internal/mocks/ --case=underscore
 type (
-	Reporter interface {
-		reportOnHead(ctx context.Context, head *evmtypes.Head)
-		reportPeriodic(ctx context.Context)
+	HeadReporter interface {
+		ReportNewHead(ctx context.Context, head *evmtypes.Head) error
+		ReportPeriodic(ctx context.Context) error
 	}
 
-	headReporter struct {
+	HeadReporterService struct {
 		services.StateMachine
 		ds           sqlutil.DataSource
 		chains       legacyevm.LegacyChainContainer
@@ -30,76 +33,98 @@ type (
 		chStop       services.StopChan
 		wgDone       sync.WaitGroup
 		reportPeriod time.Duration
-		reporters    []Reporter
+		reporters    []HeadReporter
 	}
 )
 
-var (
-	name = "HeadReporter"
-)
+func NewHeadReporterService(config config.HeadReport, ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
+	reporters := make([]HeadReporter, 1, 2)
+	reporters[0] = NewPrometheusReporter(ds, chainContainer, lggr, opts)
+	if config.TelemetryEnabled() {
+		reporters = append(reporters, NewTelemetryReporter(chainContainer, lggr, monitoringEndpointGen))
+	}
+	return NewHeadReporterServiceWithReporters(ds, chainContainer, lggr, reporters, opts)
+}
 
-func NewHeadReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) *headReporter {
+func NewHeadReporterServiceWithReporters(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, reporters []HeadReporter, opts ...interface{}) *HeadReporterService {
+	reportPeriod := 30 * time.Second
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case time.Duration:
+			reportPeriod = v
+		default:
+			lggr.Debugf("Unknown opt type '%T' passed to HeadReporterService", v)
+		}
+	}
 	chStop := make(chan struct{})
-	return &headReporter{
-		ds:       ds,
-		chains:   chainContainer,
-		lggr:     lggr.Named(name),
-		newHeads: mailbox.NewSingle[*evmtypes.Head](),
-		chStop:   chStop,
-		reporters: []Reporter{
-			NewPrometheusReporter(ds, chainContainer, lggr, opts),
-			NewTelemetryReporter(chainContainer, lggr),
-		},
+	return &HeadReporterService{
+		ds:           ds,
+		chains:       chainContainer,
+		lggr:         lggr.Named("HeadReporterService"),
+		newHeads:     mailbox.NewSingle[*evmtypes.Head](),
+		chStop:       chStop,
+		wgDone:       sync.WaitGroup{},
+		reportPeriod: reportPeriod,
+		reporters:    reporters,
 	}
 }
 
-func (rr *headReporter) Start(context.Context) error {
-	return rr.StartOnce(name, func() error {
-		rr.wgDone.Add(1)
-		go rr.eventLoop()
+func (hrd *HeadReporterService) Start(context.Context) error {
+	return hrd.StartOnce(hrd.Name(), func() error {
+		hrd.wgDone.Add(1)
+		go hrd.eventLoop()
 		return nil
 	})
 }
 
-func (rr *headReporter) Close() error {
-	return rr.StopOnce(name, func() error {
-		close(rr.chStop)
-		rr.wgDone.Wait()
+func (hrd *HeadReporterService) Close() error {
+	return hrd.StopOnce(hrd.Name(), func() error {
+		close(hrd.chStop)
+		hrd.wgDone.Wait()
 		return nil
 	})
 }
-func (rr *headReporter) Name() string {
-	return rr.lggr.Name()
+
+func (hrd *HeadReporterService) Name() string {
+	return hrd.lggr.Name()
 }
 
-func (rr *headReporter) HealthReport() map[string]error {
-	return map[string]error{rr.Name(): rr.Healthy()}
+func (hrd *HeadReporterService) HealthReport() map[string]error {
+	return map[string]error{hrd.Name(): hrd.Healthy()}
 }
 
-func (rr *headReporter) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	rr.newHeads.Deliver(head)
+func (hrd *HeadReporterService) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	hrd.newHeads.Deliver(head)
 }
 
-func (rr *headReporter) eventLoop() {
-	rr.lggr.Debug("Starting event loop")
-	defer rr.wgDone.Done()
-	ctx, cancel := rr.chStop.NewCtx()
+func (hrd *HeadReporterService) eventLoop() {
+	hrd.lggr.Debug("Starting event loop")
+	defer hrd.wgDone.Done()
+	ctx, cancel := hrd.chStop.NewCtx()
 	defer cancel()
+	after := time.After(hrd.reportPeriod)
 	for {
 		select {
-		case <-rr.newHeads.Notify():
-			head, exists := rr.newHeads.Retrieve()
+		case <-hrd.newHeads.Notify():
+			head, exists := hrd.newHeads.Retrieve()
 			if !exists {
 				continue
 			}
-			for _, reporter := range rr.reporters {
-				reporter.reportOnHead(ctx, head)
+			for _, reporter := range hrd.reporters {
+				err := reporter.ReportNewHead(ctx, head)
+				if err != nil && ctx.Err() == nil {
+					hrd.lggr.Errorw("Error reporting new head", "err", err)
+				}
 			}
-		case <-time.After(rr.reportPeriod):
-			for _, reporter := range rr.reporters {
-				reporter.reportPeriodic(ctx)
+		case <-after:
+			for _, reporter := range hrd.reporters {
+				err := reporter.ReportPeriodic(ctx)
+				if err != nil && ctx.Err() == nil {
+					hrd.lggr.Errorw("Error in periodic report", "err", err)
+				}
 			}
-		case <-rr.chStop:
+			after = time.After(hrd.reportPeriod)
+		case <-hrd.chStop:
 			return
 		}
 	}

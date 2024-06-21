@@ -483,6 +483,12 @@ func (g *generalConfig) RootDir() string {
 	return h
 }
 
+func (g *generalConfig) HeadReport() coreconfig.HeadReport {
+	return &headReport{
+		h: g.c.HeadReport,
+	}
+}
+
 func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return &telemetryIngressConfig{
 		c: g.c.TelemetryIngress,

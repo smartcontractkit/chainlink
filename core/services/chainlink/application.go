@@ -322,7 +322,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	headReporter := headreporter.NewHeadReporter(opts.DS, legacyEVMChains, globalLogger)
+	headReporter := headreporter.NewHeadReporterService(cfg.HeadReport(), opts.DS, legacyEVMChains, globalLogger, telemetryManager)
 	srvcs = append(srvcs, headReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
