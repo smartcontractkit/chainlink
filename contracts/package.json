@@ -81,5 +81,9 @@
     "@openzeppelin/contracts-upgradeable": "4.9.3",
     "@scroll-tech/contracts": "0.1.0",
     "semver": "^7.6.2"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/smartcontractkit/chainlink.git"
+  },
 }
