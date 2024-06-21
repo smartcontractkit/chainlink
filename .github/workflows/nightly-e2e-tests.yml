@@ -1,0 +1,40 @@
+name: Nightly Smoke Tests
+on:
+  schedule:
+    # Run every night at midnight UTC (0:00 AM)
+    - cron: '0 0 * * *'
+
+jobs:
+  docker-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          # Example of 1 runner for all tests in a file
+          - path: integration-tests/smoke/ocr_test.go
+            runs-on: ubuntu-latest
+            testOpts: -test.parallel=1 -timeout 30m -count=1 -json
+          # Example of 2 separate runners for the same test file
+          - path: integration-tests/smoke/ocr2_test.go
+            runs-on: ubuntu-latest
+            testOpts: -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
+          - path: integration-tests/smoke/ocr2_test.go
+            runs-on: ubuntu-latest
+            testOpts: -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
+    runs-on: ${{ matrix.test.runs-on }}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+              
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
