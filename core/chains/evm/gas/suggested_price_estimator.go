@@ -213,7 +213,7 @@ func (o *SuggestedPriceEstimator) BumpLegacyGas(ctx context.Context, originalFee
 			err = pkgerrors.New("failed to refresh and return gas; gas price not set")
 			return
 		}
-		o.logger.Debugw("GasPrice", newGasPrice, "GasLimit", feeLimit)
+		o.logger.Debugw("BumpLegacyGas", "GasPrice", newGasPrice, "GasLimit", feeLimit)
 	})
 	if !ok {
 		return nil, 0, pkgerrors.New("estimator is not started")
