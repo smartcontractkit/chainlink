@@ -30,10 +30,11 @@ var (
 )
 
 type CLClusterTestEnv struct {
-	Cfg           *TestEnvConfig
-	DockerNetwork *tc.DockerNetwork
-	LogStream     *logstream.LogStream
-	TestConfig    ctf_config.GlobalTestConfig
+	Cfg            *TestEnvConfig
+	DockerNetwork  *tc.DockerNetwork
+	LogStream      *logstream.LogStream
+	TestConfig     ctf_config.GlobalTestConfig
+	DockerNetworks []string
 
 	/* components */
 	ClCluster              *ClCluster
@@ -127,8 +128,10 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 		}
 		opts = append(opts, WithSecrets(secretsConfig))
 		te.ClCluster = &ClCluster{}
+		dockerNetworks := []string{te.DockerNetwork.Name}
+		dockerNetworks = append(dockerNetworks, te.DockerNetworks...)
 		for i := 0; i < count; i++ {
-			ocrNode, err := NewClNode([]string{te.DockerNetwork.Name}, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, te.LogStream, opts...)
+			ocrNode, err := NewClNode(dockerNetworks, *testconfig.GetChainlinkImageConfig().Image, *testconfig.GetChainlinkImageConfig().Version, nodeConfig, te.LogStream, opts...)
 			if err != nil {
 				return err
 			}

@@ -198,6 +198,7 @@ func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestE
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(1).
 		WithStandardCleanup().
+		WithDockerNetworks([]string{"network-a6352d2c-9931-4108-b05f-dc9e1acbaba2"}).
 		Build()
 	require.NoError(t, err)
 

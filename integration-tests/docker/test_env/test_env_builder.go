@@ -58,6 +58,7 @@ type CLTestEnvBuilder struct {
 	privateEthereumNetworks         []*ctf_config.EthereumNetworkConfig
 	testConfig                      ctf_config.GlobalTestConfig
 	chainlinkNodeLogScannerSettings *ChainlinkNodeLogScannerSettings
+	dockerNetworks                  []string
 }
 
 var DefaultAllowedMessages = []testreporters.AllowedLogMessage{
@@ -117,6 +118,11 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 		b.te = b.te.WithTestEnvConfig(cfg)
 	}
 	return b, nil
+}
+
+func (b *CLTestEnvBuilder) WithDockerNetworks(dockerNetworks []string) *CLTestEnvBuilder {
+	b.dockerNetworks = dockerNetworks
+	return b
 }
 
 // WithTestLogger sets the test logger to use for the test.
@@ -231,6 +237,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
+	b.te.DockerNetworks = b.dockerNetworks
 	b.te.TestConfig = b.testConfig
 
 	var err error
