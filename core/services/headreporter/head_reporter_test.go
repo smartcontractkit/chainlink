@@ -1,4 +1,4 @@
-package promreporter_test
+package headreporter_test
 
 import (
 	"math/big"
@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 )
 
 func newHead() evmtypes.Head {
@@ -74,7 +74,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := headreporter.NewHeadReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -116,7 +116,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := headreporter.NewHeadReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 		servicetest.Run(t, reporter)
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
@@ -135,7 +135,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := headreporter.NewHeadReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)

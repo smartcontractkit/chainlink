@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -58,7 +59,6 @@ import (
 	externalp2p "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -315,8 +315,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayerChainInterops.Services()...)
-	promReporter := promreporter.NewPromReporter(opts.DS, legacyEVMChains, globalLogger)
-	srvcs = append(srvcs, promReporter)
+	headReporter := headreporter.NewHeadReporter(opts.DS, legacyEVMChains, globalLogger)
+	srvcs = append(srvcs, headReporter)
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider
@@ -357,7 +357,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
-		chain.HeadBroadcaster().Subscribe(promReporter)
+		chain.HeadBroadcaster().Subscribe(headReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
 
