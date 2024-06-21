@@ -32,6 +32,10 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+const (
+	lmGasLimit = 5e6
+)
+
 var (
 	ocr3ABI = evmtypes.MustGetABI(no_op_ocr3.NoOpOCR3MetaData.ABI)
 )
@@ -89,7 +93,7 @@ func (r *rebalancerRelayer) NewRebalancerProvider(ctx context.Context, rargs com
 		tm, err2 := ocrcommon.NewTransmitter(
 			chain.TxManager(),
 			fromAddresses,
-			1e6, // TODO: gas limit may vary depending on tx
+			lmGasLimit,
 			fromAddresses[0],
 			txmgr.NewSendEveryStrategy(),
 			txmgrtypes.TransmitCheckerSpec[common.Address]{},
