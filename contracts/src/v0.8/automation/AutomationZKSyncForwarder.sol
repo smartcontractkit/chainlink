@@ -68,7 +68,7 @@ contract AutomationZKSyncForwarder {
         uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
         // pubdata size can be less than 0
         uint256 pubdataUsed;
-        if (p2 - p1 > 0) {
+        if (p2 > p1) {
             pubdataUsed = p2 - p1;
         }
 
