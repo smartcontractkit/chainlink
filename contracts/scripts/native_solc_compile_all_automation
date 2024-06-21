@@ -12,7 +12,7 @@ OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-python3 -m pip install --require-hashes --break-system-packages -r "$SCRIPTPATH"/requirements.txt
+python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
 
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION

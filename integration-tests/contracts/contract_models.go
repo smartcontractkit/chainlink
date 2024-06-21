@@ -73,7 +73,6 @@ type FluxAggregator interface {
 	WatchSubmissionReceived(ctx context.Context, eventChan chan<- *SubmissionEvent) error
 }
 
-// TODO add Decimals
 type LinkToken interface {
 	Address() string
 	Approve(to string, amount *big.Int) error

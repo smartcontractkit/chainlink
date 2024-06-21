@@ -56,16 +56,14 @@ type NodeDetails struct {
 	OCR2Id                string
 }
 
-// TODO add wrapped native address etc
 type AutomationTest struct {
 	ChainClient *seth.Client
 
-	LinkToken contracts.LinkToken
-	//WETHToken   contracts.WETHToken
+	LinkToken   contracts.LinkToken
 	Transcoder  contracts.UpkeepTranscoder
 	EthLinkFeed contracts.MockETHLINKFeed
-	EthUSDFeed  contracts.MockETHUSDFeed // TODO new add
-	WETHToken   contracts.WETHToken      // TODO new add
+	EthUSDFeed  contracts.MockETHUSDFeed
+	WETHToken   contracts.WETHToken
 	GasFeed     contracts.MockGasFeed
 	Registry    contracts.KeeperRegistry
 	Registrar   contracts.KeeperRegistrar
@@ -182,8 +180,6 @@ func (a *AutomationTest) LoadLINK(address string) error {
 	return nil
 }
 
-// TODO deploy WETH Token
-
 func (a *AutomationTest) DeployTranscoder() error {
 	transcoder, err := contracts.DeployUpkeepTranscoder(a.ChainClient)
 	if err != nil {
@@ -221,7 +217,7 @@ func (a *AutomationTest) LoadEthLinkFeed(address string) error {
 }
 
 func (a *AutomationTest) DeployEthUSDFeed() error {
-	// TODO change the fallback price, just hardcode it should be fine
+	// FallbackLinkPrice and FallbackETHPrice are the same
 	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(a.ChainClient, a.RegistrySettings.FallbackLinkPrice)
 	if err != nil {
 		return err
@@ -239,7 +235,6 @@ func (a *AutomationTest) LoadEthUSDFeed(address string) error {
 	return nil
 }
 
-// var linkToken *contracts.EthereumLinkToken
 func (a *AutomationTest) DeployWETH() error {
 	wethToken, err := contracts.DeployWETHTokenContract(a.Logger, a.ChainClient)
 	if err != nil {
@@ -277,11 +272,9 @@ func (a *AutomationTest) LoadEthGasFeed(address string) error {
 }
 
 func (a *AutomationTest) DeployRegistry() error {
-	// TODO add wrapped native address etc
 	registryOpts := &contracts.KeeperRegistryOpts{
-		RegistryVersion: a.RegistrySettings.RegistryVersion,
-		LinkAddr:        a.LinkToken.Address(),
-		//WETHAddr: a.WETHToken.Address(),
+		RegistryVersion:   a.RegistrySettings.RegistryVersion,
+		LinkAddr:          a.LinkToken.Address(),
 		ETHFeedAddr:       a.EthLinkFeed.Address(),
 		GasFeedAddr:       a.GasFeed.Address(),
 		TranscoderAddr:    a.Transcoder.Address(),
@@ -291,7 +284,6 @@ func (a *AutomationTest) DeployRegistry() error {
 		NativeUSDFeedAddr: a.EthUSDFeed.Address(),
 		WrappedNativeAddr: a.WETHToken.Address(),
 	}
-	a.Logger.Info().Msgf("========hello = actions, %v, %v, %v", a.RegistrySettings.RegistryVersion, registryOpts.LinkUSDFeedAddr, registryOpts.WrappedNativeAddr)
 	registry, err := contracts.DeployKeeperRegistry(a.ChainClient, registryOpts)
 	if err != nil {
 		return err
@@ -413,10 +405,6 @@ func (a *AutomationTest) AddBootstrapJob() error {
 
 func (a *AutomationTest) AddAutomationJobs() error {
 	var contractVersion string
-	// TODO what is the diff btw v2.1+ and v2.3
-	//if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
-	//	contractVersion = "v2.3"
-	//} else
 	if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_2 || a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
 		contractVersion = "v2.1+"
 	} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_1 {
@@ -576,43 +564,20 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
 			ocrConfig.TypedOnchainConfig23 = a.RegistrySettings.Create23OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			ocrConfig.BillingTokens = []common.Address{
-				common.HexToAddress(a.LinkToken.Address()),
+				common.HexToAddress(a.LinkToken.Address()), // TODO add more billing tokens
 			}
 
 			ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
 				{
 					GasFeePPB:         100,
 					FlatFeeMilliCents: big.NewInt(500),
-					PriceFeed:         common.HexToAddress(a.EthUSDFeed.Address()),
+					PriceFeed:         common.HexToAddress(a.EthUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
 					Decimals:          18,
 					FallbackPrice:     big.NewInt(1000),
 					MinSpend:          big.NewInt(200),
 				},
 			}
 		}
-		//function setConfigTypeSafe(
-		//	address[] memory signers,
-		//	address[] memory transmitters,
-		//	uint8 f,
-		//	OnchainConfig memory onchainConfig, // No this
-		//	uint64 offchainConfigVersion,
-		//	bytes memory offchainConfig,
-		//	IERC20[] memory billingTokens, // not this
-		//	BillingConfig[] memory billingConfigs // not this
-		//)
-
-		//ocrConfig := contracts.OCRv2Config{
-		//	Signers:               signers,
-		//	Transmitters:          transmitters,
-		//	F:                     f,
-		//	OffchainConfigVersion: offchainConfigVersion,
-		//	OffchainConfig:        offchainConfig,
-		//}
-
-		// TODO log here to see what is ocrConfig
-		a.Logger.Info().Msgf("=====ocrConfig.BillingTokens: %v", ocrConfig.BillingTokens)
-		a.Logger.Info().Msgf("=====ocrConfig.BillingConfigs: %v", ocrConfig.BillingConfigs)
-		a.Logger.Info().Msgf("=====ocrConfig: %v", ocrConfig)
 		err = a.Registry.SetConfigTypeSafe(ocrConfig)
 		if err != nil {
 			return errors.Join(err, fmt.Errorf("failed to set config on registry"))
@@ -895,7 +860,6 @@ func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 
 	err = a.DeployEthUSDFeed()
 	require.NoError(t, err, "Error deploying eth usd feed contract")
-	// TODO deploy more
 
 	err = a.DeployTranscoder()
 	require.NoError(t, err, "Error deploying transcoder contract")
@@ -905,7 +869,6 @@ func (a *AutomationTest) SetupAutomationDeployment(t *testing.T) {
 	err = a.DeployRegistrar()
 	require.NoError(t, err, "Error deploying registrar contract")
 
-	l.Info().Msgf("===================version in actions.go in SetupAutomationDeployment: %v", a.RegistrySettings.RegistryVersion)
 	a.AddJobsAndSetConfig(t)
 }
 

@@ -190,8 +190,6 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 	txOpts := v.client.NewTXOpts()
 	var err error
 
-	v.l.Error().Msg("===============Setting config for registry")
-	//v.l.Info().Msgf("=======Setting config for registry %s", v.version)
 	switch v.version {
 	case ethereum.RegistryVersion_2_1:
 		_, err = v.client.Decode(v.registry2_1.SetConfigTypeSafe(txOpts,
@@ -212,7 +210,6 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 			ocrConfig.OffchainConfig,
 		))
 	case ethereum.RegistryVersion_2_3:
-		// TODO need to change to real LINK address
 		_, err = v.client.Decode(v.registry2_3.SetConfigTypeSafe(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
@@ -1409,7 +1406,6 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get AutomationRegistryLogicC2_3 ABI: %w", err)
 	}
 
-	// TODO update args
 	logicCData, err := client.DeployContract(client.NewTXOpts(), "AutomationRegistryLogicC2_3", *logicCAbi, common.FromHex(registrylogicc23.AutomationRegistryLogicCMetaData.Bin),
 		common.HexToAddress(opts.LinkAddr),
 		common.HexToAddress(opts.LinkUSDFeedAddr),
@@ -1417,7 +1413,7 @@ func deployRegistry23(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegi
 		common.HexToAddress(opts.GasFeedAddr),
 		automationForwarderLogicAddr,
 		allowedReadOnlyAddress,
-		uint8(0),
+		uint8(0), // onchain payout mode
 		common.HexToAddress(opts.WrappedNativeAddr),
 	)
 	if err != nil {
@@ -1495,7 +1491,7 @@ func LoadKeeperRegistry(l zerolog.Logger, client *seth.Client, address common.Ad
 		keeper, err = loadRegistry2_1(client, address)
 	case eth_contracts.RegistryVersion_2_2: // why the contract name is not the same as the actual contract name?
 		keeper, err = loadRegistry2_2(client, address)
-	case eth_contracts.RegistryVersion_2_3: // why the contract name is not the same as the actual contract name?
+	case eth_contracts.RegistryVersion_2_3:
 		keeper, err = loadRegistry2_3(client, address)
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
@@ -1831,89 +1827,57 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 		)
 		return req, err
 	} else if v.registrar23 != nil {
-		//if isLogTrigger {
-		//	var topic0InBytes [32]byte
-		//	// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
-		//	bytes0 := [32]byte{
-		//		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		//	}
-		//	if isMercury {
-		//		// bytes representation of 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
-		//		topic0InBytes = [32]byte{209, 255, 233, 228, 85, 129, 193, 29, 125, 159, 46, 213, 247, 82, 23, 205, 75, 233, 248, 183, 238, 230, 175, 15, 109, 3, 244, 109, 229, 57, 86, 205}
-		//	} else {
-		//		// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
-		//		topic0InBytes = [32]byte{
-		//			61, 83, 163, 149, 80, 224, 70, 136,
-		//			6, 88, 39, 243, 187, 134, 88, 76,
-		//			176, 7, 171, 158, 188, 167, 235,
-		//			213, 40, 231, 48, 28, 156, 49, 235, 93,
-		//		}
-		//	}
-		//
-		//	logTriggerConfigStruct := acutils.IAutomationV21PlusCommonLogTriggerConfig{
-		//		ContractAddress: common.HexToAddress(upkeepAddr),
-		//		FilterSelector:  0,
-		//		Topic0:          topic0InBytes,
-		//		Topic1:          bytes0,
-		//		Topic2:          bytes0,
-		//		Topic3:          bytes0,
-		//	}
-		//	encodedLogTriggerConfig, err := compatibleUtils.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
-		//	if err != nil {
-		//		return nil, err
-		//	}
-		//
-		//	// TODO update params
-		//	req, err := registrarABI.Pack(
-		//		"register",
-		//		name,
-		//		email,
-		//		common.HexToAddress(upkeepAddr),
-		//		gasLimit,
-		//		common.HexToAddress(adminAddr),
-		//		uint8(1), // trigger type
-		//		checkData,
-		//		encodedLogTriggerConfig, // triggerConfig
-		//		[]byte{},                // offchainConfig
-		//		amount,
-		//		common.HexToAddress(senderAddr),
-		//	)
-		//
-		//	return req, err
-		//}
-
-		//struct RegistrationParams {
-		//	address upkeepContract;
-		//	uint96 amount;
-		//	// 1 word full
-		//	address adminAddress;
-		//	uint32 gasLimit;
-		//	uint8 triggerType;
-		//	// 7 bytes left in 2nd word
-		//	IERC20 billingToken;
-		//	// 12 bytes left in 3rd word
-		//	string name;
-		//	bytes encryptedEmail;
-		//	bytes checkData;
-		//	bytes triggerConfig;
-		//	bytes offchainConfig;
-		//}
-
 		registrarABI = cltypes.MustGetABI(registrar23.AutomationRegistrarABI)
 
-		//type RegistrationParams struct {
-		//	UpkeepContract common.Address
-		//	Amount         *big.Int
-		//	AdminAddress   common.Address
-		//	GasLimit       uint32
-		//	TriggerType    uint8
-		//	BillingToken   common.Address
-		//	Name           string
-		//	EncryptedEmail []byte
-		//	CheckData      []byte
-		//	TriggerConfig  []byte
-		//	OffchainConfig []byte
-		//}
+		if isLogTrigger {
+			var topic0InBytes [32]byte
+			// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
+			bytes0 := [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			}
+			if isMercury {
+				// bytes representation of 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
+				topic0InBytes = [32]byte{209, 255, 233, 228, 85, 129, 193, 29, 125, 159, 46, 213, 247, 82, 23, 205, 75, 233, 248, 183, 238, 230, 175, 15, 109, 3, 244, 109, 229, 57, 86, 205}
+			} else {
+				// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+				topic0InBytes = [32]byte{
+					61, 83, 163, 149, 80, 224, 70, 136,
+					6, 88, 39, 243, 187, 134, 88, 76,
+					176, 7, 171, 158, 188, 167, 235,
+					213, 40, 231, 48, 28, 156, 49, 235, 93,
+				}
+			}
+
+			logTriggerConfigStruct := acutils.IAutomationV21PlusCommonLogTriggerConfig{
+				ContractAddress: common.HexToAddress(upkeepAddr),
+				FilterSelector:  0,
+				Topic0:          topic0InBytes,
+				Topic1:          bytes0,
+				Topic2:          bytes0,
+				Topic3:          bytes0,
+			}
+			encodedLogTriggerConfig, err := compatibleUtils.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+			if err != nil {
+				return nil, err
+			}
+
+			params := registrar23.AutomationRegistrar23RegistrationParams{
+				UpkeepContract: common.HexToAddress(upkeepAddr),
+				Amount:         amount,
+				AdminAddress:   common.HexToAddress(adminAddr),
+				GasLimit:       gasLimit,
+				TriggerType:    uint8(1), // trigger type
+				BillingToken:   common.HexToAddress(linkTokenAddr),
+				Name:           name,
+				EncryptedEmail: email,
+				CheckData:      checkData,
+				TriggerConfig:  encodedLogTriggerConfig,
+				OffchainConfig: []byte{},
+			}
+
+			req, err := registrarABI.Methods["registerUpkeep"].Inputs.Pack(&params)
+			return req, err
+		}
 
 		params := registrar23.AutomationRegistrar23RegistrationParams{
 			UpkeepContract: common.HexToAddress(upkeepAddr),
@@ -1928,11 +1892,6 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 			TriggerConfig:  []byte{},
 			OffchainConfig: []byte{},
 		}
-
-		//req, err := registrarABI.Pack(
-		//	"registerUpkeep",
-		//	params,
-		//)
 
 		encodedRegistrationParamsStruct, err := registrarABI.Methods["registerUpkeep"].Inputs.Pack(&params)
 
@@ -1960,7 +1919,6 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byt
 	return req, nil
 }
 
-// TODO add registrar 23
 func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.KeeperRegistryVersion, linkAddr string, registrarSettings KeeperRegistrarSettings) (KeeperRegistrar, error) {
 	if registryVersion == eth_contracts.RegistryVersion_2_0 {
 		abi, err := keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.GetAbi()
@@ -2034,13 +1992,6 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 				AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
 		}
 
-		//address LINKAddress,
-		//	IAutomationRegistryMaster2_3 registry,
-		//	InitialTriggerConfig[] memory triggerConfigs,
-		//	IERC20[] memory billingTokens,
-		//	uint256[] memory minRegistrationFees,
-		//	IWrappedNative wrappedNativeToken
-
 		billingTokens := []common.Address{
 			common.HexToAddress(linkAddr),
 		}
@@ -2048,7 +1999,6 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 			big.NewInt(10),
 		}
 
-		// TODO update params
 		data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistrar2_3", *abi, common.FromHex(registrar23.AutomationRegistrarMetaData.Bin),
 			common.HexToAddress(linkAddr),
 			common.HexToAddress(registrarSettings.RegistryAddr),
