@@ -20,7 +20,14 @@ contract ZKSyncStoreTester {
   uint32 public iterations;
   bytes public storedData;
   bool public reset;
-  bytes[] public data;
+  bytes public data0;
+  bytes public data1;
+  bytes public data2;
+  bytes public data3;
+  bytes public data4;
+  bytes public data5;
+  bytes public full = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  bytes public constant empty = hex"00";
 
   constructor() {
     testRange = 10000;
@@ -30,20 +37,41 @@ contract ZKSyncStoreTester {
     initialTimestamp = 0;
     counter = 0;
 
-    iterations = 100;
+    iterations = 1;
   }
 
   function storeData() public {
-    data = new bytes[](iterations);
-    storedData = new bytes(iterations);
-    bytes1 d = 0xff;
-    if (reset) {
-      d = 0x00;
-    }
+//    data = new bytes[](iterations);
+//    storedData = new bytes(iterations);
+//    bytes1 d = 0xff;
+//    if (reset) {
+//      d = 0x00;
+//    }
+//    for (uint32 i = 0; i < iterations; i++) {
+//      storedData[i] = d;
+//    }
     for (uint32 i = 0; i < iterations; i++) {
-      storedData[i] = d;
+      if (reset) {
+        data0 = empty;
+        data1 = empty;
+        data2 = empty;
+        data3 = empty;
+        data4 = empty;
+        data5 = empty;
+      } else {
+        data0 = full;
+        data1 = full;
+        data2 = full;
+        data3 = full;
+        data4 = full;
+        data5 = full;
+      }
     }
     reset = !reset;
+  }
+
+  function setFull(bytes calldata d) external {
+    full = d;
   }
 
   function setIterations(uint32 _i) external {
