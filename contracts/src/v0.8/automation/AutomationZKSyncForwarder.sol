@@ -27,7 +27,7 @@ contract AutomationZKSyncForwarder {
 
     IAutomationRegistryConsumer private s_registry;
 
-    event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 p1, uint256 p2, uint256 g1, uint256 g2);
+    event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 p1, uint256 p2, uint256 gasprice);
 
     constructor(address target, address registry, address logic) {
         s_registry = IAutomationRegistryConsumer(registry);
@@ -75,15 +75,15 @@ contract AutomationZKSyncForwarder {
         uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
         uint256 g2 = gasleft();
         gasUsed = g1 - g2;
-        emit GasDetails(pubdataUsed, gasPerPubdataByte, gasUsed, p1, p2, g1, g2);
+        emit GasDetails(pubdataUsed, gasPerPubdataByte, gasUsed, p1, p2, tx.gasprice);
         return (success, gasUsed, pubdataUsed * gasPerPubdataByte);
     }
 
 /*
-0x0000000000000000000000000000000000000000000000000000000000000013
-0x0000000000000000000000000000000000000000000000000000000000000167
-0x00000000000000000000000000000000000000000000000000000000004ed2cb
-0x00000000000000000000000000000000000000000000000000000000004d93f9
+0x000000000000000000000000000000000000000000000000000000000000000a
+0x0000000000000000000000000000000000000000000000000000000000000000
+0x0000000000000000000000000000000000000000000000000000000000d89056
+0x0000000000000000000000000000000000000000000000000000000000d093ec
 */
     function getTarget() external view returns (address) {
         return i_target;

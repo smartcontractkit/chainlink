@@ -153,10 +153,6 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
       // Deduct that gasUsed by upkeep from our running counter
       // for zksync, the L1 gas is deducted at the end of a transaction but gasUsed here already has all the cost
       // if we don't add l1GasUsed here for zksync, `gasOverhead - gasleft()` will underflow
-      if (upkeepTransmitInfo[i].gasUsed > gasOverhead) {
-        emit WrongArithmetics(gasOverhead, upkeepTransmitInfo[i].gasUsed, 0);
-        return;
-      }
       gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
@@ -170,10 +166,6 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes
     // for zksync, this place will underflow if we don't add back l1GasUsed
-    if ((16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead < gasleft()) {
-      emit WrongArithmetics((16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead, gasleft(), 1);
-      return;
-    }
     gasOverhead = (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead - gasleft();
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 

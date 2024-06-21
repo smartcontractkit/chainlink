@@ -389,7 +389,6 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
     uint256 indexed gasOverhead,
     uint256 l1GasUsed
   );
-  event WrongArithmetics(uint256 indexed n1, uint256 indexed n2, uint256 indexed n3);
 
 // 0x00000000000000000000000000000000000000000000000000257a2909289c77 => 10548890804198519 => 0.0105 LINK
 // 0x0000000000000000000000000000000000000000000000000000000000000e8b => 3723 gas
@@ -837,17 +836,9 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
       premium = 0;
     } else if (balance < payment) {
       payment = balance;
-      if (payment < gasReimbursement) {
-        emit WrongArithmetics(payment, gasReimbursement, 2);
-        return (0, 0);
-      }
       premium = payment - gasReimbursement;
     }
 
-    if (s_upkeep[upkeepId].balance < payment) {
-      emit WrongArithmetics(s_upkeep[upkeepId].balance, payment, 3);
-      return (0, 0);
-    }
     s_upkeep[upkeepId].balance -= payment;
     s_upkeep[upkeepId].amountSpent += payment;
 
