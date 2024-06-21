@@ -11,6 +11,7 @@ ok EVM.0.Txm.Broadcaster
 ok EVM.0.Txm.Confirmer
 ok EVM.0.Txm.Finalizer
 ok EVM.0.Txm.WrappedEvmEstimator
+ok HeadReporterService
 ok JobSpawner
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -18,5 +19,4 @@ ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
-ok PromReporter
 ok TelemetryManager
