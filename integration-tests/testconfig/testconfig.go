@@ -84,7 +84,7 @@ type TestConfig struct {
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
 
-	ConfigurationName string `toml:"-"`
+	ConfigurationNames []string `toml:"-"`
 }
 
 var embeddedConfigs embed.FS
@@ -196,8 +196,8 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 	return c.OCR
 }
 
-func (c TestConfig) GetConfigurationName() string {
-	return c.ConfigurationName
+func (c TestConfig) GetConfigurationNames() []string {
+	return c.ConfigurationNames
 }
 
 func (c TestConfig) GetSethConfig() *seth.Config {
@@ -262,12 +262,14 @@ const (
 	NoKey                    = "NO_KEY"
 )
 
-func GetConfig(configurationName string, product Product) (TestConfig, error) {
+func GetConfig(configurationNames []string, product Product) (TestConfig, error) {
 	logger := logging.GetTestLogger(nil)
 
-	configurationName = strings.ReplaceAll(configurationName, "/", "_")
-	configurationName = strings.ReplaceAll(configurationName, " ", "_")
-	configurationName = cases.Title(language.English, cases.NoLower).String(configurationName)
+	for idx, configurationName := range configurationNames {
+		configurationNames[idx] = strings.ReplaceAll(configurationName, "/", "_")
+		configurationNames[idx] = strings.ReplaceAll(configurationName, " ", "_")
+		configurationNames[idx] = cases.Title(language.English, cases.NoLower).String(configurationName)
+	}
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
@@ -275,8 +277,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	testConfig := TestConfig{}
-	testConfig.ConfigurationName = configurationName
-	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
+	testConfig.ConfigurationNames = configurationNames
+
+	logger.Debug().Msgf("Will apply configurations named '%s' if they are found in any of the configs", strings.Join(configurationNames, ","))
 
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
@@ -292,9 +295,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
-			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config %s", embeddedFiles)
+				}
 			}
 		}
 	} else {
@@ -316,9 +321,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 			}
 
-			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
-			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+				}
 			}
 		}
 	}
@@ -332,9 +339,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
-		err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+		for _, configurationName := range configurationNames {
+			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+			}
 		}
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")

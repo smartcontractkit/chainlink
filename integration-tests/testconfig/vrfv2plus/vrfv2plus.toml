@@ -143,14 +143,6 @@ bhs_test_duration = "10s"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
-[Smoke.VRFv2.Performance]
-test_duration = "10s"
-rate_limit_unit_duration = "3s"
-rps = 1
-bhs_test_duration = "10s"
-bhs_test_rate_limit_unit_duration = "3s"
-bhs_test_rps = 1
-
 #SOAK TEST CONFIG
 [Soak.Common]
 chainlink_node_funding = 0.1
@@ -211,3 +203,10 @@ bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
+[POLYGON_AMOY-Smoke.VRFv2Plus.General]
+cl_node_max_gas_price_gwei = 21231231
+subscription_funding_amount_native = 66
+
+[POLYGON_AMOY-Load.VRFv2Plus.General]
+cl_node_max_gas_price_gwei = 21231231
+subscription_funding_amount_native = 1

@@ -22,7 +22,7 @@ ForwardersEnabled = true`
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
 
-	config, err := tc.GetConfig("Soak", tc.OCR)
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, testsetups.WithForwarderFlow(true))

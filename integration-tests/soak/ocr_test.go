@@ -29,7 +29,7 @@ func TestOCRSoak(t *testing.T) {
 	// fmt.Println("Using Chainlink TOML\n---------------------")
 	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
 	// fmt.Println("---------------------")
-	config, err := tc.GetConfig("Soak", tc.OCR)
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
@@ -37,7 +37,7 @@ func TestOCRSoak(t *testing.T) {
 }
 
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
@@ -45,7 +45,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 }
 
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
@@ -53,7 +53,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 }
 
 func TestOCRSoak_GasSpike(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
@@ -62,7 +62,7 @@ func TestOCRSoak_GasSpike(t *testing.T) {
 
 // TestOCRSoak_ChangeBlockGasLimit changes next block gas limit and sets it to percentage of last gasUsed in previous block creating congestion
 func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
@@ -71,7 +71,7 @@ func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for all Chainlink Nodes
 func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	require.True(t, config.Network.IsSimulatedGethSelected(), "This test requires simulated geth")
 
@@ -103,7 +103,7 @@ func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for 50% of Chainlink Nodes
 func TestOCRSoak_RPCDownForHalfCLNodes(t *testing.T) {
-	config, err := tc.GetConfig(t.Name(), tc.OCR)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	require.True(t, config.Network.IsSimulatedGethSelected(), "This test requires simulated geth")
 

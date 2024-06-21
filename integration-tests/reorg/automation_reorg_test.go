@@ -122,7 +122,7 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Reorg", tc.Automation)
+			config, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}

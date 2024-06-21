@@ -35,7 +35,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	// remember to add TOML testConfig for Chainlink node before trying to run this test in future
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	testConfig, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
+	testConfig, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +98,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	testConfig, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
+	testConfig, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +158,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	if ocr2vrfSmokeConfig == nil {
-		c, err := testconfig.GetConfig("Smoke", testconfig.OCR2VRF)
+		c, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2VRF)
 		require.NoError(t, err, "Error getting config")
 		ocr2vrfSmokeConfig = &c
 	}

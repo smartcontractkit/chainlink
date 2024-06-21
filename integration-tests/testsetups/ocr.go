@@ -374,7 +374,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run() {
-	config, err := tc.GetConfig("soak", tc.OCR)
+	config, err := tc.GetConfig([]string{"soak"}, tc.OCR)
 	require.NoError(o.t, err, "Error getting config")
 
 	ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
