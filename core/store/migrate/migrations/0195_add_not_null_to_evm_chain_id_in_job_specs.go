@@ -11,10 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
-func init() {
-	goose.AddMigrationContext(Up195, Down195)
-}
-
 const (
 	addNullConstraintsToSpecs = `
 	ALTER TABLE direct_request_specs ALTER COLUMN evm_chain_id SET NOT NULL;
@@ -69,3 +65,5 @@ func Down195(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
+
+var Migration195 = goose.NewGoMigration(195, &goose.GoFunc{RunTx: Up195}, &goose.GoFunc{RunTx: Down195})
