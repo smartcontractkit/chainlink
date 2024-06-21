@@ -106,7 +106,6 @@ func TestOPL1Oracle_ReadV1GasPrice(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, l1BaseFee, gasPrice)
-
 		})
 	}
 }
