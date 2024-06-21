@@ -14,9 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	registrylogicc23 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registry_logic_c_wrapper_2_3"
-	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -170,6 +171,9 @@ func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
 	}
 
 	switch v.version {
+	case ethereum.RegistryVersion_2_3:
+		ownerAddress, _ := v.registry2_3.Owner(callOpts)
+		return ownerAddress
 	case ethereum.RegistryVersion_2_2:
 		ownerAddress, _ := v.registry2_2.Owner(callOpts)
 		return ownerAddress
@@ -302,8 +306,8 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 			ocrConfig.OffchainConfig,
 		))
 		return err
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
-		return fmt.Errorf("registry version 2.1 and 2.2 must use setConfigTypeSafe function")
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
+		return fmt.Errorf("registry version 2.1 2.2 and 2.3 must use setConfigTypeSafe function")
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
@@ -319,6 +323,9 @@ func (v *EthereumKeeperRegistry) SetUpkeepOffchainConfig(id *big.Int, offchainCo
 		return err
 	case ethereum.RegistryVersion_2_2:
 		_, err := v.client.Decode(v.registry2_2.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
+		return err
+	case ethereum.RegistryVersion_2_3:
+		_, err := v.client.Decode(v.registry2_3.SetUpkeepOffchainConfig(v.client.NewTXOpts(), id, offchainConfig))
 		return err
 	default:
 		return fmt.Errorf("SetUpkeepOffchainConfig is not supported by keeper registry version %d", v.version)
@@ -343,6 +350,8 @@ func (v *EthereumKeeperRegistry) Pause() error {
 		_, err = v.client.Decode(v.registry2_1.Pause(txOpts))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.Pause(txOpts))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.Pause(txOpts))
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported", v.version)
 	}
@@ -427,6 +436,8 @@ func (v *EthereumKeeperRegistry) AddUpkeepFundsFromKey(id *big.Int, amount *big.
 		_, err = v.client.Decode(v.registry2_1.AddFunds(opts, id, amount))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.AddFunds(opts, id, amount))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.AddFunds(opts, id, amount))
 	}
 
 	return err
@@ -523,6 +534,8 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 		}, nil
 	case ethereum.RegistryVersion_2_2:
 		return v.getUpkeepInfo22(opts, id)
+	case ethereum.RegistryVersion_2_3:
+		return v.getUpkeepInfo23(opts, id)
 	}
 
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -530,6 +543,25 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 
 func (v *EthereumKeeperRegistry) getUpkeepInfo22(opts *bind.CallOpts, id *big.Int) (*UpkeepInfo, error) {
 	uk, err := v.registry2_2.GetUpkeep(opts, id)
+	if err != nil {
+		return nil, err
+	}
+	return &UpkeepInfo{
+		Target:                 uk.Target.Hex(),
+		ExecuteGas:             uk.PerformGas,
+		CheckData:              uk.CheckData,
+		Balance:                uk.Balance,
+		Admin:                  uk.Admin.Hex(),
+		MaxValidBlocknumber:    uk.MaxValidBlocknumber,
+		LastPerformBlockNumber: uk.LastPerformedBlockNumber,
+		AmountSpent:            uk.AmountSpent,
+		Paused:                 uk.Paused,
+		OffchainConfig:         uk.OffchainConfig,
+	}, nil
+}
+
+func (v *EthereumKeeperRegistry) getUpkeepInfo23(opts *bind.CallOpts, id *big.Int) (*UpkeepInfo, error) {
+	uk, err := v.registry2_3.GetUpkeep(opts, id)
 	if err != nil {
 		return nil, err
 	}
@@ -566,7 +598,7 @@ func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr s
 		info, err = v.registry1_2.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
 	case ethereum.RegistryVersion_1_3:
 		info, err = v.registry1_3.GetKeeperInfo(opts, common.HexToAddress(keeperAddr))
-	case ethereum.RegistryVersion_2_0, ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_0, ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		// this is not used anywhere
 		return nil, fmt.Errorf("not supported")
 	}
@@ -610,7 +642,7 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 			ocrConfig.OffchainConfigVersion,
 			ocrConfig.OffchainConfig,
 		))
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		return fmt.Errorf("not supported")
 	}
 
@@ -656,7 +688,7 @@ func (v *EthereumKeeperRegistry) RegisterUpkeep(target string, gasLimit uint32, 
 			checkData,
 			nil, //offchain config
 		))
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		return fmt.Errorf("not supported")
 	}
 
@@ -716,6 +748,8 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepGasLimit(opts, id, gas))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepGasLimit(opts, id, gas))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.SetUpkeepGasLimit(opts, id, gas))
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported for SetUpkeepGasLimit", v.version)
 	}
@@ -753,7 +787,7 @@ func (v *EthereumKeeperRegistry) GetKeeperList(ctx context.Context) ([]string, e
 			return []string{}, err
 		}
 		list = state.Transmitters
-	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2:
+	case ethereum.RegistryVersion_2_1, ethereum.RegistryVersion_2_2, ethereum.RegistryVersion_2_3:
 		return nil, fmt.Errorf("not supported")
 	}
 
@@ -781,6 +815,8 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepCheckData(opts, id, newCheckData))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepCheckData(opts, id, newCheckData))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.SetUpkeepCheckData(opts, id, newCheckData))
 	default:
 		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
 	}
@@ -798,6 +834,8 @@ func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConf
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepTriggerConfig(opts, id, triggerConfig))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepTriggerConfig(opts, id, triggerConfig))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.SetUpkeepTriggerConfig(opts, id, triggerConfig))
 	default:
 		return fmt.Errorf("SetUpkeepTriggerConfig is not supported by keeper registry version %d", v.version)
 	}
@@ -815,6 +853,8 @@ func (v *EthereumKeeperRegistry) SetUpkeepPrivilegeConfig(id *big.Int, privilege
 		_, err = v.client.Decode(v.registry2_1.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig))
 	default:
 		return fmt.Errorf("SetUpkeepPrivilegeConfig is not supported by keeper registry version %d", v.version)
 	}
@@ -836,6 +876,8 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 		_, err = v.client.Decode(v.registry2_1.PauseUpkeep(opts, id))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.PauseUpkeep(opts, id))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.PauseUpkeep(opts, id))
 	default:
 		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
@@ -857,6 +899,8 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 		_, err = v.client.Decode(v.registry2_1.UnpauseUpkeep(opts, id))
 	case ethereum.RegistryVersion_2_2:
 		_, err = v.client.Decode(v.registry2_2.UnpauseUpkeep(opts, id))
+	case ethereum.RegistryVersion_2_3:
+		_, err = v.client.Decode(v.registry2_3.UnpauseUpkeep(opts, id))
 	default:
 		return fmt.Errorf("UnpauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
@@ -927,6 +971,16 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
+	case ethereum.RegistryVersion_2_3:
+		parsedLog, err := v.registry2_3.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
+		}, nil
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
@@ -953,6 +1007,14 @@ func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*Sta
 		}, nil
 	case ethereum.RegistryVersion_2_2:
 		parsedLog, err := v.registry2_2.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+	case ethereum.RegistryVersion_2_3:
+		parsedLog, err := v.registry2_3.ParseStaleUpkeepReport(*log)
 		if err != nil {
 			return nil, err
 		}

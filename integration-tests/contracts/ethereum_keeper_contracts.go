@@ -6,10 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	goabi "github.com/umbracle/ethgo/abi"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	goabi "github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -167,7 +168,7 @@ func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, regis
 		Transcoder:             common.Address{},
 		Registrars:             []common.Address{common.HexToAddress(registrar)},
 		UpkeepPrivilegeManager: registryOwnerAddress,
-		ChainModule:            chainModuleAddress, // TODO here is the chainModule
+		ChainModule:            chainModuleAddress,
 		ReorgProtectionEnabled: reorgProtectionEnabled,
 		FinanceAdmin:           registryOwnerAddress,
 		FallbackNativePrice:    big.NewInt(1),

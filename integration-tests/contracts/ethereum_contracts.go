@@ -14,14 +14,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/seth"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
 
 	contractsethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -1608,13 +1609,13 @@ func (l *EthereumMockETHUSDFeed) Decimals() uint {
 	return 8
 }
 
-func (v *EthereumMockETHUSDFeed) Address() string {
-	return v.address.Hex()
+func (l *EthereumMockETHUSDFeed) Address() string {
+	return l.address.Hex()
 }
 
-func (v *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
-	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+func (l *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
+	data, err := l.feed.LatestRoundData(&bind.CallOpts{
+		From:    l.client.Addresses[0],
 		Context: context.Background(),
 	})
 	if err != nil {
@@ -1623,9 +1624,9 @@ func (v *EthereumMockETHUSDFeed) LatestRoundData() (*big.Int, error) {
 	return data.Ans, nil
 }
 
-func (v *EthereumMockETHUSDFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
-	data, err := v.feed.LatestRoundData(&bind.CallOpts{
-		From:    v.client.Addresses[0],
+func (l *EthereumMockETHUSDFeed) LatestRoundDataUpdatedAt() (*big.Int, error) {
+	data, err := l.feed.LatestRoundData(&bind.CallOpts{
+		From:    l.client.Addresses[0],
 		Context: context.Background(),
 	})
 	if err != nil {
