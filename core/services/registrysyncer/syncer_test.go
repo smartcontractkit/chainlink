@@ -1,4 +1,4 @@
-package capabilities
+package registrysyncer
 
 import (
 	"context"
@@ -39,7 +39,8 @@ var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
 	owner := testutils.MustNewSimTransactor(t)
 
-	oneEth, _ := new(big.Int).SetString("100000000000000000000", 10)
+	i := &big.Int{}
+	oneEth, _ := i.SetString("100000000000000000000", 10)
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
 
 	simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{owner.From: {
@@ -205,12 +206,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	pw := mockWrapper{
-		peer: mockPeer{
-			peerID: nodeSet[0],
-		},
-	}
-	reader, err := newRemoteRegistryReader(ctx, logger.TestLogger(t), pw, factory, regAddress.Hex())
+	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	s, err := reader.state(ctx)
@@ -277,10 +273,4 @@ func TestReader_Integration(t *testing.T) {
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
 	}, s.IDsToNodes)
-
-	node, err := reader.LocalNode(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, p2ptypes.PeerID(nodeSet[0]), *node.PeerID)
-	assert.Equal(t, fmt.Sprint(1), node.WorkflowDON.ID)
 }

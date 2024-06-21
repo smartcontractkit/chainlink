@@ -59,6 +59,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -214,11 +215,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		srvcs = append(srvcs, externalPeerWrapper)
 
-		networkSetup, err := capabilities.NewHardcodedDonNetworkSetup()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create hardcoded Don network setup: %w", err)
-		}
-
 		dispatcher := remote.NewDispatcher(externalPeerWrapper, signer, opts.CapabilitiesRegistry, globalLogger)
 
 		rid := cfg.Capabilities().ExternalRegistry().RelayID()
@@ -228,12 +224,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("could not fetch relayer %s configured for capabilities registry: %w", rid, err)
 		}
 
-		registrySyncer, err := capabilities.NewRegistrySyncer(
-			externalPeerWrapper,
-			opts.CapabilitiesRegistry,
-			dispatcher,
+		registrySyncer, err := registrysyncer.New(
 			globalLogger,
-			networkSetup,
 			relayer,
 			registryAddress,
 		)
@@ -241,8 +233,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("could not configure syncer: %w", err)
 		}
 
-		getLocalNode = registrySyncer.LocalNode
-		srvcs = append(srvcs, dispatcher, registrySyncer)
+		wfHandler := capabilities.NewWorkflowSyncerHandler(
+			globalLogger,
+			externalPeerWrapper,
+			dispatcher,
+			opts.CapabilitiesRegistry,
+		)
+		registrySyncer.AddHandler(wfHandler)
+
+		getLocalNode = wfHandler.LocalNode
+		srvcs = append(srvcs, dispatcher, wfHandler, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or
