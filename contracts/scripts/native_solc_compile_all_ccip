@@ -10,6 +10,7 @@ SOLC_VERSION="0.8.24"
 OPTIMIZE_RUNS=26000
 OPTIMIZE_RUNS_OFFRAMP=18000
 OPTIMIZE_RUNS_ONRAMP=3600
+OPTIMIZE_RUNS_MULTI_OFFRAMP=1800
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -27,9 +28,13 @@ compileContract () {
   local optimize_runs=$OPTIMIZE_RUNS
 
   case $1 in
-    "ccip/offRamp/EVM2EVMOffRamp.sol" | "ccip/offRamp/EVM2EVMMultiOffRamp.sol")
+    "ccip/offRamp/EVM2EVMOffRamp.sol")
     echo "OffRamp uses $OPTIMIZE_RUNS_OFFRAMP optimizer runs."
       optimize_runs=$OPTIMIZE_RUNS_OFFRAMP
+      ;;
+    "ccip/offRamp/EVM2EVMMultiOffRamp.sol")
+    echo "MultiOffRamp uses $OPTIMIZE_RUNS_MULTI_OFFRAMP optimizer runs."
+      optimize_runs=$OPTIMIZE_RUNS_MULTI_OFFRAMP
       ;;
     "ccip/onRamp/EVM2EVMMultiOnRamp.sol" | "ccip/onRamp/EVM2EVMOnRamp.sol")
     echo "OnRamp uses $OPTIMIZE_RUNS_ONRAMP optimizer runs."

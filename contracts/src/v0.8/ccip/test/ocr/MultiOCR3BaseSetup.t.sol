@@ -71,13 +71,6 @@ contract MultiOCR3BaseSetup is BaseTest {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  /// @dev returns a hash value in the same format as the h value on which the signature verified
-  ///      in the _transmit function
-  function _getReportDigest(bytes32 configDigest, bytes memory report) internal pure returns (bytes32) {
-    bytes32[3] memory reportContext = [configDigest, configDigest, configDigest];
-    return keccak256(abi.encodePacked(keccak256(report), reportContext));
-  }
-
   function _assertOCRConfigEquality(
     MultiOCR3Base.OCRConfig memory configA,
     MultiOCR3Base.OCRConfig memory configB
@@ -85,7 +78,6 @@ contract MultiOCR3BaseSetup is BaseTest {
     vm.assertEq(configA.configInfo.configDigest, configB.configInfo.configDigest);
     vm.assertEq(configA.configInfo.F, configB.configInfo.F);
     vm.assertEq(configA.configInfo.n, configB.configInfo.n);
-    vm.assertEq(configA.configInfo.uniqueReports, configB.configInfo.uniqueReports);
     vm.assertEq(configA.configInfo.isSignatureVerificationEnabled, configB.configInfo.isSignatureVerificationEnabled);
 
     vm.assertEq(configA.signers, configB.signers);
@@ -100,17 +92,19 @@ contract MultiOCR3BaseSetup is BaseTest {
 
   function _getSignaturesForDigest(
     uint256[] memory signerPrivateKeys,
-    bytes32 configDigest,
     bytes memory report,
+    bytes32[3] memory reportContext,
     uint8 signatureCount
   ) internal pure returns (bytes32[] memory rs, bytes32[] memory ss, uint8[] memory vs, bytes32 rawVs) {
     rs = new bytes32[](signatureCount);
     ss = new bytes32[](signatureCount);
     vs = new uint8[](signatureCount);
 
+    bytes32 reportDigest = keccak256(abi.encodePacked(keccak256(report), reportContext));
+
     // Calculate signatures
     for (uint256 i; i < signatureCount; ++i) {
-      (vs[i], rs[i], ss[i]) = vm.sign(signerPrivateKeys[i], _getReportDigest(configDigest, report));
+      (vs[i], rs[i], ss[i]) = vm.sign(signerPrivateKeys[i], reportDigest);
       rawVs = rawVs | (bytes32(bytes1(vs[i] - 27)) >> (8 * i));
     }
 

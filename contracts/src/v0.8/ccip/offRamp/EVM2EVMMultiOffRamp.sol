@@ -36,14 +36,11 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   error AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error AlreadyExecuted(uint64 sourceChainSelector, uint64 sequenceNumber);
-  error ZeroAddressNotAllowed();
   error ZeroChainSelectorNotAllowed();
   error ExecutionError(bytes32 messageId, bytes error);
   error SourceChainNotEnabled(uint64 sourceChainSelector);
-  error MessageTooLarge(bytes32 messageId, uint256 maxSize, uint256 actualSize);
   error TokenDataMismatch(uint64 sourceChainSelector, uint64 sequenceNumber);
   error UnexpectedTokenData();
-  error UnsupportedNumberOfTokens(uint64 sourceChainSelector, uint64 sequenceNumber);
   error ManualExecutionNotYetEnabled(uint64 sourceChainSelector);
   error ManualExecutionGasLimitMismatch();
   error InvalidManualExecutionGasLimit(uint64 sourceChainSelector, uint256 index, uint256 newLimit);
@@ -62,10 +59,11 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   error InvalidStaticConfig(uint64 sourceChainSelector);
   error StaleCommitReport();
   error InvalidInterval(uint64 sourceChainSelector, Interval interval);
-  error PausedError();
+  error ZeroAddressNotAllowed();
 
   /// @dev Atlas depends on this event, if changing, please notify Atlas.
-  event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
+  event StaticConfigSet(StaticConfig staticConfig);
+  event DynamicConfigSet(DynamicConfig dynamicConfig);
   event SkippedIncorrectNonce(uint64 sourceChainSelector, uint64 nonce, address sender);
   event SkippedSenderWithPreviousRampMessageInflight(uint64 sourceChainSelector, uint64 nonce, address sender);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
@@ -79,12 +77,10 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   event SourceChainSelectorAdded(uint64 sourceChainSelector);
   event SourceChainConfigSet(uint64 indexed sourceChainSelector, SourceChainConfig sourceConfig);
   event SkippedAlreadyExecutedMessage(uint64 sourceChainSelector, uint64 sequenceNumber);
-  event Paused(address account);
-  event Unpaused(address account);
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event CommitReportAccepted(CommitReport report);
   event RootRemoved(bytes32 root);
-  event LatestPriceEpochAndRoundSet(uint40 oldEpochAndRound, uint40 newEpochAndRound);
+  event LatestPriceSequenceNumberSet(uint64 oldSequenceNumber, uint64 newSequenceNumber);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -121,17 +117,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     uint32 permissionLessExecutionThresholdSeconds; //  │ Waiting time before manual execution is enabled
     uint32 maxTokenTransferGas; //                      │ Maximum amount of gas passed on to token `transfer` call
     uint32 maxPoolReleaseOrMintGas; // ─────────────────╯ Maximum amount of gas passed on to token pool when calling releaseOrMint
-    uint16 maxNumberOfTokensPerMsg; // ──╮ Maximum number of ERC20 token transfers that can be included per message
-    uint32 maxDataBytes; //              │ Maximum payload data size in bytes
-    address messageValidator; // ────────╯ Optional message validator to validate incoming messages (zero address = no validator)
+    address messageValidator; // Optional message validator to validate incoming messages (zero address = no validator)
     address priceRegistry; // Price registry address on the local chain
-  }
-
-  /// @notice Struct that represents a message route (sender -> receiver and source chain)
-  struct Any2EVMMessageRoute {
-    bytes sender; //                    Message sender
-    uint64 sourceChainSelector; // ───╮ Source chain that the message originates from
-    address receiver; // ─────────────╯ Address that receives the message
   }
 
   /// @notice a sequenceNumber interval
@@ -175,7 +162,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   /// @notice SourceConfig per chain
   /// (forms lane configurations from sourceChainSelector => StaticConfig.chainSelector)
-  mapping(uint64 sourceChainSelector => SourceChainConfig) internal s_sourceChainConfigs;
+  mapping(uint64 sourceChainSelector => SourceChainConfig sourceChainConfig) internal s_sourceChainConfigs;
 
   // STATE
   /// @dev The expected nonce for a given sender per source chain.
@@ -191,15 +178,14 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   // sourceChainSelector => merkleRoot => timestamp when received
   mapping(uint64 sourceChainSelector => mapping(bytes32 merkleRoot => uint256 timestamp)) internal s_roots;
-  /// @dev The epoch and round of the last report
-  uint40 private s_latestPriceEpochAndRound;
-  /// @dev Whether this OffRamp is paused or not
-  bool private s_paused = false;
+  /// @dev The sequence number of the last report
+  uint64 private s_latestPriceSequenceNumber;
 
   constructor(StaticConfig memory staticConfig, SourceChainConfigArgs[] memory sourceChainConfigs) MultiOCR3Base() {
     if (staticConfig.rmnProxy == address(0) || staticConfig.tokenAdminRegistry == address(0)) {
       revert ZeroAddressNotAllowed();
     }
+
     if (staticConfig.chainSelector == 0) {
       revert ZeroChainSelectorNotAllowed();
     }
@@ -207,6 +193,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     i_chainSelector = staticConfig.chainSelector;
     i_rmnProxy = staticConfig.rmnProxy;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
+    emit StaticConfigSet(staticConfig);
 
     _applySourceChainConfigUpdates(sourceChainConfigs);
   }
@@ -235,7 +222,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   ) public view returns (Internal.MessageExecutionState) {
     return Internal.MessageExecutionState(
       (
-        s_executionStates[sourceChainSelector][sequenceNumber / 128]
+        _getSequenceNumberBitmap(sourceChainSelector, sequenceNumber)
           >> ((sequenceNumber % 128) * MESSAGE_EXECUTION_STATE_BIT_WIDTH)
       ) & MESSAGE_EXECUTION_STATE_MASK
     );
@@ -252,7 +239,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     Internal.MessageExecutionState newState
   ) internal {
     uint256 offset = (sequenceNumber % 128) * MESSAGE_EXECUTION_STATE_BIT_WIDTH;
-    uint256 bitmap = s_executionStates[sourceChainSelector][sequenceNumber / 128];
+    uint256 bitmap = _getSequenceNumberBitmap(sourceChainSelector, sequenceNumber);
     // to unset any potential existing state we zero the bits of the section the state occupies,
     // then we do an AND operation to blank out any existing state for the section.
     bitmap &= ~(MESSAGE_EXECUTION_STATE_MASK << offset);
@@ -260,6 +247,16 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     bitmap |= uint256(newState) << offset;
 
     s_executionStates[sourceChainSelector][sequenceNumber / 128] = bitmap;
+  }
+
+  /// @param sourceChainSelector remote source chain selector to get sequence number bitmap for
+  /// @param sequenceNumber sequence number to get bitmap for
+  /// @return bitmap Bitmap of the given sequence number for the provided source chain selector. One bitmap represents 128 sequence numbers
+  function _getSequenceNumberBitmap(
+    uint64 sourceChainSelector,
+    uint64 sequenceNumber
+  ) internal view returns (uint256 bitmap) {
+    return s_executionStates[sourceChainSelector][sequenceNumber / 128];
   }
 
   /// @inheritdoc IAny2EVMMultiOffRamp
@@ -304,8 +301,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     uint256[][] memory gasLimitOverrides
   ) external {
     // We do this here because the other _execute path is already covered by MultiOCR3Base.
-    // TODO: contract size golfing - split to internal function
-    if (i_chainID != block.chainid) revert MultiOCR3Base.ForkedChain(i_chainID, uint64(block.chainid));
+    _whenChainNotForked();
 
     uint256 numReports = reports.length;
     if (numReports != gasLimitOverrides.length) revert ManualExecutionGasLimitMismatch();
@@ -333,17 +329,10 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// and expects the exec plugin type to be configured with no signatures.
   /// @param report serialized execution report
   function execute(bytes32[3] calldata reportContext, bytes calldata report) external {
-    _reportExec(report);
+    _batchExecute(abi.decode(report, (Internal.ExecutionReportSingleChain[])), new uint256[][](0));
 
-    // TODO: gas / contract size saving from CONSTANT?
     bytes32[] memory emptySigs = new bytes32[](0);
     _transmit(uint8(Internal.OCRPluginType.Execution), reportContext, report, emptySigs, emptySigs, bytes32(""));
-  }
-
-  /// @notice Reporting function for the execution plugin
-  /// @param encodedReport encoded ExecutionReport
-  function _reportExec(bytes calldata encodedReport) internal {
-    _batchExecute(abi.decode(encodedReport, (Internal.ExecutionReportSingleChain[])), new uint256[][](0));
   }
 
   /// @notice Batch executes a set of reports, each report matching one single source chain
@@ -378,17 +367,13 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     uint256[] memory manualExecGasLimits
   ) internal {
     uint64 sourceChainSelector = report.sourceChainSelector;
-    // TODO: re-use isCursed / isUnpaused check from _verify here
-    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
+    _whenNotCursed(sourceChainSelector);
+
+    SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
     uint256 numMsgs = report.messages.length;
     if (numMsgs == 0) revert EmptyReport();
     if (numMsgs != report.offchainTokenData.length) revert UnexpectedTokenData();
-
-    SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
-    if (!sourceChainConfig.isEnabled) {
-      revert SourceChainNotEnabled(sourceChainSelector);
-    }
 
     bytes32[] memory hashedLeaves = new bytes32[](numMsgs);
 
@@ -483,16 +468,10 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
       // Although we expect only valid messages will be committed, we check again
       // when executing as a defense in depth measure.
-      // TODO: GAS GOLF - evaluate caching sequenceNumber instead of offchainTokenData
       bytes[] memory offchainTokenData = report.offchainTokenData[i];
-      _isWellFormed(
-        message.messageId,
-        sourceChainSelector,
-        message.sequenceNumber,
-        message.tokenAmounts.length,
-        message.data.length,
-        offchainTokenData.length
-      );
+      if (message.tokenAmounts.length != offchainTokenData.length) {
+        revert TokenDataMismatch(sourceChainSelector, message.sequenceNumber);
+      }
 
       _setExecutionState(sourceChainSelector, message.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
       (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
@@ -526,30 +505,6 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
       }
 
       emit ExecutionStateChanged(sourceChainSelector, message.sequenceNumber, message.messageId, newState, returnData);
-    }
-  }
-
-  /// @notice Does basic message validation. Should never fail.
-  /// @param sequenceNumber Sequence number of the message.
-  /// @param numberOfTokens Length of tokenAmounts array in the message.
-  /// @param dataLength Length of data field in the message.
-  /// @param offchainTokenDataLength Length of offchainTokenData array.
-  /// @dev reverts on validation failures.
-  function _isWellFormed(
-    bytes32 messageId,
-    uint64 sourceChainSelector,
-    uint64 sequenceNumber,
-    uint256 numberOfTokens,
-    uint256 dataLength,
-    uint256 offchainTokenDataLength
-  ) private view {
-    // TODO: move maxNumberOfTokens & data length validation offchain
-    if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg)) {
-      revert UnsupportedNumberOfTokens(sourceChainSelector, sequenceNumber);
-    }
-    if (numberOfTokens != offchainTokenDataLength) revert TokenDataMismatch(sourceChainSelector, sequenceNumber);
-    if (dataLength > uint256(s_dynamicConfig.maxDataBytes)) {
-      revert MessageTooLarge(messageId, uint256(s_dynamicConfig.maxDataBytes), dataLength);
     }
   }
 
@@ -597,11 +552,9 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(
         message.tokenAmounts,
-        Any2EVMMessageRoute({
-          sender: abi.encode(message.sender),
-          sourceChainSelector: message.sourceChainSelector,
-          receiver: message.receiver
-        }),
+        abi.encode(message.sender),
+        message.receiver,
+        message.sourceChainSelector,
         message.sourceTokenData,
         offchainTokenData
       );
@@ -667,79 +620,71 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     bytes32[] calldata ss,
     bytes32 rawVs // signatures
   ) external {
-    _reportCommit(report, uint40(uint256(reportContext[1])));
-    _transmit(uint8(Internal.OCRPluginType.Commit), reportContext, report, rs, ss, rawVs);
-  }
-
-  /// @notice Reporting function for the commit plugin
-  /// @param encodedReport encoded CommitReport
-  /// @param epochAndRound Epoch and round of the report
-  function _reportCommit(bytes calldata encodedReport, uint40 epochAndRound) internal whenNotPaused {
-    CommitReport memory report = abi.decode(encodedReport, (CommitReport));
+    CommitReport memory commitReport = abi.decode(report, (CommitReport));
 
     // Check if the report contains price updates
-    if (report.priceUpdates.tokenPriceUpdates.length > 0 || report.priceUpdates.gasPriceUpdates.length > 0) {
-      // Check for price staleness based on the epoch and round
-      if (s_latestPriceEpochAndRound < epochAndRound) {
-        // If prices are not stale, update the latest epoch and round
-        s_latestPriceEpochAndRound = epochAndRound;
-        // And update the prices in the price registry
-        IPriceRegistry(s_dynamicConfig.priceRegistry).updatePrices(report.priceUpdates);
+    if (commitReport.priceUpdates.tokenPriceUpdates.length > 0 || commitReport.priceUpdates.gasPriceUpdates.length > 0)
+    {
+      uint64 sequenceNumber = uint64(uint256(reportContext[1]));
 
-        // If there is no root, the report only contained fee updated and
-        // we return to not revert on the empty root check below.
-        if (report.merkleRoots.length == 0) return;
+      // Check for price staleness based on the epoch and round
+      if (s_latestPriceSequenceNumber < sequenceNumber) {
+        // If prices are not stale, update the latest epoch and round
+        s_latestPriceSequenceNumber = sequenceNumber;
+        // And update the prices in the price registry
+        IPriceRegistry(s_dynamicConfig.priceRegistry).updatePrices(commitReport.priceUpdates);
       } else {
         // If prices are stale and the report doesn't contain a root, this report
         // does not have any valid information and we revert.
         // If it does contain a merkle root, continue to the root checking section.
-        if (report.merkleRoots.length == 0) revert StaleCommitReport();
+        if (commitReport.merkleRoots.length == 0) revert StaleCommitReport();
       }
     }
 
-    for (uint256 i = 0; i < report.merkleRoots.length; ++i) {
-      MerkleRoot memory root = report.merkleRoots[i];
+    for (uint256 i = 0; i < commitReport.merkleRoots.length; ++i) {
+      MerkleRoot memory root = commitReport.merkleRoots[i];
       uint64 sourceChainSelector = root.sourceChainSelector;
 
-      if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) revert CursedByRMN(sourceChainSelector);
+      _whenNotCursed(sourceChainSelector);
+      SourceChainConfig storage sourceChainConfig = _getEnabledSourceChainConfig(sourceChainSelector);
 
-      SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
-
-      if (!sourceChainConfig.isEnabled) revert SourceChainNotEnabled(sourceChainSelector);
       // If we reached this section, the report should contain a valid root
       if (sourceChainConfig.minSeqNr != root.interval.min || root.interval.min > root.interval.max) {
         revert InvalidInterval(root.sourceChainSelector, root.interval);
       }
 
       // TODO: confirm how RMN offchain blessing impacts commit report
-      if (root.merkleRoot == bytes32(0)) revert InvalidRoot();
+      bytes32 merkleRoot = root.merkleRoot;
+      if (merkleRoot == bytes32(0)) revert InvalidRoot();
       // Disallow duplicate roots as that would reset the timestamp and
       // delay potential manual execution.
-      if (s_roots[root.sourceChainSelector][root.merkleRoot] != 0) {
-        revert RootAlreadyCommitted(root.sourceChainSelector, root.merkleRoot);
+      if (s_roots[root.sourceChainSelector][merkleRoot] != 0) {
+        revert RootAlreadyCommitted(root.sourceChainSelector, merkleRoot);
       }
 
       sourceChainConfig.minSeqNr = root.interval.max + 1;
-      s_roots[root.sourceChainSelector][root.merkleRoot] = block.timestamp;
+      s_roots[root.sourceChainSelector][merkleRoot] = block.timestamp;
     }
 
-    emit CommitReportAccepted(report);
+    emit CommitReportAccepted(commitReport);
+
+    _transmit(uint8(Internal.OCRPluginType.Commit), reportContext, report, rs, ss, rawVs);
   }
 
-  /// @notice Returns the epoch and round of the last price update.
-  /// @return the latest price epoch and round.
-  function getLatestPriceEpochAndRound() external view returns (uint64) {
-    return s_latestPriceEpochAndRound;
+  /// @notice Returns the sequence number of the last price update.
+  /// @return the latest price sequence number.
+  function getLatestPriceSequenceNumber() public view returns (uint64) {
+    return s_latestPriceSequenceNumber;
   }
 
-  /// @notice Sets the latest epoch and round for price update.
-  /// @param latestPriceEpochAndRound The new epoch and round for prices.
-  function setLatestPriceEpochAndRound(uint40 latestPriceEpochAndRound) external onlyOwner {
-    uint40 oldEpochAndRound = s_latestPriceEpochAndRound;
+  /// @notice Sets the latest sequence number for price update.
+  /// @param latestPriceSequenceNumber The new sequence number for prices
+  function setLatestPriceSequenceNumber(uint64 latestPriceSequenceNumber) external onlyOwner {
+    uint64 oldPriceSequenceNumber = s_latestPriceSequenceNumber;
 
-    s_latestPriceEpochAndRound = latestPriceEpochAndRound;
+    s_latestPriceSequenceNumber = latestPriceSequenceNumber;
 
-    emit LatestPriceEpochAndRoundSet(oldEpochAndRound, latestPriceEpochAndRound);
+    emit LatestPriceSequenceNumberSet(oldPriceSequenceNumber, latestPriceSequenceNumber);
   }
 
   /// @notice Returns the timestamp of a potentially previously committed merkle root.
@@ -783,7 +728,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     bytes32[] memory hashedLeaves,
     bytes32[] memory proofs,
     uint256 proofFlagBits
-  ) internal view virtual whenNotPaused returns (uint256 timestamp) {
+  ) internal view virtual returns (uint256 timestamp) {
     bytes32 root = MerkleMultiProof.merkleRoot(hashedLeaves, proofs, proofFlagBits);
     // Only return non-zero if present and blessed.
     if (!isBlessed(root)) {
@@ -799,7 +744,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
       // since epoch and rounds are scoped per config digest.
       // Note that s_minSeqNr/roots do not need to be reset as the roots persist
       // across reconfigurations and are de-duplicated separately.
-      s_latestPriceEpochAndRound = 0;
+      s_latestPriceSequenceNumber = 0;
     }
   }
 
@@ -874,25 +819,115 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   /// @notice Sets the dynamic config.
   function setDynamicConfig(DynamicConfig memory dynamicConfig) external onlyOwner {
-    if (dynamicConfig.priceRegistry == address(0)) revert ZeroAddressNotAllowed();
-    if (dynamicConfig.router == address(0)) revert ZeroAddressNotAllowed();
+    if (dynamicConfig.priceRegistry == address(0) || dynamicConfig.router == address(0)) {
+      revert ZeroAddressNotAllowed();
+    }
 
     s_dynamicConfig = dynamicConfig;
 
-    // TODO: contract size golfing - is StaticConfig needed in the event?
-    emit ConfigSet(
-      StaticConfig({chainSelector: i_chainSelector, rmnProxy: i_rmnProxy, tokenAdminRegistry: i_tokenAdminRegistry}),
-      dynamicConfig
-    );
+    emit DynamicConfigSet(dynamicConfig);
+  }
+
+  /// @notice Returns a source chain config with a check that the config is enabled
+  /// @param sourceChainSelector Source chain selector to check for cursing
+  /// @return sourceChainConfig Source chain config
+  function _getEnabledSourceChainConfig(uint64 sourceChainSelector) internal view returns (SourceChainConfig storage) {
+    SourceChainConfig storage sourceChainConfig = s_sourceChainConfigs[sourceChainSelector];
+    if (!sourceChainConfig.isEnabled) {
+      revert SourceChainNotEnabled(sourceChainSelector);
+    }
+
+    return sourceChainConfig;
   }
 
   // ================================================================
   // │                      Tokens and pools                        │
   // ================================================================
 
+  /// @notice Uses a pool to release or mint a token to a receiver address in two steps. First, the pool is called
+  /// to release the tokens to the offRamp, then the offRamp calls the token contract to transfer the tokens to the
+  /// receiver. This is done to ensure the exact number of tokens, the pool claims to release are actually transferred.
+  /// @dev The local token address is validated through the TokenAdminRegistry. If, due to some misconfiguration, the
+  /// token is unknown to the registry, the offRamp will revert. The tx, and the tokens, can be retrieved by
+  /// registering the token on this chain, and re-trying the msg.
+  /// @param sourceAmount The amount of tokens to be released/minted.
+  /// @param originalSender The message sender on the source chain.
+  /// @param receiver The address that will receive the tokens.
+  /// @param sourceTokenData A struct containing the local token address, the source pool address and optional data
+  /// returned from the source pool.
+  /// @param offchainTokenData Data fetched offchain by the DON.
+  function _releaseOrMintSingleToken(
+    uint256 sourceAmount,
+    bytes memory originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
+    Internal.SourceTokenData memory sourceTokenData,
+    bytes memory offchainTokenData
+  ) internal returns (Client.EVMTokenAmount memory destTokenAmount) {
+    // We need to safely decode the token address from the sourceTokenData, as it could be wrong,
+    // in which case it doesn't have to be a valid EVM address.
+    address localToken = Internal._validateEVMAddress(sourceTokenData.destTokenAddress);
+    // We check with the token admin registry if the token has a pool on this chain.
+    address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
+    // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
+    // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
+    // The call gets a max or 30k gas per instance, of which there are three. This means gas estimations should
+    // account for 90k gas overhead due to the interface check.
+    if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
+      revert NotACompatiblePool(localPoolAddress);
+    }
+
+    // We determined that the pool address is a valid EVM address, but that does not mean the code at this
+    // address is a (compatible) pool contract. _callWithExactGasSafeReturnData will check if the location
+    // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
+    // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
+    // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
+    (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
+      abi.encodeWithSelector(
+        IPoolV1.releaseOrMint.selector,
+        Pool.ReleaseOrMintInV1({
+          originalSender: originalSender,
+          receiver: receiver,
+          amount: sourceAmount,
+          localToken: localToken,
+          remoteChainSelector: sourceChainSelector,
+          sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+          sourcePoolData: sourceTokenData.extraData,
+          offchainTokenData: offchainTokenData
+        })
+      ),
+      localPoolAddress,
+      s_dynamicConfig.maxPoolReleaseOrMintGas,
+      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      Internal.MAX_RET_BYTES
+    );
+
+    // wrap and rethrow the error so we can catch it lower in the stack
+    if (!success) revert TokenHandlingError(returnData);
+
+    // If the call was successful, the returnData should be the local token address.
+    if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
+      revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
+    }
+    uint256 localAmount = abi.decode(returnData, (uint256));
+    // Since token pools send the tokens to the msg.sender, which is this offRamp, we need to
+    // transfer them to the final receiver. We use the _callWithExactGasSafeReturnData function because
+    // the token contracts are not considered trusted.
+    (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
+      abi.encodeWithSelector(IERC20.transfer.selector, receiver, localAmount),
+      localToken,
+      s_dynamicConfig.maxTokenTransferGas,
+      Internal.GAS_FOR_CALL_EXACT_CHECK,
+      Internal.MAX_RET_BYTES
+    );
+
+    if (!success) revert TokenHandlingError(returnData);
+
+    return Client.EVMTokenAmount({token: localToken, amount: localAmount});
+  }
+
   /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
   /// @param sourceTokenAmounts List of tokens and amount values to be released/minted.
-  /// @param messageRoute Message route details (original sender, receiver and source chain)
   /// @param encodedSourceTokenData Array of token data returned by token pools on the source chain.
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
   /// @dev This function wrappes the token pool call in a try catch block to gracefully handle
@@ -900,83 +935,30 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
   function _releaseOrMintTokens(
     Client.EVMTokenAmount[] memory sourceTokenAmounts,
-    Any2EVMMessageRoute memory messageRoute,
+    bytes memory originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
     bytes[] memory encodedSourceTokenData,
     bytes[] memory offchainTokenData
   ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
     // Creating a copy is more gas efficient than initializing a new array.
     destTokenAmounts = sourceTokenAmounts;
     for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
-      // This should never revert as the onRamp creates the sourceTokenData. Only the inner components from
-      // this struct come from untrusted sources.
-      Internal.SourceTokenData memory sourceTokenData =
-        abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData));
-      // We need to safely decode the pool address from the sourceTokenData, as it could be wrong,
-      // in which case it doesn't have to be a valid EVM address.
-      address localToken = Internal._validateEVMAddress(sourceTokenData.destTokenAddress);
-      // We check with the token admin registry if the token has a pool on this chain.
-      address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
-      // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
-      // This is done to prevent a pool from reverting the entire transaction if it doesn't support the interface.
-      // The call gets a max or 30k gas per instance, of which there are three. This means gas estimations should
-      // account for 90k gas overhead due to the interface check.
-      if (localPoolAddress == address(0) || !localPoolAddress.supportsInterface(Pool.CCIP_POOL_V1)) {
-        revert NotACompatiblePool(localPoolAddress);
-      }
-
-      // We determined that the pool address is a valid EVM address, but that does not mean the code at this
-      // address is a (compatible) pool contract. _callWithExactGasSafeReturnData will check if the location
-      // contains a contract. If it doesn't it reverts with a known error, which we catch gracefully.
-      // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
-      // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
-      (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-        abi.encodeWithSelector(
-          IPoolV1.releaseOrMint.selector,
-          Pool.ReleaseOrMintInV1({
-            originalSender: messageRoute.sender,
-            receiver: messageRoute.receiver,
-            amount: sourceTokenAmounts[i].amount,
-            localToken: localToken,
-            remoteChainSelector: messageRoute.sourceChainSelector,
-            sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-            sourcePoolData: sourceTokenData.extraData,
-            offchainTokenData: offchainTokenData[i]
-          })
-        ),
-        localPoolAddress,
-        s_dynamicConfig.maxPoolReleaseOrMintGas,
-        Internal.GAS_FOR_CALL_EXACT_CHECK,
-        Internal.MAX_RET_BYTES
+      destTokenAmounts[i] = _releaseOrMintSingleToken(
+        sourceTokenAmounts[i].amount,
+        originalSender,
+        receiver,
+        sourceChainSelector,
+        abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData)),
+        offchainTokenData[i]
       );
-
-      // wrap and rethrow the error so we can catch it lower in the stack
-      if (!success) revert TokenHandlingError(returnData);
-
-      // If the call was successful, the returnData should be the local token address.
-      if (returnData.length != Pool.CCIP_POOL_V1_RET_BYTES) {
-        revert InvalidDataLength(Pool.CCIP_POOL_V1_RET_BYTES, returnData.length);
-      }
-      uint256 amount = abi.decode(returnData, (uint256));
-
-      (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-        abi.encodeWithSelector(IERC20.transfer.selector, messageRoute.receiver, amount),
-        localToken,
-        s_dynamicConfig.maxTokenTransferGas,
-        Internal.GAS_FOR_CALL_EXACT_CHECK,
-        Internal.MAX_RET_BYTES
-      );
-
-      if (!success) revert TokenHandlingError(returnData);
-
-      destTokenAmounts[i].token = localToken;
-      destTokenAmounts[i].amount = amount;
     }
 
     return destTokenAmounts;
   }
 
   // ================================================================
-  // │                            Access                            │
+  // │                            Access and RMN                    │
   // ================================================================
 
   /// @notice Reverts as this contract should not access CCIP messages
@@ -985,34 +967,11 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
     revert();
   }
 
-  /// @notice Single function to check the status of the commitStore.
-  function isUnpausedAndNotCursed(uint64 sourceChainSelector) external view returns (bool) {
-    return !IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector))) && !s_paused;
-  }
-
-  // TODO: global pausing can be removed delegated to the i_rmnProxy
-  /// @notice Modifier to make a function callable only when the contract is not paused.
-  modifier whenNotPaused() {
-    if (paused()) revert PausedError();
-    _;
-  }
-
-  /// @notice Returns true if the contract is paused, and false otherwise.
-  function paused() public view returns (bool) {
-    return s_paused;
-  }
-
-  /// @notice Pause the contract
-  /// @dev only callable by the owner
-  function pause() external onlyOwner {
-    s_paused = true;
-    emit Paused(msg.sender);
-  }
-
-  /// @notice Unpause the contract
-  /// @dev only callable by the owner
-  function unpause() external onlyOwner {
-    s_paused = false;
-    emit Unpaused(msg.sender);
+  /// @notice Validates that the source chain -> this chain lane, and reverts if it is cursed
+  /// @param sourceChainSelector Source chain selector to check for cursing
+  function _whenNotCursed(uint64 sourceChainSelector) internal view {
+    if (IRMN(i_rmnProxy).isCursed(bytes16(uint128(sourceChainSelector)))) {
+      revert CursedByRMN(sourceChainSelector);
+    }
   }
 }

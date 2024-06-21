@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
-// TODO: consider splitting configs & verification logic off to auth library (if size is prohibitive)
 /// @notice Onchain verification of reports from the offchain reporting protocol
 ///         with multiple OCR plugin support.
 abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
@@ -50,7 +49,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     bytes32 configDigest;
     uint8 F; // ──────────────────────────────╮ maximum number of faulty/dishonest oracles the system can tolerate
     uint8 n; //                               │ number of signers / transmitters
-    bool uniqueReports; //                    │ if true, the reports should be unique
     bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
   }
 
@@ -85,7 +83,6 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     bytes32 configDigest; // Config digest to update to
     uint8 ocrPluginType; // ──────────────────╮ OCR plugin type to update config for
     uint8 F; //                               │ maximum number of faulty/dishonest oracles
-    bool uniqueReports; //                    │ if true, the reports should be unique
     bool isSignatureVerificationEnabled; // ──╯ if true, requires signers and verifies signatures on transmission verification
     address[] signers; // signing address of each oracle
     address[] transmitters; // transmission address of each oracle (i.e. the address the oracle actually sends transactions to the contract from)
@@ -143,12 +140,8 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
 
     // If F is 0, then the config is not yet set
     if (configInfo.F == 0) {
-      configInfo.uniqueReports = ocrConfigArgs.uniqueReports;
       configInfo.isSignatureVerificationEnabled = ocrConfigArgs.isSignatureVerificationEnabled;
-    } else if (
-      configInfo.uniqueReports != ocrConfigArgs.uniqueReports
-        || configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled
-    ) {
+    } else if (configInfo.isSignatureVerificationEnabled != ocrConfigArgs.isSignatureVerificationEnabled) {
       revert StaticConfigCannotBeChanged(ocrPluginType);
     }
 
@@ -228,15 +221,13 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     // TRANSMIT_MSGDATA_CONSTANT_LENGTH_COMPONENT need to be changed accordingly
     bytes32[3] calldata reportContext,
     bytes calldata report,
-    // TODO: revisit trade-off - converting this to calldata and using one CONSTANT_LENGTH_COMPONENT
-    //       decreases contract size by ~220B, decreasees commit gas usage by ~400 gas, but increases exec gas usage by ~3600 gas
     bytes32[] memory rs,
     bytes32[] memory ss,
     bytes32 rawVs // signatures
   ) internal {
     // reportContext consists of:
     // reportContext[0]: ConfigDigest
-    // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
+    // reportContext[1]: 24 byte padding, 8 byte sequence number
     // reportContext[2]: ExtraHash
     ConfigInfo memory configInfo = s_ocrConfigs[ocrPluginType].configInfo;
     bytes32 configDigest = reportContext[0];
@@ -259,7 +250,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     // If the cached chainID at time of deployment doesn't match the current chainID, we reject all signed reports.
     // This avoids a (rare) scenario where chain A forks into chain A and A', A' still has configDigest
     // calculated from chain A and so OCR reports will be valid on both forks.
-    if (i_chainID != block.chainid) revert ForkedChain(i_chainID, block.chainid);
+    _whenChainNotForked();
 
     // Scoping this reduces stack pressure and gas usage
     {
@@ -278,13 +269,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
     if (configInfo.isSignatureVerificationEnabled) {
       // Scoping to reduce stack pressure
       {
-        uint256 expectedNumSignatures;
-        if (configInfo.uniqueReports) {
-          expectedNumSignatures = (configInfo.n + configInfo.F) / 2 + 1;
-        } else {
-          expectedNumSignatures = configInfo.F + 1;
-        }
-        if (rs.length != expectedNumSignatures) revert WrongNumberOfSignatures();
+        if (rs.length != configInfo.F + 1) revert WrongNumberOfSignatures();
         if (rs.length != ss.length) revert SignaturesOutOfRegistration();
       }
 
@@ -292,7 +277,7 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
       _verifySignatures(ocrPluginType, h, rs, ss, rawVs);
     }
 
-    emit Transmitted(ocrPluginType, configDigest, uint32(uint256(reportContext[1]) >> 8));
+    emit Transmitted(ocrPluginType, configDigest, uint64(uint256(reportContext[1])));
   }
 
   /// @notice verifies the signatures of a hashed report value for one OCR plugin type
@@ -322,6 +307,11 @@ abstract contract MultiOCR3Base is ITypeAndVersion, OwnerIsCreator {
       if (signed[oracle.index]) revert NonUniqueSignatures();
       signed[oracle.index] = true;
     }
+  }
+
+  /// @notice Validates that the chain ID has not diverged after deployment. Reverts if the chain IDs do not match
+  function _whenChainNotForked() internal view {
+    if (i_chainID != block.chainid) revert ForkedChain(i_chainID, block.chainid);
   }
 
   /// @notice information about current offchain reporting protocol configuration

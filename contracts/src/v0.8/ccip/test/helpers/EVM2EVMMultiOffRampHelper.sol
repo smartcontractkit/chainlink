@@ -30,13 +30,30 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
     return _metadataHash(sourceChainSelector, onRamp, Internal.EVM_2_EVM_MESSAGE_HASH);
   }
 
+  function releaseOrMintSingleToken(
+    uint256 sourceTokenAmount,
+    bytes calldata originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
+    Internal.SourceTokenData calldata sourceTokenData,
+    bytes calldata offchainTokenData
+  ) external returns (Client.EVMTokenAmount memory) {
+    return _releaseOrMintSingleToken(
+      sourceTokenAmount, originalSender, receiver, sourceChainSelector, sourceTokenData, offchainTokenData
+    );
+  }
+
   function releaseOrMintTokens(
     Client.EVMTokenAmount[] memory sourceTokenAmounts,
-    EVM2EVMMultiOffRamp.Any2EVMMessageRoute memory messageRoute,
+    bytes memory originalSender,
+    address receiver,
+    uint64 sourceChainSelector,
     bytes[] calldata sourceTokenData,
     bytes[] calldata offchainTokenData
   ) external returns (Client.EVMTokenAmount[] memory) {
-    return _releaseOrMintTokens(sourceTokenAmounts, messageRoute, sourceTokenData, offchainTokenData);
+    return _releaseOrMintTokens(
+      sourceTokenAmounts, originalSender, receiver, sourceChainSelector, sourceTokenData, offchainTokenData
+    );
   }
 
   function trialExecute(
@@ -44,14 +61,6 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
     bytes[] memory offchainTokenData
   ) external returns (Internal.MessageExecutionState, bytes memory) {
     return _trialExecute(message, offchainTokenData);
-  }
-
-  function reportExec(bytes calldata executableReports) external {
-    _reportExec(executableReports);
-  }
-
-  function reportCommit(bytes calldata commitReport, uint40 epochAndRound) external {
-    _reportCommit(commitReport, epochAndRound);
   }
 
   function executeSingleReport(

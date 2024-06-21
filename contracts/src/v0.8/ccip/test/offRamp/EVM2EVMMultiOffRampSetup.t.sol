@@ -57,7 +57,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   uint64 internal constant s_offchainConfigVersion = 3;
   uint8 internal constant s_F = 1;
 
-  uint40 internal s_latestEpochAndRound;
+  uint64 internal s_latestSequenceNumber;
 
   function setUp() public virtual override(TokenSetup, PriceRegistrySetup, MultiOCR3BaseSetup) {
     TokenSetup.setUp();
@@ -95,7 +95,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       ocrPluginType: uint8(Internal.OCRPluginType.Execution),
       configDigest: s_configDigestExec,
       F: s_F,
-      uniqueReports: false,
       isSignatureVerificationEnabled: false,
       signers: s_emptySigners,
       transmitters: s_validTransmitters
@@ -104,7 +103,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       ocrPluginType: uint8(Internal.OCRPluginType.Commit),
       configDigest: s_configDigestCommit,
       F: s_F,
-      uniqueReports: false,
       isSignatureVerificationEnabled: true,
       signers: s_validSigners,
       transmitters: s_validTransmitters
@@ -229,8 +227,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
       router: router,
       priceRegistry: priceRegistry,
-      maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
-      maxDataBytes: MAX_DATA_SIZE,
       messageValidator: address(0),
       maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS,
       maxTokenTransferGas: MAX_TOKEN_POOL_TRANSFER_GAS
@@ -411,8 +407,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   ) public pure {
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
     assertEq(a.router, b.router);
-    assertEq(a.maxNumberOfTokensPerMsg, b.maxNumberOfTokensPerMsg);
-    assertEq(a.maxDataBytes, b.maxDataBytes);
     assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
     assertEq(a.maxTokenTransferGas, b.maxTokenTransferGas);
     assertEq(a.messageValidator, b.messageValidator);
@@ -483,5 +477,22 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     });
     // Overwrite base mock rmn with real.
     s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
+  }
+
+  function _commit(EVM2EVMMultiOffRamp.CommitReport memory commitReport, uint64 sequenceNumber) internal {
+    bytes32[3] memory reportContext = [s_configDigestCommit, bytes32(uint256(sequenceNumber)), s_configDigestCommit];
+
+    (bytes32[] memory rs, bytes32[] memory ss,, bytes32 rawVs) =
+      _getSignaturesForDigest(s_validSignerKeys, abi.encode(commitReport), reportContext, s_F + 1);
+
+    vm.startPrank(s_validTransmitters[0]);
+    s_offRamp.commit(reportContext, abi.encode(commitReport), rs, ss, rawVs);
+  }
+
+  function _execute(Internal.ExecutionReportSingleChain[] memory reports) internal {
+    bytes32[3] memory reportContext = [s_configDigestExec, s_configDigestExec, s_configDigestExec];
+
+    vm.startPrank(s_validTransmitters[0]);
+    s_offRamp.execute(reportContext, abi.encode(reports));
   }
 }
