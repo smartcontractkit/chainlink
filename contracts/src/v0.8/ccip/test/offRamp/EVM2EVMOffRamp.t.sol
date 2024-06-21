@@ -6,6 +6,8 @@ import {IPoolV1} from "../../interfaces/IPool.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
 
 import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
+
+import {GenericReceiver} from "../../../shared/test/testhelpers/GenericReceiver.sol";
 import {AggregateRateLimiter} from "../../AggregateRateLimiter.sol";
 import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
@@ -187,6 +189,125 @@ contract EVM2EVMOffRamp_ccipReceive is EVM2EVMOffRampSetup {
 
 contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
   error PausedError();
+
+  function _generateMsgWithoutTokens(
+    uint256 gasLimit,
+    bytes memory messageData
+  ) internal view returns (Internal.EVM2EVMMessage memory) {
+    Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageNoTokens(1);
+    message.gasLimit = gasLimit;
+    message.data = messageData;
+    message.messageId = Internal._hash(
+      message,
+      keccak256(
+        abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, SOURCE_CHAIN_SELECTOR, DEST_CHAIN_SELECTOR, ON_RAMP_ADDRESS)
+      )
+    );
+    return message;
+  }
+
+  function test_Fuzz_trialExecuteWithoutTokens_Success(bytes4 funcSelector, bytes memory messageData) public {
+    vm.assume(
+      funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector
+        && funcSelector != 0x5100fc21 && funcSelector != 0x00000000 // s_toRevert(), which is public and therefore has a function selector
+    );
+
+    // Convert bytes4 into bytes memory to use in the message
+    Internal.EVM2EVMMessage memory message = _generateMsgWithoutTokens(GAS_LIMIT, messageData);
+
+    // Convert an Internal.EVM2EVMMessage into a Client.Any2EVMMessage digestable by the client
+    Client.Any2EVMMessage memory receivedMessage = _convertToGeneralMessage(message);
+    bytes memory expectedCallData =
+      abi.encodeWithSelector(MaybeRevertMessageReceiver.ccipReceive.selector, receivedMessage);
+
+    vm.expectCall(address(s_receiver), expectedCallData);
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
+    assertEq("", err);
+  }
+
+  function test_Fuzz_trialExecuteWithTokens_Success(uint16 tokenAmount, bytes calldata messageData) public {
+    vm.assume(tokenAmount != 0);
+
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = uint256(tokenAmount);
+    amounts[1] = uint256(tokenAmount);
+
+    Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
+    // console.log(message.length);
+    message.data = messageData;
+
+    IERC20 dstToken0 = IERC20(s_destTokens[0]);
+    uint256 startingBalance = dstToken0.balanceOf(message.receiver);
+
+    vm.expectCall(s_destTokens[0], abi.encodeWithSelector(IERC20.transfer.selector, address(s_receiver), amounts[0]));
+
+    (Internal.MessageExecutionState newState, bytes memory err) =
+      s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
+    assertEq("", err);
+
+    // Check that the tokens were transferred
+    assertEq(startingBalance + amounts[0], dstToken0.balanceOf(message.receiver));
+  }
+
+  function test_Fuzz_getSenderNonce(uint8 trialExecutions) public {
+    vm.assume(trialExecutions > 1);
+
+    Internal.EVM2EVMMessage[] memory messages;
+
+    if (trialExecutions == 1) {
+      messages = new Internal.EVM2EVMMessage[](1);
+      messages[0] = _generateAny2EVMMessageNoTokens(0);
+    } else {
+      messages = _generateSingleBasicMessage();
+    }
+
+    // Fuzz the number of calls from the sender to ensure that getSenderNonce works
+    for (uint256 i = 1; i < trialExecutions; ++i) {
+      s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+      messages[0].nonce++;
+      messages[0].sequenceNumber++;
+      messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+    }
+
+    messages[0].nonce = 0;
+    messages[0].sequenceNumber = 0;
+    messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    uint64 nonceBefore = s_offRamp.getSenderNonce(messages[0].sender);
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+    assertEq(s_offRamp.getSenderNonce(messages[0].sender), nonceBefore, "sender nonce is not as expected");
+  }
+
+  function test_Fuzz_getSenderNonceWithPrevOffRamp_Success(uint8 trialExecutions) public {
+    vm.assume(trialExecutions > 1);
+    // Fuzz a random nonce for getSenderNonce
+    test_Fuzz_getSenderNonce(trialExecutions);
+
+    address prevOffRamp = address(s_offRamp);
+    deployOffRamp(s_mockCommitStore, s_destRouter, prevOffRamp);
+
+    // Make sure the off-ramp address has changed by querying the static config
+    assertNotEq(address(s_offRamp), prevOffRamp);
+    EVM2EVMOffRamp.StaticConfig memory staticConfig = s_offRamp.getStaticConfig();
+    assertEq(staticConfig.prevOffRamp, prevOffRamp, "Previous offRamp does not match expected address");
+
+    // Since i_prevOffRamp != address(0) and senderNonce == 0, there should be a call to the previous offRamp
+    vm.expectCall(prevOffRamp, abi.encodeWithSelector(s_offRamp.getSenderNonce.selector, OWNER));
+    uint256 currentSenderNonce = s_offRamp.getSenderNonce(OWNER);
+    assertNotEq(currentSenderNonce, 0, "Sender nonce should not be zero");
+    assertEq(currentSenderNonce, trialExecutions - 1, "Sender Nonce does not match expected trial executions");
+
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
+    s_offRamp.execute(_generateReportFromMessages(messages), new uint256[](0));
+
+    currentSenderNonce = s_offRamp.getSenderNonce(OWNER);
+    assertEq(currentSenderNonce, trialExecutions - 1, "Sender Nonce on new offramp does not match expected executions");
+  }
 
   function test_SingleMessageNoTokens_Success() public {
     Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage();
@@ -1795,6 +1916,62 @@ contract EVM2EVMOffRamp_updateRateLimitTokens is EVM2EVMOffRampSetup {
 
     assertEq(1, destTokens.length);
     assertEq(adds[1].destToken, destTokens[0]);
+  }
+
+  function test_Fuzz_UpdateRateLimitTokens(uint8 numTokens) public {
+    // Needs to be more than 1 so that the division doesn't round down and the even makes the comparisons simpler
+    vm.assume(numTokens > 1 && numTokens % 2 == 0);
+
+    // Clear the Rate limit tokens array so the test can start from a baseline
+    (address[] memory sourceTokens, address[] memory destTokens) = s_offRamp.getAllRateLimitTokens();
+    EVM2EVMOffRamp.RateLimitToken[] memory removes = new EVM2EVMOffRamp.RateLimitToken[](sourceTokens.length);
+    for (uint256 x = 0; x < removes.length; x++) {
+      removes[x] = EVM2EVMOffRamp.RateLimitToken({sourceToken: sourceTokens[x], destToken: destTokens[x]});
+    }
+    s_offRamp.updateRateLimitTokens(removes, new EVM2EVMOffRamp.RateLimitToken[](0));
+
+    // Sanity check that the rateLimitTokens were successfully cleared
+    (sourceTokens, destTokens) = s_offRamp.getAllRateLimitTokens();
+    assertEq(sourceTokens.length, 0, "sourceTokenLength should be zero");
+
+    EVM2EVMOffRamp.RateLimitToken[] memory adds = new EVM2EVMOffRamp.RateLimitToken[](numTokens);
+
+    for (uint256 x = 0; x < numTokens; x++) {
+      address tokenAddr = vm.addr(x + 1);
+
+      // Create an array of several fake tokens to add which are deployed on the same address on both chains for simplicity
+      adds[x] = EVM2EVMOffRamp.RateLimitToken({sourceToken: tokenAddr, destToken: tokenAddr});
+    }
+
+    // Attempt to add the tokens to the RateLimitToken Array
+    s_offRamp.updateRateLimitTokens(new EVM2EVMOffRamp.RateLimitToken[](0), adds);
+
+    // Retrieve them from storage and make sure that they all match the expected adds
+    (sourceTokens, destTokens) = s_offRamp.getAllRateLimitTokens();
+
+    for (uint256 x = 0; x < sourceTokens.length; x++) {
+      // Check that the tokens match the ones we generated earlier
+      assertEq(sourceTokens[x], adds[x].sourceToken, "Source token doesn't match add");
+      assertEq(destTokens[x], adds[x].sourceToken, "dest Token doesn't match add");
+    }
+
+    // Attempt to remove half of the numTokens by removing the second half of the list and copying it to a removes array
+    removes = new EVM2EVMOffRamp.RateLimitToken[](adds.length / 2);
+
+    for (uint256 x = 0; x < adds.length / 2; x++) {
+      removes[x] = adds[x + (adds.length / 2)];
+    }
+
+    // Attempt to update again, this time adding nothing and removing the second half of the tokens
+    s_offRamp.updateRateLimitTokens(removes, new EVM2EVMOffRamp.RateLimitToken[](0));
+
+    (sourceTokens, destTokens) = s_offRamp.getAllRateLimitTokens();
+    assertEq(sourceTokens.length, adds.length / 2, "Current Rate limit token length is not half of the original adds");
+    for (uint256 x = 0; x < sourceTokens.length; x++) {
+      // Check that the tokens match the ones we generated earlier and didn't remove in the previous step
+      assertEq(sourceTokens[x], adds[x].sourceToken, "Source token doesn't match add after removes");
+      assertEq(destTokens[x], adds[x].destToken, "dest Token doesn't match add after removes");
+    }
   }
 
   // Reverts
