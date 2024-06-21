@@ -284,12 +284,15 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		start = 1
 	}
 
+	startBlock := start
+	bestEffort := false
+
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
 		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
 		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
+			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector, bestEffort)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
@@ -305,6 +308,10 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				continue
 			}
 			start += int64(blockRate)
+			if start >= latestBlock && !bestEffort {
+				bestEffort = true
+				start = startBlock
+			}
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)

@@ -26,7 +26,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -167,12 +167,12 @@ func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[in
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
 	start, end := getBlockWindow(block, blockRate)
-	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
+	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector, bestEffort)
 }
 
 // dequeue pulls logs from the buffers, depends the given selector (upkeepSelector),
@@ -180,7 +180,7 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 // and the maximum number of results (capacity).
 // Returns logs and the number of remaining logs in the buffer for the given range and selector.
 // NOTE: this method is not thread safe and should be called within a lock.
-func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
 	for _, q := range b.queues {
@@ -189,7 +189,9 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			continue
 		}
 
-		if q.dequeued[start] >= upkeepLimit {
+		if bestEffort {
+			upkeepLimit = capacity
+		} else if q.dequeued[start] >= upkeepLimit {
 			// if we have already dequeued the minimum commitment for this window, skip it
 			continue
 		}
