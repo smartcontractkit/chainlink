@@ -1096,7 +1096,7 @@ func (o *OCRSoakTest) postGrafanaAnnotation(text string, tags []string) {
 	_, _, err := grafanaClient.PostAnnotation(grafana.PostAnnotation{
 		DashboardUID: *dashboardUID,
 		Tags:         tags,
-		Text:         fmt.Sprintf("<pre>%s</pre>", text),
+		Text:         fmt.Sprintf("<b>Test Namespace: %s<pre>%s</pre></b>", o.namespace, text),
 	})
 	if err != nil {
 		o.log.Error().Err(err).Msg("Error posting annotation to Grafana")
