@@ -439,7 +439,8 @@ func (p *Plugin) Close() error {
 
 	var errs []error
 	for _, networkID := range p.liquidityGraph.GetNetworks() {
-		p.lggr.Infow("closing liquidityManager network", "network", networkID)
+		lggr := p.lggr.With("network", networkID, "chainID", networkID.ChainID())
+		lggr.Infow("closing liquidityManager network")
 
 		liquidityManagerAddress, err := p.liquidityGraph.GetLiquidityManagerAddress(networkID)
 		if err != nil {
@@ -458,7 +459,7 @@ func (p *Plugin) Close() error {
 			continue
 		}
 
-		p.lggr.Infow("finished closing liquidityManager network", "network", networkID, "liquidityManager", liquidityManagerAddress.String())
+		lggr.Infow("finished closing liquidityManager network", "liquidityManager", liquidityManagerAddress.String())
 	}
 
 	return multierr.Combine(errs...)
@@ -497,7 +498,7 @@ func (p *Plugin) syncGraph(ctx context.Context) error {
 }
 
 func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) ([]models.PendingTransfer, error) {
-	p.lggr.Infow("loading pending transfers")
+	lggr.Infow("loading pending transfers")
 
 	pendingTransfers := make([]models.PendingTransfer, 0)
 	edges, err := p.liquidityGraph.GetEdges()
@@ -505,13 +506,14 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) (
 		return nil, fmt.Errorf("get edges: %w", err)
 	}
 	for _, edge := range edges {
+		logger := lggr.With("sourceNetwork", edge.Source, "sourceChainID", edge.Source.ChainID(), "destNetwork", edge.Dest, "destChainID", edge.Dest.ChainID())
 		bridge, err := p.bridgeFactory.NewBridge(edge.Source, edge.Dest)
 		if err != nil {
 			return nil, fmt.Errorf("init bridge: %w", err)
 		}
 
 		if bridge == nil {
-			lggr.Warnw("no bridge found for network pair", "sourceNetwork", edge.Source, "destNetwork", edge.Dest)
+			logger.Warn("no bridge found for network pair")
 			continue
 		}
 
@@ -529,11 +531,10 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) (
 			return nil, fmt.Errorf("get pending transfers: %w", err)
 		}
 
-		lggr.Infow("loaded pending transfers for network", "network", edge.Source, "pendingTransfers", netPendingTransfers)
+		logger.Infow("loaded pending transfers for network", "pendingTransfers", netPendingTransfers)
 		pendingTransfers = append(pendingTransfers, netPendingTransfers...)
 	}
 
-	// todo: why do we add this here? it's not used anywhere
 	return pendingTransfers, nil
 }
 

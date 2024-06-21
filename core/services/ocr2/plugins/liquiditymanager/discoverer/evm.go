@@ -47,11 +47,12 @@ func (e *evmDiscoverer) Discover(ctx context.Context) (graph.Graph, error) {
 		NetworkSelector:  e.masterSelector,
 		LiquidityManager: e.masterLiquidityManager,
 	}, func(ctx context.Context, v graph.Vertex) (graph.Data, []graph.Vertex, error) {
+		lggr := e.lggr.With("selector", v.NetworkSelector, "chainID", v.NetworkSelector.ChainID(), "addr", v.LiquidityManager)
 		d, n, err := e.getVertexData(ctx, v)
 		if err != nil {
-			e.lggr.Warnw("failed to get vertex data", "selector", v.NetworkSelector, "addr", v.LiquidityManager, "error", err)
+			lggr.Warnw("failed to get vertex data", "error", err)
 		} else {
-			e.lggr.Debugw("Got vertex data", "selector", v.NetworkSelector, "addr", v.LiquidityManager, "data", d)
+			lggr.Debugw("Got vertex data", "data", d)
 		}
 		return d, n, err
 	})
@@ -165,13 +166,13 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 func (e *evmDiscoverer) updateLiquidity(ctx context.Context, selector models.NetworkSelector, g graph.Graph, liquidityGetter evmLiquidityGetter) error {
 	lmAddress, err := g.GetLiquidityManagerAddress(selector)
 	if err != nil {
-		return fmt.Errorf("get rebalancer address: %w", err)
+		return fmt.Errorf("get rebalancer address(%d, %s): %w", selector, lmAddress, err)
 	}
 	liquidity, err := liquidityGetter(ctx, selector, common.Address(lmAddress))
 	if err != nil {
-		return fmt.Errorf("get liquidity: %w", err)
+		return fmt.Errorf("get liquidity (%d, %s): %w", selector, lmAddress, err)
 	}
-	e.lggr.Debugw("Updating liquidity", "liquidity", liquidity, "selector", selector, "lmAddress", lmAddress)
+	e.lggr.Debugw("Updating liquidity", "liquidity", liquidity, "selector", selector, "chainID", selector.ChainID(), "lmAddress", lmAddress)
 	_ = g.SetLiquidity(selector, liquidity) // TODO: handle non-existing network
 	return nil
 }
@@ -190,11 +191,11 @@ func (e *evmDiscoverer) getDep(selector models.NetworkSelector) (*evmDep, bool) 
 func (e *evmDiscoverer) defaultLiquidityGetter(ctx context.Context, selector models.NetworkSelector, lmAddress common.Address) (*big.Int, error) {
 	dep, ok := e.getDep(selector)
 	if !ok {
-		return nil, fmt.Errorf("no client for master chain %+v", selector)
+		return nil, fmt.Errorf("no client for master chain %d", selector)
 	}
 	rebal, err := liquiditymanager.NewLiquidityManager(lmAddress, dep.ethClient)
 	if err != nil {
-		return nil, fmt.Errorf("new liquiditymanager: %w", err)
+		return nil, fmt.Errorf("new liquiditymanager (%d, %s): %w", selector, lmAddress, err)
 	}
 	return rebal.GetLiquidity(&bind.CallOpts{
 		Context: ctx,

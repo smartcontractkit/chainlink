@@ -93,11 +93,11 @@ func validateItems[T any](keyFn func(T) string, items []T, validateFns ...func(T
 	for _, item := range items {
 		k := keyFn(item)
 		if existing[k] {
-			return fmt.Errorf("duplicated item")
+			return fmt.Errorf("duplicated item (%s)", k)
 		}
 		for _, validateFn := range validateFns {
 			if err := validateFn(item); err != nil {
-				return fmt.Errorf("invalid item: %w", err)
+				return fmt.Errorf("invalid item (%s): %w", k, err)
 			}
 		}
 		existing[k] = true

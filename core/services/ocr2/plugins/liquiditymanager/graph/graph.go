@@ -136,7 +136,20 @@ func (g *liquidityGraph) String() string {
 	g.lock.RLock()
 	defer g.lock.RUnlock()
 
-	return fmt.Sprintf("Graph{networksGraph: %+v, networkBalance: %+v}", g.adj, g.data)
+	type network struct {
+		Selector models.NetworkSelector
+		ChainID  uint64
+	}
+	adj := make([]network, 0, len(g.adj))
+	for n := range g.adj {
+		adj = append(adj, network{Selector: n, ChainID: n.ChainID()})
+	}
+	data := make(map[network]Data, len(g.data))
+	for n, d := range g.data {
+		data[network{Selector: n, ChainID: n.ChainID()}] = d
+	}
+
+	return fmt.Sprintf("Graph{graph: %+v, data: %+v}", adj, data)
 }
 
 func (g *liquidityGraph) Reset() {
