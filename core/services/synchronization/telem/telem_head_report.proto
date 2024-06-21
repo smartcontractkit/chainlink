@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message HeadReportRequest  {
+  string chain_id=1;
+  uint64 timestamp = 3;
+  uint64 block_number = 4;
+  string block_hash = 5;
+  bool finalized = 6;
+}

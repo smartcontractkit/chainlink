@@ -22,6 +22,7 @@ const (
 	OCR3Mercury       TelemetryType = "ocr3-mercury"
 	AutomationCustom  TelemetryType = "automation-custom"
 	OCR3Automation    TelemetryType = "ocr3-automation"
+	HeadReport        TelemetryType = "head-report"
 )
 
 type TelemPayload struct {
