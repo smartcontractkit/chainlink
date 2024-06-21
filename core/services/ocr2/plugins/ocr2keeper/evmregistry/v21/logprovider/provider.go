@@ -295,6 +295,8 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	case BufferVersionV1:
 		blockRate, logLimitLow, maxResults, numOfUpkeeps := p.getBufferDequeueArgs()
 
+		iterationStep := 1
+
 		if p.iterations == p.currentIteration {
 			p.currentIteration = 0
 			p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
@@ -312,6 +314,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 			if !bestEffort {
 				upkeepSelectorFn = DefaultUpkeepSelector
 				upkeepLimit = int(p.opts.LogLimit)
+				iterationStep = 0
 			}
 
 			logs, remaining := p.bufferV1.Dequeue(start, blockRate, upkeepLimit, maxResults-len(payloads), upkeepSelectorFn, bestEffort)
@@ -335,7 +338,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				start = startBlock
 			}
 		}
-		p.currentIteration++
+		p.currentIteration += iterationStep
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
 		for _, l := range logs {
