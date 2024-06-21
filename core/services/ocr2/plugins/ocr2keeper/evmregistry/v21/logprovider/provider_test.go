@@ -1972,7 +1972,6 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 0, blockWindowCounts[8])   // ..all remaining 45 logs from this window...
 		assert.Equal(t, 10, blockWindowCounts[12]) // ...and 35 logs from this window
 		assert.Equal(t, 45, blockWindowCounts[16])
-
 	})
 
 	t.Run("sparsely populated blocks", func(t *testing.T) {

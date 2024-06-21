@@ -58,7 +58,6 @@ func (c *dequeueCoordinator) Sync(queues map[string]*upkeepLogQueue, blockRate u
 
 	for uid, queue := range queues {
 		for blockNumber, logs := range queue.logs {
-
 			startWindow, _ := getBlockWindow(blockNumber, int(blockRate))
 
 			c.enqueuedLogs[startWindow] += len(logs)
@@ -70,29 +69,6 @@ func (c *dequeueCoordinator) Sync(queues map[string]*upkeepLogQueue, blockRate u
 					uid: len(logs),
 				}
 			}
-
-		}
-	}
-}
-
-func (c *dequeueCoordinator) CountEnqueuedLogsForWindow(uid *big.Int, blockNumber int64, blockRate uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	startWindow, _ := getBlockWindow(blockNumber, int(blockRate))
-
-	c.enqueuedLogs[startWindow] += 1
-
-	if perUpkeepLogs, ok := c.enqueuedUpkeepLogs[startWindow]; ok {
-		if logs, ok := perUpkeepLogs[uid.String()]; ok {
-			perUpkeepLogs[uid.String()] = logs + 1
-			c.enqueuedUpkeepLogs[startWindow] = perUpkeepLogs
-		} else {
-			c.enqueuedUpkeepLogs[startWindow][uid.String()] = 1
-		}
-	} else {
-		c.enqueuedUpkeepLogs[startWindow] = map[string]int{
-			uid.String(): 1,
 		}
 	}
 }
