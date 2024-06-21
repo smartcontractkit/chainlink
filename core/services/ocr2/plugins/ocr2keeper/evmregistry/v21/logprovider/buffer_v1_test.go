@@ -228,7 +228,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 5, 10, func(id *big.Int) bool { return false }),
+			args:     newDequeueArgs(10, 5, 5, 10, func(id *big.Int) (bool, int) { return false, -1 }),
 			lookback: 20,
 			results:  []logpoller.Log{},
 		},
@@ -299,8 +299,8 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 
 		assert.Equal(t, 5, iterations)
 
-		upkeepSelectorFn := func(id *big.Int) bool {
-			return id.Int64()%int64(iterations) == int64(0) // on this dequeue attempt, current iteration will be 0
+		upkeepSelectorFn := func(id *big.Int) (bool, int) {
+			return id.Int64()%int64(iterations) == int64(0), -1 // on this dequeue attempt, current iteration will be 0
 		}
 
 		logs, remaining := buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
@@ -315,8 +315,8 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
 		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
-		upkeepSelectorFn = func(id *big.Int) bool {
-			return id.Int64()%int64(iterations) == int64(1) // on this dequeue attempt, current iteration will be 1
+		upkeepSelectorFn = func(id *big.Int) (bool, int) {
+			return id.Int64()%int64(iterations) == int64(1), -1 // on this dequeue attempt, current iteration will be 1
 		}
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
@@ -331,8 +331,8 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
 		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
-		upkeepSelectorFn = func(id *big.Int) bool {
-			return id.Int64()%int64(iterations) == int64(2) // on this dequeue attempt, current iteration will be 2
+		upkeepSelectorFn = func(id *big.Int) (bool, int) {
+			return id.Int64()%int64(iterations) == int64(2), -1 // on this dequeue attempt, current iteration will be 2
 		}
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
@@ -347,8 +347,8 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
 		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
-		upkeepSelectorFn = func(id *big.Int) bool {
-			return id.Int64()%int64(iterations) == int64(3) // on this dequeue attempt, current iteration will be 3
+		upkeepSelectorFn = func(id *big.Int) (bool, int) {
+			return id.Int64()%int64(iterations) == int64(3), -1 // on this dequeue attempt, current iteration will be 3
 		}
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
@@ -363,8 +363,8 @@ func TestLogEventBufferV1_Dequeue_highLoad(t *testing.T) {
 		assert.Equal(t, 100, countLogs(bufV1.queues["4"].logs))
 		assert.Equal(t, 95, countLogs(bufV1.queues["5"].logs))
 
-		upkeepSelectorFn = func(id *big.Int) bool {
-			return id.Int64()%int64(iterations) == int64(4) // on this dequeue attempt, current iteration will be 4
+		upkeepSelectorFn = func(id *big.Int) (bool, int) {
+			return id.Int64()%int64(iterations) == int64(4), -1 // on this dequeue attempt, current iteration will be 4
 		}
 
 		logs, remaining = buf.Dequeue(100, 101, 5, maxResults, upkeepSelectorFn)
@@ -668,10 +668,10 @@ type dequeueArgs struct {
 	blockRate      int
 	upkeepLimit    int
 	maxResults     int
-	upkeepSelector func(id *big.Int) bool
+	upkeepSelector func(id *big.Int) (bool, int)
 }
 
-func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
+func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) (bool, int)) dequeueArgs {
 	args := dequeueArgs{
 		block:          block,
 		blockRate:      blockRate,

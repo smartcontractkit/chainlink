@@ -8,7 +8,7 @@ type DequeueCoordinator interface {
 	// GetDequeueBlockWindow identifies a block window ready for processing between the given start and latest block numbers.
 	// It prioritizes windows that need to have the minimum guaranteed logs dequeued before considering windows with
 	// remaining logs to be dequeued, as a best effort.
-	GetDequeueBlockWindow(start int64, latestBlock int64, blockRate int, minGuarantee int) (int64, int64, map[string]bool, bool)
+	GetDequeueBlockWindow(start int64, latestBlock int64, blockRate int, minGuarantee int) (int64, int64, map[string]int, bool)
 	// CountDequeuedLogsForWindow updates the status of a block window based on the number of logs dequeued,
 	// remaining logs, and the number of upkeeps. This function tracks remaining and dequeued logs for the specified
 	// block window, determines if a block window has had the minimum number of guaranteed logs dequeued, and marks a
@@ -70,11 +70,11 @@ func (c *dequeueCoordinator) Sync(queues map[string]*upkeepLogQueue, blockRate u
 	}
 }
 
-func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int64, blockRate int, minGuarantee int) (int64, int64, map[string]bool, bool) {
+func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int64, blockRate int, logLimitLow int) (int64, int64, map[string]int, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	upkeepIDs := map[string]bool{}
+	upkeepIDs := map[string]int{}
 
 	startBlockWindow, _ := getBlockWindow(start, blockRate)
 
@@ -87,16 +87,20 @@ func (c *dequeueCoordinator) GetDequeueBlockWindow(start int64, latestBlock int6
 
 		// find the upkeep IDs in this window that need min dequeue
 		for upkeepID, remainingLogCount := range c.enqueuedUpkeepLogs[blockWindow] {
-			if windowDequeues, ok := c.dequeuedUpkeepLogs[blockWindow]; ok {
-				if upkeepDequeue := windowDequeues[upkeepID]; upkeepDequeue < minGuarantee {
-					upkeepIDs[upkeepID] = true
-				}
-			} else {
-				// this window hasn't been dequeued for any upkeep yet
-				if remainingLogCount > 0 {
-					upkeepIDs[upkeepID] = true
-				}
+			if remainingLogCount == 0 {
+				continue
 			}
+
+			var dequeuedLogs int
+			if windowDequeues, ok := c.dequeuedUpkeepLogs[blockWindow]; ok {
+				dequeuedLogs = windowDequeues[upkeepID]
+			}
+
+			if dequeuedLogs >= logLimitLow {
+				continue
+			}
+
+			upkeepIDs[upkeepID] = logLimitLow - dequeuedLogs
 		}
 
 		startWindow, end := getBlockWindow(blockWindow, blockRate)

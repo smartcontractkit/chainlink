@@ -25,7 +25,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) (bool, int)) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -34,8 +34,8 @@ type LogBuffer interface {
 	SyncFilters(filterStore UpkeepFilterStore) error
 }
 
-func DefaultUpkeepSelector(id *big.Int) bool {
-	return true
+func DefaultUpkeepSelector(id *big.Int) (bool, int) {
+	return true, -1
 }
 
 type logBufferOptions struct {
@@ -165,7 +165,7 @@ func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) (bool, int)) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
@@ -177,16 +177,21 @@ func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkee
 // and the maximum number of results (capacity).
 // Returns logs and the number of remaining logs in the buffer for the given range and selector.
 // NOTE: this method is not thread safe and should be called within a lock.
-func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) (bool, int)) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
 	var selectedUpkeeps int
 	numLogs := 0
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
-		if !upkeepSelector(q.id) {
+		shouldDequeue, upkeepLogLimit := upkeepSelector(q.id)
+		if !shouldDequeue {
 			continue
 		}
+		if upkeepLogLimit != -1 {
+			upkeepLimit = upkeepLogLimit
+		}
+
 		selectedUpkeeps++
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
