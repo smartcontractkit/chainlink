@@ -8,26 +8,30 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func Test_HeadReporterService(t *testing.T) {
-	t.Run("c", func(t *testing.T) {
+	t.Run("report everything", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
 		headReporter := mocks.NewHeadReporter(t)
-		service := headreporter.NewHeadReporterServiceWithReporters(db, newLegacyChainContainer(t, db), logger.TestLogger(t), []headreporter.HeadReporter{headReporter})
+		service := headreporter.NewHeadReporterServiceWithReporters(db, newLegacyChainContainer(t, db), logger.TestLogger(t), []headreporter.HeadReporter{headReporter}, time.Second)
 		err := service.Start(testutils.Context(t))
 		require.NoError(t, err)
 
+		var reportCalls atomic.Int32
 		head := newHead()
-		headReporter.On("ReportNewHead", mock.Anything, &head).Return(nil)
-		headReporter.On("ReportPeriodic", mock.Anything).Return(nil)
+		headReporter.On("ReportNewHead", mock.Anything, &head).Run(func(args mock.Arguments) {
+			reportCalls.Add(1)
+		}).Return(nil)
+		headReporter.On("ReportPeriodic", mock.Anything).Run(func(args mock.Arguments) {
+			reportCalls.Add(1)
+		}).Return(nil)
 		service.OnNewLongestChain(testutils.Context(t), &head)
 
-		require.Eventually(t, func() bool {
-			return headReporter.AssertCalled(t, "ReportNewHead", mock.Anything, &head) && headReporter.AssertCalled(t, "ReportPeriodic", mock.Anything)
-		}, time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return reportCalls.Load() == 2 }, 5*time.Second, 100*time.Millisecond)
 	})
 }
