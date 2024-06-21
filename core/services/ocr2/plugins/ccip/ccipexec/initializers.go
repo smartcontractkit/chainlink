@@ -113,7 +113,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, lggr logger.Logger, jb j
 	versionFinder := factory.NewEvmVersionFinder()
 	unregisterFuncs := []func() error{
 		func() error {
-			return factory.CloseCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt())
+			return factory.CloseCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller())
 		},
 		func() error {
 			return factory.CloseOnRampReader(lggr, versionFinder, params.offRampConfig.SourceChainSelector, params.offRampConfig.ChainSelector, params.offRampConfig.OnRamp, params.sourceChain.LogPoller(), params.sourceChain.Client())
@@ -223,9 +223,19 @@ func jobSpecToExecPluginConfig(ctx context.Context, lggr logger.Logger, jb job.J
 		return nil, nil, nil, nil, errors.Wrap(err, "could not get source native token")
 	}
 
-	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller(), params.sourceChain.GasEstimator(), params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt())
+	commitStoreReader, err := factory.NewCommitStoreReader(lggr, versionFinder, params.offRampConfig.CommitStore, params.destChain.Client(), params.destChain.LogPoller())
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "could not load commitStoreReader reader")
+	}
+
+	err = commitStoreReader.SetGasEstimator(ctx, params.sourceChain.GasEstimator())
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("could not set gas estimator: %w", err)
+	}
+
+	err = commitStoreReader.SetSourceMaxGasPrice(ctx, params.sourceChain.Config().EVM().GasEstimator().PriceMax().ToInt())
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("could not set source max gas price: %w", err)
 	}
 
 	tokenDataProviders, err := initTokenDataProviders(lggr, jobIDToString(jb.ID), params.pluginConfig, params.sourceChain.LogPoller())

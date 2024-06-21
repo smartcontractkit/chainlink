@@ -3,9 +3,13 @@
 package mocks
 
 import (
+	big "math/big"
+
 	ccip "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	context "context"
+
+	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -405,6 +409,42 @@ func (_m *CommitStoreReader) OffchainConfig(ctx context.Context) (ccip.CommitOff
 	}
 
 	return r0, r1
+}
+
+// SetGasEstimator provides a mock function with given fields: ctx, gpe
+func (_m *CommitStoreReader) SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error {
+	ret := _m.Called(ctx, gpe)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetGasEstimator")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, gas.EvmFeeEstimator) error); ok {
+		r0 = rf(ctx, gpe)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetSourceMaxGasPrice provides a mock function with given fields: ctx, sourceMaxGasPrice
+func (_m *CommitStoreReader) SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error {
+	ret := _m.Called(ctx, sourceMaxGasPrice)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetSourceMaxGasPrice")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) error); ok {
+		r0 = rf(ctx, sourceMaxGasPrice)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // VerifyExecutionReport provides a mock function with given fields: ctx, report

@@ -2,7 +2,6 @@ package v1_5_0
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,7 +9,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -43,8 +41,8 @@ func (c *CommitStore) IsDown(ctx context.Context) (bool, error) {
 	return !unPausedAndNotCursed, nil
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (*CommitStore, error) {
-	v120, err := v1_2_0.NewCommitStore(lggr, addr, ec, lp, estimator, sourceMaxGasPrice)
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller) (*CommitStore, error) {
+	v120, err := v1_2_0.NewCommitStore(lggr, addr, ec, lp)
 	if err != nil {
 		return nil, err
 	}

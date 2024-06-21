@@ -26,12 +26,12 @@ func TestCommitStore(t *testing.T) {
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 		versionFinder := newMockVersionFinder(ccipconfig.CommitStore, *semver.MustParse(versionStr), nil)
-		_, err := NewCommitStoreReader(lggr, versionFinder, addr, nil, lp, nil, nil)
+		_, err := NewCommitStoreReader(lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
 
 		expFilterName := logpoller.FilterName(v1_0_0.EXEC_REPORT_ACCEPTS, addr)
 		lp.On("UnregisterFilter", mock.Anything, expFilterName).Return(nil)
-		err = CloseCommitStoreReader(lggr, versionFinder, addr, nil, lp, nil, nil)
+		err = CloseCommitStoreReader(lggr, versionFinder, addr, nil, lp)
 		assert.NoError(t, err)
 	}
 }

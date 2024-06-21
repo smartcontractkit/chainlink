@@ -1,7 +1,11 @@
 package ccipdata
 
 import (
+	"context"
+	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,6 +60,8 @@ func NewCommitOffchainConfig(
 //go:generate mockery --quiet --name CommitStoreReader --filename commit_store_reader_mock.go --case=underscore
 type CommitStoreReader interface {
 	cciptypes.CommitStoreReader
+	SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error
+	SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error
 }
 
 // FetchCommitStoreStaticConfig provides access to a commitStore's static config, which is required to access the source chain ID.
