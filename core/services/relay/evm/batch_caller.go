@@ -59,7 +59,7 @@ func (c BatchCall) String() string {
 
 // Implement the String method for the Call struct
 func (c Call) String() string {
-	return fmt.Sprintf("contract: %s, address: %s, method: %s, params: %+v",
+	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v",
 		c.contractAddress.Hex(), c.contractName, c.methodName, c.params)
 }
 
