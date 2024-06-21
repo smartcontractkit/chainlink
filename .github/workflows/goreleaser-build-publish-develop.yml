@@ -10,27 +10,14 @@ jobs:
     outputs:
       goreleaser-metadata: ${{ steps.build-sign-publish.outputs.goreleaser-metadata }}
       goreleaser-artifacts: ${{ steps.build-sign-publish.outputs.goreleaser-artifacts }}
-    environment: build-develop
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_ARN }}
-          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          mask-aws-account-id: true
-          role-session-name: goreleaser-build-publish-chainlink.push-develop
       - name: Build, sign, and publish image
         id: build-sign-publish
         uses: ./.github/actions/goreleaser-build-sign-publish
         with:
-          enable-docker-publish: "true"
-          docker-registry: ${{ secrets.AWS_DEVELOP_ECR_HOSTNAME }}
+          enable-docker-publish: "false"
           enable-goreleaser-snapshot: "true"
           goreleaser-exec: ./tools/bin/goreleaser_wrapper
           goreleaser-config: .goreleaser.develop.yaml
