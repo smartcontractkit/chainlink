@@ -311,14 +311,20 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		}
 
 		for len(payloads) < maxResults {
-			startWindow, end, canDequeue := p.dequeueCoordinator.GetDequeueBlockWindow(start, latestBlock, blockRate, numOfUpkeeps*logLimitLow)
+			startWindow, end, upkeepIDs, canDequeue := p.dequeueCoordinator.GetDequeueBlockWindow(start, latestBlock, blockRate, int(p.opts.LogLimit))
 			if !canDequeue {
 				p.lggr.Debugw("Nothing to dequeue", "start", start, "latestBlock", latestBlock)
 				break
 			}
 
-			upkeepSelectorFn := func(id *big.Int) bool {
-				return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+			upkeepSelectorFn := func(id *big.Int) (bool, int) {
+				if upkeepIDs != nil {
+					if upkeepLogLimit, ok := upkeepIDs[id.String()]; ok {
+						return true, upkeepLogLimit
+					}
+					return false, 0
+				}
+				return id.Int64()%int64(p.iterations) == int64(p.currentIteration), -1
 			}
 
 			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
@@ -333,7 +339,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				}
 			}
 
-			p.dequeueCoordinator.CountDequeuedLogsForWindow(startWindow, len(logs), numOfUpkeeps*logLimitLow)
+			p.dequeueCoordinator.CountDequeuedLogsForWindow(startWindow, logs, int(p.opts.LogLimit))
 		}
 		p.currentIteration++
 	default:
