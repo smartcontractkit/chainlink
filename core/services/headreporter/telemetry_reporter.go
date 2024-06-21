@@ -26,12 +26,12 @@ func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr lo
 		endpoints[chain.ID()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)
 	}
 	return &telemetryReporter{
-		logger:    lggr,
+		logger:    lggr.Named("TelemetryReporter"),
 		endpoints: endpoints,
 	}
 }
 
-func (t *telemetryReporter) reportOnHead(ctx context.Context, head *evmtypes.Head) {
+func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt()]
 	request := &telem.HeadReportRequest{
 		ChainId:     head.EVMChainID.String(),
@@ -48,6 +48,6 @@ func (t *telemetryReporter) reportOnHead(ctx context.Context, head *evmtypes.Hea
 	monitoringEndpoint.SendLog(bytes)
 }
 
-func (t *telemetryReporter) reportPeriodic(ctx context.Context) {
+func (t *telemetryReporter) ReportPeriodic(ctx context.Context) {
 	//do nothing
 }

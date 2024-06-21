@@ -70,7 +70,7 @@ func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.Legac
 	return &prometheusReporter{
 		ds:      ds,
 		chains:  chainContainer,
-		lggr:    lggr.Named(name),
+		lggr:    lggr.Named("PrometheusReporter"),
 		backend: backend,
 	}
 }
@@ -83,7 +83,7 @@ func (pr *prometheusReporter) getTxm(evmChainID *big.Int) (txmgr.TxManager, erro
 	return chain.TxManager(), nil
 }
 
-func (pr *prometheusReporter) reportOnHead(ctx context.Context, head *evmtypes.Head) {
+func (pr *prometheusReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) {
 	evmChainID := head.EVMChainID.ToInt()
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
@@ -148,7 +148,7 @@ func (pr *prometheusReporter) reportMaxUnconfirmedBlocks(ctx context.Context, he
 	return nil
 }
 
-func (pr *prometheusReporter) reportPeriodic(ctx context.Context) {
+func (pr *prometheusReporter) ReportPeriodic(ctx context.Context) {
 	if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
 		pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
 	}
