@@ -141,17 +141,17 @@ jobs:
               implementations_arr+=("geth")
             fi
             new_besu=$(ghlatestreleasechecker "hyperledger/besu" $RELEASED_DAYS_AGO)
-            if [ "new_besu" != "none" ]; then
+            if [ "$new_besu" != "none" ]; then
               echo "New besu release found: $new_besu"
               implementations_arr+=("besu")
             fi
             new_erigon=$(ghlatestreleasechecker "ledgerwatch/erigon" $RELEASED_DAYS_AGO)
-            if [ "new_erigon" != "none" ]; then
+            if [ "$new_erigon" != "none" ]; then
               echo "New erigon release found: $new_erigon"
               implementations_arr+=("erigon")
             fi
             new_nethermind=$(ghlatestreleasechecker "nethermindEth/nethermind" $RELEASED_DAYS_AGO)
-            if [ "new_nethermind" != "none" ]; then
+            if [ "$new_nethermind" != "none" ]; then
               echo "New nethermind release found: $new_nethermind"
               implementations_arr+=("nethermind")
             fi
