@@ -303,7 +303,7 @@ func (r *rpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 	select {
 	case <-stopInFLightCh:
 		sub.Unsubscribe()
-		return fmt.Errorf("failed to registred subscription - all in flight requests were canceled")
+		return fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
 	}
 	// TODO: BCI-3358 - delete sub when caller unsubscribes.
