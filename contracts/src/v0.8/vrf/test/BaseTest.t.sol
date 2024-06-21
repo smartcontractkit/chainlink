@@ -14,4 +14,21 @@ contract BaseTest is Test {
     // Set msg.sender to OWNER until changePrank or stopPrank is called
     vm.startPrank(OWNER);
   }
+
+  function getRandomAddresses(uint256 length) internal returns (address[] memory) {
+    address[] memory addresses = new address[](length);
+    for (uint256 i = 0; i < length; ++i) {
+      addresses[i] = address(uint160(uint(keccak256(abi.encodePacked(i)))));
+    }
+    return addresses;
+  }
+
+  function addressIsIn(address addr, address[] memory addresses) internal returns (bool) {
+    for (uint256 i = 0; i < addresses.length; ++i) {
+      if (addresses[i] == addr) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

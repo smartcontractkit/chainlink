@@ -98,7 +98,7 @@ contract VRFTestHelper is VRF {
     super._verifyVRFProof(pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv);
   }
 
-  function randomValueFromVRFProof_(Proof memory proof, uint256 seed) public view returns (uint256 output) {
+  function randomValueFromVRFProof_(Proof calldata proof, uint256 seed) public view returns (uint256 output) {
     return super._randomValueFromVRFProof(proof, seed);
   }
 }

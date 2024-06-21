@@ -364,8 +364,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   }
 
   function _getRandomnessFromProof(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     ProvingKey memory key = s_provingKeys[keyHash];
@@ -414,7 +414,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 
   function _deliverRandomness(
     uint256 requestId,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     uint256[] memory randomWords
   ) internal returns (bool success) {
     VRFConsumerBaseV2Plus v;
@@ -440,8 +440,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillRandomWords(
-    Proof memory proof,
-    VRFTypes.RequestCommitmentV2Plus memory rc,
+    Proof calldata proof,
+    VRFTypes.RequestCommitmentV2Plus calldata rc,
     bool onlyPremium
   ) external nonReentrant returns (uint96 payment) {
     uint256 startGas = gasleft();

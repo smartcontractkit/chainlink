@@ -304,7 +304,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
   function testMigrateRevertsWhenInvalidCaller() external {
     changePrank(makeAddr("invalidCaller"));
-    vm.expectRevert(bytes("Not subscription owner"));
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.MustBeSubOwner.selector, OWNER));
     v1Coordinator.migrate(subId, v2CoordinatorAddr);
   }
 
@@ -319,7 +319,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       false
     );
 
-    vm.expectRevert(bytes("Pending request exists"));
+    vm.expectRevert(SubscriptionAPI.PendingRequestExists.selector);
     v1Coordinator.migrate(subId, v2CoordinatorAddr);
   }
 
