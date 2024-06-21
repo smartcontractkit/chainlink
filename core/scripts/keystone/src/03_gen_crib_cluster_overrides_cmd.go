@@ -25,7 +25,10 @@ func (g *generateCribClusterOverrides) Run(args []string) {
 	chainID := fs.Int64("chainid", 11155111, "chain id")
 	cribRepoPath := os.Getenv("KEYSTONE_CRIB_REPO_PATH")
 	if cribRepoPath == "" {
-		cribRepoPath = "../../crib"
+		cribRepoPath = "../../../crib"
+	}
+	if _, err := os.Stat(cribRepoPath); os.IsNotExist(err) {
+		helpers.PanicErr(err)
 	}
 	outputPath := fs.String("outpath", cribRepoPath, "the path to output the generated overrides")
 
