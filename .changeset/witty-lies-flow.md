@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Update docs for keystone + CRIB refs
+Update docs for keystone + CRIB refs #internal
