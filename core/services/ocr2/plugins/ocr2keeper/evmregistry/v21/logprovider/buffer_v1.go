@@ -188,7 +188,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 		if !shouldDequeue {
 			continue
 		}
-		if upkeepLogLimit != -1 {
+		if upkeepLogLimit != -1 && upkeepLogLimit < upkeepLimit {
 			upkeepLimit = upkeepLogLimit
 		}
 
