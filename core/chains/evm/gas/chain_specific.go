@@ -19,7 +19,7 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
-	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma {
+	if chainType == config.ChainOptimismBedrock || chainType == config.ChainKroma || chainType == config.ChainScroll {
 		// This is a special deposit transaction type introduced in Bedrock upgrade.
 		// This is a system transaction that it will occur at least one time per block.
 		// We should discard this type before even processing it to avoid flooding the
