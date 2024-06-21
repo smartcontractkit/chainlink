@@ -126,7 +126,6 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBacke
 }
 
 func TestIntegration_MercuryV1(t *testing.T) {
-	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/MERC-5697")
 	t.Parallel()
 
 	integration_MercuryV1(t)
