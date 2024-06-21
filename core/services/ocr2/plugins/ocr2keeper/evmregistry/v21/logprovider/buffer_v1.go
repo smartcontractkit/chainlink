@@ -188,6 +188,12 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			// if the upkeep is not selected, skip it
 			continue
 		}
+
+		if q.dequeued[start] >= upkeepLimit {
+			// if we have already dequeued the minimum commitment for this window, skip it
+			continue
+		}
+
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
 			// if there are no logs in the range, skip the upkeep
@@ -208,6 +214,9 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 			capacity--
 		}
 		remainingLogs += remaining
+
+		// update the buffer with how many logs we have dequeued
+		q.dequeued[start] += len(logs)
 	}
 	return result, remainingLogs
 }
@@ -290,18 +299,20 @@ type upkeepLogQueue struct {
 	logs []logpoller.Log
 	// states keeps track of the state of the logs that are known to the queue
 	// and the block number they were seen at
-	states map[string]logTriggerStateEntry
-	lock   sync.RWMutex
+	states   map[string]logTriggerStateEntry
+	dequeued map[int64]int
+	lock     sync.RWMutex
 }
 
 func newUpkeepLogQueue(lggr logger.Logger, id *big.Int, opts *logBufferOptions) *upkeepLogQueue {
 	maxLogs := int(opts.windowLimit.Load()) * opts.windows() // limit per window * windows
 	return &upkeepLogQueue{
-		lggr:   lggr.With("upkeepID", id.String()),
-		id:     id,
-		opts:   opts,
-		logs:   make([]logpoller.Log, 0, maxLogs),
-		states: make(map[string]logTriggerStateEntry),
+		lggr:     lggr.With("upkeepID", id.String()),
+		id:       id,
+		opts:     opts,
+		logs:     make([]logpoller.Log, 0, maxLogs),
+		states:   make(map[string]logTriggerStateEntry),
+		dequeued: map[int64]int{},
 	}
 }
 
