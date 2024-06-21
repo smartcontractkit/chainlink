@@ -63,7 +63,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
   // solhint-disable-next-line gas-struct-packing
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-    uint256 totalCalldataWeight;
+//    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
   }
@@ -109,13 +109,13 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     TransmitVars memory transmitVars = TransmitVars({
       numUpkeepsPassedChecks: 0,
-      totalCalldataWeight: 0,
+//      totalCalldataWeight: 0,
       totalReimbursement: 0,
       totalPremium: 0
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
+//    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
@@ -144,16 +144,20 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
 
       // To split L1 fee across the upkeeps, assign a weight to this upkeep based on the length
       // of the perform data and calldata overhead
-      upkeepTransmitInfo[i].calldataWeight =
-        report.performDatas[i].length +
-        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
+//      upkeepTransmitInfo[i].calldataWeight =
+//        report.performDatas[i].length +
+//        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
+//        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
+//      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
 
       // Deduct that gasUsed by upkeep from our running counter
       // for zksync, the L1 gas is deducted at the end of a transaction but gasUsed here already has all the cost
       // if we don't add l1GasUsed here for zksync, `gasOverhead - gasleft()` will underflow
-      gasOverhead = upkeepTransmitInfo[i].l1GasUsed + gasOverhead - upkeepTransmitInfo[i].gasUsed;
+      if (upkeepTransmitInfo[i].gasUsed > gasOverhead) {
+        emit WrongArithmetics(gasOverhead, upkeepTransmitInfo[i].gasUsed, 0);
+        return;
+      }
+      gasOverhead -= upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
@@ -166,6 +170,10 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
     // This is the overall gas overhead that will be split across performed upkeeps
     // Take upper bound of 16 gas per callData bytes
     // for zksync, this place will underflow if we don't add back l1GasUsed
+    if ((16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead < gasleft()) {
+      emit WrongArithmetics((16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead, gasleft(), 1);
+      return;
+    }
     gasOverhead = (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead - gasleft();
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
 
@@ -181,7 +189,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
-            (l1Fee * upkeepTransmitInfo[i].calldataWeight) / transmitVars.totalCalldataWeight
+            upkeepTransmitInfo[i].l1GasUsed * tx.gasprice
           );
           transmitVars.totalPremium += premium;
           transmitVars.totalReimbursement += reimbursement;
@@ -198,7 +206,8 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
           emit UpkeepPerformedDetails(
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
-            gasOverhead
+            gasOverhead,
+            upkeepTransmitInfo[i].l1GasUsed
           );
         }
       }

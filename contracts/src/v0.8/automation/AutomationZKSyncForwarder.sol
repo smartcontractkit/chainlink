@@ -74,8 +74,8 @@ contract AutomationZKSyncForwarder {
 
         uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
         uint256 g2 = gasleft();
-        gasUsed = g1 - g2 + pubdataUsed * gasPerPubdataByte;
-        emit GasDetails(pubdataUsed, gasPerPubdataByte, g1 - g2, p1, p2, g1, g2);
+        gasUsed = g1 - g2;
+        emit GasDetails(pubdataUsed, gasPerPubdataByte, gasUsed, p1, p2, g1, g2);
         return (success, gasUsed, pubdataUsed * gasPerPubdataByte);
     }
 
