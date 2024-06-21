@@ -322,6 +322,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 					if upkeepLogLimit, ok := upkeepIDs[id.String()]; ok {
 						return true, upkeepLogLimit
 					}
+					return false, 0
 				}
 				return id.Int64()%int64(p.iterations) == int64(p.currentIteration), -1
 			}
