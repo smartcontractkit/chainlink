@@ -1,13 +1,10 @@
 package logprovider
 
 import (
-	"math/big"
 	"sync"
 )
 
 type DequeueCoordinator interface {
-	// CountEnqueuedLogsForWindow tracks how many logs are added for a particular block during the enqueue process.
-	CountEnqueuedLogsForWindow(uid *big.Int, blockNumber int64, blockRate uint32)
 	// GetDequeueBlockWindow identifies a block window ready for processing between the given start and latest block numbers.
 	// It prioritizes windows that need to have the minimum guaranteed logs dequeued before considering windows with
 	// remaining logs to be dequeued, as a best effort.
