@@ -48,7 +48,7 @@ func TestCommitReportEncoding(t *testing.T) {
 		Interval:   cciptypes.CommitStoreInterval{Min: 1, Max: 10},
 	}
 
-	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), nil, nil)
+	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t))
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(ctx, report)

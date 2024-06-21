@@ -344,7 +344,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			})).Return(destDecimals, nil).Maybe()
 
 			lp := mocks2.NewLogPoller(t)
-			commitStoreReader, err := v1_2_0.NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil, nil)
+			commitStoreReader, err := v1_2_0.NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, lp)
 			assert.NoError(t, err)
 
 			healthCheck := ccipcachemocks.NewChainHealthcheck(t)

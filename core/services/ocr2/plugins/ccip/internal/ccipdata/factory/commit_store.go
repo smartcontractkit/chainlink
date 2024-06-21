@@ -1,15 +1,12 @@
 package factory
 
 import (
-	"math/big"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
@@ -24,16 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
 
-func NewCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (ccipdata.CommitStoreReader, error) {
-	return initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, false)
+func NewCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) (ccipdata.CommitStoreReader, error) {
+	return initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, false)
 }
 
-func CloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) error {
-	_, err := initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, estimator, sourceMaxGasPrice, true)
+func CloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller) error {
+	_, err := initOrCloseCommitStoreReader(lggr, versionFinder, address, ec, lp, true)
 	return err
 }
 
-func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int, closeReader bool) (ccipdata.CommitStoreReader, error) {
+func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, closeReader bool) (ccipdata.CommitStoreReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(address, ec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")
@@ -47,11 +44,11 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 		return nil, err
 	}
 
-	lggr.Infow("Initializing CommitStore Reader", "version", version.String(), "sourceMaxGasPrice", sourceMaxGasPrice.String())
+	lggr.Infow("Initializing CommitStore Reader", "version", version.String())
 
 	switch version.String() {
 	case ccipdata.V1_0_0, ccipdata.V1_1_0: // Versions are identical
-		cs, err := v1_0_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator, sourceMaxGasPrice)
+		cs, err := v1_0_0.NewCommitStore(lggr, evmAddr, ec, lp)
 		if err != nil {
 			return nil, err
 		}
@@ -60,7 +57,7 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 		}
 		return cs, cs.RegisterFilters()
 	case ccipdata.V1_2_0:
-		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator, sourceMaxGasPrice)
+		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp)
 		if err != nil {
 			return nil, err
 		}
@@ -69,7 +66,7 @@ func initOrCloseCommitStoreReader(lggr logger.Logger, versionFinder VersionFinde
 		}
 		return cs, cs.RegisterFilters()
 	case ccipdata.V1_5_0:
-		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp, estimator, sourceMaxGasPrice)
+		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp)
 		if err != nil {
 			return nil, err
 		}

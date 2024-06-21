@@ -40,7 +40,7 @@ type CommitStore struct {
 	lggr                      logger.Logger
 	lp                        logpoller.LogPoller
 	address                   common.Address
-	estimator                 gas.EvmFeeEstimator
+	estimator                 *gas.EvmFeeEstimator
 	sourceMaxGasPrice         *big.Int
 	filters                   []logpoller.Filter
 	reportAcceptedSig         common.Hash
@@ -180,6 +180,20 @@ func (c *CommitStore) GasPriceEstimator(context.Context) (cciptypes.GasPriceEsti
 	return c.gasPriceEstimator, nil
 }
 
+func (c *CommitStore) SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error {
+	c.configMu.RLock()
+	defer c.configMu.RUnlock()
+	c.estimator = &gpe
+	return nil
+}
+
+func (c *CommitStore) SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error {
+	c.configMu.RLock()
+	defer c.configMu.RUnlock()
+	c.sourceMaxGasPrice = sourceMaxGasPrice
+	return nil
+}
+
 // Do not change the JSON format of this struct without consulting with the RDD people first.
 type JSONCommitOffchainConfig struct {
 	SourceFinalityDepth      uint32
@@ -225,9 +239,18 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		return "", err
 	}
 	c.configMu.Lock()
+	defer c.configMu.Unlock()
+
+	if c.estimator == nil {
+		return "", fmt.Errorf("this CommitStore estimator is nil. SetGasEstimator should be called before ChangeConfig")
+	}
+
+	if c.sourceMaxGasPrice == nil {
+		return "", fmt.Errorf("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
+	}
 
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(
-		c.estimator,
+		*c.estimator,
 		c.sourceMaxGasPrice,
 		int64(offchainConfigParsed.ExecGasPriceDeviationPPB),
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
@@ -240,7 +263,6 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		offchainConfigParsed.InflightCacheExpiry.Duration(),
 		offchainConfigParsed.PriceReportingDisabled,
 	)
-	c.configMu.Unlock()
 
 	c.lggr.Infow("ChangeConfig",
 		"offchainConfig", offchainConfigParsed,
@@ -392,7 +414,7 @@ func (c *CommitStore) RegisterFilters() error {
 	return logpollerutil.RegisterLpFilters(c.lp, c.filters)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, sourceMaxGasPrice *big.Int) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller) (*CommitStore, error) {
 	commitStore, err := commit_store_1_2_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err
@@ -410,12 +432,13 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 	}
 
 	return &CommitStore{
-		commitStore:       commitStore,
-		address:           addr,
-		lggr:              lggr,
-		lp:                lp,
-		estimator:         estimator,
-		sourceMaxGasPrice: sourceMaxGasPrice,
+		commitStore: commitStore,
+		address:     addr,
+		lggr:        lggr,
+		lp:          lp,
+
+		// Note that sourceMaxGasPrice and estimator now have explicit setters (CCIP-2493)
+
 		filters:           filters,
 		commitReportArgs:  commitReportArgs,
 		reportAcceptedSig: eventSig,
