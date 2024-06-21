@@ -16,25 +16,6 @@ before:
 # See https://goreleaser.com/customization/build/
 builds:
   - binary: chainlink
-    id: linux-arm64
-    goos:
-      - linux
-    goarch:
-      - arm64
-    hooks:
-      post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
-    env:
-      - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target aarch64-linux-gnu
-      - CCX=$ZIG_EXEC c++ -target aarch64-linux-gnu
-    flags:
-      - -trimpath
-      - -buildmode=pie
-    ldflags:
-      - -s -w -r=$ORIGIN/libs
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Version={{ .Env.CHAINLINK_VERSION }}
-      - -X github.com/smartcontractkit/chainlink/v2/core/static.Sha={{ .FullCommit }}
-  - binary: chainlink
     id: linux-amd64
     goos:
       - linux
@@ -56,54 +37,6 @@ builds:
 
 # See https://goreleaser.com/customization/docker/
 dockers:
-  - id: root-linux-amd64
-    dockerfile: core/chainlink.goreleaser.Dockerfile
-    use: buildx
-    goos: linux
-    goarch: amd64
-    extra_files:
-      - tmp/linux_amd64/libs
-      - tmp/linux_amd64/plugins
-      - tools/bin/ldd_fix
-    build_flag_templates:
-      - "--platform=linux/amd64"
-      - "--pull"
-      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
-      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
-      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-amd64"
-  - id: root-linux-arm64
-    dockerfile: core/chainlink.goreleaser.Dockerfile
-    use: buildx
-    goos: linux
-    goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
-      - tmp/linux_arm64/plugins
-      - tools/bin/ldd_fix
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--pull"
-      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
-      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
-      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-arm64"
   - id: linux-amd64
     dockerfile: core/chainlink.goreleaser.Dockerfile
     use: buildx
@@ -129,50 +62,15 @@ dockers:
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-amd64"
-  - id: linux-arm64
-    dockerfile: core/chainlink.goreleaser.Dockerfile
-    use: buildx
-    goos: linux
-    goarch: arm64
-    extra_files:
-      - tmp/linux_arm64/libs
-      - tmp/linux_arm64/plugins
-      - tools/bin/ldd_fix
-    build_flag_templates:
-      - "--platform=linux/arm64"
-      - "--pull"
-      - "--build-arg=CHAINLINK_USER=chainlink"
-      - "--build-arg=COMMIT_SHA={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.description={{ .Env.IMAGE_LABEL_DESCRIPTION }}"
-      - "--label=org.opencontainers.image.licenses={{ .Env.IMAGE_LABEL_LICENSES }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.source={{ .Env.IMAGE_LABEL_SOURCE }}"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Env.CHAINLINK_VERSION }}"
-      - "--label=org.opencontainers.image.url={{ .Env.IMAGE_LABEL_SOURCE }}"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-arm64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-arm64"
 
 # See https://goreleaser.com/customization/docker_manifest/
 docker_manifests:
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-root-arm64"
-  - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root"
-    image_templates:
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-root-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:develop-arm64"
   - name_template: "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}"
     image_templates:
       - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-amd64"
-      - "{{ .Env.IMAGE_PREFIX }}/{{ .ProjectName }}-develop:sha-{{ .ShortCommit }}-arm64"
 
 # See https://goreleaser.com/customization/docker_sign/
 docker_signs:

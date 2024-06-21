@@ -1,9 +1,7 @@
 name: "Build publish Chainlink develop on private ECR"
 
 on:
-  push:
-    branches:
-      - develop
+  pull_request:
 
 jobs:
   push-chainlink-develop-goreleaser:
@@ -49,4 +47,3 @@ jobs:
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
           this-job-name: push-chainlink-develop-goreleaser
         continue-on-error: true
-        
