@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"math"
 	"math/big"
 	"runtime"
 	"sync"
@@ -112,6 +113,9 @@ type logEventProvider struct {
 	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
+
+	currentIteration int
+	iterations       int
 
 	chainID *big.Int
 }
@@ -289,10 +293,28 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
-		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
-		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
+		blockRate, logLimitLow, maxResults, numOfUpkeeps := p.getBufferDequeueArgs()
+
+		if p.iterations == p.currentIteration {
+			p.currentIteration = 0
+			p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
+			if p.iterations == 0 {
+				p.iterations = 1
+			}
+		}
+
 		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector, bestEffort)
+			upkeepSelectorFn := func(id *big.Int) bool {
+				return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+			}
+
+			upkeepLimit := logLimitLow
+			if !bestEffort {
+				upkeepSelectorFn = DefaultUpkeepSelector
+				upkeepLimit = int(p.opts.LogLimit)
+			}
+
+			logs, remaining := p.bufferV1.Dequeue(start, blockRate, upkeepLimit, maxResults-len(payloads), upkeepSelectorFn, bestEffort)
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
@@ -313,6 +335,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				start = startBlock
 			}
 		}
+		p.currentIteration++
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
 		for _, l := range logs {
