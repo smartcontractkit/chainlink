@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/grafana"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -689,9 +690,9 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			chaos.AddListener(ocrTestChaosListener{t: o.t})
 			// Add Grafana annotation if configured
 			if o.Config.Logging.Grafana != nil && o.Config.Logging.Grafana.BaseUrl != nil && o.Config.Logging.Grafana.BearerToken != nil && o.Config.Logging.Grafana.DashboardUID != nil {
-				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(
-					*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken,
-					*o.Config.Logging.Grafana.DashboardUID, o.log))
+				chaos.AddListener(k8schaos.NewSingleLineGrafanaAnnotator(*o.Config.Logging.Grafana.BaseUrl, *o.Config.Logging.Grafana.BearerToken, *o.Config.Logging.Grafana.DashboardUID, o.log))
+			} else {
+				o.log.Warn().Msg("Skipping Grafana annotation for chaos simulation. Grafana config is missing either BearerToken, BaseUrl or DashboardUID")
 			}
 		}
 	}
@@ -751,6 +752,7 @@ func (o *OCRSoakTest) startGethBlockchainReorg(network blockchain.EVMNetwork, co
 		Str("URL", client.URL).
 		Int("Depth", conf.Depth).
 		Msg("Starting blockchain reorg on Simulated Geth chain")
+	o.postGrafanaAnnotation(fmt.Sprintf("Starting blockchain reorg on Simulated Geth chain with depth %d", conf.Depth), nil)
 	err := client.GethSetHead(conf.Depth)
 	require.NoError(o.t, err, "Error starting blockchain reorg on Simulated Geth chain")
 	o.reorgHappened = true
@@ -762,7 +764,9 @@ func (o *OCRSoakTest) startAnvilGasSpikeSimulation(network blockchain.EVMNetwork
 		Str("URL", client.URL).
 		Any("GasSpikeSimulationConfig", conf).
 		Msg("Starting gas spike simulation on Anvil chain")
+	o.postGrafanaAnnotation(fmt.Sprintf("Starting gas spike simulation on Anvil chain. Config: %+v", conf), nil)
 	err := client.ModulateBaseFeeOverDuration(o.log, conf.StartGasPrice, conf.GasRisePercentage, conf.Duration.Duration, conf.GasSpike)
+	o.postGrafanaAnnotation(fmt.Sprintf("Gas spike simulation ended. Config: %+v", conf), nil)
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	o.gasSpikeSimulationHappened = true
 }
@@ -779,7 +783,8 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 		Uint64("LatestGasUsed", latestBlock.GasUsed()).
 		Uint64("LatestGasLimit", latestBlock.GasLimit()).
 		Int64("NewGasLimit", newGasLimit).
-		Msg("Starting new gas limit simulation on Anvil chain")
+		Msg("Starting gas limit simulation on Anvil chain")
+	o.postGrafanaAnnotation(fmt.Sprintf("Starting gas limit simulation on Anvil chain. Config: %+v", conf), nil)
 	err = client.AnvilSetBlockGasLimit([]interface{}{newGasLimit})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	time.Sleep(conf.Duration.Duration)
@@ -788,6 +793,7 @@ func (o *OCRSoakTest) startAnvilGasLimitSimulation(network blockchain.EVMNetwork
 		Any("GasLimitSimulationConfig", conf).
 		Uint64("LatestGasLimit", latestBlock.GasLimit()).
 		Msg("Returning to old gas limit simulation on Anvil chain")
+	o.postGrafanaAnnotation(fmt.Sprintf("Returning to old gas limit simulation on Anvil chain. Config: %+v", conf), nil)
 	err = client.AnvilSetBlockGasLimit([]interface{}{latestBlock.GasLimit()})
 	require.NoError(o.t, err, "Error starting gas simulation on Anvil chain")
 	o.gasLimitSimulationHappened = true
@@ -1072,6 +1078,31 @@ func (o *OCRSoakTest) getContractAddresses() []common.Address {
 	}
 
 	return contractAddresses
+}
+
+func (o *OCRSoakTest) postGrafanaAnnotation(text string, tags []string) {
+	var grafanaClient *grafana.Client
+	var dashboardUID *string
+	if o.Config.Logging.Grafana != nil {
+		baseURL := o.Config.Logging.Grafana.BaseUrl
+		dashboardUID = o.Config.Logging.Grafana.DashboardUID
+		token := o.Config.Logging.Grafana.BearerToken
+		if token == nil || baseURL == nil || dashboardUID == nil {
+			o.log.Warn().Msg("Skipping Grafana annotation. Grafana config is missing either BearerToken, BaseUrl or DashboardUID")
+			return
+		}
+		grafanaClient = grafana.NewGrafanaClient(*baseURL, *token)
+	}
+	_, _, err := grafanaClient.PostAnnotation(grafana.PostAnnotation{
+		DashboardUID: *dashboardUID,
+		Tags:         tags,
+		Text:         fmt.Sprintf("<b>Test Namespace: %s<pre>%s</pre></b>", o.namespace, text),
+	})
+	if err != nil {
+		o.log.Error().Err(err).Msg("Error posting annotation to Grafana")
+	} else {
+		o.log.Info().Msgf("Annotated Grafana dashboard with text: %s", text)
+	}
 }
 
 type ocrTestChaosListener struct {
