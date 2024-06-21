@@ -239,6 +239,10 @@ func (c *Cache) doBulkUpsert() {
 	values := maps.Values(c.bridgeLastValueCache)
 	c.mu.RUnlock()
 
+	if len(values) == 0 {
+		return
+	}
+
 	if err := c.ORM.BulkUpsertBridgeResponse(context.Background(), values); err != nil {
 		c.lggr.Warnf("bulk upsert of bridge responses failed: %s", err.Error())
 	}
