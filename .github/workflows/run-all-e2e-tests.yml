@@ -66,6 +66,24 @@ jobs:
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
+      - name: Check Test Matrices
+        run: |
+          DOCKER_MATRIX=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+          K8S_MATRIX=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+
+          # Check if jq commands succeeded
+          if [ $? -ne 0 ]; then
+            echo "JSON parse error occurred."
+            exit 1
+          fi
+      
+          # Check if both matrices are empty
+          if [[ "$DOCKER_MATRIX" == "true" ]] && [[ "$K8S_MATRIX" == "true" ]]; then
+            echo "No tests found for inputs: '${{ toJson(github.event.inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
+            exit 1
+          fi
+        shell: bash   
+
   # Run Docker tests
 
   docker-tests:
