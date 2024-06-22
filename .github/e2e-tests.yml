@@ -1,9 +1,7 @@
-# This configuration file defines the Github CI configuration for each E2E test or set of E2E tests.
+# This file defines Github CI configuration for each E2E test and is used by CI workflows to run E2E tests.
 #
 # Each test entry details the Github runner configuration, test environment (Docker or Kubernetes), Go test command, and triggers
 # that determine under what conditions the test should be executed (e.g., on push or nightly builds).
-#
-# This file is used by CI workflows to run E2E tests depending on the trigger and the test type. 
 #
 test-runner-matrix:
 
@@ -12,9 +10,8 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
+    trigger: ["push", "nightly", "pull-request", "release-tag"]
     cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -json
-    # workflow: [nightly-e2e-tests.yml]
-    trigger: ["push", "nightly"]
     pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
 
   # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
@@ -22,6 +19,7 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test-type: docker
     runs-on: ubuntu-latest
+    trigger: ["push", "nightly", "pull-request", "release-tag"]
     cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
@@ -29,14 +27,16 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test-type: docker
     runs-on: ubuntu-latest
+    trigger: ["push", "nightly", "pull-request", "release-tag"]
     cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
-  # Example of configuration for running a single soak test in Kubernetes Remote Runner
+  # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRSoak$
     path: integration-tests/soak/ocr_test.go
     test-type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
+    trigger: ["nightly", "release-tag"] # Run nightly and on release tags
     cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly

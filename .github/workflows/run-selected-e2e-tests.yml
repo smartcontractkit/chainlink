@@ -15,26 +15,6 @@ on:
         type: string
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    environment: integration
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    env:
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
-    steps:
-      - name: Check secret presence
-        run: |
-          if [ -z "${{ secrets.QA_AWS_REGION }}" ]; then
-            echo "Secret is empty"
-          else
-            echo "Secret is present"
-          fi
-
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
