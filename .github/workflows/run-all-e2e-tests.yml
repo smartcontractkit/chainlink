@@ -23,6 +23,7 @@ env:
 
 jobs:
   load-test-configurations:
+    name: Load Test Configurations
     runs-on: ubuntu-latest
     outputs:
       docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
@@ -53,6 +54,7 @@ jobs:
   # Run Docker tests
 
   docker-tests:
+    name: Run Docker Tests (${{ matrix.tests.id }})
     needs: load-test-configurations
     runs-on: ${{ matrix.tests.runsOn }}
     strategy:
@@ -80,6 +82,7 @@ jobs:
 
   build-k8s-runner-test-image:
     if: false
+    name: Build K8s Runner Test Image
     runs-on: ubuntu-latest
     steps:
       - name: Build Test Runner Image
@@ -91,6 +94,7 @@ jobs:
 
   run-k8s-runner-tests:
     if: false
+    name: Run K8s Tests (${{ matrix.tests.id }})
     needs: [load-test-configurations, build-k8s-runner-test-image]
     runs-on: ${{ matrix.tests.runs-on }}
     strategy:
