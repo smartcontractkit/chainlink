@@ -47,7 +47,21 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
+  run-check-tests:
+    name: Check All E2E Tests Defined in CI Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21.7'
+      - name: Run Check Tests Command
+        run: go run .github/scripts/e2e_tests_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml
+
   load-test-configurations:
+    needs: run-check-tests
     name: Load Test Configurations
     runs-on: ubuntu-latest
     outputs:
