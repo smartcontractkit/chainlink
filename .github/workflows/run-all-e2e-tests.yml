@@ -54,7 +54,7 @@ jobs:
 
   docker-tests:
     needs: load-test-configurations
-    runs-on: ${{ matrix.tests.runs-on }}
+    runs-on: ${{ matrix.tests.runsOn }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
