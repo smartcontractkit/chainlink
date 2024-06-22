@@ -1,0 +1,17 @@
+name: Run Nightly E2E Tests
+
+on:
+  schedule:
+    # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
+    - cron: '0 0 * * *'
+
+jobs:
+  call-run-e2e-tests-workflow:
+    # TODO: remove when the workflow is ready
+    if: false
+    name: Run E2E Tests
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink-version: develop
+      test-ids: '*'
+    secrets: inherit
