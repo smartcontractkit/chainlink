@@ -12,7 +12,7 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    cmd: cd integration-tests/ && go test smoke/ocr_test.go -test.parallel=1 -timeout 30m -count=1 -json
+    cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -json
     # workflow: [nightly-e2e-tests.yml]
     trigger: ["push", "nightly"]
     pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
