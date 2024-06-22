@@ -2,9 +2,6 @@
 # It is not meant to be run on its own.
 name: Run E2E Tests
 on:
-  # schedule:
-  #   # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
-  #   - cron: '0 0 * * *'
   workflow_call:
     inputs:
       chainlink-version:
@@ -155,9 +152,6 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Run Tests
-        run: echo "Running - ${{ matrix.tests.cmd }}"
 
   # Run K8s tests using old remote runner
 
