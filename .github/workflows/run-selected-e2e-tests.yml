@@ -21,4 +21,5 @@ jobs:
     with:
       chainlink-version: ${{ github.event.inputs.chainlink-version }}
       test-ids: ${{ github.event.inputs.test-ids }}
-    secrets: inherit
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
