@@ -25,6 +25,8 @@ jobs:
     name: Load Test Configurations
     runs-on: ubuntu-latest
     outputs:
+      run-docker-tests: ${{ steps.check-matrices.outputs.run-docker-tests }}
+      run-k8s-tests: ${{ steps.check-matrices.outputs.run-k8s-tests }}
       docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
       k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
     steps:
@@ -46,23 +48,35 @@ jobs:
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'k8s_remote_runner' -test-ids '${{ github.event.inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'k8s-remote-runner' -test-ids '${{ github.event.inputs.test-ids }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Check Test Matrices
+        id: check-matrices
         run: |
-          DOCKER_MATRIX=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
-          K8S_MATRIX=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+          DOCKER_MATRIX_EMPTY=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+          K8S_MATRIX_EMPTY=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
 
           # Check if jq commands succeeded
           if [ $? -ne 0 ]; then
             echo "JSON parse error occurred."
             exit 1
           fi
-      
+
+          if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]]; then
+            echo "::set-output name=run-docker-tests::false"
+          else
+            echo "::set-output name=run-docker-tests::true"
+          fi
+          if [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
+            echo "::set-output name=run-k8s-tests::false"
+          else
+            echo "::set-output name=run-k8s-tests::true"
+          fi
+
           # Check if both matrices are empty
-          if [[ "$DOCKER_MATRIX" == "true" ]] && [[ "$K8S_MATRIX" == "true" ]]; then
+          if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]] && [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
             echo "No tests found for inputs: '${{ toJson(github.event.inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
             exit 1
           fi
@@ -73,6 +87,7 @@ jobs:
   docker-tests:
     name: Run Docker Tests (${{ matrix.tests.id }})
     needs: load-test-configurations
+    if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' }}
     runs-on: ${{ matrix.tests.runsOn }}
     strategy:
       fail-fast: false
@@ -147,10 +162,13 @@ jobs:
   # Run K8s tests using old remote runner
 
   build-k8s-runner-test-image:
-    if: false
+    needs: load-test-configurations
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
     name: Build K8s Runner Test Image
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2      
       - name: Build Test Runner Image
         uses: ./.github/actions/build-test-image
         with:
@@ -159,9 +177,9 @@ jobs:
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}   
 
   run-k8s-runner-tests:
-    if: false
-    name: Run K8s Tests (${{ matrix.tests.id }})
     needs: [load-test-configurations, build-k8s-runner-test-image]
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
+    name: Run K8s Tests (${{ matrix.tests.id }})
     runs-on: ${{ matrix.tests.runs-on }}
     strategy:
       fail-fast: false

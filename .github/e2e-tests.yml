@@ -23,19 +23,19 @@ test-runner-matrix:
     test-type: docker
     runs-on: ubuntu-latest
     cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
-    pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
   - id: TestOCRv2Basic_in_ocr2_test_go
     path: integration-tests/smoke/ocr2_test.go
     test-type: docker
     runs-on: ubuntu-latest
     cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
-    pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
   # Example of configuration for running a test in Kubernetes Remote Runner
-  - id: TestOCRSoak_in_ocr_test_go
-    path: integration-tests/smoke/ocr2_test.go
+  - id: TestOCRSoak_in_soak/ocr_test.go
+    path: integration-tests/soak/ocr_test.go
     test-type: k8s-remote-runner
     runs-on: ubuntu-latest
     cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
-    pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
