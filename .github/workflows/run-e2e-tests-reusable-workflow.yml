@@ -67,14 +67,14 @@ jobs:
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'docker' -test-ids '${{ github.event.inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ github.event.inputs.test-ids }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'k8s-remote-runner' -test-ids '${{ github.event.inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ github.event.inputs.test-ids }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"

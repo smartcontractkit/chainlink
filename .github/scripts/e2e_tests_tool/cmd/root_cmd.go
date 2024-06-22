@@ -8,10 +8,8 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "e2e_tests_ci_tool",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application`,
+	Use:   "e2e_tests_tool",
+	Short: "A tool to manage E2E tests on Github CI",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -26,6 +24,6 @@ func Execute() {
 func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.AddCommand(findTestsCmd)
 	rootCmd.AddCommand(checkTestsCmd)
+	rootCmd.AddCommand(filterCmd)
 }

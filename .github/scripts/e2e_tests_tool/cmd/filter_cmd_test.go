@@ -1,14 +1,14 @@
-package main
+package cmd
 
 import (
 	"testing"
 )
 
 func TestFilterTestsByID(t *testing.T) {
-	tests := []Test{
-		{ID: "run_all_in_ocr_tests_go", Name: "Run all ocr_tests.go", TestType: "docker"},
-		{ID: "run_all_in_ocr2_tests_go", Name: "Run TestOCRv2Request in ocr2_test.go", TestType: "docker"},
-		{ID: "run_all_in_ocr3_tests_go", Name: "Run TestOCRv2Basic in ocr2_test.go", TestType: "k8s_remote_runner"},
+	tests := []TestConf{
+		{ID: "run_all_in_ocr_tests_go", TestType: "docker"},
+		{ID: "run_all_in_ocr2_tests_go", TestType: "docker"},
+		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner"},
 	}
 
 	cases := []struct {
@@ -24,7 +24,7 @@ func TestFilterTestsByID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			filtered := FilterTests(tests, "", "", "", c.inputIDs)
+			filtered := filterTests(tests, "", "", "", c.inputIDs)
 			if len(filtered) != c.expectedLen {
 				t.Errorf("FilterTests(%s) returned %d tests, expected %d", c.description, len(filtered), c.expectedLen)
 			}
@@ -33,10 +33,10 @@ func TestFilterTestsByID(t *testing.T) {
 }
 
 func TestFilterTestsIntegration(t *testing.T) {
-	tests := []Test{
-		{ID: "run_all_in_ocr_tests_go", Name: "Run all ocr_tests.go", TestType: "docker", Trigger: []string{"nightly"}},
-		{ID: "run_all_in_ocr2_tests_go", Name: "Run TestOCRv2Request in ocr2_test.go", TestType: "docker", Trigger: []string{"push"}},
-		{ID: "run_all_in_ocr3_tests_go", Name: "Run TestOCRv2Basic in ocr2_test.go", TestType: "k8s_remote_runner", Trigger: []string{"push"}},
+	tests := []TestConf{
+		{ID: "run_all_in_ocr_tests_go", TestType: "docker", Trigger: []string{"nightly"}},
+		{ID: "run_all_in_ocr2_tests_go", TestType: "docker", Trigger: []string{"push"}},
+		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner", Trigger: []string{"push"}},
 	}
 
 	cases := []struct {
@@ -55,7 +55,7 @@ func TestFilterTestsIntegration(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			filtered := FilterTests(tests, c.inputNames, c.inputTrigger, c.inputTestType, c.inputIDs)
+			filtered := filterTests(tests, c.inputNames, c.inputTrigger, c.inputTestType, c.inputIDs)
 			if len(filtered) != c.expectedLen {
 				t.Errorf("FilterTests(%s) returned %d tests, expected %d", c.description, len(filtered), c.expectedLen)
 			}

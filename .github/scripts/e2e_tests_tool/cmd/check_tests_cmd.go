@@ -27,7 +27,7 @@ type JobConfig struct {
 
 var checkTestsCmd = &cobra.Command{
 	Use:   "check-tests [directory] [yaml file]",
-	Short: "Check if all tests in a directory are included in the YAML file",
+	Short: "Check if all tests in a directory are included in the test configurations YAML file",
 	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		directory := args[0]
@@ -40,26 +40,6 @@ var checkTestsCmd = &cobra.Command{
 
 		checkTestsInPipeline(yamlFile, tests)
 	},
-}
-
-type Test struct {
-	Name string
-	Path string
-}
-
-type TestRun struct {
-	ID                    string   `yaml:"id" json:"id"`
-	Path                  string   `yaml:"path" json:"path"`
-	TestType              string   `yaml:"test-type" json:"testType"`
-	RunsOn                string   `yaml:"runs-on" json:"runsOn"`
-	Cmd                   string   `yaml:"cmd" json:"cmd"`
-	RemoteRunnerTestSuite string   `yaml:"remote-runner-test-suite" json:"remoteRunnerTestSuite"`
-	PyroscopeEnv          string   `yaml:"pyroscope-env" json:"pyroscopeEnv"`
-	Trigger               []string `yaml:"trigger" json:"trigger"`
-}
-
-type Config struct {
-	Tests []TestRun `yaml:"test-runner-matrix"`
 }
 
 func extractTests(dir string) ([]Test, error) {
@@ -147,8 +127,4 @@ func matchTestNameInCmd(cmd string, testName string) bool {
 		return regexp.MustCompile(pattern).MatchString(escapedTestName)
 	}
 	return false
-}
-
-func init() {
-	rootCmd.AddCommand(checkTestsCmd)
 }
