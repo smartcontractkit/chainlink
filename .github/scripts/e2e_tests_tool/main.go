@@ -65,19 +65,20 @@ func main() {
 		log.Fatalf("Error reading YAML file: %v", err)
 	}
 
-	var tests []Test
-	err = yaml.Unmarshal(data, &tests)
+	var config Config
+	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		log.Fatalf("Error parsing YAML data: %v", err)
 	}
 
-	filteredTests := FilterTests(tests, *names, *trigger, *testType, *testIDs)
-	testsJSON, err := json.Marshal(filteredTests)
+	filteredTests := FilterTests(config.Tests, *names, *trigger, *testType, *testIDs)
+	matrix := map[string][]Test{"tests": filteredTests}
+	matrixJSON, err := json.Marshal(matrix)
 	if err != nil {
-		log.Fatalf("Error marshaling tests to JSON: %v", err)
+		log.Fatalf("Error marshaling matrix to JSON: %v", err)
 	}
 
-	fmt.Printf("%s", testsJSON)
+	fmt.Printf("%s", matrixJSON)
 }
 
 // Utility function to check if a slice contains a string.
