@@ -13,13 +13,14 @@ import (
 
 // Test defines the structure of a test entry in the YAML file.
 type Test struct {
-	ID       string   `yaml:"id" json:"id"`
-	Name     string   `yaml:"name" json:"name"`
-	Path     string   `yaml:"path" json:"path"`
-	TestType string   `yaml:"test-type" json:"testType"`
-	RunsOn   string   `yaml:"runs-on" json:"runsOn"`
-	Cmd      string   `yaml:"cmd" json:"cmd"`
-	Trigger  []string `yaml:"trigger" json:"trigger"`
+	ID           string   `yaml:"id" json:"id"`
+	Name         string   `yaml:"name" json:"name"`
+	Path         string   `yaml:"path" json:"path"`
+	TestType     string   `yaml:"test-type" json:"testType"`
+	RunsOn       string   `yaml:"runs-on" json:"runsOn"`
+	Cmd          string   `yaml:"cmd" json:"cmd"`
+	PyroscopeEnv string   `yaml:"pyroscope-env" json:"pyroscopeEnv"`
+	Trigger      []string `yaml:"trigger" json:"trigger"`
 }
 
 // Config represents the tests configuration.
