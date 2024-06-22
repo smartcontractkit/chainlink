@@ -1,6 +1,5 @@
 name: Run All E2E Tests
 on:
-  push:
   # schedule:
   #   # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
   #   - cron: '0 0 * * *'
@@ -35,13 +34,22 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: '1.21.7'
+      - name: Install jq
+        run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
-        run: echo "::set-output name=matrix::$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'docker' -test-ids '${{ github.event.inputs.test-ids }}')"
+        run: |
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'docker' -test-ids '${{ github.event.inputs.test-ids }}')
+          echo "Docker Tests Matrix:"
+          echo "$MATRIX_JSON" | jq
+          echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
-        run: echo "::set-output name=matrix::$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'k8s_remote_runner' -test-ids '${{ github.event.inputs.test-ids }}')"
-
+        run: |
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go -file .github/e2e-tests.yml -test-type 'k8s_remote_runner' -test-ids '${{ github.event.inputs.test-ids }}')
+          echo "K8s Tests Matrix:"
+          echo "$MATRIX_JSON" | jq
+          echo "::set-output name=matrix::$MATRIX_JSON"
   # Run Docker tests
 
   docker-tests:
