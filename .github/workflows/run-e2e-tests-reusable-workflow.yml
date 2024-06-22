@@ -48,7 +48,7 @@ env:
 
 jobs:
   run-check-tests:
-    name: Check All E2E Tests Defined in CI Configuration
+    name: Check Test Configurations
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -58,7 +58,10 @@ jobs:
         with:
           go-version: '1.21.7'
       - name: Run Check Tests Command
-        run: go run .github/scripts/e2e_tests_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml
+        run: |
+          if ! go run .github/scripts/e2e_tests_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
+            echo "::error::Some E2E test configurations have to be added in .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
+          fi
 
   load-test-configurations:
     needs: run-check-tests

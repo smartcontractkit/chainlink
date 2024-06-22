@@ -1,6 +1,6 @@
-# This configuration file defines the GitHub runner requirements for each E2E test or set of E2E tests.
+# This configuration file defines the Github CI configuration for each E2E test or set of E2E tests.
 #
-# Each test entry details the runner environment (Docker or Kubernetes), Go test command, and triggers
+# Each test entry details the Github runner configuration, test environment (Docker or Kubernetes), Go test command, and triggers
 # that determine under what conditions the test should be executed (e.g., on push or nightly builds).
 #
 # This file is used by CI workflows to run E2E tests depending on the trigger and the test type. 

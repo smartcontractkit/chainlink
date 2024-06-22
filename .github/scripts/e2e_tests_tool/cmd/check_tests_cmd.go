@@ -99,7 +99,7 @@ func checkTestsInPipeline(yamlFile string, tests []Test) {
 			}
 		}
 		if !found {
-			missingTests = append(missingTests, fmt.Sprintf("Test '%s' in file '%s' does not have CI configuration", test.Name, test.Path))
+			missingTests = append(missingTests, fmt.Sprintf("ERROR: Test '%s' in file '%s' does not have CI configuration in '%s'", test.Name, test.Path, yamlFile))
 		}
 	}
 
@@ -107,7 +107,6 @@ func checkTestsInPipeline(yamlFile string, tests []Test) {
 		for _, missing := range missingTests {
 			fmt.Println(missing)
 		}
-		fmt.Printf("\nERROR: These tests must be added to the E2E CI conf in '%s' file.\n", yamlFile)
 		os.Exit(1) // Exit with a failure status
 	}
 }
