@@ -163,7 +163,9 @@ jobs:
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
     name: Build K8s Runner Test Image
     runs-on: ubuntu-latest
+    environment: integration
     permissions:
+      actions: read
       checks: write
       pull-requests: write
       id-token: write
@@ -171,6 +173,13 @@ jobs:
     env:
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
     steps:
+      - name: Check secret presence
+        run: |
+          if [ -z "${{ secrets.QA_AWS_REGION }}" ]; then
+            echo "Secret is empty"
+          else
+            echo "Secret is present"
+          fi
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2      
       - name: Build Test Runner Image
