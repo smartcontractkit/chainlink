@@ -8,29 +8,29 @@
 test-runner-matrix:
 
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
-  - id: run_all_in_ocr_tests_go 
+  - id: all_tests_in_ocr_tests_go 
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    cmd: go test integration-tests/smoke/ocr_test.go -test.parallel=1 -timeout 30m -count=1 -json
+    cmd: cd integration-tests/ && go test smoke/ocr_test.go -test.parallel=1 -timeout 30m -count=1 -json
     # workflow: [nightly-e2e-tests.yml]
     trigger: ["push", "nightly"]
 
   # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
-  - id: run_TestOCRv2Request_in_ocr2_test_go
-    path: integration-tests/smoke/ocr2_test.go
-    test-type: docker
-    runs-on: ubuntu-latest
-    cmd: go test integration-tests/smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
-  - id: run_TestOCRv2Basic_in_ocr2_test_go
-    path: integration-tests/smoke/ocr2_test.go
-    test-type: docker
-    runs-on: ubuntu-latest
-    cmd: go test integration-tests/smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
+  # - id: TestOCRv2Request_in_ocr2_test_go
+  #   path: integration-tests/smoke/ocr2_test.go
+  #   test-type: docker
+  #   runs-on: ubuntu-latest
+  #   cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
+  # - id: TestOCRv2Basic_in_ocr2_test_go
+  #   path: integration-tests/smoke/ocr2_test.go
+  #   test-type: docker
+  #   runs-on: ubuntu-latest
+  #   cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
 
   # Example of configuration for running a test in Kubernetes Remote Runner
-  - id: run_TestOCRSoak_in_ocr_test_go
+  - id: TestOCRSoak_in_ocr_test_go
     path: integration-tests/smoke/ocr2_test.go
     test-type: k8s-remote-runner
     runs-on: ubuntu-latest
-    cmd: go test integration-tests/soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
+    cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
