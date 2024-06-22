@@ -1,0 +1,157 @@
+name: Run Selected E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      testIDs:
+        description: 'Enter test IDs to run separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
+        required: true
+        type: string
+
+jobs:
+  load-test-configurations:
+    runs-on: ubuntu-latest
+    outputs:
+      docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
+      k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.18'
+      - name: Generate Docker Tests Matrix
+        id: set-docker-matrix
+        run: echo "::set-output name=matrix::$(go run ./cmd/parse_e2e_tests.go -file .github/test-runner-matrix.yml -name '${{ github.event.inputs.testIDs }}' -test-type 'docker')"
+      - name: Generate K8s Tests Matrix
+        id: set-k8s-runner-matrix
+        run: echo "::set-output name=matrix::$(go run ./cmd/parse_e2e_tests.go -file .github/test-runner-matrix.yml -name '${{ github.event.inputs.testIDs }}' -test-type 'k8s_remote_runner')"
+
+  docker-tests:
+    needs: load-test-configurations
+    runs-on: ${{ matrix.tests.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Run Tests
+        run: go test ${{ matrix.tests.path }} ${{ matrix.tests.testOpts }}
+
+  # Run K8s tests with old remote runner
+  k8s-runner-tests:
+    needs: load-test-configurations
+    runs-on: ${{ matrix.tests.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.k8s-runner-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Run Tests
+        run: go test ${{ matrix.tests.path }} ${{ matrix.tests.testOpts }}
+
+  # Run K8s tests
+  # Use new remote runner to run K8s tests
+  remote-runner-k8s-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.18
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.18'
+      
+      - name: Load Runner Config
+        run: echo "$RUNNER_CONFIG" > runner.toml
+        env:
+          RUNNER_CONFIG: |
+            # Runner configuration
+            detached_mode = true
+            debug = false
+            
+            [[test_runs]]
+            namespace = "dev-env"
+            rbac_role_name = "dev-role"
+            rbac_service_account_name = "dev-service-account"
+            sync_value = "unique-sync-value-1"
+            ttl_seconds_after_finished = 300
+            image_registry_url = "https://myregistry.dev/"
+            image_name = "dev-image"
+            image_tag = "v1.0.0"
+            test_name = "TestMercuryLoad/all_endpoints"
+            test_config_base64_env_name = "CONFIG_ENV_DEV"
+            test_config_file_path = "/configs/dev/test-config.toml"
+            test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgZGV2"
+            test_timeout = "30m"
+            resources_requests_cpu = "500m"
+            resources_requests_memory = "1Gi"
+            resources_limits_cpu = "1000m"
+            resources_limits_memory = "2Gi"
+            job_count = 2
+            chart_path = "/charts/dev"
+            [envs]
+            WASP_LOG_LEVEL = "info"
+            TEST_LOG_LEVEL = "info"
+            MERCURY_TEST_LOG_LEVEL = "info"
+            
+            [[test_runs]]
+            namespace = "prod-env"
+            rbac_role_name = "prod-role"
+            rbac_service_account_name = "prod-service-account"
+            sync_value = "unique-sync-value-2"
+            ttl_seconds_after_finished = 600
+            image_registry_url = "https://myregistry.prod/"
+            image_name = "prod-image"
+            image_tag = "v1.0.1"
+            test_name = "TestMercuryLoad/all_endpoints"
+            test_config_base64_env_name = "CONFIG_ENV_PROD"
+            test_config_file_path = "/configs/prod/test-config.toml"
+            test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgcHJvZA=="
+            test_timeout = "45m"
+            resources_requests_cpu = "800m"
+            resources_requests_memory = "2Gi"
+            resources_limits_cpu = "1500m"
+            resources_limits_memory = "4Gi"
+            job_count = 3
+            chart_path = "/charts/prod"
+            [envs]
+            WASP_LOG_LEVEL = "info"
+            TEST_LOG_LEVEL = "info"
+            MERCURY_TEST_LOG_LEVEL = "info"
+        
+      # Schedule the tests in K8s in remote runner
+      - name: Run Kubernetes Tests
+        run: go run ./cmd/main.go run -c runner.toml        

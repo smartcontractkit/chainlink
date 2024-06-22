@@ -1,0 +1,202 @@
+name: Run All E2E Tests
+on:
+  # schedule:
+  #   # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
+  #   - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      custom-chainlink-image:
+        description: 'Enter custom Chainlink image to use for the tests. Example: "public.ecr.aws/chainlink/chainlink"'
+        required: false
+        type: string
+      chainlink-version:
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: true
+        type: string
+      test-ids:
+        description: 'Run all tests "*" by default. Or, enter test IDs to run separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
+        default: "*"
+        required: true
+        type: string                
+env: 
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+
+jobs:
+  load-test-configurations:
+    runs-on: ubuntu-latest
+    outputs:
+      docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
+      k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21.7'
+      - name: Generate Docker Tests Matrix
+        id: set-docker-matrix
+        run: echo "::set-output name=matrix::$(go run ./scripts/e2e_tests_tool/main.go -file e2e-tests.yml -test-type 'docker' -test-ids '${{ github.event.inputs.test-ids }}')"
+      - name: Generate K8s Tests Matrix
+        id: set-k8s-runner-matrix
+        run: echo "::set-output name=matrix::$(go run ./scripts/e2e_tests_tool/main.go -file e2e-tests.yml -test-type 'k8s_remote_runner' -test-ids '${{ github.event.inputs.test-ids }}')"
+
+  # Run Docker tests
+
+  docker-tests:
+    needs: load-test-configurations
+    runs-on: ${{ matrix.tests.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Run Tests
+        run: echo "Running - ${{ matrix.tests.cmd }}"
+
+  # Run K8s tests using old remote runner
+
+  build-k8s-runner-test-image:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Test Runner Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}   
+
+  run-k8s-runner-tests:
+    if: false
+    needs: [load-test-configurations, build-k8s-runner-test-image]
+    runs-on: ${{ matrix.tests.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.k8s-runner-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: soak
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
+        with:
+          test_command_to_run: ${{ matrix.tests.cmd }}
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ env.CHAINLINK_VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          should_cleanup: false
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
+
+  # Run K8s tests using new remote runner
+  # remote-runner-k8s-tests:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: golang:1.18
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+      
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v2
+  #       with:
+  #         go-version: '1.18'
+      
+  #     - name: Load Runner Config
+  #       run: echo "$RUNNER_CONFIG" > runner.toml
+  #       env:
+  #         RUNNER_CONFIG: |
+  #           # Runner configuration
+  #           detached_mode = true
+  #           debug = false
+            
+  #           [[test_runs]]
+  #           namespace = "dev-env"
+  #           rbac_role_name = "dev-role"
+  #           rbac_service_account_name = "dev-service-account"
+  #           sync_value = "unique-sync-value-1"
+  #           ttl_seconds_after_finished = 300
+  #           image_registry_url = "https://myregistry.dev/"
+  #           image_name = "dev-image"
+  #           image_tag = "v1.0.0"
+  #           test_name = "TestMercuryLoad/all_endpoints"
+  #           test_config_base64_env_name = "CONFIG_ENV_DEV"
+  #           test_config_file_path = "/configs/dev/test-config.toml"
+  #           test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgZGV2"
+  #           test_timeout = "30m"
+  #           resources_requests_cpu = "500m"
+  #           resources_requests_memory = "1Gi"
+  #           resources_limits_cpu = "1000m"
+  #           resources_limits_memory = "2Gi"
+  #           job_count = 2
+  #           chart_path = "/charts/dev"
+  #           [envs]
+  #           WASP_LOG_LEVEL = "info"
+  #           TEST_LOG_LEVEL = "info"
+  #           MERCURY_TEST_LOG_LEVEL = "info"
+            
+  #           [[test_runs]]
+  #           namespace = "prod-env"
+  #           rbac_role_name = "prod-role"
+  #           rbac_service_account_name = "prod-service-account"
+  #           sync_value = "unique-sync-value-2"
+  #           ttl_seconds_after_finished = 600
+  #           image_registry_url = "https://myregistry.prod/"
+  #           image_name = "prod-image"
+  #           image_tag = "v1.0.1"
+  #           test_name = "TestMercuryLoad/all_endpoints"
+  #           test_config_base64_env_name = "CONFIG_ENV_PROD"
+  #           test_config_file_path = "/configs/prod/test-config.toml"
+  #           test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgcHJvZA=="
+  #           test_timeout = "45m"
+  #           resources_requests_cpu = "800m"
+  #           resources_requests_memory = "2Gi"
+  #           resources_limits_cpu = "1500m"
+  #           resources_limits_memory = "4Gi"
+  #           job_count = 3
+  #           chart_path = "/charts/prod"
+  #           [envs]
+  #           WASP_LOG_LEVEL = "info"
+  #           TEST_LOG_LEVEL = "info"
+  #           MERCURY_TEST_LOG_LEVEL = "info"
+        
+  #     # Schedule the tests in K8s in remote runner
+  #     - name: Run Kubernetes Tests
+  #       run: go run ./cmd/main.go run -c runner.toml        
