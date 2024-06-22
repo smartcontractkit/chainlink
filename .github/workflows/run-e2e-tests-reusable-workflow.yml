@@ -15,6 +15,32 @@ on:
         type: string
     secrets:
       QA_AWS_REGION:
+        required: true
+      QA_AWS_ROLE_TO_ASSUME:
+        required: true
+      QA_AWS_ACCOUNT_NUMBER:
+        required: true
+      QA_PYROSCOPE_INSTANCE:
+        required: true
+      QA_PYROSCOPE_KEY:
+        required: true
+      QA_KUBECONFIG:
+        required: true
+      GRAFANA_INTERNAL_TENANT_ID:
+        required: true
+      GRAFANA_INTERNAL_BASIC_AUTH:
+        required: true
+      GRAFANA_INTERNAL_HOST:
+        required: true
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN:
+        required: true
+      GITHUB_TOKEN:
+        required: true  
+      AWS_REGION:
+        required: true
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN:
+        required: true
+      AWS_API_GW_HOST_GRAFANA:
         required: true        
                
 env: 
