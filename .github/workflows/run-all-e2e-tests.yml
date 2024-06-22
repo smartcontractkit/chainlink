@@ -3,6 +3,21 @@ on:
   # schedule:
   #   # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
   #   - cron: '0 0 * * *'
+  workflow_call:
+    inputs:
+      custom-chainlink-image:
+        description: 'Enter custom Chainlink image to use for the tests. Example: "public.ecr.aws/chainlink/chainlink"'
+        required: false
+        type: string
+      chainlink-version:
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: true
+        type: string
+      test-ids:
+        description: 'Run all tests "*" by default. Or, enter test IDs to run separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
+        default: "*"
+        required: true
+        type: string     
   workflow_dispatch:
     inputs:
       custom-chainlink-image:
