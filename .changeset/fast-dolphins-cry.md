@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-handling connection fault case #bugfix
+handle connection timeout on cache path for ws client LatestReport #bugfix
