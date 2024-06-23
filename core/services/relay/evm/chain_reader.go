@@ -232,11 +232,11 @@ func (cr *chainReader) addMethod(
 		client:       cr.client,
 	})
 
-	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
-	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition.OutputModifications)
 }
 
 func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
@@ -260,7 +260,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
-	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
@@ -304,7 +304,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 
 	cr.bindings.AddReadBinding(contractName, eventName, eb)
 
-	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition.OutputModifications)
 }
 
 // addQueryingReadBindings reuses the eventBinding and maps it to topic and dataWord keys used for QueryKey.
@@ -352,9 +352,9 @@ func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexA
 	return nil
 }
 
-func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
+func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications codec.ModifiersConfig) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	inputMod, err := inputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
@@ -368,8 +368,8 @@ func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arg
 	return nil
 }
 
-func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
-	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
+func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, outputModifications codec.ModifiersConfig) error {
+	mod, err := outputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
