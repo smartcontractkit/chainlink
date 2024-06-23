@@ -272,17 +272,6 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 }
 
 func (w *client) handleWSClientError(err error) {
-	// if the underlying client is closed by another goroutine we need to reset the transport
-	state := w.conn.GetState()
-	if state != connectivity.Ready && state != connectivity.Connecting {
-		w.logger.Infow("Transport is resetting - connection state unusable", "state", w.conn.GetState())
-		select {
-		case w.chResetTransport <- struct{}{}:
-		default:
-			w.logger.Debugf("Transport is already resetting")
-		}
-	}
-
 	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
