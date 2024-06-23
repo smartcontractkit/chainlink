@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/wsrpc/connectivity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -74,7 +73,6 @@ func Test_Client_Transmit(t *testing.T) {
 		}
 		conn := &mocks.MockConn{
 			Ready: true,
-			State: connectivity.Ready,
 		}
 		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet)
 		c.conn = conn
@@ -160,7 +158,6 @@ func Test_Client_LatestReport(t *testing.T) {
 
 			conn := &mocks.MockConn{
 				Ready: true,
-				State: connectivity.Ready,
 			}
 			c := newClient(lggr, csakey.KeyV2{}, nil, "", cacheSet)
 			c.conn = conn
