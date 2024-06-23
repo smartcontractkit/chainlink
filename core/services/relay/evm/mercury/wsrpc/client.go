@@ -259,7 +259,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 	resp, err = w.rawClient.Transmit(ctx, req)
-	w.handleWSClientError(err)
+	w.handleTimeout(err)
 	if err != nil {
 		w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
@@ -271,7 +271,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	return
 }
 
-func (w *client) handleWSClientError(err error) {
+func (w *client) handleTimeout(err error) {
 	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
@@ -298,7 +298,6 @@ func (w *client) handleWSClientError(err error) {
 				// Debug log in case my reasoning is wrong.
 				w.logger.Debugf("Transport is resetting, cnt=%d", cnt)
 			}
-			return
 		}
 	} else {
 		w.consecutiveTimeoutCnt.Store(0)
@@ -308,7 +307,7 @@ func (w *client) handleWSClientError(err error) {
 
 func (w *client) RawLatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
 	resp, err = w.rawClient.LatestReport(ctx, req)
-	w.handleWSClientError(err)
+	w.handleTimeout(err)
 	return
 }
 
