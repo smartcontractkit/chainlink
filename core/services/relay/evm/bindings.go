@@ -77,11 +77,11 @@ func (b bindings) BatchGetLatestValue(ctx context.Context, batchRequests BatchGe
 			switch rb := cb.readBindings[req.readName].(type) {
 			case *methodBinding:
 				batchCall = append(batchCall, Call{
-					contractAddress: rb.address,
-					contractName:    cb.name,
-					methodName:      rb.method,
-					params:          req.params,
-					returnVal:       req.params,
+					ContractAddress: rb.address,
+					ContractName:    cb.name,
+					MethodName:      rb.method,
+					Params:          req.params,
+					ReturnVal:       req.params,
 				})
 				// results here will have chain specific method names.
 

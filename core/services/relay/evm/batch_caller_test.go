@@ -1,18 +1,24 @@
-package evm
+package evm_test
 
 import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
@@ -25,8 +31,8 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	}{
 		{
 			name:                          "defaults",
-			maxBatchSize:                  defaultRpcBatchSizeLimit,
-			backOffMultiplier:             defaultRpcBatchBackOffMultiplier,
+			maxBatchSize:                  evm.DefaultRpcBatchSizeLimit,
+			backOffMultiplier:             evm.DefaultRpcBatchBackOffMultiplier,
 			numCalls:                      200,
 			expectedBatchSizesOnEachRetry: []int{100, 20, 4, 1},
 		},
@@ -74,86 +80,113 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 		},
 	}
 
+	mockCodec := commonmocks.NewCodec(t)
+	mockCodec.On("Encode", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, nil)
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchSizes := make([]int, 0)
-
 			ec := mocks.NewClient(t)
-			mockCodec := commonmocks.NewCodec(t)
-			mockCodec.On("Encode", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, nil)
-
-			bc := newDynamicLimitedBatchCaller(logger.TestLogger(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
-
-			calls := make(BatchCall, tc.numCalls)
-			for i := range calls {
-				calls[i] = Call{}
-			}
-
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 				evmCalls := args.Get(1).([]rpc.BatchElem)
 				batchSizes = append(batchSizes, len(evmCalls))
 			}).Return(errors.New("some error"))
 
-			ctx := testutils.Context(t)
-			_, _ = bc.BatchCall(ctx, 123, calls)
+			calls := make(evm.BatchCall, tc.numCalls)
+			for i := range calls {
+				calls[i] = evm.Call{}
+			}
+
+			bc := evm.NewDynamicLimitedBatchCaller(logger.TestLogger(t), mockCodec, ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
+			_, _ = bc.BatchCall(testutils.Context(t), 123, calls)
 			assert.Equal(t, tc.expectedBatchSizesOnEachRetry, batchSizes)
 		})
 	}
-
 }
 
-//func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
-//	ctx := testutils.Context(t)
-//
-//	testCases := []struct {
-//		numCalls              uint
-//		batchSize             uint
-//		parallelRpcCallsLimit uint
-//	}{
-//		{numCalls: 100, batchSize: 10, parallelRpcCallsLimit: 5},
-//		{numCalls: 10, batchSize: 100, parallelRpcCallsLimit: 10},
-//		{numCalls: 1, batchSize: 100, parallelRpcCallsLimit: 10},
-//		{numCalls: 1000, batchSize: 10, parallelRpcCallsLimit: 2},
-//		{numCalls: rand.Uint() % 1000, batchSize: rand.Uint() % 500, parallelRpcCallsLimit: rand.Uint() % 500},
-//	}
-//
-//	for _, tc := range testCases {
-//		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-//			ec := mocks.NewClient(t)
-//			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
-//
-//			// generate the abi and the rpc calls
-//			intTyp, err := abi.NewType("uint64", "uint64", nil)
-//			assert.NoError(t, err)
-//			calls := make([]rpclib.EvmCall, tc.numCalls)
-//			mockAbi := abihelpers.MustParseABI("[]")
-//			for i := range calls {
-//				name := fmt.Sprintf("method_%d", i)
-//				meth := abi.NewMethod(name, name, abi.Function, "nonpayable", true, false, abi.Arguments{abi.Argument{Name: "a", Type: intTyp}}, abi.Arguments{abi.Argument{Name: "b", Type: intTyp}})
-//				mockAbi.Methods[name] = meth
-//				calls[i] = rpclib.NewEvmCall(mockAbi, name, common.Address{}, uint64(i))
-//			}
-//
-//			// mock the rpc call to batch call context
-//			// for simplicity we just set an error
-//			ec.On("BatchCallContext", mock.Anything, mock.Anything).
-//				Run(func(args mock.Arguments) {
-//					evmCalls := args.Get(1).([]rpc.BatchElem)
-//					for i := range evmCalls {
-//						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].(hexutil.Bytes)
-//						arg = arg[len(arg)-10:]
-//						evmCalls[i].Error = fmt.Errorf("%s", arg)
-//					}
-//				}).Return(nil)
-//
-//			// make the call and make sure the results are received in order
-//			results, _ := bc.BatchCall(ctx, 0, calls)
-//			assert.Len(t, results, len(calls))
-//			for i, res := range results {
-//				resNum, err := strconv.ParseInt(res.Err.Error()[2:], 16, 64)
-//				assert.NoError(t, err)
-//				assert.Equal(t, int64(i), resNum)
-//			}
-//		})
-//	}
-//}
+func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
+	ctx := testutils.Context(t)
+	testCases := []struct {
+		numCalls              uint
+		batchSize             uint
+		parallelRpcCallsLimit uint
+	}{
+		{numCalls: 100, batchSize: 10, parallelRpcCallsLimit: 5},
+		{numCalls: 10, batchSize: 100, parallelRpcCallsLimit: 10},
+		{numCalls: 1, batchSize: 100, parallelRpcCallsLimit: 10},
+		{numCalls: 1000, batchSize: 10, parallelRpcCallsLimit: 2},
+		{numCalls: rand.Uint() % 1000, batchSize: rand.Uint() % 500, parallelRpcCallsLimit: rand.Uint() % 500},
+	}
+
+	type MethodParam struct {
+		A uint64
+	}
+	type MethodReturn struct {
+		B uint64
+	}
+	paramABI := `[{"type":"uint64","name":"A"}]`
+	returnABI := `[{"type":"uint64","name":"B"}]`
+	codecConfig := evmtypes.CodecConfig{Configs: map[string]evmtypes.ChainCodecConfig{}}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
+			ec := mocks.NewClient(t)
+			calls := make(evm.BatchCall, tc.numCalls)
+			for j := range calls {
+				contractName := fmt.Sprintf("testCase_%d", i)
+				methodName := fmt.Sprintf("method_%d", j)
+				codecConfig.Configs[fmt.Sprintf("params.%s.%s", contractName, methodName)] = evmtypes.ChainCodecConfig{TypeABI: paramABI}
+				codecConfig.Configs[fmt.Sprintf("return.%s.%s", contractName, methodName)] = evmtypes.ChainCodecConfig{TypeABI: returnABI}
+
+				params := MethodParam{A: uint64(j)}
+				var returnVal MethodReturn
+				calls[j] = evm.Call{
+					ContractName: contractName,
+					MethodName:   methodName,
+					Params:       &params,
+					ReturnVal:    &returnVal,
+				}
+			}
+
+			ec.On("BatchCallContext", mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					evmCalls := args.Get(1).([]rpc.BatchElem)
+					for i := range evmCalls {
+						arg := evmCalls[i].Args[0].(map[string]interface{})["data"].([]uint8)
+						bytes, err := hex.DecodeString(fmt.Sprintf("%x", arg))
+						require.NoError(t, err)
+						str, isOk := evmCalls[i].Result.(*string)
+						require.True(t, isOk)
+						*str = fmt.Sprintf("0x%064x", new(big.Int).SetBytes(bytes[24:]).Uint64())
+					}
+				}).Return(nil)
+
+			testCodec, err := evm.NewCodec(codecConfig)
+			require.NoError(t, err)
+			bc := evm.NewDynamicLimitedBatchCaller(logger.TestLogger(t), testCodec, ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+
+			// make the call and make sure the results are there
+			results, err := bc.BatchCall(ctx, 0, calls)
+			require.NoError(t, err)
+			for _, call := range calls {
+				contractResults, ok := results[call.ContractName]
+				if !ok {
+					t.Errorf("missing contract name %s", call.ContractName)
+				}
+				hasResult := false
+				for j, result := range contractResults {
+					if hasResult = result.MethodName == call.MethodName; hasResult {
+						require.NoError(t, result.Err)
+						resNum, isOk := result.ReturnValue.(*MethodReturn)
+						require.True(t, isOk)
+						require.Equal(t, uint64(j), resNum.B)
+						break
+					}
+				}
+				if !hasResult {
+					t.Errorf("missing method name %s", call.MethodName)
+				}
+			}
+		})
+	}
+}

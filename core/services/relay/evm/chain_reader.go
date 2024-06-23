@@ -121,13 +121,13 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 		cr.bindings.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
 	cr.bindings.SetBatchCaller(
-		newDynamicLimitedBatchCaller(
+		NewDynamicLimitedBatchCaller(
 			cr.lggr,
 			cr.codec,
 			cr.client,
-			defaultRpcBatchSizeLimit,
-			defaultRpcBatchBackOffMultiplier,
-			defaultMaxParallelRpcCalls,
+			DefaultRpcBatchSizeLimit,
+			DefaultRpcBatchBackOffMultiplier,
+			DefaultMaxParallelRpcCalls,
 		))
 	return nil
 }

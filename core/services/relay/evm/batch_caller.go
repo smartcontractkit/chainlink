@@ -19,34 +19,34 @@ import (
 var errEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")
 
 const (
-	// defaultRpcBatchSizeLimit defines the maximum number of rpc requests to be included in a batch.
-	defaultRpcBatchSizeLimit = 100
+	// DefaultRpcBatchSizeLimit defines the maximum number of rpc requests to be included in a batch.
+	DefaultRpcBatchSizeLimit = 100
 
-	// defaultRpcBatchBackOffMultiplier defines the rate of reducing the batch size limit for retried calls.
+	// DefaultRpcBatchBackOffMultiplier defines the rate of reducing the batch size limit for retried calls.
 	// For example if limit is 20 and multiplier is 4:
 	// 1.        20
 	// 2. 20/4 = 5
 	// 3. 5/4  = 1
-	defaultRpcBatchBackOffMultiplier = 5
+	DefaultRpcBatchBackOffMultiplier = 5
 
-	// defaultMaxParallelRpcCalls defines the default maximum number of individual in-parallel rpc calls.
-	defaultMaxParallelRpcCalls = 10
+	// DefaultMaxParallelRpcCalls defines the default maximum number of individual in-parallel rpc calls.
+	DefaultMaxParallelRpcCalls = 10
 )
 
 // BatchResult is organised by contracts names, key is contract name.
 type BatchResult map[string]ContractResults
 type ContractResults []MethodCallResult
 type MethodCallResult struct {
-	methodName  string
-	returnValue any
-	err         error
+	MethodName  string
+	ReturnValue any
+	Err         error
 }
 
 type BatchCall []Call
 type Call struct {
-	contractAddress          common.Address
-	contractName, methodName string
-	params, returnVal        any
+	ContractAddress          common.Address
+	ContractName, MethodName string
+	Params, ReturnVal        any
 }
 
 func (c BatchCall) String() string {
@@ -59,8 +59,8 @@ func (c BatchCall) String() string {
 
 // Implement the String method for the Call struct
 func (c Call) String() string {
-	return fmt.Sprintf("contract: %s, address: %s, method: %s, params: %+v",
-		c.contractAddress.Hex(), c.contractName, c.methodName, c.params)
+	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v",
+		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params)
 }
 
 //go:generate mockery --quiet --name BatchCaller --output ./rpclibmocks --outpkg rpclibmocks --filename batch_caller.go --case=underscore
@@ -75,7 +75,7 @@ type dynamicLimitedBatchCaller struct {
 	bc *defaultEvmBatchCaller
 }
 
-func newDynamicLimitedBatchCaller(lggr logger.Logger, codec types.Codec, evmClient client.Client, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint) *dynamicLimitedBatchCaller {
+func NewDynamicLimitedBatchCaller(lggr logger.Logger, codec types.Codec, evmClient client.Client, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint) BatchCaller {
 	return &dynamicLimitedBatchCaller{
 		bc: newDefaultEvmBatchCaller(lggr, evmClient, codec, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit),
 	}
@@ -100,17 +100,17 @@ type defaultEvmBatchCaller struct {
 func newDefaultEvmBatchCaller(
 	lggr logger.Logger, evmClient client.Client, codec types.Codec, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
 ) *defaultEvmBatchCaller {
-	batchSize := uint(defaultRpcBatchSizeLimit)
+	batchSize := uint(DefaultRpcBatchSizeLimit)
 	if batchSizeLimit > 0 {
 		batchSize = batchSizeLimit
 	}
 
-	multiplier := uint(defaultRpcBatchBackOffMultiplier)
+	multiplier := uint(DefaultRpcBatchBackOffMultiplier)
 	if backOffMultiplier > 0 {
 		multiplier = backOffMultiplier
 	}
 
-	parallelRpcCalls := uint(defaultMaxParallelRpcCalls)
+	parallelRpcCalls := uint(DefaultMaxParallelRpcCalls)
 	if parallelRpcCallsLimit > 0 {
 		parallelRpcCalls = parallelRpcCallsLimit
 	}
@@ -133,7 +133,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	packedOutputs := make([]string, len(batchCall))
 	rpcBatchCalls := make([]rpc.BatchElem, len(batchCall))
 	for i, call := range batchCall {
-		data, err := c.codec.Encode(ctx, call.params, wrapItemType(call.contractName, call.methodName, true))
+		data, err := c.codec.Encode(ctx, call.Params, wrapItemType(call.ContractName, call.MethodName, true))
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			Args: []any{
 				map[string]interface{}{
 					"from": common.Address{},
-					"to":   call.contractAddress,
+					"to":   call.ContractAddress,
 					"data": data,
 				},
 				blockNumStr,
@@ -164,9 +164,9 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	results := make([]dataAndErr, len(batchCall))
 	for i, call := range batchCall {
 		results[i] = dataAndErr{
-			contractName: call.contractName,
-			methodName:   call.methodName,
-			returnVal:    call.returnVal,
+			contractName: call.ContractName,
+			methodName:   call.MethodName,
+			returnVal:    call.ReturnVal,
 		}
 
 		if rpcBatchCalls[i].Error != nil {
@@ -185,7 +185,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			return nil, fmt.Errorf("decode result %s: packedOutputs %s: %w", call, packedOutputs[i], err)
 		}
 
-		if err = c.codec.Decode(ctx, b, call.returnVal, wrapItemType(call.contractName, call.methodName, false)); err != nil {
+		if err = c.codec.Decode(ctx, b, call.ReturnVal, wrapItemType(call.ContractName, call.MethodName, false)); err != nil {
 			if len(b) == 0 {
 				results[i].err = fmt.Errorf("unpack result %s: %s: %w", call, err.Error(), errEmptyOutput)
 			} else {
@@ -193,7 +193,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			}
 			continue
 		}
-		results[i].returnVal = call.returnVal
+		results[i].returnVal = call.ReturnVal
 	}
 
 	return results, nil
@@ -296,9 +296,9 @@ func convertToBatchResult(data []dataAndErr) BatchResult {
 	batchResult := make(BatchResult)
 	for _, d := range data {
 		methodCall := MethodCallResult{
-			methodName:  d.methodName,
-			returnValue: d.returnVal,
-			err:         d.err,
+			MethodName:  d.methodName,
+			ReturnValue: d.returnVal,
+			Err:         d.err,
 		}
 
 		if _, exists := batchResult[d.contractName]; !exists {
