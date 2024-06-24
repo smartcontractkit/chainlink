@@ -108,9 +108,9 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	clock := clockwork.NewFakeClock()
 	cfg := Config{
 		WorkflowID: testWorkflowId,
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     spec,
+		Lggr:       logger.TestLogger(t),
+		Registry:   reg,
+		Spec:       spec,
 		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
 			return capabilities.Node{
 				WorkflowDON: capabilities.DON{
