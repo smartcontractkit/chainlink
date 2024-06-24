@@ -1,7 +1,6 @@
 name: CI ProtoBuf
 
 on:
-  merge_group:
   pull_request:
 
 jobs:
@@ -18,9 +17,12 @@ jobs:
 
       - name: Check Breaking Changes
         shell: bash
+        env:
+          REPO_URL: ${{ github.repositoryUrl }}
+          BASE_BRANCH: ${{ github.base_ref }}
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.34.0
-          buf breaking --against '.git#branch=develop'
+          buf breaking --against "${REPO_URL}#branch=${BASE_BRANCH}"
 
       - name: Collect Metrics
         if: always()
