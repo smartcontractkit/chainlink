@@ -302,7 +302,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: ${{ matrix.tests.testCmd }}
+          test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
