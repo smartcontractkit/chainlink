@@ -2,9 +2,6 @@
 # 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
-# Core
-/core @smartcontractkit/foundations
-
 # Chains
 /common @smartcontractkit/bix-framework
 /core/chains/ @smartcontractkit/bix-framework
@@ -12,7 +9,7 @@
 # Services
 /core/services/directrequest @smartcontractkit/keepers
 /core/services/feeds @smartcontractkit/FMS
-/core/services/synchronization/telem/**/*.proto @smartcontractkit/realtime
+/core/services/synchronization/telem @smartcontractkit/realtime
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations
@@ -51,6 +48,9 @@ core/services/relay/evm/functions @smartcontractkit/functions
 core/services/relay/evm/functions @smartcontractkit/functions
 core/scripts/functions @smartcontractkit/functions
 core/scripts/gateway @smartcontractkit/functions
+
+# Core
+/core @smartcontractkit/foundations
 
 # Contracts
 /contracts/ @RensR
