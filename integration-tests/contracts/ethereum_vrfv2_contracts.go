@@ -804,7 +804,7 @@ func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 }
 
 func (v *EthereumVRFConsumerV2) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 // RequestRandomness request VRFv2 random words
@@ -1028,7 +1028,7 @@ func (v *EthereumVRFV2WrapperLoadTestConsumer) Address() string {
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 func (v *EthereumVRFV2WrapperLoadTestConsumer) RequestRandomness(coordinator Coordinator, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, requestCount uint16) (*CoordinatorRandomWordsRequested, error) {

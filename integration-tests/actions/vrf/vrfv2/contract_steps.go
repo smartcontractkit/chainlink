@@ -18,7 +18,6 @@ import (
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -27,18 +26,12 @@ import (
 )
 
 func DeployVRFV2Contracts(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	linkTokenContract contracts.LinkToken,
 	linkEthFeedContract contracts.VRFMockETHLINKFeed,
 	useVRFOwner bool,
 	useTestCoordinator bool,
 ) (*vrfcommon.VRFContracts, error) {
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, err
-	}
-
 	bhs, err := contracts.DeployBlockhashStore(sethClient)
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", vrfcommon.ErrDeployBlockHashStore, err)
@@ -95,10 +88,10 @@ func DeployVRFV2Contracts(
 	}, nil
 }
 
-func DeployVRFV2Consumers(client *seth.Client, coordinatorAddress string, consumerContractsAmount int) ([]contracts.VRFv2LoadTestConsumer, error) {
+func DeployVRFV2Consumers(sethClient *seth.Client, coordinatorAddress string, consumerContractsAmount int) ([]contracts.VRFv2LoadTestConsumer, error) {
 	var consumers []contracts.VRFv2LoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contracts.DeployVRFv2LoadTestConsumer(client, coordinatorAddress)
+		loadTestConsumer, err := contracts.DeployVRFv2LoadTestConsumer(sethClient, coordinatorAddress)
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
@@ -107,10 +100,10 @@ func DeployVRFV2Consumers(client *seth.Client, coordinatorAddress string, consum
 	return consumers, nil
 }
 
-func DeployVRFV2WrapperConsumers(client *seth.Client, linkTokenAddress string, vrfV2Wrapper contracts.VRFV2Wrapper, consumerContractsAmount int) ([]contracts.VRFv2WrapperLoadTestConsumer, error) {
+func DeployVRFV2WrapperConsumers(sethClient *seth.Client, linkTokenAddress string, vrfV2Wrapper contracts.VRFV2Wrapper, consumerContractsAmount int) ([]contracts.VRFv2WrapperLoadTestConsumer, error) {
 	var consumers []contracts.VRFv2WrapperLoadTestConsumer
 	for i := 1; i <= consumerContractsAmount; i++ {
-		loadTestConsumer, err := contracts.DeployVRFV2WrapperLoadTestConsumer(client, linkTokenAddress, vrfV2Wrapper.Address())
+		loadTestConsumer, err := contracts.DeployVRFV2WrapperLoadTestConsumer(sethClient, linkTokenAddress, vrfV2Wrapper.Address())
 		if err != nil {
 			return nil, fmt.Errorf("%s, err %w", ErrAdvancedConsumer, err)
 		}
@@ -120,17 +113,17 @@ func DeployVRFV2WrapperConsumers(client *seth.Client, linkTokenAddress string, v
 }
 
 func DeployVRFV2DirectFundingContracts(
-	client *seth.Client,
+	sethClient *seth.Client,
 	linkTokenAddress string,
 	linkEthFeedAddress string,
 	coordinator contracts.VRFCoordinatorV2,
 	consumerContractsAmount int,
 ) (*VRFV2WrapperContracts, error) {
-	vrfv2Wrapper, err := contracts.DeployVRFV2Wrapper(client, linkTokenAddress, linkEthFeedAddress, coordinator.Address())
+	vrfv2Wrapper, err := contracts.DeployVRFV2Wrapper(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address())
 	if err != nil {
 		return nil, fmt.Errorf("%s, err %w", ErrDeployVRFV2Wrapper, err)
 	}
-	consumers, err := DeployVRFV2WrapperConsumers(client, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
+	consumers, err := DeployVRFV2WrapperConsumers(sethClient, linkTokenAddress, vrfv2Wrapper, consumerContractsAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +150,7 @@ func VRFV2RegisterProvingKey(
 }
 
 func SetupVRFV2Contracts(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	useVRFOwner bool,
@@ -168,8 +160,7 @@ func SetupVRFV2Contracts(
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 contracts")
 	vrfContracts, err := DeployVRFV2Contracts(
-		env,
-		chainID,
+		sethClient,
 		linkToken,
 		mockNativeLINKFeed,
 		useVRFOwner,
@@ -634,8 +625,7 @@ func SetupVRFOwnerContractIfNeeded(useVRFOwner bool, vrfContracts *vrfcommon.VRF
 }
 
 func SetupNewConsumersAndSubs(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2,
 	testConfig tc.TestConfig,
 	linkToken contracts.LinkToken,
@@ -643,10 +633,6 @@ func SetupNewConsumersAndSubs(
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2LoadTestConsumer, []uint64, error) {
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, nil, err
-	}
 	consumers, err := DeployVRFV2Consumers(sethClient, coordinator.Address(), numberOfConsumerContractsToDeployAndAddToSub)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
