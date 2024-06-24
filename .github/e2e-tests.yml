@@ -53,7 +53,7 @@ test-runner-matrix:
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
     trigger: ["push", "nightly", "pull-request", "release-tag"]
-    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=1 -timeout 60m -count=1 -json
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
     test-config-override: |
       [ChainlinkUpgradeImage]
       image="${{ env.CHAINLINK_IMAGE }}"
@@ -68,7 +68,7 @@ test-runner-matrix:
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
     trigger: ["push", "nightly", "pull-request", "release-tag"]
-    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=1 -timeout 60m -count=1 -json
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
     test-config-override: |
       [ChainlinkUpgradeImage]
       image="${{ env.CHAINLINK_IMAGE }}"
