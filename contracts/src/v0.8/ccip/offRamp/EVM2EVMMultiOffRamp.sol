@@ -564,7 +564,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
     address messageValidator = s_dynamicConfig.messageValidator;
     if (messageValidator != address(0)) {
-      try IMessageInterceptor(messageValidator).onIncomingMessage(any2EvmMessage) {}
+      try IMessageInterceptor(messageValidator).onInboundMessage(any2EvmMessage) {}
       catch (bytes memory err) {
         revert IMessageInterceptor.MessageValidationError(err);
       }

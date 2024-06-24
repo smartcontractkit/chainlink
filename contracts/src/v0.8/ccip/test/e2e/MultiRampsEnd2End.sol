@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {NonceManager} from "../../NonceManager.sol";
 import {TokenAdminRegistry} from "../../tokenAdminRegistry/TokenAdminRegistry.sol";
 import "../helpers/MerkleHelper.sol";
 import "../offRamp/EVM2EVMMultiOffRampSetup.t.sol";
@@ -17,6 +19,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
   Router internal s_sourceRouter2;
   EVM2EVMMultiOnRampHelper internal s_onRamp2;
   TokenAdminRegistry internal s_tokenAdminRegistry2;
+  NonceManager internal s_nonceManager2;
 
   bytes32 internal s_metadataHash2;
 
@@ -55,10 +58,22 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
       );
     }
 
-    // Deploy the new source chain onramp
-    // Outsource to shared helper function with EVM2EVMMultiOnRampSetup
-    (s_onRamp2, s_metadataHash2) =
-      _deployOnRamp(SOURCE_CHAIN_SELECTOR + 1, address(s_sourceRouter2), address(s_tokenAdminRegistry2));
+    s_nonceManager2 = new NonceManager(new address[](0));
+
+    (
+      // Deploy the new source chain onramp
+      // Outsource to shared helper function with EVM2EVMMultiOnRampSetup
+      s_onRamp2,
+      s_metadataHash2
+    ) = _deployOnRamp(
+      SOURCE_CHAIN_SELECTOR + 1, address(s_sourceRouter2), address(s_nonceManager2), address(s_tokenAdminRegistry2)
+    );
+
+    address[] memory authorizedCallers = new address[](1);
+    authorizedCallers[0] = address(s_onRamp2);
+    s_nonceManager2.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: authorizedCallers, removedCallers: new address[](0)})
+    );
 
     // Enable destination chain on new source chain router
     Router.OnRamp[] memory onRampUpdates = new Router.OnRamp[](1);

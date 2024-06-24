@@ -16,14 +16,14 @@ contract MessageInterceptorHelper is IMessageInterceptor {
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onIncomingMessage(Client.Any2EVMMessage memory message) external view {
+  function onInboundMessage(Client.Any2EVMMessage memory message) external view {
     if (s_invalidMessageIds[message.messageId]) {
       revert IncomingMessageValidationError(bytes("Invalid message"));
     }
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onOutgoingMessage(Client.EVM2AnyMessage memory, uint64) external pure {
+  function onOutboundMessage(Client.EVM2AnyMessage memory, uint64) external pure {
     // TODO: to be implemented
     return;
   }

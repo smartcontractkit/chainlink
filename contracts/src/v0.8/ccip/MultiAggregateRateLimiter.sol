@@ -4,7 +4,7 @@ pragma solidity 0.8.24;
 import {IMessageInterceptor} from "./interfaces/IMessageInterceptor.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
 
-import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
+import {AuthorizedCallers} from "../shared/access/AuthorizedCallers.sol";
 import {EnumerableMapAddresses} from "./../shared/enumerable/EnumerableMapAddresses.sol";
 import {Client} from "./libraries/Client.sol";
 import {RateLimiter} from "./libraries/RateLimiter.sol";
@@ -17,23 +17,19 @@ import {EnumerableSet} from "./../vendor/openzeppelin-solidity/v4.7.3/contracts/
 /// token transfers, using a price registry to convert to a numeraire asset (e.g. USD).
 /// The contract is a standalone multi-lane message validator contract, which can be called by authorized
 /// ramp contracts to apply rate limit changes to lanes, and revert when the rate limits get breached.
-contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
+contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers {
   using RateLimiter for RateLimiter.TokenBucket;
   using USDPriceWith18Decimals for uint224;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToBytes32Map;
   using EnumerableSet for EnumerableSet.AddressSet;
 
-  error UnauthorizedCaller(address caller);
   error PriceNotFoundForToken(address token);
-  error ZeroAddressNotAllowed();
   error ZeroChainSelectorNotAllowed();
 
-  event RateLimiterConfigUpdated(uint64 indexed remoteChainSelector, bool isOutgoingLane, RateLimiter.Config config);
+  event RateLimiterConfigUpdated(uint64 indexed remoteChainSelector, bool isOutboundLane, RateLimiter.Config config);
   event PriceRegistrySet(address newPriceRegistry);
   event TokenAggregateRateLimitAdded(uint64 remoteChainSelector, bytes32 remoteToken, address localToken);
   event TokenAggregateRateLimitRemoved(uint64 remoteChainSelector, address localToken);
-  event AuthorizedCallerAdded(address caller);
-  event AuthorizedCallerRemoved(address caller);
 
   /// @notice RemoteRateLimitToken struct containing the local token address with the chain selector
   /// The struct is used for removals and updates, since the local -> remote token mappings are scoped per-chain
@@ -48,23 +44,17 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
     bytes32 remoteToken; // Token on the remote chain (for OnRamp - dest, of OffRamp - source)
   }
 
-  /// @notice Update args for changing the authorized callers
-  struct AuthorizedCallerArgs {
-    address[] addedCallers;
-    address[] removedCallers;
-  }
-
   /// @notice Update args for a single rate limiter config update
   struct RateLimiterConfigArgs {
     uint64 remoteChainSelector; // ────╮ Chain selector to set config for
-    bool isOutgoingLane; // ───────────╯ If set to true, represents the outgoing message lane (OnRamp), and the incoming message lane otherwise (OffRamp)
+    bool isOutboundLane; // ───────────╯ If set to true, represents the outbound message lane (OnRamp), and the inbound message lane otherwise (OffRamp)
     RateLimiter.Config rateLimiterConfig; // Rate limiter config to set
   }
 
   /// @notice Struct to store rate limit token buckets for both lane directions
   struct RateLimiterBuckets {
-    RateLimiter.TokenBucket incomingLaneBucket; // Bucket for the incoming lane (remote -> local)
-    RateLimiter.TokenBucket outgoingLaneBucket; // Bucket for the outgoing lane (local -> remote)
+    RateLimiter.TokenBucket inboundLaneBucket; // Bucket for the inbound lane (remote -> local)
+    RateLimiter.TokenBucket outboundLaneBucket; // Bucket for the outbound lane (local -> remote)
   }
 
   /// @dev Tokens that should be included in Aggregate Rate Limiting (from local chain (this chain) -> remote),
@@ -72,30 +62,20 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
   mapping(uint64 remoteChainSelector => EnumerableMapAddresses.AddressToBytes32Map tokensLocalToRemote) internal
     s_rateLimitedTokensLocalToRemote;
 
-  /// @dev Set of callers that can call the validation functions (this is required since the validations modify state)
-  EnumerableSet.AddressSet internal s_authorizedCallers;
-
   /// @notice The address of the PriceRegistry used to query token values for ratelimiting
   address internal s_priceRegistry;
 
-  /// @notice Rate limiter token bucket states per chain, with separate buckets for incoming and outgoing lanes.
+  /// @notice Rate limiter token bucket states per chain, with separate buckets for inbound and outbound lanes.
   mapping(uint64 remoteChainSelector => RateLimiterBuckets buckets) internal s_rateLimitersByChainSelector;
 
   /// @param priceRegistry the price registry to set
   /// @param authorizedCallers the authorized callers to set
-  constructor(address priceRegistry, address[] memory authorizedCallers) {
+  constructor(address priceRegistry, address[] memory authorizedCallers) AuthorizedCallers(authorizedCallers) {
     _setPriceRegistry(priceRegistry);
-    _applyAuthorizedCallerUpdates(
-      AuthorizedCallerArgs({addedCallers: authorizedCallers, removedCallers: new address[](0)})
-    );
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onIncomingMessage(Client.Any2EVMMessage memory message) external {
-    if (!s_authorizedCallers.contains(msg.sender)) {
-      revert UnauthorizedCaller(msg.sender);
-    }
-
+  function onInboundMessage(Client.Any2EVMMessage memory message) external onlyAuthorizedCallers {
     uint64 remoteChainSelector = message.sourceChainSelector;
     RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, false);
 
@@ -114,23 +94,23 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
   }
 
   /// @inheritdoc IMessageInterceptor
-  function onOutgoingMessage(Client.EVM2AnyMessage memory message, uint64 destChainSelector) external {
-    // TODO: to be implemented (assuming the same rate limiter states are shared for incoming and outgoing messages)
+  function onOutboundMessage(Client.EVM2AnyMessage memory message, uint64 destChainSelector) external {
+    // TODO: to be implemented (assuming the same rate limiter states are shared for inbound and outbound messages)
   }
 
   /// @param remoteChainSelector chain selector to retrieve token bucket for
-  /// @param isOutgoingLane if set to true, fetches the bucket for the outgoing message lane (OnRamp).
-  /// Otherwise fetches for the incoming message lane (OffRamp).
+  /// @param isOutboundLane if set to true, fetches the bucket for the outbound message lane (OnRamp).
+  /// Otherwise fetches for the inbound message lane (OffRamp).
   /// @return bucket Storage pointer to the token bucket representing a specific lane
   function _getTokenBucket(
     uint64 remoteChainSelector,
-    bool isOutgoingLane
+    bool isOutboundLane
   ) internal view returns (RateLimiter.TokenBucket storage) {
     RateLimiterBuckets storage rateLimiterBuckets = s_rateLimitersByChainSelector[remoteChainSelector];
-    if (isOutgoingLane) {
-      return rateLimiterBuckets.outgoingLaneBucket;
+    if (isOutboundLane) {
+      return rateLimiterBuckets.outboundLaneBucket;
     } else {
-      return rateLimiterBuckets.incomingLaneBucket;
+      return rateLimiterBuckets.inboundLaneBucket;
     }
   }
 
@@ -146,15 +126,15 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
 
   /// @notice Gets the token bucket with its values for the block it was requested at.
   /// @param remoteChainSelector chain selector to retrieve state for
-  /// @param isOutgoingLane if set to true, fetches the rate limit state for the outgoing message lane (OnRamp).
-  /// Otherwise fetches for the incoming message lane (OffRamp).
-  /// The outgoing and incoming message rate limit state is completely separated.
+  /// @param isOutboundLane if set to true, fetches the rate limit state for the outbound message lane (OnRamp).
+  /// Otherwise fetches for the inbound message lane (OffRamp).
+  /// The outbound and inbound message rate limit state is completely separated.
   /// @return The token bucket.
   function currentRateLimiterState(
     uint64 remoteChainSelector,
-    bool isOutgoingLane
+    bool isOutboundLane
   ) external view returns (RateLimiter.TokenBucket memory) {
-    return _getTokenBucket(remoteChainSelector, isOutgoingLane)._currentTokenBucketState();
+    return _getTokenBucket(remoteChainSelector, isOutboundLane)._currentTokenBucketState();
   }
 
   /// @notice Applies the provided rate limiter config updates.
@@ -170,9 +150,9 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
         revert ZeroChainSelectorNotAllowed();
       }
 
-      bool isOutgoingLane = updateArgs.isOutgoingLane;
+      bool isOutboundLane = updateArgs.isOutboundLane;
 
-      RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, isOutgoingLane);
+      RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, isOutboundLane);
 
       if (tokenBucket.lastUpdated == 0) {
         // Token bucket needs to be newly added
@@ -184,15 +164,15 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
           isEnabled: configUpdate.isEnabled
         });
 
-        if (isOutgoingLane) {
-          s_rateLimitersByChainSelector[remoteChainSelector].outgoingLaneBucket = newTokenBucket;
+        if (isOutboundLane) {
+          s_rateLimitersByChainSelector[remoteChainSelector].outboundLaneBucket = newTokenBucket;
         } else {
-          s_rateLimitersByChainSelector[remoteChainSelector].incomingLaneBucket = newTokenBucket;
+          s_rateLimitersByChainSelector[remoteChainSelector].inboundLaneBucket = newTokenBucket;
         }
       } else {
         tokenBucket._setTokenBucketConfig(configUpdate);
       }
-      emit RateLimiterConfigUpdated(remoteChainSelector, isOutgoingLane, configUpdate);
+      emit RateLimiterConfigUpdated(remoteChainSelector, isOutboundLane, configUpdate);
     }
   }
 
@@ -275,45 +255,5 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, OwnerIsCreator {
 
     s_priceRegistry = newPriceRegistry;
     emit PriceRegistrySet(newPriceRegistry);
-  }
-
-  // ================================================================
-  // │                           Access                             │
-  // ================================================================
-
-  /// @return authorizedCallers Returns all callers that are authorized to call the validation functions
-  function getAllAuthorizedCallers() external view returns (address[] memory) {
-    return s_authorizedCallers.values();
-  }
-
-  /// @notice Updates the callers that are authorized to call the message validation functions
-  /// @param authorizedCallerArgs Callers to add and remove
-  function applyAuthorizedCallerUpdates(AuthorizedCallerArgs memory authorizedCallerArgs) external onlyOwner {
-    _applyAuthorizedCallerUpdates(authorizedCallerArgs);
-  }
-
-  /// @notice Updates the callers that are authorized to call the message validation functions
-  /// @param authorizedCallerArgs Callers to add and remove
-  function _applyAuthorizedCallerUpdates(AuthorizedCallerArgs memory authorizedCallerArgs) internal {
-    address[] memory removedCallers = authorizedCallerArgs.removedCallers;
-    for (uint256 i = 0; i < removedCallers.length; ++i) {
-      address caller = removedCallers[i];
-
-      if (s_authorizedCallers.remove(caller)) {
-        emit AuthorizedCallerRemoved(caller);
-      }
-    }
-
-    address[] memory addedCallers = authorizedCallerArgs.addedCallers;
-    for (uint256 i = 0; i < addedCallers.length; ++i) {
-      address caller = addedCallers[i];
-
-      if (caller == address(0)) {
-        revert ZeroAddressNotAllowed();
-      }
-
-      s_authorizedCallers.add(caller);
-      emit AuthorizedCallerAdded(caller);
-    }
   }
 }

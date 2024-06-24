@@ -2,9 +2,8 @@
 pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {IEVM2AnyMultiOnRamp} from "../interfaces/IEVM2AnyMultiOnRamp.sol";
-import {IEVM2AnyOnRamp} from "../interfaces/IEVM2AnyOnRamp.sol";
 import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
+import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
@@ -23,7 +22,7 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 /// @notice The EVM2EVMMultiOnRamp is a contract that handles lane-specific fee logic
 /// @dev The EVM2EVMMultiOnRamp, MultiCommitStore and EVM2EVMMultiOffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of all 3.
-contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeAndVersion {
+contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, ITypeAndVersion {
   using SafeERC20 for IERC20;
   using USDPriceWith18Decimals for uint224;
 
@@ -67,6 +66,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
     uint64 chainSelector; // ─────╯ Source chainSelector
     uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message
     address rmnProxy; // ─────────╯ Address of RMN proxy
+    address nonceManager; // Address of the nonce manager
     address tokenAdminRegistry; // Token admin registry address
   }
 
@@ -173,6 +173,8 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
   uint64 internal immutable i_chainSelector;
   /// @dev The address of the rmn proxy
   address internal immutable i_rmnProxy;
+  /// @dev The address of the nonce manager
+  address internal immutable i_nonceManager;
   /// @dev The address of the token admin registry
   address internal immutable i_tokenAdminRegistry;
   /// @dev the maximum number of nops that can be configured at the same time.
@@ -193,10 +195,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
     s_tokenTransferFeeConfig;
 
   // STATE
-  /// @dev The current nonce per sender.
-  /// The offramp has a corresponding s_senderNonce mapping to ensure messages
-  /// are executed in the same order they are sent.
-  mapping(uint64 destChainSelector => mapping(address sender => uint64 nonce)) internal s_senderNonce;
   /// @dev The amount of LINK available to pay NOPS
   uint96 internal s_nopFeesJuels;
   /// @dev The combined weight of all NOPs weights
@@ -212,7 +210,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
   ) AggregateRateLimiter(rateLimiterConfig) {
     if (
       staticConfig.linkToken == address(0) || staticConfig.chainSelector == 0 || staticConfig.rmnProxy == address(0)
-        || staticConfig.tokenAdminRegistry == address(0)
+        || staticConfig.nonceManager == address(0) || staticConfig.tokenAdminRegistry == address(0)
     ) {
       revert InvalidConfig();
     }
@@ -221,6 +219,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
     i_chainSelector = staticConfig.chainSelector;
     i_maxFeeJuelsPerMsg = staticConfig.maxFeeJuelsPerMsg;
     i_rmnProxy = staticConfig.rmnProxy;
+    i_nonceManager = staticConfig.nonceManager;
     i_tokenAdminRegistry = staticConfig.tokenAdminRegistry;
 
     _setDynamicConfig(dynamicConfig);
@@ -233,24 +232,11 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
   // │                          Messaging                           │
   // ================================================================
 
-  /// @inheritdoc IEVM2AnyMultiOnRamp
+  /// @notice Gets the next sequence number to be used in the onRamp
+  /// @param destChainSelector The destination chain selector
+  /// @return the next sequence number to be used
   function getExpectedNextSequenceNumber(uint64 destChainSelector) external view returns (uint64) {
     return s_destChainConfig[destChainSelector].sequenceNumber + 1;
-  }
-
-  /// @inheritdoc IEVM2AnyMultiOnRamp
-  function getSenderNonce(uint64 destChainSelector, address sender) public view returns (uint64) {
-    uint64 senderNonce = s_senderNonce[destChainSelector][sender];
-
-    if (senderNonce == 0) {
-      address prevOnRamp = s_destChainConfig[destChainSelector].prevOnRamp;
-      if (prevOnRamp != address(0)) {
-        // If OnRamp was upgraded, check if sender has a nonce from the previous OnRamp.
-        return IEVM2AnyOnRamp(prevOnRamp).getSenderNonce(sender);
-      }
-    }
-
-    return senderNonce;
   }
 
   /// @inheritdoc IEVM2AnyOnRampClient
@@ -371,9 +357,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    uint64 nonce = getSenderNonce(destChainSelector, originalSender) + 1;
-    s_senderNonce[destChainSelector][originalSender] = nonce;
-
     // We need the next available sequence number so we increment before we use the value
     return Internal.EVM2EVMMessage({
       sourceChainSelector: i_chainSelector,
@@ -384,7 +367,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
       sequenceNumber: ++destChainConfig.sequenceNumber,
       gasLimit: gasLimit,
       strict: false,
-      nonce: nonce,
+      nonce: INonceManager(i_nonceManager).getIncrementedOutboundNonce(destChainSelector, originalSender),
       feeToken: message.feeToken,
       feeTokenAmount: feeTokenAmount,
       data: message.data,
@@ -439,6 +422,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
       chainSelector: i_chainSelector,
       maxFeeJuelsPerMsg: i_maxFeeJuelsPerMsg,
       rmnProxy: i_rmnProxy,
+      nonceManager: i_nonceManager,
       tokenAdminRegistry: i_tokenAdminRegistry
     });
   }
@@ -468,6 +452,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyMultiOnRamp, AggregateRateLimiter, ITypeA
         chainSelector: i_chainSelector,
         maxFeeJuelsPerMsg: i_maxFeeJuelsPerMsg,
         rmnProxy: i_rmnProxy,
+        nonceManager: i_nonceManager,
         tokenAdminRegistry: i_tokenAdminRegistry
       }),
       dynamicConfig
