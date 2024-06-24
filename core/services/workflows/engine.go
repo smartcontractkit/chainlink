@@ -94,8 +94,7 @@ func (e *Engine) resolveWorkflowCapabilities(ctx context.Context) error {
 	if !triggersInitialized {
 		return &workflowError{reason: "failed to resolve triggers", labels: map[string]string{
 			wIDKey: e.workflow.id,
-		},
-		}
+		}}
 	}
 
 	// Step 2. Walk the graph and register each step's capability to this workflow
