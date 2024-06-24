@@ -54,6 +54,7 @@ env:
 jobs:
   check-test-configurations:
     name: Check Test Configurations
+    if: ${{ inputs.enable-check-test-configurations }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
