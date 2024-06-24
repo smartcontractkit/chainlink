@@ -2,9 +2,9 @@
 -- +goose StatementBegin
 ALTER TABLE evm.txes ADD COLUMN finalized boolean NOT NULL DEFAULT false;
 ALTER TABLE evm.txes ADD CONSTRAINT chk_eth_txes_state_finalized CHECK (
-    state <> 'confirmed'::eth_txes_state AND finalized = false
+    state <> 'confirmed'::evm.txes_state AND finalized = false
     OR
-    state = 'confirmed'::eth_txes_state
+    state = 'confirmed'::evm.txes_state
 ) NOT VALID;
 -- +goose StatementEnd
 

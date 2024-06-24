@@ -1867,7 +1867,6 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	txs, err := txStore.FindConfirmedTxesAwaitingFinalization(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
-
 }
 
 func TestORM_UpdateTxesFinalized(t *testing.T) {

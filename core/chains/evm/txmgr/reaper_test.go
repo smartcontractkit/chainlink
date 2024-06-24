@@ -62,7 +62,6 @@ func TestReaper_ReapTxes(t *testing.T) {
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
-
 		tc := &reaperConfig{reaperThreshold: 0 * time.Second}
 
 		r := newReaper(t, txStore, tc)
