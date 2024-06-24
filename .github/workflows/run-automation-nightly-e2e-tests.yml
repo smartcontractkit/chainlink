@@ -1,7 +1,6 @@
 name: Run Automation Product Nightly E2E Tests
 
 on:
-  push:
   # schedule:
   #   - cron: "0 0 * * *" # Run nightly
   # push:
