@@ -318,6 +318,7 @@ jobs:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
           TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
           RR_MEM: ${{ matrix.tests.remoteRunnerMemory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}
