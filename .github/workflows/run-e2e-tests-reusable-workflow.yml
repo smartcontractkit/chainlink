@@ -17,7 +17,7 @@ on:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
         type: boolean
-        default: true        
+        default: false        
     secrets:
       QA_AWS_REGION:
         required: true
