@@ -12,7 +12,7 @@
 # Services
 /core/services/directrequest @smartcontractkit/keepers
 /core/services/feeds @smartcontractkit/FMS
-/core/services/synchronization/telem/ @smartcontractkit/realtime
+/core/services/synchronization/telem/**/*.proto @smartcontractkit/realtime
 
 # To be deprecated in Chainlink V3
 /core/services/fluxmonitorv2 @smartcontractkit/foundations
