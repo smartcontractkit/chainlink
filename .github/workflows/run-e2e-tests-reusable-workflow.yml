@@ -180,10 +180,26 @@ jobs:
           grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.21.7'
+      - name: Set Test Config Override
+        if: ${{ matrix.tests.testConfigOverride != '' }}
+        run: |
+          echo "::add-mask::${{ env.CHAINLINK_IMAGE }}"
+
+          # Use the Go tool to replace environment variables
+          replaced_content=$(go run .github/scripts/e2e_tests_tool/main.go envreplace --input '${{ matrix.tests.testConfigOverride }}')
+          
+          # Encode the replaced content to Base64
+          BASE64_CONFIG_OVERRIDE=$(echo "$replaced_content" | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
-          test_command_to_run: ${{ matrix.tests.cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.chainlink-version }}
@@ -268,7 +284,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: ${{ matrix.tests.cmd }}
+          test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}

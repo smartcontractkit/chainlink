@@ -87,8 +87,8 @@ func checkTestsInPipeline(yamlFile string, tests []Test) {
 		found := false
 		for _, item := range config.Tests {
 			if item.Path == test.Path {
-				if strings.Contains(item.Cmd, "-test.run") {
-					if matchTestNameInCmd(item.Cmd, test.Name) {
+				if strings.Contains(item.TestCmd, "-test.run") {
+					if matchTestNameInCmd(item.TestCmd, test.Name) {
 						found = true
 						break
 					}

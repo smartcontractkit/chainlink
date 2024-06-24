@@ -26,4 +26,5 @@ func init() {
 
 	rootCmd.AddCommand(checkTestsCmd)
 	rootCmd.AddCommand(filterCmd)
+	rootCmd.AddCommand(envreplaceCmd)
 }
