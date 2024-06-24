@@ -19,41 +19,41 @@ func NewContractReaderMock() *ContractReaderMock {
 }
 
 // GetLatestValue Returns given configs at initialization
-func (hr *ContractReaderMock) GetLatestValue(ctx context.Context, contractName, method string, params, returnVal any) error {
-	args := hr.Called(ctx, contractName, method, params, returnVal)
+func (cr *ContractReaderMock) GetLatestValue(ctx context.Context, contractName, method string, params, returnVal any) error {
+	args := cr.Called(ctx, contractName, method, params, returnVal)
 	return args.Error(0)
 }
 
-func (hr *ContractReaderMock) Bind(ctx context.Context, bindings []types.BoundContract) error {
-	args := hr.Called(ctx, bindings)
+func (cr *ContractReaderMock) Bind(ctx context.Context, bindings []types.BoundContract) error {
+	args := cr.Called(ctx, bindings)
 	return args.Error(0)
 }
 
-func (hr *ContractReaderMock) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
-	args := hr.Called(ctx, contractName, filter, limitAndSort, sequenceDataType)
+func (cr *ContractReaderMock) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]types.Sequence, error) {
+	args := cr.Called(ctx, contractName, filter, limitAndSort, sequenceDataType)
 	return args.Get(0).([]types.Sequence), args.Error(1)
 }
 
-func (hr *ContractReaderMock) Start(ctx context.Context) error {
-	args := hr.Called(ctx)
+func (cr *ContractReaderMock) Start(ctx context.Context) error {
+	args := cr.Called(ctx)
 	return args.Error(0)
 }
 
-func (hr *ContractReaderMock) Close() error {
-	args := hr.Called()
+func (cr *ContractReaderMock) Close() error {
+	args := cr.Called()
 	return args.Error(0)
 }
 
-func (hr *ContractReaderMock) Ready() error {
-	args := hr.Called()
+func (cr *ContractReaderMock) Ready() error {
+	args := cr.Called()
 	return args.Error(0)
 }
 
-func (hr *ContractReaderMock) HealthReport() map[string]error {
-	args := hr.Called()
+func (cr *ContractReaderMock) HealthReport() map[string]error {
+	args := cr.Called()
 	return args.Get(0).(map[string]error)
 }
 
-func (hr *ContractReaderMock) Name() string {
+func (cr *ContractReaderMock) Name() string {
 	return "ContractReaderMock"
 }

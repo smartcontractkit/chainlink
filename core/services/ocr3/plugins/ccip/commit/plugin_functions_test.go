@@ -8,16 +8,17 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/ccipocr3/internal/libs/slicelib"
 	"github.com/smartcontractkit/ccipocr3/internal/mocks"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func Test_observeMaxSeqNumsPerChain(t *testing.T) {
@@ -439,79 +440,74 @@ func Test_validateObservedSequenceNumbers(t *testing.T) {
 
 func Test_validateObserverReadingEligibility(t *testing.T) {
 	testCases := []struct {
-		name         string
-		observer     commontypes.OracleID
-		msgs         []cciptypes.CCIPMsgBaseDetails
-		seqNums      []cciptypes.SeqNumChain
-		observerInfo map[commontypes.OracleID]cciptypes.ObserverInfo
-		expErr       bool
+		name                string
+		observer            libocrtypes.PeerID
+		msgs                []cciptypes.CCIPMsgBaseDetails
+		seqNums             []cciptypes.SeqNumChain
+		nodeSupportedChains mapset.Set[cciptypes.ChainSelector]
+		destChain           cciptypes.ChainSelector
+		expErr              bool
 	}{
 		{
 			name:     "observer can read all chains",
-			observer: commontypes.OracleID(10),
+			observer: libocrtypes.PeerID{10},
 			msgs: []cciptypes.CCIPMsgBaseDetails{
 				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
 				{ID: cciptypes.Bytes32{3}, SourceChain: 2, SeqNum: 12},
 				{ID: cciptypes.Bytes32{1}, SourceChain: 3, SeqNum: 12},
 				{ID: cciptypes.Bytes32{2}, SourceChain: 3, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
-				10: {Reads: []cciptypes.ChainSelector{1, 2, 3}},
-			},
-			expErr: false,
+			nodeSupportedChains: mapset.NewSet[cciptypes.ChainSelector](1, 2, 3),
+			destChain:           1,
+			expErr:              false,
 		},
 		{
 			name:     "observer is a writer so can observe seq nums",
-			observer: commontypes.OracleID(10),
+			observer: libocrtypes.PeerID{10},
 			msgs:     []cciptypes.CCIPMsgBaseDetails{},
 			seqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
-				10: {Reads: []cciptypes.ChainSelector{1, 3}, Writer: true},
-			},
-			expErr: false,
+			nodeSupportedChains: mapset.NewSet[cciptypes.ChainSelector](1, 3),
+			destChain:           1,
+			expErr:              false,
 		},
 		{
 			name:     "observer is not a writer so cannot observe seq nums",
-			observer: commontypes.OracleID(10),
+			observer: libocrtypes.PeerID{10},
 			msgs:     []cciptypes.CCIPMsgBaseDetails{},
 			seqNums: []cciptypes.SeqNumChain{
 				{ChainSel: 1, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
-				10: {Reads: []cciptypes.ChainSelector{1, 3}, Writer: false},
-			},
-			expErr: true,
+			nodeSupportedChains: mapset.NewSet[cciptypes.ChainSelector](3),
+			destChain:           1,
+			expErr:              true,
 		},
 		{
 			name:     "observer cfg not found",
-			observer: commontypes.OracleID(10),
+			observer: libocrtypes.PeerID{10},
 			msgs: []cciptypes.CCIPMsgBaseDetails{
 				{ID: cciptypes.Bytes32{1}, SourceChain: 1, SeqNum: 12},
 				{ID: cciptypes.Bytes32{3}, SourceChain: 2, SeqNum: 12},
 				{ID: cciptypes.Bytes32{1}, SourceChain: 3, SeqNum: 12},
 				{ID: cciptypes.Bytes32{2}, SourceChain: 3, SeqNum: 12},
 			},
-			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
-				20: {Reads: []cciptypes.ChainSelector{1, 3}}, // observer 10 not found
-			},
-			expErr: true,
+			nodeSupportedChains: mapset.NewSet[cciptypes.ChainSelector](1, 3), // observer 10 not found
+			destChain:           1,
+			expErr:              true,
 		},
 		{
-			name:     "no msgs",
-			observer: commontypes.OracleID(10),
-			msgs:     []cciptypes.CCIPMsgBaseDetails{},
-			observerInfo: map[commontypes.OracleID]cciptypes.ObserverInfo{
-				10: {Reads: []cciptypes.ChainSelector{1, 3}},
-			},
-			expErr: false,
+			name:                "no msgs",
+			observer:            libocrtypes.PeerID{10},
+			msgs:                []cciptypes.CCIPMsgBaseDetails{},
+			nodeSupportedChains: mapset.NewSet[cciptypes.ChainSelector](1, 3),
+			expErr:              false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateObserverReadingEligibility(tc.observer, tc.msgs, tc.seqNums, tc.observerInfo)
+			err := validateObserverReadingEligibility(tc.msgs, tc.seqNums, tc.nodeSupportedChains, tc.destChain)
 			if tc.expErr {
 				assert.Error(t, err)
 				return

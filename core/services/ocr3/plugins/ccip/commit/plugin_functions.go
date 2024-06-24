@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 
@@ -443,19 +442,16 @@ func gasPricesConsensus(lggr logger.Logger, observations []cciptypes.CommitPlugi
 	return consensusGasPrices
 }
 
-// pluginConfigConsensus comes to consensus on the plugin config based on the observations.
+// fChainConsensus comes to consensus on the plugin config based on the observations.
 // We cannot trust the state of a single follower, so we need to come to consensus on the config.
-func pluginConfigConsensus(
-	baseCfg cciptypes.CommitPluginConfig, // the config of the follower calling this function
+func fChainConsensus(
 	observations []cciptypes.CommitPluginObservation, // observations from all followers
-) cciptypes.CommitPluginConfig {
-	consensusCfg := baseCfg
-
+) map[cciptypes.ChainSelector]int {
 	// Come to consensus on fChain.
 	// Use the fChain observed by most followers for each chain.
 	fChainCounts := make(map[cciptypes.ChainSelector]map[int]int) // {chain: {fChain: count}}
 	for _, obs := range observations {
-		for chain, fChain := range obs.PluginConfig.FChain {
+		for chain, fChain := range obs.FChain {
 			if _, exists := fChainCounts[chain]; !exists {
 				fChainCounts[chain] = make(map[int]int)
 			}
@@ -472,51 +468,8 @@ func pluginConfigConsensus(
 			}
 		}
 	}
-	consensusCfg.FChain = consensusFChain
 
-	// Come to consensus on what the feeTokens are.
-	// We want to keep the tokens observed by at least 2f_chain+1 followers.
-	feeTokensCounts := make(map[types.Account]int)
-	for _, obs := range observations {
-		for _, token := range obs.PluginConfig.PricedTokens {
-			feeTokensCounts[token]++
-		}
-	}
-	consensusFeeTokens := make([]types.Account, 0)
-	for token, count := range feeTokensCounts {
-		if count >= 2*consensusCfg.FChain[consensusCfg.DestChain]+1 {
-			consensusFeeTokens = append(consensusFeeTokens, token)
-		}
-	}
-	consensusCfg.PricedTokens = consensusFeeTokens
-
-	// Come to consensus on reading observers.
-	// An observer can read a chain only if at least 2f_chain+1 followers observed that.
-	observerReadChainsCounts := make(map[commontypes.OracleID]map[cciptypes.ChainSelector]int)
-	for _, obs := range observations {
-		for observer, info := range obs.PluginConfig.ObserverInfo {
-			if _, exists := observerReadChainsCounts[observer]; !exists {
-				observerReadChainsCounts[observer] = make(map[cciptypes.ChainSelector]int)
-			}
-			for _, chain := range info.Reads {
-				observerReadChainsCounts[observer][chain]++
-			}
-		}
-	}
-	consensusObserverInfo := make(map[commontypes.OracleID]cciptypes.ObserverInfo)
-	for observer, chainCounts := range observerReadChainsCounts {
-		observerReadChains := make([]cciptypes.ChainSelector, 0)
-		for chain, count := range chainCounts {
-			if count >= 2*consensusCfg.FChain[consensusCfg.DestChain]+1 {
-				observerReadChains = append(observerReadChains, chain)
-			}
-		}
-		observerInfo := consensusCfg.ObserverInfo[observer]
-		observerInfo.Reads = observerReadChains
-		consensusObserverInfo[observer] = observerInfo
-	}
-
-	return consensusCfg
+	return consensusFChain
 }
 
 // validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
@@ -566,18 +519,13 @@ func validateObservedSequenceNumbers(msgs []cciptypes.CCIPMsgBaseDetails, maxSeq
 
 // validateObserverReadingEligibility checks if the observer is eligible to observe the messages it observed.
 func validateObserverReadingEligibility(
-	observer commontypes.OracleID,
 	msgs []cciptypes.CCIPMsgBaseDetails,
 	seqNums []cciptypes.SeqNumChain,
-	observerCfg map[commontypes.OracleID]cciptypes.ObserverInfo,
+	nodeSupportedChains mapset.Set[cciptypes.ChainSelector],
+	destChain cciptypes.ChainSelector,
 ) error {
-	observerInfo, exists := observerCfg[observer]
-	if !exists {
-		return fmt.Errorf("observer not found in config")
-	}
-	observerReadChains := mapset.NewSet(observerInfo.Reads...)
 
-	if len(seqNums) > 0 && !observerInfo.Writer {
+	if len(seqNums) > 0 && !nodeSupportedChains.Contains(destChain) {
 		return fmt.Errorf("observer must be a writer if it observes sequence numbers")
 	}
 
@@ -587,7 +535,7 @@ func validateObserverReadingEligibility(
 
 	for _, msg := range msgs {
 		// Observer must be able to read the chain that the message is coming from.
-		if !observerReadChains.Contains(msg.SourceChain) {
+		if !nodeSupportedChains.Contains(msg.SourceChain) {
 			return fmt.Errorf("observer not allowed to read chain %d", msg.SourceChain)
 		}
 	}

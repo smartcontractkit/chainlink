@@ -145,7 +145,7 @@ func (r *CCIPChainReader) GasPrices(ctx context.Context, chains []cciptypes.Chai
 			if err != nil {
 				return fmt.Errorf("failed to get gas price: %w", err)
 			}
-			gasPrices[i] = cciptypes.NewBigInt(&gasPrice.ExecutionFee)
+			gasPrices[i] = cciptypes.NewBigInt(gasPrice.ExecutionFee)
 			return nil
 		})
 	}
