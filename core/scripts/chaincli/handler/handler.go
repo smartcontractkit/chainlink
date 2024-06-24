@@ -621,11 +621,13 @@ func createCredsFiles() (string, string, func(), error) {
 	}
 	_, _ = passwordFile.WriteString(defaultChainlinkNodePassword)
 
+	// Close the files and ignore errors as above.
+	_ = apiFile.Close()
+	_ = passwordFile.Close()
+
 	return apiFile.Name(), passwordFile.Name(), func() {
 		os.RemoveAll(apiFile.Name())
 		os.RemoveAll(passwordFile.Name())
-		apiFile.Close()
-		passwordFile.Close()
 	}, nil
 }
 
@@ -638,8 +640,10 @@ func createTomlFile(tomlString string) (string, func(), error) {
 	}
 	_, _ = tomlFile.WriteString(tomlString)
 
+	// Close the file and ignore errors as above.
+	_ = tomlFile.Close()
+
 	return tomlFile.Name(), func() {
 		os.RemoveAll(tomlFile.Name())
-		tomlFile.Close()
 	}, nil
 }
