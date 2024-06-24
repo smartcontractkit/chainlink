@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
-  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
-
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
@@ -168,6 +166,86 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     s_CapabilitiesRegistry.updateNodes(nodes);
   }
 
+  function test_RevertWhen_RemovingCapabilityRequiredByWorkflowDON() public {
+    // SETUP: addDON
+    CapabilitiesRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilitiesRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilitiesRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: BASIC_CAPABILITY_CONFIG
+    });
+    bytes32[] memory nodeIds = new bytes32[](2);
+    nodeIds[0] = P2P_ID;
+    nodeIds[1] = P2P_ID_TWO;
+
+    // SETUP: updateNodes
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    // DON requires s_basicHashedCapabilityId but we are swapping for
+    // s_capabilityWithConfigurationContractId
+    hashedCapabilityIds[0] = s_capabilityWithConfigurationContractId;
+    nodes[0] = CapabilitiesRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+    uint32 workflowDonId = 1;
+
+    // Operations
+    changePrank(ADMIN);
+    s_CapabilitiesRegistry.addDON(nodeIds, capabilityConfigs, true, true, 1);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        CapabilitiesRegistry.CapabilityRequiredByDON.selector,
+        s_basicHashedCapabilityId,
+        workflowDonId
+      )
+    );
+    s_CapabilitiesRegistry.updateNodes(nodes);
+  }
+
+  function test_RevertWhen_RemovingCapabilityRequiredByCapabilityDON() public {
+    // SETUP: addDON
+    CapabilitiesRegistry.CapabilityConfiguration[]
+      memory capabilityConfigs = new CapabilitiesRegistry.CapabilityConfiguration[](1);
+    capabilityConfigs[0] = CapabilitiesRegistry.CapabilityConfiguration({
+      capabilityId: s_basicHashedCapabilityId,
+      config: BASIC_CAPABILITY_CONFIG
+    });
+    bytes32[] memory nodeIds = new bytes32[](2);
+    nodeIds[0] = P2P_ID;
+    nodeIds[1] = P2P_ID_TWO;
+
+    // SETUP: updateNodes
+    CapabilitiesRegistry.NodeParams[] memory nodes = new CapabilitiesRegistry.NodeParams[](1);
+    bytes32[] memory hashedCapabilityIds = new bytes32[](1);
+    // DON requires s_basicHashedCapabilityId but we are swapping for
+    // s_capabilityWithConfigurationContractId
+    hashedCapabilityIds[0] = s_capabilityWithConfigurationContractId;
+    nodes[0] = CapabilitiesRegistry.NodeParams({
+      nodeOperatorId: TEST_NODE_OPERATOR_ONE_ID,
+      p2pId: P2P_ID,
+      signer: NODE_OPERATOR_ONE_SIGNER_ADDRESS,
+      hashedCapabilityIds: hashedCapabilityIds
+    });
+    uint32 capabilitiesDonId = 1;
+
+    // Operations
+    changePrank(ADMIN);
+    s_CapabilitiesRegistry.addDON(nodeIds, capabilityConfigs, true, false, 1);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        CapabilitiesRegistry.CapabilityRequiredByDON.selector,
+        s_basicHashedCapabilityId,
+        capabilitiesDonId
+      )
+    );
+    s_CapabilitiesRegistry.updateNodes(nodes);
+  }
+
   function test_CanUpdateParamsIfNodeSignerAddressNoLongerUsed() public {
     changePrank(NODE_OPERATOR_ONE_ADMIN);
 
@@ -214,7 +292,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
+    emit CapabilitiesRegistry.NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_CapabilitiesRegistry.updateNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);
@@ -241,7 +319,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
+    emit CapabilitiesRegistry.NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_CapabilitiesRegistry.updateNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilityConfigurationContract} from "./mocks/CapabilityConfigurationContract.sol";
@@ -8,8 +8,6 @@ import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract CapabilitiesRegistry_AddCapabilitiesTest is BaseTest {
-  event CapabilityConfigured(bytes32 indexed hashedCapabilityId);
-
   function test_RevertWhen_CalledByNonAdmin() public {
     changePrank(STRANGER);
 
@@ -80,9 +78,11 @@ contract CapabilitiesRegistry_AddCapabilitiesTest is BaseTest {
 
     bytes32 hashedCapabilityId = s_CapabilitiesRegistry.getHashedCapabilityId("data-streams-reports", "1.0.0");
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
-    emit CapabilityConfigured(hashedCapabilityId);
+    emit CapabilitiesRegistry.CapabilityConfigured(hashedCapabilityId);
     s_CapabilitiesRegistry.addCapabilities(capabilities);
-    CapabilitiesRegistry.Capability memory storedCapability = s_CapabilitiesRegistry.getCapability(hashedCapabilityId);
+    CapabilitiesRegistry.CapabilityInfo memory storedCapability = s_CapabilitiesRegistry.getCapability(
+      hashedCapabilityId
+    );
 
     assertEq(storedCapability.labelledName, s_basicCapability.labelledName);
     assertEq(storedCapability.version, s_basicCapability.version);
@@ -99,10 +99,12 @@ contract CapabilitiesRegistry_AddCapabilitiesTest is BaseTest {
       s_capabilityWithConfigurationContract.version
     );
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
-    emit CapabilityConfigured(hashedCapabilityId);
+    emit CapabilitiesRegistry.CapabilityConfigured(hashedCapabilityId);
     s_CapabilitiesRegistry.addCapabilities(capabilities);
 
-    CapabilitiesRegistry.Capability memory storedCapability = s_CapabilitiesRegistry.getCapability(hashedCapabilityId);
+    CapabilitiesRegistry.CapabilityInfo memory storedCapability = s_CapabilitiesRegistry.getCapability(
+      hashedCapabilityId
+    );
 
     assertEq(storedCapability.labelledName, s_capabilityWithConfigurationContract.labelledName);
     assertEq(storedCapability.version, s_capabilityWithConfigurationContract.version);

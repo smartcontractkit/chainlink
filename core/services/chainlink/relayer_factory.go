@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	corerelay "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -64,7 +65,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	}
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
-		relayID := types.RelayID{Network: types.NetworkEVM, ChainID: ext.Chain().ID().String()}
+		relayID := types.RelayID{Network: corerelay.NetworkEVM, ChainID: ext.Chain().ID().String()}
 		chain, err2 := legacyChains.Get(relayID.ChainID)
 		if err2 != nil {
 			return nil, err2
@@ -105,7 +106,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solcfg.TOMLConf
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
-		relayID := types.RelayID{Network: types.NetworkSolana, ChainID: *chainCfg.ChainID}
+		relayID := types.RelayID{Network: corerelay.NetworkSolana, ChainID: *chainCfg.ChainID}
 		_, alreadyExists := unique[relayID.Name()]
 		if alreadyExists {
 			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
@@ -178,7 +179,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs config.TOML
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
-		relayID := types.RelayID{Network: types.NetworkStarkNet, ChainID: *chainCfg.ChainID}
+		relayID := types.RelayID{Network: corerelay.NetworkStarkNet, ChainID: *chainCfg.ChainID}
 		_, alreadyExists := unique[relayID.Name()]
 		if alreadyExists {
 			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
@@ -273,7 +274,7 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 
 	// create one relayer per chain id
 	for _, chainCfg := range config.TOMLConfigs {
-		relayID := types.RelayID{Network: types.NetworkCosmos, ChainID: *chainCfg.ChainID}
+		relayID := types.RelayID{Network: corerelay.NetworkCosmos, ChainID: *chainCfg.ChainID}
 
 		lggr := cosmosLggr.Named(relayID.ChainID)
 

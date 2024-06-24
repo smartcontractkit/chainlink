@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.24;
 
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
@@ -128,8 +128,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     ///
     /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
     ///     labelledName = "data-streams-reports:chain:ethereum"
-    ///
-    /// validation regex: ^[a-z0-9_\-:]{1,32}$
     string labelledName;
     /// @notice Semver, e.g., "1.2.3"
     /// @dev must be valid Semver + max 32 characters.
@@ -154,6 +152,43 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     // It is not recommended to store configuration which requires knowledge of
     // the DON membership.
     address configurationContract;
+  }
+
+  struct CapabilityInfo {
+    /// @notice A hashed ID created by the `getHashedCapabilityId` function.
+    bytes32 hashedId;
+    /// @notice The partially qualified ID for the capability.
+    /// @dev Given the following capability ID: {name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}@{version}
+    // Then we denote the `labelledName` as the `{name}:{label1_key}_{label1_value}:{label2_key}_{label2_value}` portion of the ID.
+    ///
+    /// Ex. id = "data-streams-reports:chain:ethereum@1.0.0"
+    ///     labelledName = "data-streams-reports:chain:ethereum"
+    string labelledName;
+    /// @notice Semver, e.g., "1.2.3"
+    /// @dev must be valid Semver + max 32 characters.
+    string version;
+    /// @notice CapabilityType indicates the type of capability which determines
+    /// where the capability can be used in a Workflow Spec.
+    CapabilityType capabilityType;
+    /// @notice CapabilityResponseType indicates whether remote response requires
+    // aggregation or is an already aggregated report. There are multiple
+    // possible ways to aggregate.
+    CapabilityResponseType responseType;
+    /// @notice An address to the capability configuration contract. Having this defined
+    // on a capability enforces consistent configuration across DON instances
+    // serving the same capability. Configuration contract MUST implement
+    // CapabilityConfigurationContractInterface.
+    //
+    /// @dev The main use cases are:
+    // 1) Sharing capability configuration across DON instances
+    // 2) Inspect and modify on-chain configuration without off-chain
+    // capability code.
+    //
+    // It is not recommended to store configuration which requires knowledge of
+    // the DON membership.
+    address configurationContract;
+    /// @notice True if the capability is deprecated
+    bool isDeprecated;
   }
 
   /// @notice CapabilityConfiguration is a struct that holds the capability configuration
@@ -328,6 +363,13 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
   /// @param nodeP2PId The P2P Id of the node
   error NodePartOfWorkflowDON(uint32 donId, bytes32 nodeP2PId);
 
+  /// @notice This error is thrown when removing a capability from the node
+  /// when that capability is still required by one of the DONs the node
+  /// belongs to.
+  /// @param hashedCapabilityId The hashed ID of the capability
+  /// @param donId The ID of the DON that requires the capability
+  error CapabilityRequiredByDON(bytes32 hashedCapabilityId, uint32 donId);
+
   /// @notice This error is thrown when trying to add a capability with a
   /// configuration contract that does not implement the required interface.
   /// @param proposedConfigurationContract The address of the proposed
@@ -390,8 +432,6 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
 
   /// @notice Set of deprecated hashed capability IDs,
   /// A hashed ID is created by the function `getHashedCapabilityId`.
-  ///
-  /// Deprecated capabilities are skipped by the `getCapabilities` function.
   EnumerableSet.Bytes32Set private s_deprecatedHashedCapabilityIds;
 
   /// @notice Encoded node signer addresses
@@ -571,13 +611,11 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
     bool isOwner = msg.sender == owner();
     for (uint256 i; i < nodes.length; ++i) {
       NodeParams memory node = nodes[i];
-
       NodeOperator memory nodeOperator = s_nodeOperators[node.nodeOperatorId];
       if (!isOwner && msg.sender != nodeOperator.admin) revert AccessForbidden(msg.sender);
 
       Node storage storedNode = s_nodes[node.p2pId];
       if (storedNode.signer == bytes32("")) revert NodeDoesNotExist(node.p2pId);
-
       if (node.signer == bytes32("")) revert InvalidNodeSigner();
 
       bytes32 previousSigner = storedNode.signer;
@@ -596,6 +634,31 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
         if (!s_hashedCapabilityIds.contains(supportedHashedCapabilityIds[j]))
           revert InvalidNodeCapabilities(supportedHashedCapabilityIds);
         storedNode.supportedHashedCapabilityIds[capabilityConfigCount].add(supportedHashedCapabilityIds[j]);
+      }
+
+      // Validate that capabilities required by a Workflow DON are still supported
+      uint32 nodeWorkflowDONId = storedNode.workflowDONId;
+      if (nodeWorkflowDONId != 0) {
+        bytes32[] memory workflowDonCapabilityIds = s_dons[nodeWorkflowDONId]
+          .config[s_dons[nodeWorkflowDONId].configCount]
+          .capabilityIds;
+
+        for (uint256 j; j < workflowDonCapabilityIds.length; ++j) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(workflowDonCapabilityIds[j]))
+            revert CapabilityRequiredByDON(workflowDonCapabilityIds[j], nodeWorkflowDONId);
+        }
+      }
+
+      // Validate that capabilities required by capabilities DONs are still supported
+      uint256[] memory capabilitiesDONIds = storedNode.capabilitiesDONIds.values();
+      for (uint32 j; j < capabilitiesDONIds.length; ++j) {
+        uint32 donId = uint32(capabilitiesDONIds[j]);
+        bytes32[] memory donCapabilityIds = s_dons[donId].config[s_dons[donId].configCount].capabilityIds;
+
+        for (uint256 k; k < donCapabilityIds.length; ++k) {
+          if (!storedNode.supportedHashedCapabilityIds[capabilityConfigCount].contains(donCapabilityIds[k]))
+            revert CapabilityRequiredByDON(donCapabilityIds[k], donId);
+        }
       }
 
       storedNode.nodeOperatorId = node.nodeOperatorId;
@@ -656,51 +719,38 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       if (!s_hashedCapabilityIds.contains(hashedCapabilityId)) revert CapabilityDoesNotExist(hashedCapabilityId);
       if (!s_deprecatedHashedCapabilityIds.add(hashedCapabilityId)) revert CapabilityIsDeprecated(hashedCapabilityId);
 
-      delete s_capabilities[hashedCapabilityId];
       emit CapabilityDeprecated(hashedCapabilityId);
     }
   }
 
   /// @notice Returns a Capability by its hashed ID.
   /// @dev Use `getHashedCapabilityId` to get the hashed ID.
-  function getCapability(bytes32 hashedId) external view returns (Capability memory) {
-    return s_capabilities[hashedId];
+  function getCapability(bytes32 hashedId) public view returns (CapabilityInfo memory) {
+    return (
+      CapabilityInfo({
+        hashedId: hashedId,
+        labelledName: s_capabilities[hashedId].labelledName,
+        version: s_capabilities[hashedId].version,
+        capabilityType: s_capabilities[hashedId].capabilityType,
+        responseType: s_capabilities[hashedId].responseType,
+        configurationContract: s_capabilities[hashedId].configurationContract,
+        isDeprecated: s_deprecatedHashedCapabilityIds.contains(hashedId)
+      })
+    );
   }
 
   /// @notice Returns all capabilities. This operation will copy capabilities
   /// to memory, which can be quite expensive. This is designed to mostly be
   /// used by view accessors that are queried without any gas fees.
-  /// @return hashedCapabilityIds bytes32[] List of hashed capability Ids
-  /// @return capabilities Capability[] List of capabilities
-  function getCapabilities()
-    external
-    view
-    returns (bytes32[] memory hashedCapabilityIds, Capability[] memory capabilities)
-  {
-    hashedCapabilityIds = s_hashedCapabilityIds.values();
-
-    uint256 numSupportedCapabilities = hashedCapabilityIds.length - s_deprecatedHashedCapabilityIds.length();
-
-    // Solidity does not support dynamic arrays in memory, so we create a
-    // fixed-size array and copy the capabilities into it.
-    capabilities = new Capability[](numSupportedCapabilities);
-    bytes32[] memory supportedHashedCapabilityIds = new bytes32[](numSupportedCapabilities);
-
-    // We need to keep track of the new index because we are skipping
-    // deprecated capabilities.
-    uint256 newIndex;
+  /// @return CapabilityInfo[] List of capabilities
+  function getCapabilities() external view returns (CapabilityInfo[] memory) {
+    bytes32[] memory hashedCapabilityIds = s_hashedCapabilityIds.values();
+    CapabilityInfo[] memory capabilitiesInfo = new CapabilityInfo[](hashedCapabilityIds.length);
 
     for (uint256 i; i < hashedCapabilityIds.length; ++i) {
-      bytes32 hashedCapabilityId = hashedCapabilityIds[i];
-
-      if (!s_deprecatedHashedCapabilityIds.contains(hashedCapabilityId)) {
-        capabilities[newIndex] = s_capabilities[hashedCapabilityId];
-        supportedHashedCapabilityIds[newIndex] = hashedCapabilityId;
-        ++newIndex;
-      }
+      capabilitiesInfo[i] = getCapability(hashedCapabilityIds[i]);
     }
-
-    return (supportedHashedCapabilityIds, capabilities);
+    return capabilitiesInfo;
   }
 
   /// @notice This functions returns a capability id that has been hashed to fit into a bytes32 for cheaper access

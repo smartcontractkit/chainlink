@@ -1061,16 +1061,26 @@ func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKe
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	var dbEtx DbEthTx
-	err = o.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
+		var dbEtx DbEthTx
+		err = o.q.GetContext(ctx, &dbEtx, `SELECT * FROM evm.txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return pkgerrors.Wrap(err, "FindTxWithIdempotencyKey failed to load evm.txes")
 		}
-		return nil, pkgerrors.Wrap(err, "FindTxWithIdempotencyKey failed to load evm.txes")
-	}
-	etx = new(Tx)
-	dbEtx.ToTx(etx)
+		etx = new(Tx)
+		dbEtx.ToTx(etx)
+		etxArr := []*Tx{etx}
+		if err = orm.LoadTxesAttempts(ctx, etxArr); err != nil {
+			return fmt.Errorf("FindTxWithIdempotencyKey failed to load evm.tx_attempts: %w", err)
+		}
+		if err = orm.loadEthTxesAttemptsReceipts(ctx, etxArr); err != nil {
+			return fmt.Errorf("FindTxWithIdempotencyKey failed to load evm.receipts: %w", err)
+		}
+		return nil
+	})
 	return
 }
 

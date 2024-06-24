@@ -1,4 +1,4 @@
-package actions_seth
+package actions
 
 import (
 	"context"
@@ -234,7 +234,7 @@ func (r *OvershotTransferRetrier) Retry(ctx context.Context, logger zerolog.Logg
 // insufficient funds, and retrying with a higher gas limit if the transaction fails due to gas too low.
 func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNodes []contracts.ChainlinkNodeWithKeysAndAddress) error {
 	if client == nil {
-		return fmt.Errorf("Seth client is nil, unable to return funds from chainlink nodes")
+		return fmt.Errorf("seth client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if client.Cfg.IsSimulatedNetwork() {
@@ -243,8 +243,7 @@ func ReturnFundsFromNodes(log zerolog.Logger, client *seth.Client, chainlinkNode
 		return nil
 	}
 
-	failedReturns := []common.Address{}
-
+	var failedReturns []common.Address
 	for _, chainlinkNode := range chainlinkNodes {
 		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(fmt.Sprint(client.ChainID))
 		if err != nil {
