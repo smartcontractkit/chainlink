@@ -17,7 +17,11 @@ on:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
         type: boolean
-        default: false         
+        default: false
+      with-existing-remote-runner-version:
+        description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        required: false
+        type: string                 
 
 jobs:
   call-run-e2e-tests-workflow:
@@ -32,6 +36,7 @@ jobs:
     with:
       chainlink-version: ${{ github.event.inputs.chainlink-version }}
       test-ids: ${{ github.event.inputs.test-ids }}
+      with-existing-remote-runner-version: ${{ github.event.inputs.with-existing-remote-runner-version }}
       # Use fromJSON to convert string to boolean. More info: https://github.com/actions/runner/issues/2206#issuecomment-1532246677
       enable-check-test-configurations: ${{ fromJSON(github.event.inputs.enable-check-test-configurations) }}
     secrets:
