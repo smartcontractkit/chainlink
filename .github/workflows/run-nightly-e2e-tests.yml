@@ -13,5 +13,5 @@ jobs:
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       chainlink-version: develop
-      test-ids: '*'
+      test-workflow: Run Nightly E2E Tests
     secrets: inherit

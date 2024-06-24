@@ -11,20 +11,20 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// Filter tests based on trigger, test type, and test IDs.
-func filterTests(tests []TestConf, names, trigger, testType, ids string) []TestConf {
-	triggerFilter := trigger
+// Filter tests based on workflow, test type, and test IDs.
+func filterTests(tests []TestConf, names, workflow, testType, ids string) []TestConf {
+	workflowFilter := workflow
 	typeFilter := testType
 	idFilter := strings.Split(ids, ",")
 
 	var filteredTests []TestConf
 
 	for _, test := range tests {
-		triggerMatch := trigger == "" || contains(test.Trigger, triggerFilter)
+		workflowMatch := workflow == "" || contains(test.Workflows, workflowFilter)
 		typeMatch := testType == "" || test.TestType == typeFilter
 		idMatch := ids == "*" || ids == "" || contains(idFilter, test.ID)
 
-		if triggerMatch && typeMatch && idMatch {
+		if workflowMatch && typeMatch && idMatch {
 			filteredTests = append(filteredTests, test)
 		}
 	}
@@ -46,13 +46,13 @@ func contains(slice []string, element string) bool {
 var filterCmd = &cobra.Command{
 	Use:   "filter",
 	Short: "Filter test configurations based on specified criteria",
-	Long: `Filters tests from a YAML configuration based on name, trigger, test type, and test IDs.
+	Long: `Filters tests from a YAML configuration based on name, workflow, test type, and test IDs.
 Example usage:
-./e2e_tests_tool filter --file .github/e2e-tests.yml --trigger "push" --test-type "docker" --test-ids "test1,test2"`,
+./e2e_tests_tool filter --file .github/e2e-tests.yml --workflow "Run Nightly E2E Tests" --test-type "docker" --test-ids "test1,test2"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		yamlFile, _ := cmd.Flags().GetString("file")
 		names, _ := cmd.Flags().GetString("name")
-		trigger, _ := cmd.Flags().GetString("trigger")
+		workflow, _ := cmd.Flags().GetString("workflow")
 		testType, _ := cmd.Flags().GetString("test-type")
 		testIDs, _ := cmd.Flags().GetString("test-ids")
 
@@ -67,7 +67,7 @@ Example usage:
 			log.Fatalf("Error parsing YAML data: %v", err)
 		}
 
-		filteredTests := filterTests(config.Tests, names, trigger, testType, testIDs)
+		filteredTests := filterTests(config.Tests, names, workflow, testType, testIDs)
 		matrix := map[string][]TestConf{"tests": filteredTests}
 		matrixJSON, err := json.Marshal(matrix)
 		if err != nil {
@@ -81,7 +81,7 @@ Example usage:
 func init() {
 	filterCmd.Flags().StringP("file", "f", "", "Path to the YAML file")
 	filterCmd.Flags().StringP("name", "n", "", "Comma-separated list of test names to filter by")
-	filterCmd.Flags().StringP("trigger", "t", "", "Trigger filter")
+	filterCmd.Flags().StringP("workflow", "t", "", "Workflow filter")
 	filterCmd.Flags().StringP("test-type", "y", "", "Type of test to filter by")
 	filterCmd.Flags().StringP("test-ids", "i", "*", "Comma-separated list of test IDs to filter by")
 	filterCmd.MarkFlagRequired("file")

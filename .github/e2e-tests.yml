@@ -10,7 +10,9 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
 
@@ -19,7 +21,9 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
@@ -27,7 +31,9 @@ test-runner-matrix:
     path: integration-tests/smoke/ocr2_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
@@ -37,7 +43,8 @@ test-runner-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
     test-config-override: |
       [ChainlinkUpgradeImage]
@@ -52,7 +59,8 @@ test-runner-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
     test-config-override: |
       [ChainlinkUpgradeImage]
@@ -67,7 +75,8 @@ test-runner-matrix:
     path: integration-tests/smoke/automation_upgrade_test.go
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
-    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    workflows:
+      - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
     test-config-override: |
       [ChainlinkUpgradeImage]
@@ -86,6 +95,7 @@ test-runner-matrix:
     test-type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
-    trigger: ["nightly", "release-tag"] # Run nightly and on release tags
+    workflows:
+      - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly

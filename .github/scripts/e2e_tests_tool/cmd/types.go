@@ -14,7 +14,7 @@ type TestConf struct {
 	TestConfigOverride    string   `yaml:"test-config-override" json:"testConfigOverride"`
 	RemoteRunnerTestSuite string   `yaml:"remote-runner-test-suite" json:"remoteRunnerTestSuite"`
 	PyroscopeEnv          string   `yaml:"pyroscope-env" json:"pyroscopeEnv"`
-	Trigger               []string `yaml:"trigger" json:"trigger"`
+	Workflows             []string `yaml:"workflows" json:"workflows"`
 }
 
 type Config struct {

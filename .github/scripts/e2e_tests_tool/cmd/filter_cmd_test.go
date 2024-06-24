@@ -34,28 +34,28 @@ func TestFilterTestsByID(t *testing.T) {
 
 func TestFilterTestsIntegration(t *testing.T) {
 	tests := []TestConf{
-		{ID: "run_all_in_ocr_tests_go", TestType: "docker", Trigger: []string{"nightly"}},
-		{ID: "run_all_in_ocr2_tests_go", TestType: "docker", Trigger: []string{"push"}},
-		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner", Trigger: []string{"push"}},
+		{ID: "run_all_in_ocr_tests_go", TestType: "docker", Workflows: []string{"Run Nightly E2E Tests"}},
+		{ID: "run_all_in_ocr2_tests_go", TestType: "docker", Workflows: []string{"Run PR E2E Tests"}},
+		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner", Workflows: []string{"Run PR E2E Tests"}},
 	}
 
 	cases := []struct {
 		description   string
 		inputNames    string
-		inputTrigger  string
+		inputWorkflow string
 		inputTestType string
 		inputIDs      string
 		expectedLen   int
 	}{
 		{"Filter by test type and ID", "", "", "docker", "run_all_in_ocr2_tests_go", 1},
-		{"Filter by trigger and test type", "", "push", "docker", "*", 1},
+		{"Filter by trigger and test type", "", "Run PR E2E Tests", "docker", "*", 1},
 		{"No filters applied", "", "", "", "*", 3},
-		{"Filter mismatching all criteria", "", "nightly", "k8s_remote_runner", "run_all_in_ocr_tests_go", 0},
+		{"Filter mismatching all criteria", "", "Run Nightly E2E Tests", "", "", 1},
 	}
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			filtered := filterTests(tests, c.inputNames, c.inputTrigger, c.inputTestType, c.inputIDs)
+			filtered := filterTests(tests, c.inputNames, c.inputWorkflow, c.inputTestType, c.inputIDs)
 			if len(filtered) != c.expectedLen {
 				t.Errorf("FilterTests(%s) returned %d tests, expected %d", c.description, len(filtered), c.expectedLen)
 			}
