@@ -31,6 +31,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   error InsufficientLiquidity(uint256 requested, uint256 available, uint256 reserve);
   error EmptyReport();
   error TransferFailed();
+  error OnlyFinanceRole();
 
   /// @notice Emitted when a finalization step is completed without funds being available.
   /// @param ocrSeqNum The OCR sequence number of the report.
@@ -41,6 +42,10 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     uint64 indexed remoteChainSelector,
     bytes bridgeSpecificData
   );
+
+  /// @notice Emitted when the CLL finance role is set.
+  /// @param financeRole The address of the new finance role.
+  event FinanceRoleSet(address financeRole);
 
   /// @notice Emitted when liquidity is transferred to another chain, or received from another chain.
   /// @param ocrSeqNum The OCR sequence number of the report.
@@ -149,11 +154,15 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   /// @dev In the case of CCIP, this would be the token pool.
   ILiquidityContainer private s_localLiquidityContainer;
 
+  /// @notice The CLL finance team multisig
+  address private s_finance;
+
   constructor(
     IERC20 token,
     uint64 localChainSelector,
     ILiquidityContainer localLiquidityContainer,
-    uint256 minimumLiquidity
+    uint256 minimumLiquidity,
+    address finance
   ) OCR3Base() {
     if (localChainSelector == 0) {
       revert ZeroChainSelector();
@@ -166,6 +175,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     i_localChainSelector = localChainSelector;
     s_localLiquidityContainer = localLiquidityContainer;
     s_minimumLiquidity = minimumLiquidity;
+    s_finance = finance;
   }
 
   // ================================================================
@@ -177,7 +187,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   }
 
   /// @notice withdraw native balance
-  function withdrawNative(uint256 amount, address payable destination) external onlyOwner {
+  function withdrawNative(uint256 amount, address payable destination) external onlyFinance {
     (bool success, ) = destination.call{value: amount}("");
     if (!success) revert TransferFailed();
 
@@ -212,7 +222,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
 
   /// @notice Removes liquidity from the system and sends it to the caller, so the owner.
   /// @dev Only the owner can call this function.
-  function removeLiquidity(uint256 amount) external onlyOwner {
+  function removeLiquidity(uint256 amount) external onlyFinance {
     uint256 currentBalance = getLiquidity();
     if (currentBalance < amount) {
       revert InsufficientLiquidity(amount, currentBalance, 0);
@@ -232,7 +242,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     uint256 amount,
     uint256 nativeBridgeFee,
     bytes calldata bridgeSpecificPayload
-  ) external onlyOwner {
+  ) external onlyFinance {
     _rebalanceLiquidity(chainSelector, amount, nativeBridgeFee, type(uint64).max, bridgeSpecificPayload);
   }
 
@@ -244,7 +254,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     uint256 amount,
     bool shouldWrapNative,
     bytes calldata bridgeSpecificPayload
-  ) external onlyOwner {
+  ) external onlyFinance {
     _receiveLiquidity(remoteChainSelector, amount, bridgeSpecificPayload, shouldWrapNative, type(uint64).max);
   }
 
@@ -536,5 +546,22 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     uint256 oldLiquidity = s_minimumLiquidity;
     s_minimumLiquidity = minimumLiquidity;
     emit MinimumLiquiditySet(oldLiquidity, s_minimumLiquidity);
+  }
+
+  /// @notice Gets the CLL finance team multisig address
+  function getFinanceRole() external view returns (address) {
+    return s_finance;
+  }
+
+  /// @notice Sets the finance team multisig address
+  /// @dev Only the owner can call this function.
+  function setFinanceRole(address finance) external onlyOwner {
+    s_finance = finance;
+    emit FinanceRoleSet(finance);
+  }
+
+  modifier onlyFinance() {
+    if (msg.sender != s_finance) revert OnlyFinanceRole();
+    _;
   }
 }

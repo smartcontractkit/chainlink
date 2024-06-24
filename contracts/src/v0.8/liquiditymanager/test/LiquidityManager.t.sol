@@ -35,6 +35,7 @@ contract LiquidityManagerSetup is LiquidityManagerBaseTest {
     bytes bridgeSpecificData,
     bytes reason
   );
+  event FinanceRoleSet(address financeRole);
   event LiquidityAddedToContainer(address indexed provider, uint256 indexed amount);
   event LiquidityRemovedFromContainer(address indexed remover, uint256 indexed amount);
   // Liquidity container event
@@ -57,7 +58,13 @@ contract LiquidityManagerSetup is LiquidityManagerBaseTest {
 
     s_bridgeAdapter = new MockL1BridgeAdapter(s_l1Token, false);
     s_lockReleaseTokenPool = new LockReleaseTokenPool(s_l1Token, new address[](0), address(1), true, address(123));
-    s_liquidityManager = new LiquidityManagerHelper(s_l1Token, i_localChainSelector, s_lockReleaseTokenPool, 0);
+    s_liquidityManager = new LiquidityManagerHelper(
+      s_l1Token,
+      i_localChainSelector,
+      s_lockReleaseTokenPool,
+      0,
+      FINANCE
+    );
 
     s_lockReleaseTokenPool.setRebalancer(address(s_liquidityManager));
 
@@ -73,7 +80,8 @@ contract LiquidityManagerSetup is LiquidityManagerBaseTest {
       IERC20(address(s_l1Weth)),
       i_localChainSelector,
       s_wethLockReleaseTokenPool,
-      0
+      0,
+      FINANCE
     );
 
     s_wethLockReleaseTokenPool.setRebalancer(address(s_wethRebalancer));
@@ -105,8 +113,9 @@ contract LiquidityManager_removeLiquidity is LiquidityManagerSetup {
     deal(address(s_l1Token), address(s_lockReleaseTokenPool), amount);
 
     vm.expectEmit();
-    emit LiquidityRemovedFromContainer(OWNER, amount);
+    emit LiquidityRemovedFromContainer(FINANCE, amount);
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.removeLiquidity(amount);
 
     assertEq(s_l1Token.balanceOf(address(s_liquidityManager)), 0);
@@ -120,13 +129,14 @@ contract LiquidityManager_removeLiquidity is LiquidityManagerSetup {
 
     vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, requested, balance, 0));
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.removeLiquidity(requested);
   }
 
-  function test_OnlyOwnerReverts() external {
+  function test_OnlyFinanceRoleReverts() external {
     vm.stopPrank();
 
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(LiquidityManager.OnlyFinanceRole.selector);
 
     s_liquidityManager.removeLiquidity(123);
   }
@@ -182,6 +192,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       encodedNonce
     );
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.rebalanceLiquidity(i_remoteChainSelector, AMOUNT, 0, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_liquidityManager)), 0);
@@ -196,14 +207,15 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
   function test_rebalanceBetweenPoolsSuccess() external {
     uint256 amount = 12345670;
 
-    s_liquidityManager = new LiquidityManagerHelper(s_l1Token, i_localChainSelector, s_bridgeAdapter, 0);
+    s_liquidityManager = new LiquidityManagerHelper(s_l1Token, i_localChainSelector, s_bridgeAdapter, 0, FINANCE);
 
     MockL1BridgeAdapter mockRemoteBridgeAdapter = new MockL1BridgeAdapter(s_l1Token, false);
     LiquidityManager mockRemoteRebalancer = new LiquidityManager(
       s_l1Token,
       i_remoteChainSelector,
       mockRemoteBridgeAdapter,
-      0
+      0,
+      FINANCE
     );
 
     LiquidityManager.CrossChainRebalancerArgs[] memory args = new LiquidityManager.CrossChainRebalancerArgs[](1);
@@ -229,6 +241,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
 
     deal(address(s_l1Token), address(s_bridgeAdapter), amount);
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.rebalanceLiquidity(i_remoteChainSelector, amount, 0, bytes(""));
 
     assertEq(s_l1Token.balanceOf(address(s_bridgeAdapter)), 0);
@@ -264,7 +277,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       true,
       address(123)
     );
-    LiquidityManager remoteRebalancer = new LiquidityManager(s_l2Token, i_remoteChainSelector, remotePool, 0);
+    LiquidityManager remoteRebalancer = new LiquidityManager(s_l2Token, i_remoteChainSelector, remotePool, 0, FINANCE);
 
     // set rebalancer role on the pool.
     remotePool.setRebalancer(address(remoteRebalancer));
@@ -314,6 +327,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       bridgeSpecificPayload,
       bridgeSendReturnData
     );
+    vm.startPrank(FINANCE);
     remoteRebalancer.rebalanceLiquidity(i_localChainSelector, AMOUNT, 0, bridgeSpecificPayload);
 
     // available liquidity has been moved to the remote bridge adapter from the token pool.
@@ -392,7 +406,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       true,
       address(123)
     );
-    LiquidityManager remoteRebalancer = new LiquidityManager(s_l2Token, i_remoteChainSelector, remotePool, 0);
+    LiquidityManager remoteRebalancer = new LiquidityManager(s_l2Token, i_remoteChainSelector, remotePool, 0, FINANCE);
 
     // set rebalancer role on the pool.
     remotePool.setRebalancer(address(remoteRebalancer));
@@ -443,6 +457,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       bridgeSpecificPayload,
       bridgeSendReturnData
     );
+    vm.startPrank(FINANCE);
     remoteRebalancer.rebalanceLiquidity(i_localChainSelector, AMOUNT, 0, bridgeSpecificPayload);
 
     // available liquidity has been moved to the remote bridge adapter from the token pool.
@@ -516,7 +531,8 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
       IERC20(address(s_l2Weth)),
       i_remoteChainSelector,
       remotePool,
-      0
+      0,
+      FINANCE
     );
 
     // set rebalancer role on the pool.
@@ -557,8 +573,8 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     s_l2Weth.deposit{value: AMOUNT}();
     vm.stopPrank();
 
-    // switch back to owner for the rest of the test to avoid reverts.
-    vm.startPrank(OWNER);
+    // switch to finance for the rest of the test to avoid reverts.
+    vm.startPrank(FINANCE);
 
     // initiate a send from remote rebalancer to s_wethRebalancer.
     uint256 nonce = 1;
@@ -645,6 +661,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
     deal(address(s_l1Token), address(s_lockReleaseTokenPool), AMOUNT);
     vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, AMOUNT, AMOUNT, 3));
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.rebalanceLiquidity(0, AMOUNT, 0, bytes(""));
   }
 
@@ -653,6 +670,7 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
 
     vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InvalidRemoteChain.selector, i_remoteChainSelector));
 
+    vm.startPrank(FINANCE);
     s_liquidityManager.rebalanceLiquidity(i_remoteChainSelector, AMOUNT, 0, bytes(""));
   }
 }
@@ -844,6 +862,25 @@ contract LiquidityManager_setMinimumLiquidity is LiquidityManagerSetup {
   }
 }
 
+contract LiquidityManager_setFinanceRole is LiquidityManagerSetup {
+  event MinimumLiquiditySet(uint256 oldBalance, uint256 newBalance);
+
+  function test_setFinanceRoleSuccess() external {
+    vm.expectEmit();
+    address newFinanceRole = makeAddr("newFinanceRole");
+    assertEq(s_liquidityManager.getFinanceRole(), FINANCE);
+    emit FinanceRoleSet(newFinanceRole);
+    s_liquidityManager.setFinanceRole(newFinanceRole);
+    assertEq(s_liquidityManager.getFinanceRole(), newFinanceRole);
+  }
+
+  function test_OnlyOwnerReverts() external {
+    vm.stopPrank();
+    vm.expectRevert("Only callable by owner");
+    s_liquidityManager.setFinanceRole(address(1));
+  }
+}
+
 contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
   event NativeWithdrawn(uint256 amount, address destination);
 
@@ -858,13 +895,14 @@ contract LiquidityManager_withdrawNative is LiquidityManagerSetup {
     assertEq(receiver.balance, 0);
     vm.expectEmit();
     emit NativeWithdrawn(1, receiver);
+    vm.startPrank(FINANCE);
     s_liquidityManager.withdrawNative(1, payable(receiver));
     assertEq(receiver.balance, 1);
   }
 
-  function test_OnlyOwnerReverts() external {
+  function test_OnlyFinanceRoleReverts() external {
     vm.stopPrank();
-    vm.expectRevert("Only callable by owner");
+    vm.expectRevert(LiquidityManager.OnlyFinanceRole.selector);
     s_liquidityManager.withdrawNative(1, payable(receiver));
   }
 }

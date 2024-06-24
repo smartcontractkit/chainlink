@@ -260,6 +260,7 @@ func deployTokenPoolAndRebalancer(
 		chainID,
 		tokenPoolAddress,
 		big.NewInt(0),
+		common.Address{},
 	)
 	helpers.PanicErr(err)
 	rebalancerAddress := helpers.ConfirmContractDeployed(context.Background(), client, tx, int64(chainID))

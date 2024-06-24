@@ -12,8 +12,9 @@ contract LiquidityManagerHelper is LiquidityManager {
     IERC20 token,
     uint64 localChainSelector,
     ILiquidityContainer localLiquidityContainer,
-    uint256 targetTokens
-  ) LiquidityManager(token, localChainSelector, localLiquidityContainer, targetTokens) {}
+    uint256 targetTokens,
+    address finance
+  ) LiquidityManager(token, localChainSelector, localLiquidityContainer, targetTokens, finance) {}
 
   function report(bytes calldata rep, uint64 ocrSeqNum) external {
     _report(rep, ocrSeqNum);

@@ -664,7 +664,7 @@ func deployContracts(
 
 		// deploy the liquidityManager and set the liquidity container to be the lock release pool
 		ch := mustGetChainByEvmID(t, chainID)
-		liquidityManagerAddr, _, _, err := liquiditymanager.DeployLiquidityManager(owner, backend, wethAddress, ch.Selector, lockReleasePoolAddress, big.NewInt(0))
+		liquidityManagerAddr, _, _, err := liquiditymanager.DeployLiquidityManager(owner, backend, wethAddress, ch.Selector, lockReleasePoolAddress, big.NewInt(0), common.Address{})
 		require.NoError(t, err, "failed to deploy LiquidityManager contract")
 		liquidityManager, err := liquiditymanager.NewLiquidityManager(liquidityManagerAddr, backend)
 		require.NoError(t, err, "failed to create LiquidityManager wrapper")

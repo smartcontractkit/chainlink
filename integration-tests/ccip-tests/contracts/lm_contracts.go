@@ -74,6 +74,7 @@ func (e *CCIPContractsDeployer) DeployLiquidityManager(
 			localChainSelector,
 			localLiquidityContainer,
 			minimumLiquidity,
+			common.Address{},
 		)
 	})
 	if err != nil {

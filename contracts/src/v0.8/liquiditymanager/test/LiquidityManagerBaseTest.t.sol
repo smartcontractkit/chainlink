@@ -21,6 +21,7 @@ contract LiquidityManagerBaseTest is Test {
   uint64 internal immutable i_localChainSelector = 1234;
   uint64 internal immutable i_remoteChainSelector = 9876;
 
+  address internal constant FINANCE = address(0x00000fffffffffffffffffffff);
   address internal constant OWNER = address(0x00000078772732723782873283);
   address internal constant STRANGER = address(0x00000999999911111111222222);
 
@@ -32,7 +33,9 @@ contract LiquidityManagerBaseTest is Test {
     s_l2Weth = new WETH9();
 
     vm.startPrank(OWNER);
-    vm.label(OWNER, "Owner");
-    vm.label(STRANGER, "Stranger");
+
+    vm.label(FINANCE, "FINANCE");
+    vm.label(OWNER, "OWNER");
+    vm.label(STRANGER, "STRANGER");
   }
 }
