@@ -18,7 +18,7 @@ jobs:
       - name: Check Breaking Changes
         shell: bash
         env:
-          REPO_URL: ${{ github.repositoryUrl }}
+          REPO_URL: https://github.com/${{ github.repository }}
           BASE_BRANCH: ${{ github.base_ref }}
         run: |
           go install github.com/bufbuild/buf/cmd/buf@v1.34.0
