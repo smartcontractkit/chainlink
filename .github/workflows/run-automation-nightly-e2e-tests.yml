@@ -20,7 +20,7 @@ jobs:
       contents: read    
     with:
       chainlink-version: develop
-      test-ids: "smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2"
+      test-ids: 'smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2'
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
