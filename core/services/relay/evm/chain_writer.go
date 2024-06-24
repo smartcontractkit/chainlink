@@ -110,6 +110,11 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
 	}
 
+	v := big.NewInt(0)
+	if value != nil {
+		v = value
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
@@ -118,6 +123,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
 		Strategy:       w.sendStrategy,
 		Checker:        checker,
+		Value:          *v,
 	}
 
 	_, err = w.txm.CreateTransaction(ctx, req)
