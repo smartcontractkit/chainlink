@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: GHA Workflow Validator
-        uses: smartcontractkit/.github/actions/gha-workflow-validator@d316f66b2990ea4daa479daa3de6fc92b00f863e # gha-workflow-validator@0.2.0
+        uses: smartcontractkit/.github/actions/gha-workflow-validator@6c9d62fdad050cfb8b59376ded291f1350705944 # gha-workflow-validator@0.2.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
           
