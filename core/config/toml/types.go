@@ -57,6 +57,7 @@ type Core struct {
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
+	HeadReport       HeadReport       `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -76,6 +77,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.TelemetryIngress.setFrom(&f.TelemetryIngress)
 	c.AuditLogger.SetFrom(&f.AuditLogger)
 	c.Log.setFrom(&f.Log)
+	c.HeadReport.setFrom(&f.HeadReport)
 
 	c.WebServer.setFrom(&f.WebServer)
 	c.JobPipeline.setFrom(&f.JobPipeline)
@@ -478,6 +480,16 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
+	}
+}
+
+type HeadReport struct {
+	TelemetryEnabled *bool
+}
+
+func (t *HeadReport) setFrom(f *HeadReport) {
+	if v := f.TelemetryEnabled; v != nil {
+		t.TelemetryEnabled = v
 	}
 }
 

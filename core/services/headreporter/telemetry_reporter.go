@@ -10,20 +10,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
-	"math/big"
 )
 
 type (
 	telemetryReporter struct {
 		logger    logger.Logger
-		endpoints map[*big.Int]commontypes.MonitoringEndpoint
+		endpoints map[uint64]commontypes.MonitoringEndpoint
 	}
 )
 
-func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) *telemetryReporter {
-	endpoints := make(map[*big.Int]commontypes.MonitoringEndpoint)
+func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator) HeadReporter {
+	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
 	for _, chain := range chainContainer.Slice() {
-		endpoints[chain.ID()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)
+		endpoints[chain.ID().Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)
 	}
 	return &telemetryReporter{
 		logger:    lggr.Named("TelemetryReporter"),
@@ -32,13 +31,24 @@ func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr lo
 }
 
 func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) {
-	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt()]
+	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
+	var lastFinalized *telem.Block
+	lastFinalizedHead := head.LatestFinalizedHead()
+	if lastFinalizedHead != nil {
+		lastFinalized = &telem.Block{
+			Timestamp:   uint64(lastFinalizedHead.GetTimestamp().UTC().Unix()),
+			BlockNumber: uint64(lastFinalizedHead.BlockNumber()),
+			BlockHash:   lastFinalizedHead.BlockHash().Hex(),
+		}
+	}
 	request := &telem.HeadReportRequest{
-		ChainId:     head.EVMChainID.String(),
-		Timestamp:   uint64(head.Timestamp.UTC().Unix()),
-		BlockNumber: uint64(head.Number),
-		BlockHash:   head.Hash.Hex(),
-		Finalized:   head.IsFinalized,
+		ChainId: head.EVMChainID.String(),
+		Current: &telem.Block{
+			Timestamp:   uint64(head.Timestamp.UTC().Unix()),
+			BlockNumber: uint64(head.Number),
+			BlockHash:   head.Hash.Hex(),
+		},
+		LastFinalized: lastFinalized,
 	}
 	bytes, err := proto.Marshal(request)
 	if err != nil {

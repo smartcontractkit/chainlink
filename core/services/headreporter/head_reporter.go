@@ -3,6 +3,7 @@ package headreporter
 import (
 	"context"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"sync"
 	"time"
@@ -35,11 +36,13 @@ type (
 	}
 )
 
-func NewHeadReporterService(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
-	return NewHeadReporterServiceWithReporters(ds, chainContainer, lggr, []HeadReporter{
-		NewPrometheusReporter(ds, chainContainer, lggr, opts),
-		NewTelemetryReporter(chainContainer, lggr, monitoringEndpointGen),
-	}, opts)
+func NewHeadReporterService(config config.HeadReport, ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
+	reporters := make([]HeadReporter, 2)
+	reporters = append(reporters, NewPrometheusReporter(ds, chainContainer, lggr, opts))
+	if config.TelemetryEnabled() {
+		reporters = append(reporters, NewTelemetryReporter(chainContainer, lggr, monitoringEndpointGen))
+	}
+	return NewHeadReporterServiceWithReporters(ds, chainContainer, lggr, reporters, opts)
 }
 
 func NewHeadReporterServiceWithReporters(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, reporters []HeadReporter, opts ...interface{}) *HeadReporterService {
