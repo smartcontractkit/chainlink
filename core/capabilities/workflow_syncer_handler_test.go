@@ -595,3 +595,99 @@ func TestHandler_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities
 	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
 }
+
+func toPeerIDs(is [][32]byte) (out []p2ptypes.PeerID) {
+	for _, i := range is {
+		out = append(out, i)
+	}
+
+	return out
+}
+
+func TestHandler_LocalNode(t *testing.T) {
+	ctx := tests.Context(t)
+	lggr := logger.TestLogger(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var pid ragetypes.PeerID
+	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
+	require.NoError(t, err)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(pid)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	workflowDonNodes := [][32]byte{
+		pid,
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	dID := uint32(1)
+	// The below state describes a Workflow DON (AcceptsWorkflows = true),
+	// which exposes the streams-trigger and write_chain capabilities.
+	// We expect receivers to be wired up and both capabilities to be added to the registry.
+	state := registrysyncer.State{
+		IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+			registrysyncer.DonID(dID): {
+				Id:               dID,
+				ConfigCount:      uint32(0),
+				F:                uint8(1),
+				IsPublic:         true,
+				AcceptsWorkflows: true,
+				NodeP2PIds:       workflowDonNodes,
+			},
+		},
+		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+			workflowDonNodes[0]: {
+				NodeOperatorId: 1,
+				Signer:         randomWord(),
+				P2pId:          workflowDonNodes[0],
+			},
+			workflowDonNodes[1]: {
+				NodeOperatorId: 1,
+				Signer:         randomWord(),
+				P2pId:          workflowDonNodes[1],
+			},
+			workflowDonNodes[2]: {
+				NodeOperatorId: 1,
+				Signer:         randomWord(),
+				P2pId:          workflowDonNodes[2],
+			},
+			workflowDonNodes[3]: {
+				NodeOperatorId: 1,
+				Signer:         randomWord(),
+				P2pId:          workflowDonNodes[3],
+			},
+		},
+	}
+
+	handler := NewWorkflowSyncerHandler(
+		lggr,
+		wrapper,
+		dispatcher,
+		registry,
+	)
+
+	err = handler.Handle(ctx, state)
+	require.NoError(t, err)
+	defer handler.Close()
+
+	node, err := handler.LocalNode(ctx)
+	require.NoError(t, err)
+
+	don := capabilities.DON{
+		ID:      fmt.Sprintf("%d", dID),
+		Members: toPeerIDs(workflowDonNodes),
+		F:       1,
+	}
+	expectedNode := capabilities.Node{
+		PeerID:         &pid,
+		WorkflowDON:    don,
+		CapabilityDONs: []capabilities.DON{don},
+	}
+	assert.Equal(t, expectedNode, node)
+}
