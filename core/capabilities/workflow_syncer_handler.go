@@ -130,7 +130,6 @@ func (w *workflowHandler) updateLocalNode(state registrysyncer.State) {
 		WorkflowDON:    workflowDON,
 		CapabilityDONs: capabilityDONs,
 	}
-
 }
 
 func (w *workflowHandler) Handle(ctx context.Context, state registrysyncer.State) error {

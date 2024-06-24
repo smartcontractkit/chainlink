@@ -63,7 +63,7 @@ func New(
 		return nil, err
 	}
 
-	return new(
+	return newSyncer(
 		stopCh,
 		lggr.Named("RegistrySyncer"),
 		reader,
@@ -114,7 +114,7 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 	return cr, err
 }
 
-func new(
+func newSyncer(
 	stopCh services.StopChan,
 	lggr logger.Logger,
 	reader types.ContractReader,

@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -110,24 +109,6 @@ func randomWord() [32]byte {
 		panic(err)
 	}
 	return [32]byte(word)
-}
-
-type mockWrapper struct {
-	services.Service
-	peer p2ptypes.Peer
-}
-
-func (m mockWrapper) GetPeer() p2ptypes.Peer {
-	return m.peer
-}
-
-type mockPeer struct {
-	p2ptypes.Peer
-	peerID p2ptypes.PeerID
-}
-
-func (m mockPeer) ID() p2ptypes.PeerID {
-	return m.peerID
 }
 
 func TestReader_Integration(t *testing.T) {
