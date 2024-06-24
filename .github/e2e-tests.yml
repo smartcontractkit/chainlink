@@ -99,3 +99,14 @@ test-runner-matrix:
       - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
+
+  - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
+    path: integration-tests/benchmark/keeper_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: benchmark
+    remote-runner-memory: 4Gi
+    runs-on: ubuntu-latest
+    workflows:
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/benchmark && go test -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope-env: ci-benchmark-automation-nightly
