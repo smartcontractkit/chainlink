@@ -41,7 +41,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 	},
 }
 
-type workflowHandler struct {
+type launcher struct {
 	services.StateMachine
 	lggr        logger.Logger
 	peerWrapper p2ptypes.PeerWrapper
@@ -51,13 +51,13 @@ type workflowHandler struct {
 	subServices []services.Service
 }
 
-func NewWorkflowSyncerHandler(
+func NewLauncher(
 	lggr logger.Logger,
 	peerWrapper p2ptypes.PeerWrapper,
 	dispatcher remotetypes.Dispatcher,
 	registry core.CapabilitiesRegistry,
-) *workflowHandler {
-	return &workflowHandler{
+) *launcher {
+	return &launcher{
 		lggr:        lggr,
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
@@ -66,11 +66,11 @@ func NewWorkflowSyncerHandler(
 	}
 }
 
-func (w *workflowHandler) Start(ctx context.Context) error {
+func (w *launcher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (w *workflowHandler) Close() error {
+func (w *launcher) Close() error {
 	for _, s := range w.subServices {
 		if err := s.Close(); err != nil {
 			w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -80,19 +80,19 @@ func (w *workflowHandler) Close() error {
 	return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
 }
 
-func (w *workflowHandler) Ready() error {
+func (w *launcher) Ready() error {
 	return nil
 }
 
-func (w *workflowHandler) HealthReport() map[string]error {
+func (w *launcher) HealthReport() map[string]error {
 	return nil
 }
 
-func (w *workflowHandler) Name() string {
-	return "WorkflowSyncerHandler"
+func (w *launcher) Name() string {
+	return "CapabilitiesLauncher"
 }
 
-func (w *workflowHandler) LocalNode(ctx context.Context) (capabilities.Node, error) {
+func (w *launcher) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if w.peerWrapper.GetPeer() == nil {
 		return w.localNode, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
@@ -104,7 +104,7 @@ func (w *workflowHandler) LocalNode(ctx context.Context) (capabilities.Node, err
 	return w.localNode, nil
 }
 
-func (w *workflowHandler) updateLocalNode(state registrysyncer.State) {
+func (w *launcher) updateLocalNode(state registrysyncer.State) {
 	pid := w.peerWrapper.GetPeer().ID()
 
 	var workflowDON capabilities.DON
@@ -133,7 +133,7 @@ func (w *workflowHandler) updateLocalNode(state registrysyncer.State) {
 	}
 }
 
-func (w *workflowHandler) Handle(ctx context.Context, state registrysyncer.State) error {
+func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
 	w.updateLocalNode(state)
 
 	// Let's start by updating the list of Peers
@@ -235,7 +235,7 @@ func (w *workflowHandler) Handle(ctx context.Context, state registrysyncer.State
 	return nil
 }
 
-func (w *workflowHandler) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilitiesRegistryDONInfo, remoteDON kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State) error {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilitiesRegistryDONInfo, remoteDON kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State) error {
 	for _, c := range remoteDON.CapabilityConfigurations {
 		capability, ok := state.IDsToCapabilities[c.CapabilityId]
 		if !ok {
@@ -322,7 +322,7 @@ type capabilityService interface {
 	services.Service
 }
 
-func (w *workflowHandler) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
+func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capabilityInfo.LabelledName, capabilityInfo.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,
@@ -372,7 +372,7 @@ var (
 	defaultTargetRequestTimeout = time.Minute
 )
 
-func (w *workflowHandler) enableExternalAccess(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
+func (w *launcher) enableExternalAccess(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
 	idsToDONs := map[string]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[fmt.Sprint(d.Id)] = *toDONInfo(d)
@@ -443,7 +443,7 @@ type receiverService interface {
 	remotetypes.Receiver
 }
 
-func (w *workflowHandler) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
+func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capability.LabelledName, capability.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,

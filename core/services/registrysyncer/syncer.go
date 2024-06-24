@@ -25,19 +25,19 @@ type State struct {
 	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
 }
 
-type Handler interface {
-	Handle(ctx context.Context, state State) error
+type Launcher interface {
+	Launch(ctx context.Context, state State) error
 }
 
 type Syncer interface {
 	services.Service
-	AddHandler(h ...Handler)
+	AddLauncher(h ...Launcher)
 }
 
 type registrySyncer struct {
-	stopCh   services.StopChan
-	handlers []Handler
-	reader   types.ContractReader
+	stopCh    services.StopChan
+	launchers []Launcher
+	reader    types.ContractReader
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -209,8 +209,8 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if len(s.handlers) == 0 {
-		s.lggr.Warn("sync called, but no handlers are registered; nooping")
+	if len(s.launchers) == 0 {
+		s.lggr.Warn("sync called, but no launchers are registered; nooping")
 		return nil
 	}
 
@@ -219,19 +219,19 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		return fmt.Errorf("failed to sync with remote registry: %w", err)
 	}
 
-	for _, h := range s.handlers {
-		if err := h.Handle(ctx, state); err != nil {
-			s.lggr.Errorf("error calling handler: %s", err)
+	for _, h := range s.launchers {
+		if err := h.Launch(ctx, state); err != nil {
+			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}
 
 	return nil
 }
 
-func (s *registrySyncer) AddHandler(handlers ...Handler) {
+func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.handlers = append(s.handlers, handlers...)
+	s.launchers = append(s.launchers, launchers...)
 }
 
 func (s *registrySyncer) Close() error {

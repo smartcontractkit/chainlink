@@ -233,16 +233,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("could not configure syncer: %w", err)
 		}
 
-		wfHandler := capabilities.NewWorkflowSyncerHandler(
+		wfLauncher := capabilities.NewLauncher(
 			globalLogger,
 			externalPeerWrapper,
 			dispatcher,
 			opts.CapabilitiesRegistry,
 		)
-		registrySyncer.AddHandler(wfHandler)
+		registrySyncer.AddLauncher(wfLauncher)
 
-		getLocalNode = wfHandler.LocalNode
-		srvcs = append(srvcs, dispatcher, wfHandler, registrySyncer)
+		getLocalNode = wfLauncher.LocalNode
+		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
 	}
 
 	// LOOPs can be created as options, in the  case of LOOP relayers, or

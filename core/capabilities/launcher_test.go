@@ -63,7 +63,7 @@ func randomWord() [32]byte {
 	return [32]byte(word)
 }
 
-func TestWorkflowHandler_WiresUpExternalCapabilities(t *testing.T) {
+func TestLauncher_WiresUpExternalCapabilities(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
@@ -171,7 +171,7 @@ func TestWorkflowHandler_WiresUpExternalCapabilities(t *testing.T) {
 		},
 	}
 
-	handler := NewWorkflowSyncerHandler(
+	launcher := NewLauncher(
 		lggr,
 		wrapper,
 		dispatcher,
@@ -181,9 +181,9 @@ func TestWorkflowHandler_WiresUpExternalCapabilities(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, fmt.Sprint(dID), mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, fmt.Sprint(dID), mock.AnythingOfType("*target.server")).Return(nil)
 
-	err = handler.Handle(ctx, state)
+	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
-	defer handler.Close()
+	defer launcher.Close()
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
@@ -276,7 +276,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		},
 	}
 
-	handler := NewWorkflowSyncerHandler(
+	launcher := NewLauncher(
 		lggr,
 		wrapper,
 		dispatcher,
@@ -286,15 +286,15 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// If the DON were public, this would fail with two errors:
 	// - error fetching the capabilities from the registry since they haven't been added
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
-	err = handler.Handle(ctx, state)
+	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
-	defer handler.Close()
+	defer launcher.Close()
 
 	// Finally, assert that no services were added.
-	assert.Len(t, handler.subServices, 0)
+	assert.Len(t, launcher.subServices, 0)
 }
 
-func TestWorkflowHandler_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
+func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
@@ -421,7 +421,7 @@ func TestWorkflowHandler_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		},
 	}
 
-	handler := NewWorkflowSyncerHandler(
+	launcher := NewLauncher(
 		lggr,
 		wrapper,
 		dispatcher,
@@ -431,9 +431,9 @@ func TestWorkflowHandler_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, fmt.Sprint(capDonID), mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, fmt.Sprint(capDonID), mock.AnythingOfType("*target.client")).Return(nil)
 
-	err = handler.Handle(ctx, state)
+	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
-	defer handler.Close()
+	defer launcher.Close()
 
 	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
@@ -442,7 +442,7 @@ func TestWorkflowHandler_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestHandler_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
+func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
@@ -579,7 +579,7 @@ func TestHandler_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities
 		},
 	}
 
-	handler := NewWorkflowSyncerHandler(
+	launcher := NewLauncher(
 		lggr,
 		wrapper,
 		dispatcher,
@@ -588,9 +588,9 @@ func TestHandler_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, fmt.Sprint(triggerCapDonID), mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 
-	err = handler.Handle(ctx, state)
+	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
-	defer handler.Close()
+	defer launcher.Close()
 
 	_, err = registry.Get(ctx, fullTriggerCapID)
 	require.NoError(t, err)
@@ -604,7 +604,7 @@ func toPeerIDs(is [][32]byte) (out []p2ptypes.PeerID) {
 	return out
 }
 
-func TestHandler_LocalNode(t *testing.T) {
+func TestLauncher_LocalNode(t *testing.T) {
 	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
@@ -665,18 +665,18 @@ func TestHandler_LocalNode(t *testing.T) {
 		},
 	}
 
-	handler := NewWorkflowSyncerHandler(
+	launcher := NewLauncher(
 		lggr,
 		wrapper,
 		dispatcher,
 		registry,
 	)
 
-	err = handler.Handle(ctx, state)
+	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
-	defer handler.Close()
+	defer launcher.Close()
 
-	node, err := handler.LocalNode(ctx)
+	node, err := launcher.LocalNode(ctx)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
