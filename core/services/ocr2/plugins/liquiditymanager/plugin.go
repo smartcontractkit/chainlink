@@ -218,15 +218,15 @@ func combinedUnexecutedTransfers(
 	resolvedTransfersQuorum []models.Transfer,
 	inflightTransfers []models.Transfer,
 ) []liquidityrebalancer.UnexecutedTransfer {
-	unexecuted := make([]liquidityrebalancer.UnexecutedTransfer, 0, len(pendingTransfers)+len(resolvedTransfersQuorum)+len(inflightTransfers))
-	for _, pendingTransfer := range pendingTransfers {
-		unexecuted = append(unexecuted, pendingTransfer)
-	}
+	unexecuted := make([]liquidityrebalancer.UnexecutedTransfer, 0, len(resolvedTransfersQuorum)+len(inflightTransfers)+len(pendingTransfers))
 	for _, resolvedTransfer := range resolvedTransfersQuorum {
 		unexecuted = append(unexecuted, resolvedTransfer)
 	}
 	for _, inflightTransfer := range inflightTransfers {
 		unexecuted = append(unexecuted, inflightTransfer)
+	}
+	for _, pendingTransfer := range pendingTransfers {
+		unexecuted = append(unexecuted, pendingTransfer)
 	}
 	return unexecuted
 }

@@ -30,8 +30,8 @@ func ProveWithdrawal(
 	l1ChainID,
 	l2ChainID uint64,
 	l1BridgeAdapterAddress,
-	l2OutputOracleAddress,
-	optimismPortalAddress common.Address,
+	optimismPortalAddress,
+	l2OutputOracleAddress common.Address,
 	l2TxHash common.Hash,
 ) {
 	l2Client, ok := env.Clients[l2ChainID]
@@ -63,9 +63,9 @@ func ProveWithdrawalViaRebalancer(
 	l2ChainID,
 	remoteChainID uint64,
 	amount *big.Int,
-	l1RebalancerAddress,
-	l2OutputOracleAddress,
-	optimismPortalAddress common.Address,
+	l1LiquidityManagerAddress,
+	optimismPortalAddress,
+	l2OutputOracleAddress common.Address,
 	l2TxHash common.Hash,
 ) {
 	remoteChain, ok := chainsel.ChainByEvmChainID(remoteChainID)
@@ -84,10 +84,10 @@ func ProveWithdrawalViaRebalancer(
 
 	encodedPayload := proveMessagePayload(l1Client, l2Client, l2TxHash, optimismPortalAddress, l2OutputOracleAddress)
 
-	l1Rebalancer, err := liquiditymanager.NewLiquidityManager(l1RebalancerAddress, l1Client)
+	l1LiquidityManager, err := liquiditymanager.NewLiquidityManager(l1LiquidityManagerAddress, l1Client)
 	helpers.PanicErr(err)
 
-	tx, err := l1Rebalancer.ReceiveLiquidity(
+	tx, err := l1LiquidityManager.ReceiveLiquidity(
 		env.Transactors[l1ChainID],
 		remoteChain.Selector,
 		amount,
@@ -97,6 +97,34 @@ func ProveWithdrawalViaRebalancer(
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), l1Client, tx, int64(l1ChainID),
 		"ProveWithdrawal", amount.String(), "from", remoteChain.Name)
+}
+
+func CallGetFPACEnabled(
+	env multienv.Env,
+	l1ChainID,
+	l2ChainID uint64,
+) {
+	l1Client, ok := env.Clients[l1ChainID]
+	if !ok {
+		panic(fmt.Sprintf("No L1 client found for chain ID %d", l1ChainID))
+	}
+
+	l2Client, ok := env.Clients[l2ChainID]
+	if !ok {
+		panic(fmt.Sprintf("No L2 client found for chain ID %d", l2ChainID))
+	}
+
+	prover, err := withdrawprover.New(
+		&ethClient{l1Client},
+		&ethClient{l2Client},
+		OptimismContractsByChainID[l1ChainID]["OptimismPortalProxy"],
+		OptimismContractsByChainID[l1ChainID]["L2OutputOracle"],
+	)
+	helpers.PanicErr(err)
+
+	fpacEnabled, err := prover.GetFPAC(context.Background())
+	helpers.PanicErr(err)
+	fmt.Println("FPAC enabled:", fpacEnabled)
 }
 
 func proveMessagePayload(

@@ -82,7 +82,7 @@ func SendToL2(
 	gasPrice, err := env.Clients[l1ChainID].SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 
-	// Estimate gas of the bridging operation and multiply that by 1.6 since
+	// Estimate gas of the bridging operation and multiply that by 1.8 since
 	// optimism bridging costs are paid for in gas.
 	gasCost, err := env.Clients[l1ChainID].EstimateGas(context.Background(), ethereum.CallMsg{
 		From:     env.Transactors[l1ChainID].From,
@@ -137,7 +137,7 @@ func SendToL2ViaRebalancer(
 		panic(fmt.Sprintf("Insufficient liquidity, add more tokens to the liquidity container or specify smaller amount: %s < %s", liquidity, amount))
 	}
 
-	// Estimate gas of the bridging operation and multiply that by 1.6 since
+	// Estimate gas of the bridging operation and multiply that by 1.8 since
 	// optimism bridging costs are paid for in gas.
 	calldata, err := rebalancerABI.Pack("rebalanceLiquidity",
 		remoteChain.Selector,
@@ -150,7 +150,7 @@ func SendToL2ViaRebalancer(
 	gasPrice, err := env.Clients[l1ChainID].SuggestGasPrice(context.Background())
 	helpers.PanicErr(err)
 
-	// Estimate gas of the bridging operation and multiply that by 1.6 since
+	// Estimate gas of the bridging operation and multiply that by 1.8 since
 	// optimism bridging costs are paid for in gas.
 	gasCost, err := env.Clients[l1ChainID].EstimateGas(context.Background(), ethereum.CallMsg{
 		From:     env.Transactors[l1ChainID].From,

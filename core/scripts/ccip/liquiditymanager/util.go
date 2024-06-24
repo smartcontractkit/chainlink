@@ -196,9 +196,9 @@ func deployL1BridgeAdapter(
 		_, tx, _, err := optimism_l1_bridge_adapter.DeployOptimismL1BridgeAdapter(
 			l1Transactor,
 			l1Client,
-			opstack.OptimismContracts[l1ChainID]["L1StandardBridge"],
-			opstack.OptimismContracts[l1ChainID]["WETH"],
-			opstack.OptimismContracts[l1ChainID]["OptimismPortal"],
+			opstack.OptimismContractsByChainID[l1ChainID]["L1StandardBridge"],
+			opstack.OptimismContractsByChainID[l1ChainID]["WETH"],
+			opstack.OptimismContractsByChainID[l1ChainID]["OptimismPortalProxy"],
 		)
 		helpers.PanicErr(err)
 		return helpers.ConfirmContractDeployed(context.Background(), l1Client, tx, int64(l1ChainID))
@@ -223,7 +223,7 @@ func deployL2BridgeAdapter(
 		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(
 			l2Transactor,
 			l2Client,
-			opstack.OptimismContracts[l2ChainID]["WETH"],
+			opstack.OptimismContractsByChainID[l2ChainID]["WETH"],
 		)
 		helpers.PanicErr(err)
 		return helpers.ConfirmContractDeployed(context.Background(), l2Client, tx, int64(l2ChainID))

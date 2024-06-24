@@ -33,6 +33,8 @@ package liquiditymanager
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/IOptimismCrossDomainMessenger/IOptimismCrossDomainMessenger.abi ../../../contracts/solc/v0.8.24/IOptimismCrossDomainMessenger/IOptimismCrossDomainMessenger.bin OptimismCrossDomainMessenger optimism_cross_domain_messenger
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/IOptimismPortal2/IOptimismPortal2.abi ../../../contracts/solc/v0.8.24/IOptimismPortal2/IOptimismPortal2.bin OptimismPortal2 optimism_portal_2
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/IOptimismDisputeGameFactory/IOptimismDisputeGameFactory.abi ../../../contracts/solc/v0.8.24/IOptimismDisputeGameFactory/IOptimismDisputeGameFactory.bin OptimismDisputeGameFactory optimism_dispute_game_factory
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/IOptimismStandardBridge/IOptimismStandardBridge.abi ../../../contracts/solc/v0.8.24/IOptimismStandardBridge/IOptimismStandardBridge.bin OptimismStandardBridge optimism_standard_bridge
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/IOptimismL1StandardBridge/IOptimismL1StandardBridge.abi ../../../contracts/solc/v0.8.24/IOptimismL1StandardBridge/IOptimismL1StandardBridge.bin OptimismL1StandardBridge optimism_l1_standard_bridge
 
 // Generate mocks for tests
 //go:generate mockery --quiet --dir ./generated/arbitrum_l1_bridge_adapter/ --name ArbitrumL1BridgeAdapterInterface --output ./mocks/mock_arbitrum_l1_bridge_adapter --outpkg mock_arbitrum_l1_bridge_adapter --case=underscore

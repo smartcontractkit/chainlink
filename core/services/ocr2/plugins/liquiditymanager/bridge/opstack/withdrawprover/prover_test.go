@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-func Test_prover_getFPAC(t *testing.T) {
+func Test_prover_GetFPAC(t *testing.T) {
 	type fields struct {
 		optimismPortal *mock_optimism_portal.OptimismPortalInterface
 	}
@@ -93,7 +93,7 @@ func Test_prover_getFPAC(t *testing.T) {
 			}
 			tt.expect(t, tt.fields, tt.args)
 			defer tt.assert(t, tt.fields)
-			got, err := p.getFPAC(tt.args.ctx)
+			got, err := p.GetFPAC(tt.args.ctx)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

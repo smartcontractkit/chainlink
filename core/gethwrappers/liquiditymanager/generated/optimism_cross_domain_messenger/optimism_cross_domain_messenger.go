@@ -31,7 +31,7 @@ var (
 )
 
 var OptimismCrossDomainMessengerMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"message\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"messageNonce\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"}],\"name\":\"SentMessage\",\"type\":\"event\"}]",
+	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"target\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes\",\"name\":\"message\",\"type\":\"bytes\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"messageNonce\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"}],\"name\":\"SentMessage\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"_nonce\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_target\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_minGasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"_message\",\"type\":\"bytes\"}],\"name\":\"relayMessage\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
 }
 
 var OptimismCrossDomainMessengerABI = OptimismCrossDomainMessengerMetaData.ABI
@@ -150,6 +150,18 @@ func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessengerTransactorRaw) 
 
 func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessengerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _OptimismCrossDomainMessenger.Contract.contract.Transact(opts, method, params...)
+}
+
+func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessengerTransactor) RelayMessage(opts *bind.TransactOpts, _nonce *big.Int, _sender common.Address, _target common.Address, _value *big.Int, _minGasLimit *big.Int, _message []byte) (*types.Transaction, error) {
+	return _OptimismCrossDomainMessenger.contract.Transact(opts, "relayMessage", _nonce, _sender, _target, _value, _minGasLimit, _message)
+}
+
+func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessengerSession) RelayMessage(_nonce *big.Int, _sender common.Address, _target common.Address, _value *big.Int, _minGasLimit *big.Int, _message []byte) (*types.Transaction, error) {
+	return _OptimismCrossDomainMessenger.Contract.RelayMessage(&_OptimismCrossDomainMessenger.TransactOpts, _nonce, _sender, _target, _value, _minGasLimit, _message)
+}
+
+func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessengerTransactorSession) RelayMessage(_nonce *big.Int, _sender common.Address, _target common.Address, _value *big.Int, _minGasLimit *big.Int, _message []byte) (*types.Transaction, error) {
+	return _OptimismCrossDomainMessenger.Contract.RelayMessage(&_OptimismCrossDomainMessenger.TransactOpts, _nonce, _sender, _target, _value, _minGasLimit, _message)
 }
 
 type OptimismCrossDomainMessengerSentMessageIterator struct {
@@ -302,6 +314,8 @@ func (_OptimismCrossDomainMessenger *OptimismCrossDomainMessenger) Address() com
 }
 
 type OptimismCrossDomainMessengerInterface interface {
+	RelayMessage(opts *bind.TransactOpts, _nonce *big.Int, _sender common.Address, _target common.Address, _value *big.Int, _minGasLimit *big.Int, _message []byte) (*types.Transaction, error)
+
 	FilterSentMessage(opts *bind.FilterOpts, target []common.Address) (*OptimismCrossDomainMessengerSentMessageIterator, error)
 
 	WatchSentMessage(opts *bind.WatchOpts, sink chan<- *OptimismCrossDomainMessengerSentMessage, target []common.Address) (event.Subscription, error)

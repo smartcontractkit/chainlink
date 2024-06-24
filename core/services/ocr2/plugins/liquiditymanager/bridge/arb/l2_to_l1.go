@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/abiutils"
+	bridgecommon "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
 
@@ -72,8 +73,14 @@ func NewL2ToL1Bridge(
 	if !ok {
 		return nil, fmt.Errorf("unknown chain selector for remote chain: %d", remoteSelector)
 	}
-	l2FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L2-LiquidityManager:%s-Local:%s-Remote:%s",
-		l2LiquidityManagerAddress.Hex(), localChain.Name, remoteChain.Name)
+	l2FilterName := bridgecommon.GetBridgeFilterName(
+		"ArbitrumL2ToL1Bridge",
+		"L2",
+		l2LiquidityManagerAddress,
+		localChain.Name,
+		remoteChain.Name,
+		"",
+	)
 	// FIXME Makram fix the context plax
 	ctx := context.Background()
 	err := l2LogPoller.RegisterFilter(
@@ -81,30 +88,36 @@ func NewL2ToL1Bridge(
 		logpoller.Filter{
 			Name: l2FilterName,
 			EventSigs: []common.Hash{
-				LiquidityTransferredTopic,
+				bridgecommon.LiquidityTransferredTopic,
 			},
 			Addresses: []common.Address{l2LiquidityManagerAddress},
-			Retention: DurationMonth,
+			Retention: bridgecommon.DurationMonth,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for Arbitrum L2 to L1 bridge: %w", err)
 	}
 
-	l1FilterName := fmt.Sprintf("ArbitrumL2ToL1Bridge-L1-Rollup:%s-LiquidityManager:%s-Local:%s-Remote:%s",
-		l1RollupAddress.Hex(), l1LiquidityManagerAddress.Hex(), localChain.Name, remoteChain.Name)
+	l1FilterName := bridgecommon.GetBridgeFilterName(
+		"ArbitrumL2ToL1Bridge",
+		"L1",
+		l1LiquidityManagerAddress,
+		localChain.Name,
+		remoteChain.Name,
+		fmt.Sprintf("Rollup:%s", l1RollupAddress.Hex()),
+	)
 	err = l1LogPoller.RegisterFilter(
 		ctx,
 		logpoller.Filter{
 			Name: l1FilterName,
 			EventSigs: []common.Hash{
-				NodeConfirmedTopic,        // emitted by rollup
-				LiquidityTransferredTopic, // emitted by rebalancer
+				NodeConfirmedTopic,                     // emitted by rollup
+				bridgecommon.LiquidityTransferredTopic, // emitted by rebalancer
 			},
 			Addresses: []common.Address{
 				l1RollupAddress,           // to get node confirmed logs
 				l1LiquidityManagerAddress, // to get LiquidityTransferred logs
 			},
-			Retention: DurationMonth,
+			Retention: bridgecommon.DurationMonth,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("register filter for Arbitrum L1 to L2 bridge: %w", err)
@@ -244,15 +257,15 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 	// TODO: make more performant. Perhaps filter on more than just one topic here to avoid doing in-memory filtering.
 	sendLogs, err := l.l2LogPoller.IndexedLogsCreatedAfter(
 		ctx,
-		LiquidityTransferredTopic,
+		bridgecommon.LiquidityTransferredTopic,
 		l.l2LiquidityManager.Address(),
-		LiquidityTransferredToChainSelectorTopicIndex,
+		bridgecommon.LiquidityTransferredToChainSelectorTopicIndex,
 		[]common.Hash{
-			toHash(l.remoteSelector),
+			bridgecommon.NetworkSelectorToHash(l.remoteSelector),
 		},
 		// todo: this should not be hardcoded
 		// todo: heavy query warning
-		time.Now().Add(-DurationMonth/2),
+		time.Now().Add(-bridgecommon.DurationMonth/2),
 		evmtypes.Finalized,
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -264,13 +277,13 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 	// ready to finalize more than once, since that will cause reverts onchain.
 	receiveLogs, err := l.l1LogPoller.IndexedLogsCreatedAfter(
 		ctx,
-		LiquidityTransferredTopic,
+		bridgecommon.LiquidityTransferredTopic,
 		l.l1LiquidityManager.Address(),
-		LiquidityTransferredFromChainSelectorTopicIndex,
+		bridgecommon.LiquidityTransferredFromChainSelectorTopicIndex,
 		[]common.Hash{
-			toHash(l.localSelector),
+			bridgecommon.NetworkSelectorToHash(l.localSelector),
 		},
-		time.Now().Add(-DurationMonth/2),
+		time.Now().Add(-bridgecommon.DurationMonth/2),
 		1,
 	)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -282,12 +295,12 @@ func (l *l2ToL1Bridge) GetTransfers(ctx context.Context, localToken models.Addre
 		"l2ToL1Finalizations", receiveLogs,
 	)
 
-	parsedSent, parsedToLP, err := parseLiquidityTransferred(l.l1LiquidityManager.ParseLiquidityTransferred, sendLogs)
+	parsedSent, parsedToLP, err := bridgecommon.ParseLiquidityTransferred(l.l1LiquidityManager.ParseLiquidityTransferred, sendLogs)
 	if err != nil {
 		return nil, fmt.Errorf("parse L2 -> L1 transfers: %w", err)
 	}
 
-	parsedReceived, _, err := parseLiquidityTransferred(l.l1LiquidityManager.ParseLiquidityTransferred, receiveLogs)
+	parsedReceived, _, err := bridgecommon.ParseLiquidityTransferred(l.l1LiquidityManager.ParseLiquidityTransferred, receiveLogs)
 	if err != nil {
 		return nil, fmt.Errorf("parse L2 -> L1 finalizations: %w", err)
 	}
@@ -305,7 +318,7 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 	ready []*liquiditymanager.LiquidityManagerLiquidityTransferred,
 	readyData [][]byte,
 	notReady []*liquiditymanager.LiquidityManagerLiquidityTransferred,
-	parsedToLP map[logKey]logpoller.Log,
+	parsedToLP map[bridgecommon.LogKey]logpoller.Log,
 ) ([]models.PendingTransfer, error) {
 	if len(ready) != len(readyData) {
 		return nil, fmt.Errorf("length of ready and readyData should be the same: len(ready) = %d, len(readyData) = %d",
@@ -322,12 +335,12 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 				LocalTokenAddress:  localToken,
 				RemoteTokenAddress: remoteToken,
 				Amount:             ubig.New(transfer.Amount),
-				Date: parsedToLP[logKey{
-					txHash:   transfer.Raw.TxHash,
-					logIndex: int64(transfer.Raw.Index),
+				Date: parsedToLP[bridgecommon.LogKey{
+					TxHash:   transfer.Raw.TxHash,
+					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
 				BridgeData: readyData[i], // finalization data for withdrawals that are ready
-				Stage:      StageFinalizeReady,
+				Stage:      bridgecommon.StageFinalizeReady,
 			},
 			Status: models.TransferStatusReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
@@ -343,12 +356,12 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 				LocalTokenAddress:  localToken,
 				RemoteTokenAddress: remoteToken,
 				Amount:             ubig.New(transfer.Amount),
-				Date: parsedToLP[logKey{
-					txHash:   transfer.Raw.TxHash,
-					logIndex: int64(transfer.Raw.Index),
+				Date: parsedToLP[bridgecommon.LogKey{
+					TxHash:   transfer.Raw.TxHash,
+					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
 				BridgeData: []byte{}, // No data since its not ready
-				Stage:      StageRebalanceConfirmed,
+				Stage:      bridgecommon.StageRebalanceConfirmed,
 			},
 			Status: models.TransferStatusNotReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),

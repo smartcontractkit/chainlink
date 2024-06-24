@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/arb"
+	bridgecommon "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/common"
 )
 
 func Test_TopicIndexes(t *testing.T) {
@@ -34,7 +35,7 @@ func Test_TopicIndexes(t *testing.T) {
 		}
 
 		require.True(t, toChainSelectorArg.Indexed)
-		require.Equal(t, arb.LiquidityTransferredToChainSelectorTopicIndex, topicIndex)
+		require.Equal(t, bridgecommon.LiquidityTransferredToChainSelectorTopicIndex, topicIndex)
 	})
 
 	t.Run("liquidity transferred from chain selector idx", func(t *testing.T) {
@@ -54,7 +55,7 @@ func Test_TopicIndexes(t *testing.T) {
 		}
 
 		require.True(t, fromChainSelectorArg.Indexed)
-		require.Equal(t, arb.LiquidityTransferredFromChainSelectorTopicIndex, topicIndex)
+		require.Equal(t, bridgecommon.LiquidityTransferredFromChainSelectorTopicIndex, topicIndex)
 	})
 
 	t.Run("deposit finalized to address idx", func(t *testing.T) {

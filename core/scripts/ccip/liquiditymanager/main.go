@@ -341,9 +341,9 @@ func main() {
 		_, tx, _, err := optimism_l1_bridge_adapter.DeployOptimismL1BridgeAdapter(
 			env.Transactors[*l1ChainID],
 			env.Clients[*l1ChainID],
-			opstack.OptimismContracts[*l1ChainID]["L1StandardBridge"],
-			opstack.OptimismContracts[*l1ChainID]["WETH"],
-			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["L1StandardBridge"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["WETH"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["OptimismPortalProxy"],
 		)
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), env.Clients[*l1ChainID], tx, int64(*l1ChainID))
@@ -353,7 +353,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id")
 
 		env := multienv.New(false, false)
-		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(env.Transactors[*l2ChainID], env.Clients[*l2ChainID], opstack.OptimismContracts[*l2ChainID]["WETH"])
+		_, tx, _, err := optimism_l2_bridge_adapter.DeployOptimismL2BridgeAdapter(env.Transactors[*l2ChainID], env.Clients[*l2ChainID], opstack.OptimismContractsByChainID[*l2ChainID]["WETH"])
 		helpers.PanicErr(err)
 		helpers.ConfirmContractDeployed(context.Background(), env.Clients[*l2ChainID], tx, int64(*l2ChainID))
 	case "op-send-to-l2":
@@ -415,8 +415,8 @@ func main() {
 			*l1ChainID,
 			*l2ChainID,
 			common.HexToAddress(*l1BridgeAdapterAddress),
-			opstack.OptimismContracts[*l1ChainID]["L2OutputOracle"],
-			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["OptimismPortalProxy"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["L2OutputOracle"],
 			common.HexToHash(*l2TxHash))
 	case "op-finalize-l1":
 		cmd := flag.NewFlagSet("op-finalize-l1", flag.ExitOnError)
@@ -460,6 +460,7 @@ func main() {
 		remoteChainID := cmd.Uint64("remote-chain-id", 0, "Remote Chain ID")
 		amount := cmd.String("amount", "1", "Amount")
 		shouldWrapNative := cmd.Bool("should-wrap-native", false, "Should wrap native")
+		bridgeSpecificPayloadStr := cmd.String("bridge-specific-payload", "", "Bridge specific payload in hex format")
 		helpers.ParseArgs(cmd, os.Args[2:], "l2-chain-id", "l2-liquiditymanager-address", "remote-chain-id", "amount")
 
 		env := multienv.New(false, false)
@@ -471,7 +472,9 @@ func main() {
 			mustGetChainByEvmID(*remoteChainID).Selector,
 			decimal.RequireFromString(*amount).BigInt(),
 			*shouldWrapNative,
-			[]byte{}, // no bridge specific payload for receiving liquidity on OP L2
+			// No bridge specific payload required for receiving liquidity on OP L2, though we can optionally encode
+			// information here if needed. For example: the nonce used for matching bridge events in the bridge interface.
+			common.FromHex(*bridgeSpecificPayloadStr),
 		)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), env.Clients[*l2ChainID], tx, int64(*l2ChainID),
@@ -510,8 +513,8 @@ func main() {
 			*remoteChainID,
 			decimal.RequireFromString(*amount).BigInt(),
 			common.HexToAddress(*l1LiquidityManagerAddress),
-			opstack.OptimismContracts[*l1ChainID]["L2OutputOracle"],
-			opstack.OptimismContracts[*l1ChainID]["OptimismPortal"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["OptimismPortalProxy"],
+			opstack.OptimismContractsByChainID[*l1ChainID]["L2OutputOracle"],
 			common.HexToHash(*l2TxHash),
 		)
 	case "op-finalize-withdrawal-on-l1-via-rebalancer":
@@ -534,6 +537,13 @@ func main() {
 			common.HexToAddress(*l1LiquidityManagerAddress),
 			common.HexToHash(*l2TxHash),
 		)
+	case "op-get-fpac-enabled":
+		cmd := flag.NewFlagSet("op-get-fpac-enabled", flag.ExitOnError)
+		l1ChainID := cmd.Uint64("l1-chain-id", 0, "L1 Chain ID")
+		l2ChainID := cmd.Uint64("l2-chain-id", 0, "L2 Chain ID")
+		helpers.ParseArgs(cmd, os.Args[2:], "l1-chain-id", "l2-chain-id")
+		env := multienv.New(false, false)
+		opstack.CallGetFPACEnabled(env, *l1ChainID, *l2ChainID)
 	}
 }
 

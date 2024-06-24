@@ -68,17 +68,17 @@ func New(
 
 	optimismPortal, err := optimism_portal.NewOptimismPortal(optimismPortalAddress, l1Client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new optimism portal: %w", err)
 	}
 
 	optimismPortal2, err := optimism_portal_2.NewOptimismPortal2(optimismPortalAddress, l1Client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new optimism portal 2: %w", err)
 	}
 
 	l2OutputOracle, err := optimism_l2_output_oracle.NewOptimismL2OutputOracle(l2OutputOracleAddress, l1Client)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new l2 output oracle: %w", err)
 	}
 
 	return &prover{
@@ -137,8 +137,7 @@ func (p *prover) Prove(ctx context.Context, withdrawalTxHash common.Hash) (
 		return messageProof, fmt.Errorf("make state trie proof tx hash %s: %w", withdrawalTxHash.Hex(), err)
 	}
 
-	header, err := p.l2Client.HeaderByNumber(
-		context.Background(), messageBedrockOutput.L2BlockNumber)
+	header, err := p.l2Client.HeaderByNumber(ctx, messageBedrockOutput.L2BlockNumber)
 	if err != nil {
 		return messageProof, fmt.Errorf("get header by number tx hash %s: %w", withdrawalTxHash.Hex(), err)
 	}
@@ -167,13 +166,13 @@ func (p *prover) makeStateTrieProof(
 	err := p.l2Client.CallContext(ctx, &resp, "eth_getProof",
 		address, []string{hexutil.Encode(slot[:])}, hexutil.EncodeBig(l2BlockNumber))
 	if err != nil {
-		return stateTrieProof{}, err
+		return stateTrieProof{}, fmt.Errorf("call eth_getProof with address %s, slot %s, l2BlockNumber %s: %w", address.String(), hexutil.Encode(slot[:]), l2BlockNumber.String(), err)
 	}
 
 	updatedProof, err := merkleutils.MaybeAddProofNode(
 		crypto.Keccak256Hash(slot[:]), toProofBytes(resp.StorageProof[0].Proof))
 	if err != nil {
-		return stateTrieProof{}, err
+		return stateTrieProof{}, fmt.Errorf("maybe add proof node: %w", err)
 	}
 
 	return stateTrieProof{
@@ -188,14 +187,14 @@ func (p *prover) getMessageBedrockOutput(
 	ctx context.Context,
 	l2BlockNumber *big.Int,
 ) (bedrockOutput, error) {
-	fpacEnabled, err := p.getFPAC(ctx)
+	fpacEnabled, err := p.GetFPAC(ctx)
 	if err != nil {
-		return bedrockOutput{}, err
+		return bedrockOutput{}, fmt.Errorf("get FPAC: %w", err)
 	}
 	if fpacEnabled {
 		gameType, err2 := p.optimismPortal2.RespectedGameType(&bind.CallOpts{Context: ctx})
 		if err2 != nil {
-			return bedrockOutput{}, err2
+			return bedrockOutput{}, fmt.Errorf("get respected game type from portal: %w", err2)
 		}
 
 		disputeGameFactoryAddress, err2 := p.optimismPortal2.DisputeGameFactory(&bind.CallOpts{Context: ctx})
@@ -210,7 +209,7 @@ func (p *prover) getMessageBedrockOutput(
 
 		gameCount, err2 := disputeGameFactory.GameCount(&bind.CallOpts{Context: ctx})
 		if err2 != nil {
-			return bedrockOutput{}, err2
+			return bedrockOutput{}, fmt.Errorf("get game count: %w", err2)
 		}
 
 		start := int64(0)
@@ -228,13 +227,13 @@ func (p *prover) getMessageBedrockOutput(
 			big.NewInt(start),
 			big.NewInt(end))
 		if err2 != nil {
-			return bedrockOutput{}, err2
+			return bedrockOutput{}, fmt.Errorf("find latest games: %w", err2)
 		}
 
 		for _, game := range latestGames {
 			blockNumber, err2 := abiutils.UnpackUint256(game.ExtraData)
 			if err2 != nil {
-				return bedrockOutput{}, err2
+				return bedrockOutput{}, fmt.Errorf("unpack block number from dispute game: %w", err2)
 			}
 
 			if blockNumber.Cmp(l2BlockNumber) >= 0 {
@@ -250,21 +249,20 @@ func (p *prover) getMessageBedrockOutput(
 		// if there's no match then we can't prove the message to the portal.
 		return bedrockOutput{}, fmt.Errorf("no game found for block number %s", l2BlockNumber.String())
 	}
-
 	// Try to find the output index that corresponds to the block number attached to the message.
 	// We'll explicitly handle "cannot get output" errors as a null return value, but anything else
 	// needs to get thrown. Might need to revisit this in the future to be a little more robust
 	// when connected to RPCs that don't return nice error messages.
 	l2OutputIndex, err := p.l2OutputOracle.GetL2OutputIndexAfter(&bind.CallOpts{Context: ctx}, l2BlockNumber)
 	if err != nil {
-		return bedrockOutput{}, err
+		return bedrockOutput{}, fmt.Errorf("[FPAC not enabled] get l2 output index after block number %s: %w", l2BlockNumber.String(), err)
 	}
 
 	// Now pull the proposal out given the output index. Should always work as long as the above
 	// codepath completed successfully.
 	proposal, err := p.l2OutputOracle.GetL2Output(&bind.CallOpts{Context: ctx}, l2OutputIndex)
 	if err != nil {
-		return bedrockOutput{}, err
+		return bedrockOutput{}, fmt.Errorf("[FPAC not enabled] get l2 output for index %s from oracle: %w", l2OutputIndex.String(), err)
 	}
 
 	return bedrockOutput{
@@ -275,11 +273,11 @@ func (p *prover) getMessageBedrockOutput(
 	}, nil
 }
 
-// getFPAC returns whether FPAC (fault proof upgrade) is enabled on the optimism portal.
-func (p *prover) getFPAC(ctx context.Context) (bool, error) {
+// GetFPAC returns whether FPAC (fault proof upgrade) is enabled on the optimism portal.
+func (p *prover) GetFPAC(ctx context.Context) (bool, error) {
 	semVer, err := p.optimismPortal.Version(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("get version from portal: %w", err)
 	}
 
 	version := semver.MustParse(semVer)
