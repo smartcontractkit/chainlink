@@ -42,7 +42,7 @@ test-runner-matrix:
     test-config-override: |
       [ChainlinkUpgradeImage]
       image="${{ env.CHAINLINK_IMAGE }}"
-      version="${{ env.GITHUB_SHA }}"
+      version="develop"
       [ChainlinkImage]
       image="public.ecr.aws/chainlink/chainlink"
       version="latest"
@@ -57,7 +57,7 @@ test-runner-matrix:
     test-config-override: |
       [ChainlinkUpgradeImage]
       image="${{ env.CHAINLINK_IMAGE }}"
-      version="${{ env.GITHUB_SHA }}"
+      version="develop"
       [ChainlinkImage]
       image="public.ecr.aws/chainlink/chainlink"
       version="latest"
@@ -72,7 +72,7 @@ test-runner-matrix:
     test-config-override: |
       [ChainlinkUpgradeImage]
       image="${{ env.CHAINLINK_IMAGE }}"
-      version="${{ env.GITHUB_SHA }}"
+      version="develop"
       [ChainlinkImage]
       image="public.ecr.aws/chainlink/chainlink"
       version="latest"
