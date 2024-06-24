@@ -185,7 +185,7 @@ func (f *evmFinalizer) processHead(ctx context.Context, head *evmtypes.Head) err
 	validatedReceiptTxs, err := f.batchCheckReceiptHashes(ctx, receiptBlockHashToTx, latestFinalizedHead.BlockNumber())
 	if err != nil {
 		// Do not error out to allow transactions that did not need RPC validation to still be marked as finalized
-		// The transcations failed to be validated will be checked again in the next round
+		// The transactions failed to be validated will be checked again in the next round
 		f.lggr.Errorf("failed to validate receipt block hashes over RPC: %v", err)
 	}
 	finalizedTxs = append(finalizedTxs, validatedReceiptTxs...)
