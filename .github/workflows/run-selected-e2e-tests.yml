@@ -32,7 +32,8 @@ jobs:
     with:
       chainlink-version: ${{ github.event.inputs.chainlink-version }}
       test-ids: ${{ github.event.inputs.test-ids }}
-      enable-check-test-configurations: "${{ github.event.inputs.enable-check-test-configurations }}"
+      # Use fromJSON to convert string to boolean. More info: https://github.com/actions/runner/issues/2206#issuecomment-1532246677
+      enable-check-test-configurations: ${{ fromJSON(github.event.inputs.enable-check-test-configurations) }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
