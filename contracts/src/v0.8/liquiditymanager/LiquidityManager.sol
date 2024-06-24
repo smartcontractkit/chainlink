@@ -28,7 +28,7 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   error ZeroAddress();
   error InvalidRemoteChain(uint64 chainSelector);
   error ZeroChainSelector();
-  error InsufficientLiquidity(uint256 requested, uint256 available);
+  error InsufficientLiquidity(uint256 requested, uint256 available, uint256 reserve);
   error EmptyReport();
   error TransferFailed();
 
@@ -213,9 +213,9 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
   /// @notice Removes liquidity from the system and sends it to the caller, so the owner.
   /// @dev Only the owner can call this function.
   function removeLiquidity(uint256 amount) external onlyOwner {
-    uint256 currentBalance = i_localToken.balanceOf(address(s_localLiquidityContainer));
+    uint256 currentBalance = getLiquidity();
     if (currentBalance < amount) {
-      revert InsufficientLiquidity(amount, currentBalance);
+      revert InsufficientLiquidity(amount, currentBalance, 0);
     }
 
     s_localLiquidityContainer.withdrawLiquidity(amount);
@@ -263,8 +263,9 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     bytes memory bridgeSpecificPayload
   ) internal {
     uint256 currentBalance = getLiquidity();
-    if (currentBalance < tokenAmount) {
-      revert InsufficientLiquidity(tokenAmount, currentBalance);
+    uint256 minBalance = s_minimumLiquidity;
+    if (currentBalance < minBalance || currentBalance - minBalance < tokenAmount) {
+      revert InsufficientLiquidity(tokenAmount, currentBalance, minBalance);
     }
 
     CrossChainRebalancer memory remoteLiqManager = s_crossChainRebalancer[chainSelector];

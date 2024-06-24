@@ -12,6 +12,8 @@ import {LiquidityManagerHelper} from "./helpers/LiquidityManagerHelper.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
+// FOUNDRY_PROFILE=liquiditymanager forge test --match-path src/v0.8/liquiditymanager/test/LiquidityManager.t.sol
+
 contract LiquidityManagerSetup is LiquidityManagerBaseTest {
   event FinalizationStepCompleted(
     uint64 indexed ocrSeqNum,
@@ -116,7 +118,7 @@ contract LiquidityManager_removeLiquidity is LiquidityManagerSetup {
 
     deal(address(s_l1Token), address(s_lockReleaseTokenPool), balance);
 
-    vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, requested, balance));
+    vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, requested, balance, 0));
 
     s_liquidityManager.removeLiquidity(requested);
   }
@@ -639,7 +641,9 @@ contract LiquidityManager_rebalanceLiquidity is LiquidityManagerSetup {
   // Reverts
 
   function test_InsufficientLiquidityReverts() external {
-    vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, AMOUNT, 0));
+    s_liquidityManager.setMinimumLiquidity(3);
+    deal(address(s_l1Token), address(s_lockReleaseTokenPool), AMOUNT);
+    vm.expectRevert(abi.encodeWithSelector(LiquidityManager.InsufficientLiquidity.selector, AMOUNT, AMOUNT, 3));
 
     s_liquidityManager.rebalanceLiquidity(0, AMOUNT, 0, bytes(""));
   }
