@@ -1864,19 +1864,10 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, 100)
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
-	var txStates []txmgrtypes.TxState
-	txStates = append(txStates, txmgrcommon.TxUnstarted)
-	txStates = append(txStates, txmgrcommon.TxInProgress)
-	txStates = append(txStates, txmgrcommon.TxUnconfirmed)
-	txStates = append(txStates, txmgrcommon.TxConfirmed)
-	txStates = append(txStates, txmgrcommon.TxConfirmedMissingReceipt)
-	txStates = append(txStates, txmgrcommon.TxConfirmed)
+	txs, err := txStore.FindConfirmedTxesAwaitingFinalization(ctx, testutils.FixtureChainID)
+	require.NoError(t, err)
+	require.Len(t, txs, 1)
 
-	for _, state := range txStates {
-		txs, err := txStore.FindTransactionsByState(ctx, state, testutils.FixtureChainID)
-		require.NoError(t, err)
-		require.Len(t, txs, 1)
-	}
 }
 
 func TestORM_UpdateTxesFinalized(t *testing.T) {

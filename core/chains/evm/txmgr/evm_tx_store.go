@@ -1863,7 +1863,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
@@ -1876,17 +1876,17 @@ func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int
 		res, err := o.q.ExecContext(ctx, `
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM evm.receipts
-	WHERE block_number < $1
 	ORDER BY block_number ASC, id ASC
-	LIMIT $2
+	LIMIT $1
 )
 DELETE FROM evm.txes
 USING old_enough_receipts, evm.tx_attempts
 WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
 AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
-AND evm.txes.created_at < $3
+AND evm.txes.created_at < $2
 AND evm.txes.state = 'confirmed'
-AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+AND evm.txes.finalized = true
+AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
 		}
@@ -2047,15 +2047,18 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	return err
 }
 
-// Returns all transaction in a specified state
-func (o *evmTxStore) FindTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
+// Returns all confirmed transactions not yet marked as finalized
+func (o *evmTxStore) FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		sql := "SELECT * FROM evm.txes WHERE state = $1 AND evm_chain_id = $2"
+		sql := "SELECT * FROM evm.txes WHERE state = 'confirmed' AND finalized = false AND evm_chain_id = $1"
 		var dbEtxs []DbEthTx
-		err = o.q.SelectContext(ctx, &dbEtxs, sql, state, chainID.String())
+		err = o.q.SelectContext(ctx, &dbEtxs, sql, chainID.String())
+		if len(dbEtxs) == 0 {
+			return nil
+		}
 		txes = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
 		if err = orm.LoadTxesAttempts(ctx, txes); err != nil {

@@ -42,7 +42,7 @@ type (
 	TxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee, *evmtypes.Head]
 	TransactionClient      = txmgrtypes.TransactionClient[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	ChainReceipt           = txmgrtypes.ChainReceipt[common.Hash, common.Hash]
-	Finalizer              = txmgr.Finalizer[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Head]
+	Finalizer              = txmgrtypes.Finalizer[common.Hash, *evmtypes.Head]
 )
 
 var _ KeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import

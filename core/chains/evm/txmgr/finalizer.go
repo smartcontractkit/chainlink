@@ -2,116 +2,101 @@ package txmgr
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-type finalizerTxStore[CHAIN_ID types.ID, ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ types.Sequence, FEE feetypes.Fee] interface {
-	FindTransactionsByState(ctx context.Context, state txmgrtypes.TxState, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
-	UpdateTxesFinalized(ctx context.Context, txs []int64, chainId CHAIN_ID) error
+var _ Finalizer = (*evmFinalizer)(nil)
+
+// processHeadTimeout represents a sanity limit on how long ProcessHead
+// should take to complete
+const processHeadTimeout = 10 * time.Minute
+
+type finalizerTxStore interface {
+	FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID *big.Int) ([]*Tx, error)
+	UpdateTxesFinalized(ctx context.Context, txs []int64, chainId *big.Int) error
 }
 
-type finalizerChainClient[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]] interface {
-	HeadByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error)
+type finalizerChainClient interface {
+	BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error
 }
 
 // Finalizer handles processing new finalized blocks and marking transactions as finalized accordingly in the TXM DB
-type Finalizer[CHAIN_ID types.ID, ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ types.Sequence, FEE feetypes.Fee, HEAD types.Head[BLOCK_HASH]] struct {
+type evmFinalizer struct {
 	services.StateMachine
-	lggr      logger.SugaredLogger
-	chainId   CHAIN_ID
-	txStore   finalizerTxStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	client    finalizerChainClient[BLOCK_HASH, HEAD]
-	mb        *mailbox.Mailbox[HEAD]
-	stopCh    services.StopChan
-	wg        sync.WaitGroup
-	initSync  sync.Mutex
-	isStarted bool
+	lggr    logger.SugaredLogger
+	chainId *big.Int
+	txStore finalizerTxStore
+	client  finalizerChainClient
+	mb      *mailbox.Mailbox[*evmtypes.Head]
+	stopCh  services.StopChan
+	wg      sync.WaitGroup
 }
 
-func NewFinalizer[
-	CHAIN_ID types.ID,
-	ADDR types.Hashable,
-	TX_HASH types.Hashable,
-	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
-	FEE feetypes.Fee,
-	HEAD types.Head[BLOCK_HASH],
-](
+func NewEvmFinalizer(
 	lggr logger.Logger,
-	chainId CHAIN_ID,
-	txStore finalizerTxStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	client finalizerChainClient[BLOCK_HASH, HEAD],
-) *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD] {
+	chainId *big.Int,
+	txStore finalizerTxStore,
+	client finalizerChainClient,
+) *evmFinalizer {
 	lggr = logger.Named(lggr, "Finalizer")
-	return &Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]{
+	return &evmFinalizer{
 		txStore: txStore,
 		lggr:    logger.Sugared(lggr),
 		chainId: chainId,
 		client:  client,
-		mb:      mailbox.NewSingle[HEAD](),
+		mb:      mailbox.NewSingle[*evmtypes.Head](),
 	}
 }
 
 // Start is a comment to appease the linter
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) Start(ctx context.Context) error {
+func (f *evmFinalizer) Start(ctx context.Context) error {
 	return f.StartOnce("Finalizer", func() error {
 		return f.startInternal(ctx)
 	})
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) startInternal(_ context.Context) error {
-	f.initSync.Lock()
-	defer f.initSync.Unlock()
-	if f.isStarted {
-		return errors.New("Finalizer is already started")
-	}
-
+func (f *evmFinalizer) startInternal(_ context.Context) error {
 	f.stopCh = make(chan struct{})
 	f.wg = sync.WaitGroup{}
 	f.wg.Add(1)
 	go f.runLoop()
-	f.isStarted = true
 	return nil
 }
 
 // Close is a comment to appease the linter
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) Close() error {
+func (f *evmFinalizer) Close() error {
 	return f.StopOnce("Finalizer", func() error {
 		return f.closeInternal()
 	})
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) closeInternal() error {
-	f.initSync.Lock()
-	defer f.initSync.Unlock()
-	if !f.isStarted {
-		return fmt.Errorf("Finalizer is not started: %w", services.ErrAlreadyStopped)
-	}
+func (f *evmFinalizer) closeInternal() error {
 	close(f.stopCh)
 	f.wg.Wait()
-	f.isStarted = false
 	return nil
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) Name() string {
+func (f *evmFinalizer) Name() string {
 	return f.lggr.Name()
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) HealthReport() map[string]error {
+func (f *evmFinalizer) HealthReport() map[string]error {
 	return map[string]error{f.Name(): f.Healthy()}
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) runLoop() {
+func (f *evmFinalizer) runLoop() {
 	defer f.wg.Done()
 	ctx, cancel := f.stopCh.NewCtx()
 	defer cancel()
@@ -138,14 +123,18 @@ func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) runLoop
 	}
 }
 
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) ProcessHead(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+func (f *evmFinalizer) DeliverHead(head *evmtypes.Head) bool {
+	return f.mb.Deliver(head)
+}
+
+func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 	return f.processHead(ctx, head)
 }
 
 // Determines if any confirmed transactions can be marked as finalized by comparing their receipts against the latest finalized block
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) processHead(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+func (f *evmFinalizer) processHead(ctx context.Context, head *evmtypes.Head) error {
 	latestFinalizedHead := head.LatestFinalizedHead()
 	// Cannot determine finality without a finalized head for comparison
 	if latestFinalizedHead == nil || !latestFinalizedHead.IsValid() {
@@ -155,22 +144,23 @@ func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) process
 	f.lggr.Debugw("processing latest finalized head", "block num", latestFinalizedHead.BlockNumber(), "block hash", latestFinalizedHead.BlockHash(), "earliest block num in chain", earliestBlockNumInChain)
 
 	// Retrieve all confirmed transactions, loaded with attempts and receipts
-	confirmedTxs, err := f.txStore.FindTransactionsByState(ctx, TxConfirmed, f.chainId)
+	unfinalizedTxs, err := f.txStore.FindConfirmedTxesAwaitingFinalization(ctx, f.chainId)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve confirmed transactions: %w", err)
 	}
 
-	var finalizedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var finalizedTxs []*Tx
 	// Group by block hash transactions whose receipts cannot be validated using the cached heads
-	receiptBlockHashToTx := make(map[BLOCK_HASH][]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+	receiptBlockHashToTx := make(map[common.Hash][]*Tx)
 	// Find transactions with receipt block nums older than the latest finalized block num and block hashes still in chain
-	for _, tx := range confirmedTxs {
+	for _, tx := range unfinalizedTxs {
 		// Only consider transactions not already marked as finalized
 		if tx.Finalized {
 			continue
 		}
 		receipt := tx.GetReceipt()
 		if receipt == nil || receipt.IsZero() || receipt.IsUnmined() {
+			f.lggr.AssumptionViolationw("invalid receipt found for confirmed transaction", "tx", tx, "receipt", receipt)
 			continue
 		}
 		// Receipt newer than latest finalized head block num
@@ -191,22 +181,14 @@ func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) process
 	}
 
 	// Check if block hashes exist for receipts on-chain older than the earliest cached head
-	// Transactions are grouped by their receipt block hash to minimize the number of RPC calls in case transactions were confirmed in the same block
-	// This check is only expected to be used in rare cases if there was an issue with the HeadTracker or if the node was down for significant time
-	var wg sync.WaitGroup
-	var txMu sync.RWMutex
-	for receiptBlockHash, txs := range receiptBlockHashToTx {
-		wg.Add(1)
-		go func(hash BLOCK_HASH, txs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
-			defer wg.Done()
-			if head, rpcErr := f.client.HeadByHash(ctx, hash); rpcErr == nil && head.IsValid() {
-				txMu.Lock()
-				finalizedTxs = append(finalizedTxs, txs...)
-				txMu.Unlock()
-			}
-		}(receiptBlockHash, txs)
+	// Transactions are grouped by their receipt block hash to avoid repeat requests on the same hash in case transactions were confirmed in the same block
+	validatedReceiptTxs, err := f.batchCheckReceiptHashes(ctx, receiptBlockHashToTx, latestFinalizedHead.BlockNumber())
+	if err != nil {
+		// Do not error out to allow transactions that did not need RPC validation to still be marked as finalized
+		// The transcations failed to be validated will be checked again in the next round
+		f.lggr.Errorf("failed to validate receipt block hashes over RPC: %v", err)
 	}
-	wg.Wait()
+	finalizedTxs = append(finalizedTxs, validatedReceiptTxs...)
 
 	etxIDs := f.buildTxIdList(finalizedTxs)
 
@@ -217,8 +199,50 @@ func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) process
 	return nil
 }
 
+func (f *evmFinalizer) batchCheckReceiptHashes(ctx context.Context, receiptMap map[common.Hash][]*Tx, latestFinalizedBlockNum int64) ([]*Tx, error) {
+	if len(receiptMap) == 0 {
+		return nil, nil
+	}
+	var rpcBatchCalls []rpc.BatchElem
+	for hash := range receiptMap {
+		elem := rpc.BatchElem{
+			Method: "eth_getBlockByHash",
+			Args: []any{
+				hash,
+				false,
+			},
+			Result: new(evmtypes.Head),
+		}
+		rpcBatchCalls = append(rpcBatchCalls, elem)
+	}
+
+	err := f.client.BatchCallContext(ctx, rpcBatchCalls)
+	if err != nil {
+		return nil, fmt.Errorf("get block hash batch call failed: %w", err)
+	}
+	var finalizedTxs []*Tx
+	for _, req := range rpcBatchCalls {
+		if req.Error != nil {
+			f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+			continue
+		}
+		head := req.Result.(*evmtypes.Head)
+		if head == nil {
+			f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+			continue
+		}
+		// Confirmed receipt's block hash exists on-chain still
+		// Add to finalized list if block num less than or equal to the latest finalized head block num
+		if head.BlockNumber() <= latestFinalizedBlockNum {
+			txs := receiptMap[head.BlockHash()]
+			finalizedTxs = append(finalizedTxs, txs...)
+		}
+	}
+	return finalizedTxs, nil
+}
+
 // Build list of transaction IDs
-func (f *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]) buildTxIdList(finalizedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) []int64 {
+func (f *evmFinalizer) buildTxIdList(finalizedTxs []*Tx) []int64 {
 	etxIDs := make([]int64, len(finalizedTxs))
 	for i, tx := range finalizedTxs {
 		receipt := tx.GetReceipt()

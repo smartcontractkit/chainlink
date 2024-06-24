@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	feeLimit := uint64(10_000)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 
-	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
+	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, txStore, ethClient)
 	err := finalizer.Start(ctx)
 	require.NoError(t, err)
 
@@ -138,7 +139,17 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		// Insert receipt for finalized block num
 		receiptHash := utils.NewHash()
 		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash, attemptHash)
-		ethClient.On("HeadByHash", mock.Anything, receiptHash).Return(&evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash}, nil)
+		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
+			rpcElements := args.Get(1).([]rpc.BatchElem)
+			require.Equal(t, 1, len(rpcElements))
+
+			require.Equal(t, "eth_getBlockByHash", rpcElements[0].Method)
+			require.Equal(t, receiptHash.String(), rpcElements[0].Args[0].(common.Hash).String())
+			require.Equal(t, false, rpcElements[0].Args[1])
+
+			head := evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash}
+			rpcElements[0].Result = &head
+		}).Return(nil).Once()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
