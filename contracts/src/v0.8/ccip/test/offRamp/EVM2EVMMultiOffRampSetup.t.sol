@@ -48,7 +48,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   MaybeRevertingBurnMintTokenPool internal s_maybeRevertingPool;
 
   EVM2EVMMultiOffRampHelper internal s_offRamp;
-  MessageInterceptorHelper internal s_messageValidator;
+  MessageInterceptorHelper internal s_inboundMessageValidator;
   RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
@@ -64,7 +64,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     PriceRegistrySetup.setUp();
     MultiOCR3BaseSetup.setUp();
 
-    s_messageValidator = new MessageInterceptorHelper();
+    s_inboundMessageValidator = new MessageInterceptorHelper();
     s_receiver = new MaybeRevertMessageReceiver(false);
     s_secondary_receiver = new MaybeRevertMessageReceiver(false);
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
@@ -442,9 +442,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     return sourceTokenData;
   }
 
-  function _enableMessageValidator() internal {
+  function _enableInboundMessageValidator() internal {
     EVM2EVMMultiOffRamp.DynamicConfig memory dynamicConfig = s_offRamp.getDynamicConfig();
-    dynamicConfig.messageValidator = address(s_messageValidator);
+    dynamicConfig.messageValidator = address(s_inboundMessageValidator);
     s_offRamp.setDynamicConfig(dynamicConfig);
   }
 

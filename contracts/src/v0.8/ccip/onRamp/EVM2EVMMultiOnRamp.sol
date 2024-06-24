@@ -3,17 +3,17 @@ pragma solidity 0.8.24;
 
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
+import {IMessageInterceptor} from "../interfaces/IMessageInterceptor.sol";
 import {INonceManager} from "../interfaces/INonceManager.sol";
 import {IPoolV1} from "../interfaces/IPool.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../interfaces/IRMN.sol";
 import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
-import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
+import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {Pool} from "../libraries/Pool.sol";
-import {RateLimiter} from "../libraries/RateLimiter.sol";
 import {USDPriceWith18Decimals} from "../libraries/USDPriceWith18Decimals.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -22,10 +22,11 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 /// @notice The EVM2EVMMultiOnRamp is a contract that handles lane-specific fee logic
 /// @dev The EVM2EVMMultiOnRamp, MultiCommitStore and EVM2EVMMultiOffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of all 3.
-contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, ITypeAndVersion {
+contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCreator {
   using SafeERC20 for IERC20;
   using USDPriceWith18Decimals for uint224;
 
+  error CannotSendZeroTokens();
   error InvalidExtraArgsTag();
   error OnlyCallableByOwnerOrAdmin();
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
@@ -38,13 +39,13 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
   error InvalidConfig();
   error CursedByRMN(uint64 sourceChainSelector);
   error NotAFeeToken(address token);
-  error CannotSendZeroTokens();
   error SourceTokenDataTooLarge(address token);
   error GetSupportedTokensFunctionalityRemovedCheckAdminRegistry();
   error InvalidDestChainConfig(uint64 destChainSelector);
   error DestinationChainNotEnabled(uint64 destChainSelector);
   error InvalidDestBytesOverhead(address token, uint32 destBytesOverhead);
 
+  event AdminSet(address newAdmin);
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event FeePaid(address indexed feeToken, uint256 feeValueJuels);
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
@@ -75,6 +76,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
   struct DynamicConfig {
     address router; // Router address
     address priceRegistry; // Price registry address
+    address messageValidator; // Optional message validator to validate outbound messages (zero address = no validator)
     address feeAggregator; // Fee aggregator address
   }
 
@@ -94,7 +96,6 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
     uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
     //                                  │ Extra data availability bytes that are returned from the source pool and sent
     uint32 destBytesOverhead; //        │ to the destination pool. Must be >= Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
-    bool aggregateRateLimitEnabled; //  │ Whether this transfer token is to be included in Aggregate Rate Limiting
     bool isEnabled; // ─────────────────╯ Whether this token has custom transfer fees
   }
 
@@ -204,10 +205,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
     StaticConfig memory staticConfig,
     DynamicConfig memory dynamicConfig,
     DestChainConfigArgs[] memory destChainConfigArgs,
-    RateLimiter.Config memory rateLimiterConfig,
     PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs,
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs
-  ) AggregateRateLimiter(rateLimiterConfig) {
+  ) {
     if (
       staticConfig.linkToken == address(0) || staticConfig.chainSelector == 0 || staticConfig.rmnProxy == address(0)
         || staticConfig.nonceManager == address(0) || staticConfig.tokenAdminRegistry == address(0)
@@ -254,6 +254,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < newMessage.tokenAmounts.length; ++i) {
       Client.EVMTokenAmount memory tokenAndAmount = message.tokenAmounts[i];
+
+      if (tokenAndAmount.amount == 0) revert CannotSendZeroTokens();
+
       IPoolV1 sourcePool = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token));
       // We don't have to check if it supports the pool version in a non-reverting way here because
       // if we revert here, there is no effect on CCIP. Therefore we directly call the supportsInterface
@@ -333,15 +336,13 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
 
     // Only check token value if there are tokens
     if (numberOfTokens > 0) {
-      uint256 value;
-      for (uint256 i = 0; i < numberOfTokens; ++i) {
-        if (message.tokenAmounts[i].amount == 0) revert CannotSendZeroTokens();
-        if (s_tokenTransferFeeConfig[destChainSelector][message.tokenAmounts[i].token].aggregateRateLimitEnabled) {
-          value += _getTokenValue(message.tokenAmounts[i], IPriceRegistry(s_dynamicConfig.priceRegistry));
+      address messageValidator = s_dynamicConfig.messageValidator;
+      if (messageValidator != address(0)) {
+        try IMessageInterceptor(messageValidator).onOutboundMessage(destChainSelector, message) {}
+        catch (bytes memory err) {
+          revert IMessageInterceptor.MessageValidationError(err);
         }
       }
-      // Rate limit on aggregated token value
-      if (value > 0) _rateLimitValue(value);
     }
 
     uint256 msgFeeJuels;
@@ -664,8 +665,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
 
   /// @notice Updates the destination chain specific config.
   /// @param destChainConfigArgs Array of source chain specific configs.
-  function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external {
-    _onlyOwnerOrAdmin();
+  function applyDestChainConfigUpdates(DestChainConfigArgs[] memory destChainConfigArgs) external onlyOwner {
     _applyDestChainConfigUpdates(destChainConfigArgs);
   }
 
@@ -727,8 +727,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
   /// @param premiumMultiplierWeiPerEthArgs Array of PremiumMultiplierWeiPerEthArgs structs.
   function applyPremiumMultiplierWeiPerEthUpdates(
     PremiumMultiplierWeiPerEthArgs[] memory premiumMultiplierWeiPerEthArgs
-  ) external {
-    _onlyOwnerOrAdmin();
+  ) external onlyOwner {
     _applyPremiumMultiplierWeiPerEthUpdates(premiumMultiplierWeiPerEthArgs);
   }
 
@@ -761,8 +760,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
   function applyTokenTransferFeeConfigUpdates(
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
     TokenTransferFeeConfigRemoveArgs[] memory tokensToUseDefaultFeeConfigs
-  ) external {
-    _onlyOwnerOrAdmin();
+  ) external onlyOwner {
     _applyTokenTransferFeeConfigUpdates(tokenTransferFeeConfigArgs, tokensToUseDefaultFeeConfigs);
   }
 
@@ -815,15 +813,5 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, AggregateRateLimiter, IType
         emit FeeTokenWithdrawn(feeAggregator, address(feeToken), feeTokenBalance);
       }
     }
-  }
-
-  // ================================================================
-  // │                           Access                             │
-  // ================================================================
-
-  /// @dev Require that the sender is the owner or the fee admin
-  /// Not a modifier to save on contract size
-  function _onlyOwnerOrAdmin() internal view {
-    if (msg.sender != owner() && msg.sender != s_admin) revert OnlyCallableByOwnerOrAdmin();
   }
 }

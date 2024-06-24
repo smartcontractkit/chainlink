@@ -2,7 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
-
+import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
 import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 import {ITokenAdminRegistry} from "../../interfaces/ITokenAdminRegistry.sol";
@@ -11,7 +11,6 @@ import {CallWithExactGas} from "../../../shared/call/CallWithExactGas.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
 import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
-import {IMessageInterceptor} from "../../interfaces/IMessageInterceptor.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {MerkleMultiProof} from "../../libraries/MerkleMultiProof.sol";
@@ -269,7 +268,7 @@ contract EVM2EVMMultiOffRamp_setDynamicConfig is EVM2EVMMultiOffRampSetup {
   function test_SetDynamicConfigWithValidator_Success() public {
     EVM2EVMMultiOffRamp.DynamicConfig memory dynamicConfig =
       _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry));
-    dynamicConfig.messageValidator = address(s_messageValidator);
+    dynamicConfig.messageValidator = address(s_inboundMessageValidator);
 
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.DynamicConfigSet(dynamicConfig);
@@ -1204,7 +1203,7 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
   function test_executeSingleMessage_WithValidation_Success() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableMessageValidator();
+    _enableInboundMessageValidator();
     vm.startPrank(address(s_offRamp));
     Internal.EVM2EVMMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
@@ -1271,17 +1270,15 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
   function test_executeSingleMessage_WithFailingValidation_Revert() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableMessageValidator();
+    _enableInboundMessageValidator();
     vm.startPrank(address(s_offRamp));
     Internal.EVM2EVMMessage memory message =
       _generateAny2EVMMessageNoTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, 1);
-    s_messageValidator.setMessageIdValidationState(message.messageId, true);
+    s_inboundMessageValidator.setMessageIdValidationState(message.messageId, true);
     vm.expectRevert(
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
-        abi.encodeWithSelector(
-          MessageInterceptorHelper.IncomingMessageValidationError.selector, bytes("Invalid message")
-        )
+        abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
@@ -1290,7 +1287,7 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
   function test_executeSingleMessage_WithFailingValidationNoRouterCall_Revert() public {
     vm.stopPrank();
     vm.startPrank(OWNER);
-    _enableMessageValidator();
+    _enableInboundMessageValidator();
     vm.startPrank(address(s_offRamp));
 
     Internal.EVM2EVMMessage memory message =
@@ -1301,13 +1298,11 @@ contract EVM2EVMMultiOffRamp_executeSingleMessage is EVM2EVMMultiOffRampSetup {
     message.receiver = address(newReceiver);
     message.messageId = Internal._hash(message, s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
-    s_messageValidator.setMessageIdValidationState(message.messageId, true);
+    s_inboundMessageValidator.setMessageIdValidationState(message.messageId, true);
     vm.expectRevert(
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
-        abi.encodeWithSelector(
-          MessageInterceptorHelper.IncomingMessageValidationError.selector, bytes("Invalid message")
-        )
+        abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
@@ -2047,7 +2042,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
   }
 
   function test_MultipleReportsWithPartialValidationFailures_Success() public {
-    _enableMessageValidator();
+    _enableInboundMessageValidator();
 
     Internal.EVM2EVMMessage[] memory messages1 = new Internal.EVM2EVMMessage[](2);
     Internal.EVM2EVMMessage[] memory messages2 = new Internal.EVM2EVMMessage[](1);
@@ -2060,8 +2055,8 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
     reports[0] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages1);
     reports[1] = _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages2);
 
-    s_messageValidator.setMessageIdValidationState(messages1[0].messageId, true);
-    s_messageValidator.setMessageIdValidationState(messages2[0].messageId, true);
+    s_inboundMessageValidator.setMessageIdValidationState(messages1[0].messageId, true);
+    s_inboundMessageValidator.setMessageIdValidationState(messages2[0].messageId, true);
 
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
@@ -2071,9 +2066,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
       Internal.MessageExecutionState.FAILURE,
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
-        abi.encodeWithSelector(
-          MessageInterceptorHelper.IncomingMessageValidationError.selector, bytes("Invalid message")
-        )
+        abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
 
@@ -2094,9 +2087,7 @@ contract EVM2EVMMultiOffRamp_execute is EVM2EVMMultiOffRampSetup {
       Internal.MessageExecutionState.FAILURE,
       abi.encodeWithSelector(
         IMessageInterceptor.MessageValidationError.selector,
-        abi.encodeWithSelector(
-          MessageInterceptorHelper.IncomingMessageValidationError.selector, bytes("Invalid message")
-        )
+        abi.encodeWithSelector(IMessageInterceptor.MessageValidationError.selector, bytes("Invalid message"))
       )
     );
 

@@ -158,7 +158,7 @@ contract AggregateTokenLimiter_setRateLimiterConfig is AggregateTokenLimiterSetu
   }
 }
 
-contract AggregateTokenLimiter__rateLimitValue is AggregateTokenLimiterSetup {
+contract AggregateTokenLimiter_rateLimitValue is AggregateTokenLimiterSetup {
   function test_RateLimitValueSuccess_gas() public {
     vm.pauseGasMetering();
     // start from blocktime that does not equal rate limiter init timestamp
@@ -215,7 +215,7 @@ contract AggregateTokenLimiter__rateLimitValue is AggregateTokenLimiterSetup {
   }
 }
 
-contract AggregateTokenLimiter__getTokenValue is AggregateTokenLimiterSetup {
+contract AggregateTokenLimiter_getTokenValue is AggregateTokenLimiterSetup {
   function test_GetTokenValue_Success() public view {
     uint256 numberOfTokens = 10;
     Client.EVMTokenAmount memory tokenAmount = Client.EVMTokenAmount({token: TOKEN, amount: 10});

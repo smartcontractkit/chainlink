@@ -76,26 +76,39 @@ contract MultiAggregateRateLimiter is IMessageInterceptor, AuthorizedCallers {
 
   /// @inheritdoc IMessageInterceptor
   function onInboundMessage(Client.Any2EVMMessage memory message) external onlyAuthorizedCallers {
-    uint64 remoteChainSelector = message.sourceChainSelector;
-    RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, false);
+    _applyRateLimit(message.sourceChainSelector, message.destTokenAmounts, false);
+  }
+
+  /// @inheritdoc IMessageInterceptor
+  function onOutboundMessage(
+    uint64 destChainSelector,
+    Client.EVM2AnyMessage calldata message
+  ) external onlyAuthorizedCallers {
+    _applyRateLimit(destChainSelector, message.tokenAmounts, true);
+  }
+
+  /// @notice Applies the rate limit to the token bucket if enabled
+  /// @param remoteChainSelector The remote chain selector
+  /// @param tokenAmounts The tokens and amounts to rate limit
+  /// @param isOutgoingLane if set to true, fetches the bucket for the outgoing message lane (OnRamp).
+  function _applyRateLimit(
+    uint64 remoteChainSelector,
+    Client.EVMTokenAmount[] memory tokenAmounts,
+    bool isOutgoingLane
+  ) private {
+    RateLimiter.TokenBucket storage tokenBucket = _getTokenBucket(remoteChainSelector, isOutgoingLane);
 
     // Skip rate limiting if it is disabled
     if (tokenBucket.isEnabled) {
       uint256 value;
-      Client.EVMTokenAmount[] memory destTokenAmounts = message.destTokenAmounts;
-      for (uint256 i = 0; i < destTokenAmounts.length; ++i) {
-        if (s_rateLimitedTokensLocalToRemote[remoteChainSelector].contains(destTokenAmounts[i].token)) {
-          value += _getTokenValue(destTokenAmounts[i]);
+      for (uint256 i = 0; i < tokenAmounts.length; ++i) {
+        if (s_rateLimitedTokensLocalToRemote[remoteChainSelector].contains(tokenAmounts[i].token)) {
+          value += _getTokenValue(tokenAmounts[i]);
         }
       }
-
+      // Rate limit on aggregated token value
       if (value > 0) tokenBucket._consume(value, address(0));
     }
-  }
-
-  /// @inheritdoc IMessageInterceptor
-  function onOutboundMessage(Client.EVM2AnyMessage memory message, uint64 destChainSelector) external {
-    // TODO: to be implemented (assuming the same rate limiter states are shared for inbound and outbound messages)
   }
 
   /// @param remoteChainSelector chain selector to retrieve token bucket for
