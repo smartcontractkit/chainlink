@@ -486,8 +486,6 @@ func TestLogPoller_BackupPollAndSaveLogsWithDeepBlockDelay(t *testing.T) {
 
 	header, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
-	// Mark everything as finalized
-	//markBlockAsFinalized(t, th, header.Number.Int64())
 
 	// First PollAndSave, no filters are registered, but finalization is the same as the latest block
 	// 1 -> 2 -> ...
@@ -950,10 +948,6 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 			require.NoError(t, err)
 			// Create 5
 			th.Backend.Commit()
-			// Mark block 2 as finalized
-			//if tt.finalityTag {
-			//	finalizeThroughBlock(t, th, 3)
-			//}
 
 			newStart = th.PollAndSaveLogs(testutils.Context(t), newStart)
 			assert.Equal(t, int64(7), newStart)
@@ -1165,7 +1159,6 @@ func TestLogPoller_PollAndSaveLogsDeepReorg(t *testing.T) {
 			_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(1)})
 			require.NoError(t, err)
 			th.Backend.Commit()
-			//markBlockAsFinalized(t, th, 1)
 
 			// Polling should get us the L1 log.
 			newStart := th.PollAndSaveLogs(testutils.Context(t), 1)

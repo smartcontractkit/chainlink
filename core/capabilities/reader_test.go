@@ -11,7 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +42,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.
 	oneEth, _ := new(big.Int).SetString("100000000000000000000", 10)
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
 
-	simulatedBackend := simulated.NewBackend(core.GenesisAlloc{owner.From: {
+	simulatedBackend := simulated.NewBackend(gethtypes.GenesisAlloc{owner.From: {
 		Balance: oneEth,
 	}}, simulated.WithBlockGasLimit(gasLimit))
 	simulatedBackend.Commit()
