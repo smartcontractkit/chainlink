@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#bugfix fixed upreachable code bug which could result in stuck txns
+#bugfix fixed ureachable code bug which could result in stuck txns
