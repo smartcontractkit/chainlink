@@ -38,7 +38,7 @@ test-runner-matrix:
     test-type: docker
     runs-on: ubuntu22.04-8cores-32GB
     trigger: ["push", "nightly", "pull-request", "release-tag"]
-    cmd: cd integration-tests/ && go test smoke/automation_upgrade_test.go -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
+    cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
