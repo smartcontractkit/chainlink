@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"sync"
@@ -108,10 +109,22 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains legacyevm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(
+	orm ORM,
+	btORM bridges.ORM,
+	cfg Config,
+	bridgeCfg BridgeConfig,
+	legacyChains legacyevm.LegacyChainContainer,
+	ethks ETHKeyStore,
+	vrfks VRFKeyStore,
+	lggr logger.Logger,
+	httpClient, unrestrictedHTTPClient *http.Client,
+) *runner {
+	lggr = lggr.Named("PipelineRunner")
+
 	r := &runner{
 		orm:                    orm,
-		btORM:                  btORM,
+		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
@@ -120,18 +133,20 @@ func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, l
 		chStop:                 make(chan struct{}),
 		wgDone:                 sync.WaitGroup{},
 		runFinished:            func(*Run) {},
-		lggr:                   lggr.Named("PipelineRunner"),
+		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
 	}
+
 	r.runReaperWorker = commonutils.NewSleeperTask(
 		commonutils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
+
 	return r
 }
 
 // Start starts Runner.
-func (r *runner) Start(context.Context) error {
+func (r *runner) Start(ctx context.Context) error {
 	return r.StartOnce("PipelineRunner", func() error {
 		r.wgDone.Add(1)
 		go r.scheduleUnfinishedRuns()
@@ -139,6 +154,13 @@ func (r *runner) Start(context.Context) error {
 			r.wgDone.Add(1)
 			go r.runReaperLoop()
 		}
+
+		// the btORM can be a cache service or a static ORM if the constructor changes
+		service, isService := r.btORM.(services.Service)
+		if isService {
+			return service.Start(ctx)
+		}
+
 		return nil
 	})
 }
@@ -147,6 +169,12 @@ func (r *runner) Close() error {
 	return r.StopOnce("PipelineRunner", func() error {
 		close(r.chStop)
 		r.wgDone.Wait()
+
+		// the btORM can be a cache service or a static ORM if the constructor changes
+		if closer, isCloser := r.btORM.(io.Closer); isCloser {
+			return closer.Close()
+		}
+
 		return nil
 	})
 }
@@ -156,7 +184,16 @@ func (r *runner) Name() string {
 }
 
 func (r *runner) HealthReport() map[string]error {
-	return map[string]error{r.Name(): r.Healthy()}
+	runnerHealth := map[string]error{r.Name(): r.Healthy()}
+
+	service, isService := r.btORM.(services.HealthReporter)
+	if !isService {
+		return runnerHealth
+	}
+
+	services.CopyHealth(runnerHealth, service.HealthReport())
+
+	return runnerHealth
 }
 
 func (r *runner) destroy() {
@@ -219,8 +256,18 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
-// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
-var overtime = 100 * time.Millisecond
+var (
+	// github.com/smartcontractkit/libocr/offchainreporting2plus/internal/protocol.ReportingPluginTimeoutWarningGracePeriod
+	overtime           = 100 * time.Millisecond
+	overtimeThresholds = sqlutil.LogThresholds{
+		Warn: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 5) // 80%
+		},
+		Error: func(timeout time.Duration) time.Duration {
+			return timeout - (timeout / 10) // 90%
+		},
+	}
+)
 
 func init() {
 	// undocumented escape hatch
@@ -235,6 +282,7 @@ func init() {
 // overtimeContext returns a modified context for overtime work, since tasks are expected to keep running and return
 // results, even after context cancellation.
 func overtimeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx = overtimeThresholds.ContextWithValue(ctx)
 	if d, ok := ctx.Deadline(); ok {
 		// extend deadline
 		return context.WithDeadline(context.WithoutCancel(ctx), d.Add(overtime))
@@ -300,6 +348,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
+			// orm added to BridgeTask
 			task.(*BridgeTask).orm = r.btORM
 			task.(*BridgeTask).specId = spec.ID
 			// URL is "safe" because it comes from the node's own database. We

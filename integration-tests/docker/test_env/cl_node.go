@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"math/big"
 	"net/url"
 	"os"
 	"regexp"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -23,7 +21,6 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -96,12 +93,6 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogStream(ls *logstream.LogStream) ClNodeOption {
-	return func(c *ClNode) {
-		c.LogStream = ls
-	}
-}
-
 func WithImage(image string) ClNodeOption {
 	return func(c *ClNode) {
 		c.ContainerImage = image
@@ -124,10 +115,11 @@ func WithPgDBOptions(opts ...test_env.PostgresDbOption) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) (*ClNode, error) {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, logStream *logstream.LogStream, opts ...ClNodeOption) (*ClNode, error) {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
+
+	pgDb, err := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName), test_env.WithPostgresDbLogStream(logStream))
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +129,7 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerImage:   imageName,
 			ContainerVersion: imageVersion,
 			Networks:         networks,
+			LogStream:        logStream,
 		},
 		UserEmail:    "local@local.com",
 		UserPassword: "localdevpassword",
@@ -275,25 +268,6 @@ func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
 	return common.HexToAddress(addr), nil
 }
 
-func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
-	toAddress, err := n.API.PrimaryEthAddress()
-	if err != nil {
-		return err
-	}
-	n.l.Debug().
-		Str("ChainId", evmClient.GetChainID().String()).
-		Str("Address", toAddress).
-		Msg("Funding Chainlink Node")
-	toAddr := common.HexToAddress(toAddress)
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
-		To: &toAddr,
-	})
-	if err != nil {
-		return err
-	}
-	return evmClient.Fund(toAddress, amount, gasEstimates)
-}
-
 func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	var err error
 	if restartDb {
@@ -356,6 +330,8 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		Str("userEmail", n.UserEmail).
 		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
+	nodeConfig, _ := n.GetNodeConfigStr()
+	n.l.Info().Str("containerName", n.ContainerName).Msgf("Chainlink Node config:\n%s", nodeConfig)
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,
@@ -403,17 +379,25 @@ func (n *ClNode) ExecGetVersion() (string, error) {
 	return "", errors.Errorf("could not find chainlink version in command output '%'", output)
 }
 
+func (n ClNode) GetNodeConfigStr() (string, error) {
+	data, err := toml.Marshal(n.NodeConfig)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
 	}
-	data, err := toml.Marshal(n.NodeConfig)
+	configStr, err := n.GetNodeConfigStr()
 	if err != nil {
 		return nil, err
 	}
-	_, err = configFile.WriteString(string(data))
+	_, err = configFile.WriteString(configStr)
 	if err != nil {
 		return nil, err
 	}

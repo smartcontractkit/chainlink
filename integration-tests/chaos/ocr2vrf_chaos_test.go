@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -157,7 +156,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-			chainClient, err := actions_seth.GetChainClientWithConfigFunction(testconfig, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+			chainClient, err := seth_utils.GetChainClientWithConfigFunction(testconfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -166,7 +165,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
-				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig)
+				err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &testconfig)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 

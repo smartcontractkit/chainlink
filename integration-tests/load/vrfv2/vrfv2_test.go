@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 
@@ -15,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -40,6 +41,7 @@ func TestVRFV2Performance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -63,9 +65,6 @@ func TestVRFV2Performance(t *testing.T) {
 	// initialise Seth client after simulated chain has been started
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
-	require.NoError(t, err, "Error creating seth client")
-
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -80,7 +79,6 @@ func TestVRFV2Performance(t *testing.T) {
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
-
 		require.NoError(t, err, "Getting Seth client shouldn't fail")
 
 		if sethClient.Cfg.IsSimulatedNetwork() {
@@ -111,13 +109,12 @@ func TestVRFV2Performance(t *testing.T) {
 		UseTestCoordinator:              true,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
 	var consumers []contracts.VRFv2LoadTestConsumer
 	subIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
-		testEnv,
-		chainID,
+		sethClient,
 		vrfContracts.CoordinatorV2,
 		vrfContracts.LinkToken,
 		1,
@@ -190,6 +187,7 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []uint64
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -221,11 +219,9 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
-	require.NoError(t, err, "Error creating seth client")
+
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2Consumers[0], lc, updatedLabels, testReporter, testType, &testConfig)
-
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -254,16 +250,16 @@ func TestVRFV2BHSPerformance(t *testing.T) {
 		UseTestCoordinator:              true,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2.SetupVRFV2Universe(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2 universe")
 
 	t.Run("vrfv2 and bhs performance test", func(t *testing.T) {
 		configCopy := testConfig.MustCopy().(tc.TestConfig)
 		//Underfund Subscription
 		configCopy.VRFv2.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
+
 		underfundedSubIDs, consumers, err := vrfv2.SetupSubsAndConsumersForExistingEnv(
-			testEnv,
-			chainID,
+			sethClient,
 			vrfContracts.CoordinatorV2,
 			vrfContracts.LinkToken,
 			1,

@@ -17,10 +17,10 @@ import (
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
+	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
+		id = fmt.Sprintf("write_%v@1.0.0", chainName)
 	}
 
 	// EVM-specific init
@@ -69,10 +69,12 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+
+	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
+	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chain.GasEstimator(), chainWriterConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(lggr, name, cr, cw, config.ForwarderAddress().String()), nil
+	return targets.NewWriteTarget(lggr, id, cr, cw, config.ForwarderAddress().String()), nil
 }

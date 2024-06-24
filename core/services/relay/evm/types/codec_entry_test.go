@@ -209,11 +209,47 @@ func TestCodecEntry(t *testing.T) {
 		assertHaveSameStructureAndNames(t, iNative.Type(), entry.CheckedType())
 	})
 
-	t.Run("Multiple unnamed parameters are not supported", func(t *testing.T) {
-		anyType, err := abi.NewType("int16[3]", "", []abi.ArgumentMarshaling{})
+	t.Run("Unnamed parameters are named after their locations", func(t *testing.T) {
+		// use different types to make sure that the right fields have the right types.
+		anyType1, err := abi.NewType("int64", "", []abi.ArgumentMarshaling{})
 		require.NoError(t, err)
-		entry := NewCodecEntry(abi.Arguments{{Name: "", Type: anyType}, {Name: "", Type: anyType}}, nil, nil)
-		assert.True(t, errors.Is(entry.Init(), commontypes.ErrInvalidType))
+		anyType2, err := abi.NewType("int32", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := NewCodecEntry(abi.Arguments{{Name: "", Type: anyType1}, {Name: "", Type: anyType2}}, nil, nil)
+		assert.NoError(t, entry.Init())
+		ct := entry.CheckedType()
+		require.Equal(t, 2, ct.NumField())
+		args := entry.Args()
+		require.Equal(t, 2, len(args))
+		f0 := ct.Field(0)
+		assert.Equal(t, "F0", f0.Name)
+		assert.Equal(t, "F0", args[0].Name)
+		assert.Equal(t, reflect.TypeOf((*int64)(nil)), f0.Type)
+		f1 := ct.Field(1)
+		assert.Equal(t, "F1", f1.Name)
+		assert.Equal(t, "F1", args[1].Name)
+		assert.Equal(t, reflect.TypeOf((*int32)(nil)), f1.Type)
+	})
+
+	t.Run("Unnamed parameters adds _Xes at the end if their location name is taken", func(t *testing.T) {
+		// use different types to make sure that the right fields have the right types.
+		anyType1, err := abi.NewType("int64", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		anyType2, err := abi.NewType("int32", "", []abi.ArgumentMarshaling{})
+		require.NoError(t, err)
+		entry := NewCodecEntry(abi.Arguments{{Name: "F1", Type: anyType1}, {Name: "", Type: anyType2}}, nil, nil)
+		assert.NoError(t, entry.Init())
+		ct := entry.CheckedType()
+		require.Equal(t, 2, ct.NumField())
+		args := entry.Args()
+		require.Equal(t, 2, len(args))
+		f0 := ct.Field(0)
+		assert.Equal(t, "F1", f0.Name)
+		assert.Equal(t, reflect.TypeOf((*int64)(nil)), f0.Type)
+		f1 := ct.Field(1)
+		assert.Equal(t, "F1_X", f1.Name)
+		assert.Equal(t, "F1_X", args[1].Name)
+		assert.Equal(t, reflect.TypeOf((*int32)(nil)), f1.Type)
 	})
 
 	t.Run("Multiple abi arguments with the same name returns an error", func(t *testing.T) {

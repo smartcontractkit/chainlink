@@ -53,10 +53,11 @@ test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
 
 [profile.keystone]
-solc_version = '0.8.19'
+optimizer_runs = 1_000_000
+solc_version = '0.8.24'
 src = 'src/v0.8/keystone'
 test = 'src/v0.8/keystone/test'
-optimizer_runs = 10_000
+evm_version = 'paris'
 
 [profile.operatorforwarder]
 optimizer_runs = 1_000_000

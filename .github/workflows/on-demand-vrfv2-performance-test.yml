@@ -114,7 +114,7 @@ jobs:
                 echo "READ_CMD=$READ_CMD" >> $GITHUB_ENV
               fi
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests/load && SETH_KEYFILE_BASE64=$(eval "$READ_CMD" | base64 -w0) go test -v -count=1 -timeout 24h -run "${{ inputs.test_list_regex }}" ./vrfv2
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
