@@ -20,6 +20,7 @@ jobs:
       contents: read    
     with:
       chainlink-version: develop
+      # Select tests to run from .github/e2e_tests.yml based on workflow name 
       test-workflow: Run Automation Product Nightly E2E Tests
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
