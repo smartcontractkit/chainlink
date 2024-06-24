@@ -64,7 +64,8 @@ jobs:
           fi
 
   load-test-configurations:
-    needs: run-check-tests
+    # Uncomment if we want to run check-tests before loading test configurations
+    # needs: run-check-tests 
     name: Load Test Configurations
     runs-on: ubuntu-latest
     outputs:
