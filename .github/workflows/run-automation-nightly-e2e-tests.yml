@@ -19,7 +19,7 @@ jobs:
       id-token: write
       contents: read    
     with:
-      chainlink-version: ${{ github.event.inputs.chainlink-version }}
+      chainlink-version: develop
       test-ids: "smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1,smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
