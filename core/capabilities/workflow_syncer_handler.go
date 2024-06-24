@@ -115,6 +115,7 @@ func (w *workflowHandler) updateLocalNode(state registrysyncer.State) {
 				if d.AcceptsWorkflows {
 					if workflowDON.ID == "" {
 						workflowDON = *toDONInfo(d)
+						w.lggr.Debug("Workflow DON identified: %+v", workflowDON)
 					} else {
 						w.lggr.Errorf("Configuration error: node %s belongs to more than one workflowDON", pid)
 					}
