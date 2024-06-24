@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
+
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,6 +25,7 @@ import (
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -54,7 +56,7 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if jb.Type != job.OffchainReporting2 {
 		return jb, pkgerrors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
-	if _, ok := types.SupportedRelays[spec.Relay]; !ok {
+	if _, ok := relay.SupportedNetworks[spec.Relay]; !ok {
 		return jb, pkgerrors.Errorf("no such relay %v supported", spec.Relay)
 	}
 	if len(spec.P2PV2Bootstrappers) > 0 {
