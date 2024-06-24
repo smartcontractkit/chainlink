@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
@@ -21,6 +20,7 @@ import (
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -144,20 +144,9 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
+	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
 	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
-
-	t.Run("Bind returns error on missing contract at address", func(t *testing.T) {
-		t.Parallel()
-		it.Setup(t)
-
-		addr := common.BigToAddress(big.NewInt(42))
-		reader := it.GetChainReader(t)
-
-		err := reader.Bind(context.Background(), []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex(), Pending: true}})
-
-		require.ErrorIs(t, err, evm.NoContractExistsError{Address: addr})
-	})
 }
 
 type helper struct {

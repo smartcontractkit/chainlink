@@ -1,4 +1,4 @@
-name: Integration Tests Publish
+name: Test Image Publish
 # Publish the compiled integration tests
 
 on:

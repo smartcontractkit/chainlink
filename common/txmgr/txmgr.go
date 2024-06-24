@@ -544,7 +544,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 			txRequest.ToAddress = txRequest.ForwarderAddress
 			txRequest.EncodedPayload = fwdPayload
 		} else {
-			b.logger.Errorf("Failed to use forwarder set upstream: %w", fwdErr.Error())
+			b.logger.Errorf("Failed to use forwarder set upstream: %v", fwdErr.Error())
 		}
 	}
 
