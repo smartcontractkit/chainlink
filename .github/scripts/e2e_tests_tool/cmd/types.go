@@ -13,6 +13,7 @@ type TestConf struct {
 	TestCmd               string   `yaml:"test-cmd" json:"testCmd"`
 	TestConfigOverride    string   `yaml:"test-config-override" json:"testConfigOverride"`
 	RemoteRunnerTestSuite string   `yaml:"remote-runner-test-suite" json:"remoteRunnerTestSuite"`
+	RemoteRunnerMemory    string   `yaml:"remote-runner-memory" json:"remoteRunnerMemory"`
 	PyroscopeEnv          string   `yaml:"pyroscope-env" json:"pyroscopeEnv"`
 	Workflows             []string `yaml:"workflows" json:"workflows"`
 }

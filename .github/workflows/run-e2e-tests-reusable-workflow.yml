@@ -292,6 +292,8 @@ jobs:
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          RR_MEM: ${{ matrix.tests.remoteRunnerMemory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           # TODO: Remove and use sha step below
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:e7bce59ea616e4f13b8506f1a2414e3df586b130
