@@ -55,9 +55,21 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
 jobs:
+  validate-inputs:
+    name: Validate Workflow Inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check input conditions
+        run: |
+          if [[ "${{ inputs.test-ids }}" != "" && "${{ inputs.test-workflow }}" != "" ]]; then
+            echo "Error: Both 'test-ids' and 'test-workflow' are provided. Please specify only one."
+            exit 1
+          fi
+
   check-test-configurations:
     name: Check Test Configurations
     if: ${{ inputs.enable-check-test-configurations }}
+    needs: validate-inputs
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -75,6 +87,7 @@ jobs:
   load-test-configurations:
     name: Load Test Configurations
     runs-on: ubuntu-latest
+    needs: validate-inputs
     outputs:
       run-docker-tests: ${{ steps.check-matrices.outputs.run-docker-tests }}
       run-k8s-tests: ${{ steps.check-matrices.outputs.run-k8s-tests }}
@@ -92,14 +105,14 @@ jobs:
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }} --workflow '${{ inputs.test-workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
