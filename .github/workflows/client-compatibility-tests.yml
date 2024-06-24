@@ -601,7 +601,7 @@ jobs:
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@a7ceb0a26de61737859238acc4db1d413228b45e # v2.4
 
   start-slack-thread:
     name: Start Slack Thread
