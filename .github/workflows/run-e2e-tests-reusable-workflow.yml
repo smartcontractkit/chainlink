@@ -212,6 +212,8 @@ jobs:
           BASE64_CONFIG_OVERRIDE=$(echo "$replaced_content" | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      - name: Show Test Configuration
+        run: echo "${{ toJson(matrix.tests) }}"          
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
@@ -287,6 +289,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Show Test Configuration
+        run: echo "${{ toJson(matrix.tests) }}"
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
