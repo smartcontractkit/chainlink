@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/sha3"
 )
 
 // Raw represents the Aptos private key
@@ -45,12 +44,6 @@ type Key struct {
 // New creates new Key
 func New() (Key, error) {
 	return newFrom(crypto_rand.Reader)
-}
-
-func PubkeyToAddress(pubkey ed25519.PublicKey) AccountAddress {
-	authKey := sha3.Sum256(append([]byte(pubkey), 0x00))
-	accountAddress := AccountAddress(authKey)
-	return accountAddress
 }
 
 // MustNewInsecure return Key if no error
@@ -96,7 +89,7 @@ func (key Key) Raw() Raw {
 
 // String is the print-friendly format of the Key
 func (key Key) String() string {
-	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Address: %s}", key.PublicKeyStr())
+	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
 }
 
 // GoString wraps String()
