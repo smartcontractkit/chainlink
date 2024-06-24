@@ -13,7 +13,7 @@ import (
 
 // Stub ConfigTracker that uses static config
 
-// interrim struct used for unmarshalling from relay config
+// interim struct used for unmarshalling from relay config
 type ConfigTrackerCfg struct {
 	// OCR Config
 	ConfigDigest          hexutil.Bytes
