@@ -185,6 +185,14 @@ source .dbenv
 make testdb
 ```
 
+If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
+and you want force the database creation then use
+```
+source .dbenv
+make testdb-force
+```
+
+
 7. Run tests:
 
 ```bash
