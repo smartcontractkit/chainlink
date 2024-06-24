@@ -48,6 +48,38 @@ test-runner-matrix:
       version="latest"
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
+  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+    path: integration-tests/smoke/automation_upgrade_test.go
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=1 -timeout 60m -count=1 -json
+    test-config-override: |
+      [ChainlinkUpgradeImage]
+      image="${{ env.CHAINLINK_IMAGE }}"
+      version="${{ env.GITHUB_SHA }}"
+      [ChainlinkImage]
+      image="public.ecr.aws/chainlink/chainlink"
+      version="latest"
+    pyroscope-env: ci-smoke-automation-upgrade-tests
+
+  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+    path: integration-tests/smoke/automation_upgrade_test.go
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    trigger: ["push", "nightly", "pull-request", "release-tag"]
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=1 -timeout 60m -count=1 -json
+    test-config-override: |
+      [ChainlinkUpgradeImage]
+      image="${{ env.CHAINLINK_IMAGE }}"
+      version="${{ env.GITHUB_SHA }}"
+      [ChainlinkImage]
+      image="public.ecr.aws/chainlink/chainlink"
+      version="latest"
+    pyroscope-env: ci-smoke-automation-upgrade-tests
+
+  # END Automation upgrade tests
+
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRSoak$
     path: integration-tests/soak/ocr_test.go
