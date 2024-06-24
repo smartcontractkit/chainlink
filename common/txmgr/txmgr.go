@@ -110,7 +110,7 @@ type Txm[
 	broadcaster        *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	confirmer          *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	tracker            *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	finalizer          *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD]
+	finalizer          txmgrtypes.Finalizer[BLOCK_HASH, HEAD]
 	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	newErrorClassifier NewErrorClassifier
@@ -146,7 +146,7 @@ func NewTxm[
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	finalizer *Finalizer[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, HEAD],
+	finalizer txmgrtypes.Finalizer[BLOCK_HASH, HEAD],
 	newErrorClassifierFunc NewErrorClassifier,
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -176,7 +176,7 @@ func NewTxm[
 		b.logger.Info("Resender: Disabled")
 	}
 	if txCfg.ReaperThreshold() > 0 && txCfg.ReaperInterval() > 0 {
-		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, txCfg, chainId)
+		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, txCfg, chainId)
 	} else {
 		b.logger.Info("TxReaper: Disabled")
 	}
@@ -425,7 +425,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
 			b.tracker.mb.Deliver(head.BlockNumber())
-			b.finalizer.mb.Deliver(head)
+			b.finalizer.DeliverHead(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the

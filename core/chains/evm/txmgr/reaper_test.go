@@ -12,18 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	txmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
-func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
-	return txmgr.NewEvmReaper(logger.Test(t), db, cfg, txConfig, cid)
+func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
+	return txmgr.NewEvmReaper(logger.Test(t), db, txConfig, cid)
 }
 
-func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
-	return newReaperWithChainID(t, db, cfg, txConfig, &cltest.FixtureChainID)
+func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
+	return newReaperWithChainID(t, db, txConfig, &cltest.FixtureChainID)
 }
 
 type reaperConfig struct {
@@ -51,12 +50,9 @@ func TestReaper_ReapTxes(t *testing.T) {
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
-		config := txmgrmocks.NewReaperConfig(t)
-		config.On("FinalityDepth").Return(uint32(10))
-
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
 
-		r := newReaper(t, txStore, config, tc)
+		r := newReaper(t, txStore, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -66,11 +62,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, from, nonce, 5)
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
-		config := txmgrmocks.NewReaperConfig(t)
 
 		tc := &reaperConfig{reaperThreshold: 0 * time.Second}
 
-		r := newReaper(t, txStore, config, tc)
+		r := newReaper(t, txStore, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -79,12 +74,9 @@ func TestReaper_ReapTxes(t *testing.T) {
 	})
 
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
-		config := txmgrmocks.NewReaperConfig(t)
-		config.On("FinalityDepth").Return(uint32(10))
-
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
 
-		r := newReaperWithChainID(t, txStore, config, tc, big.NewInt(42))
+		r := newReaperWithChainID(t, txStore, tc, big.NewInt(42))
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -92,13 +84,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
 
-	t.Run("deletes confirmed evm.txes that exceed the age threshold with at least EVM.FinalityDepth blocks above their receipt", func(t *testing.T) {
-		config := txmgrmocks.NewReaperConfig(t)
-		config.On("FinalityDepth").Return(uint32(10))
-
+	t.Run("deletes confirmed evm.txes marked as finalized that exceed the age threshold", func(t *testing.T) {
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
 
-		r := newReaper(t, txStore, config, tc)
+		r := newReaper(t, txStore, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -109,8 +98,10 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 		err = r.ReapTxes(12)
 		assert.NoError(t, err)
-		// Didn't delete because eth_tx although old enough, was still within EVM.FinalityDepth of the current head
+		// Didn't delete because eth_tx although old enough, was not marked as finalized
 		cltest.AssertCount(t, db, "evm.txes", 1)
+
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET finalized=true`)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
@@ -121,12 +112,9 @@ func TestReaper_ReapTxes(t *testing.T) {
 	mustInsertFatalErrorEthTx(t, txStore, from)
 
 	t.Run("deletes errored evm.txes that exceed the age threshold", func(t *testing.T) {
-		config := txmgrmocks.NewReaperConfig(t)
-		config.On("FinalityDepth").Return(uint32(10))
-
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
 
-		r := newReaper(t, txStore, config, tc)
+		r := newReaper(t, txStore, tc)
 
 		err := r.ReapTxes(42)
 		assert.NoError(t, err)
