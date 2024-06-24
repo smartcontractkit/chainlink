@@ -1,9 +1,11 @@
 name: Run Nightly E2E Tests
 
 on:
-  schedule:
+  # TODO: uncomment when the workflow is ready
+  # schedule:
     # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
-    - cron: '0 0 * * *'
+    # - cron: '0 0 * * *'
+    workflow_dispatch:
 
 jobs:
   call-run-e2e-tests-workflow:

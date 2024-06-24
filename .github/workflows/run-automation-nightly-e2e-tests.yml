@@ -1,6 +1,7 @@
 name: Run Automation Product Nightly E2E Tests
 
 on:
+  # TODO: uncomment when the workflow is ready
   # schedule:
   #   - cron: "0 0 * * *" # Run nightly
   # push:
