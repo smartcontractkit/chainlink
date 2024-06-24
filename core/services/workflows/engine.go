@@ -195,7 +195,6 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 	err = cc.RegisterToWorkflow(ctx, registrationRequest)
 	if err != nil {
 		return newCPErr(fmt.Sprintf("failed to register capability to workflow (%+v)", registrationRequest), err)
-
 	}
 
 	step.capability = cc
