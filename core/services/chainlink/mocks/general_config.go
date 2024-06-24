@@ -306,6 +306,26 @@ func (_m *GeneralConfig) FluxMonitor() config.FluxMonitor {
 	return r0
 }
 
+// HeadReport provides a mock function with given fields:
+func (_m *GeneralConfig) HeadReport() config.HeadReport {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for HeadReport")
+	}
+
+	var r0 config.HeadReport
+	if rf, ok := ret.Get(0).(func() config.HeadReport); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.HeadReport)
+		}
+	}
+
+	return r0
+}
+
 // Insecure provides a mock function with given fields:
 func (_m *GeneralConfig) Insecure() config.Insecure {
 	ret := _m.Called()

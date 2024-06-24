@@ -3,6 +3,9 @@ package headreporter
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -13,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"go.uber.org/multierr"
-	"math/big"
-	"time"
 )
 
 type (
