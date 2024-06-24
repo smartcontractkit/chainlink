@@ -18,5 +18,5 @@ message EnhancedEA {
   int64 observation=11;
   string config_digest = 12;
   int64 round=13;
-  int64 epoch=15;
+  int64 epoch=14;
 }
