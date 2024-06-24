@@ -11,7 +11,7 @@
 
 # Services
 /core/services/directrequest @smartcontractkit/keepers
-/core/services/feeds @smartcontractkit/FMS
+/core/services/feeds @smartcontractkit/fms
 /core/services/synchronization/telem @smartcontractkit/realtime
 
 # To be deprecated in Chainlink V3
