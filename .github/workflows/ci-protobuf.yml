@@ -9,20 +9,17 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          fetch-depth: 0
 
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@35c243d7f2a909b1d4e40399b348a7fdab27d78d # v1.34.0
 
-      - name: Check Breaking Changes
-        shell: bash
+      - name: Run buf breaking
+        uses: bufbuild/buf-breaking-action@c57b3d842a5c3f3b454756ef65305a50a587c5ba # v1.1.4
         env:
           REPO_URL: https://github.com/${{ github.repository }}
           BASE_BRANCH: ${{ github.base_ref }}
-        run: |
-          go install github.com/bufbuild/buf/cmd/buf@v1.34.0
-          buf breaking --against "${REPO_URL}#branch=${BASE_BRANCH}"
+        with:
+          against: "${REPO_URL}.git#branch=${BASE_BRANCH}"
 
       - name: Collect Metrics
         if: always()
