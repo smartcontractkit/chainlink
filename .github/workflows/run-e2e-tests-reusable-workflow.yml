@@ -89,14 +89,14 @@ jobs:
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ github.event.inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ github.event.inputs.test-ids }}')
+          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -125,7 +125,7 @@ jobs:
 
           # Check if both matrices are empty
           if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]] && [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
-            echo "No tests found for inputs: '${{ toJson(github.event.inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
+            echo "No tests found for inputs: '${{ toJson(inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
             exit 1
           fi
         shell: bash   
