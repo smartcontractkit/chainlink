@@ -215,6 +215,8 @@ func addRegistry(config *tc.TestConfig) []eth_contracts.KeeperRegistryVersion {
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1}
 	case "2_2":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2}
+	case "2_3":
+		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_3}
 	case "2_0-1_3":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
 	case "2_1-2_0-1_3":
@@ -222,12 +224,16 @@ func addRegistry(config *tc.TestConfig) []eth_contracts.KeeperRegistryVersion {
 			eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
 	case "2_2-2_1":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_2, eth_contracts.RegistryVersion_2_1}
+	case "2_1-2_3":
+		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1, eth_contracts.RegistryVersion_2_3}
 	case "2_0-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_0, *config.Keeper.Common.NumberOfRegistries)
 	case "2_1-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_1, *config.Keeper.Common.NumberOfRegistries)
 	case "2_2-Multiple":
 		return repeatRegistries(eth_contracts.RegistryVersion_2_2, *config.Keeper.Common.NumberOfRegistries)
+	case "2_3-Multiple":
+		return repeatRegistries(eth_contracts.RegistryVersion_2_3, *config.Keeper.Common.NumberOfRegistries)
 	default:
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
 	}
