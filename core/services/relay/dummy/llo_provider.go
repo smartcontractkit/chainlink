@@ -59,7 +59,7 @@ func (p *lloProvider) Name() string {
 }
 
 func (p *lloProvider) HealthReport() map[string]error {
-	report := map[string]error{hb.Name(): hb.Healthy()}
+	report := map[string]error{p.Name(): nil}
 	services.CopyHealth(report, p.cp.HealthReport())
 	services.CopyHealth(report, p.transmitter.HealthReport())
 	services.CopyHealth(report, p.channelDefinitionCache.HealthReport())
