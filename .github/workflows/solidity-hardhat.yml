@@ -25,12 +25,11 @@ jobs:
         with:
           filters: |
             src:
-              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|functions|transmission)/**)/**/*'
+              - 'contracts/src/!(v0.8/(ccip|functions|keystone|l2ep|llo-feeds|transmission|vrf)/**)/**/*'
               - 'contracts/test/**/*'
               - 'contracts/package.json'
               - 'contracts/pnpm-lock.yaml'
               - 'contracts/hardhat.config.ts'
-              - 'contracts/ci.json'
               - '.github/workflows/solidity-hardhat.yml'
 
   hardhat-test:
