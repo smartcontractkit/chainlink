@@ -208,9 +208,9 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 	if len(myWorkflowDONs) > 0 {
 		myDON := myWorkflowDONs[0]
 
-		// TODO: this is a bit nasty; figure out how best to handle this.
+		// NOTE: this is enforced on-chain and so should never happen.
 		if len(myWorkflowDONs) > 1 {
-			w.lggr.Warn("node is part of more than one workflow DON; assigning first DON as caller")
+			w.lggr.Error("invariant violation: node is part of more than one workflowDON: this shouldn't happen.")
 		}
 
 		for _, rcd := range remoteCapabilityDONs {
@@ -225,7 +225,7 @@ func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error
 	// to the capability.
 	if len(myCapabilityDONs) > 0 {
 		for _, mcd := range myCapabilityDONs {
-			err := w.enableExternalAccess(ctx, myID, mcd, state, remoteWorkflowDONs)
+			err := w.exposeCapabilities(ctx, myID, mcd, state, remoteWorkflowDONs)
 			if err != nil {
 				return err
 			}
@@ -331,12 +331,12 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 		toDONInfo(don),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create remote capability info: %w", err)
 	}
 	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
 	capability, err := newCapFn(info)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to instantiate capability: %w", err)
 	}
 
 	err = w.registry.Add(ctx, capability)
@@ -348,7 +348,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 			return nil
 		}
 
-		return err
+		return fmt.Errorf("failed to add capability to registry: %w", err)
 	}
 
 	err = w.dispatcher.SetReceiver(
@@ -362,7 +362,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	w.lggr.Debugw("Setting receiver for capability", "id", fullCapID, "donID", don.Id)
 	err = capability.Start(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start capability: %w", err)
 	}
 	w.subServices = append(w.subServices, capability)
 	return nil
@@ -372,7 +372,7 @@ var (
 	defaultTargetRequestTimeout = time.Minute
 )
 
-func (w *launcher) enableExternalAccess(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
+func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
 	idsToDONs := map[string]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[fmt.Sprint(d.Id)] = *toDONInfo(d)
@@ -452,27 +452,27 @@ func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesR
 		toDONInfo(don),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
 	}
 	underlying, err := w.registry.Get(ctx, fullCapID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get capability from registry: %w", err)
 	}
 
 	receiver, err := newReceiverFn(underlying, info)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to instantiate receiver: %w", err)
 	}
 
 	w.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
 	err = w.dispatcher.SetReceiver(fullCapID, fmt.Sprint(don.Id), receiver)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to set receiver: %w", err)
 	}
 
 	err = receiver.Start(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start receiver: %w", err)
 	}
 
 	w.subServices = append(w.subServices, receiver)
