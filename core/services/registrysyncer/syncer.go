@@ -127,9 +127,6 @@ func newSyncer(
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
