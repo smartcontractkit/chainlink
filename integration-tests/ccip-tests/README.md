@@ -101,6 +101,38 @@ If you don't want to bother with any overrides, you can run with the default TOM
 make test_smoke_ccip_default testname=TestSmokeCCIPForBidirectionalLane secret_toml="<the toml file with secrets string>"
 ```
 
+```mermaid
+---
+title: Basic Docker Test Environment
+---
+flowchart
+    subgraph SD[DON]
+    CL1[Node 1]
+    CL2[Node 2]
+    CL3[Node 3]
+    CL4[Node 4]
+    CL5[Node 5]
+    CL6[Node 6]
+    CL1---CL2
+    CL2---CL3
+    CL3---CL4
+    CL4---CL5
+    CL5---CL6
+    end
+    subgraph Chains
+    SC1[[Private Chain 1]]
+    SC2[[Private Chain 2]]
+    end
+    SC1<-->SD
+    SC2<-->SD
+    MS([Mock Server])
+    MS-->SD
+    TC[/Test Code\]
+    TC<-->MS
+    TC<-->Chains
+    TC<-->SD
+```
+
 ### Using Remote Kubernetes Cluster
 
 For running more complex and intensive tests (like load and chaos tests) you need to connect the test to a Kubernetes cluster. These tests have more complex setup and running instructions. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.

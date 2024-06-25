@@ -61,17 +61,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+// MatchContractVersionsOrAbove checks if the current contract versions for the test match or exceed the provided contract versions
+func MatchContractVersionsOrAbove(requiredContractVersions map[Name]Version) error {
+	for contractName, r := range requiredContractVersions {
+		required := r
+		if contractVersion, ok := VersionMap[contractName]; !ok {
+			return fmt.Errorf("contract %s not found in version map", contractName)
+		} else if contractVersion.Compare(&required.Version) < 0 {
+			return fmt.Errorf("contract %s version %s is less than required version %s", contractName, contractVersion, required.Version)
+		}
+	}
+	return nil
+}
+
 // NeedTokenAdminRegistry checks if token admin registry is needed for the current version of ccip
 // if the version is less than 1.5.0-dev, then token admin registry is not needed
 func NeedTokenAdminRegistry() bool {
-	// find out the pool version
-	version := VersionMap[TokenPoolContract]
-	if version == Latest {
-		return true
-	}
-	currentSemver := semver.MustParse(string(version))
-	tokenAdminEnabledVersion := semver.MustParse("1.5.0-dev")
-	return currentSemver.Compare(tokenAdminEnabledVersion) >= 0
+	return MatchContractVersionsOrAbove(map[Name]Version{
+		TokenPoolContract: V1_5_0_dev,
+	}) == nil
 }
 
 // CCIPContractsDeployer provides the implementations for deploying CCIP ETH contracts
@@ -293,7 +301,7 @@ func (e *CCIPContractsDeployer) NewLockReleaseTokenPoolContract(addr common.Addr
 	error,
 ) {
 	version := VersionMap[TokenPoolContract]
-	e.logger.Info().Str("version", string(version)).Msg("New LockRelease Token Pool")
+	e.logger.Info().Str("Version", version.String()).Msg("New LockRelease Token Pool")
 	switch version {
 	case Latest:
 		pool, err := lock_release_token_pool.NewLockReleaseTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -362,7 +370,7 @@ func (e *CCIPContractsDeployer) NewUSDCTokenPoolContract(addr common.Address) (
 	error,
 ) {
 	version := VersionMap[TokenPoolContract]
-	e.logger.Info().Str("version", string(version)).Msg("New USDC Token Pool")
+	e.logger.Info().Str("Version", version.String()).Msg("New USDC Token Pool")
 	switch version {
 	case Latest:
 		pool, err := usdc_token_pool.NewUSDCTokenPool(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -486,7 +494,7 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(tokenAddr str
 	error,
 ) {
 	version := VersionMap[TokenPoolContract]
-	e.logger.Info().Str("version", string(version)).Msg("Deploying LockRelease Token Pool")
+	e.logger.Info().Str("Version", version.String()).Msg("Deploying LockRelease Token Pool")
 	token := common.HexToAddress(tokenAddr)
 	switch version {
 	case Latest:
@@ -568,7 +576,7 @@ func (e *CCIPContractsDeployer) NewCommitStore(addr common.Address) (
 	error,
 ) {
 	version := VersionMap[CommitStoreContract]
-	e.logger.Info().Str("version", string(version)).Msg("New CommitStore")
+	e.logger.Info().Str("Version", version.String()).Msg("New CommitStore")
 	switch version {
 	case Latest:
 		ins, err := commit_store.NewCommitStore(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -612,7 +620,7 @@ func (e *CCIPContractsDeployer) DeployCommitStore(sourceChainSelector, destChain
 	if !ok {
 		return nil, fmt.Errorf("versioning not supported: %s", version)
 	}
-	e.logger.Info().Str("version", string(version)).Msg("Deploying CommitStore")
+	e.logger.Info().Str("Version", version.String()).Msg("Deploying CommitStore")
 	switch version {
 	case Latest:
 		address, _, instance, err := e.evmClient.DeployContract("CommitStore Contract", func(
@@ -762,7 +770,7 @@ func (e *CCIPContractsDeployer) NewPriceRegistry(addr common.Address) (
 ) {
 	var wrapper *PriceRegistryWrapper
 	version := VersionMap[PriceRegistryContract]
-	e.logger.Info().Str("version", string(version)).Msg("New PriceRegistry")
+	e.logger.Info().Str("Version", version.String()).Msg("New PriceRegistry")
 	switch version {
 	case Latest:
 		ins, err := price_registry.NewPriceRegistry(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -803,7 +811,7 @@ func (e *CCIPContractsDeployer) DeployPriceRegistry(tokens []common.Address) (*P
 	var err error
 	var instance interface{}
 	version := VersionMap[PriceRegistryContract]
-	e.logger.Info().Str("version", string(version)).Msg("Deploying PriceRegistry")
+	e.logger.Info().Str("Version", version.String()).Msg("Deploying PriceRegistry")
 	switch version {
 	case Latest:
 		address, _, instance, err = e.evmClient.DeployContract("PriceRegistry", func(
@@ -885,7 +893,7 @@ func (e *CCIPContractsDeployer) NewOnRamp(addr common.Address) (
 	error,
 ) {
 	version := VersionMap[OnRampContract]
-	e.logger.Info().Str("version", string(version)).Msg("New OnRamp")
+	e.logger.Info().Str("Version", version.String()).Msg("New OnRamp")
 	e.logger.Info().
 		Str("Contract Address", addr.Hex()).
 		Str("Contract Name", "OnRamp").
@@ -933,7 +941,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 	linkTokenAddress common.Address,
 ) (*OnRamp, error) {
 	version := VersionMap[OnRampContract]
-	e.logger.Info().Str("version", string(version)).Msg("Deploying OnRamp")
+	e.logger.Info().Str("Version", version.String()).Msg("Deploying OnRamp")
 	switch version {
 	case V1_2_0:
 		feeTokenConfigV1_2_0 := make([]evm_2_evm_onramp_1_2_0.EVM2EVMOnRampFeeTokenConfigArgs, len(feeTokenConfig))
@@ -1069,7 +1077,7 @@ func (e *CCIPContractsDeployer) NewOffRamp(addr common.Address) (
 	error,
 ) {
 	version := VersionMap[OffRampContract]
-	e.logger.Info().Str("version", string(version)).Msg("New OffRamp")
+	e.logger.Info().Str("Version", version.String()).Msg("New OffRamp")
 	switch version {
 	case V1_2_0:
 		ins, err := evm_2_evm_offramp_1_2_0.NewEVM2EVMOffRamp(addr, wrappers.MustNewWrappedContractBackend(e.evmClient, nil))
@@ -1119,7 +1127,7 @@ func (e *CCIPContractsDeployer) DeployOffRamp(
 	tokenAdminRegistry common.Address,
 ) (*OffRamp, error) {
 	version := VersionMap[OffRampContract]
-	e.logger.Info().Str("version", string(version)).Msg("Deploying OffRamp")
+	e.logger.Info().Str("Version", version.String()).Msg("Deploying OffRamp")
 	switch version {
 	case V1_2_0:
 		address, _, instance, err := e.evmClient.DeployContract("OffRamp Contract", func(

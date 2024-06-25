@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -46,60 +48,106 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
-var (
-	FiftyCoins   = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(50))
-	HundredCoins = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
-)
+// Name denotes a contract name
+type Name string
 
-type ContractVersion string
+// Version wraps a semver.Version object to provide some custom unmarshalling
+type Version struct {
+	semver.Version
+}
+
+// MustVersion creates a new Version object from a semver string and panics if it fails
+func MustVersion(version string) Version {
+	v := semver.MustParse(version)
+	return Version{Version: *v}
+}
+
+// UnmarshalTOML unmarshals TOML data into a Version object
+func (v *Version) UnmarshalText(data []byte) error {
+	str := strings.Trim(string(data), `"`)
+	str = strings.Trim(str, `'`)
+	if strings.ToLower(str) == "latest" {
+		*v = Latest
+		return nil
+	}
+	ver, err := semver.NewVersion(str)
+	if err != nil {
+		return fmt.Errorf("failed to parse version from '%s': %w", str, err)
+	}
+	v.Version = *ver
+	return nil
+}
+
+// Latest returns true if the version is the latest version
+func (v *Version) Latest() bool {
+	return v.Version.Equal(&Latest.Version)
+}
 
 const (
-	Network                               = "Network Name"
-	V1_2_0                ContractVersion = "1.2.0"
-	V1_4_0                ContractVersion = "1.4.0"
-	LatestPoolVersion     ContractVersion = "1.5.0-dev"
-	Latest                ContractVersion = "latest"
-	PriceRegistryContract                 = "PriceRegistry"
-	OffRampContract                       = "OffRamp"
-	OnRampContract                        = "OnRamp"
-	TokenPoolContract                     = "TokenPool"
-	CommitStoreContract                   = "CommitStore"
+	Network                    = "Network Name"
+	PriceRegistryContract Name = "PriceRegistry"
+	OffRampContract       Name = "OffRamp"
+	OnRampContract        Name = "OnRamp"
+	TokenPoolContract     Name = "TokenPool"
+	CommitStoreContract   Name = "CommitStore"
 
 	defaultDestByteOverhead = uint32(32)
 	defaultDestGasOverhead  = uint32(29_000)
 )
 
 var (
-	VersionMap = map[string]ContractVersion{
+	V1_2_0            = MustVersion("1.2.0")
+	V1_4_0            = MustVersion("1.4.0")
+	V1_5_0_dev        = MustVersion("1.5.0-dev")
+	LatestPoolVersion = V1_5_0_dev
+	Latest            = V1_5_0_dev
+	VersionMap        = map[Name]Version{
 		PriceRegistryContract: Latest,
 		OffRampContract:       Latest,
 		OnRampContract:        Latest,
 		CommitStoreContract:   Latest,
 		TokenPoolContract:     Latest,
 	}
-	SupportedContracts = map[string]map[ContractVersion]bool{
+	SupportedContracts = map[Name]map[string]bool{
 		PriceRegistryContract: {
-			Latest: true,
-			V1_2_0: true,
+			Latest.String(): true,
+			V1_2_0.String(): true,
 		},
 		OffRampContract: {
-			Latest: true,
-			V1_2_0: true,
+			Latest.String(): true,
+			V1_2_0.String(): true,
 		},
 		OnRampContract: {
-			Latest: true,
-			V1_2_0: true,
+			Latest.String(): true,
+			V1_2_0.String(): true,
 		},
 		CommitStoreContract: {
-			Latest: true,
-			V1_2_0: true,
+			Latest.String(): true,
+			V1_2_0.String(): true,
 		},
 		TokenPoolContract: {
-			Latest: true,
-			V1_4_0: true,
+			Latest.String(): true,
+			V1_4_0.String(): true,
 		},
 	}
+
+	FiftyCoins   = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(50))
+	HundredCoins = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(100))
 )
+
+// CheckVersionSupported checks if a given version is supported for a given contract
+func CheckVersionSupported(name Name, version Version) error {
+	if contract, ok := SupportedContracts[name]; ok {
+		if isSupported, ok := contract[version.String()]; ok {
+			if isSupported {
+				return nil
+			}
+			return fmt.Errorf("version %s is not supported for contract %s", version.String(), name)
+		}
+		return fmt.Errorf("version %s is not supported for contract %s", version.String(), name)
+	}
+	return fmt.Errorf("contract %s is not supported", name)
+}
 
 type RateLimiterConfig struct {
 	IsEnabled bool
