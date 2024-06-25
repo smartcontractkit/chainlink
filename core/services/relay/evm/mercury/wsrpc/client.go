@@ -302,6 +302,13 @@ func (w *client) handleTimeout(err error) {
 	} else {
 		w.consecutiveTimeoutCnt.Store(0)
 	}
+
+}
+
+func (w *client) RawLatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
+	resp, err = w.rawClient.LatestReport(ctx, req)
+	w.handleTimeout(err)
+	return
 }
 
 func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error) {
@@ -312,8 +319,7 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	}
 	var cached bool
 	if w.cache == nil {
-		resp, err = w.rawClient.LatestReport(ctx, req)
-		w.handleTimeout(err)
+		resp, err = w.RawLatestReport(ctx, req)
 	} else {
 		cached = true
 		resp, err = w.cache.LatestReport(ctx, req)

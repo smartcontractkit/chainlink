@@ -50,9 +50,8 @@ type Fetcher interface {
 }
 
 type Client interface {
-	Fetcher
 	ServerURL() string
-	RawClient() pb.MercuryClient
+	RawLatestReport(ctx context.Context, req *pb.LatestReportRequest) (resp *pb.LatestReportResponse, err error)
 }
 
 // Cache is scoped to one particular mercury server
@@ -194,7 +193,7 @@ func (m *memCache) LatestReport(ctx context.Context, req *pb.LatestReportRequest
 	}
 	feedIDHex := mercuryutils.BytesToFeedID(req.FeedId).String()
 	if m.cfg.LatestReportTTL <= 0 {
-		return m.client.RawClient().LatestReport(ctx, req)
+		return m.client.RawLatestReport(ctx, req)
 	}
 	vi, loaded := m.cache.LoadOrStore(feedIDHex, &cacheVal{
 		sync.RWMutex{},
@@ -311,7 +310,7 @@ func (m *memCache) fetch(req *pb.LatestReportRequest, v *cacheVal) {
 		// NOTE: must drop down to RawClient here otherwise we enter an
 		// infinite loop of calling a client that calls back to this same cache
 		// and on and on
-		val, err = m.client.RawClient().LatestReport(ctx, req)
+		val, err = m.client.RawLatestReport(ctx, req)
 		cancel()
 		v.setError(err)
 		if memcacheCtx.Err() != nil {

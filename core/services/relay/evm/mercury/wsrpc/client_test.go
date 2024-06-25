@@ -176,3 +176,65 @@ func Test_Client_LatestReport(t *testing.T) {
 		})
 	}
 }
+
+func Test_Client_RawLatestReport(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	ctx := testutils.Context(t)
+
+	t.Run("sends on reset channel after MaxConsecutiveRequestFailures timed out transmits", func(t *testing.T) {
+		noopCacheSet := newNoopCacheSet()
+		req := &pb.LatestReportRequest{}
+		calls := 0
+		timeoutErr := context.DeadlineExceeded
+		wsrpcClient := &mocks.MockWSRPCClient{
+			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
+				calls++
+				return nil, timeoutErr
+			},
+		}
+		conn := &mocks.MockConn{
+			Ready: true,
+		}
+
+		c := newClient(lggr, csakey.KeyV2{}, nil, "", noopCacheSet)
+		c.conn = conn
+		c.rawClient = wsrpcClient
+		require.NoError(t, c.StartOnce("Mock WSRPC Client", func() error { return nil }))
+		for i := 1; i < MaxConsecutiveRequestFailures; i++ {
+			_, err := c.RawLatestReport(ctx, req)
+			require.EqualError(t, err, "context deadline exceeded")
+		}
+		assert.Equal(t, MaxConsecutiveRequestFailures-1, calls)
+		select {
+		case <-c.chResetTransport:
+			t.Fatal("unexpected send on chResetTransport")
+		default:
+		}
+		_, err := c.RawLatestReport(ctx, req)
+		require.EqualError(t, err, "context deadline exceeded")
+		assert.Equal(t, MaxConsecutiveRequestFailures, calls)
+		select {
+		case <-c.chResetTransport:
+		default:
+			t.Fatal("expected send on chResetTransport")
+		}
+
+		t.Run("successful LatestReport resets the counter", func(t *testing.T) {
+			timeoutErr = nil
+			// working LatestReport to reset counter
+			_, err := c.RawLatestReport(ctx, req)
+			require.NoError(t, err)
+			assert.Equal(t, MaxConsecutiveRequestFailures+1, calls)
+			assert.Equal(t, 0, int(c.consecutiveTimeoutCnt.Load()))
+		})
+
+		t.Run("doesn't block in case channel is full", func(t *testing.T) {
+			timeoutErr = context.DeadlineExceeded
+			c.chResetTransport = nil // simulate full channel
+			for i := 0; i < MaxConsecutiveRequestFailures; i++ {
+				_, err := c.RawLatestReport(ctx, req)
+				require.EqualError(t, err, "context deadline exceeded")
+			}
+		})
+	})
+}
