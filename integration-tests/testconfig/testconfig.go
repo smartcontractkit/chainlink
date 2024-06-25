@@ -29,7 +29,6 @@ import (
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
 	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
-	ocr2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr2"
 	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
 	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
@@ -64,11 +63,11 @@ type AutomationTestConfig interface {
 }
 
 type OcrTestConfig interface {
-	GetOCRConfig() *ocr_config.Config
+	GetActiveOCRConfig() *ocr_config.Config
 }
 
 type Ocr2TestConfig interface {
-	GetOCR2Config() *ocr2_config.Config
+	GetOCR2Config() *ocr_config.Config
 }
 
 type TestConfig struct {
@@ -80,7 +79,8 @@ type TestConfig struct {
 	Keeper     *keeper_config.Config    `toml:"Keeper"`
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
-	OCR2       *ocr2_config.Config      `toml:"OCR2"`
+	OCR2       *ocr_config.Config       `toml:"OCR2"`
+	OCR2VRF    *ocr_config.Config       `toml:"OCRR2VRF"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
@@ -203,6 +203,18 @@ func (c TestConfig) GetConfigurationName() string {
 
 func (c TestConfig) GetSethConfig() *seth.Config {
 	return c.Seth
+}
+
+func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
+	if c.OCR != nil {
+		return c.OCR
+	}
+
+	if c.OCR2 != nil {
+		return c.OCR2
+	}
+
+	return c.OCR2VRF
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -524,6 +536,18 @@ func (c *TestConfig) Validate() error {
 	if c.OCR != nil {
 		if err := c.OCR.Validate(); err != nil {
 			return errors.Wrapf(err, "OCR config validation failed")
+		}
+	}
+
+	if c.OCR2 != nil {
+		if err := c.OCR2.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR2 config validation failed")
+		}
+	}
+
+	if c.OCR2VRF != nil {
+		if err := c.OCR2VRF.Validate(); err != nil {
+			return errors.Wrapf(err, "OCR2VRF config validation failed")
 		}
 	}
 
