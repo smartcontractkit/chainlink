@@ -13,10 +13,10 @@ For example, if you want to override the `Network` input in test and want to run
    1. Create a TOML file with the following content:
 
         ```toml
-        [CCIP]
-        [CCIP.Env]
-        [CCIP.Env.Network]
-        selected_networks= ['AVALANCHE_FUJI', 'ARBITRUM_GOERLI']
+      [CCIP]
+      [CCIP.Env]
+      [CCIP.Env.Network]
+      selected_networks= ['AVALANCHE_FUJI', 'ARBITRUM_GOERLI']
         ```
 
    2. Encode it using the `base64` command
@@ -26,7 +26,7 @@ For example, if you want to override the `Network` input in test and want to run
         export BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i <path-to-override-toml-file>)
         ```
 
-        [mainnet.toml](./testconfig/override/mainnet.toml), [override.toml](./testconfig/override/override.toml), [prod_testnet.toml](./testconfig/override/prod_testnet.toml) are some of the sample override TOML files.
+        [mainnet.toml](./testconfig/override/mainnet.toml), [override.toml](./testconfig/examples/override.toml.example) are some of the sample override TOML files.
 
         For example - In order to run the smoke test (TestSmokeCCIPForBidirectionalLane) on mainnet, run the test with following env var set:
 
@@ -34,7 +34,7 @@ For example, if you want to override the `Network` input in test and want to run
         export BASE64_CCIP_CONFIG_OVERRIDE=$(base64 -i ./testconfig/override/mainnet.toml)
         ```
 
-3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [sample-secrets.toml](./testconfig/tomls/sample-secrets.toml) for the list of secrets that are mandatory to run the tests.
+3. Secrets - You also need to set some secrets. This is a mandatory step needed to run the tests. Please refer to [sample-secrets.toml](./testconfig/examples/secrets.toml.example) for the list of secrets that are mandatory to run the tests.
    - The chainlink image and tag are required secrets for all the tests.
    - If you are running tests in live networks like testnet and mainnet, you need to set the secrets (rpc urls and private keys) for the respective networks.
    - If you are running tests in simulated networks no network specific secrets are required.
@@ -60,7 +60,7 @@ For example, if you want to override the `Network` input in test and want to run
 
 **Please note that the secrets should NOT be checked in to the repo and should be kept locally.**
 
-We recommend against changing the content of [sample-secrets.toml](./testconfig/tomls/sample-secrets.toml). Please create a new file and set it as the secrets file.
+We recommend against changing the content of [sample-secrets.toml](./testconfig/examples/secrets.toml.example). Please create a new file and set it as the secrets file.
 You can run the command to ignore the changes to the file.
 
 ```bash
