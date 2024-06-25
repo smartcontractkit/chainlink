@@ -16,13 +16,12 @@ import (
 type OnChainRead struct {
 	BaseTask `mapstructure:",squash"`
 
-	ChainID         string `json:"chainID"`
-	Network         string `json:"network"`
-	ContractAddress string `json:"contractAddress"`
-	ContractName    string `json:"contractName"`
-	MethodName      string `json:"methodName"`
-	Params          string `json:"params"`
-	Config          string `json:"config"`
+	ContractAddress string                 `json:"contractAddress"`
+	ContractName    string                 `json:"contractName"`
+	MethodName      string                 `json:"methodName"`
+	Params          string                 `json:"params"`
+	RelayConfig     map[string]interface{} `json:"config"`
+	Relay           string                 `json:"relay"`
 
 	relayers map[types.RelayID]loop.Relayer
 }
@@ -39,51 +38,51 @@ func (t *OnChainRead) Run(ctx context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 	var (
-		chainID         StringParam
-		network         StringParam
 		contractAddress StringParam
 		contractName    StringParam
 		methodName      StringParam
 		params          SliceParam
-		//config          StringParam
 	)
 
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.ChainID, vars), NonemptyString(t.ChainID))), "chainID"),
-		errors.Wrap(ResolveParam(&network, From(VarExpr(t.Network, vars), NonemptyString(t.Network))), "network"),
 		errors.Wrap(ResolveParam(&contractAddress, From(VarExpr(t.ContractAddress, vars), NonemptyString(t.ContractAddress))), "contractAddress"),
 		errors.Wrap(ResolveParam(&contractName, From(VarExpr(t.ContractName, vars), NonemptyString(t.ContractName))), "contractName"),
 		errors.Wrap(ResolveParam(&methodName, From(VarExpr(t.MethodName, vars), NonemptyString(t.MethodName))), "methodName"),
 		errors.Wrap(ResolveParam(&params, From(VarExpr(t.Params, vars), VarExpr(t.Params, vars), Inputs(inputs))), "params"),
-		//errors.Wrap(ResolveParam(&config, From(VarExpr(t.Config, vars), NonemptyString(t.Config))), "config"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
+	//Fetch network and chainID to create the RelayID
+	c, ok := t.RelayConfig["chainID"]
+	if !ok {
+		return Result{Error: fmt.Errorf("cannot get chainID")}, runInfo
+	}
+	chainID, ok := c.(string)
+	if !ok {
+		return Result{Error: fmt.Errorf("cannot get chainID,expected string but got %T", c)}, runInfo
+	}
 	//Create relayID
-	relayID := types.NewRelayID(network.String(), chainID.String())
+	relayID := types.NewRelayID(t.Relay, chainID)
 
 	r, ok := t.relayers[relayID]
 
 	if !ok {
-		return Result{Error: fmt.Errorf("relayer not found for network %q and chainID: %q ", network.String(), chainID.String())}, runInfo
+		return Result{Error: fmt.Errorf("relayer not found for network %q and chainID: %q ", t.Relay, chainID)}, runInfo
 	}
 
-	c := `{
-	"contracts": {
-		"median": {
-			"contractABI": "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"calldata\",\"type\":\"bytes\"}],\"name\":\"hasAccess\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"latestTransmissionDetails\",\"outputs\":[{\"internalType\":\"bytes16\",\"name\":\"configDigest\",\"type\":\"bytes16\"},{\"internalType\":\"uint32\",\"name\":\"epoch\",\"type\":\"uint32\"},{\"internalType\":\"uint8\",\"name\":\"round\",\"type\":\"uint8\"},{\"internalType\":\"int192\",\"name\":\"latestAnswer\",\"type\":\"int192\"},{\"internalType\":\"uint64\",\"name\":\"latestTimestamp\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"transmitter\",\"type\":\"address\"}],\"name\":\"owedPayment\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
-			"configs": {
-				"latestTransmissionDetails": "{\n  \"chainSpecificName\": \"latestTransmissionDetails\"\n}\n",
-				"hasAccess": "{\"chainSpecificName\":\"hasAccess\"}",
-				"owedPayment": "{\n  \"chainSpecificName\": \"owedPayment\"\n}\n"
-			}
-		}
+	crc, ok := t.RelayConfig["chainReader"]
+	if !ok {
+		return Result{Error: fmt.Errorf("cannot find chainReader config")}, runInfo
 	}
-}` //TODO: @george-dorin move config out
 
-	csr, err := r.NewContractStateReader(ctx, []byte(c))
+	crcb, err := json.Marshal(crc)
+	if err != nil {
+		return Result{Error: fmt.Errorf("cannot marshal chainReader config")}, runInfo
+	}
+
+	csr, err := r.NewContractStateReader(ctx, crcb)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

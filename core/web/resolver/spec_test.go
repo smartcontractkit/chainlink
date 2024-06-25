@@ -461,9 +461,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 
 	keyBundleID := models.MustSha256HashFromHex("f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5")
 
-	relayConfig := map[string]interface{}{
-		"chainID": 1337,
-	}
 	pluginConfig := map[string]interface{}{
 		"juelsPerFeeCoinSource": 100000000,
 	}
@@ -486,8 +483,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						OCRKeyBundleID:                    null.StringFrom(keyBundleID.String()),
 						MonitoringEndpoint:                null.StringFrom("https://monitor.endpoint"),
 						P2PV2Bootstrappers:                pq.StringArray{"12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"},
-						Relay:                             types.NetworkEVM,
-						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
 						PluginType:                        types.Median,
 						PluginConfig:                      pluginConfig,
@@ -509,8 +504,6 @@ func TestResolver_OCR2Spec(t *testing.T) {
 									ocrKeyBundleID
 									monitoringEndpoint
 									p2pv2Bootstrappers
-									relay
-									relayConfig
 									transmitterID
 									pluginType
 									pluginConfig
@@ -523,26 +516,22 @@ func TestResolver_OCR2Spec(t *testing.T) {
 			result: `
 				{
 					"job": {
-						"spec": {
-							"__typename": "OCR2Spec",
-							"blockchainTimeout": "1m0s",
-							"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
-							"contractConfigConfirmations": 1,
-							"contractConfigTrackerPollInterval": "1m0s",
-							"createdAt": "2021-01-01T00:00:00Z",
-							"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
-							"monitoringEndpoint": "https://monitor.endpoint",
-							"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
-							"relay": "evm",
-							"relayConfig": {
-								"chainID": 1337
-							},
-							"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
-							"pluginType": "median",
-							"pluginConfig": {
-								"juelsPerFeeCoinSource": 100000000
+							"spec": {
+								"__typename": "OCR2Spec",
+								"blockchainTimeout": "1m0s",
+								"contractID": "0x613a38AC1659769640aaE063C651F48E0250454C",
+								"contractConfigConfirmations": 1,
+								"contractConfigTrackerPollInterval": "1m0s",
+								"createdAt": "2021-01-01T00:00:00Z",
+								"ocrKeyBundleID": "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5",
+								"monitoringEndpoint": "https://monitor.endpoint",
+								"p2pv2Bootstrappers": ["12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw@localhost:5001"],
+								"transmitterID": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+								"pluginType": "median",
+								"pluginConfig": {
+									"juelsPerFeeCoinSource": 100000000
+								}
 							}
-						}
 					}
 				}
 			`,

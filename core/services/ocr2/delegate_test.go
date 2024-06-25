@@ -65,7 +65,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	setTestCase := func(jb *job.Job, tc testCase, txManager *txmmocks.MockEvmTxManager) {
 		jb.OCR2OracleSpec.PluginType = tc.pluginType
 		jb.OCR2OracleSpec.TransmitterID = tc.transmitterID
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = tc.sendingKeys
+		jb.RelayConfig["sendingKeys"] = tc.sendingKeys
 		jb.ForwardingAllowed = tc.forwardingEnabled
 
 		args := []interface{}{mock.Anything, tc.getForwarderForEOAArg}
@@ -149,13 +149,13 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
+		jb.RelayConfig["sendingKeys"] = nil
 		chain, err := legacyChains.Get(customChainID.String())
 		require.NoError(t, err)
 		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(ctx, &jb, chain, lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
-		require.Equal(t, []string{"some transmitterID string"}, jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string))
+		require.Equal(t, []string{"some transmitterID string"}, jb.RelayConfig["sendingKeys"].([]string))
 	})
 
 	for _, tc := range testCases {

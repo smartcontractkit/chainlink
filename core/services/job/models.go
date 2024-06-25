@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -174,12 +173,11 @@ type Job struct {
 	Name                          null.String   `toml:"name"`
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
-	ChainReaderSpecID             *int32
-	ChainReaderSpec               ChainReaderSpecs `toml:"chainReader"`
 	CreatedAt                     time.Time
+	Relay                         string     `toml:"relay"`
+	ChainID                       string     `toml:"chainID"`
+	RelayConfig                   JSONConfig `toml:"relayConfig"`
 }
-
-type ChainReaderSpecs map[string]map[string]types2.ChainReaderConfig
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
 	return common.BytesToHash([]byte(strings.Replace(id.String(), "-", "", 4)))
@@ -349,16 +347,10 @@ type ocr2Config interface {
 var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
-// Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID         int32        `toml:"-"`
-	ContractID string       `toml:"contractID"`
-	FeedID     *common.Hash `toml:"feedID"`
-	// Network
-	Relay string `toml:"relay"`
-	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
-	ChainID                           string               `toml:"chainID"`
-	RelayConfig                       JSONConfig           `toml:"relayConfig"`
+	ID                                int32                `toml:"-"`
+	ContractID                        string               `toml:"contractID"`
+	FeedID                            *common.Hash         `toml:"feedID"`
 	P2PV2Bootstrappers                pq.StringArray       `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
@@ -386,12 +378,12 @@ func validateRelayID(id types.RelayID) error {
 	return nil
 }
 
-func (s *OCR2OracleSpec) RelayID() (types.RelayID, error) {
-	cid, err := s.getChainID()
+func (j *Job) RelayID() (types.RelayID, error) {
+	cid, err := j.getChainID()
 	if err != nil {
 		return types.RelayID{}, err
 	}
-	rid := types.NewRelayID(s.Relay, cid)
+	rid := types.NewRelayID(j.Relay, cid)
 	err = validateRelayID(rid)
 	if err != nil {
 		return types.RelayID{}, err
@@ -399,16 +391,16 @@ func (s *OCR2OracleSpec) RelayID() (types.RelayID, error) {
 	return rid, nil
 }
 
-func (s *OCR2OracleSpec) getChainID() (string, error) {
-	if s.ChainID != "" {
-		return s.ChainID, nil
+func (j *Job) getChainID() (string, error) {
+	if j.ChainID != "" {
+		return j.ChainID, nil
 	}
 	// backward compatible job spec
-	return s.getChainIdFromRelayConfig()
+	return j.getChainIdFromRelayConfig()
 }
 
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
-	v, exists := s.RelayConfig["chainID"]
+func (j *Job) getChainIdFromRelayConfig() (string, error) {
+	v, exists := j.RelayConfig["chainID"]
 	if !exists {
 		return "", fmt.Errorf("chainID does not exist")
 	}
@@ -776,8 +768,6 @@ func (s BootstrapSpec) AsOCR2Spec() OCR2OracleSpec {
 	return OCR2OracleSpec{
 		ID:                                s.ID,
 		ContractID:                        s.ContractID,
-		Relay:                             s.Relay,
-		RelayConfig:                       s.RelayConfig,
 		MonitoringEndpoint:                s.MonitoringEndpoint,
 		BlockchainTimeout:                 s.BlockchainTimeout,
 		ContractConfigTrackerPollInterval: s.ContractConfigTrackerPollInterval,

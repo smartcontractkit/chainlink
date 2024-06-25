@@ -323,6 +323,8 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
 		case TaskTypeOnchainRead:
 			task.(*OnChainRead).relayers = r.relayers
+			task.(*OnChainRead).RelayConfig = spec.RelayConfig
+			task.(*OnChainRead).Relay = spec.Relay
 		default:
 		}
 	}

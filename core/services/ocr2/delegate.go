@@ -277,7 +277,7 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 		return nil
 	}
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob", "err", ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)})
 		return nil
@@ -325,7 +325,7 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		JobID:         jb.ID,
 		ContractID:    spec.ContractID,
 		New:           false,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   jb.RelayConfig.Bytes(),
 	}
 
 	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
@@ -364,13 +364,13 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	if spec.FeedID != nil && (*spec.FeedID != (common.Hash{})) {
 		lggrCtx.FeedID = *spec.FeedID
-		spec.RelayConfig["feedID"] = spec.FeedID
+		jb.RelayConfig["feedID"] = spec.FeedID
 	}
 	lggr := logger.Sugared(d.lggr.Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
 
 	kvStore := job.NewKVStore(jb.ID, d.ds, lggr)
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
@@ -387,8 +387,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
 	}
-	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
-	spec.RelayConfig.ApplyDefaultsOCR2(d.cfg.OCR2())
+	jb.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
+	jb.RelayConfig.ApplyDefaultsOCR2(d.cfg.OCR2())
 
 	ocrDB := NewDB(d.ds, spec.ID, 0, lggr)
 	if d.peerWrapper == nil {
@@ -397,7 +397,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 
-	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
+	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), jb)
 	if err != nil {
 		return nil, err
 	}
@@ -476,8 +476,8 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 		return spec.TransmitterID.String, nil
 	}
 
-	if spec.RelayConfig["sendingKeys"] == nil {
-		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
+	if jb.RelayConfig["sendingKeys"] == nil {
+		jb.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
 	} else if !spec.TransmitterID.Valid {
 		sendingKeys, err := job.SendingKeysForJob(jb)
 		if err != nil {
@@ -561,7 +561,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		validate.PipelineSpec{Name: "__DEFAULT_PIPELINE__", Spec: jb.Pipeline.Source},
 	)
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{PluginName: pCfg.PluginName, Err: err}
 	}
@@ -573,7 +573,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: jb.Relay, PluginName: pCfg.PluginName}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -581,7 +581,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           d.isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
+		RelayConfig:   jb.RelayConfig.Bytes(),
 		ProviderType:  pCfg.ProviderType,
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
@@ -764,7 +764,7 @@ func (d *Delegate) newServicesMercury(
 		return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
 	}
@@ -773,7 +773,7 @@ func (d *Delegate) newServicesMercury(
 	}
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: jb.Relay, PluginName: "mercury"}
 	}
 
 	provider, err2 := relayer.NewPluginProvider(ctx,
@@ -782,7 +782,7 @@ func (d *Delegate) newServicesMercury(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   jb.RelayConfig.Bytes(),
 			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
@@ -858,7 +858,7 @@ func (d *Delegate) newServicesLLO(
 		return nil, errors.Wrapf(err, "ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
 	}
@@ -867,7 +867,7 @@ func (d *Delegate) newServicesLLO(
 	}
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: jb.Relay, PluginName: "streams"}
 	}
 
 	provider, err2 := relayer.NewLLOProvider(ctx,
@@ -876,7 +876,7 @@ func (d *Delegate) newServicesLLO(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   jb.RelayConfig.Bytes(),
 			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
@@ -985,7 +985,7 @@ func (d *Delegate) newServicesMedian(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
 	}
@@ -1015,7 +1015,7 @@ func (d *Delegate) newServicesMedian(
 
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
+		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: jb.Relay}
 	}
 
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
@@ -1041,7 +1041,7 @@ func (d *Delegate) newServicesDKG(
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "DKG"}
 	}
@@ -1060,7 +1060,7 @@ func (d *Delegate) newServicesDKG(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   jb.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: spec.TransmitterID.String,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1087,7 +1087,7 @@ func (d *Delegate) newServicesDKG(
 		OnchainKeyring:         kb,
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
-	services, err := dkg.NewDKGServices(jb, dkgProvider, lggr, ocrLogger, d.dkgSignKs, d.dkgEncryptKs, chain.Client(), oracleArgsNoPlugin, d.ds, chain.ID(), spec.Relay)
+	services, err := dkg.NewDKGServices(jb, dkgProvider, lggr, ocrLogger, d.dkgSignKs, d.dkgEncryptKs, chain.Client(), oracleArgsNoPlugin, d.ds, chain.ID(), jb.Relay)
 	if err != nil {
 		return nil, err
 	}
@@ -1106,7 +1106,7 @@ func (d *Delegate) newServicesOCR2VRF(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "VRF"}
 	}
@@ -1141,7 +1141,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   jb.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1155,7 +1155,7 @@ func (d *Delegate) newServicesOCR2VRF(
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         jb.ID,
 			ContractID:    cfg.DKGContractAddress,
-			RelayConfig:   spec.RelayConfig.Bytes(),
+			RelayConfig:   jb.RelayConfig.Bytes(),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
@@ -1258,7 +1258,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		KeyID:                              keyID,
 		DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 		VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-		DKGSharePersistence:                persistence.NewShareDB(d.ds, lggr.Named("DKGShareDB"), chain.ID(), spec.Relay),
+		DKGSharePersistence:                persistence.NewShareDB(d.ds, lggr.Named("DKGShareDB"), chain.ID(), jb.Relay),
 	})
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -1320,7 +1320,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	mc := d.cfg.Mercury().Credentials(credName)
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
 	}
@@ -1331,7 +1331,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	transmitterID := spec.TransmitterID.String
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
+		return nil, ErrRelayNotEnabled{Err: err, Relay: jb.Relay, PluginName: "ocr2keepers"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx,
@@ -1340,7 +1340,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 			JobID:              jb.ID,
 			ContractID:         spec.ContractID,
 			New:                d.isNewlyCreatedJob,
-			RelayConfig:        spec.RelayConfig.Bytes(),
+			RelayConfig:        jb.RelayConfig.Bytes(),
 			ProviderType:       string(spec.PluginType),
 			MercuryCredentials: mc,
 		}, types.PluginArgs{
@@ -1473,7 +1473,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}
 	}
@@ -1601,7 +1601,7 @@ func (d *Delegate) newServicesOCR2Functions(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "functions"}
 	}
@@ -1620,7 +1620,7 @@ func (d *Delegate) newServicesOCR2Functions(
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
+				RelayConfig:   jb.RelayConfig.Bytes(),
 				New:           d.isNewlyCreatedJob,
 			},
 			types.PluginArgs{

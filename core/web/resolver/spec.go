@@ -527,16 +527,6 @@ func (r *OCR2SpecResolver) P2PV2Bootstrappers() *[]string {
 	return &peers
 }
 
-// Relay resolves the spec's relay
-func (r *OCR2SpecResolver) Relay() string {
-	return r.spec.Relay
-}
-
-// RelayConfig resolves the spec's relay config
-func (r *OCR2SpecResolver) RelayConfig() gqlscalar.Map {
-	return gqlscalar.Map(r.spec.RelayConfig)
-}
-
 // PluginType resolves the spec's plugin type
 func (r *OCR2SpecResolver) PluginType() string {
 	return string(r.spec.PluginType)

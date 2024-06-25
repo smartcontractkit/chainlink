@@ -136,7 +136,7 @@ func (e *EnhancedTelemetryService[T]) getChainID() string {
 	case pipeline.OffchainReportingJobType:
 		return e.job.OCROracleSpec.EVMChainID.String()
 	case pipeline.OffchainReporting2JobType:
-		contract, _ := e.job.OCR2OracleSpec.RelayConfig["chainID"].(string)
+		contract, _ := e.job.RelayConfig["chainID"].(string)
 		return contract
 	default:
 		return ""

@@ -77,8 +77,6 @@ type OCR2Spec {
     ocrKeyBundleID: String
     monitoringEndpoint: String
     p2pv2Bootstrappers: [String!]
-    relay: String!
-    relayConfig: Map!
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!

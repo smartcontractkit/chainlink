@@ -165,19 +165,18 @@ func NewOffChainReportingSpec(spec *job.OCROracleSpec) *OffChainReportingSpec {
 
 // OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
 type OffChainReporting2Spec struct {
-	ContractID                        string                 `json:"contractID"`
-	Relay                             string                 `json:"relay"` // RelayID.Network
-	RelayConfig                       map[string]interface{} `json:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray         `json:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String            `json:"ocrKeyBundleID"`
-	TransmitterID                     null.String            `json:"transmitterID"`
-	ObservationTimeout                models.Interval        `json:"observationTimeout"`
-	BlockchainTimeout                 models.Interval        `json:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval        `json:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16                 `json:"contractConfigConfirmations"`
-	CreatedAt                         time.Time              `json:"createdAt"`
-	UpdatedAt                         time.Time              `json:"updatedAt"`
-	CollectTelemetry                  bool                   `json:"collectTelemetry"`
+	ContractID                        string          `json:"contractID"`
+	Relay                             string          `json:"relay"` // RelayID.Network
+	P2PV2Bootstrappers                pq.StringArray  `json:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String     `json:"ocrKeyBundleID"`
+	TransmitterID                     null.String     `json:"transmitterID"`
+	ObservationTimeout                models.Interval `json:"observationTimeout"`
+	BlockchainTimeout                 models.Interval `json:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `json:"contractConfigConfirmations"`
+	CreatedAt                         time.Time       `json:"createdAt"`
+	UpdatedAt                         time.Time       `json:"updatedAt"`
+	CollectTelemetry                  bool            `json:"collectTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -185,8 +184,6 @@ type OffChainReporting2Spec struct {
 func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec {
 	return &OffChainReporting2Spec{
 		ContractID:                        spec.ContractID,
-		Relay:                             spec.Relay,
-		RelayConfig:                       spec.RelayConfig,
 		P2PV2Bootstrappers:                spec.P2PV2Bootstrappers,
 		OCRKeyBundleID:                    spec.OCRKeyBundleID,
 		TransmitterID:                     spec.TransmitterID,

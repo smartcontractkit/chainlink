@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
-	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -245,7 +244,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 			}
 
-			if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
+			if jb.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
 				return errors.New("sending keys and transmitter ID can't both be defined")
 			}
 
@@ -260,7 +259,7 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			}
 
 			if !sendingKeysDefined {
-				if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, tx.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+				if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, tx.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
 					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
@@ -422,15 +421,6 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
 
-		//Check for chainReaderConfig
-		if jb.ChainReaderSpec != nil {
-			crSpecID, err := tx.InsertChainReaderSpec(ctx, jb.ChainReaderSpec)
-			if err != nil {
-				return errors.Wrap(err, "failed to create ChainReaderSpec for jobSpec")
-			}
-			jb.ChainReaderSpecID = &crSpecID
-		}
-
 		pipelineSpecID, err := tx.pipelineORM.CreateSpec(ctx, p, jb.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
@@ -485,10 +475,10 @@ func (o *orm) insertOCROracleSpec(ctx context.Context, spec *OCROracleSpec) (spe
 }
 
 func (o *orm) insertOCR2OracleSpec(ctx context.Context, spec *OCR2OracleSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, relay, relay_config, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
+	return o.prepareQuerySpecID(ctx, `INSERT INTO ocr2_oracle_specs (contract_id, feed_id, plugin_type, plugin_config, onchain_signing_strategy, p2pv2_bootstrappers, ocr_key_bundle_id, transmitter_id,
 					blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations,
 					created_at, updated_at)
-			VALUES (:contract_id, :feed_id, :relay, :relay_config, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
+			VALUES (:contract_id, :feed_id, :plugin_type, :plugin_config, :onchain_signing_strategy, :p2pv2_bootstrappers, :ocr_key_bundle_id, :transmitter_id,
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`, spec)
@@ -565,15 +555,15 @@ func (o *orm) insertGatewaySpec(ctx context.Context, spec *GatewaySpec) (specID 
 }
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
-func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
-	switch spec.PluginType {
+func ValidateKeyStoreMatch(ctx context.Context, OCR2PluginType types.OCR2PluginType, relay string, keyStore keystore.Master, key string) (err error) {
+	switch OCR2PluginType {
 	case types.Mercury, types.LLO:
 		_, err = keyStore.CSA().Get(key)
 		if err != nil {
 			err = errors.Errorf("no CSA key matching: %q", key)
 		}
 	default:
-		err = validateKeyStoreMatchForRelay(ctx, spec.Relay, keyStore, key)
+		err = validateKeyStoreMatchForRelay(ctx, relay, keyStore, key)
 	}
 	return
 }
@@ -605,14 +595,14 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 }
 
 func areSendingKeysDefined(ctx context.Context, jb *Job, keystore keystore.Master) (bool, error) {
-	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
+	if jb.RelayConfig["sendingKeys"] != nil {
 		sendingKeys, err := SendingKeysForJob(jb)
 		if err != nil {
 			return false, err
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+			if err = ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keystore, sendingKey); err != nil {
 				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
@@ -632,17 +622,6 @@ func (o *orm) InsertWebhookSpec(ctx context.Context, webhookSpec *WebhookSpec) e
 	return o.ds.GetContext(ctx, webhookSpec, query, args...)
 }
 
-func (o *orm) InsertChainReaderSpec(ctx context.Context, spec ChainReaderSpecs) (int32, error) {
-	specToml, err := toml.Marshal(spec)
-	if err != nil {
-		return 0, fmt.Errorf("cannot marshal ChainReaderSpec: %w", err)
-	}
-
-	return o.prepareQuerySpecID(ctx, `INSERT INTO chain_reader_spec (spec,created_at, updated_at)
-			VALUES (:spec,NOW(), NOW())
-			RETURNING id;`, string(specToml))
-}
-
 func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 	return o.transact(ctx, false, func(tx *orm) error {
 		var query string
@@ -651,18 +630,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed, relay_config, relay, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, :relay_config, :relay, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, external_job_id, gas_limit, forwarding_allowed,relay_config, relay, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :external_job_id, :gas_limit, :forwarding_allowed,:relay_config, :relay, NOW())
 		RETURNING *;`
 		}
 		query, args, err := tx.ds.BindNamed(query, job)

@@ -867,7 +867,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.Int64()
+	jb3.RelayConfig["chainID"] = customChainID.Int64()
 	jb.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
 	err = jobORM.CreateJob(ctx, &jb3)
@@ -911,24 +911,24 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
+		jb.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such sending key exists", jobORM.CreateJob(ctx, &jb).Error())
 
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
+		jb.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
 	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String()})
+		jb.RelayConfig["sendingKeys"] = interface{}([]any{address.String()})
 		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(ctx, &jb).Error())
 	})
 
 	t.Run("transmitter validation works", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("transmitterID that doesn't have a match in key store")
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
+		jb.RelayConfig["sendingKeys"] = nil
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"transmitterID that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(ctx, &jb).Error())
 	})
 }
@@ -949,61 +949,61 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkEVM
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		jb.Relay = types.NetworkEVM
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
 		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, evmKey.String())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, evmKey.String())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkCosmos
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		jb.Relay = types.NetworkCosmos
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
 		cosmosKey, err := keyStore.Cosmos().Create(ctx)
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, cosmosKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Solana key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkSolana
+		jb.Relay = types.NetworkSolana
 
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
 
 		solanaKey, err := keyStore.Solana().Create(ctx)
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, solanaKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, solanaKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = types.NetworkStarkNet
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		jb.Relay = types.NetworkStarkNet
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
 		starkNetKey, err := keyStore.StarkNet().Create(ctx)
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, starkNetKey.ID())
 		require.NoError(t, err)
 	})
 
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.PluginType = types.Mercury
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
 
 		csaKey, err := keyStore.CSA().Create(ctx)
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, csaKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, csaKey.ID())
 		require.NoError(t, err)
 	})
 }

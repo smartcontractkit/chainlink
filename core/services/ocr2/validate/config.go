@@ -29,12 +29,18 @@ type InsecureConfig interface {
 }
 
 // ToLocalConfig creates a OCR2 LocalConfig from the global config and the OCR2 spec.
-func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) (types.LocalConfig, error) {
+func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, jb job.Job) (types.LocalConfig, error) {
 	var (
-		blockchainTimeout     = time.Duration(spec.BlockchainTimeout)
-		ccConfirmations       = spec.ContractConfigConfirmations
-		ccTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
+		blockchainTimeout     time.Duration
+		ccConfirmations       uint16
+		ccTrackerPollInterval time.Duration
 	)
+	if jb.OCR2OracleSpec != nil {
+		blockchainTimeout = time.Duration(jb.OCR2OracleSpec.BlockchainTimeout)
+		ccConfirmations = jb.OCR2OracleSpec.ContractConfigConfirmations
+		ccTrackerPollInterval = time.Duration(jb.OCR2OracleSpec.ContractConfigTrackerPollInterval)
+	}
+
 	if blockchainTimeout == 0 {
 		blockchainTimeout = ocr2Config.BlockchainTimeout()
 	}
@@ -51,7 +57,7 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 		ContractTransmitterTransmitTimeout: ocr2Config.ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    ocr2Config.DatabaseTimeout(),
 	}
-	if spec.Relay == commontypes.NetworkSolana && env.MedianPlugin.Cmd.Get() != "" {
+	if jb.Relay == commontypes.NetworkSolana && env.MedianPlugin.Cmd.Get() != "" {
 		// Work around for Solana Feeds configured with zero values to support LOOP Plugins.
 		minOCR2MaxDurationQuery, err := getMinOCR2MaxDurationQuery()
 		if err != nil {

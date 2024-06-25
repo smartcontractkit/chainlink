@@ -1,0 +1,34 @@
+externalJobID = 'ee50cdf7-5d72-4d90-8def-06bb42b932ef'
+PipelineSpecID = 999
+JobSpecErrors = []
+type = ''
+schemaVersion = 0
+gasLimit = '1234'
+forwardingAllowed = false
+name = 'some name'
+MaxTaskDuration = '2s'
+CreatedAt = 2024-06-20T17:42:56+03:00
+relay = 'evm'
+chainID = '323211'
+
+[observationSource]
+Tasks = []
+Source = ''
+
+[relayConfig]
+chainID = 1337
+fromBlock = 42
+
+[relayConfig.chainReader]
+[relayConfig.chainReader.contracts]
+[relayConfig.chainReader.contracts.median]
+contractABI = "[\n\t {\n\t   \"anonymous\": false,\n\t   \"inputs\": [\n\t     {\n\t       \"indexed\": true,\n\t       \"internalType\": \"address\",\n\t       \"name\": \"requester\",\n\t       \"type\": \"address\"\n\t     },\n\t     {\n\t       \"indexed\": false,\n\t       \"internalType\": \"bytes32\",\n\t       \"name\": \"configDigest\",\n\t       \"type\": \"bytes32\"\n\t     },\n\t     {\n\t       \"indexed\": false,\n\t       \"internalType\": \"uint32\",\n\t       \"name\": \"epoch\",\n\t       \"type\": \"uint32\"\n\t     },\n\t     {\n\t       \"indexed\": false,\n\t       \"internalType\": \"uint8\",\n\t       \"name\": \"round\",\n\t       \"type\": \"uint8\"\n\t     }\n\t   ],\n\t   \"name\": \"RoundRequested\",\n\t   \"type\": \"event\"\n\t },\n\t {\n\t   \"inputs\": [],\n\t   \"name\": \"latestTransmissionDetails\",\n\t   \"outputs\": [\n\t     {\n\t       \"internalType\": \"bytes32\",\n\t       \"name\": \"configDigest\",\n\t       \"type\": \"bytes32\"\n\t     },\n\t     {\n\t       \"internalType\": \"uint32\",\n\t       \"name\": \"epoch\",\n\t       \"type\": \"uint32\"\n\t     },\n\t     {\n\t       \"internalType\": \"uint8\",\n\t       \"name\": \"round\",\n\t       \"type\": \"uint8\"\n\t     },\n\t     {\n\t       \"internalType\": \"int192\",\n\t       \"name\": \"latestAnswer_\",\n\t       \"type\": \"int192\"\n\t     },\n\t     {\n\t       \"internalType\": \"uint64\",\n\t       \"name\": \"latestTimestamp_\",\n\t       \"type\": \"uint64\"\n\t     }\n\t   ],\n\t   \"stateMutability\": \"view\",\n\t   \"type\": \"function\"\n\t }\n\t]\n\t"
+
+[relayConfig.chainReader.contracts.median.configs]
+LatestRoundRequested = "{\n  \"chainSpecificName\": \"RoundRequested\",\n  \"readType\": \"event\"\n}\n"
+LatestTransmissionDetails = "{\n  \"chainSpecificName\": \"latestTransmissionDetails\",\n  \"outputModifications\": [\n    {\n      \"Fields\": [\n        \"LatestTimestamp_\"\n      ],\n      \"Type\": \"epoch to time\"\n    },\n    {\n      \"Fields\": {\n        \"LatestAnswer_\": \"LatestAnswer\",\n        \"LatestTimestamp_\": \"LatestTimestamp\"\n      },\n      \"Type\": \"rename\"\n    }\n  ]\n}\n"
+
+[relayConfig.codec]
+[relayConfig.codec.configs]
+[relayConfig.codec.configs.MedianReport]
+typeABI = "[\n\t {\n\t   \"Name\": \"Timestamp\",\n\t   \"Type\": \"uint32\"\n\t },\n\t {\n\t   \"Name\": \"Observers\",\n\t   \"Type\": \"bytes32\"\n\t },\n\t {\n\t   \"Name\": \"Observations\",\n\t   \"Type\": \"int192[]\"\n\t },\n\t {\n\t   \"Name\": \"JuelsPerFeeCoin\",\n\t   \"Type\": \"int192\"\n\t }\n\t]\n\t"

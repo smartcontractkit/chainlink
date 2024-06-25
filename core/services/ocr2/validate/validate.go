@@ -54,8 +54,8 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if jb.Type != job.OffchainReporting2 {
 		return jb, pkgerrors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
-	if _, ok := types.SupportedRelays[spec.Relay]; !ok {
-		return jb, pkgerrors.Errorf("no such relay %v supported", spec.Relay)
+	if _, ok := types.SupportedRelays[jb.Relay]; !ok {
+		return jb, pkgerrors.Errorf("no such relay %v supported", jb.Relay)
 	}
 	if len(spec.P2PV2Bootstrappers) > 0 {
 		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)
@@ -67,7 +67,7 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 	if err = validateSpec(ctx, tree, jb, rc); err != nil {
 		return jb, err
 	}
-	if err = validateTimingParameters(config, insConf, spec); err != nil {
+	if err = validateTimingParameters(config, insConf, jb); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -90,8 +90,8 @@ var (
 	}
 )
 
-func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) error {
-	lc, err := ToLocalConfig(ocr2Conf, insConf, spec)
+func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, jb job.Job) error {
+	lc, err := ToLocalConfig(ocr2Conf, insConf, jb)
 	if err != nil {
 		return err
 	}

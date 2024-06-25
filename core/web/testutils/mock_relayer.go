@@ -12,6 +12,10 @@ type MockRelayer struct {
 	NodeStatuses []commontypes.NodeStatus
 }
 
+func (m MockRelayer) NewContractStateReader(ctx context.Context, config []byte) (commontypes.ContractStateReader, error) {
+	panic("implement me")
+}
+
 func (m MockRelayer) Name() string {
 	panic("not implemented")
 }

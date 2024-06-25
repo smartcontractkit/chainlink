@@ -59,6 +59,7 @@ func TestAdapter_Integration(t *testing.T) {
 		logger,
 		http.DefaultClient,
 		http.DefaultClient,
+		nil,
 	)
 	err = keystore.Unlock(ctx, cfg.Password().Keystore())
 	require.NoError(t, err)
