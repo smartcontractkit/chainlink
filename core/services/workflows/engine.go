@@ -315,9 +315,17 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 		return fmt.Errorf("failed to instantiate trigger %s, %s", t.ID, err)
 	}
 
+	e.wg.Add(1)
 	go func() {
-		for event := range eventsCh {
-			e.triggerEvents <- event
+		defer e.wg.Done()
+
+		for {
+			select {
+			case <-e.stopCh:
+				return
+			case event := <-eventsCh:
+				e.triggerEvents <- event
+			}
 		}
 	}()
 
