@@ -16,13 +16,39 @@ type HeadReporter struct {
 }
 
 // ReportNewHead provides a mock function with given fields: ctx, head
-func (_m *HeadReporter) ReportNewHead(ctx context.Context, head *types.Head) {
-	_m.Called(ctx, head)
+func (_m *HeadReporter) ReportNewHead(ctx context.Context, head *types.Head) error {
+	ret := _m.Called(ctx, head)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReportNewHead")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Head) error); ok {
+		r0 = rf(ctx, head)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // ReportPeriodic provides a mock function with given fields: ctx
-func (_m *HeadReporter) ReportPeriodic(ctx context.Context) {
-	_m.Called(ctx)
+func (_m *HeadReporter) ReportPeriodic(ctx context.Context) error {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReportPeriodic")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // NewHeadReporter creates a new instance of HeadReporter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

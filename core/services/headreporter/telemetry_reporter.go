@@ -3,6 +3,8 @@ package headreporter
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
 
@@ -16,7 +18,6 @@ import (
 
 type (
 	telemetryReporter struct {
-		logger    logger.Logger
 		endpoints map[uint64]commontypes.MonitoringEndpoint
 	}
 )
@@ -26,40 +27,43 @@ func NewTelemetryReporter(chainContainer legacyevm.LegacyChainContainer, lggr lo
 	for _, chain := range chainContainer.Slice() {
 		endpoints[chain.ID().Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chain.ID().String(), "", synchronization.HeadReport)
 	}
-	return &telemetryReporter{
-		logger:    lggr.Named("TelemetryReporter"),
-		endpoints: endpoints,
-	}
+	return &telemetryReporter{endpoints: endpoints}
 }
 
-func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) {
+func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
-	var lastFinalized *telem.Block
-	lastFinalizedHead := head.LatestFinalizedHead()
-	if lastFinalizedHead != nil {
-		lastFinalized = &telem.Block{
-			Timestamp:   uint64(lastFinalizedHead.GetTimestamp().UTC().Unix()),
-			BlockNumber: uint64(lastFinalizedHead.BlockNumber()),
-			BlockHash:   lastFinalizedHead.BlockHash().Hex(),
+	if monitoringEndpoint == nil {
+		return errors.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.Int64())
+	}
+	var finalized *telem.Block
+	latestFinalizedHead := head.LatestFinalizedHead()
+	if latestFinalizedHead != nil {
+		finalized = &telem.Block{
+			Timestamp: uint64(latestFinalizedHead.GetTimestamp().UTC().Unix()),
+			Number:    uint64(latestFinalizedHead.BlockNumber()),
+			Hash:      latestFinalizedHead.BlockHash().Hex(),
 		}
 	}
 	request := &telem.HeadReportRequest{
-		ChainId: head.EVMChainID.String(),
-		Current: &telem.Block{
-			Timestamp:   uint64(head.Timestamp.UTC().Unix()),
-			BlockNumber: uint64(head.Number),
-			BlockHash:   head.Hash.Hex(),
+		ChainId: head.EVMChainID.ToInt().Uint64(),
+		Latest: &telem.Block{
+			Timestamp: uint64(head.Timestamp.UTC().Unix()),
+			Number:    uint64(head.Number),
+			Hash:      head.Hash.Hex(),
 		},
-		LastFinalized: lastFinalized,
+		Finalized: finalized,
 	}
 	bytes, err := proto.Marshal(request)
 	if err != nil {
-		t.logger.Warnw("telem.HeadReportRequest marshal error", "err", err)
-		return
+		return errors.WithMessage(err, "telem.HeadReportRequest marshal error")
 	}
 	monitoringEndpoint.SendLog(bytes)
+	if finalized == nil {
+		return errors.Errorf("No finalized block was found for chain_id=%d", head.EVMChainID.Int64())
+	}
+	return nil
 }
 
-func (t *telemetryReporter) ReportPeriodic(ctx context.Context) {
-	//do nothing
+func (t *telemetryReporter) ReportPeriodic(ctx context.Context) error {
+	return nil
 }

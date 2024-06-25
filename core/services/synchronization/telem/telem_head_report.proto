@@ -5,13 +5,13 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 package telem;
 
 message HeadReportRequest  {
-  string chain_id = 1;
-  Block current = 2;
-  Block last_finalized = 3;
+  uint64 chain_id = 1;
+  Block latest = 2;
+  optional Block finalized = 3;
 }
 
 message Block {
   uint64 timestamp = 1;
-  uint64 block_number = 2;
-  string block_hash = 3;
+  uint64 number = 2;
+  string hash = 3;
 }

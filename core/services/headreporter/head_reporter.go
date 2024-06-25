@@ -20,8 +20,8 @@ import (
 //go:generate mockery --quiet --name HeadReporter --output ../../internal/mocks/ --case=underscore
 type (
 	HeadReporter interface {
-		ReportNewHead(ctx context.Context, head *evmtypes.Head)
-		ReportPeriodic(ctx context.Context)
+		ReportNewHead(ctx context.Context, head *evmtypes.Head) error
+		ReportPeriodic(ctx context.Context) error
 	}
 
 	HeadReporterService struct {
@@ -39,7 +39,7 @@ type (
 
 func NewHeadReporterService(config config.HeadReport, ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
 	reporters := make([]HeadReporter, 2)
-	reporters = append(reporters, NewPrometheusReporter(ds, chainContainer, lggr, opts))
+	reporters = append(reporters, NewPrometheusReporter(ds, chainContainer, opts))
 	if config.TelemetryEnabled() {
 		reporters = append(reporters, NewTelemetryReporter(chainContainer, lggr, monitoringEndpointGen))
 	}
@@ -100,6 +100,7 @@ func (hrd *HeadReporterService) eventLoop() {
 	defer hrd.wgDone.Done()
 	ctx, cancel := hrd.chStop.NewCtx()
 	defer cancel()
+	after := time.After(hrd.reportPeriod)
 	for {
 		select {
 		case <-hrd.newHeads.Notify():
@@ -108,12 +109,19 @@ func (hrd *HeadReporterService) eventLoop() {
 				continue
 			}
 			for _, reporter := range hrd.reporters {
-				reporter.ReportNewHead(ctx, head)
+				err := reporter.ReportNewHead(ctx, head)
+				if err != nil && ctx.Err() == nil {
+					hrd.lggr.Errorw("Error reporting new head", "err", err)
+				}
 			}
-		case <-time.After(hrd.reportPeriod):
+		case <-after:
 			for _, reporter := range hrd.reporters {
-				reporter.ReportPeriodic(ctx)
+				err := reporter.ReportPeriodic(ctx)
+				if err != nil && ctx.Err() == nil {
+					hrd.lggr.Errorw("Error in periodic report", "err", err)
+				}
 			}
+			after = time.After(hrd.reportPeriod)
 		case <-hrd.chStop:
 			return
 		}
