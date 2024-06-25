@@ -1800,7 +1800,7 @@ func (d *Delegate) newServicesOCR2Functions(
 
 func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != types.NetworkEVM {
+	if spec.Relay != relay.NetworkEVM {
 		return nil, errors.New("Non evm chains are not supported for CCIP commit")
 	}
 	rid, err := spec.RelayID()
@@ -1855,7 +1855,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 
 func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != types.NetworkEVM {
+	if spec.Relay != relay.NetworkEVM {
 		return nil, errors.New("Non evm chains are not supported for CCIP execution")
 	}
 	rid, err := spec.RelayID()
@@ -1909,7 +1909,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 
 func (d *Delegate) newServicesLiquidityManager(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != types.NetworkEVM {
+	if spec.Relay != relay.NetworkEVM {
 		return nil, errors.New("Non evm chains are not supported for rebalancer execution")
 	}
 	// the relay ID specified in the spec will be that of the main/master chain

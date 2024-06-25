@@ -10,6 +10,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/report_encoder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // ConfigDigest wraps ocrtypes.ConfigDigest and adds json encoding support
@@ -111,7 +112,7 @@ func (r Report) GetDestinationChain() commontypes.RelayID {
 		networkID = NetworkSelector(ch.EvmChainID)
 	}
 
-	return commontypes.NewRelayID(commontypes.NetworkEVM, fmt.Sprintf("%d", networkID))
+	return commontypes.NewRelayID(relay.NetworkEVM, fmt.Sprintf("%d", networkID))
 }
 
 func (r Report) GetDestinationConfigDigest() ocrtypes.ConfigDigest {

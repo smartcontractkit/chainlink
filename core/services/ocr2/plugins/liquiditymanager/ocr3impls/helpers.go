@@ -12,6 +12,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/no_op_ocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 func configTrackerFilterName(id commontypes.RelayID, addr common.Address) string {
@@ -146,7 +147,7 @@ func SplitMultiTransmitter(multiTransmitter ocrtypes.Account) (map[commontypes.R
 			return nil, fmt.Errorf("split on ':' must contain exactly 2 parts, got: %d (%+v)",
 				len(parts), parts)
 		}
-		chainID := commontypes.NewRelayID(commontypes.NetworkEVM, parts[0])
+		chainID := commontypes.NewRelayID(relay.NetworkEVM, parts[0])
 		transmitter := ocrtypes.Account(parts[1])
 
 		if _, ok := toReturn[chainID]; ok {
