@@ -142,14 +142,6 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
         report.performDatas[i]
       );
 
-      // To split L1 fee across the upkeeps, assign a weight to this upkeep based on the length
-      // of the perform data and calldata overhead
-//      upkeepTransmitInfo[i].calldataWeight =
-//        report.performDatas[i].length +
-//        TRANSMIT_CALLDATA_FIXED_BYTES_OVERHEAD +
-//        (TRANSMIT_CALLDATA_PER_SIGNER_BYTES_OVERHEAD * (hotVars.f + 1));
-//      transmitVars.totalCalldataWeight += upkeepTransmitInfo[i].calldataWeight;
-
       // Deduct that gasUsed by upkeep from our running counter
       // for zksync, the L1 gas is deducted at the end of a transaction but gasUsed here already has all the cost
       // if we don't add l1GasUsed here for zksync, `gasOverhead - gasleft()` will underflow
