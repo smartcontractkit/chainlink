@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.24;
 
+import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
 import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {Internal} from "../../libraries/Internal.sol";
 import {TokenSetup} from "../TokenSetup.t.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {console} from "forge-std/console.sol";
 
 contract PriceRegistrySetup is TokenSetup {
   uint112 internal constant USD_PER_GAS = 1e6; // 0.001 gwei
@@ -175,7 +177,7 @@ contract PriceRegistry_constructor is PriceRegistrySetup {
 
     assertEq(feeTokens, s_priceRegistry.getFeeTokens());
     assertEq(uint32(TWELVE_HOURS), s_priceRegistry.getStalenessThreshold());
-    assertEq(priceUpdaters, s_priceRegistry.getPriceUpdaters());
+    assertEq(priceUpdaters, s_priceRegistry.getAllAuthorizedCallers());
     assertEq(s_priceRegistry.typeAndVersion(), "PriceRegistry 1.6.0-dev");
 
     _assertTokenPriceFeedConfigEquality(
@@ -348,6 +350,19 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     assertEq(tokenPriceAnswer, uint224(1e14));
   }
 
+  function test_StaleFeeToken_Success() public {
+    vm.warp(block.timestamp + TWELVE_HOURS + 1);
+
+    Internal.PriceUpdates memory priceUpdates = abi.decode(s_encodedInitialPriceUpdates, (Internal.PriceUpdates));
+    address token = priceUpdates.tokenPriceUpdates[0].sourceToken;
+
+    uint224 tokenPrice = s_priceRegistry.getValidatedTokenPrice(token);
+
+    assertEq(priceUpdates.tokenPriceUpdates[0].usdPerToken, tokenPrice);
+  }
+
+  // Reverts
+
   function test_OverflowFeedPrice_Revert() public {
     address tokenAddress = _deploySourceToken("testToken", 0, 18);
     address feedAddress = _deployTokenPriceDataFeed(tokenAddress, 18, int256(uint256(type(uint224).max) + 1));
@@ -372,15 +387,6 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
     s_priceRegistry.getValidatedTokenPrice(tokenAddress);
   }
 
-  function test_StaleFeeToken_Revert() public {
-    vm.warp(block.timestamp + TWELVE_HOURS + 1);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(PriceRegistry.StaleTokenPrice.selector, s_sourceTokens[0], TWELVE_HOURS, TWELVE_HOURS + 1)
-    );
-    s_priceRegistry.getValidatedTokenPrice(s_sourceTokens[0]);
-  }
-
   function test_TokenNotSupported_Revert() public {
     vm.expectRevert(abi.encodeWithSelector(PriceRegistry.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_priceRegistry.getValidatedTokenPrice(DUMMY_CONTRACT_ADDRESS);
@@ -392,43 +398,6 @@ contract PriceRegistry_getValidatedTokenPrice is PriceRegistrySetup {
 
     vm.expectRevert(abi.encodeWithSelector(PriceRegistry.TokenNotSupported.selector, sourceToken));
     s_priceRegistry.getValidatedTokenPrice(sourceToken);
-  }
-}
-
-contract PriceRegistry_applyPriceUpdatersUpdates is PriceRegistrySetup {
-  function test_ApplyPriceUpdaterUpdates_Success() public {
-    address[] memory priceUpdaters = new address[](1);
-    priceUpdaters[0] = STRANGER;
-
-    vm.expectEmit();
-    emit PriceRegistry.PriceUpdaterSet(STRANGER);
-
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
-    assertEq(s_priceRegistry.getPriceUpdaters().length, 1);
-    assertEq(s_priceRegistry.getPriceUpdaters()[0], STRANGER);
-
-    // add same priceUpdater is no-op
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
-    assertEq(s_priceRegistry.getPriceUpdaters().length, 1);
-    assertEq(s_priceRegistry.getPriceUpdaters()[0], STRANGER);
-
-    vm.expectEmit();
-    emit PriceRegistry.PriceUpdaterRemoved(STRANGER);
-
-    s_priceRegistry.applyPriceUpdatersUpdates(new address[](0), priceUpdaters);
-    assertEq(s_priceRegistry.getPriceUpdaters().length, 0);
-
-    // removing already removed priceUpdater is no-op
-    s_priceRegistry.applyPriceUpdatersUpdates(new address[](0), priceUpdaters);
-    assertEq(s_priceRegistry.getPriceUpdaters().length, 0);
-  }
-
-  function test_OnlyCallableByOwner_Revert() public {
-    address[] memory priceUpdaters = new address[](1);
-    priceUpdaters[0] = STRANGER;
-    vm.startPrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
   }
 }
 
@@ -549,6 +518,45 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
     }
   }
 
+  function test_UpdatableByAuthorizedCaller_Success() public {
+    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](1),
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
+    });
+    priceUpdates.tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: s_sourceTokens[0], usdPerToken: 4e18});
+
+    // Revert when caller is not authorized
+    vm.startPrank(STRANGER);
+    vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));
+    s_priceRegistry.updatePrices(priceUpdates);
+
+    address[] memory priceUpdaters = new address[](1);
+    priceUpdaters[0] = STRANGER;
+    vm.startPrank(OWNER);
+    s_priceRegistry.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
+    );
+
+    // Stranger is now an authorized caller to update prices
+    vm.expectEmit();
+    emit PriceRegistry.UsdPerTokenUpdated(
+      priceUpdates.tokenPriceUpdates[0].sourceToken, priceUpdates.tokenPriceUpdates[0].usdPerToken, block.timestamp
+    );
+    s_priceRegistry.updatePrices(priceUpdates);
+
+    assertEq(s_priceRegistry.getTokenPrice(s_sourceTokens[0]).value, priceUpdates.tokenPriceUpdates[0].usdPerToken);
+
+    vm.startPrank(OWNER);
+    s_priceRegistry.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: new address[](0), removedCallers: priceUpdaters})
+    );
+
+    // Revert when authorized caller is removed
+    vm.startPrank(STRANGER);
+    vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));
+    s_priceRegistry.updatePrices(priceUpdates);
+  }
+
   // Reverts
 
   function test_OnlyCallableByUpdaterOrOwner_Revert() public {
@@ -558,7 +566,7 @@ contract PriceRegistry_updatePrices is PriceRegistrySetup {
     });
 
     vm.startPrank(STRANGER);
-    vm.expectRevert(abi.encodeWithSelector(PriceRegistry.OnlyCallableByUpdaterOrOwner.selector));
+    vm.expectRevert(abi.encodeWithSelector(AuthorizedCallers.UnauthorizedCaller.selector, STRANGER));
     s_priceRegistry.updatePrices(priceUpdates);
   }
 }
@@ -608,46 +616,12 @@ contract PriceRegistry_convertTokenAmount is PriceRegistrySetup {
 
   // Reverts
 
-  function test_StaleFeeToken_Revert() public {
-    vm.warp(block.timestamp + TWELVE_HOURS + 1);
-
-    Internal.TokenPriceUpdate[] memory tokenPriceUpdates = new Internal.TokenPriceUpdate[](1);
-    tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: s_sourceTokens[0], usdPerToken: 4e18});
-    Internal.PriceUpdates memory priceUpdates =
-      Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
-    s_priceRegistry.updatePrices(priceUpdates);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        PriceRegistry.StaleTokenPrice.selector, s_weth, uint128(TWELVE_HOURS), uint128(TWELVE_HOURS + 1)
-      )
-    );
-    s_priceRegistry.convertTokenAmount(s_weth, 3e16, s_sourceTokens[0]);
-  }
-
   function test_LinkTokenNotSupported_Revert() public {
     vm.expectRevert(abi.encodeWithSelector(PriceRegistry.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_priceRegistry.convertTokenAmount(DUMMY_CONTRACT_ADDRESS, 3e16, s_sourceTokens[0]);
 
     vm.expectRevert(abi.encodeWithSelector(PriceRegistry.TokenNotSupported.selector, DUMMY_CONTRACT_ADDRESS));
     s_priceRegistry.convertTokenAmount(s_sourceTokens[0], 3e16, DUMMY_CONTRACT_ADDRESS);
-  }
-
-  function test_StaleLinkToken_Revert() public {
-    vm.warp(block.timestamp + TWELVE_HOURS + 1);
-
-    Internal.TokenPriceUpdate[] memory tokenPriceUpdates = new Internal.TokenPriceUpdate[](1);
-    tokenPriceUpdates[0] = Internal.TokenPriceUpdate({sourceToken: s_weth, usdPerToken: 18e17});
-    Internal.PriceUpdates memory priceUpdates =
-      Internal.PriceUpdates({tokenPriceUpdates: tokenPriceUpdates, gasPriceUpdates: new Internal.GasPriceUpdate[](0)});
-    s_priceRegistry.updatePrices(priceUpdates);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        PriceRegistry.StaleTokenPrice.selector, s_sourceTokens[0], uint128(TWELVE_HOURS), uint128(TWELVE_HOURS + 1)
-      )
-    );
-    s_priceRegistry.convertTokenAmount(s_weth, 3e16, s_sourceTokens[0]);
   }
 }
 
@@ -686,24 +660,6 @@ contract PriceRegistry_getTokenAndGasPrices is PriceRegistrySetup {
     vm.warp(block.timestamp + diff);
     vm.expectRevert(
       abi.encodeWithSelector(PriceRegistry.StaleGasPrice.selector, DEST_CHAIN_SELECTOR, TWELVE_HOURS, diff)
-    );
-    s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR);
-  }
-
-  function test_StaleTokenPrice_Revert() public {
-    uint256 diff = TWELVE_HOURS + 1;
-    vm.warp(block.timestamp + diff);
-
-    Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
-    gasPriceUpdates[0] =
-      Internal.GasPriceUpdate({destChainSelector: DEST_CHAIN_SELECTOR, usdPerUnitGas: PACKED_USD_PER_GAS});
-
-    Internal.PriceUpdates memory priceUpdates =
-      Internal.PriceUpdates({tokenPriceUpdates: new Internal.TokenPriceUpdate[](0), gasPriceUpdates: gasPriceUpdates});
-    s_priceRegistry.updatePrices(priceUpdates);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(PriceRegistry.StaleTokenPrice.selector, s_sourceTokens[0], TWELVE_HOURS, diff)
     );
     s_priceRegistry.getTokenAndGasPrices(s_sourceTokens[0], DEST_CHAIN_SELECTOR);
   }
