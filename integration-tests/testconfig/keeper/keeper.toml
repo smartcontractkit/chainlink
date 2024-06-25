@@ -63,3 +63,48 @@ contract_call_interval = "4s"
 [Seth]
 # keeper benchmark running on simulated network requires 100k per node
 root_key_funds_buffer = 700_000
+
+[Benchmark.NodeConfig]
+BaseConfigTOML = """
+[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]
+[Keeper]
+TurnLookBack = 0
+[WebServer]
+HTTPWriteTimeout = '1h'
+"""
+
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+[Benchmark.NodeConfig.ChainConfigTOMLByChainID]
+# applicable for simulated chain
+1337 = """
+FinalityDepth = 50
+LogPollInterval = '1s'
+MinIncomingConfirmations = 1
+
+[HeadTracker]
+HistoryDepth = 100
+
+[GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000
+"""
