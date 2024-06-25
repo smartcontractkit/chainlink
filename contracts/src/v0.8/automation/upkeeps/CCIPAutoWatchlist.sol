@@ -6,7 +6,7 @@ import "../../shared/access/ConfirmedOwner.sol";
 import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
 import {AccessControl} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/access/AccessControl.sol";
 import {LinkAvailableBalanceMonitor} from "../upkeeps/LinkAvailableBalanceMonitor.sol";
-import "../interfaces/ILogAutomation.sol";
+import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 
 contract CCIPOnRampAutoWatchlist is ILogAutomation, ConfirmedOwner {
   event setWatchlistOnMonitor(uint64 indexed _dstChainSelector, address indexed _onRamp);
@@ -33,6 +33,9 @@ contract CCIPOnRampAutoWatchlist is ILogAutomation, ConfirmedOwner {
     routerAddress = _newRouterAddress;
   }
 
+  // updateWatchList function takes emitted OnRamp Address and dstChainSelector as input and calls addToWatchListOrDecommission function of LinkAvailableBalanceMonitor passing these paraments to add the OnRamp address to the watchlist
+  // addToWatchListOrDecommission function of LinkAvailableBalanceMonitor is used for sanity check before adding the address on the watchlist
+  // updateWatchList Function is set to internal for security purposes
   function updateWatchList(address _targetAddress, uint64 _dstChainSelector) internal {
     linkAvailableBalanceMonitorAddress.addToWatchListOrDecommission(_targetAddress, _dstChainSelector);
   }
@@ -43,9 +46,6 @@ contract CCIPOnRampAutoWatchlist is ILogAutomation, ConfirmedOwner {
   ) external view override returns (bool upkeepNeeded, bytes memory performData) {
     // Ensure Router address is set
     require(routerAddress != address(0), "Router address not set");
-
-    // Define the event signature for OnRampSet(uint64,address)
-    //bytes32 eventSignature = keccak256(abi.encodePacked("OnRampSet(uint64,address)"));
 
     // Check if the log source matches router contract and topics contain the event signature
     if (log.source == routerAddress && log.topics.length > 0 && log.topics[0] == EVENT_SIGNATURE) {
@@ -67,6 +67,7 @@ contract CCIPOnRampAutoWatchlist is ILogAutomation, ConfirmedOwner {
     (uint64 destChainSelector, address onRamp) = abi.decode(performData, (uint64, address));
     // Perform the necessary upkeep actions based on the decoded data
     updateWatchList(onRamp, destChainSelector);
+    // Emitting setWatchlist event to track the last added OnRamp addresses in form of Logs
     emit setWatchlistOnMonitor(destChainSelector, onRamp);
   }
 }
