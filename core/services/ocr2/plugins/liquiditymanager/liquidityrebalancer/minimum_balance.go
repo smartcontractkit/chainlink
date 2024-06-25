@@ -28,10 +28,10 @@ func (r *MinLiquidityRebalancer) ComputeTransfersToBalance(
 	graphNow graph.Graph,
 	nonExecutedTransfers []UnexecutedTransfer,
 ) ([]models.ProposedTransfer, error) {
-	nonExecutedTransfers = r.filterUnexecutedTransfers(nonExecutedTransfers)
+	nonExecutedTransfers = filterUnexecutedTransfers(nonExecutedTransfers)
 
 	r.lggr.Debugf("computing the expected graph after non executed transfers get applied")
-	graphLater, err := r.getExpectedGraph(graphNow, nonExecutedTransfers)
+	graphLater, err := getExpectedGraph(graphNow, nonExecutedTransfers)
 	if err != nil {
 		return nil, fmt.Errorf("copy graph: %w", err)
 	}
@@ -75,7 +75,7 @@ func (r *MinLiquidityRebalancer) ComputeTransfersToBalance(
 		proposedTransfers = append(proposedTransfers, netProposedTransfers...)
 	}
 
-	proposedTransfers = r.mergeProposedTransfers(proposedTransfers)
+	proposedTransfers = mergeProposedTransfers(proposedTransfers)
 
 	r.lggr.Debugf("sorting proposed transfers for determinism")
 	sort.Slice(proposedTransfers, func(i, j int) bool {
@@ -93,7 +93,7 @@ func (r *MinLiquidityRebalancer) findNetworksRequiringFunding(graphNow, graphLat
 	liqDiffsNow, liqDiffsLater map[models.NetworkSelector]*big.Int,
 	err error,
 ) {
-	liqDiffsNow, liqDiffsLater, err = r.getTargetLiquidityDifferences(graphNow, graphLater)
+	liqDiffsNow, liqDiffsLater, err = getTargetLiquidityDifferences(graphNow, graphLater)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("compute tokens funding requirements: %w", err)
 	}
@@ -114,54 +114,6 @@ func (r *MinLiquidityRebalancer) findNetworksRequiringFunding(graphNow, graphLat
 
 	sort.Slice(res, func(i, j int) bool { return liqDiffsLater[res[i]].Cmp(liqDiffsLater[res[j]]) > 0 })
 	return res, liqDiffsNow, liqDiffsLater, nil
-}
-
-func (r *MinLiquidityRebalancer) filterUnexecutedTransfers(nonExecutedTransfers []UnexecutedTransfer) []UnexecutedTransfer {
-	r.lggr.Debugf("filtering out executed transfers")
-	filtered := make([]UnexecutedTransfer, 0, len(nonExecutedTransfers))
-	for _, tr := range nonExecutedTransfers {
-		if tr.TransferStatus() != models.TransferStatusExecuted {
-			filtered = append(filtered, tr)
-		}
-	}
-	return filtered
-}
-
-// getTargetLiquidityDifferences computes for each network the difference between
-// the target liquidity of the network and the actual liquidity.
-// It does this on both the current liquidity graph (graphNow) and the liquidity graph
-// after all pending transfers have been successfully executed (graphLater).
-// A negative number indicates that there is a liquidity shortage for the network,
-// while a positive number indicates a liquidity surplus for the network.
-func (r *MinLiquidityRebalancer) getTargetLiquidityDifferences(
-	graphNow, graphLater graph.Graph,
-) (liqDiffsNow, liqDiffsLater map[models.NetworkSelector]*big.Int, err error) {
-	liqDiffsNow = make(map[models.NetworkSelector]*big.Int)
-	liqDiffsLater = make(map[models.NetworkSelector]*big.Int)
-
-	for _, net := range graphNow.GetNetworks() {
-		dataNow, err := graphNow.GetData(net)
-		if err != nil {
-			return nil, nil, fmt.Errorf("get data now of net %d: %w", net, err)
-		}
-
-		dataLater, err := graphLater.GetData(net)
-		if err != nil {
-			return nil, nil, fmt.Errorf("get data later of net %d: %w", net, err)
-		}
-
-		if dataNow.MinimumLiquidity.Cmp(big.NewInt(0)) == 0 {
-			// automated rebalancing is disabled if target is set to 0
-			liqDiffsNow[net] = big.NewInt(0)
-			liqDiffsLater[net] = big.NewInt(0)
-			continue
-		}
-
-		liqDiffsNow[net] = big.NewInt(0).Sub(dataNow.MinimumLiquidity, dataNow.Liquidity)
-		liqDiffsLater[net] = big.NewInt(0).Sub(dataLater.MinimumLiquidity, dataLater.Liquidity)
-	}
-
-	return liqDiffsNow, liqDiffsLater, nil
 }
 
 func (r *MinLiquidityRebalancer) oneHopTransfers(
@@ -351,71 +303,6 @@ func (r *MinLiquidityRebalancer) acceptTransfers(graphLater graph.Graph, potenti
 	}
 
 	return proposedTransfers, nil
-}
-
-// getExpectedGraph returns the a copy of the graph instance with all the non executed transfers applied.
-func (r *MinLiquidityRebalancer) getExpectedGraph(
-	g graph.Graph,
-	nonExecutedTransfers []UnexecutedTransfer,
-) (graph.Graph, error) {
-	edges, err := g.GetEdges()
-	if err != nil {
-		return nil, err
-	}
-
-	expG := graph.NewGraph()
-	for _, edge := range edges {
-		sourceData, err := g.GetData(edge.Source)
-		if err != nil {
-			return nil, err
-		}
-
-		destData, err := g.GetData(edge.Dest)
-		if err != nil {
-			return nil, err
-		}
-		if err := expG.Add(sourceData, destData); err != nil {
-			return nil, err
-		}
-	}
-
-	for _, tr := range nonExecutedTransfers {
-		liqTo, err := expG.GetLiquidity(tr.ToNetwork())
-		if err != nil {
-			return nil, err
-		}
-		expG.SetLiquidity(tr.ToNetwork(), big.NewInt(0).Add(liqTo, tr.TransferAmount()))
-
-		switch tr.TransferStatus() {
-		case models.TransferStatusProposed, models.TransferStatusInflight:
-			liqFrom, err := expG.GetLiquidity(tr.FromNetwork())
-			if err != nil {
-				return nil, err
-			}
-			expG.SetLiquidity(tr.FromNetwork(), big.NewInt(0).Sub(liqFrom, tr.TransferAmount()))
-		}
-	}
-
-	return expG, nil
-}
-
-// mergeProposedTransfers merges multiple transfers with same sender and recipient into a single transfer.
-func (r *MinLiquidityRebalancer) mergeProposedTransfers(transfers []models.ProposedTransfer) []models.ProposedTransfer {
-	sums := make(map[[2]models.NetworkSelector]*big.Int)
-	for _, tr := range transfers {
-		k := [2]models.NetworkSelector{tr.From, tr.To}
-		if _, exists := sums[k]; !exists {
-			sums[k] = tr.TransferAmount()
-			continue
-		}
-		sums[k] = big.NewInt(0).Add(sums[k], tr.TransferAmount())
-	}
-
-	merged := make([]models.ProposedTransfer, 0, len(transfers))
-	for k, v := range sums {
-		merged = append(merged, models.ProposedTransfer{From: k[0], To: k[1], Amount: ubig.New(v)})
-	}
-	return merged
 }
 
 func newTransfer(from, to models.NetworkSelector, amount *big.Int) models.ProposedTransfer {

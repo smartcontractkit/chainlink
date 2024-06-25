@@ -32,6 +32,7 @@ func ValidateRebalancerConfig(config RebalancerConfig) error {
 }
 
 const (
+	RebalancerTypeTargetAndMin = "target-and-min"
 	RebalancerTypeMinLiquidity = "min-liquidity"
 	RebalancerTypePingPong     = "ping-pong"
 )

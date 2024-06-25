@@ -135,6 +135,47 @@ func (g *liquidityGraph) Len() int {
 	return g.len()
 }
 
+// FindPath finds a path from the source network to the destination network with the given number of edges that are allow to be traversed.
+// It calls the iterator function with each individual node in the path.
+// It returns the list of network selectors representing the path from source to destination (including the destination node).
+func (g *liquidityGraph) FindPath(from, to models.NetworkSelector, maxEdgesTraversed int, iterator func(nodes ...Data) bool) []models.NetworkSelector {
+	g.lock.RLock()
+	defer g.lock.RUnlock()
+
+	return g.findPath(from, to, maxEdgesTraversed, iterator)
+}
+
+func (g *liquidityGraph) findPath(from, to models.NetworkSelector, maxEdgesTraversed int, iterator func(nodes ...Data) bool) []models.NetworkSelector {
+	if maxEdgesTraversed == 0 {
+		return []models.NetworkSelector{}
+	}
+	neibs, exist := g.adj[from]
+	if !exist {
+		return []models.NetworkSelector{}
+	}
+	for _, n := range neibs {
+		if n == to {
+			if !iterator(g.data[to]) {
+				continue
+			}
+			return []models.NetworkSelector{n}
+		}
+	}
+	for _, n := range neibs {
+		if p := g.findPath(n, to, maxEdgesTraversed-1, iterator); len(p) > 0 {
+			data := []Data{g.data[n]}
+			for _, d := range p {
+				data = append(data, g.data[d])
+			}
+			if !iterator(data...) {
+				continue
+			}
+			return append([]models.NetworkSelector{n}, p...)
+		}
+	}
+	return []models.NetworkSelector{}
+}
+
 func (g *liquidityGraph) getData(n models.NetworkSelector) (Data, bool) {
 	data, exists := g.data[n]
 	return data, exists

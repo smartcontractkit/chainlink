@@ -147,8 +147,10 @@ func (e *evmDiscoverer) getVertexData(ctx context.Context, v graph.Vertex) (grap
 
 	minimumLiquidity, err := lm.GetMinimumLiquidity(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return graph.Data{}, nil, fmt.Errorf("get target balance: %w", err)
+		return graph.Data{}, nil, fmt.Errorf("get minimum liquidity balance: %w", err)
 	}
+
+	//Do we want to add TargetLiquidity to the contract?
 
 	data := graph.Data{
 		Liquidity:               liquidity,
