@@ -1197,13 +1197,36 @@ func TestCommitReportingPlugin_isStaleReport(t *testing.T) {
 			commitStoreReader: commitStoreReader,
 		}
 
-		assert.False(t, r.isStaleReport(ctx, lggr, cciptypes.CommitStoreReport{
-			MerkleRoot: merkleRoot1,
-			Interval:   cciptypes.CommitStoreInterval{Min: expNextSeqNum + 1, Max: expNextSeqNum + 10},
-		}, types.ReportTimestamp{}))
+		testCases := map[string]struct {
+			interval cciptypes.CommitStoreInterval
+			result   bool
+		}{
+			"The nextSeqNumber is equal to the commit store interval Min value": {
+				interval: cciptypes.CommitStoreInterval{Min: expNextSeqNum, Max: expNextSeqNum + 10},
+				result:   false,
+			},
+			"The nextSeqNumber is less than the commit store interval Min value": {
+				interval: cciptypes.CommitStoreInterval{Min: expNextSeqNum + 1, Max: expNextSeqNum + 10},
+				result:   true,
+			},
+			"The nextSeqNumber is greater than the commit store interval Min value": {
+				interval: cciptypes.CommitStoreInterval{Min: expNextSeqNum - 1, Max: expNextSeqNum + 10},
+				result:   true,
+			},
+			"Empty interval": {
+				interval: cciptypes.CommitStoreInterval{},
+				result:   true,
+			},
+		}
 
-		assert.True(t, r.isStaleReport(ctx, lggr, cciptypes.CommitStoreReport{
-			MerkleRoot: merkleRoot1}, types.ReportTimestamp{}))
+		for tcName, tc := range testCases {
+			t.Run(tcName, func(t *testing.T) {
+				assert.Equal(t, tc.result, r.isStaleReport(ctx, lggr, cciptypes.CommitStoreReport{
+					MerkleRoot: merkleRoot1,
+					Interval:   tc.interval,
+				}, types.ReportTimestamp{}))
+			})
+		}
 	})
 }
 
