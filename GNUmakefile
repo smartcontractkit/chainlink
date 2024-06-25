@@ -82,7 +82,7 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	go generate ./core/web
+	go run operator_ui/install.go .
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
@@ -114,7 +114,11 @@ setup-testdb: ## Setup the test database.
 testdb: ## Prepares the test database.
 	go run . local db preparetest
 
-.PHONY: testdb
+.PHONY: testdb-force
+testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
+	go run . local db preparetest --force
+
+.PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
@@ -127,7 +131,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.0
+	go install github.com/jmank88/gomods@v0.1.1
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
@@ -158,7 +162,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.59.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

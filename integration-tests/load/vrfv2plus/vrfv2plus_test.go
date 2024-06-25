@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/seth"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
@@ -14,13 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/vrfv2plus"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
@@ -38,6 +38,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
@@ -57,8 +58,6 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	}
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
-	require.NoError(t, err, "Error creating seth client")
 	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
@@ -73,7 +72,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
+
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -100,14 +99,14 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	var consumers []contracts.VRFv2PlusLoadTestConsumer
+
 	subIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 		testcontext.Get(t),
-		testEnv,
-		chainID,
+		sethClient,
 		vrfContracts.CoordinatorV2Plus,
 		vrfContracts.LinkToken,
 		1,
@@ -181,6 +180,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		vrfContracts                 *vrfcommon.VRFContracts
 		subIDsForCancellingAfterTest []*big.Int
 		vrfKey                       *vrfcommon.VRFKeyData
+		sethClient                   *seth.Client
 	)
 	l := logging.GetTestLogger(t)
 
@@ -212,12 +212,9 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	network := networks.MustGetSelectedNetworkConfig(testConfig.GetNetworkConfig())[0]
 	chainID := network.ChainID
-	sethClient, err := actions_seth.GetChainClient(testConfig, network)
-	require.NoError(t, err, "Error creating seth client")
 
 	cleanupFn := func() {
 		teardown(t, vrfContracts.VRFV2PlusConsumer[0], lc, updatedLabels, testReporter, testType, &testConfig)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		if sethClient.Cfg.IsSimulatedNetwork() {
 			l.Info().
 				Str("Network Name", sethClient.Cfg.Network.Name).
@@ -245,7 +242,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		NumberOfTxKeysToCreate:          *vrfv2PlusConfig.General.NumberOfSendingKeysToCreate,
 		ChainlinkNodeLogScannerSettings: test_env.DefaultChainlinkNodeLogScannerSettings,
 	}
-	testEnv, vrfContracts, vrfKey, _, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
+	testEnv, vrfContracts, vrfKey, _, sethClient, err = vrfv2plus.SetupVRFV2PlusUniverse(testcontext.Get(t), t, vrfEnvConfig, newEnvConfig, l)
 	require.NoError(t, err, "error setting up VRFV2Plus universe")
 
 	t.Run("vrfv2plus and bhs performance test", func(t *testing.T) {
@@ -256,8 +253,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 		underfundedSubIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 			testcontext.Get(t),
-			testEnv,
-			chainID,
+			sethClient,
 			vrfContracts.CoordinatorV2Plus,
 			vrfContracts.LinkToken,
 			1,
@@ -310,8 +306,6 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 		var wgBlockNumberTobe sync.WaitGroup
 		wgBlockNumberTobe.Add(1)
 		//Wait at least 256 blocks
-		sethClient, err := testEnv.GetSethClient(chainID)
-		require.NoError(t, err, "Getting Seth client shouldn't fail")
 		latestBlockNumber, err := sethClient.Client.BlockNumber(testcontext.Get(t))
 		require.NoError(t, err, "error getting latest block number")
 		_, err = actions.WaitForBlockNumberToBe(

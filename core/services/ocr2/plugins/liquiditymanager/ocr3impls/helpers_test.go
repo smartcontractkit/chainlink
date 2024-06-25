@@ -13,12 +13,13 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/ocr3impls"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 func Test_TransmitterCombiner(t *testing.T) {
-	masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1")
-	fChain1 := commontypes.NewRelayID(commontypes.NetworkEVM, "2")
-	fChain2 := commontypes.NewRelayID(commontypes.NetworkEVM, "3")
+	masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1")
+	fChain1 := commontypes.NewRelayID(relay.NetworkEVM, "2")
+	fChain2 := commontypes.NewRelayID(relay.NetworkEVM, "3")
 	signers := []ocrtypes.OnchainPublicKey{
 		testutils.NewAddress().Bytes(),
 		testutils.NewAddress().Bytes(),
@@ -262,14 +263,14 @@ func Test_SplitMultiTransmitter(t *testing.T) {
 		multiTransmitter := "1:a1,2:a2,3:a3,4:a4"
 		ret, err := ocr3impls.SplitMultiTransmitter(ocrtypes.Account(multiTransmitter))
 		require.NoError(t, err)
-		require.Contains(t, ret, commontypes.NewRelayID(commontypes.NetworkEVM, "1"))
-		require.Contains(t, ret, commontypes.NewRelayID(commontypes.NetworkEVM, "2"))
-		require.Contains(t, ret, commontypes.NewRelayID(commontypes.NetworkEVM, "3"))
-		require.Contains(t, ret, commontypes.NewRelayID(commontypes.NetworkEVM, "4"))
-		require.Equal(t, ocrtypes.Account("a1"), ret[commontypes.NewRelayID(commontypes.NetworkEVM, "1")])
-		require.Equal(t, ocrtypes.Account("a2"), ret[commontypes.NewRelayID(commontypes.NetworkEVM, "2")])
-		require.Equal(t, ocrtypes.Account("a3"), ret[commontypes.NewRelayID(commontypes.NetworkEVM, "3")])
-		require.Equal(t, ocrtypes.Account("a4"), ret[commontypes.NewRelayID(commontypes.NetworkEVM, "4")])
+		require.Contains(t, ret, commontypes.NewRelayID(relay.NetworkEVM, "1"))
+		require.Contains(t, ret, commontypes.NewRelayID(relay.NetworkEVM, "2"))
+		require.Contains(t, ret, commontypes.NewRelayID(relay.NetworkEVM, "3"))
+		require.Contains(t, ret, commontypes.NewRelayID(relay.NetworkEVM, "4"))
+		require.Equal(t, ocrtypes.Account("a1"), ret[commontypes.NewRelayID(relay.NetworkEVM, "1")])
+		require.Equal(t, ocrtypes.Account("a2"), ret[commontypes.NewRelayID(relay.NetworkEVM, "2")])
+		require.Equal(t, ocrtypes.Account("a3"), ret[commontypes.NewRelayID(relay.NetworkEVM, "3")])
+		require.Equal(t, ocrtypes.Account("a4"), ret[commontypes.NewRelayID(relay.NetworkEVM, "4")])
 	})
 
 	t.Run("num parts is not 2", func(t *testing.T) {

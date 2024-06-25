@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/seth"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -20,7 +23,6 @@ import (
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -259,37 +261,44 @@ func CreateOCRKeeperJobs(
 // DeployAutoOCRRegistryAndRegistrar registry and registrar
 func DeployAutoOCRRegistryAndRegistrar(
 	t *testing.T,
+	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, registryVersion, registrySettings, contractDeployer, client, linkToken)
-	registrar := deployRegistrar(t, registryVersion, registry, linkToken, contractDeployer, client)
+	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken)
+	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken)
 
 	return registry, registrar
 }
 
-func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger, isMercury)
+// DeployConsumers deploys and registers keeper consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin. Which means
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deploys multicall contract and sends link funds to each deployment address.
+func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
+	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
+	require.Equal(t, numberOfUpkeeps, len(upkeeps), "Number of upkeeps should match")
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
+		t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
 	)
+	require.Equal(t, numberOfUpkeeps, len(upkeepIds), "Number of upkeepIds should match")
 	return upkeeps, upkeepIds
 }
 
+// DeployPerformanceConsumers deploys and registers keeper performance consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkeep will be registered with root key address as the admin.
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deploys multicall contract and sends link funds to each deployment address.
 func DeployPerformanceConsumers(
 	t *testing.T,
+	chainClient *seth.Client,
 	registry contracts.KeeperRegistry,
 	registrar contracts.KeeperRegistrar,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	numberOfUpkeeps int,
 	linkFundsForEachUpkeep *big.Int,
 	upkeepGasLimit uint32,
@@ -299,44 +308,74 @@ func DeployPerformanceConsumers(
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) ([]contracts.KeeperConsumerPerformance, []*big.Int) {
 	upkeeps := DeployKeeperConsumersPerformance(
-		t, contractDeployer, client, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
+		t, chainClient, numberOfUpkeeps, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
 	)
+
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
+	upkeepIds := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
 	return upkeeps, upkeepIds
 }
 
+// DeployPerformDataCheckerConsumers deploys and registers keeper performance data checkers consumers. If ephemeral addresses are enabled, it will deploy and register the consumers from ephemeral addresses, but each upkpeep will be registered with root key address as the admin.
+// that functions like setting upkeep configuration, pausing, unpausing, etc. will be done by the root key address. It deployes multicall contract and sends link funds to each deployment address.
 func DeployPerformDataCheckerConsumers(
 	t *testing.T,
+	chainClient *seth.Client,
 	registry contracts.KeeperRegistry,
 	registrar contracts.KeeperRegistrar,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	numberOfUpkeeps int,
 	linkFundsForEachUpkeep *big.Int,
 	upkeepGasLimit uint32,
 	expectedData []byte,
 ) ([]contracts.KeeperPerformDataChecker, []*big.Int) {
-	upkeeps := DeployPerformDataChecker(t, contractDeployer, client, numberOfUpkeeps, expectedData)
+	upkeeps := DeployPerformDataChecker(t, chainClient, numberOfUpkeeps, expectedData)
+
+	err := DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
+	upkeepIds := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
 	return upkeeps, upkeepIds
+}
+
+// DeployMultiCallAndFundDeploymentAddresses deploys multicall contract and sends link funds to each deployment address
+func DeployMultiCallAndFundDeploymentAddresses(
+	chainClient *seth.Client,
+	linkToken contracts.LinkToken,
+	numberOfUpkeeps int,
+	linkFundsForEachUpkeep *big.Int,
+) error {
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	if err != nil {
+		return err
+	}
+
+	operationsPerAddress := numberOfUpkeeps / concurrency
+
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
+	if err != nil {
+		return errors.Wrap(err, "Error deploying multicall contract")
+	}
+
+	return SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
 }
 
 func deployRegistrar(
 	t *testing.T,
+	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registry contracts.KeeperRegistry,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 ) contracts.KeeperRegistrar {
 	registrarSettings := contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: 2,
@@ -344,31 +383,29 @@ func deployRegistrar(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar, err := contractDeployer.DeployKeeperRegistrar(registryVersion, linkToken.Address(), registrarSettings)
+	registrar, err := contracts.DeployKeeperRegistrar(client, registryVersion, linkToken.Address(), registrarSettings)
 	require.NoError(t, err, "Deploying KeeperRegistrar contract shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for registrar to deploy")
 	return registrar
 }
 
 func deployRegistry(
 	t *testing.T,
+	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	linkToken contracts.LinkToken,
 ) contracts.KeeperRegistry {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
 	// Deploy the transcoder here, and then set it to the registry
-	transcoder := DeployUpkeepTranscoder(t, contractDeployer, client)
-	registry := DeployKeeperRegistry(t, contractDeployer, client,
+	transcoder, err := contracts.DeployUpkeepTranscoder(client)
+	require.NoError(t, err, "Deploying upkeep transcoder shouldn't fail")
+
+	registry, err := contracts.DeployKeeperRegistry(
+		client,
 		&contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        linkToken.Address(),
@@ -379,5 +416,6 @@ func deployRegistry(
 			Settings:        registrySettings,
 		},
 	)
+	require.NoError(t, err, "Deploying KeeperRegistry contract shouldn't fail")
 	return registry
 }

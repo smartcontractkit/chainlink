@@ -14,14 +14,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: GHA Workflow Validator
-        uses: smartcontractkit/.github/actions/gha-workflow-validator@01a5f5e0228b46dbedd9ad4b4dda062cb89bb3d9 # gha-workflow-validator@0.1.2
+        uses: smartcontractkit/.github/actions/gha-workflow-validator@d316f66b2990ea4daa479daa3de6fc92b00f863e # gha-workflow-validator@0.2.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
           id: lint-gh-workflows
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}

@@ -11,9 +11,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -86,7 +85,7 @@ type = ` + fmt.Sprintf("\"%s\"\n", p.Type),
 	}
 
 	ocrSpec := job.OCR2OracleSpec{
-		Relay:                             types.NetworkEVM,
+		Relay:                             relay.NetworkEVM,
 		PluginType:                        "liquiditymanager",
 		ContractID:                        p.ContractID,
 		OCRKeyBundleID:                    null.StringFrom(p.OCRKeyBundleID),
@@ -110,7 +109,7 @@ type = ` + fmt.Sprintf("\"%s\"\n", p.Type),
 func (p *LMJobSpecParams) BootstrapJobSpec() *OCR3TaskJobSpec {
 	bootstrapSpec := job.OCR2OracleSpec{
 		ContractID:                        p.ContractID,
-		Relay:                             types.NetworkEVM,
+		Relay:                             relay.NetworkEVM,
 		ContractConfigConfirmations:       1,
 		ContractConfigTrackerPollInterval: models.Interval(p.CfgTrackerInterval),
 		RelayConfig: map[string]interface{}{

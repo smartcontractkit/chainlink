@@ -142,7 +142,7 @@ func (l *ldapAuthenticator) FindUser(ctx context.Context, email string) (session
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Errorf("error in LDAP dial: ", err)
+		l.lggr.Errorf("error in LDAP dial: %v", err)
 		return sessions.User{}, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
@@ -242,7 +242,7 @@ func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, err
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Errorf("error in LDAP dial: ", err)
+		l.lggr.Errorf("error in LDAP dial: %v", err)
 		return users, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
@@ -250,25 +250,25 @@ func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, err
 	// Query for list of uniqueMember IDs present in Admin group
 	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
-		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Errorf("error in ldapGroupMembersListToUser: %v", err)
 		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
-		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Run group
 	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Read group
 	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
-		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		l.lggr.Error("error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("unable to list group users")
 	}
 
@@ -300,7 +300,7 @@ func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, err
 	}
 	activeUsers, err := l.validateUsersActive(emails)
 	if err != nil {
-		l.lggr.Errorf("error validating supplied user list: ", err)
+		l.lggr.Error("error validating supplied user list: ", err)
 		return users, errors.New("error validating supplied user list")
 	}
 
@@ -316,7 +316,7 @@ func (l *ldapAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, err
 	var localAdminUsers []sessions.User
 	sql := "SELECT * FROM users ORDER BY email ASC;"
 	if err := l.ds.SelectContext(ctx, &localAdminUsers, sql); err != nil {
-		l.lggr.Errorf("error extending upstream LDAP users with local admin users in users table: ", err)
+		l.lggr.Error("error extending upstream LDAP users with local admin users in users table: ", err)
 	} else {
 		returnUsers = append(returnUsers, localAdminUsers...)
 	}
@@ -652,7 +652,7 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
-		l.lggr.Errorf("error in LDAP dial: ", err)
+		l.lggr.Error("error in LDAP dial: ", err)
 		return validUsers, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()

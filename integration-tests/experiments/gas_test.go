@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -21,10 +22,10 @@ func TestGasExperiment(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
-	seth, err := actions_seth.GetChainClient(&config, network)
+	seth, err := seth_utils.GetChainClient(&config, network)
 	require.NoError(t, err, "Error creating seth client")
 
-	_, err = actions_seth.SendFunds(l, seth, actions_seth.FundsToSendPayload{
+	_, err = actions.SendFunds(l, seth, actions.FundsToSendPayload{
 		ToAddress:  seth.Addresses[0],
 		Amount:     big.NewInt(10_000_000),
 		PrivateKey: seth.PrivateKeys[0],

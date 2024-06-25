@@ -54,6 +54,10 @@
       "@ethersproject/logger": "5.0.6"
     }
   },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.4.4",
     "@ethersproject/abi": "~5.7.0",

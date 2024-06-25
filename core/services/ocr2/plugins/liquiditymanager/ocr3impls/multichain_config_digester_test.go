@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/no_op_ocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/ocr3impls"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 func Test_MultichainConfigDigester(t *testing.T) {
@@ -37,10 +38,10 @@ func Test_MultichainConfigDigester(t *testing.T) {
 		// masterChain needs to be 1337 since the on-chain config
 		// digest is calculated using block.chainid, which is
 		// always 1337 in the test.
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		// rest of the chains don't matter for this test
-		fChain1 := commontypes.NewRelayID(commontypes.NetworkEVM, "1338")
-		fChain2 := commontypes.NewRelayID(commontypes.NetworkEVM, "1339")
+		fChain1 := commontypes.NewRelayID(relay.NetworkEVM, "1338")
+		fChain2 := commontypes.NewRelayID(relay.NetworkEVM, "1339")
 		signers := []ocrtypes.OnchainPublicKey{
 			testutils.NewAddress().Bytes(),
 			testutils.NewAddress().Bytes(),
@@ -134,7 +135,7 @@ func Test_MultichainConfigDigester(t *testing.T) {
 	})
 
 	t.Run("signer is wrong length", func(t *testing.T) {
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 		require.NoError(t, err)
 		digester := ocr3impls.MultichainConfigDigester{
@@ -153,7 +154,7 @@ func Test_MultichainConfigDigester(t *testing.T) {
 	})
 
 	t.Run("num signers != num transmitters", func(t *testing.T) {
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 		require.NoError(t, err)
 		digester := ocr3impls.MultichainConfigDigester{
@@ -180,7 +181,7 @@ func Test_MultichainConfigDigester(t *testing.T) {
 	})
 
 	t.Run("multi transmitter split fail", func(t *testing.T) {
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 		require.NoError(t, err)
 		digester := ocr3impls.MultichainConfigDigester{
@@ -208,7 +209,7 @@ func Test_MultichainConfigDigester(t *testing.T) {
 	})
 
 	t.Run("wrong transmitter format", func(t *testing.T) {
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 		require.NoError(t, err)
 		digester := ocr3impls.MultichainConfigDigester{
@@ -236,7 +237,7 @@ func Test_MultichainConfigDigester(t *testing.T) {
 	})
 
 	t.Run("multiple transmitters for master chain id", func(t *testing.T) {
-		masterChain := commontypes.NewRelayID(commontypes.NetworkEVM, "1337")
+		masterChain := commontypes.NewRelayID(relay.NetworkEVM, "1337")
 		masterChainID, err := strconv.ParseUint(masterChain.ChainID, 10, 64)
 		require.NoError(t, err)
 		digester := ocr3impls.MultichainConfigDigester{

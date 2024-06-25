@@ -460,7 +460,7 @@ func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.
 
 // SuggestGasPrice recommends a gas price.
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	panic("unimplemented")
+	return c.b.SuggestGasPrice(ctx)
 }
 
 // BatchCallContext makes a batch rpc call.

@@ -16,7 +16,7 @@ interface ICapabilityConfiguration {
   /// @notice Returns the capability configuration for a particular DON instance.
   /// @dev donId is required to get DON-specific configuration. It avoids a
   /// situation where configuration size grows too large.
-  /// @param donId The DON instance ID. These are stored in the CapabilityRegistry.
+  /// @param donId The DON instance ID. These are stored in the CapabilitiesRegistry.
   /// @return configuration DON's configuration for the capability.
   function getCapabilityConfiguration(uint32 donId) external view returns (bytes memory configuration);
 

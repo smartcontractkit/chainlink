@@ -343,7 +343,7 @@ func (o *OptimismL1Oracle) checkIsEcotone(ctx context.Context) (bool, error) {
 
 	// if the chain has not upgraded to Ecotone, the isEcotone call will revert, this would be expected
 	if err != nil {
-		o.logger.Infof("isEcotone() call failed, this can happen if chain has not upgraded: %w", err)
+		o.logger.Infof("isEcotone() call failed, this can happen if chain has not upgraded: %v", err)
 		return false, nil
 	}
 

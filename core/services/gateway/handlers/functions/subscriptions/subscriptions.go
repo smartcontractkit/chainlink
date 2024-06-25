@@ -210,7 +210,7 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 				SubscriptionID:                      subscriptionId,
 				IFunctionsSubscriptionsSubscription: subscription,
 			}); err != nil {
-				s.lggr.Errorf("unexpected error updating subscription in the db: %w", err)
+				s.lggr.Errorf("unexpected error updating subscription in the db: %v", err)
 			}
 		}
 	}

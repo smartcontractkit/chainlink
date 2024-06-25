@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/ocr3impls"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	relaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
@@ -89,7 +90,7 @@ func (r *rebalancerRelayer) NewRebalancerProvider(ctx context.Context, rargs com
 		if len(fromAddresses) != 1 {
 			return nil, fmt.Errorf("rebalancer services: expected only one enabled key for chain %s, got %d", chain.ID().String(), len(fromAddresses))
 		}
-		relayID := commontypes.NewRelayID(commontypes.NetworkEVM, chain.ID().String())
+		relayID := commontypes.NewRelayID(relay.NetworkEVM, chain.ID().String())
 		tm, err2 := ocrcommon.NewTransmitter(
 			chain.TxManager(),
 			fromAddresses,
@@ -219,7 +220,7 @@ func newRebalancerConfigProvider(
 
 	logPollers := make(map[commontypes.RelayID]logpoller.LogPoller)
 	for _, chain := range chains.Slice() {
-		logPollers[commontypes.NewRelayID(commontypes.NetworkEVM, chain.ID().String())] = chain.LogPoller()
+		logPollers[commontypes.NewRelayID(relay.NetworkEVM, chain.ID().String())] = chain.LogPoller()
 	}
 
 	// sanity check that all chains specified in RelayConfig.fromBlocks are present
@@ -286,7 +287,7 @@ func newRebalancerConfigProvider(
 	bridgeFactory := bridge.NewFactory(lggr, bridgeOpts...)
 
 	mcct, err := ocr3impls.NewMultichainConfigTracker(
-		commontypes.NewRelayID(commontypes.NetworkEVM, relayConfig.ChainID.String()),
+		commontypes.NewRelayID(relay.NetworkEVM, relayConfig.ChainID.String()),
 		lggr.Named("MultichainConfigTracker"),
 		logPollers,
 		masterChain.Client(),
