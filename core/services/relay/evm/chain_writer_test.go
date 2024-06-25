@@ -35,7 +35,6 @@ func TestChainWriter(t *testing.T) {
 
 	chainWriterConfig := newBaseChainWriterConfig()
 	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
-
 	require.NoError(t, err)
 
 	t.Run("Initialization", func(t *testing.T) {
@@ -79,7 +78,8 @@ func TestChainWriter(t *testing.T) {
 		}
 
 		for _, tx := range txs {
-			status, err := cw.GetTransactionStatus(ctx, tx.txid)
+			var status commontypes.TransactionStatus
+			status, err = cw.GetTransactionStatus(ctx, tx.txid)
 			require.NoError(t, err)
 			require.Equal(t, tx.status, status)
 		}
