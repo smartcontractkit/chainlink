@@ -276,8 +276,8 @@ func generateConfig(t *testing.T, nodes []Node, oracles []confighelper.OracleIde
 	offchainConfig []byte,
 ) {
 	// Setup config on contract
-	rawOnchainConfig := datastreamsllo.OnchainConfig{}
-	onchainConfig, err := (&datastreamsllo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	rawOnchainConfig := llo.OnchainConfig{}
+	onchainConfig, err := (&llo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
