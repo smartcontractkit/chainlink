@@ -294,58 +294,10 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	case BufferVersionV1:
 		blockRate, logLimitLow, maxResults, numOfUpkeeps := p.getBufferDequeueArgs()
 
-		// min commitment pass
-		for len(payloads) < maxResults && start <= latestBlock {
-			startWindow, end := getBlockWindow(start, blockRate)
-
-			logs, remaining := p.bufferV1.Dequeue(startWindow, end, int(p.opts.LogLimit), maxResults-len(payloads), DefaultUpkeepSelector, false)
-			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
-			}
-			for _, l := range logs {
-				payload, err := p.createPayload(l.ID, l.Log)
-				if err == nil {
-					payloads = append(payloads, payload)
-				}
-			}
-
-			start += int64(blockRate)
-		}
+		payloads = p.minimumCommitmentDequeue(latestBlock, maxResults, start, blockRate)
 
 		if len(payloads) < maxResults {
-			if p.iterations == p.currentIteration {
-				p.currentIteration = 0
-				p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
-				if p.iterations == 0 {
-					p.iterations = 1
-				}
-			}
-
-			start = startBlock
-
-			// best effort pass
-			for len(payloads) < maxResults && start <= latestBlock {
-				startWindow, end := getBlockWindow(start, blockRate)
-
-				upkeepSelectorFn := func(id *big.Int) bool {
-					return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
-				}
-
-				logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn, true)
-				if len(logs) > 0 {
-					p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
-				}
-				for _, l := range logs {
-					payload, err := p.createPayload(l.ID, l.Log)
-					if err == nil {
-						payloads = append(payloads, payload)
-					}
-				}
-
-				start += int64(blockRate)
-			}
-
-			p.currentIteration += 1
+			payloads = p.bestEffortDequeue(latestBlock, numOfUpkeeps, logLimitLow, maxResults, startBlock, payloads, blockRate)
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
@@ -355,6 +307,65 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				payloads = append(payloads, payload)
 			}
 		}
+	}
+
+	return payloads
+}
+
+func (p *logEventProvider) bestEffortDequeue(latestBlock int64, numOfUpkeeps int, logLimitLow int, maxResults int, start int64, payloads []ocr2keepers.UpkeepPayload, blockRate int) []ocr2keepers.UpkeepPayload {
+	if p.iterations == p.currentIteration {
+		p.currentIteration = 0
+		p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
+		if p.iterations == 0 {
+			p.iterations = 1
+		}
+	}
+
+	// best effort pass
+	for len(payloads) < maxResults && start <= latestBlock {
+		startWindow, end := getBlockWindow(start, blockRate)
+
+		upkeepSelectorFn := func(id *big.Int) bool {
+			return id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+		}
+
+		logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn, true)
+		if len(logs) > 0 {
+			p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
+		}
+		for _, l := range logs {
+			payload, err := p.createPayload(l.ID, l.Log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
+		}
+
+		start += int64(blockRate)
+	}
+
+	p.currentIteration += 1
+
+	return payloads
+}
+
+func (p *logEventProvider) minimumCommitmentDequeue(latestBlock int64, maxResults int, start int64, blockRate int) []ocr2keepers.UpkeepPayload {
+	var payloads []ocr2keepers.UpkeepPayload
+
+	for len(payloads) < maxResults && start <= latestBlock {
+		startWindow, end := getBlockWindow(start, blockRate)
+
+		logs, remaining := p.bufferV1.Dequeue(startWindow, end, int(p.opts.LogLimit), maxResults-len(payloads), DefaultUpkeepSelector, false)
+		if len(logs) > 0 {
+			p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
+		}
+		for _, l := range logs {
+			payload, err := p.createPayload(l.ID, l.Log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
+		}
+
+		start += int64(blockRate)
 	}
 
 	return payloads
