@@ -601,7 +601,7 @@ func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore
 		if err != nil {
 			return errors.Errorf("no Starknet key matching: %q", key)
 		}
-	case types.NetworkAptos:
+	case relay.NetworkAptos:
 		_, err := keyStore.Aptos().Get(key)
 		if err != nil {
 			return errors.Errorf("no Aptos key matching: %q", key)
