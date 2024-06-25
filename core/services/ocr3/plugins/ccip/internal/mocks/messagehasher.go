@@ -13,5 +13,8 @@ func NewMessageHasher() *MessageHasher {
 }
 
 func (m *MessageHasher) Hash(ctx context.Context, msg cciptypes.CCIPMsg) (cciptypes.Bytes32, error) {
-	return msg.ID, nil
+	// simply return the msg id as bytes32
+	var b32 [32]byte
+	copy(b32[:], msg.ID)
+	return b32, nil
 }

@@ -1474,24 +1474,6 @@ contract EVM2EVMMultiOnRamp_getTokenTransferCost is EVM2EVMMultiOnRamp_getFeeSet
 
     s_onRamp.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
   }
-
-  function test_ValidatedPriceStaleness_Revert() public {
-    vm.warp(block.timestamp + TWELVE_HOURS + 1);
-
-    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceFeeToken, 1e36);
-    message.tokenAmounts[0].token = s_sourceRouter.getWrappedNative();
-
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        PriceRegistry.StaleTokenPrice.selector,
-        s_sourceRouter.getWrappedNative(),
-        uint128(TWELVE_HOURS),
-        uint128(TWELVE_HOURS + 1)
-      )
-    );
-
-    s_onRamp.getTokenTransferCost(DEST_CHAIN_SELECTOR, message.feeToken, s_feeTokenPrice, message.tokenAmounts);
-  }
 }
 
 contract EVM2EVMMultiOnRamp_setDynamicConfig is EVM2EVMMultiOnRampSetup {

@@ -7,6 +7,7 @@ import {IAny2EVMOffRamp} from "../../interfaces/IAny2EVMOffRamp.sol";
 import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 
+import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
@@ -113,7 +114,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = address(s_offRamp);
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
+    s_priceRegistry.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
+    );
   }
 
   // TODO: function can be made common across OffRampSetup and MultiOffRampSetup
@@ -463,7 +466,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = address(s_offRamp);
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
+    s_priceRegistry.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
+    );
   }
 
   function _setupRealRMN() internal {

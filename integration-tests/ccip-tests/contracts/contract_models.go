@@ -1076,7 +1076,13 @@ func (p *PriceRegistryWrapper) GetTokenPrice(opts *bind.CallOpts, token common.A
 
 func (p *PriceRegistryWrapper) AddPriceUpdater(opts *bind.TransactOpts, addr common.Address) (*types.Transaction, error) {
 	if p.Latest != nil {
-		return p.Latest.ApplyPriceUpdatersUpdates(opts, []common.Address{addr}, []common.Address{})
+		return p.Latest.ApplyAuthorizedCallerUpdates(
+			opts,
+			price_registry.AuthorizedCallersAuthorizedCallerArgs{
+				AddedCallers:   []common.Address{addr},
+				RemovedCallers: []common.Address{},
+			},
+		)
 	}
 	if p.V1_2_0 != nil {
 		return p.V1_2_0.ApplyPriceUpdatersUpdates(opts, []common.Address{addr}, []common.Address{})

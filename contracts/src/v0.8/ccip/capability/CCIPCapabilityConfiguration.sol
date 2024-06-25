@@ -236,11 +236,15 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
   // staging -> running (promotion)
   // everything else is invalid and should revert.
   function _validateConfigStateTransition(ConfigState currentState, ConfigState newState) internal pure {
-    // TODO: may be able to save gas if we put this in the if condition.
-    bool initToRunning = currentState == ConfigState.Init && newState == ConfigState.Running;
-    bool runningToStaging = currentState == ConfigState.Running && newState == ConfigState.Staging;
-    bool stagingToRunning = currentState == ConfigState.Staging && newState == ConfigState.Running;
-    if (initToRunning || runningToStaging || stagingToRunning) {
+    // Calculate the difference between the new state and the current state
+    int256 stateDiff = int256(uint256(newState)) - int256(uint256(currentState));
+
+    // Check if the state transition is valid:
+    // Valid transitions:
+    // 1. currentState -> newState (where stateDiff == 1)
+    //    e.g., init -> running or running -> staging
+    // 2. staging -> running (where stateDiff == -1)
+    if (stateDiff == 1 || (stateDiff == -1 && currentState == ConfigState.Staging)) {
       return;
     }
     revert InvalidConfigStateTransition(currentState, newState);

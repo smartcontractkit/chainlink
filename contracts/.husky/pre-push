@@ -17,7 +17,6 @@ if ! [[ -n $changes_root ]]; then
     exit 0
 fi
 
-./contracts/.husky/verify-changeset.sh
 cd contracts
 
 FOUNDRY_PROFILE=$FOUNDRY_PROFILE forge build

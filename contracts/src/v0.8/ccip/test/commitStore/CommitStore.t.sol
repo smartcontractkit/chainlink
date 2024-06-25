@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {IPriceRegistry} from "../../interfaces/IPriceRegistry.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 
+import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
 import {CommitStore} from "../../CommitStore.sol";
 import {PriceRegistry} from "../../PriceRegistry.sol";
 import {RMN} from "../../RMN.sol";
@@ -36,7 +37,9 @@ contract CommitStoreSetup is PriceRegistrySetup, OCR2BaseSetup {
 
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = address(s_commitStore);
-    s_priceRegistry.applyPriceUpdatersUpdates(priceUpdaters, new address[](0));
+    s_priceRegistry.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: priceUpdaters, removedCallers: new address[](0)})
+    );
   }
 }
 

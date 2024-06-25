@@ -35,7 +35,7 @@ type Plugin struct {
 	msgHasher         cciptypes.MessageHasher
 	lggr              logger.Logger
 
-	homeChainPoller reader.HomeChainPoller
+	homeChain reader.HomeChain
 }
 
 func NewPlugin(
@@ -48,7 +48,7 @@ func NewPlugin(
 	reportCodec cciptypes.CommitPluginCodec,
 	msgHasher cciptypes.MessageHasher,
 	lggr logger.Logger,
-	homeChainPoller reader.HomeChainPoller,
+	homeChain reader.HomeChain,
 ) *Plugin {
 	return &Plugin{
 		nodeID:            nodeID,
@@ -59,7 +59,7 @@ func NewPlugin(
 		reportCodec:       reportCodec,
 		msgHasher:         msgHasher,
 		lggr:              lggr,
-		homeChainPoller:   homeChainPoller,
+		homeChain:         homeChain,
 	}
 }
 
@@ -122,7 +122,7 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 		return types.Observation{}, fmt.Errorf("observe gas prices: %w", err)
 	}
 
-	fChain, err := p.homeChainPoller.GetFChain()
+	fChain, err := p.homeChain.GetFChain()
 	if err != nil {
 		return types.Observation{}, fmt.Errorf("get f chain: %w", err)
 	}
@@ -328,7 +328,7 @@ func (p *Plugin) Close() error {
 }
 
 func (p *Plugin) knownSourceChainsSlice() []cciptypes.ChainSelector {
-	knownSourceChains, err := p.homeChainPoller.GetKnownCCIPChains()
+	knownSourceChains, err := p.homeChain.GetKnownCCIPChains()
 	if err != nil {
 		p.lggr.Errorw("error getting known chains", "err", err)
 		return nil
@@ -343,7 +343,7 @@ func (p *Plugin) supportedChains() (mapset.Set[cciptypes.ChainSelector], error) 
 	if !exists {
 		return nil, fmt.Errorf("oracle ID %d not found in oracleIDToP2pID", p.nodeID)
 	}
-	supportedChains, err := p.homeChainPoller.GetSupportedChainsForPeer(p2pID)
+	supportedChains, err := p.homeChain.GetSupportedChainsForPeer(p2pID)
 	if err != nil {
 		p.lggr.Warnw("error getting supported chains", err)
 		return mapset.NewSet[cciptypes.ChainSelector](), fmt.Errorf("error getting supported chains: %w", err)
@@ -352,18 +352,10 @@ func (p *Plugin) supportedChains() (mapset.Set[cciptypes.ChainSelector], error) 
 	return supportedChains, nil
 }
 
-func (p *Plugin) getDestChainConfig() (reader.ChainConfig, error) {
-	cfg, err := p.homeChainPoller.GetChainConfig(p.cfg.DestChain)
-	if err != nil {
-		return reader.ChainConfig{}, fmt.Errorf("get chain config: %w", err)
-	}
-	return cfg, nil
-}
-
 func (p *Plugin) supportsDestChain() (bool, error) {
-	destChainConfig, err := p.getDestChainConfig()
+	destChainConfig, err := p.homeChain.GetChainConfig(p.cfg.DestChain)
 	if err != nil {
-		return false, fmt.Errorf("error getting chain config: %w", err)
+		return false, fmt.Errorf("get chain config: %w", err)
 	}
 	return destChainConfig.SupportedNodes.Contains(p.oracleIDToP2pID[p.nodeID]), nil
 }
