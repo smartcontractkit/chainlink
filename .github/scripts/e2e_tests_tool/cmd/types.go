@@ -5,7 +5,8 @@ type Test struct {
 	Path string
 }
 
-type TestConf struct {
+// CITestConf defines the configuration for running a test in a CI environment, specifying details like test ID, path, type, runner settings, command, and associated workflows.
+type CITestConf struct {
 	ID                    string   `yaml:"id" json:"id"`
 	Path                  string   `yaml:"path" json:"path"`
 	TestType              string   `yaml:"test-type" json:"testType"`
@@ -19,5 +20,5 @@ type TestConf struct {
 }
 
 type Config struct {
-	Tests []TestConf `yaml:"test-runner-matrix"`
+	Tests []CITestConf `yaml:"runner-test-matrix"`
 }

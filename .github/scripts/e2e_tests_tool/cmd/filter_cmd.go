@@ -12,12 +12,12 @@ import (
 )
 
 // Filter tests based on workflow, test type, and test IDs.
-func filterTests(tests []TestConf, names, workflow, testType, ids string) []TestConf {
+func filterTests(tests []CITestConf, names, workflow, testType, ids string) []CITestConf {
 	workflowFilter := workflow
 	typeFilter := testType
 	idFilter := strings.Split(ids, ",")
 
-	var filteredTests []TestConf
+	var filteredTests []CITestConf
 
 	for _, test := range tests {
 		workflowMatch := workflow == "" || contains(test.Workflows, workflowFilter)
@@ -68,7 +68,7 @@ Example usage:
 		}
 
 		filteredTests := filterTests(config.Tests, names, workflow, testType, testIDs)
-		matrix := map[string][]TestConf{"tests": filteredTests}
+		matrix := map[string][]CITestConf{"tests": filteredTests}
 		matrixJSON, err := json.Marshal(matrix)
 		if err != nil {
 			log.Fatalf("Error marshaling matrix to JSON: %v", err)

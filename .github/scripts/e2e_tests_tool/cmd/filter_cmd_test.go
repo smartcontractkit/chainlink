@@ -5,7 +5,7 @@ import (
 )
 
 func TestFilterTestsByID(t *testing.T) {
-	tests := []TestConf{
+	tests := []CITestConf{
 		{ID: "run_all_in_ocr_tests_go", TestType: "docker"},
 		{ID: "run_all_in_ocr2_tests_go", TestType: "docker"},
 		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner"},
@@ -33,7 +33,7 @@ func TestFilterTestsByID(t *testing.T) {
 }
 
 func TestFilterTestsIntegration(t *testing.T) {
-	tests := []TestConf{
+	tests := []CITestConf{
 		{ID: "run_all_in_ocr_tests_go", TestType: "docker", Workflows: []string{"Run Nightly E2E Tests"}},
 		{ID: "run_all_in_ocr2_tests_go", TestType: "docker", Workflows: []string{"Run PR E2E Tests"}},
 		{ID: "run_all_in_ocr3_tests_go", TestType: "k8s_remote_runner", Workflows: []string{"Run PR E2E Tests"}},

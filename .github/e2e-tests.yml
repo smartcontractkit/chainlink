@@ -1,9 +1,11 @@
-# This file defines Github CI configuration for each E2E test and is used by CI workflows to run E2E tests.
+# This file specifies the GitHub runner for each E2E test and is utilized by all E2E CI workflows.
 #
-# Each test entry details the Github runner configuration, test environment (Docker or Kubernetes), Go test command, and triggers
-# that determine under what conditions the test should be executed (e.g., on push or nightly builds).
+# Each entry in this file includes the following:
+# - The GitHub runner (runs-on field) that will execute tests.
+# - The tests that will be run by the runner.
+# - The workflows (e.g., Run PR E2E Tests, Run Nightly E2E Tests) that should trigger these tests.
 #
-test-runner-matrix:
+runner-test-matrix:
 
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
   - id: smoke/ocr_test.go:* 
