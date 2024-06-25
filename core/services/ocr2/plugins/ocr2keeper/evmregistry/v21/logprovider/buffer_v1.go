@@ -26,7 +26,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -162,11 +162,10 @@ func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool, bestEffort bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	start, end := getBlockWindow(block, blockRate)
 	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector, bestEffort)
 }
 
@@ -263,6 +262,7 @@ func (b *logBuffer) getUpkeepQueue(uid *big.Int) (*upkeepLogQueue, bool) {
 func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	if _, ok := b.queues[uid.String()]; !ok {
 		b.queueIDs = append(b.queueIDs, uid.String())
+		sort.Slice(b.queueIDs, func(i, j int) bool { return b.queueIDs[i] < b.queueIDs[j] })
 	}
 	b.queues[uid.String()] = buf
 }
