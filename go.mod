@@ -74,7 +74,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240702120320-563bf07487fe
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240701164206-101d86e96162
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240701154249-032706dcb7c8
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba
@@ -351,5 +351,4 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
-
 )

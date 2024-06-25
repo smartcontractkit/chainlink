@@ -1324,15 +1324,19 @@ func (m *MercuryTransmitter) setFrom(f *MercuryTransmitter) {
 }
 
 type Mercury struct {
-	Cache       MercuryCache       `toml:",omitempty"`
-	TLS         MercuryTLS         `toml:",omitempty"`
-	Transmitter MercuryTransmitter `toml:",omitempty"`
+	Cache          MercuryCache       `toml:",omitempty"`
+	TLS            MercuryTLS         `toml:",omitempty"`
+	Transmitter    MercuryTransmitter `toml:",omitempty"`
+	VerboseLogging *bool              `toml:",omitempty"`
 }
 
 func (m *Mercury) setFrom(f *Mercury) {
 	m.Cache.setFrom(&f.Cache)
 	m.TLS.setFrom(&f.TLS)
 	m.Transmitter.setFrom(&f.Transmitter)
+	if v := f.VerboseLogging; v != nil {
+		m.VerboseLogging = v
+	}
 }
 
 func (m *Mercury) ValidateConfig() (err error) {

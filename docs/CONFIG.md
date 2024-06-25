@@ -1670,8 +1670,17 @@ env is an example user specified key-value pair
 ## Mercury
 ```toml
 [Mercury]
+VerboseLogging = false # Default
 ```
 
+
+### VerboseLogging
+```toml
+VerboseLogging = false # Default
+```
+VerboseLogging enables detailed logging of mercury/LLO operations. These logs
+can be expensive since they may serialize large structs, so they are disabled
+by default.
 
 ## Mercury.Cache
 ```toml

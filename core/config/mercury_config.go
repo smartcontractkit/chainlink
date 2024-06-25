@@ -27,4 +27,5 @@ type Mercury interface {
 	Cache() MercuryCache
 	TLS() MercuryTLS
 	Transmitter() MercuryTransmitter
+	VerboseLogging() bool
 }

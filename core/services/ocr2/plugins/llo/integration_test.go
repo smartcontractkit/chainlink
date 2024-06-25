@@ -459,7 +459,7 @@ func TestIntegration_LLO_Dummy(t *testing.T) {
 		relayConfig := fmt.Sprintf(`chainID = "%s"
 configTracker = {
 	configDigest = "%s",
-	configCoung = 1,
+	configCount = 0,
 	signers = %s,
 	transmitters = %s,
 	f = %d,
@@ -499,6 +499,9 @@ channelDefinitions = %q`, serverPubKey, channelDefinitions)
 			assert.Equal(t, cd[2:], fields["digest"])
 			assert.Equal(t, llotypes.ReportInfo{LifeCycleStage: "production", ReportFormat: llotypes.ReportFormatJSON}, fields["report.Info"])
 
+			if fields["report.Report"] == nil {
+				t.Fatal("FAIL: expected log fields to contain 'report.Report'")
+			}
 			binaryReport := fields["report.Report"].(types.Report)
 			report, err := (datastreamsllo.JSONReportCodec{}).Decode(binaryReport)
 			require.NoError(t, err)

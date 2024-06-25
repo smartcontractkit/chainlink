@@ -605,6 +605,11 @@ env = 'test' # Example
 
 [Mercury]
 
+# VerboseLogging enables detailed logging of mercury/LLO operations. These logs
+# can be expensive since they may serialize large structs, so they are disabled
+# by default.
+VerboseLogging = false # Default
+
 # Mercury.Cache controls settings for the price retrieval cache querying a mercury server
 [Mercury.Cache]
 # LatestReportTTL controls how "stale" we will allow a price to be e.g. if

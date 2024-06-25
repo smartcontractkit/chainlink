@@ -41,40 +41,46 @@ func makeStreamWithSingleResult[T any](res T, err error) *mockStream {
 	}
 }
 
+func makeStreamValues() llo.StreamValues {
+	return llo.StreamValues{
+		1: nil,
+		2: nil,
+		3: nil,
+	}
+}
+
+type mockOpts struct{}
+
+func (m mockOpts) VerboseLogging() bool { return true }
+func (m mockOpts) SeqNr() uint64        { return 42 }
+
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := &mockRegistry{make(map[streams.StreamID]*mockStream)}
 	ds := newDataSource(lggr, reg)
 	ctx := testutils.Context(t)
 
-	streamIDs := make(map[streams.StreamID]struct{})
-	streamIDs[streams.StreamID(1)] = struct{}{}
-	streamIDs[streams.StreamID(2)] = struct{}{}
-	streamIDs[streams.StreamID(3)] = struct{}{}
-
 	t.Run("Observe", func(t *testing.T) {
-		t.Run("returns errors if no streams are defined", func(t *testing.T) {
-			vals, err := ds.Observe(ctx, streamIDs)
+		t.Run("doesn't set any values if no streams are defined", func(t *testing.T) {
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, mockOpts{})
 			assert.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{
-				2: llo.ObsResult[*big.Int]{Val: nil, Valid: false},
-				1: llo.ObsResult[*big.Int]{Val: nil, Valid: false},
-				3: llo.ObsResult[*big.Int]{Val: nil, Valid: false},
-			}, vals)
+			assert.Equal(t, makeStreamValues(), vals)
 		})
 		t.Run("observes each stream with success and returns values matching map argument", func(t *testing.T) {
 			reg.streams[1] = makeStreamWithSingleResult[*big.Int](big.NewInt(2181), nil)
 			reg.streams[2] = makeStreamWithSingleResult[*big.Int](big.NewInt(40602), nil)
 			reg.streams[3] = makeStreamWithSingleResult[*big.Int](big.NewInt(15), nil)
 
-			vals, err := ds.Observe(ctx, streamIDs)
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, mockOpts{})
 			assert.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
-				2: llo.ObsResult[*big.Int]{Val: big.NewInt(40602), Valid: true},
-				1: llo.ObsResult[*big.Int]{Val: big.NewInt(2181), Valid: true},
-				3: llo.ObsResult[*big.Int]{Val: big.NewInt(15), Valid: true},
+				2: big.NewInt(40602),
+				1: big.NewInt(2181),
+				3: big.NewInt(15),
 			}, vals)
 		})
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
@@ -82,13 +88,14 @@ func Test_DataSource(t *testing.T) {
 			reg.streams[2] = makeStreamWithSingleResult[*big.Int](big.NewInt(40602), nil)
 			reg.streams[3] = makeStreamWithSingleResult[*big.Int](nil, errors.New("something exploded 2"))
 
-			vals, err := ds.Observe(ctx, streamIDs)
+			vals := makeStreamValues()
+			err := ds.Observe(ctx, vals, mockOpts{})
 			assert.NoError(t, err)
 
 			assert.Equal(t, llo.StreamValues{
-				2: llo.ObsResult[*big.Int]{Val: big.NewInt(40602), Valid: true},
-				1: llo.ObsResult[*big.Int]{Val: nil, Valid: false},
-				3: llo.ObsResult[*big.Int]{Val: nil, Valid: false},
+				2: big.NewInt(40602),
+				1: nil,
+				3: nil,
 			}, vals)
 		})
 	})
