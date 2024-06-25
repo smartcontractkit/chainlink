@@ -120,6 +120,7 @@ func NewChainClient(
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 ) Client {
+	chainFamily := "EVM"
 	multiNode := commonclient.NewMultiNode[*big.Int, ChainClientRPC](
 		lggr,
 		selectionMode,
@@ -127,7 +128,7 @@ func NewChainClient(
 		nodes,
 		sendonlys,
 		chainID,
-		"EVM",
+		chainFamily,
 	)
 
 	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
@@ -137,8 +138,10 @@ func NewChainClient(
 	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, ChainClientRPC](
 		lggr,
 		chainID,
+		chainFamily,
 		multiNode,
 		classifySendError,
+		0, // use the default value provided by the implementation
 	)
 
 	return &chainClient{

@@ -95,6 +95,9 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) ChainID() CHAIN_ID {
 }
 
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool) bool) error {
+	ctx, cancel := c.chStop.CtxCancel(context.WithCancel(ctx))
+	defer cancel()
+
 	callsCompleted := 0
 	for _, n := range c.primaryNodes {
 		if ctx.Err() != nil {
@@ -118,7 +121,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx
 		if n.State() != NodeStateAlive {
 			continue
 		}
-		do(ctx, n.RPC(), false)
+		do(ctx, n.RPC(), true)
 	}
 	return nil
 }
