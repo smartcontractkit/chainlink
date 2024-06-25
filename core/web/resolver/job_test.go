@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -231,7 +231,7 @@ func TestResolver_Job(t *testing.T) {
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
-					Relay:       types.NetworkEVM,
+					Relay:       relay.NetworkEVM,
 					RelayConfig: relayConfig,
 				}, nil)
 				f.Mocks.jobORM.
@@ -282,7 +282,7 @@ func TestResolver_Job(t *testing.T) {
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
-					Relay:       types.NetworkEVM,
+					Relay:       relay.NetworkEVM,
 					RelayConfig: relayConfig,
 				}, chains.ErrNoSuchChainID)
 				f.Mocks.jobORM.

@@ -77,7 +77,7 @@ var (
 		},
 		PipelineSpec:   &pipeline.Spec{},
 		PipelineSpecID: int32(1),
-		Relay:          commontypes.NetworkEVM,
+		Relay:          relay.NetworkEVM,
 	}
 
 	// this is kind of gross, but it's the best way to test return values of the services

@@ -123,7 +123,7 @@ func NewRunner(
 	vrfks VRFKeyStore,
 	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
-    relayers map[types.RelayID]loop.Relayer,
+	relayers map[types.RelayID]loop.Relayer,
 ) *runner {
 	lggr = lggr.Named("PipelineRunner")
 
