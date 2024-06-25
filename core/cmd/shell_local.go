@@ -173,6 +173,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 							Name:  "dangerWillRobinson",
 							Usage: "set to true to enable dropping non-test databases",
 						},
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
+						},
 					},
 				},
 				{
@@ -185,6 +189,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						cli.BoolFlag{
 							Name:  "user-only",
 							Usage: "only include test user fixture",
+						},
+						cli.BoolFlag{
+							Name:  "force",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
 						},
 					},
 				},
@@ -748,7 +756,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
-
+	force := c.Bool("force")
 	dbname := parsed.Path[1:]
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
@@ -756,7 +764,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 	lggr := s.Logger
 	lggr.Infof("Resetting database: %#v", parsed.String())
 	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
-	if err := dropAndCreateDB(parsed); err != nil {
+	if err := dropAndCreateDB(parsed, force); err != nil {
 		return s.errorOut(err)
 	}
 	lggr.Debugf("Migrating database: %#v", parsed.String())
@@ -1079,7 +1087,7 @@ func newConnection(cfg dbConfig) (*sqlx.DB, error) {
 	return pg.NewConnection(parsed.String(), cfg.Dialect(), cfg)
 }
 
-func dropAndCreateDB(parsed url.URL) (err error) {
+func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -1093,7 +1101,13 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-
+	if force {
+		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
+		_, err = db.Exec(fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s';", dbname))
+		if err != nil {
+			return fmt.Errorf("unable to terminate connections to postgres database: %v", err)
+		}
+	}
 	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)

@@ -106,12 +106,9 @@ func (r *server) expireRequests() {
 	}
 }
 
-// Receive handles incoming messages from remote nodes and dispatches them to the corresponding request without blocking
-// the client.
-func (r *server) Receive(msg *types.MessageBody) {
+func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
-	ctx, _ := r.stopCh.NewCtx()
 
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
@@ -137,12 +134,10 @@ func (r *server) Receive(msg *types.MessageBody) {
 
 	req := r.requestIDToRequest[requestID]
 
-	go func() {
-		err := req.OnMessage(ctx, msg)
-		if err != nil {
-			r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
-		}
-	}()
+	err := req.OnMessage(ctx, msg)
+	if err != nil {
+		r.lggr.Errorw("request failed to OnMessage new message", "request", req, "err", err)
+	}
 }
 
 func GetMessageID(msg *types.MessageBody) string {

@@ -1,61 +1,29 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/big"
 	"strconv"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/seth"
+
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 var ZeroAddress = common.Address{}
-
-func CreateKeeperJobs(
-	t *testing.T,
-	chainlinkNodes []*client.ChainlinkK8sClient,
-	keeperRegistry contracts.KeeperRegistry,
-	ocrConfig contracts.OCRv2Config,
-	evmChainID string,
-) {
-	// Send keeper jobs to registry and chainlink nodes
-	primaryNode := chainlinkNodes[0]
-	primaryNodeAddress, err := primaryNode.PrimaryEthAddress()
-	require.NoError(t, err, "Reading ETH Keys from Chainlink Client shouldn't fail")
-	nodeAddresses, err := ChainlinkNodeAddresses(chainlinkNodes)
-	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
-	nodeAddressesStr, payees := make([]string, 0), make([]string, 0)
-	for _, cla := range nodeAddresses {
-		nodeAddressesStr = append(nodeAddressesStr, cla.Hex())
-		payees = append(payees, primaryNodeAddress)
-	}
-	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees, ocrConfig)
-	require.NoError(t, err, "Setting keepers in the registry shouldn't fail")
-
-	for _, chainlinkNode := range chainlinkNodes {
-		chainlinkNodeAddress, err := chainlinkNode.PrimaryEthAddress()
-		require.NoError(t, err, "Error retrieving chainlink node address")
-		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
-			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
-			ContractAddress:          keeperRegistry.Address(),
-			FromAddress:              chainlinkNodeAddress,
-			EVMChainID:               evmChainID,
-			MinIncomingConfirmations: 1,
-		})
-		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
-	}
-}
 
 func CreateKeeperJobsWithKeyIndex(
 	t *testing.T,
@@ -109,20 +77,20 @@ func DeployKeeperContracts(
 	numberOfUpkeeps int,
 	upkeepGasLimit uint32,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	linkFundsForEachUpkeep *big.Int,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumer, []*big.Int) {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
 	// Deploy the transcoder here, and then set it to the registry
-	transcoder := DeployUpkeepTranscoder(t, contractDeployer, client)
-	registry := DeployKeeperRegistry(t, contractDeployer, client,
+	transcoder, err := contracts.DeployUpkeepTranscoder(client)
+	require.NoError(t, err, "Deploying UpkeepTranscoder contract shouldn't fail")
+
+	registry, err := contracts.DeployKeeperRegistry(
+		client,
 		&contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        linkToken.Address(),
@@ -133,6 +101,7 @@ func DeployKeeperContracts(
 			Settings:        registrySettings,
 		},
 	)
+	require.NoError(t, err, "Deploying KeeperRegistry shouldn't fail")
 
 	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
@@ -144,16 +113,9 @@ func DeployKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false, false)
-	var upkeepsAddresses []string
-	for _, upkeep := range upkeeps {
-		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
-	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
+	registrar := DeployKeeperRegistrar(t, client, registryVersion, linkToken, registrarSettings, registry)
+	upkeeps, upkeepIds := DeployConsumers(t, client, registry, registrar, linkToken, numberOfUpkeeps, linkFundsForEachUpkeep, upkeepGasLimit, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -161,12 +123,11 @@ func DeployKeeperContracts(
 // DeployPerformanceKeeperContracts deploys a set amount of keeper performance contracts registered to a single registry
 func DeployPerformanceKeeperContracts(
 	t *testing.T,
+	chainClient *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	numberOfContracts int,
 	upkeepGasLimit uint32,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	registrySettings *contracts.KeeperRegistrySettings,
 	linkFundsForEachUpkeep *big.Int,
 	blockRange, // How many blocks to run the test for
@@ -174,14 +135,13 @@ func DeployPerformanceKeeperContracts(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperConsumerPerformance, []*big.Int) {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	ef, err := contracts.DeployMockETHLINKFeed(chainClient, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	gf, err := contracts.DeployMockGASFeed(chainClient, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
-	registry := DeployKeeperRegistry(t, contractDeployer, client,
+	registry, err := contracts.DeployKeeperRegistry(
+		chainClient,
 		&contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        linkToken.Address(),
@@ -192,6 +152,7 @@ func DeployPerformanceKeeperContracts(
 			Settings:        *registrySettings,
 		},
 	)
+	require.NoError(t, err, "Deploying KeeperRegistry shouldn't fail")
 
 	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
@@ -203,10 +164,13 @@ func DeployPerformanceKeeperContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
+	registrar := DeployKeeperRegistrar(t, chainClient, registryVersion, linkToken, registrarSettings, registry)
+
+	err = DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	upkeeps := DeployKeeperConsumersPerformance(
-		t, contractDeployer, client, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
+		t, chainClient, numberOfContracts, blockRange, blockInterval, checkGasToBurn, performGasToBurn,
 	)
 
 	var upkeepsAddresses []string
@@ -214,7 +178,7 @@ func DeployPerformanceKeeperContracts(
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
+	upkeepIds := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -222,24 +186,22 @@ func DeployPerformanceKeeperContracts(
 // DeployPerformDataCheckerContracts deploys a set amount of keeper perform data checker contracts registered to a single registry
 func DeployPerformDataCheckerContracts(
 	t *testing.T,
+	chainClient *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	numberOfContracts int,
 	upkeepGasLimit uint32,
 	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	registrySettings *contracts.KeeperRegistrySettings,
 	linkFundsForEachUpkeep *big.Int,
 	expectedData []byte,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar, []contracts.KeeperPerformDataChecker, []*big.Int) {
-	ef, err := contractDeployer.DeployMockETHLINKFeed(big.NewInt(2e18))
+	ef, err := contracts.DeployMockETHLINKFeed(chainClient, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
-	gf, err := contractDeployer.DeployMockGasFeed(big.NewInt(2e11))
+	gf, err := contracts.DeployMockGASFeed(chainClient, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for mock feeds to deploy")
 
-	registry := DeployKeeperRegistry(t, contractDeployer, client,
+	registry, err := contracts.DeployKeeperRegistry(
+		chainClient,
 		&contracts.KeeperRegistryOpts{
 			RegistryVersion: registryVersion,
 			LinkAddr:        linkToken.Address(),
@@ -250,6 +212,7 @@ func DeployPerformDataCheckerContracts(
 			Settings:        *registrySettings,
 		},
 	)
+	require.NoError(t, err, "Deploying KeeperRegistry shouldn't fail")
 
 	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfContracts))))
@@ -261,124 +224,127 @@ func DeployPerformDataCheckerContracts(
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
 	}
-	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployPerformDataChecker(t, contractDeployer, client, numberOfContracts, expectedData)
+	registrar := DeployKeeperRegistrar(t, chainClient, registryVersion, linkToken, registrarSettings, registry)
+	upkeeps := DeployPerformDataChecker(t, chainClient, numberOfContracts, expectedData)
+
+	err = DeployMultiCallAndFundDeploymentAddresses(chainClient, linkToken, numberOfContracts, linkFundsForEachUpkeep)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
 
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
+	upkeepIds := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
 
-func DeployKeeperRegistry(
-	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	registryOpts *contracts.KeeperRegistryOpts,
-) contracts.KeeperRegistry {
-	registry, err := contractDeployer.DeployKeeperRegistry(
-		registryOpts,
-	)
-	require.NoError(t, err, "Deploying keeper registry shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for keeper registry to deploy")
-
-	return registry
-}
-
 func DeployKeeperRegistrar(
 	t *testing.T,
+	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	linkToken contracts.LinkToken,
 	registrarSettings contracts.KeeperRegistrarSettings,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
 	registry contracts.KeeperRegistry,
 ) contracts.KeeperRegistrar {
-	registrar, err := contractDeployer.DeployKeeperRegistrar(registryVersion, linkToken.Address(), registrarSettings)
-
-	require.NoError(t, err, "Deploying KeeperRegistrar contract shouldn't fail")
-	err = client.WaitForEvents()
+	registrar, err := contracts.DeployKeeperRegistrar(client, registryVersion, linkToken.Address(), registrarSettings)
 	require.NoError(t, err, "Failed waiting for registrar to deploy")
 	if registryVersion != ethereum.RegistryVersion_2_0 {
 		err = registry.SetRegistrar(registrar.Address())
 		require.NoError(t, err, "Registering the registrar address on the registry shouldn't fail")
-		err = client.WaitForEvents()
-		require.NoError(t, err, "Failed waiting for registry to set registrar")
 	}
 
 	return registrar
 }
 
-func DeployUpkeepTranscoder(
-	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-) contracts.UpkeepTranscoder {
-	transcoder, err := contractDeployer.DeployUpkeepTranscoder()
-	require.NoError(t, err, "Deploying UpkeepTranscoder contract shouldn't fail")
-	err = client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for transcoder to deploy")
-
-	return transcoder
-}
-
-func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool, isMercury bool) []*big.Int {
+func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, linkFunds *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool, isMercury bool) []*big.Int {
 	checkData := make([][]byte, 0)
 	for i := 0; i < numberOfContracts; i++ {
 		checkData = append(checkData, []byte("0"))
 	}
 	return RegisterUpkeepContractsWithCheckData(
-		t, linkToken, linkFunds, client, upkeepGasLimit, registry, registrar,
+		t, client, linkToken, linkFunds, upkeepGasLimit, registry, registrar,
 		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury)
 }
 
-func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool, isMercury bool) []*big.Int {
+type upkeepRegistrationResult struct {
+	upkeepID UpkeepId
+}
+
+func (r upkeepRegistrationResult) GetResult() *big.Int {
+	return r.upkeepID
+}
+
+type upkeepConfig struct {
+	address string
+	data    []byte
+}
+
+type UpkeepId = *big.Int
+
+func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, linkFunds *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool, isMercury bool) []*big.Int {
 	l := logging.GetTestLogger(t)
-	registrationTxHashes := make([]common.Hash, 0)
-	upkeepIds := make([]*big.Int, 0)
-	for contractCount, upkeepAddress := range upkeepAddresses {
+
+	concurrency, err := GetAndAssertCorrectConcurrency(client, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
+
+	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepId, upkeepRegistrationResult, upkeepConfig](l)
+
+	configs := make([]upkeepConfig, 0)
+	for i := 0; i < len(upkeepAddresses); i++ {
+		configs = append(configs, upkeepConfig{address: upkeepAddresses[i], data: checkData[i]})
+	}
+
+	var registerUpkeepFn = func(resultCh chan upkeepRegistrationResult, errorCh chan error, executorNum int, config upkeepConfig) {
+		id := uuid.New().String()
+		keyNum := executorNum + 1 // key 0 is the root key
+
 		req, err := registrar.EncodeRegisterRequest(
-			fmt.Sprintf("upkeep_%d", contractCount+1),
+			fmt.Sprintf("upkeep_%s", id),
 			[]byte("test@mail.com"),
-			upkeepAddress,
+			config.address,
 			upkeepGasLimit,
-			client.GetDefaultWallet().Address(), // upkeep Admin
-			checkData[contractCount],
+			client.MustGetRootKeyAddress().Hex(), // upkeep Admin
+			config.data,
 			linkFunds,
 			0,
-			client.GetDefaultWallet().Address(),
+			client.Addresses[keyNum].Hex(),
 			isLogTrigger,
 			isMercury,
+			linkToken.Address(),
 		)
-		require.NoError(t, err, "Encoding the register request shouldn't fail")
-		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
-		require.NoError(t, err, "Error registering the upkeep consumer to the registrar")
-		l.Debug().
-			Str("Contract Address", upkeepAddress).
-			Int("Number", contractCount+1).
-			Int("Out Of", numberOfContracts).
-			Str("TxHash", tx.Hash().String()).
-			Str("Check Data", hexutil.Encode(checkData[contractCount])).
-			Msg("Registered Keeper Consumer Contract")
-		registrationTxHashes = append(registrationTxHashes, tx.Hash())
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait after registering upkeep consumers")
-		}
-	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed while waiting for all consumer contracts to be registered to registrar")
 
-	// Fetch the upkeep IDs
-	for _, txHash := range registrationTxHashes {
-		receipt, err := client.GetTxReceipt(txHash)
-		require.NoError(t, err, "Registration tx should be completed")
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "[id: %s] Failed to encode register request for upkeep at %s", id, config.address)
+			return
+		}
+
+		balance, err := linkToken.BalanceOf(context.Background(), client.Addresses[keyNum].Hex())
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "[id: %s]Failed to get LINK balance of %s", id, client.Addresses[keyNum].Hex())
+			return
+		}
+
+		// not stricly necessary, but helps us to avoid an errorless revert if there is not enough LINK
+		if balance.Cmp(linkFunds) < 0 {
+			errorCh <- fmt.Errorf("[id: %s] Not enough LINK balance for %s. Has: %s. Needs: %s", id, client.Addresses[keyNum].Hex(), balance.String(), linkFunds.String())
+			return
+		}
+
+		tx, err := linkToken.TransferAndCallFromKey(registrar.Address(), linkFunds, req, keyNum)
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "[id: %s] Failed to register upkeep at %s", id, config.address)
+			return
+		}
+
+		receipt, err := client.Client.TransactionReceipt(context.Background(), tx.Hash())
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "[id: %s] Failed to get receipt for upkeep at %s and tx hash %s", id, config.address, tx.Hash())
+			return
+		}
+
 		var upkeepId *big.Int
 		for _, rawLog := range receipt.Logs {
 			parsedUpkeepId, err := registry.ParseUpkeepIdFromRegisteredLog(rawLog)
@@ -387,63 +353,87 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 				break
 			}
 		}
-		require.NotNil(t, upkeepId, "Upkeep ID should be found after registration")
+
+		if upkeepId == nil {
+			errorCh <- errors.Wrapf(err, "[id: %s] Failed find upkeep ID for upkeep at %s in logs of tx with hash %s", id, config.address, tx.Hash())
+			return
+		}
+
 		l.Debug().
-			Str("TxHash", txHash.String()).
+			Str("TxHash", tx.Hash().String()).
 			Str("Upkeep ID", upkeepId.String()).
 			Msg("Found upkeepId in tx hash")
-		upkeepIds = append(upkeepIds, upkeepId)
+
+		resultCh <- upkeepRegistrationResult{upkeepID: upkeepId}
 	}
+
+	upkeepIds, err := executor.Execute(concurrency, configs, registerUpkeepFn)
+	require.NoError(t, err, "Failed to register upkeeps using executor")
+
+	require.Equal(t, numberOfContracts, len(upkeepIds), "Incorrect number of Keeper Consumer Contracts registered")
 	l.Info().Msg("Successfully registered all Keeper Consumer Contracts")
+
 	return upkeepIds
 }
 
-func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool, isMercury bool) []contracts.KeeperConsumer {
-	l := logging.GetTestLogger(t)
-	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
+type keeperConsumerResult struct {
+	contract contracts.KeeperConsumer
+}
 
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		// Deploy consumer
+func (k keeperConsumerResult) GetResult() contracts.KeeperConsumer {
+	return k.contract
+}
+
+// DeployKeeperConsumers concurrently deploys keeper consumer contracts. It requires at least 1 ephemeral key to be present in Seth config.
+func DeployKeeperConsumers(t *testing.T, client *seth.Client, numberOfContracts int, isLogTrigger bool, isMercury bool) []contracts.KeeperConsumer {
+	l := logging.GetTestLogger(t)
+
+	concurrency, err := GetAndAssertCorrectConcurrency(client, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
+
+	executor := ctf_concurrency.NewConcurrentExecutor[contracts.KeeperConsumer, keeperConsumerResult, ctf_concurrency.NoTaskType](l)
+
+	var deployContractFn = func(channel chan keeperConsumerResult, errorCh chan error, executorNum int) {
+		keyNum := executorNum + 1 // key 0 is the root key
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
 		if isMercury && isLogTrigger {
 			// v2.1 only: Log triggered based contract with Mercury enabled
-			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer()
+			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumerFromKey(client, keyNum)
 		} else if isMercury {
 			// v2.1 only: Conditional based contract with Mercury enabled
-			keeperConsumerInstance, err = contractDeployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
+			keeperConsumerInstance, err = contracts.DeployAutomationStreamsLookupUpkeepConsumerFromKey(client, keyNum, big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
 		} else if isLogTrigger {
 			// v2.1 only: Log triggered based contract without Mercury
-			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
+			keeperConsumerInstance, err = contracts.DeployAutomationLogTriggerConsumerFromKey(client, keyNum, big.NewInt(1000)) // 1000 block test range
 		} else {
 			// v2.0 and v2.1: Conditional based contract without Mercury
-			keeperConsumerInstance, err = contractDeployer.DeployUpkeepCounter(big.NewInt(999999), big.NewInt(5))
+			keeperConsumerInstance, err = contracts.DeployUpkeepCounterFromKey(client, keyNum, big.NewInt(999999), big.NewInt(5))
 		}
 
-		require.NoError(t, err, "Deploying Consumer instance %d shouldn't fail", contractCount+1)
-		keeperConsumerContracts = append(keeperConsumerContracts, keeperConsumerInstance)
-		l.Debug().
-			Str("Contract Address", keeperConsumerInstance.Address()).
-			Int("Number", contractCount+1).
-			Int("Out Of", numberOfContracts).
-			Msg("Deployed Keeper Consumer Contract")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err := client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for KeeperConsumer deployments")
+		if err != nil {
+			errorCh <- errors.Wrapf(err, "Failed to deploy keeper consumer contract")
+			return
 		}
+
+		channel <- keeperConsumerResult{contract: keeperConsumerInstance}
 	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
+
+	results, err := executor.ExecuteSimple(concurrency, numberOfContracts, deployContractFn)
+	require.NoError(t, err, "Failed to deploy keeper consumers")
+
+	// require.Equal(t, 0, len(deplymentErrors), "Error deploying consumer contracts")
+	require.Equal(t, numberOfContracts, len(results), "Incorrect number of Keeper Consumer Contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
-	return keeperConsumerContracts
+	return results
 }
 
+// DeployKeeperConsumersPerformance sequentially deploys keeper performance consumer contracts.
 func DeployKeeperConsumersPerformance(
 	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	numberOfContracts int,
 	blockRange, // How many blocks to run the test for
 	blockInterval, // Interval of blocks that upkeeps are expected to be performed
@@ -455,7 +445,8 @@ func DeployKeeperConsumersPerformance(
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		// Deploy consumer
-		keeperConsumerInstance, err := contractDeployer.DeployKeeperConsumerPerformance(
+		keeperConsumerInstance, err := contracts.DeployKeeperConsumerPerformance(
+			client,
 			big.NewInt(blockRange),
 			big.NewInt(blockInterval),
 			big.NewInt(checkGasToBurn),
@@ -468,22 +459,18 @@ func DeployKeeperConsumersPerformance(
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Performance Contract")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for KeeperConsumerPerformance deployments")
-		}
 	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
+
+	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of consumers contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeeps
 }
 
+// DeployPerformDataChecker sequentially deploys keeper perform data checker contracts.
 func DeployPerformDataChecker(
 	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	numberOfContracts int,
 	expectedData []byte,
 ) []contracts.KeeperPerformDataChecker {
@@ -491,7 +478,7 @@ func DeployPerformDataChecker(
 	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		performDataCheckerInstance, err := contractDeployer.DeployKeeperPerformDataChecker(expectedData)
+		performDataCheckerInstance, err := contracts.DeployKeeperPerformDataChecker(client, expectedData)
 		require.NoError(t, err, "Deploying KeeperPerformDataChecker instance %d shouldn't fail", contractCount+1)
 		upkeeps = append(upkeeps, performDataCheckerInstance)
 		l.Debug().
@@ -499,22 +486,17 @@ func DeployPerformDataChecker(
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed PerformDataChecker Contract")
-		if (contractCount+1)%ContractDeploymentInterval == 0 {
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for PerformDataChecker deployments")
-		}
 	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for to deploy all keeper perform data checker contracts")
+	require.Equal(t, numberOfContracts, len(upkeeps), "Incorrect number of PerformDataChecker contracts deployed")
 	l.Info().Msg("Successfully deployed all PerformDataChecker Contracts")
 
 	return upkeeps
 }
 
+// DeployUpkeepCounters sequentially deploys a set amount of upkeep counter contracts.
 func DeployUpkeepCounters(
 	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	numberOfContracts int,
 	testRange *big.Int,
 	interval *big.Int,
@@ -524,7 +506,7 @@ func DeployUpkeepCounters(
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		// Deploy consumer
-		upkeepCounter, err := contractDeployer.DeployUpkeepCounter(testRange, interval)
+		upkeepCounter, err := contracts.DeployUpkeepCounter(client, testRange, interval)
 		require.NoError(t, err, "Deploying KeeperConsumer instance %d shouldn't fail", contractCount+1)
 		upkeepCounters = append(upkeepCounters, upkeepCounter)
 		l.Debug().
@@ -532,22 +514,17 @@ func DeployUpkeepCounters(
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for KeeperConsumer deployments")
-		}
 	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
+	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters
 }
 
+// DeployUpkeepPerformCounter sequentially deploys a set amount of upkeep perform counter restrictive contracts.
 func DeployUpkeepPerformCounterRestrictive(
 	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	client *seth.Client,
 	numberOfContracts int,
 	testRange *big.Int,
 	averageEligibilityCadence *big.Int,
@@ -557,7 +534,7 @@ func DeployUpkeepPerformCounterRestrictive(
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		// Deploy consumer
-		upkeepCounter, err := contractDeployer.DeployUpkeepPerformCounterRestrictive(testRange, averageEligibilityCadence)
+		upkeepCounter, err := contracts.DeployUpkeepPerformCounterRestrictive(client, testRange, averageEligibilityCadence)
 		require.NoError(t, err, "Deploying KeeperConsumer instance %d shouldn't fail", contractCount+1)
 		upkeepCounters = append(upkeepCounters, upkeepCounter)
 		l.Debug().
@@ -565,39 +542,89 @@ func DeployUpkeepPerformCounterRestrictive(
 			Int("Number", contractCount+1).
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			require.NoError(t, err, "Failed to wait for KeeperConsumer deployments")
-		}
 	}
-	err := client.WaitForEvents()
-	require.NoError(t, err, "Failed waiting for to deploy all keeper consumer contracts")
+	require.Equal(t, numberOfContracts, len(upkeepCounters), "Incorrect number of Keeper Consumer contracts deployed")
 	l.Info().Msg("Successfully deployed all Keeper Consumer Contracts")
 
 	return upkeepCounters
 }
 
-// RegisterNewUpkeeps registers the given amount of new upkeeps, using the registry and registrar
-// which are passed as parameters.
-// It returns the newly deployed contracts (consumers), as well as their upkeep IDs.
+// RegisterNewUpkeeps concurrently registers the given amount of new upkeeps, using the registry and registrar,
+// which are passed as parameters. It returns the newly deployed contracts (consumers), as well as their upkeep IDs.
 func RegisterNewUpkeeps(
 	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
+	chainClient *seth.Client,
 	linkToken contracts.LinkToken,
 	registry contracts.KeeperRegistry,
 	registrar contracts.KeeperRegistrar,
 	upkeepGasLimit uint32,
 	numberOfNewUpkeeps int,
 ) ([]contracts.KeeperConsumer, []*big.Int) {
-	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false, false)
+	newlyDeployedUpkeeps := DeployKeeperConsumers(t, chainClient, numberOfNewUpkeeps, false, false)
 
 	var addressesOfNewUpkeeps []string
 	for _, upkeep := range newlyDeployedUpkeeps {
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}
 
-	newUpkeepIDs := RegisterUpkeepContracts(t, linkToken, big.NewInt(9e18), client, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false, false)
+	concurrency, err := GetAndAssertCorrectConcurrency(chainClient, 1)
+	require.NoError(t, err, "Insufficient concurrency to execute action")
+
+	operationsPerAddress := numberOfNewUpkeeps / concurrency
+
+	multicallAddress, err := contracts.DeployMultiCallContract(chainClient)
+	require.NoError(t, err, "Error deploying multicall contract")
+
+	linkFundsForEachUpkeep := big.NewInt(9e18)
+
+	err = SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfNewUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
+	require.NoError(t, err, "Sending link funds to deployment addresses shouldn't fail")
+
+	newUpkeepIDs := RegisterUpkeepContracts(t, chainClient, linkToken, linkFundsForEachUpkeep, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false, false)
 
 	return newlyDeployedUpkeeps, newUpkeepIDs
+}
+
+var INSUFFICIENT_EPHEMERAL_KEYS = `
+Error: Insufficient Ephemeral Addresses for Simulated Network
+
+To operate on a simulated network, you must configure at least one ephemeral address. Currently, %d ephemeral address(es) are set. Please update your TOML configuration file as follows to meet this requirement:
+[Seth] ephemeral_addresses_number = 1
+
+This adjustment ensures that your setup is minimaly viable. Although it is highly recommended to use at least 20 ephemeral addresses.
+`
+
+var INSUFFICIENT_STATIC_KEYS = `
+Error: Insufficient Private Keys for Live Network
+
+To run this test on a live network, you must either:
+1. Set at least two private keys in the '[Network.WalletKeys]' section of your TOML configuration file. Example format:
+   [Network.WalletKeys]
+   NETWORK_NAME=["PRIVATE_KEY_1", "PRIVATE_KEY_2"]
+2. Set at least two private keys in the '[Network.EVMNetworks.NETWORK_NAME] section of your TOML configuration file. Example format:
+   evm_keys=["PRIVATE_KEY_1", "PRIVATE_KEY_2"]
+
+Currently, only %d private key/s is/are set.
+
+Recommended Action:
+Distribute your funds across multiple private keys and update your configuration accordingly. Even though 1 private key is sufficient for testing, it is highly recommended to use at least 10 private keys.
+`
+
+// GetAndAssertCorrectConcurrency checks Seth configuration for the number of ephemeral keys or static keys (depending on Seth configuration) and makes sure that
+// the number is at least minConcurrency. If the number is less than minConcurrency, it returns an error. The root key is always excluded from the count.
+func GetAndAssertCorrectConcurrency(client *seth.Client, minConcurrency int) (int, error) {
+	concurrency := client.Cfg.GetMaxConcurrency()
+
+	var msg string
+	if client.Cfg.IsSimulatedNetwork() {
+		msg = fmt.Sprintf(INSUFFICIENT_EPHEMERAL_KEYS, concurrency)
+	} else {
+		msg = fmt.Sprintf(INSUFFICIENT_STATIC_KEYS, concurrency)
+	}
+
+	if concurrency < minConcurrency {
+		return 0, fmt.Errorf(msg)
+	}
+
+	return concurrency, nil
 }

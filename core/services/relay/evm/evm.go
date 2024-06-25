@@ -493,7 +493,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 				defer cancel()
 				c.lggr.Infow("starting replay for config", "fromBlock", c.fromBlock)
 				if err := c.configPoller.Replay(ctx, int64(c.fromBlock)); err != nil {
-					c.lggr.Errorf("error replaying for config", "err", err)
+					c.lggr.Errorw("error replaying for config", "err", err)
 				} else {
 					c.lggr.Infow("completed replaying for config", "fromBlock", c.fromBlock)
 				}

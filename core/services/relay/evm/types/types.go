@@ -18,13 +18,17 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type ChainWriterConfig struct {
 	Contracts    map[string]*ContractConfig
 	SendStrategy txmgrtypes.TxStrategy
+	MaxGasPrice  *assets.Wei
 }
 
 type ContractConfig struct {
@@ -54,16 +58,58 @@ type CodecConfig struct {
 
 type ChainCodecConfig struct {
 	TypeABI         string                `json:"typeAbi" toml:"typeABI"`
-	ModifierConfigs codec.ModifiersConfig `toml:"modifierConfigs,omitempty"`
+	ModifierConfigs codec.ModifiersConfig `json:"modifierConfigs,omitempty" toml:"modifierConfigs,omitempty"`
+}
+
+type ContractPollingFilter struct {
+	GenericEventNames []string `json:"genericEventNames"`
+	PollingFilter     `json:"pollingFilter"`
+}
+
+type PollingFilter struct {
+	Topic2       evmtypes.HashArray `json:"topic2"`       // list of possible values for topic2
+	Topic3       evmtypes.HashArray `json:"topic3"`       // list of possible values for topic3
+	Topic4       evmtypes.HashArray `json:"topic4"`       // list of possible values for topic4
+	Retention    models.Interval    `json:"retention"`    // maximum amount of time to retain logs
+	MaxLogsKept  uint64             `json:"maxLogsKept"`  // maximum number of logs to retain ( 0 = unlimited )
+	LogsPerBlock uint64             `json:"logsPerBlock"` // rate limit ( maximum # of logs per block, 0 = unlimited )
+}
+
+func (f *PollingFilter) ToLPFilter(eventSigs evmtypes.HashArray) logpoller.Filter {
+	return logpoller.Filter{
+		EventSigs:    eventSigs,
+		Topic2:       f.Topic2,
+		Topic3:       f.Topic3,
+		Topic4:       f.Topic4,
+		Retention:    f.Retention.Duration(),
+		MaxLogsKept:  f.MaxLogsKept,
+		LogsPerBlock: f.LogsPerBlock,
+	}
 }
 
 type ChainContractReader struct {
-	ContractABI string `json:"contractABI" toml:"contractABI"`
+	ContractABI           string `json:"contractABI" toml:"contractABI"`
+	ContractPollingFilter `json:"contractPollingFilter,omitempty" toml:"contractPollingFilter,omitempty"`
 	// key is genericName from config
 	Configs map[string]*ChainReaderDefinition `json:"configs" toml:"configs"`
 }
 
 type ChainReaderDefinition chainReaderDefinitionFields
+
+type EventDefinitions struct {
+	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
+	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
+	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
+	// key is a predefined generic name for evm log event data word
+	// for e.g. first evm data word(32bytes) of USDC log event is value so the key can be called value
+	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	// InputFields allows you to choose which indexed fields are expected from the input
+	InputFields []string `json:"inputFields,omitempty"`
+	// PollingFilter should be defined on a contract level in ContractPollingFilter,
+	// unless event needs to override the contract level filter options.
+	// This will create a separate log poller filter for this event.
+	*PollingFilter `json:"pollingFilter,omitempty"`
+}
 
 // chainReaderDefinitionFields has the fields for ChainReaderDefinition but no methods.
 // This is necessary because package json recognizes the text encoding methods used for TOML,
@@ -75,18 +121,14 @@ type chainReaderDefinitionFields struct {
 	ReadType            ReadType              `json:"readType,omitempty"`
 	InputModifications  codec.ModifiersConfig `json:"inputModifications,omitempty"`
 	OutputModifications codec.ModifiersConfig `json:"outputModifications,omitempty"`
-
-	// EventInputFields allows you to choose which indexed fields are expected from the input
-	EventInputFields []string `json:"eventInputFields,omitempty"`
-	// GenericTopicNames helps QueryingKeys not rely on EVM specific topic names. Key is chain specific name, value is generic name.
-	// This helps us translate chain agnostic querying key "transfer-value" to EVM specific "evmTransferEvent-weiAmountTopic".
-	GenericTopicNames map[string]string `json:"genericTopicNames,omitempty"`
-	// key is a predefined generic name for evm log event data word
-	// for eg. first evm data word(32bytes) of USDC log event is value so the key can be called value
-	GenericDataWordNames map[string]uint8 `json:"genericDataWordNames,omitempty"`
+	EventDefinitions    *EventDefinitions     `json:"eventDefinitions,omitempty" toml:"eventDefinitions,omitempty"`
 	// ConfidenceConfirmations is a mapping between a ConfidenceLevel and the confirmations associated. Confidence levels
 	// should be valid float values.
 	ConfidenceConfirmations map[string]int `json:"confidenceConfirmations,omitempty"`
+}
+
+func (d *ChainReaderDefinition) HasPollingFilter() bool {
+	return d.EventDefinitions != nil && d.EventDefinitions.PollingFilter != nil
 }
 
 func (d *ChainReaderDefinition) MarshalText() ([]byte, error) {
@@ -235,4 +277,20 @@ type LogPollerWrapper interface {
 
 	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
 	SubscribeToUpdates(ctx context.Context, name string, subscriber RouteUpdateSubscriber)
+}
+
+// ChainReaderConfigFromBytes function applies json decoding on provided bytes to return a
+// valid ChainReaderConfig. If other unmarshaling or parsing techniques are required, place it
+// here.
+func ChainReaderConfigFromBytes(bts []byte) (ChainReaderConfig, error) {
+	decoder := json.NewDecoder(bytes.NewBuffer(bts))
+
+	decoder.UseNumber()
+
+	var cfg ChainReaderConfig
+	if err := decoder.Decode(&cfg); err != nil {
+		return cfg, fmt.Errorf("failed to unmarshal chain reader config err: %s", err)
+	}
+
+	return cfg, nil
 }
