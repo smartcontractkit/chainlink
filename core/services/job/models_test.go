@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/stretchr/testify/assert"
@@ -98,163 +99,6 @@ var (
 	jobPretty string
 )
 
-func TestOCR2OracleSpec(t *testing.T) {
-	val := OCR2OracleSpec{
-		Relay:                             relay.NetworkEVM,
-		PluginType:                        types.Median,
-		ContractID:                        "foo",
-		OCRKeyBundleID:                    null.StringFrom("bar"),
-		TransmitterID:                     null.StringFrom("baz"),
-		ContractConfigConfirmations:       1,
-		ContractConfigTrackerPollInterval: *models.NewInterval(time.Second),
-		RelayConfig: map[string]interface{}{
-			"chainID":   1337,
-			"fromBlock": 42,
-			"chainReader": evmtypes.ChainReaderConfig{
-				Contracts: map[string]evmtypes.ChainContractReader{
-					"median": {
-						ContractABI: `[
-	 {
-	   "anonymous": false,
-	   "inputs": [
-	     {
-	       "indexed": true,
-	       "internalType": "address",
-	       "name": "requester",
-	       "type": "address"
-	     },
-	     {
-	       "indexed": false,
-	       "internalType": "bytes32",
-	       "name": "configDigest",
-	       "type": "bytes32"
-	     },
-	     {
-	       "indexed": false,
-	       "internalType": "uint32",
-	       "name": "epoch",
-	       "type": "uint32"
-	     },
-	     {
-	       "indexed": false,
-	       "internalType": "uint8",
-	       "name": "round",
-	       "type": "uint8"
-	     }
-	   ],
-	   "name": "RoundRequested",
-	   "type": "event"
-	 },
-	 {
-	   "inputs": [],
-	   "name": "latestTransmissionDetails",
-	   "outputs": [
-	     {
-	       "internalType": "bytes32",
-	       "name": "configDigest",
-	       "type": "bytes32"
-	     },
-	     {
-	       "internalType": "uint32",
-	       "name": "epoch",
-	       "type": "uint32"
-	     },
-	     {
-	       "internalType": "uint8",
-	       "name": "round",
-	       "type": "uint8"
-	     },
-	     {
-	       "internalType": "int192",
-	       "name": "latestAnswer_",
-	       "type": "int192"
-	     },
-	     {
-	       "internalType": "uint64",
-	       "name": "latestTimestamp_",
-	       "type": "uint64"
-	     }
-	   ],
-	   "stateMutability": "view",
-	   "type": "function"
-	 }
-	]
-	`,
-						Configs: map[string]*evmtypes.ChainReaderDefinition{
-							"LatestTransmissionDetails": {
-								ChainSpecificName: "latestTransmissionDetails",
-								OutputModifications: codec.ModifiersConfig{
-									&codec.EpochToTimeModifierConfig{
-										Fields: []string{"LatestTimestamp_"},
-									},
-									&codec.RenameModifierConfig{
-										Fields: map[string]string{
-											"LatestAnswer_":    "LatestAnswer",
-											"LatestTimestamp_": "LatestTimestamp",
-										},
-									},
-								},
-							},
-							"LatestRoundRequested": {
-								ChainSpecificName: "RoundRequested",
-								ReadType:          evmtypes.Event,
-							},
-						},
-					},
-				},
-			},
-			"codec": evmtypes.CodecConfig{
-				Configs: map[string]evmtypes.ChainCodecConfig{
-					"MedianReport": {
-						TypeABI: `[
-	 {
-	   "Name": "Timestamp",
-	   "Type": "uint32"
-	 },
-	 {
-	   "Name": "Observers",
-	   "Type": "bytes32"
-	 },
-	 {
-	   "Name": "Observations",
-	   "Type": "int192[]"
-	 },
-	 {
-	   "Name": "JuelsPerFeeCoin",
-	   "Type": "int192"
-	 }
-	]
-	`,
-					},
-				},
-			},
-		},
-	}
-
-	t.Run("marshal", func(t *testing.T) {
-		gotB, err := toml.Marshal(jb)
-		require.NoError(t, err)
-		t.Log("marshaled:", string(gotB))
-		require.Equal(t, jobCompact, string(gotB))
-	})
-
-	t.Run("round-trip", func(t *testing.T) {
-		var gotVal Job
-		require.NoError(t, toml.Unmarshal([]byte(jobCompact), &gotVal))
-		gotB, err := toml.Marshal(gotVal)
-		require.NoError(t, err)
-		require.Equal(t, jobCompact, string(gotB))
-		t.Run("specPretty", func(t *testing.T) {
-			var gotVal Job
-			require.NoError(t, toml.Unmarshal([]byte(jobPretty), &gotVal))
-			gotB, err := toml.Marshal(gotVal)
-			require.NoError(t, err)
-			t.Log("marshaled specCompact:", string(gotB))
-			require.Equal(t, jobCompact, string(gotB))
-		})
-	})
-}
-
 func TestJobRelayConfig(t *testing.T) {
 	jbUUID, err := uuid.Parse("ee50cdf7-5d72-4d90-8def-06bb42b932ef")
 	require.NoError(t, err)
@@ -271,7 +115,7 @@ func TestJobRelayConfig(t *testing.T) {
 		CreatedAt:         time.Unix(1718894576, 0), // 20.06.2024 14:42:56 GMT
 		ChainID:           "323211",
 
-		Relay: types.NetworkEVM,
+		Relay: relay.NetworkEVM,
 		RelayConfig: map[string]interface{}{
 			"chainID":   1337,
 			"fromBlock": 42,

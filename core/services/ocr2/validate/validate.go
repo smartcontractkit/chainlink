@@ -57,7 +57,7 @@ func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf Ins
 		return jb, pkgerrors.Errorf("the only supported type is currently 'offchainreporting2', got %s", jb.Type)
 	}
 	if _, ok := relay.SupportedNetworks[jb.Relay]; !ok {
-		return jb, pkgerrors.Errorf("no such relay %v supported", spec.Relay)
+		return jb, pkgerrors.Errorf("no such relay %v supported", jb.Relay)
 	}
 	if len(spec.P2PV2Bootstrappers) > 0 {
 		_, err = ocrcommon.ParseBootstrapPeers(spec.P2PV2Bootstrappers)

@@ -415,7 +415,7 @@ func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmc
 	cr := &chainReader{
 		lggr:             lggr.Named("ContractStateReader"),
 		client:           client,
-		contractBindings: contractBindings{},
+		contractBindings: bindings{},
 		parsed: &parsedTypes{encoderDefs: map[string]types.CodecEntry{},
 			decoderDefs: map[string]types.CodecEntry{}},
 	}
@@ -429,8 +429,10 @@ func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmc
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(b readBinding, c context.Context) error {
-		b.SetCodec(cr.codec)
+	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		for _, rb := range cb.readBindings {
+			rb.SetCodec(cr.codec)
+		}
 		return nil
 	})
 
