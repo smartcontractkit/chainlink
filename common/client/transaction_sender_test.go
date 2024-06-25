@@ -284,7 +284,7 @@ func TestMultiNode_SendTransaction(t *testing.T) {
 
 		txSender := NewTransactionSender[any, types.ID, SendTxRPCClient[any]](lggr, chainID, mn.chainFamily, mn.MultiNode, classifySendTxError, sendTxSoftTimeout)
 		_, sendErr := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, sendErr, ErroringNodeError.Error())
+		assert.EqualError(t, sendErr, "no calls were completed")
 	})
 
 	// TODO: Get this test to pass

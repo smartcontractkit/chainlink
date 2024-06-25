@@ -92,49 +92,57 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txResultsToReport := make(chan sendTxResult, len(txSender.multiNode.primaryNodes))
 	primaryWg := sync.WaitGroup{}
 
-	// TODO: Do we still need to check multiNode.IfNotStopped() ?
-	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) bool {
-		if isSendOnly {
-			// Use multiNode wg to ensure transactions are done sending before multinode shuts down
-			txSender.multiNode.wg.Add(1)
-			fmt.Println("Calling send only rpc SendTransaction()")
+	var err error
+	ok := txSender.multiNode.IfNotStopped(func() {
+		err = txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) bool {
+			if isSendOnly {
+				// Use multiNode wg to ensure transactions are done sending before multinode shuts down
+				txSender.multiNode.wg.Add(1)
+				fmt.Println("Calling send only rpc SendTransaction()")
+				go func() {
+					defer txSender.multiNode.wg.Done()
+					// Send-only nodes' results are ignored as they tend to return false-positive responses.
+					// Broadcast to them is necessary to speed up the propagation of TX in the network.
+					_ = txSender.broadcastTxAsync(ctx, rpc, tx)
+				}()
+				return true
+			}
+
+			// Primary Nodes
+			primaryWg.Add(1)
 			go func() {
-				defer txSender.multiNode.wg.Done()
-				// Send-only nodes' results are ignored as they tend to return false-positive responses.
-				// Broadcast to them is necessary to speed up the propagation of TX in the network.
-				_ = txSender.broadcastTxAsync(ctx, rpc, tx)
+				defer primaryWg.Done()
+				result := txSender.broadcastTxAsync(ctx, rpc, tx)
+				txResultsToReport <- result
+				txResults <- result
 			}()
 			return true
+		})
+		if err != nil {
+			primaryWg.Wait()
+			close(txResultsToReport)
+			close(txResults)
+			return
 		}
 
-		// Primary Nodes
-		primaryWg.Add(1)
+		// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
+		txSender.multiNode.wg.Add(1)
 		go func() {
-			defer primaryWg.Done()
-			result := txSender.broadcastTxAsync(ctx, rpc, tx)
-			txResultsToReport <- result
-			txResults <- result
+			defer txSender.multiNode.wg.Done()
+			primaryWg.Wait()
+			close(txResultsToReport)
+			close(txResults)
 		}()
-		return true
+
+		txSender.multiNode.wg.Add(1)
+		go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 	})
+	if !ok {
+		return 0, fmt.Errorf("aborted while broadcasting tx - MultiNode is stopped: %w", context.Canceled)
+	}
 	if err != nil {
-		primaryWg.Wait()
-		close(txResultsToReport)
-		close(txResults)
 		return 0, err
 	}
-
-	// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
-	txSender.multiNode.wg.Add(1)
-	go func() {
-		defer txSender.multiNode.wg.Done()
-		primaryWg.Wait()
-		close(txResultsToReport)
-		close(txResults)
-	}()
-
-	txSender.multiNode.wg.Add(1)
-	go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
 	return txSender.collectTxResults(ctx, tx, len(txSender.multiNode.primaryNodes), txResults)
 }
