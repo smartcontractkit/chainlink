@@ -23,13 +23,8 @@ func (g *generateCribClusterOverrides) Name() string {
 func (g *generateCribClusterOverrides) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	chainID := fs.Int64("chainid", 11155111, "chain id")
-	cribRepoPath := os.Getenv("KEYSTONE_CRIB_REPO_PATH")
-	if cribRepoPath == "" {
-		cribRepoPath = "../../../crib"
-	}
-	if _, err := os.Stat(cribRepoPath); os.IsNotExist(err) {
-		helpers.PanicErr(err)
-	}
+	cribRepoPath, err := getCribRepoPath(os.Getenv("KEYSTONE_CRIB_REPO_PATH"))
+	helpers.PanicErr(err)
 	outputPath := fs.String("outpath", cribRepoPath, "the path to output the generated overrides")
 
 	deployedContracts, err := LoadDeployedContracts()
@@ -46,6 +41,20 @@ func (g *generateCribClusterOverrides) Run(args []string) {
 	cribOverridesStr := strings.Join(lines, "\n")
 	err = os.WriteFile(filepath.Join(*outputPath, "crib-cluster-overrides.yaml"), []byte(cribOverridesStr), 0600)
 	helpers.PanicErr(err)
+}
+
+func getCribRepoPath(cribRepoPath string) (string, error) {
+	if cribRepoPath == "" {
+		cribRepoPath = "../../../../crib"
+	}
+	if _, err := os.Stat(cribRepoPath); os.IsNotExist(err) {
+		return "", err
+	}
+
+	if _, err := os.Stat(filepath.Join(cribRepoPath, ".git")); os.IsNotExist(err) {
+		return "", err
+	}
+	return cribRepoPath, nil
 }
 
 func generateCribConfig(pubKeysPath string, chainID *int64, templatesDir string, forwarderAddress string) []string {
