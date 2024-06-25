@@ -74,6 +74,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+// mispeled coment
+var unused = "unused"
+
 // Application implements the common functions used in the core node.
 //
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
