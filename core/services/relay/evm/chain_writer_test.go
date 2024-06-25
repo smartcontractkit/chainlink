@@ -5,11 +5,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -58,6 +60,29 @@ func TestChainWriter(t *testing.T) {
 
 	t.Run("SubmitTransaction", func(t *testing.T) {
 		// TODO: implement
+	})
+
+	t.Run("GetTransactionStatus", func(t *testing.T) {
+		txs := []struct {
+			txid   string
+			status commontypes.TransactionStatus
+		}{
+			{uuid.NewString(), commontypes.Unknown},
+			{uuid.NewString(), commontypes.Unconfirmed},
+			{uuid.NewString(), commontypes.Finalized},
+			{uuid.NewString(), commontypes.Failed},
+			{uuid.NewString(), commontypes.Fatal},
+		}
+
+		for _, tx := range txs {
+			txm.On("GetTransactionStatus", mock.Anything, tx.txid).Return(tx.status, nil).Once()
+		}
+
+		for _, tx := range txs {
+			status, err := cw.GetTransactionStatus(ctx, tx.txid)
+			require.NoError(t, err)
+			require.Equal(t, tx.status, status)
+		}
 	})
 
 	t.Run("GetFeeComponents", func(t *testing.T) {
