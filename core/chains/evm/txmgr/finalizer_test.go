@@ -29,8 +29,9 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	feeLimit := uint64(10_000)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	rpcBatchSize := uint32(1)
 
-	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, txStore, ethClient)
+	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, txStore, ethClient)
 	err := finalizer.Start(ctx)
 	require.NoError(t, err)
 
@@ -137,19 +138,43 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		}
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
-		receiptHash := utils.NewHash()
-		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash, attemptHash)
+		receiptHash1 := utils.NewHash()
+		mustInsertEthReceipt(t, txStore, head.Parent.Number-2, receiptHash1, attemptHash)
+		idempotencyKey = uuid.New().String()
+		nonce = evmtypes.Nonce(1)
+		tx = &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		attemptHash = insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
+		// Insert receipt for finalized block num
+		receiptHash2 := utils.NewHash()
+		mustInsertEthReceipt(t, txStore, head.Parent.Number-1, receiptHash2, attemptHash)
+		// Separate batch calls will be made for each tx due to RPC batch size set to 1 when finalizer initialized above
 		ethClient.On("BatchCallContext", mock.Anything, mock.IsType([]rpc.BatchElem{})).Run(func(args mock.Arguments) {
 			rpcElements := args.Get(1).([]rpc.BatchElem)
 			require.Equal(t, 1, len(rpcElements))
 
 			require.Equal(t, "eth_getBlockByHash", rpcElements[0].Method)
-			require.Equal(t, receiptHash.String(), rpcElements[0].Args[0].(common.Hash).String())
 			require.Equal(t, false, rpcElements[0].Args[1])
 
-			head := evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash}
-			rpcElements[0].Result = &head
-		}).Return(nil).Once()
+			reqHash := rpcElements[0].Args[0].(common.Hash).String()
+			var headResult evmtypes.Head
+			if receiptHash1.String() == reqHash {
+				headResult = evmtypes.Head{Number: head.Parent.Number - 2, Hash: receiptHash1}
+			} else if receiptHash2.String() == reqHash {
+				headResult = evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash2}
+			} else {
+				require.Fail(t, "unrecognized block hash")
+			}
+			rpcElements[0].Result = &headResult
+		}).Return(nil).Twice()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
