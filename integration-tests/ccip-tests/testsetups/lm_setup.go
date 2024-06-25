@@ -225,8 +225,7 @@ func (o *LMTestSetupOutputs) CreateLMEnvironment(
 				return
 			}
 			lggr.Info().Msg("Tearing down the environment")
-			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter,
-				zapcore.ErrorLevel, o.Cfg.EnvInput, chains...)
+			err = integrationactions.TeardownSuite(t, nil, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter, zapcore.DPanicLevel, o.Cfg.EnvInput)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
 			//just send the report

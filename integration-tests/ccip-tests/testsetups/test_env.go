@@ -334,11 +334,13 @@ func DeployLocalCluster(
 				ccipNode, err := test_env.NewClNode(
 					[]string{env.DockerNetwork.Name},
 					pointer.GetString(clNode.ChainlinkImage.Image),
-					pointer.GetString(clNode.ChainlinkImage.Version), toml,
+					pointer.GetString(clNode.ChainlinkImage.Version),
+					toml,
+					env.LogStream,
 					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(clNode.DBImage),
-						ctftestenv.WithPostgresImageVersion(clNode.DBTag)),
-					test_env.WithLogStream(env.LogStream),
+						ctftestenv.WithPostgresImageVersion(clNode.DBTag),
+					),
 				)
 				if err != nil {
 					return err
@@ -362,10 +364,12 @@ func DeployLocalCluster(
 					[]string{env.DockerNetwork.Name},
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Image),
 					pointer.GetString(testInputs.EnvInput.NewCLCluster.Common.ChainlinkImage.Version),
-					toml, test_env.WithPgDBOptions(
+					toml,
+					env.LogStream,
+					test_env.WithPgDBOptions(
 						ctftestenv.WithPostgresImageName(testInputs.EnvInput.NewCLCluster.Common.DBImage),
-						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.NewCLCluster.Common.DBTag)),
-					test_env.WithLogStream(env.LogStream),
+						ctftestenv.WithPostgresImageVersion(testInputs.EnvInput.NewCLCluster.Common.DBTag),
+					),
 				)
 				if err != nil {
 					return err
