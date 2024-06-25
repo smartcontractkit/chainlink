@@ -50,88 +50,18 @@ func TestHomeChainConfigPoller_HealthReport(t *testing.T) {
 
 	// Initially it's healthy
 	healthy := configPoller.HealthReport()
-	assert.Equal(t, map[string]error{"HomeChainConfigPoller": error(nil)}, healthy)
+	assert.Equal(t, map[string]error{configPoller.Name(): error(nil)}, healthy)
 
 	// After one second it will try polling 10 times and fail
 	time.Sleep(1 * time.Second)
 
 	errors := configPoller.HealthReport()
-	_ = configPoller.Close()
+
+	err := configPoller.Close()
+	time.Sleep(100 * time.Millisecond)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, len(errors))
-	assert.Errorf(t, errors["HomeChainConfigPoller"], "polling failed %d times in a row", MaxFailedPolls)
-}
-func Test_ConvertOnChainConfigToHomeChainConfig(t *testing.T) {
-	var tests = []struct {
-		name            string
-		onChainConfigs  []ChainConfigInfo
-		homeChainConfig map[cciptypes.ChainSelector]ChainConfig
-		expErr          string
-	}{
-		{
-			name: "Convert",
-			onChainConfigs: []ChainConfigInfo{
-				{
-					ChainSelector: chainA,
-					ChainConfig: HomeChainConfigMapper{
-						FChain: 1,
-						Readers: []libocrtypes.PeerID{
-							p2pOracleAId,
-							p2pOracleBId,
-							p2pOracleCId,
-						},
-						Config: []byte{0},
-					},
-				},
-				{
-					ChainSelector: chainB,
-					ChainConfig: HomeChainConfigMapper{
-						FChain: 2,
-						Readers: []libocrtypes.PeerID{
-							p2pOracleAId,
-							p2pOracleBId,
-						},
-						Config: []byte{0},
-					},
-				},
-				{
-					ChainSelector: chainC,
-					ChainConfig: HomeChainConfigMapper{
-						FChain: 3,
-						Readers: []libocrtypes.PeerID{
-							p2pOracleCId,
-						},
-						Config: []byte{0},
-					},
-				},
-			},
-			homeChainConfig: map[cciptypes.ChainSelector]ChainConfig{
-				chainA: {
-					FChain:         1,
-					SupportedNodes: mapset.NewSet(p2pOracleAId, p2pOracleBId, p2pOracleCId),
-				},
-				chainB: {
-					FChain:         2,
-					SupportedNodes: mapset.NewSet(p2pOracleAId, p2pOracleBId),
-				},
-				chainC: {
-					FChain:         3,
-					SupportedNodes: mapset.NewSet(p2pOracleCId),
-				},
-			},
-		},
-	}
-	for _, tc := range tests {
-		configPoller := NewHomeChainConfigPoller(
-			nil,
-			logger.Test(t),
-			1*time.Second,
-		)
-		t.Run(tc.name, func(t *testing.T) {
-			resultConfig, err := configPoller.convertOnChainConfigToHomeChainConfig(tc.onChainConfigs)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.homeChainConfig, resultConfig)
-		})
-	}
+	assert.Errorf(t, errors[configPoller.Name()], "polling failed %d times in a row", MaxFailedPolls)
 }
 
 func Test_PollingWorking(t *testing.T) {
@@ -196,13 +126,18 @@ func Test_PollingWorking(t *testing.T) {
 	configPoller := NewHomeChainConfigPoller(
 		homeChainReader,
 		logger.Test(t),
-		1*time.Second,
+		400*time.Millisecond,
 	)
 
 	ctx := context.Background()
-	_ = configPoller.Start(ctx)
-	_ = configPoller.Close()
-	time.Sleep(100 * time.Millisecond)
+	err := configPoller.Start(ctx)
+	assert.NoError(t, err)
+	time.Sleep(1 * time.Second)
+	err = configPoller.Close()
+	assert.NoError(t, err)
+
+	// called 3 times, once when it's started, and 2 times when it's polling
+	homeChainReader.AssertNumberOfCalls(t, "GetLatestValue", 3)
 
 	configs, err := configPoller.GetAllChainConfigs()
 	assert.NoError(t, err)

@@ -68,7 +68,7 @@ func (p PluginFactory) NewReportingPlugin(config ocr3types.ReportingPluginConfig
 		nil, //reportCodec
 		nil, //msgHasher
 		nil, // lggr
-		nil, //homeChainPoller
+		nil, //homeChain
 	), ocr3types.ReportingPluginInfo{}, nil
 }
 
