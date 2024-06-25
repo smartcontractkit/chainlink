@@ -3,6 +3,7 @@ package commit
 import (
 	"context"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -301,8 +302,8 @@ func setupAllNodesReadAllChains(ctx context.Context, t *testing.T, lggr logger.L
 			chainB,
 			cciptypes.NewSeqNumRange(21, cciptypes.SeqNum(21+cfg.NewMsgScanBatchSize)),
 		).Return([]cciptypes.CCIPMsg{
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: cciptypes.Bytes32{1}, SourceChain: chainB, SeqNum: 21}},
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: cciptypes.Bytes32{2}, SourceChain: chainB, SeqNum: 22}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{1}, ID: "1", SourceChain: chainB, SeqNum: 21}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{2}, ID: "2", SourceChain: chainB, SeqNum: 22}},
 		}, nil)
 
 		n.ccipReader.On("GasPrices", ctx, []cciptypes.ChainSelector{chainA, chainB}).
@@ -401,8 +402,8 @@ func setupNodesDoNotAgreeOnMsgs(ctx context.Context, t *testing.T, lggr logger.L
 				cciptypes.SeqNum(21+cfg.NewMsgScanBatchSize),
 			),
 		).Return([]cciptypes.CCIPMsg{
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: cciptypes.Bytes32{1, byte(i)}, SourceChain: chainB, SeqNum: 21 + cciptypes.SeqNum(i*10)}},
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{ID: cciptypes.Bytes32{2, byte(i)}, SourceChain: chainB, SeqNum: 22 + cciptypes.SeqNum(i*20)}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{1}, ID: "1" + strconv.Itoa(i), SourceChain: chainB, SeqNum: 21 + cciptypes.SeqNum(i*10)}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{2}, ID: "2" + strconv.Itoa(i), SourceChain: chainB, SeqNum: 22 + cciptypes.SeqNum(i*20)}},
 		}, nil)
 
 		n.ccipReader.On("GasPrices", ctx, []cciptypes.ChainSelector{chainA, chainB}).

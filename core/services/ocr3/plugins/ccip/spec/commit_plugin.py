@@ -22,7 +22,8 @@ class Interval:
 @dataclass
 class Message:
     seq_nr: int
-    message_id: bytes
+    message_id: bytes    # a unique message identifier computed on the source chain
+    message_hash: bytes  # hash of message body computed on the destination chain and used on merkle tree
     # TODO:
 
 @dataclass
@@ -89,9 +90,10 @@ class CommitPlugin:
         new_msgs = {}
         for (chain, seq_num) in previous_outcome.latest_committed_seq_nums:
             if chain in self.cfg.oracle_info[self.cfg.oracle]:
-                new_msgs[chain] = self.onRamp(chain).get_msgs(chain, start=seq_num+1, limit=256)
-                for msg in new_msgs[chain]:
-                    assert(msg.id == msg.compute_id())
+                msgs = self.onRamp(chain).get_msgs(chain, start=seq_num+1, limit=256)
+                for msg in msgs:
+                    msg.message_hash = msg.compute_hash()
+                new_msgs[chain] = msgs
 
         # Observe token prices. {token: price}
         token_prices = self.get_token_prices()
@@ -123,11 +125,17 @@ class CommitPlugin:
             assert self.cfg.dest_chain in self.cfg.oracle_info[oracle]
 
         # Only accept source observations from nodes which support those sources.
+        msg_ids = set()
+        msg_hashes = set()
         for (chain, msgs) in observation.new_msgs.items():
             assert(chain in self.cfg.oracle_info[oracle])
-            # Don't allow duplicates by seqNr or id. Required to prevent double counting.
-            assert(len(msgs) == len(set([msg.seq_num for msg in msgs])))
-            assert(len(msgs) == len(set([msg.id for msg in msgs])))
+            # Don't allow duplicates of (chain, seqNr), (id) and (hash). Required to prevent double counting.
+            assert(len(msgs) == len(set([msg.seq_num for msg in msgs])))            
+            for msg in msgs:
+                assert msg.message_id not in msg_ids
+                assert msg.message_hash not in msg_hashes
+                msg_ids.add(msg.message_id)
+                msg_hashes.add(msg.message_hash)
 
     def observation_quorum(self):
         return "2F+1"
@@ -148,17 +156,19 @@ class CommitPlugin:
             msgs = [msg for msg in msgs if msg.seq_num > latest_committed_seq_nums[chain]]
 
             msgs_by_seq_num = msgs.group_by_seq_num() # { 423: [0x1, 0x1, 0x2] }
-                                                      # 2 nodes say that msg id is 0x1 and 1 node says it's 0x2
+                                                      # 2 nodes say that msg hash is 0x1 and 1 node says it's 0x2
+                                                      # if different hashes have the same number of votes, we select the
+                                                      # hash with the lowest lexicographic order
 
-            msg_ids = { seq_num: elem_most_occurrences(ids) for (seq_num, ids) in msgs_by_seq_num.items() }
-            for (seq_num, id) in msg_ids.items(): # require at least 2f+1 observations of the voted id
-                assert(msgs_by_seq_num[seq_num].count(id) >= 2*f_chain[chain]+1)
+            msg_hashes = { seq_num: elem_most_occurrences(hashes) for (seq_num, hashes) in msgs_by_seq_num.items() }
+            for (seq_num, hash) in msg_hashes.items(): # require at least 2f+1 observations of the voted hash
+                assert(msgs_by_seq_num[seq_num].count(hash) >= 2*f_chain[chain]+1)
 
-            msgs_for_tree = [] # [ (seq_num, id) ]
-            for (seq_num, id) in msg_ids.ordered_by_seq_num():
+            msgs_for_tree = [] # [ (seq_num, hash) ]
+            for (seq_num, hash) in msg_hashes.ordered_by_seq_num():
                 if len(msgs_for_tree) > 0 and msgs_for_tree[-1].seq_num+1 != seq_num:
                     break # gap in sequence numbers, stop here
-                msgs_for_tree.append((seq_num, id))
+                msgs_for_tree.append((seq_num, hash))
 
             commits[chain] = Commit(root=build_merkle_tree(msgs_for_tree), interval=Interval(min=msgs_for_tree[0].seq_num, max=msgs_for_tree[-1].seq_num))
 

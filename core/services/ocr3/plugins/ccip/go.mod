@@ -4,7 +4,7 @@ go 1.21.7
 
 require (
 	github.com/deckarep/golang-set/v2 v2.6.0
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240621142824-4ab126926def
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240625074419-c278d083facf
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/crypto v0.24.0
