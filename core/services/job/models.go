@@ -17,6 +17,7 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -382,7 +383,7 @@ type OCR2OracleSpec struct {
 
 func validateRelayID(id types.RelayID) error {
 	// only the EVM has specific requirements
-	if id.Network == types.NetworkEVM {
+	if id.Network == relay.NetworkEVM {
 		_, err := toml.ChainIDInt64(id.ChainID)
 		if err != nil {
 			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {IReceiver} from "../interfaces/IReceiver.sol";
-import {KeystoneRouter} from "../KeystoneRouter.sol";
+import {IRouter} from "../interfaces/IRouter.sol";
+import {KeystoneForwarder} from "../KeystoneForwarder.sol";
 
 contract KeystoneRouter_SetConfigTest is Test {
   address internal ADMIN = address(1);
@@ -16,11 +17,11 @@ contract KeystoneRouter_SetConfigTest is Test {
   bytes internal report = hex"9998";
   bytes32 internal id = hex"6d795f657865637574696f6e5f69640000000000000000000000000000000000";
 
-  KeystoneRouter internal s_router;
+  KeystoneForwarder internal s_router;
 
   function setUp() public virtual {
     vm.prank(ADMIN);
-    s_router = new KeystoneRouter();
+    s_router = new KeystoneForwarder();
   }
 
   function test_AddForwarder_RevertWhen_NotOwner() public {
@@ -35,9 +36,9 @@ contract KeystoneRouter_SetConfigTest is Test {
     s_router.removeForwarder(FORWARDER);
   }
 
-  function test_Route_RevertWhen_Unauthorized() public {
+  function test_Route_RevertWhen_UnauthorizedForwarder() public {
     vm.prank(STRANGER);
-    vm.expectRevert(KeystoneRouter.Unauthorized.selector);
+    vm.expectRevert(IRouter.UnauthorizedForwarder.selector);
     s_router.route(id, TRANSMITTER, RECEIVER, metadata, report);
   }
 

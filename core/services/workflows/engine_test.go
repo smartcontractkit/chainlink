@@ -89,10 +89,14 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 		Lggr:     logger.TestLogger(t),
 		Registry: reg,
 		Spec:     spec,
-		DONInfo: &capabilities.DON{
-			ID: "00010203",
+		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
+			return capabilities.Node{
+				WorkflowDON: capabilities.DON{
+					ID: "00010203",
+				},
+				PeerID: &peerID,
+			}, nil
 		},
-		PeerID:     func() *p2ptypes.PeerID { return &peerID },
 		maxRetries: 1,
 		retryMs:    100,
 		afterInit: func(success bool) {
@@ -736,4 +740,54 @@ func TestEngine_WrapsTargets(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
+}
+
+func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	require.NoError(t, reg.Add(ctx, mockTarget()))
+
+	clock := clockwork.NewFakeClock()
+	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+
+	var peerID p2ptypes.PeerID
+	node := capabilities.Node{
+		PeerID: &peerID,
+		WorkflowDON: capabilities.DON{
+			ID: "1",
+		},
+	}
+	retryCount := 0
+	eng, hooks := newTestEngine(
+		t,
+		reg,
+		delayedWorkflow,
+		func(c *Config) {
+			c.Store = dbstore
+			c.clock = clock
+			c.maxRetries = 2
+			c.retryMs = 0
+			c.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
+				n := capabilities.Node{}
+				err := errors.New("peer not initialized")
+				if retryCount > 0 {
+					n = node
+					err = nil
+				}
+				retryCount++
+				return n, err
+			}
+		},
+	)
+	servicetest.Run(t, eng)
+
+	<-hooks.initSuccessful
+
+	assert.Equal(t, node, eng.localNode)
 }

@@ -17,10 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -29,13 +30,13 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-var writeChainCapability = kcr.CapabilityRegistryCapability{
+var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 	LabelledName: "write-chain",
 	Version:      "1.0.1",
 	ResponseType: uint8(1),
 }
 
-func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilityRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
+func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
 	owner := testutils.MustNewSimTransactor(t)
 
 	oneEth, _ := new(big.Int).SetString("100000000000000000000", 10)
@@ -46,13 +47,13 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilityRegistry, common.Ad
 	}}, gasLimit)
 	simulatedBackend.Commit()
 
-	capabilityRegistryAddress, _, capabilityRegistry, err := kcr.DeployCapabilityRegistry(owner, simulatedBackend)
-	require.NoError(t, err, "DeployCapabilityRegistry failed")
+	CapabilitiesRegistryAddress, _, CapabilitiesRegistry, err := kcr.DeployCapabilitiesRegistry(owner, simulatedBackend)
+	require.NoError(t, err, "DeployCapabilitiesRegistry failed")
 
-	fmt.Println("Deployed CapabilityRegistry at", capabilityRegistryAddress.Hex())
+	fmt.Println("Deployed CapabilitiesRegistry at", CapabilitiesRegistryAddress.Hex())
 	simulatedBackend.Commit()
 
-	return capabilityRegistry, capabilityRegistryAddress, owner, simulatedBackend
+	return CapabilitiesRegistry, CapabilitiesRegistryAddress, owner, simulatedBackend
 }
 
 type crFactory struct {
@@ -110,18 +111,36 @@ func randomWord() [32]byte {
 	return [32]byte(word)
 }
 
+type mockWrapper struct {
+	services.Service
+	peer p2ptypes.Peer
+}
+
+func (m mockWrapper) GetPeer() p2ptypes.Peer {
+	return m.peer
+}
+
+type mockPeer struct {
+	p2ptypes.Peer
+	peerID p2ptypes.PeerID
+}
+
+func (m mockPeer) ID() p2ptypes.PeerID {
+	return m.peerID
+}
+
 func TestReader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
-	_, err := reg.AddCapabilities(owner, []kcr.CapabilityRegistryCapability{writeChainCapability})
+	_, err := reg.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{writeChainCapability})
 	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
 	sim.Commit()
 
 	cid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
 	require.NoError(t, err)
 
-	_, err = reg.AddNodeOperators(owner, []kcr.CapabilityRegistryNodeOperator{
+	_, err = reg.AddNodeOperators(owner, []kcr.CapabilitiesRegistryNodeOperator{
 		{
 			Admin: owner.From,
 			Name:  "TEST_NOP",
@@ -135,25 +154,31 @@ func TestReader_Integration(t *testing.T) {
 		randomWord(),
 	}
 
-	nodes := []kcr.CapabilityRegistryNodeInfo{
+	signersSet := [][32]byte{
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	nodes := []kcr.CapabilitiesRegistryNodeParams{
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
+			Signer:              signersSet[0],
 			P2pId:               nodeSet[0],
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
+			Signer:              signersSet[1],
 			P2pId:               nodeSet[1],
 			HashedCapabilityIds: [][32]byte{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorId:      uint32(1),
-			Signer:              randomWord(),
+			Signer:              signersSet[2],
 			P2pId:               nodeSet[2],
 			HashedCapabilityIds: [][32]byte{cid},
 		},
@@ -161,7 +186,7 @@ func TestReader_Integration(t *testing.T) {
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
 
-	cfgs := []kcr.CapabilityRegistryCapabilityConfiguration{
+	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: cid,
 			Config:       []byte(`{"hello": "world"}`),
@@ -180,7 +205,12 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	reader, err := newRemoteRegistryReader(ctx, factory, regAddress.Hex())
+	pw := mockWrapper{
+		peer: mockPeer{
+			peerID: nodeSet[0],
+		},
+	}
+	reader, err := newRemoteRegistryReader(ctx, logger.TestLogger(t), pw, factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	s, err := reader.state(ctx)
@@ -188,10 +218,17 @@ func TestReader_Integration(t *testing.T) {
 	assert.Len(t, s.IDsToCapabilities, 1)
 
 	gotCap := s.IDsToCapabilities[cid]
-	assert.Equal(t, writeChainCapability, gotCap)
+	assert.Equal(t, kcr.CapabilitiesRegistryCapabilityInfo{
+		HashedId:       cid,
+		LabelledName:   "write-chain",
+		Version:        "1.0.1",
+		ResponseType:   uint8(1),
+		CapabilityType: uint8(0),
+		IsDeprecated:   false,
+	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	assert.Equal(t, kcr.CapabilityRegistryDONInfo{
+	assert.Equal(t, kcr.CapabilitiesRegistryDONInfo{
 		Id:                       1, // initial Id
 		ConfigCount:              1, // initial Count
 		IsPublic:                 true,
@@ -201,10 +238,49 @@ func TestReader_Integration(t *testing.T) {
 		CapabilityConfigurations: cfgs,
 	}, s.IDsToDONs[1])
 
+	nodesInfo := []kcr.CapabilitiesRegistryNodeInfo{
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              signersSet[0],
+			P2pId:               nodeSet[0],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              signersSet[1],
+			P2pId:               nodeSet[1],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			ConfigCount:         1,
+			WorkflowDONId:       1,
+			Signer:              signersSet[2],
+			P2pId:               nodeSet[2],
+			HashedCapabilityIds: [][32]byte{cid},
+			CapabilitiesDONIds:  []*big.Int{},
+		},
+	}
+
 	assert.Len(t, s.IDsToNodes, 3)
-	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilityRegistryNodeInfo{
-		nodeSet[0]: nodes[0],
-		nodeSet[1]: nodes[1],
-		nodeSet[2]: nodes[2],
+	assert.Equal(t, map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{
+		nodeSet[0]: nodesInfo[0],
+		nodeSet[1]: nodesInfo[1],
+		nodeSet[2]: nodesInfo[2],
 	}, s.IDsToNodes)
+
+	node, err := reader.LocalNode(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, p2ptypes.PeerID(nodeSet[0]), *node.PeerID)
+	assert.Equal(t, fmt.Sprint(1), node.WorkflowDON.ID)
 }

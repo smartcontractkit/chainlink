@@ -25,13 +25,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/keystone_capability_registry"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type reader interface {
 	state(ctx context.Context) (state, error)
+	LocalNode(ctx context.Context) (capabilities.Node, error)
 }
 
 type registrySyncer struct {
@@ -41,7 +42,7 @@ type registrySyncer struct {
 	stopCh       services.StopChan
 	subServices  []services.Service
 	networkSetup HardcodedDonNetworkSetup
-	reader       reader
+	reader
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -79,7 +80,7 @@ func NewRegistrySyncer(
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
 	ctx, _ := stopCh.NewCtx()
-	reader, err := newRemoteRegistryReader(ctx, relayer, registryAddress)
+	reader, err := newRemoteRegistryReader(ctx, lggr, peerWrapper, relayer, registryAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +117,8 @@ func newRegistrySyncer(
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
-	// NOTE: Decrease wg.Add and uncomment line 124 below
-	// this for a hardcoded syncer
+	// NOTE: Decrease wg.Add and uncomment the line below
+	// `go s.launch()` to enable the hardcoded syncer.
 	s.wg.Add(1)
 	// go s.launch()
 	go s.syncLoop()
@@ -173,7 +174,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		allPeers[p] = cfg
 	}
 
-	publicDONs := []kcr.CapabilityRegistryDONInfo{}
+	publicDONs := []kcr.CapabilitiesRegistryDONInfo{}
 	for _, d := range readerState.IDsToDONs {
 		if !d.IsPublic {
 			continue
@@ -201,8 +202,8 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	// We'll also construct a set to record what DONs the current node is a part of,
 	// regardless of any modifiers (public/acceptsWorkflows etc).
 	myID := s.peerWrapper.GetPeer().ID()
-	myWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
-	remoteWorkflowDONs := []kcr.CapabilityRegistryDONInfo{}
+	myWorkflowDONs := []kcr.CapabilitiesRegistryDONInfo{}
+	remoteWorkflowDONs := []kcr.CapabilitiesRegistryDONInfo{}
 	myDONs := map[uint32]bool{}
 	for _, d := range readerState.IDsToDONs {
 		for _, peerID := range d.NodeP2PIds {
@@ -222,8 +223,8 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 
 	// - remote capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims.
-	myCapabilityDONs := []kcr.CapabilityRegistryDONInfo{}
-	remoteCapabilityDONs := []kcr.CapabilityRegistryDONInfo{}
+	myCapabilityDONs := []kcr.CapabilitiesRegistryDONInfo{}
+	remoteCapabilityDONs := []kcr.CapabilitiesRegistryDONInfo{}
 	for _, d := range publicDONs {
 		if len(d.CapabilityConfigurations) > 0 {
 			if myDONs[d.Id] {
@@ -266,7 +267,7 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	return nil
 }
 
-func signersFor(don kcr.CapabilityRegistryDONInfo, state state) ([][]byte, error) {
+func signersFor(don kcr.CapabilitiesRegistryDONInfo, state state) ([][]byte, error) {
 	s := [][]byte{}
 	for _, nodeID := range don.NodeP2PIds {
 		node, ok := state.IDsToNodes[nodeID]
@@ -282,7 +283,7 @@ func signersFor(don kcr.CapabilityRegistryDONInfo, state state) ([][]byte, error
 	return s, nil
 }
 
-func toDONInfo(don kcr.CapabilityRegistryDONInfo) *capabilities.DON {
+func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	peerIDs := []p2ptypes.PeerID{}
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
@@ -311,7 +312,7 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 	}
 }
 
-func (s *registrySyncer) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilityRegistryDONInfo, remoteDON kcr.CapabilityRegistryDONInfo, state state) error {
+func (s *registrySyncer) addRemoteCapabilities(ctx context.Context, myDON kcr.CapabilitiesRegistryDONInfo, remoteDON kcr.CapabilitiesRegistryDONInfo, state state) error {
 	for _, c := range remoteDON.CapabilityConfigurations {
 		capability, ok := state.IDsToCapabilities[c.CapabilityId]
 		if !ok {
@@ -398,7 +399,7 @@ type capabilityService interface {
 	services.Service
 }
 
-func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilityRegistryCapability, don kcr.CapabilityRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
+func (s *registrySyncer) addToRegistryAndSetDispatcher(ctx context.Context, capabilityInfo kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capabilityInfo.LabelledName, capabilityInfo.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,
@@ -448,7 +449,7 @@ var (
 	defaultTargetRequestTimeout = time.Minute
 )
 
-func (s *registrySyncer) enableExternalAccess(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilityRegistryDONInfo, state state, remoteWorkflowDONs []kcr.CapabilityRegistryDONInfo) error {
+func (s *registrySyncer) enableExternalAccess(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state state, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
 	idsToDONs := map[string]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[fmt.Sprint(d.Id)] = *toDONInfo(d)
@@ -519,7 +520,7 @@ type receiverService interface {
 	remotetypes.Receiver
 }
 
-func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.CapabilityRegistryCapability, don kcr.CapabilityRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
+func (s *registrySyncer) addReceiver(ctx context.Context, capability kcr.CapabilitiesRegistryCapabilityInfo, don kcr.CapabilitiesRegistryDONInfo, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (receiverService, error)) error {
 	fullCapID := fmt.Sprintf("%s@%s", capability.LabelledName, capability.Version)
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		fullCapID,

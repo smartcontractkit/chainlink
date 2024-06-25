@@ -18,7 +18,6 @@ import (
 	vrfcommon "github.com/smartcontractkit/chainlink/integration-tests/actions/vrf/common"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -121,8 +120,7 @@ func FundVRFCoordinatorV2_5Subscription(
 
 func CreateFundSubsAndAddConsumers(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
@@ -132,8 +130,7 @@ func CreateFundSubsAndAddConsumers(
 ) ([]*big.Int, error) {
 	subIDs, err := CreateSubsAndFund(
 		ctx,
-		env,
-		chainID,
+		sethClient,
 		subscriptionFundingAmountNative,
 		subscriptionFundingAmountLink,
 		linkToken,
@@ -160,15 +157,14 @@ func CreateFundSubsAndAddConsumers(
 
 func CreateSubsAndFund(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	subscriptionFundingAmountNative *big.Float,
 	subscriptionFundingAmountLink *big.Float,
 	linkToken contracts.LinkToken,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
-	subs, err := CreateSubs(ctx, env, chainID, coordinator, subAmountToCreate)
+	subs, err := CreateSubs(ctx, sethClient, coordinator, subAmountToCreate)
 	if err != nil {
 		return nil, err
 	}
@@ -187,15 +183,14 @@ func CreateSubsAndFund(
 
 func CreateSubs(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2_5,
 	subAmountToCreate int,
 ) ([]*big.Int, error) {
 	var subIDArr []*big.Int
 
 	for i := 0; i < subAmountToCreate; i++ {
-		subID, err := CreateSubAndFindSubID(ctx, env, chainID, coordinator)
+		subID, err := CreateSubAndFindSubID(ctx, sethClient, coordinator)
 		if err != nil {
 			return nil, err
 		}
@@ -219,14 +214,10 @@ func AddConsumersToSubs(
 	return nil
 }
 
-func CreateSubAndFindSubID(ctx context.Context, env *test_env.CLClusterTestEnv, chainID int64, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
+func CreateSubAndFindSubID(ctx context.Context, sethClient *seth.Client, coordinator contracts.VRFCoordinatorV2_5) (*big.Int, error) {
 	tx, err := coordinator.CreateSubscription()
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrCreateVRFSubscription, err)
-	}
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, err
 	}
 	receipt, err := sethClient.Client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
@@ -508,18 +499,13 @@ func DeployVRFV2PlusWrapperConsumers(client *seth.Client, vrfV2PlusWrapper contr
 }
 
 func SetupVRFV2PlusContracts(
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.VRFMockETHLINKFeed,
 	configGeneral *vrfv2plus_config.General,
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 Plus contracts")
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, err
-	}
 	vrfContracts, err := DeployVRFV2_5Contracts(sethClient)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployVRFV2_5Contracts, err)
@@ -554,8 +540,7 @@ func SetupVRFV2PlusContracts(
 
 func SetupNewConsumersAndSubs(
 	ctx context.Context,
-	env *test_env.CLClusterTestEnv,
-	chainID int64,
+	sethClient *seth.Client,
 	coordinator contracts.VRFCoordinatorV2_5,
 	testConfig tc.TestConfig,
 	linkToken contracts.LinkToken,
@@ -563,10 +548,6 @@ func SetupNewConsumersAndSubs(
 	numberOfSubToCreate int,
 	l zerolog.Logger,
 ) ([]contracts.VRFv2PlusLoadTestConsumer, []*big.Int, error) {
-	sethClient, err := env.GetSethClient(chainID)
-	if err != nil {
-		return nil, nil, err
-	}
 	consumers, err := DeployVRFV2PlusConsumers(sethClient, coordinator, consumerContractsAmount)
 	if err != nil {
 		return nil, nil, fmt.Errorf("err: %w", err)
@@ -577,8 +558,7 @@ func SetupNewConsumersAndSubs(
 		Msg("Creating and funding subscriptions, deploying and adding consumers to subs")
 	subIDs, err := CreateFundSubsAndAddConsumers(
 		ctx,
-		env,
-		chainID,
+		sethClient,
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountNative),
 		big.NewFloat(*testConfig.VRFv2Plus.General.SubscriptionFundingAmountLink),
 		linkToken,

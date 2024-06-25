@@ -71,7 +71,7 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	return nil
 }
 
-func (p *triggerPublisher) Receive(msg *types.MessageBody) {
+func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 	sender := ToPeerID(msg.Sender)
 	if msg.Method == types.MethodRegisterTrigger {
 		req, err := pb.UnmarshalCapabilityRequest(msg.Payload)

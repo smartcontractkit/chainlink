@@ -155,6 +155,15 @@
     },
     {
       "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "PromReporter",
       "attributes": {
         "name": "PromReporter",
