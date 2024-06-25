@@ -53,7 +53,7 @@ func NewTxm(
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
 	evmConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
-	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), txStore, client)
+	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txStore, client)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		evmResender = NewEvmResender(lggr, txStore, txmClient, evmTracker, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)

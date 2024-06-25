@@ -35,28 +35,31 @@ type finalizerChainClient interface {
 // Finalizer handles processing new finalized blocks and marking transactions as finalized accordingly in the TXM DB
 type evmFinalizer struct {
 	services.StateMachine
-	lggr    logger.SugaredLogger
-	chainId *big.Int
-	txStore finalizerTxStore
-	client  finalizerChainClient
-	mb      *mailbox.Mailbox[*evmtypes.Head]
-	stopCh  services.StopChan
-	wg      sync.WaitGroup
+	lggr         logger.SugaredLogger
+	chainId      *big.Int
+	rpcBatchSize int
+	txStore      finalizerTxStore
+	client       finalizerChainClient
+	mb           *mailbox.Mailbox[*evmtypes.Head]
+	stopCh       services.StopChan
+	wg           sync.WaitGroup
 }
 
 func NewEvmFinalizer(
 	lggr logger.Logger,
 	chainId *big.Int,
+	rpcBatchSize uint32,
 	txStore finalizerTxStore,
 	client finalizerChainClient,
 ) *evmFinalizer {
 	lggr = logger.Named(lggr, "Finalizer")
 	return &evmFinalizer{
-		txStore: txStore,
-		lggr:    logger.Sugared(lggr),
-		chainId: chainId,
-		client:  client,
-		mb:      mailbox.NewSingle[*evmtypes.Head](),
+		lggr:         logger.Sugared(lggr),
+		chainId:      chainId,
+		rpcBatchSize: int(rpcBatchSize),
+		txStore:      txStore,
+		client:       client,
+		mb:           mailbox.NewSingle[*evmtypes.Head](),
 	}
 }
 
@@ -182,7 +185,7 @@ func (f *evmFinalizer) processHead(ctx context.Context, head *evmtypes.Head) err
 
 	// Check if block hashes exist for receipts on-chain older than the earliest cached head
 	// Transactions are grouped by their receipt block hash to avoid repeat requests on the same hash in case transactions were confirmed in the same block
-	validatedReceiptTxs, err := f.batchCheckReceiptHashes(ctx, receiptBlockHashToTx, latestFinalizedHead.BlockNumber())
+	validatedReceiptTxs, err := f.batchCheckReceiptHashesOnchain(ctx, receiptBlockHashToTx, latestFinalizedHead.BlockNumber())
 	if err != nil {
 		// Do not error out to allow transactions that did not need RPC validation to still be marked as finalized
 		// The transactions failed to be validated will be checked again in the next round
@@ -199,11 +202,13 @@ func (f *evmFinalizer) processHead(ctx context.Context, head *evmtypes.Head) err
 	return nil
 }
 
-func (f *evmFinalizer) batchCheckReceiptHashes(ctx context.Context, receiptMap map[common.Hash][]*Tx, latestFinalizedBlockNum int64) ([]*Tx, error) {
+func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, receiptMap map[common.Hash][]*Tx, latestFinalizedBlockNum int64) ([]*Tx, error) {
 	if len(receiptMap) == 0 {
 		return nil, nil
 	}
-	var rpcBatchCalls []rpc.BatchElem
+	// Group the RPC batch calls in groups of rpcBatchSize
+	var rpcBatchGroups [][]rpc.BatchElem
+	var rpcBatch []rpc.BatchElem
 	for hash := range receiptMap {
 		elem := rpc.BatchElem{
 			Method: "eth_getBlockByHash",
@@ -213,29 +218,39 @@ func (f *evmFinalizer) batchCheckReceiptHashes(ctx context.Context, receiptMap m
 			},
 			Result: new(evmtypes.Head),
 		}
-		rpcBatchCalls = append(rpcBatchCalls, elem)
+		rpcBatch = append(rpcBatch, elem)
+		if len(rpcBatch) >= f.rpcBatchSize {
+			rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
+			rpcBatch = []rpc.BatchElem{}
+		}
 	}
 
-	err := f.client.BatchCallContext(ctx, rpcBatchCalls)
-	if err != nil {
-		return nil, fmt.Errorf("get block hash batch call failed: %w", err)
-	}
 	var finalizedTxs []*Tx
-	for _, req := range rpcBatchCalls {
-		if req.Error != nil {
-			f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+	for _, rpcBatch := range rpcBatchGroups {
+		err := f.client.BatchCallContext(ctx, rpcBatch)
+		if err != nil {
+			// Continue if batch RPC call failed so other batches can still be considered for finalization
+			f.lggr.Debugw("failed to find blocks due to batch call failure")
 			continue
 		}
-		head := req.Result.(*evmtypes.Head)
-		if head == nil {
-			f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
-			continue
-		}
-		// Confirmed receipt's block hash exists on-chain still
-		// Add to finalized list if block num less than or equal to the latest finalized head block num
-		if head.BlockNumber() <= latestFinalizedBlockNum {
-			txs := receiptMap[head.BlockHash()]
-			finalizedTxs = append(finalizedTxs, txs...)
+		for _, req := range rpcBatch {
+			if req.Error != nil {
+				// Continue if particular RPC call failed so other txs can still be considered for finalization
+				f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+				continue
+			}
+			head := req.Result.(*evmtypes.Head)
+			if head == nil {
+				// Continue if particular RPC call yielded a nil head so other txs can still be considered for finalization
+				f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+				continue
+			}
+			// Confirmed receipt's block hash exists on-chain
+			// Add to finalized list if block num less than or equal to the latest finalized head block num
+			if head.BlockNumber() <= latestFinalizedBlockNum {
+				txs := receiptMap[head.BlockHash()]
+				finalizedTxs = append(finalizedTxs, txs...)
+			}
 		}
 	}
 	return finalizedTxs, nil
