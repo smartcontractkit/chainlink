@@ -38,8 +38,8 @@ func CreateOCRv2JobsLocal(
 	workerChainlinkNodes []*client.ChainlinkClient,
 	mockAdapter *test_env.Killgrave,
 	mockAdapterPath string, // Path on the mock server for the Chainlink nodes to query
-	mockAdapterValue int,   // Value to get from the mock server when querying the path
-	chainId uint64,         // EVM chain ID
+	mockAdapterValue int, // Value to get from the mock server when querying the path
+	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
 	enableChainReaderAndCodec bool,
 ) error {
@@ -198,7 +198,7 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient, ocrOffcha
 			AlphaAcceptInfinite: false,
 			AlphaAcceptPPB:      1,
 			DeltaC:              time.Minute * 30,
-		}.Encode(),    // reportingPluginConfig []byte,
+		}.Encode(), // reportingPluginConfig []byte,
 		5*time.Second, // maxDurationQuery time.Duration,
 		5*time.Second, // maxDurationObservation time.Duration,
 		5*time.Second, // maxDurationReport time.Duration,
