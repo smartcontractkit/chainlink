@@ -3,9 +3,13 @@
 flowchart LR
   subgraph chains
     chainlink-cosmos
-    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    subgraph chainlink-integrations
+      direction LR
+      chainlink-integrations/evm/relayer
+      chainlink-integrations/common
+    end
   end
 
   subgraph products

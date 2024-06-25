@@ -958,3 +958,36 @@ spec = "a spec"
 	assert.Equal(t, "median", pc.PluginName)
 	assert.Equal(t, "median", pc.TelemetryType)
 }
+
+type envelope2 struct {
+	OnchainSigningStrategy *validate.OCR2OnchainSigningStrategy
+}
+
+func TestOCR2OnchainSigningStrategy_Unmarshal(t *testing.T) {
+	payload := `
+[onchainSigningStrategy]
+strategyName = "single-chain"
+[onchainSigningStrategy.config]
+evm = "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17"
+publicKey = "0x1234567890123456789012345678901234567890"
+`
+	oss := &envelope2{}
+	tree, err := toml.Load(payload)
+	require.NoError(t, err)
+	o := map[string]any{}
+	err = tree.Unmarshal(&o)
+	require.NoError(t, err)
+	b, err := json.Marshal(o)
+	require.NoError(t, err)
+	err = json.Unmarshal(b, oss)
+	require.NoError(t, err)
+
+	pk, err := oss.OnchainSigningStrategy.PublicKey()
+	require.NoError(t, err)
+	kbID, err := oss.OnchainSigningStrategy.KeyBundleID("evm")
+	require.NoError(t, err)
+
+	assert.False(t, oss.OnchainSigningStrategy.IsMultiChain())
+	assert.Equal(t, "0x1234567890123456789012345678901234567890", pk)
+	assert.Equal(t, "08d14c6eed757414d72055d28de6caf06535806c6a14e450f3a2f1c854420e17", kbID)
+}

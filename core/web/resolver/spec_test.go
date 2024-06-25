@@ -19,6 +19,7 @@ import (
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -1085,6 +1086,63 @@ func TestResolver_GatewaySpec(t *testing.T) {
 							"id": "1",
 							"gatewayConfig": {"NodeServerConfig": {}},
 							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "StandardCapabilities spec",
+			authenticated: true,
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
+					Type: job.StandardCapabilities,
+					StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
+						ID:        id,
+						CreatedAt: f.Timestamp(),
+						Command:   "testcommand",
+						Config:    "testconfig",
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on StandardCapabilitiesSpec {
+									id
+									createdAt
+									command
+									config
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "StandardCapabilitiesSpec",
+							"id": "1",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"command": "testcommand",
+							"config": "testconfig"
 						}
 					}
 				}

@@ -1,0 +1,26 @@
+type = "offchainreporting2"
+schemaVersion = 1
+name = "Keystone"
+contractID = "{{ ocr_config_contract_address }}"
+ocrKeyBundleID = "{{ ocr_key_bundle_id }}"
+p2pv2Bootstrappers = [
+  "{{ bootstrapper_p2p_id }}",
+]
+relay = "evm"
+pluginType = "plugin"
+transmitterID = "{{ transmitter_id }}"
+
+[relayConfig]
+chainID = "{{ chain_id }}"
+
+[pluginConfig]
+command = "chainlink-ocr3-capability"
+ocrVersion = 3
+pluginName = "ocr-capability"
+providerType = "plugin"
+telemetryType = "plugin"
+
+[onchainSigningStrategy]
+strategyName = 'single-chain'
+[onchainSigningStrategy.config]
+publicKey = '8fa807463ad73f9ee855cfd60ba406dcf98a2855b3dd8af613107b0f6890a707'

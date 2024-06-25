@@ -34,7 +34,7 @@ regarding Chainlink social accounts, news, and networking.
 
 1. [Install Go 1.21](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
-2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v8 via npm](https://pnpm.io/installation#using-npm).
+2. Install [NodeJS v20](https://nodejs.org/en/download/package-manager/) & [pnpm v9 via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
@@ -64,6 +64,7 @@ Ethereum node versions currently tested and supported:
 
 - [Parity/Openethereum](https://github.com/openethereum/openethereum) (NOTE: Parity is deprecated and support for this client may be removed in future)
 - [Geth](https://github.com/ethereum/go-ethereum/releases)
+- [Besu](https://github.com/hyperledger/besu)
 
 [Supported but broken]
 These clients are supported by Chainlink, but have bugs that prevent Chainlink from working reliably on these execution clients.
@@ -71,11 +72,6 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
   - ~https://github.com/NethermindEth/nethermind/issues/4384~
-- [Besu](https://github.com/hyperledger/besu)
-  Blocking issues:
-  - https://github.com/hyperledger/besu/issues/4212
-  - ~https://github.com/hyperledger/besu/issues/4192~
-  - ~https://github.com/hyperledger/besu/issues/4114~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
   - https://github.com/ledgerwatch/erigon/discussions/4946
@@ -140,7 +136,7 @@ For more information on creating and using external adapters, please see our [ex
 
 ### Running tests
 
-1. [Install pnpm via npm](https://pnpm.io/installation#using-npm)
+1. [Install pnpm 9 via npm](https://pnpm.io/installation#using-npm)
 
 2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
@@ -188,6 +184,14 @@ After the one-time setup above:
 source .dbenv
 make testdb
 ```
+
+If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
+and you want force the database creation then use
+```
+source .dbenv
+make testdb-force
+```
+
 
 7. Run tests:
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func assertArgs(t *testing.T, args *queryArgs, numVals int) {
@@ -33,7 +34,7 @@ func TestDSLParser(t *testing.T) {
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 
 		require.NoError(t, err)
-		assert.Equal(t, "SELECT evm.logs.* FROM evm.logs WHERE evm_chain_id = :evm_chain_id", result)
+		assert.Equal(t, "SELECT evm.logs.* FROM evm.logs WHERE evm_chain_id = :evm_chain_id ORDER BY "+defaultSort, result)
 
 		assertArgs(t, args, 1)
 	})
@@ -46,22 +47,25 @@ func TestDSLParser(t *testing.T) {
 		expressions := []query.Expression{
 			NewAddressFilter(common.HexToAddress("0x42")),
 			NewEventSigFilter(common.HexToHash("0x21")),
+			NewConfirmationsFilter(types.Finalized),
 		}
-		limiter := query.NewLimitAndSort(query.CursorLimit("10-0x42-5", query.CursorFollowing, 20))
+		limiter := query.NewLimitAndSort(query.CursorLimit("10-5-0x42", query.CursorFollowing, 20))
 
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"AND (address = :address_0 AND event_sig = :event_sig_0) " +
-			"AND block_number >= :cursor_block AND tx_hash >= :cursor_txhash AND log_index > :cursor_log_index " +
-			"ORDER BY block_number ASC, tx_hash ASC, log_index ASC " +
+			"AND (address = :address_0 AND event_sig = :event_sig_0 " +
+			"AND block_number <= " +
+			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
+			"AND (block_number > :cursor_block_number OR (block_number = :cursor_block_number AND log_index > :cursor_log_index)) " +
+			"ORDER BY block_number ASC, log_index ASC, tx_hash ASC " +
 			"LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 6)
+		assertArgs(t, args, 5)
 	})
 
 	t.Run("query with limit and no order by", func(t *testing.T) {
@@ -80,6 +84,7 @@ func TestDSLParser(t *testing.T) {
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
 			"AND (address = :address_0 AND event_sig = :event_sig_0) " +
+			"ORDER BY " + defaultSort + " " +
 			"LIMIT 20"
 
 		require.NoError(t, err)
@@ -100,7 +105,7 @@ func TestDSLParser(t *testing.T) {
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"ORDER BY block_number DESC, tx_hash DESC, log_index DESC"
+			"ORDER BY block_number DESC, log_index DESC, tx_hash DESC"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -137,10 +142,9 @@ func TestDSLParser(t *testing.T) {
 			query.Timestamp(10, primitives.Eq),
 			query.TxHash(common.HexToHash("0x84").String()),
 			query.Block(99, primitives.Neq),
-			query.Confirmation(primitives.Finalized),
-			query.Confirmation(primitives.Unconfirmed),
+			query.Confidence(primitives.Finalized),
 		}
-		limiter := query.NewLimitAndSort(query.CursorLimit("10-0x42-20", query.CursorPrevious, 20))
+		limiter := query.NewLimitAndSort(query.CursorLimit("10-20-0x42", query.CursorPrevious, 20))
 
 		result, args, err := parser.buildQuery(chainID, expressions, limiter)
 		expected := "SELECT evm.logs.* " +
@@ -150,15 +154,14 @@ func TestDSLParser(t *testing.T) {
 			"AND tx_hash = :tx_hash_0 " +
 			"AND block_number != :block_number_0 " +
 			"AND block_number <= " +
-			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) " +
-			"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
-			"AND block_number <= :cursor_block AND tx_hash <= :cursor_txhash AND log_index < :cursor_log_index " +
-			"ORDER BY block_number DESC, tx_hash DESC, log_index DESC LIMIT 20"
+			"(SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)) " +
+			"AND (block_number < :cursor_block_number OR (block_number = :cursor_block_number AND log_index < :cursor_log_index)) " +
+			"ORDER BY block_number DESC, log_index DESC, tx_hash DESC LIMIT 20"
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
 
-		assertArgs(t, args, 8)
+		assertArgs(t, args, 6)
 	})
 
 	t.Run("query for finality", func(t *testing.T) {
@@ -167,14 +170,15 @@ func TestDSLParser(t *testing.T) {
 		t.Run("finalized", func(t *testing.T) {
 			parser := &pgDSLParser{}
 			chainID := big.NewInt(1)
-			expressions := []query.Expression{query.Confirmation(primitives.Finalized)}
+
+			expressions := []query.Expression{query.Confidence(primitives.Finalized)}
 			limiter := query.LimitAndSort{}
 
 			result, args, err := parser.buildQuery(chainID, expressions, limiter)
 			expected := "SELECT evm.logs.* " +
 				"FROM evm.logs " +
 				"WHERE evm_chain_id = :evm_chain_id " +
-				"AND block_number <= (SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)"
+				"AND block_number <= (SELECT finalized_block_number FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) ORDER BY " + defaultSort
 
 			require.NoError(t, err)
 			assert.Equal(t, expected, result)
@@ -185,17 +189,42 @@ func TestDSLParser(t *testing.T) {
 		t.Run("unconfirmed", func(t *testing.T) {
 			parser := &pgDSLParser{}
 			chainID := big.NewInt(1)
-			expressions := []query.Expression{query.Confirmation(primitives.Unconfirmed)}
+
+			expressions := []query.Expression{query.Confidence(primitives.Unconfirmed)}
 			limiter := query.LimitAndSort{}
 
 			result, args, err := parser.buildQuery(chainID, expressions, limiter)
 			expected := "SELECT evm.logs.* " +
 				"FROM evm.logs " +
 				"WHERE evm_chain_id = :evm_chain_id " +
-				"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)"
+				"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) ORDER BY " + defaultSort
 
 			require.NoError(t, err)
 			assert.Equal(t, expected, result)
+
+			assertArgs(t, args, 2)
+		})
+
+		t.Run("exact confirmations", func(t *testing.T) {
+			parser := &pgDSLParser{}
+			chainID := big.NewInt(1)
+
+			expressions := []query.Expression{NewConfirmationsFilter(25)}
+			limiter := query.LimitAndSort{}
+
+			result, args, err := parser.buildQuery(chainID, expressions, limiter)
+			expected := "SELECT evm.logs.* " +
+				"FROM evm.logs " +
+				"WHERE evm_chain_id = :evm_chain_id " +
+				"AND block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) ORDER BY " + defaultSort
+
+			require.NoError(t, err)
+			assert.Equal(t, expected, result)
+
+			confirmations, ok := args.args["confs_0"]
+
+			require.True(t, ok)
+			require.Equal(t, uint64(25), confirmations)
 
 			assertArgs(t, args, 2)
 		})
@@ -217,7 +246,7 @@ func TestDSLParser(t *testing.T) {
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"AND substring(data from 32*:word_index_0+1 for 32) > :word_value_0"
+			"AND substring(data from 32*:word_index_0+1 for 32) > :word_value_0 ORDER BY " + defaultSort
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -242,7 +271,7 @@ func TestDSLParser(t *testing.T) {
 		expected := "SELECT evm.logs.* " +
 			"FROM evm.logs " +
 			"WHERE evm_chain_id = :evm_chain_id " +
-			"AND topics[:topic_index_0] > :topic_value_0 AND topics[:topic_index_0] < :topic_value_1"
+			"AND topics[:topic_index_0] > :topic_value_0 AND topics[:topic_index_0] < :topic_value_1 ORDER BY " + defaultSort
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -256,6 +285,7 @@ func TestDSLParser(t *testing.T) {
 
 		parser := &pgDSLParser{}
 		chainID := big.NewInt(1)
+
 		expressions := []query.Expression{
 			{BoolExpression: query.BoolExpression{
 				Expressions: []query.Expression{
@@ -263,7 +293,7 @@ func TestDSLParser(t *testing.T) {
 					{BoolExpression: query.BoolExpression{
 						Expressions: []query.Expression{
 							query.TxHash(common.HexToHash("0x84").Hex()),
-							query.Confirmation(primitives.Unconfirmed),
+							query.Confidence(primitives.Unconfirmed),
 						},
 						BoolOperator: query.OR,
 					}},
@@ -279,7 +309,7 @@ func TestDSLParser(t *testing.T) {
 			"WHERE evm_chain_id = :evm_chain_id " +
 			"AND (block_timestamp >= :block_timestamp_0 " +
 			"AND (tx_hash = :tx_hash_0 " +
-			"OR block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1)))"
+			"OR block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1))) ORDER BY " + defaultSort
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)
@@ -298,6 +328,7 @@ func TestDSLParser(t *testing.T) {
 
 		parser := &pgDSLParser{}
 		chainID := big.NewInt(1)
+
 		expressions := []query.Expression{
 			{BoolExpression: query.BoolExpression{
 				Expressions: []query.Expression{
@@ -307,7 +338,7 @@ func TestDSLParser(t *testing.T) {
 							query.TxHash(common.HexToHash("0x84").Hex()),
 							{BoolExpression: query.BoolExpression{
 								Expressions: []query.Expression{
-									query.Confirmation(primitives.Unconfirmed),
+									query.Confidence(primitives.Unconfirmed),
 									wordFilter,
 								},
 								BoolOperator: query.AND,
@@ -329,7 +360,7 @@ func TestDSLParser(t *testing.T) {
 			"AND (tx_hash = :tx_hash_0 " +
 			"OR (block_number <= (SELECT greatest(block_number - :confs_0, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = :evm_chain_id ORDER BY block_number DESC LIMIT 1) " +
 			"AND substring(data from 32*:word_index_0+1 for 32) > :word_value_0 " +
-			"AND substring(data from 32*:word_index_0+1 for 32) <= :word_value_1)))"
+			"AND substring(data from 32*:word_index_0+1 for 32) <= :word_value_1))) ORDER BY " + defaultSort
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, result)

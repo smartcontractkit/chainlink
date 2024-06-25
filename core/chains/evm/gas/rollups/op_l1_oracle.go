@@ -21,9 +21,9 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 )
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
@@ -32,7 +32,7 @@ type OptimismL1Oracle struct {
 	client     l1OracleClient
 	pollPeriod time.Duration
 	logger     logger.SugaredLogger
-	chainType  config.ChainType
+	chainType  chaintype.ChainType
 
 	l1OracleAddress     string
 	gasPriceMethod      string
@@ -84,14 +84,14 @@ const (
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
-func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType) *OptimismL1Oracle {
+func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) *OptimismL1Oracle {
 	var precompileAddress string
 	switch chainType {
-	case config.ChainOptimismBedrock:
+	case chaintype.ChainOptimismBedrock:
 		precompileAddress = OPGasOracleAddress
-	case config.ChainKroma:
+	case chaintype.ChainKroma:
 		precompileAddress = KromaGasOracleAddress
-	case config.ChainScroll:
+	case chaintype.ChainScroll:
 		precompileAddress = ScrollGasOracleAddress
 	default:
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
@@ -99,7 +99,7 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress)
 }
 
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType config.ChainType, precompileAddress string) *OptimismL1Oracle {
+func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string) *OptimismL1Oracle {
 	var l1OracleAddress, gasPriceMethod, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -274,7 +274,7 @@ func (o *OptimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	defer cancel()
 	var callData, b []byte
 	var err error
-	if o.chainType == config.ChainKroma {
+	if o.chainType == chaintype.ChainKroma {
 		return nil, fmt.Errorf("L1 gas cost not supported for this chain: %s", o.chainType)
 	}
 	// Append rlp-encoded tx
@@ -343,7 +343,7 @@ func (o *OptimismL1Oracle) checkIsEcotone(ctx context.Context) (bool, error) {
 
 	// if the chain has not upgraded to Ecotone, the isEcotone call will revert, this would be expected
 	if err != nil {
-		o.logger.Infof("isEcotone() call failed, this can happen if chain has not upgraded: %w", err)
+		o.logger.Infof("isEcotone() call failed, this can happen if chain has not upgraded: %v", err)
 		return false, nil
 	}
 

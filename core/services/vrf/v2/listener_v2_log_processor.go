@@ -148,7 +148,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context, pendingReq
 		)
 		sID, ok := new(big.Int).SetString(subID, 10)
 		if !ok {
-			l.Criticalw("Unable to convert %s to Int", subID)
+			l.Criticalf("Unable to convert %s to Int", subID)
 			return
 		}
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
@@ -1049,7 +1049,8 @@ func (lsn *listenerV2) runPipelines(
 		wg.Add(1)
 		go func(i int, req pendingRequest) {
 			defer wg.Done()
-			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, l)
+			ll := l.With("reqID", req.req.RequestID().String())
+			results[i] = lsn.simulateFulfillment(ctx, maxGasPriceWei, req, ll)
 		}(i, req)
 	}
 	wg.Wait()
@@ -1103,7 +1104,6 @@ func (lsn *listenerV2) simulateFulfillment(
 	if err != nil {
 		// not critical, just log and continue
 		lg.Warnw("unable to estimate funds needed for request, continuing anyway",
-			"reqID", req.req.RequestID(),
 			"err", err)
 		res.fundsNeeded = big.NewInt(0)
 	}
