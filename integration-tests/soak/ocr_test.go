@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -15,25 +17,28 @@ import (
 	"github.com/smartcontractkit/havoc/k8schaos"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-func TestOCRSoak(t *testing.T) {
-	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
-	customNetworkTOML := ``
-	// Uncomment below for debugging TOML issues on the node
-	// network := networks.MustGetSelectedNetworksFromEnv()[0]
-	// fmt.Println("Using Chainlink TOML\n---------------------")
-	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCR1Config, customNetworkTOML, network))
-	// fmt.Println("---------------------")
+func TestOCRv1Soak(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, customNetworkTOML)
+	executeOCRSoakTest(t, ocrSoakTest, &config)
+}
+
+func TestOCRv2Soak(t *testing.T) {
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR2)
+	require.NoError(t, err, "Error getting config")
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
+	require.NoError(t, err, "Error creating OCR soak test")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
@@ -41,7 +46,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
@@ -49,7 +54,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 func TestOCRSoak_GasSpike(t *testing.T) {
@@ -57,7 +62,7 @@ func TestOCRSoak_GasSpike(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 // TestOCRSoak_ChangeBlockGasLimit changes next block gas limit and sets it to percentage of last gasUsed in previous block creating congestion
@@ -66,7 +71,7 @@ func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for all Chainlink Nodes
@@ -98,7 +103,7 @@ func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for 50% of Chainlink Nodes
@@ -131,16 +136,27 @@ func TestOCRSoak_RPCDownForHalfCLNodes(t *testing.T) {
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
 	require.NoError(t, err, "Error creating OCR soak test")
-	runOCRSoakTest(t, ocrSoakTest, config, "")
+	executeOCRSoakTest(t, ocrSoakTest, &config)
 }
 
-func runOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config tc.TestConfig, customNetworkTOML string) {
+func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.TestConfig) {
 	l := logging.GetTestLogger(t)
 
+	// validate Seth config before anything else, but only for live networks (simulated will fail, since there's no chain started yet)
+	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
+	if !network.Simulated {
+		_, err := seth_utils.GetChainClient(config, network)
+		require.NoError(t, err, "Error creating seth client")
+	}
+
+	if !test.Interrupted() {
+		test.DeployEnvironment(config)
+	}
 	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
 	if !test.Interrupted() {
-		test.DeployEnvironment(customNetworkTOML, &config)
+		test.DeployEnvironment(config)
 	}
+
 	if test.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -154,7 +170,7 @@ func runOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config tc.TestCo
 		require.NoError(t, err, "Error loading state")
 		test.Resume()
 	} else {
-		test.Setup(&config)
+		test.Setup(config)
 		test.Run()
 	}
 }

@@ -4,6 +4,8 @@ package reorg
 import (
 	"fmt"
 	"math/big"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
 
@@ -30,37 +32,15 @@ import (
 )
 
 var (
-	baseTOML = `
-[Feature]
-LogPoller = true
+	reorgBlockCount       = 10 // Number of blocks to reorg (should be less than finalityDepth)
+	upkeepCount           = 2
+	nodeCount             = 6
+	nodeFundsAmount       = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+	finalityDepth         int
+	historyDepth          int
 
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
-	`
-	finalityDepth   = 20
-	historyDepth    = 30
-	reorgBlockCount = 10 // Number of blocks to reorg (less than finalityDepth)
-	networkTOML     = fmt.Sprintf(`
-Enabled = true
-FinalityDepth = %d
-
-[EVM.HeadTracker]
-HistoryDepth = %d
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000
-	`, finalityDepth, historyDepth)
-	upkeepCount               = 2
-	nodeCount                 = 6
-	nodeFundsAmount           = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
-	defaultUpkeepGasLimit     = uint32(2500000)
-	defaultLinkFunds          = int64(9e18)
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
 		"db": map[string]interface{}{
@@ -104,6 +84,30 @@ LimitDefault = 5_000_000
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
+	require.NoError(t, err, "Error getting config")
+
+	findIntValue := func(text string, substring string) (int, error) {
+		re := regexp.MustCompile(fmt.Sprintf(`%s\s*=\s*(\d+)`, substring))
+
+		match := re.FindStringSubmatch(text)
+		if len(match) > 1 {
+			asInt, err := strconv.Atoi(match[1])
+			if err != nil {
+				return 0, err
+			}
+			return asInt, nil
+		}
+
+		return 0, fmt.Errorf("no match found for %s", substring)
+	}
+
+	finalityDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "FinalityDepth")
+	require.NoError(t, err, "Error getting finality depth")
+
+	historyDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "HistoryDepth")
+	require.NoError(t, err, "Error getting history depth")
+
 	require.Less(t, reorgBlockCount, finalityDepth, "Reorg block count should be less than finality depth")
 
 	t.Parallel()
@@ -129,8 +133,11 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
+			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
+			require.NoError(t, err, "Error building TOML config")
+
 			defaultAutomationSettings["replicas"] = nodeCount
-			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
+			defaultAutomationSettings["toml"] = tomlConfig
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
