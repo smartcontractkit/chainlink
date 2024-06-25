@@ -57,6 +57,12 @@ func TestVRFv2PlusConfig(t *testing.T) {
 	fmt.Println("TestDuration", config.VRFv2Plus.Performance.TestDuration.Duration.String())
 	fmt.Println("RateLimitUnitDuration", config.VRFv2Plus.Performance.RateLimitUnitDuration.Duration.String())
 
+	//todo - resolve issue - config from default config is used, instead of the one from the network
+	fmt.Println("FallbackWeiPerUnitLink", *config.VRFv2Plus.General.FallbackWeiPerUnitLink)
+	//todo - resolve issue - config from default config is used, instead of the one from the network
+	fmt.Println("VRFv2Plus.ExistingEnv.CoordinatorAddress", *config.VRFv2Plus.ExistingEnvConfig.CoordinatorAddress)
+
+	//
 }
 func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
