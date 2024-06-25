@@ -27,8 +27,6 @@ var embedMigrations embed.FS
 
 const MIGRATIONS_DIR string = "migrations"
 
-var provider *goose.Provider
-
 func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
 	store, err := database.NewStore(goose.DialectPostgres, "goose_migrations")
 	if err != nil {
@@ -54,17 +52,17 @@ func NewProvider(ctx context.Context, db *sql.DB) (*goose.Provider, error) {
 	goose.ResetGlobalMigrations()
 	p, err := goose.NewProvider("", db, fys,
 		goose.WithStore(store),
-		//goose.WithDisableGlobalRegistry(true),
 		goose.WithGoMigrations(goMigrations...),
 		goose.WithVerbose(verbose))
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create goose provider: %w", err)
 	}
+
 	err = ensureMigrated(ctx, db, p, store.Tablename())
 	if err != nil {
 		return nil, err
 	}
+
 	return p, nil
 }
 
@@ -159,7 +157,6 @@ func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 		_, err = provider.Down(ctx)
 	}
 	return err
-
 }
 
 func Current(ctx context.Context, db *sql.DB) (int64, error) {

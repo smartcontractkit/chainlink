@@ -30,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-var migrationDir = "migrations"
-
 type OffchainReporting2OracleSpec100 struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
