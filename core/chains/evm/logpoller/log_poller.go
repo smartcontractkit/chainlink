@@ -1021,6 +1021,11 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 		if err != nil {
 			return nil, 0, err
 		}
+		if latestBlock == nil {
+			// Shouldn't happen with a real client, but still better rather to
+			// return error than panic
+			return nil, 0, errors.New("latest block is nil")
+		}
 		// If chain has fewer blocks than finalityDepth, return 0
 		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
 	}
