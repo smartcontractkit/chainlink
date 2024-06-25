@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -580,22 +581,22 @@ func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore k
 
 func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore keystore.Master, key string) error {
 	switch network {
-	case types.NetworkEVM:
+	case relay.NetworkEVM:
 		_, err := keyStore.Eth().Get(ctx, key)
 		if err != nil {
 			return errors.Errorf("no EVM key matching: %q", key)
 		}
-	case types.NetworkCosmos:
+	case relay.NetworkCosmos:
 		_, err := keyStore.Cosmos().Get(key)
 		if err != nil {
 			return errors.Errorf("no Cosmos key matching: %q", key)
 		}
-	case types.NetworkSolana:
+	case relay.NetworkSolana:
 		_, err := keyStore.Solana().Get(key)
 		if err != nil {
 			return errors.Errorf("no Solana key matching: %q", key)
 		}
-	case types.NetworkStarkNet:
+	case relay.NetworkStarkNet:
 		_, err := keyStore.StarkNet().Get(key)
 		if err != nil {
 			return errors.Errorf("no Starknet key matching: %q", key)
