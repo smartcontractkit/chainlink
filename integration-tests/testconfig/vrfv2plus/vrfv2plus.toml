@@ -203,10 +203,148 @@ bhs_test_duration = "1m"
 bhs_test_rate_limit_unit_duration = "3s"
 bhs_test_rps = 1
 
-[POLYGON_AMOY-Smoke.VRFv2Plus.General]
-cl_node_max_gas_price_gwei = 21231231
-subscription_funding_amount_native = 66
+### POLYGON AMOY Config
 
-[POLYGON_AMOY-Load.VRFv2Plus.General]
-cl_node_max_gas_price_gwei = 21231231
+[POLYGON_AMOY.VRFv2Plus.General]
+use_existing_env = true
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+# NOTE - with test might fail with minimum_confirmations = 0
+minimum_confirmations = 3
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+# NEW ENV CONFIG
+# as per https://smartcontract-it.atlassian.net/wiki/spaces/VRF/pages/666173463/VRF+v2.5+Current+Deployments#Testnet-Configs.3
+# CL Node config
+cl_node_max_gas_price_gwei = 200
+number_of_sending_keys_to_create = 0
+
+# Coordinator config
+max_gas_limit_coordinator_config = 2500000
+fallback_wei_per_unit_link = "19823132181656390000"
+staleness_seconds = 172_800
+gas_after_payment_calculation = 48_500
+fulfillment_flat_fee_native_ppm = 0
+fulfillment_flat_fee_link_discount_ppm = 0
+native_premium_percentage = 84
+link_premium_percentage = 70
+
+# Wrapper config
+wrapped_gas_overhead = 13_400
+coordinator_gas_overhead_native = 99_500
+coordinator_gas_overhead_link = 121_500
+coordinator_gas_overhead_per_word = 435
+coordinator_native_premium_percentage = 84
+coordinator_link_premium_percentage = 70
+wrapper_max_number_of_words = 10
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 3.0
+vrf_job_batch_fulfillment_enabled = true
+vrf_job_batch_fulfillment_gas_multiplier = 1.1
+vrf_job_poll_period = "2s"
+vrf_job_request_timeout = "2h0m0s"
+vrf_job_simulation_block = "latest"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 200
+bhs_job_poll_period = "2s"
+bhs_job_run_timeout = "30s"
+# NEW ENV CONFIG END
+
+[POLYGON_AMOY.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x7541EbaE23f32B4A1A2e7a8Cbf9da9582767A9B4"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xd360445bacd26df47086ccf255c4f932d297ed8d5c7334b51eed32f61c541601"
+#key_hash = "0x2328cbee29e32d0b6662d6df82ff0fea7be300bd310561c92f515c9ee19464f1"
+#key_hash = "0x25f4e2d0509f42ec77db5380f3433a89fe623fa75f65d5b398d5f498327be4dd"
+create_fund_subs_and_add_consumers = true
+link_address = "0x0Fd9e8d3aF1aaee056EB9e802c3A762a667b1904"
+node_sending_key_funding_min = 10
+node_sending_keys = [
+    "0xD96013C241f1741C35a135321969f92Aae02A12F",
+    "0x0580E61a5523F5CAAC4968E4f8FE63b59596BdD7",
+    "0xd15FcEa6a6AA17085930Fbd5647A9F7fD2Ff58b8",
+    "0xB7277cBb6E7028AE65235b8ee9201AcBb14B11d4",
+    "0x6D36a1dC1eEd25C75961E989c4d01Cd4453bE465",
+    "0xd299Cd7C0073b71e620bf8A3bfD50F75c0b49af8",
+    "0x48BE7BAED0b65776D85DF971fA901c637cFC5e87",
+    #    BHS
+    "0x638372de870eF0F8E675A3f67F18D5bd4A2fd804",
+    "0xF9eF03816411D037202d5ed4457dC1613e3bd729",
+    "0xCD66973f8fbaE787211EC20228c6bd90D83562A8",
+    "0x242ea1F4Bb72EF643B2D8EF22e18a89f00742F40",
+    "0xaA09B4F9B5710b239fdbf1D0f535dd7f86F91219",
+    "0xe6b72B647B8B45C5562F7a5259E187889C747d3b",
+    "0x2c1185C4d3B0B4a577d4079Ee193A4e293164D9d"
+]
+
+#SMOKE TEST CONFIG
+[POLYGON_AMOY-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5
 subscription_funding_amount_native = 1
+subscription_refunding_amount_link = 5
+subscription_refunding_amount_native = 1
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "15m"
+
+wrapper_consumer_funding_amount_native_token = 1.0
+wrapper_consumer_funding_amount_link = 5
+
+
+[POLYGON_AMOY-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "15s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[POLYGON_AMOY-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 200
+
+[POLYGON_AMOY-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[POLYGON_AMOY-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[POLYGON_AMOY-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[POLYGON_AMOY-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[POLYGON_AMOY-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
