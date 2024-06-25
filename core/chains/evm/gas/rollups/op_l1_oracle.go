@@ -27,7 +27,7 @@ import (
 )
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
-type OptimismL1Oracle struct {
+type optimismL1Oracle struct {
 	services.StateMachine
 	client     l1OracleClient
 	pollPeriod time.Duration
@@ -39,7 +39,7 @@ type OptimismL1Oracle struct {
 	l1GasPrice      priceEntry
 	isEcotone       bool
 	isFjord         bool
-	upgradeCheckTs  int64
+	upgradeCheckTs  time.Time
 
 	chInitialised chan struct{}
 	chStop        services.StopChan
@@ -58,7 +58,7 @@ type OptimismL1Oracle struct {
 const (
 	// isUpgradedPollingPeriod is the interval to poll if chain has been upgraded
 	// Set to poll every 4 hours
-	upgradePollingPeriod = 14400
+	upgradePollingPeriod = 4 * time.Hour
 	// isEcotone fetches if the OP Stack GasPriceOracle contract has upgraded to Ecotone
 	isEcotoneMethod = "isEcotone"
 	// isFjord fetches if the OP Stack GasPriceOracle contract has upgraded to Fjord
@@ -95,7 +95,7 @@ const (
 	ScrollGasOracleAddress = "0x5300000000000000000000000000000000000002"
 )
 
-func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) *OptimismL1Oracle {
+func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (*optimismL1Oracle, error) {
 	var precompileAddress string
 	switch chainType {
 	case chaintype.ChainOptimismBedrock:
@@ -105,89 +105,89 @@ func NewOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 	case chaintype.ChainScroll:
 		precompileAddress = ScrollGasOracleAddress
 	default:
-		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
+		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
 	}
 	return newOpStackL1GasOracle(lggr, ethClient, chainType, precompileAddress)
 }
 
-func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string) *OptimismL1Oracle {
+func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType, precompileAddress string) (*optimismL1Oracle, error) {
 	getL1FeeMethodAbi, err := abi.JSON(strings.NewReader(GetL1FeeAbiString))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to parse L1 gas cost method ABI for chain: %s", chainType))
+		return nil, fmt.Errorf("failed to parse L1 gas cost method ABI for chain: %s", chainType)
 	}
 
 	// encode calldata for each method; these calldata will remain the same for each call, we can encode them just once
 	// Encode calldata for l1BaseFee method
 	l1BaseFeeMethodAbi, err := abi.JSON(strings.NewReader(L1BaseFeeAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", l1BaseFeeMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", l1BaseFeeMethod, chainType, err)
 	}
 	l1BaseFeeCalldata, err := l1BaseFeeMethodAbi.Pack(l1BaseFeeMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", l1BaseFeeMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", l1BaseFeeMethod, chainType, err)
 	}
 
 	// Encode calldata for isEcotone method
 	isEcotoneMethodAbi, err := abi.JSON(strings.NewReader(OPIsEcotoneAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isEcotoneMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isEcotoneMethod, chainType, err)
 	}
 	isEcotoneCalldata, err := isEcotoneMethodAbi.Pack(isEcotoneMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isEcotoneMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isEcotoneMethod, chainType, err)
 	}
 
 	// Encode calldata for isFjord method
 	isFjordMethodAbi, err := abi.JSON(strings.NewReader(OPIsFjordAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isFjordMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", isFjordMethod, chainType, err)
 	}
 	isFjordCalldata, err := isFjordMethodAbi.Pack(isFjordMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isFjordMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", isFjordMethod, chainType, err)
 	}
 
 	// Encode calldata for baseFeeScalar method
 	baseFeeScalarMethodAbi, err := abi.JSON(strings.NewReader(OPBaseFeeScalarAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", baseFeeScalarMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", baseFeeScalarMethod, chainType, err)
 	}
 	baseFeeScalarCalldata, err := baseFeeScalarMethodAbi.Pack(baseFeeScalarMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", baseFeeScalarMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", baseFeeScalarMethod, chainType, err)
 	}
 
 	// Encode calldata for blobBaseFee method
 	blobBaseFeeMethodAbi, err := abi.JSON(strings.NewReader(OPBlobBaseFeeAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeMethod, chainType, err)
 	}
 	blobBaseFeeCalldata, err := blobBaseFeeMethodAbi.Pack(blobBaseFeeMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeMethod, chainType, err)
 	}
 
 	// Encode calldata for blobBaseFeeScalar method
 	blobBaseFeeScalarMethodAbi, err := abi.JSON(strings.NewReader(OPBlobBaseFeeScalarAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err)
 	}
 	blobBaseFeeScalarCalldata, err := blobBaseFeeScalarMethodAbi.Pack(blobBaseFeeScalarMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", blobBaseFeeScalarMethod, chainType, err)
 	}
 
 	// Encode calldata for decimals method
 	decimalsMethodAbi, err := abi.JSON(strings.NewReader(OPDecimalsAbiString))
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", decimalsMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() method ABI for chain: %s; %w", decimalsMethod, chainType, err)
 	}
 	decimalsCalldata, err := decimalsMethodAbi.Pack(decimalsMethod)
 	if err != nil {
-		panic(fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err))
+		return nil, fmt.Errorf("failed to parse GasPriceOracle %s() calldata for chain: %s; %w", decimalsMethod, chainType, err)
 	}
 
-	return &OptimismL1Oracle{
+	return &optimismL1Oracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
 		logger:     logger.Sugared(logger.Named(lggr, fmt.Sprintf("L1GasOracle(%s)", chainType))),
@@ -196,7 +196,7 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		l1OracleAddress: precompileAddress,
 		isEcotone:       false,
 		isFjord:         false,
-		upgradeCheckTs:  0,
+		upgradeCheckTs:  time.Time{},
 
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
@@ -210,21 +210,21 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		decimalsCalldata:          decimalsCalldata,
 		isEcotoneCalldata:         isEcotoneCalldata,
 		isFjordCalldata:           isFjordCalldata,
-	}
+	}, nil
 }
 
-func (o *OptimismL1Oracle) Name() string {
+func (o *optimismL1Oracle) Name() string {
 	return o.logger.Name()
 }
 
-func (o *OptimismL1Oracle) Start(ctx context.Context) error {
+func (o *optimismL1Oracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *OptimismL1Oracle) Close() error {
+func (o *optimismL1Oracle) Close() error {
 	return o.StopOnce(o.Name(), func() error {
 		close(o.chStop)
 		<-o.chDone
@@ -232,11 +232,11 @@ func (o *OptimismL1Oracle) Close() error {
 	})
 }
 
-func (o *OptimismL1Oracle) HealthReport() map[string]error {
+func (o *optimismL1Oracle) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.Healthy()}
 }
 
-func (o *OptimismL1Oracle) run() {
+func (o *optimismL1Oracle) run() {
 	defer close(o.chDone)
 
 	t := o.refresh()
@@ -251,7 +251,7 @@ func (o *OptimismL1Oracle) run() {
 		}
 	}
 }
-func (o *OptimismL1Oracle) refresh() (t *time.Timer) {
+func (o *optimismL1Oracle) refresh() (t *time.Timer) {
 	t, err := o.refreshWithError()
 	if err != nil {
 		o.SvcErrBuffer.Append(err)
@@ -259,7 +259,7 @@ func (o *OptimismL1Oracle) refresh() (t *time.Timer) {
 	return
 }
 
-func (o *OptimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
+func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
@@ -276,7 +276,7 @@ func (o *OptimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
 	return
 }
 
-func (o *OptimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
 	var timestamp time.Time
 	ok := o.IfStarted(func() {
 		o.l1GasPriceMu.RLock()
@@ -300,7 +300,7 @@ func (o *OptimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, 
 
 // Gets the L1 gas cost for the provided transaction at the specified block num
 // If block num is not provided, the value on the latest block num is used
-func (o *OptimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
+func (o *optimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	ctx, cancel := context.WithTimeout(ctx, client.QueryTimeout)
 	defer cancel()
 	var callData, b []byte
@@ -339,7 +339,7 @@ func (o *OptimismL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transac
 	return assets.NewWei(l1GasCost), nil
 }
 
-func (o *OptimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
+func (o *optimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) {
 	err := o.checkForUpgrade(ctx)
 	if err != nil {
 		return nil, err
@@ -352,17 +352,17 @@ func (o *OptimismL1Oracle) GetDAGasPrice(ctx context.Context) (*big.Int, error) 
 }
 
 // Checks oracle flags for Ecotone and Fjord upgrades
-func (o *OptimismL1Oracle) checkForUpgrade(ctx context.Context) error {
+func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 	// if chain is already Fjord (the latest upgrade), NOOP
 	// need to continue to check if not on latest upgrade
 	if o.isFjord {
 		return nil
 	}
 	// if time since last check has not exceeded polling period, NOOP
-	if time.Now().Unix()-o.upgradeCheckTs < upgradePollingPeriod {
+	if time.Since(o.upgradeCheckTs) < upgradePollingPeriod {
 		return nil
 	}
-	o.upgradeCheckTs = time.Now().Unix()
+	o.upgradeCheckTs = time.Now()
 	rpcBatchCalls := []rpc.BatchElem{
 		{
 			Method: "eth_call",
@@ -403,7 +403,7 @@ func (o *OptimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 	return nil
 }
 
-func (o *OptimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) {
+func (o *optimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) {
 	l1OracleAddress := common.HexToAddress(o.l1OracleAddress)
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &l1OracleAddress,
@@ -421,7 +421,7 @@ func (o *OptimismL1Oracle) getV1GasPrice(ctx context.Context) (*big.Int, error) 
 
 // Returns the scaled gas price using baseFeeScalar, l1BaseFee, blobBaseFeeScalar, and blobBaseFee fields from the oracle
 // Confirmed the same calculation is used to determine gas price for both Ecotone and Fjord
-func (o *OptimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.Int, error) {
+func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.Int, error) {
 	rpcBatchCalls := []rpc.BatchElem{
 		{
 			Method: "eth_call",

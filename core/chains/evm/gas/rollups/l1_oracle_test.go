@@ -30,7 +30,9 @@ func TestL1Oracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		assert.Nil(t, NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo))
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainCelo)
+		require.NoError(t, err)
+		assert.Nil(t, oracle)
 	})
 }
 
@@ -40,9 +42,10 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 	t.Run("Calling GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
 		ethClient := mocks.NewL1OracleClient(t)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		require.NoError(t, err)
 
-		_, err := oracle.GasPrice(tests.Context(t))
+		_, err = oracle.GasPrice(tests.Context(t))
 		assert.EqualError(t, err, "L1GasOracle is not started; cannot estimate gas")
 	})
 
@@ -62,7 +65,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum)
+		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
 		gasPrice, err := oracle.GasPrice(tests.Context(t))
@@ -89,7 +93,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma)
+		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
 		gasPrice, err := oracle.GasPrice(tests.Context(t))
@@ -116,7 +121,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
 		gasPrice, err := oracle.GasPrice(tests.Context(t))
@@ -142,7 +148,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll)
+		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
 		gasPrice, err := oracle.GasPrice(tests.Context(t))
@@ -178,7 +185,8 @@ func TestL1Oracle_GasPrice(t *testing.T) {
 			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(gasPerPubByteL2).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainZkSync)
+		require.NoError(t, err)
 		servicetest.RunHealthy(t, oracle)
 
 		gasPrice, err := oracle.GasPrice(tests.Context(t))
@@ -221,7 +229,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(result, nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainArbitrum)
+		require.NoError(t, err)
 
 		gasCost, err := oracle.GetGasCost(tests.Context(t), tx, blockNum)
 		require.NoError(t, err)
@@ -233,9 +242,10 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 		tx := types.NewTx(&types.LegacyTx{})
 
 		ethClient := mocks.NewL1OracleClient(t)
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainKroma)
+		require.NoError(t, err)
 
-		_, err := oracle.GetGasCost(tests.Context(t), tx, blockNum)
+		_, err = oracle.GetGasCost(tests.Context(t), tx, blockNum)
 		require.Error(t, err, "L1 gas cost not supported for this chain: kroma")
 	})
 
@@ -267,7 +277,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(common.BigToHash(l1GasCost).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainOptimismBedrock)
+		require.NoError(t, err)
 
 		gasCost, err := oracle.GetGasCost(tests.Context(t), tx, blockNum)
 		require.NoError(t, err)
@@ -302,7 +313,8 @@ func TestL1Oracle_GetGasCost(t *testing.T) {
 			require.Equal(t, blockNum, blockNumber)
 		}).Return(common.BigToHash(l1GasCost).Bytes(), nil)
 
-		oracle := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll)
+		oracle, err := NewL1GasOracle(logger.Test(t), ethClient, chaintype.ChainScroll)
+		require.NoError(t, err)
 
 		gasCost, err := oracle.GetGasCost(tests.Context(t), tx, blockNum)
 		require.NoError(t, err)
