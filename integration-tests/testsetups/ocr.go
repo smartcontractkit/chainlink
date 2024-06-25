@@ -116,6 +116,14 @@ func WithForwarderFlow(forwarderFlow bool) OCRSoakTestOption {
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
 func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
+	if config.OCR2 != nil && config.OCR != nil {
+		return nil, fmt.Errorf("both OCR and OCR2 are set. Please check your TOML config and make sure you only have one of them set")
+	}
+
+	if config.GetActiveOCRConfig() == nil {
+		return nil, fmt.Errorf("no OCR[1/2] config not set. Please check your TOML config and make sure you have an OCR[1/2] config set")
+	}
+
 	test := &OCRSoakTest{
 		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
