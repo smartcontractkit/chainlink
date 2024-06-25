@@ -3,6 +3,7 @@ package llo_test
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -72,28 +74,31 @@ type Stream struct {
 	baseBenchmarkPrice *big.Int
 }
 
+var (
+	btcStream = Stream{
+		id:                 51,
+		baseBenchmarkPrice: big.NewInt(20_000 * multiplier),
+	}
+	ethStream = Stream{
+		id:                 52,
+		baseBenchmarkPrice: big.NewInt(1_568 * multiplier),
+	}
+	linkStream = Stream{
+		id:                 53,
+		baseBenchmarkPrice: big.NewInt(7150 * multiplier / 1000),
+	}
+	dogeStream = Stream{
+		id:                 54,
+		baseBenchmarkPrice: big.NewInt(2_020 * multiplier),
+	}
+)
+
 func TestIntegration_LLO(t *testing.T) {
 	testStartTimeStamp := uint32(time.Now().Unix())
 
 	const fromBlock = 1 // cannot use zero, start from block 1
 
 	// streams
-	btcStream := Stream{
-		id:                 51,
-		baseBenchmarkPrice: big.NewInt(20_000 * multiplier),
-	}
-	ethStream := Stream{
-		id:                 52,
-		baseBenchmarkPrice: big.NewInt(1_568 * multiplier),
-	}
-	linkStream := Stream{
-		id:                 53,
-		baseBenchmarkPrice: big.NewInt(7150 * multiplier / 1000),
-	}
-	dogeStream := Stream{
-		id:                 54,
-		baseBenchmarkPrice: big.NewInt(2_020 * multiplier),
-	}
 	streams := []Stream{btcStream, ethStream, linkStream, dogeStream}
 	streamMap := make(map[uint32]Stream)
 	for _, strm := range streams {
@@ -131,10 +136,10 @@ func TestIntegration_LLO(t *testing.T) {
 	)
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, _ := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
-			app, transmitter, kb,
+			app, transmitter, kb, observedLogs,
 		})
 		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
@@ -159,8 +164,16 @@ func TestIntegration_LLO(t *testing.T) {
 	configDigest := setConfig(t, steve, backend, verifierContract, verifierAddress, nodes, oracles)
 	channelDefinitions := setChannelDefinitions(t, steve, backend, configStoreContract, streams)
 
-	addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, "job-1")
-	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, chainID, fromBlock)
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`chainID = %s
+fromBlock = %d`, chainID.String(), fromBlock)
+	addBootstrapJob(t, bootstrapNode, verifierAddress, "job-1", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`serverURL = "%s"
+serverPubKey = "%x"
+channelDefinitionsContractFromBlock = %d
+channelDefinitionsContractAddress = "%s"`, serverURL, serverPubKey, fromBlock, configStoreAddress.String())
+	addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
 		// Expect at least one report per channel from each oracle (keyed by transmitter ID)
 		seen := make(map[ocr2types.Account]map[llotypes.ChannelID]struct{})
@@ -254,17 +267,24 @@ func TestIntegration_LLO(t *testing.T) {
 	// TODO: test verification
 }
 
-func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+func generateConfig(t *testing.T, nodes []Node, oracles []confighelper.OracleIdentityExtra) (
+	signers []types.OnchainPublicKey,
+	transmitters []types.Account,
+	f uint8,
+	onchainConfig []byte,
+	offchainConfigVersion uint64,
+	offchainConfig []byte,
+) {
 	// Setup config on contract
-	rawOnchainConfig := datastreamsllo.OnchainConfig{}
-	onchainConfig, err := (&datastreamsllo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	rawOnchainConfig := llo.OnchainConfig{}
+	onchainConfig, err := (&llo.JSONOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
 	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
 	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
 	require.NoError(t, err)
 
-	signers, _, _, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,         // DeltaProgress
 		20*time.Second,        // DeltaResend
 		400*time.Millisecond,  // DeltaInitial
@@ -285,23 +305,23 @@ func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.Simulat
 	)
 
 	require.NoError(t, err)
+
+	return
+}
+
+func setConfig(t *testing.T, steve *bind.TransactOpts, backend *backends.SimulatedBackend, verifierContract *channel_verifier.ChannelVerifier, verifierAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
+	signers, _, _, _, offchainConfigVersion, offchainConfig := generateConfig(t, nodes, oracles)
+
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-
 	offchainTransmitters := make([][32]byte, nNodes)
 	for i := 0; i < nNodes; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
-
 	_, err = verifierContract.SetConfig(steve, signerAddresses, offchainTransmitters, fNodes, offchainConfig, offchainConfigVersion, offchainConfig, nil)
 	require.NoError(t, err)
 
 	backend.Commit()
-
-	accounts := make([]ocr2types.Account, len(offchainTransmitters))
-	for i := range offchainTransmitters {
-		accounts[i] = ocr2types.Account(fmt.Sprintf("%x", offchainTransmitters[i]))
-	}
 
 	l, err := verifierContract.LatestConfigDigestAndEpoch(&bind.CallOpts{})
 	require.NoError(t, err)
@@ -366,4 +386,137 @@ func setChannelDefinitions(t *testing.T, steve *bind.TransactOpts, backend *back
 	backend.Commit()
 
 	return channelDefinitions
+}
+
+func TestIntegration_LLO_Dummy(t *testing.T) {
+	testStartTimeStamp := time.Now()
+
+	streams := []Stream{btcStream, ethStream, linkStream, dogeStream}
+	streamMap := make(map[uint32]Stream)
+	for _, strm := range streams {
+		streamMap[strm.id] = strm
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := 0; i < nNodes; i++ {
+		k := big.NewInt(int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, bootstrapCSAKey)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	t.Run("with at least one channel", func(t *testing.T) {
+		// Setup oracle nodes
+		var (
+			oracles []confighelper.OracleIdentityExtra
+			nodes   []Node
+		)
+		ports := freeport.GetN(t, nNodes)
+		for i := 0; i < nNodes; i++ {
+			app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), nil, clientCSAKeys[i])
+
+			nodes = append(nodes, Node{
+				app, transmitter, kb, observedLogs,
+			})
+			offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+			oracles = append(oracles, confighelper.OracleIdentityExtra{
+				OracleIdentity: confighelper.OracleIdentity{
+					OnchainPublicKey:  offchainPublicKey,
+					TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+					OffchainPublicKey: kb.OffchainPublicKey(),
+					PeerID:            peerID,
+				},
+				ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+			})
+		}
+
+		verifierAddress := common.Address{}
+		chainID := "llo-dummy"
+		relayType := "dummy"
+		cd := "0x0102030405060708010203040506070801020304050607080102030405060708"
+		signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, nodes, oracles)
+		var signersMarshalled, transmittersMarshalled []byte
+		{
+			var err error
+			signersHex := make([]string, len(signers))
+			for i, signer := range signers {
+				signersHex[i] = fmt.Sprintf("0x%x", signer)
+			}
+			signersMarshalled, err = json.Marshal(signersHex)
+			require.NoError(t, err)
+
+			transmittersMarshalled, err = json.Marshal(transmitters)
+			require.NoError(t, err)
+		}
+
+		relayConfig := fmt.Sprintf(`chainID = "%s"
+configTracker = {
+	configDigest = "%s",
+	configCoung = 1,
+	signers = %s,
+	transmitters = %s,
+	f = %d,
+	onchainConfig = "0x%x",
+	offchainConfigVersion = %d,
+	offchainConfig = "0x%x",
+	blockHeight = 10
+}`, chainID, cd, string(signersMarshalled), string(transmittersMarshalled), f, onchainConfig, offchainConfigVersion, offchainConfig)
+		addBootstrapJob(t, bootstrapNode, verifierAddress, "job-1", relayType, relayConfig)
+
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
+		serverPubKey := serverKey.PublicKey
+		serverURL := "foo"
+		configStoreAddress := common.Address{}
+
+		// NOTE: Don't actually care about the chain ID, it just needs to be
+		// a valid chainSelector
+		chainSelector, err := chainselectors.SelectorFromChainId(testutils.SimulatedChainID.Uint64())
+		require.NoError(t, err)
+
+		channelDefinitions := fmt.Sprintf(`{
+"42": {
+	"reportFormat": %d,
+	"chainSelector": %d,
+	"streamIds": [51, 52]
+	}
+}`, llotypes.ReportFormatJSON, chainSelector)
+
+		pluginConfig := fmt.Sprintf(`serverURL = "foo"
+serverPubKey = "%x"
+channelDefinitions = %q`, serverPubKey, channelDefinitions)
+		addOCRJobs(t, streams, serverPubKey, serverURL, verifierAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
+
+		for _, node := range nodes {
+			le := testutils.WaitForLogMessage(t, node.ObservedLogs, "Transmit")
+			fields := le.ContextMap()
+			assert.Equal(t, cd[2:], fields["digest"])
+			assert.Equal(t, llotypes.ReportInfo{LifeCycleStage: "production", ReportFormat: llotypes.ReportFormatJSON}, fields["report.Info"])
+
+			binaryReport := fields["report.Report"].(types.Report)
+			report, err := (datastreamsllo.JSONReportCodec{}).Decode(binaryReport)
+			require.NoError(t, err)
+			assert.Equal(t, datastreamsllo.Report{
+				ConfigDigest:      types.ConfigDigest{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8},
+				ChainSelector:     0x2ee634951ef71b46,
+				SeqNr:             fields["seqNr"].(uint64),
+				ChannelID:         0x2a,
+				ValidAfterSeconds: report.ValidAfterSeconds, // tested separately below
+				ValidUntilSeconds: report.ValidUntilSeconds, // tested separately below
+				Values:            []*big.Int{big.NewInt(2000002000000), big.NewInt(156802000000)},
+				Specimen:          false,
+			}, report)
+			assert.GreaterOrEqual(t, report.ValidUntilSeconds, uint32(testStartTimeStamp.Unix()))
+			assert.GreaterOrEqual(t, report.ValidAfterSeconds, uint32(testStartTimeStamp.Unix()))
+			assert.GreaterOrEqual(t, report.ValidUntilSeconds, report.ValidAfterSeconds)
+
+			assert.GreaterOrEqual(t, int(fields["seqNr"].(uint64)), 0)
+		}
+	})
 }
