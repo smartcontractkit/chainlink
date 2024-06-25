@@ -21,7 +21,7 @@ func NewContractConfigTracker(lggr logger.Logger, cfg ConfigTrackerCfg) (ocrtype
 	if err != nil {
 		return nil, err
 	}
-	return &configTracker{lggr.Named("DummyConfigProvider"), contractConfig, cfg.ChangedInBlock, cfg.BlockHeight}, nil
+	return &configTracker{lggr.Named("DummyConfigTracker"), contractConfig, cfg.ChangedInBlock, cfg.BlockHeight}, nil
 }
 
 // Notify may optionally emit notification events when the contract's

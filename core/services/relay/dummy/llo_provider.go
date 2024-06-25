@@ -73,10 +73,6 @@ func (p *lloProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
 	return p.cp.OffchainConfigDigester()
 }
 
-func (p *lloProvider) OnchainConfigCodec() llo.OnchainConfigCodec {
-	return &llo.JSONOnchainConfigCodec{}
-}
-
 func (p *lloProvider) ContractTransmitter() llotypes.Transmitter {
 	return p.transmitter
 }
