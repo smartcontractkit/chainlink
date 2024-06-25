@@ -81,3 +81,7 @@ func (m *mercuryConfig) TLS() config.MercuryTLS {
 func (m *mercuryConfig) Transmitter() config.MercuryTransmitter {
 	return &mercuryTransmitterConfig{c: m.c.Transmitter}
 }
+
+func (m *mercuryConfig) VerboseLogging() bool {
+	return *m.c.VerboseLogging
+}

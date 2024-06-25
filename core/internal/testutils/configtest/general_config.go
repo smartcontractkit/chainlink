@@ -58,6 +58,8 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
 	c.JobPipeline.VerboseLogging = ptr(true)
 
+	c.Mercury.VerboseLogging = ptr(true)
+
 	c.P2P.V2.Enabled = ptr(false)
 
 	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)

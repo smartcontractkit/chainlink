@@ -32,6 +32,7 @@ func NewStaticChannelDefinitionCache(lggr logger.Logger, dfnstr string) (llotype
 
 func (s *staticCDC) Start(context.Context) error {
 	return s.StartOnce("StaticChannelDefinitionCache", func() error {
+		s.lggr.Infow("Initialized static channel definition cache", "definitions", s.definitions)
 		return nil
 	})
 }
