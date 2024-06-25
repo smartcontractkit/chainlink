@@ -323,6 +323,7 @@ jobs:
           fi
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        id: setup-gap
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -438,6 +439,7 @@ jobs:
           fi
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        id: setup-gap
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
@@ -667,6 +669,7 @@ jobs:
           docker logs otel-collector
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        id: setup-gap
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}
