@@ -311,7 +311,9 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
-	} else if o.OCRVersion == "1" {
+	}
+
+	if o.OCRVersion == "1" {
 		if o.OperatorForwarderFlow {
 			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
