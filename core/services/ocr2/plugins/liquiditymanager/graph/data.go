@@ -32,6 +32,7 @@ type Data struct {
 	ConfigDigest            models.ConfigDigest
 	NetworkSelector         models.NetworkSelector
 	MinimumLiquidity        *big.Int
+	TargetLiquidity         *big.Int
 }
 
 func (d Data) Equals(other Data) bool {
@@ -60,6 +61,10 @@ func (d Data) Clone() Data {
 	if minLiq == nil {
 		minLiq = big.NewInt(0)
 	}
+	targetLiq := d.TargetLiquidity
+	if targetLiq == nil {
+		targetLiq = big.NewInt(0)
+	}
 	return Data{
 		Liquidity:               big.NewInt(0).Set(liq),
 		TokenAddress:            tokenAddr,
@@ -68,5 +73,6 @@ func (d Data) Clone() Data {
 		ConfigDigest:            d.ConfigDigest.Clone(),
 		NetworkSelector:         d.NetworkSelector,
 		MinimumLiquidity:        big.NewInt(0).Set(minLiq),
+		TargetLiquidity:         big.NewInt(0).Set(targetLiq),
 	}
 }

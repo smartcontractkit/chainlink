@@ -48,6 +48,7 @@ func (g *liquidityGraph) SetLiquidity(n models.NetworkSelector, liquidity *big.I
 		ConfigDigest:            prev.ConfigDigest,
 		NetworkSelector:         prev.NetworkSelector,
 		MinimumLiquidity:        prev.MinimumLiquidity,
+		TargetLiquidity:         prev.TargetLiquidity,
 	}
 	return true
 }
