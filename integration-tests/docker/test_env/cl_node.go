@@ -330,8 +330,6 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		Str("userEmail", n.UserEmail).
 		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
-	nodeConfig, _ := n.GetNodeConfigStr()
-	n.l.Info().Str("containerName", n.ContainerName).Msgf("Chainlink Node config:\n%s", nodeConfig)
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,
