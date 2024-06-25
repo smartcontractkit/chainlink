@@ -54,8 +54,8 @@ func TestMultichainTransmitter(t *testing.T) {
 	// in actuality the same signers will be used across all chains
 	var reports []ocr3types.ReportWithInfo[multichainMeta]
 	for i := 0; i < numChains; i++ {
-		c, err2 := unis[i].wrapper.LatestConfigDigestAndEpoch(nil)
-		require.NoError(t, err2, "failed to get latest config digest and epoch")
+		c, err2 := unis[i].wrapper.LatestConfigDetails(nil)
+		require.NoError(t, err2, "failed to get latest config details")
 		report := ocr3types.ReportWithInfo[multichainMeta]{
 			Info:   multichainMeta{destChainIndex: i, configDigest: c.ConfigDigest},
 			Report: []byte{},
@@ -64,8 +64,8 @@ func TestMultichainTransmitter(t *testing.T) {
 	}
 	seqNum := uint64(1)
 	for i := range reports {
-		c, err2 := unis[i].wrapper.LatestConfigDigestAndEpoch(nil)
-		require.NoError(t, err2, "failed to get latest config digest and epoch")
+		c, err2 := unis[i].wrapper.LatestConfigDetails(nil)
+		require.NoError(t, err2, "failed to get latest config details")
 		attributedSigs := unis[i].SignReport(t, c.ConfigDigest, reports[i], seqNum)
 		err = mct.Transmit(testutils.Context(t), c.ConfigDigest, seqNum, reports[i], attributedSigs)
 		require.NoError(t, err)

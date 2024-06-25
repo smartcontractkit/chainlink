@@ -66,7 +66,7 @@ func (e *EvmLiquidityManager) Close(ctx context.Context) error {
 
 // ConfigDigest implements Liquiditymanager.
 func (e *EvmLiquidityManager) ConfigDigest(ctx context.Context) (types.ConfigDigest, error) {
-	cdae, err := e.liquiditymanager.LatestConfigDigestAndEpoch(&bind.CallOpts{Context: ctx})
+	cdae, err := e.liquiditymanager.LatestConfigDetails(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, fmt.Errorf("latest config digest and epoch: %w", err)
 	}
@@ -81,6 +81,5 @@ func (e *EvmLiquidityManager) GetTokenAddress(ctx context.Context) (models.Addre
 }
 
 func (e *EvmLiquidityManager) GetLatestSequenceNumber(ctx context.Context) (uint64, error) {
-	cdae, err := e.liquiditymanager.LatestConfigDigestAndEpoch(&bind.CallOpts{Context: ctx})
-	return cdae.SequenceNumber, err
+	return e.liquiditymanager.LatestSequenceNumber(&bind.CallOpts{Context: ctx})
 }

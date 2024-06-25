@@ -175,7 +175,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Run("empty report", func(t *testing.T) {
 		uni := newTestUniverse[multichainMeta](t, nil)
 
-		c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
+		c, err := uni.wrapper.LatestConfigDetails(nil)
 		require.NoError(t, err, "failed to get latest config digest and epoch")
 		configDigest := c.ConfigDigest
 
@@ -196,10 +196,12 @@ func TestContractTransmitter(t *testing.T) {
 		err = uni.ocr3Transmitter.Transmit(context.Background(), configDigest, seqNum, rwi, attributedSigs)
 		require.NoError(t, err, "failed to transmit report")
 
-		lcde, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
-		require.NoError(t, err, "failed to get latest config digest and epoch")
+		lcde, err := uni.wrapper.LatestConfigDetails(nil)
+		require.NoError(t, err, "failed to get latest config details")
+		sn, err := uni.wrapper.LatestSequenceNumber(nil)
+		require.NoError(t, err, "failed to get latest sequence number")
 		require.Equal(t, configDigest, lcde.ConfigDigest, "config digest mismatch")
-		require.Equal(t, seqNum, lcde.SequenceNumber, "seq number mismatch")
+		require.Equal(t, seqNum, sn, "seq number mismatch")
 
 		// check for transmitted event
 		events := uni.TransmittedEvents(t)
@@ -212,7 +214,7 @@ func TestContractTransmitter(t *testing.T) {
 	t.Run("non-empty report", func(t *testing.T) {
 		uni := newTestUniverse[multichainMeta](t, nil)
 
-		c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
+		c, err := uni.wrapper.LatestConfigDetails(nil)
 		require.NoError(t, err, "failed to get latest config digest and epoch")
 		configDigest := c.ConfigDigest
 
@@ -236,10 +238,12 @@ func TestContractTransmitter(t *testing.T) {
 		err = uni.ocr3Transmitter.Transmit(context.Background(), configDigest, seqNum, rwi, attributedSigs)
 		require.NoError(t, err, "failed to transmit report")
 
-		lcde, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
-		require.NoError(t, err, "failed to get latest config digest and epoch")
+		lcde, err := uni.wrapper.LatestConfigDetails(nil)
+		require.NoError(t, err, "failed to get latest config details")
+		sn, err := uni.wrapper.LatestSequenceNumber(nil)
+		require.NoError(t, err, "failed to get latest sequence number")
 		require.Equal(t, configDigest, lcde.ConfigDigest, "config digest mismatch")
-		require.Equal(t, seqNum, lcde.SequenceNumber, "seq number mismatch")
+		require.Equal(t, seqNum, sn, "seq number mismatch")
 
 		// check for transmitted event
 		events := uni.TransmittedEvents(t)

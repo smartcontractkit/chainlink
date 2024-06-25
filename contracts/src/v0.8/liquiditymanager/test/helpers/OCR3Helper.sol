@@ -34,4 +34,8 @@ contract OCR3Helper is OCR3Base {
   function typeAndVersion() public pure override returns (string memory) {
     return "OCR3BaseHelper 1.0.0";
   }
+
+  function setLatestSeqNum(uint64 newSeqNum) external {
+    s_latestSequenceNumber = newSeqNum;
+  }
 }

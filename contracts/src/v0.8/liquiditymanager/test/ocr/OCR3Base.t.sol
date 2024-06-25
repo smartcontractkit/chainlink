@@ -197,7 +197,7 @@ contract OCR3Base_transmit is OCR3BaseSetup {
 }
 
 contract OCR3Base_setOCR3Config is OCR3BaseSetup {
-  function testSetConfigSuccess_gas() public {
+  function testSetConfigSuccess() public {
     vm.pauseGasMetering();
     bytes memory configBytes = abi.encode("");
     uint32 configCount = 0;
@@ -206,6 +206,10 @@ contract OCR3Base_setOCR3Config is OCR3BaseSetup {
 
     address[] memory transmitters = s_OCR3Base.getTransmitters();
     assertEq(0, transmitters.length);
+
+    s_OCR3Base.setLatestSeqNum(3);
+    uint64 seqNum = s_OCR3Base.latestSequenceNumber();
+    assertEq(seqNum, 3);
 
     vm.expectEmit();
     emit ConfigSet(
@@ -233,6 +237,9 @@ contract OCR3Base_setOCR3Config is OCR3BaseSetup {
     assertEq(s_valid_transmitters, transmitters);
 
     configDigest = getBasicConfigDigest(s_f, configCount++);
+
+    seqNum = s_OCR3Base.latestSequenceNumber();
+    assertEq(seqNum, 0);
 
     vm.expectEmit();
     emit ConfigSet(

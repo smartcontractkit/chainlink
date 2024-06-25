@@ -91,20 +91,6 @@ abstract contract OCR3Abstract is ITypeAndVersion {
   /// use latestConfigDigestAndEpoch with scanLogs set to false.
   event Transmitted(bytes32 configDigest, uint64 sequenceNumber);
 
-  /// @notice optionally returns the latest configDigest and sequence number for which
-  /// a report was successfully transmitted. Alternatively, the contract may return
-  /// scanLogs set to true and use Transmitted events to provide this information
-  /// to offchain watchers.
-  /// @return scanLogs indicates whether to rely on the configDigest and sequence number
-  /// returned or whether to scan logs for the Transmitted event instead.
-  /// @return configDigest
-  /// @return sequenceNumber
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    virtual
-    returns (bool scanLogs, bytes32 configDigest, uint64 sequenceNumber);
-
   /// @notice transmit is called to post a new report to the contract
   /// @param report serialized report, which the signatures are signing.
   /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries

@@ -164,7 +164,7 @@ func TestMultichainConfigTracker_SingleChain(t *testing.T) {
 	// fetch config digest from the tracker
 	changedInBlock, configDigest, err := tracker.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err, "failed to get latest config details")
-	c, err := uni.wrapper.LatestConfigDigestAndEpoch(nil)
+	c, err := uni.wrapper.LatestConfigDetails(nil)
 	require.NoError(t, err, "failed to get latest config digest and epoch")
 	require.Equal(t, hex.EncodeToString(c.ConfigDigest[:]), configDigest.Hex(), "expected latest config digest to match")
 
@@ -277,7 +277,7 @@ func TestMultichainConfigTracker_Multichain(t *testing.T) {
 	// fetch config digest from the tracker
 	changedInBlock, configDigest, err := tracker.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err, "failed to get latest config details")
-	c, err := uni1.wrapper.LatestConfigDigestAndEpoch(nil)
+	c, err := uni1.wrapper.LatestConfigDetails(nil)
 	require.NoError(t, err, "failed to get latest config digest and epoch")
 	require.Equal(t, hex.EncodeToString(c.ConfigDigest[:]), configDigest.Hex(), "expected latest config digest to match")
 

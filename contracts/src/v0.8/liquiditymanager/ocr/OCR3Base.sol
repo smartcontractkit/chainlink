@@ -157,6 +157,7 @@ abstract contract OCR3Base is OwnerIsCreator, OCR3Abstract {
 
     uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
     s_latestConfigBlockNumber = uint32(block.number);
+    s_latestSequenceNumber = 0;
 
     emit ConfigSet(
       previousConfigBlockNumber,
@@ -273,15 +274,10 @@ abstract contract OCR3Base is OwnerIsCreator, OCR3Abstract {
     return (s_configCount, s_latestConfigBlockNumber, s_configInfo.latestConfigDigest);
   }
 
-  /// @inheritdoc OCR3Abstract
-  function latestConfigDigestAndEpoch()
-    external
-    view
-    virtual
-    override
-    returns (bool scanLogs, bytes32 configDigest, uint64 sequenceNumber)
-  {
-    return (true, s_configInfo.latestConfigDigest, s_latestSequenceNumber);
+  /// @notice gets the latest sequence number accepted by the contract
+  /// @return sequenceNumber the monotomically incremenenting number associated with OCR reports
+  function latestSequenceNumber() external view virtual returns (uint64 sequenceNumber) {
+    return s_latestSequenceNumber;
   }
 
   function _report(bytes calldata report, uint64 sequenceNumber) internal virtual;
