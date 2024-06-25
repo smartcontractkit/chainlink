@@ -226,7 +226,7 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	for _, fwdr := range fwdrs {
 		senders, err := f.getAuthorizedSenders(ctx, fwdr.Address)
 		if err != nil {
-			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", fwdr, "err", err)
+			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", "forwarder", fwdr.Address, "err", err)
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
