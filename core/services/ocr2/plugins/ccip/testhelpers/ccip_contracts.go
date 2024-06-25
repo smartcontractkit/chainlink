@@ -39,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_arm_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
@@ -185,7 +185,7 @@ type Common struct {
 	WrappedNativePool  *lock_release_token_pool.LockReleaseTokenPool
 	ARM                *mock_arm_contract.MockARMContract
 	ARMProxy           *arm_proxy_contract.ARMProxyContract
-	PriceRegistry      *price_registry.PriceRegistry
+	PriceRegistry      *price_registry_1_2_0.PriceRegistry
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
 }
 
@@ -400,22 +400,21 @@ func (c *CCIPContracts) DeployNewCommitStore(t *testing.T) {
 
 func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 	t.Log("Deploying new Price Registry")
-	destPricesAddress, _, _, err := price_registry.DeployPriceRegistry(
+	destPricesAddress, _, _, err := price_registry_1_2_0.DeployPriceRegistry(
 		c.Dest.User,
 		c.Dest.Chain,
 		[]common.Address{c.Dest.CommitStore.Address()},
 		[]common.Address{c.Dest.LinkToken.Address()},
 		60*60*24*14, // two weeks
-		nil,
 	)
 	require.NoError(t, err)
 	c.Source.Chain.Commit()
 	c.Dest.Chain.Commit()
-	c.Dest.PriceRegistry, err = price_registry.NewPriceRegistry(destPricesAddress, c.Dest.Chain)
+	c.Dest.PriceRegistry, err = price_registry_1_2_0.NewPriceRegistry(destPricesAddress, c.Dest.Chain)
 	require.NoError(t, err)
 
-	priceUpdates := price_registry.InternalPriceUpdates{
-		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
+	priceUpdates := price_registry_1_2_0.InternalPriceUpdates{
+		TokenPriceUpdates: []price_registry_1_2_0.InternalTokenPriceUpdate{
 			{
 				SourceToken: c.Dest.LinkToken.Address(),
 				UsdPerToken: big.NewInt(8e18), // 8usd
@@ -425,7 +424,7 @@ func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 				UsdPerToken: big.NewInt(1e18), // 1usd
 			},
 		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+		GasPriceUpdates: []price_registry_1_2_0.InternalGasPriceUpdate{
 			{
 				DestChainSelector: c.Source.ChainSelector,
 				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
@@ -988,21 +987,20 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	// │                    Deploy Price Registry                     │
 	// ================================================================
 
-	sourcePricesAddress, _, _, err := price_registry.DeployPriceRegistry(
+	sourcePricesAddress, _, _, err := price_registry_1_2_0.DeployPriceRegistry(
 		sourceUser,
 		sourceChain,
 		nil,
 		[]common.Address{sourceLinkTokenAddress, sourceWeth9addr},
 		60*60*24*14, // two weeks
-		nil,
 	)
 	require.NoError(t, err)
 
-	srcPriceRegistry, err := price_registry.NewPriceRegistry(sourcePricesAddress, sourceChain)
+	srcPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(sourcePricesAddress, sourceChain)
 	require.NoError(t, err)
 
-	_, err = srcPriceRegistry.UpdatePrices(sourceUser, price_registry.InternalPriceUpdates{
-		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
+	_, err = srcPriceRegistry.UpdatePrices(sourceUser, price_registry_1_2_0.InternalPriceUpdates{
+		TokenPriceUpdates: []price_registry_1_2_0.InternalTokenPriceUpdate{
 			{
 				SourceToken: sourceLinkTokenAddress,
 				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(20)),
@@ -1012,7 +1010,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2000)),
 			},
 		},
-		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+		GasPriceUpdates: []price_registry_1_2_0.InternalGasPriceUpdate{
 			{
 				DestChainSelector: destChainSelector,
 				UsdPerUnitGas:     big.NewInt(20000e9),
@@ -1095,16 +1093,15 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 	require.NoError(t, err)
 	sourceChain.Commit()
 
-	destPriceRegistryAddress, _, _, err := price_registry.DeployPriceRegistry(
+	destPriceRegistryAddress, _, _, err := price_registry_1_2_0.DeployPriceRegistry(
 		destUser,
 		destChain,
 		nil,
 		[]common.Address{destLinkTokenAddress, destWeth9addr},
 		60*60*24*14, // two weeks
-		nil,
 	)
 	require.NoError(t, err)
-	destPriceRegistry, err := price_registry.NewPriceRegistry(destPriceRegistryAddress, destChain)
+	destPriceRegistry, err := price_registry_1_2_0.NewPriceRegistry(destPriceRegistryAddress, destChain)
 	require.NoError(t, err)
 
 	// Deploy commit store.
