@@ -26,7 +26,7 @@ contract ZKSyncStoreTester {
   bytes public data3;
   bytes public data4;
   bytes public data5;
-  bytes public full = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+  bytes public full = hex"ffffffff0f0ff0fffff0fffffff0fffffffffff0fffff0ffffff0ffffffffffff00000fffffffffffff000fffffffffffffffffffffffff0ffffffffff0fffffffffffffffffff00fffffffffff00ffffffffffffffffffffffff000000fffffffffffffffffffffffffffffffffff0ffffffffffffffff0fffff0ffffffff";
   bytes public constant empty = hex"00";
 
   constructor() {
@@ -41,15 +41,6 @@ contract ZKSyncStoreTester {
   }
 
   function storeData() public {
-//    data = new bytes[](iterations);
-//    storedData = new bytes(iterations);
-//    bytes1 d = 0xff;
-//    if (reset) {
-//      d = 0x00;
-//    }
-//    for (uint32 i = 0; i < iterations; i++) {
-//      storedData[i] = d;
-//    }
     for (uint32 i = 0; i < iterations; i++) {
       if (reset) {
         data0 = empty;

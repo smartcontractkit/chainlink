@@ -163,6 +163,7 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
+  error InsufficientGas(uint256 executionGas, uint256 l1Gas);
 
   enum MigrationPermission {
     NONE,
@@ -805,18 +806,22 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
     IAutomationForwarder forwarder,
     uint256 performGas,
     bytes memory performData
-  ) internal nonReentrant returns (bool success, uint256 gasUsed, uint256 l1GasUsed) {
+  ) internal nonReentrant returns (bool success, uint256 gasUsed) {
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-    (bool success, uint256 gasUsed) = forwarder.forward(performGas, performData);
+    (bool success, uint256 executionGasUsed) = forwarder.forward(performGas, performData);
     uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
     uint256 pubdataUsed;
     if (p2 > p1) {
       pubdataUsed = p2 - p1;
     }
     uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
-    emit GasDetails(pubdataUsed, gasPerPubdataByte, gasUsed, p1, p2, tx.gasprice);
-    return (success, gasUsed, gasPerPubdataByte * pubdataUsed);
+    emit GasDetails(pubdataUsed, gasPerPubdataByte, executionGasUsed, p1, p2, tx.gasprice);
+    uint256 l1GasUsed = gasPerPubdataByte * pubdataUsed;
+    if (performGas < l1GasUsed + executionGasUsed) {
+      revert InsufficientGas(executionGasUsed, l1GasUsed);
+    }
+    return (success, executionGasUsed + l1GasUsed);
   }
 
   /**

@@ -136,7 +136,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
       }
 
       // Actually perform the target upkeep
-      (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed, upkeepTransmitInfo[i].l1GasUsed) = _performUpkeep(
+      (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
         upkeepTransmitInfo[i].upkeep.forwarder,
         report.gasLimits[i],
         report.performDatas[i]
@@ -173,7 +173,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
-            upkeepTransmitInfo[i].l1GasUsed * tx.gasprice
+            0
           );
           transmitVars.totalPremium += premium;
           transmitVars.totalReimbursement += reimbursement;
@@ -216,7 +216,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
 
     if (s_hotVars.paused) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
-    (success, gasUsed,) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
     return (success, gasUsed);
   }
 
