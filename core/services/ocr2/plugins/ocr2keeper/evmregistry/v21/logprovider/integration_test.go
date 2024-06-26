@@ -63,7 +63,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			db := setupDB(t)
 			defer db.Close()
 
-			opts := logprovider.NewOptions(200, big.NewInt(1))
+			opts := logprovider.NewOptions(200, 1, 20, big.NewInt(1))
 			opts.ReadInterval = time.Second / 2
 			opts.BufferVersion = bufferVersion
 			opts.LogLimit = logLimit
@@ -248,7 +248,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 			db := setupDB(t)
 			defer db.Close()
 
-			opts := logprovider.NewOptions(200, big.NewInt(1))
+			opts := logprovider.NewOptions(200, 1, 20, big.NewInt(1))
 			opts.ReadInterval = time.Second / 4
 			opts.BufferVersion = bufferVersion
 			opts.LogLimit = limitLow
@@ -512,7 +512,7 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, stateStore evmregistry21.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
 	packer := logprovider.NewLogEventsPacker()
 	if opts == nil {
-		o := logprovider.NewOptions(200, big.NewInt(1))
+		o := logprovider.NewOptions(200, 1, 20, big.NewInt(1))
 		opts = &o
 	}
 	provider := logprovider.NewLogProvider(lggr, poller, big.NewInt(1), packer, filterStore, *opts)
