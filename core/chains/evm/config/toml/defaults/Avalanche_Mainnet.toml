@@ -15,3 +15,6 @@ PriceMin = '25 gwei'
 [GasEstimator.BlockHistory]
 # Average block time of 2s
 BlockHistorySize = 24
+
+[OCR2.Automation]
+BlockRate = 5

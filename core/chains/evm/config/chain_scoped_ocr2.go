@@ -12,6 +12,14 @@ func (o *ocr2Automation) GasLimit() uint32 {
 	return *o.c.GasLimit
 }
 
+func (o *ocr2Automation) BlockRate() uint32 {
+	return *o.c.BlockRate
+}
+
+func (o *ocr2Automation) LogLimit() uint32 {
+	return *o.c.LogLimit
+}
+
 type ocr2Config struct {
 	c toml.OCR2
 }

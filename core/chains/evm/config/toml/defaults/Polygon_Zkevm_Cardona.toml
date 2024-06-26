@@ -22,3 +22,6 @@ BlockHistorySize = 12
 
 [HeadTracker]
 HistoryDepth = 2000
+
+[OCR2.Automation]
+BlockRate = 5

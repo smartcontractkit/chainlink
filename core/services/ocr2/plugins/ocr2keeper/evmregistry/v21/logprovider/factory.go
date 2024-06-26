@@ -12,10 +12,10 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32, chainID *big.Int, blockRate, logLimit uint32) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker()
-	opts := NewOptions(int64(finalityDepth), chainID)
+	opts := NewOptions(int64(finalityDepth), blockRate, logLimit, chainID)
 
 	provider := NewLogProvider(lggr, poller, chainID, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
@@ -52,16 +52,16 @@ const (
 	BufferVersionV1      BufferVersion = "v1"
 )
 
-func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
+func NewOptions(finalityDepth int64, blockRate, logLimit uint32, chainID *big.Int) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
 	opts.chainID = chainID
-	opts.Defaults(finalityDepth)
+	opts.Defaults(finalityDepth, blockRate, logLimit)
 	return *opts
 }
 
 // Defaults sets the default values for the options.
 // NOTE: o.LookbackBlocks should be set only from within tests
-func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
+func (o *LogTriggersOptions) Defaults(finalityDepth int64, blockRate, logLimit uint32) {
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
 		if lookbackBlocks < finalityDepth {
@@ -76,31 +76,9 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 		o.FinalityDepth = finalityDepth
 	}
 	if o.BlockRate == 0 {
-		o.BlockRate = o.defaultBlockRate()
+		o.BlockRate = blockRate
 	}
 	if o.LogLimit == 0 {
-		o.LogLimit = o.defaultLogLimit()
-	}
-}
-
-func (o *LogTriggersOptions) defaultBlockRate() uint32 {
-	switch o.chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		return 4
-	default:
-		return 1
-	}
-}
-
-func (o *LogTriggersOptions) defaultLogLimit() uint32 {
-	switch o.chainID.Int64() {
-	case 42161, 421613, 421614: // Arbitrum
-		return 1
-	case 1, 4, 5, 42, 11155111: // Eth
-		return 20
-	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
-		return 5
-	default:
-		return 2
+		o.LogLimit = logLimit
 	}
 }

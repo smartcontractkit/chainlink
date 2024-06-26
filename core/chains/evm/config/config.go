@@ -65,6 +65,8 @@ type OCR2 interface {
 
 type OCR2Automation interface {
 	GasLimit() uint32
+	BlockRate() uint32
+	LogLimit() uint32
 }
 
 type HeadTracker interface {

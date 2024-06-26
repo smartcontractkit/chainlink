@@ -10,3 +10,6 @@ EIP1559DynamicFees = false
 [GasEstimator.BlockHistory]
 BlockHistorySize = 4
 TransactionPercentile = 50
+
+[OCR2.Automation]
+BlockRate = 20

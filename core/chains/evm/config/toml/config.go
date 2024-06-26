@@ -494,12 +494,20 @@ func (o *OCR2) setFrom(f *OCR2) {
 }
 
 type Automation struct {
-	GasLimit *uint32
+	GasLimit  *uint32
+	BlockRate *uint32
+	LogLimit  *uint32
 }
 
 func (a *Automation) setFrom(f *Automation) {
 	if v := f.GasLimit; v != nil {
 		a.GasLimit = v
+	}
+	if v := f.BlockRate; v != nil {
+		a.BlockRate = v
+	}
+	if v := f.LogLimit; v != nil {
+		a.LogLimit = v
 	}
 }
 

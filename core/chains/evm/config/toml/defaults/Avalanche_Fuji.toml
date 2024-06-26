@@ -17,3 +17,6 @@ BlockHistorySize = 24
 
 [HeadTracker]
 FinalityTagBypass = false
+
+[OCR2.Automation]
+BlockRate = 5

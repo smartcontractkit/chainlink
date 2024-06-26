@@ -27,3 +27,6 @@ ObservationGracePeriod = '500ms'
 
 [NodePool]
 SyncThreshold = 10
+
+[OCR2.Automation]
+BlockRate = 5

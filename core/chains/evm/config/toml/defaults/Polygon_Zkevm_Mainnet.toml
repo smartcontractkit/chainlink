@@ -24,3 +24,6 @@ BlockHistorySize = 12
 [HeadTracker]
 # Polygon suffers from a tremendous number of re-orgs, we need to set this to something very large to be conservative enough
 HistoryDepth = 2000
+
+[OCR2.Automation]
+BlockRate = 5

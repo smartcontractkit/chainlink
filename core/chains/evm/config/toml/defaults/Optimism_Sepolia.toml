@@ -27,3 +27,4 @@ ContractConfirmations = 1
 
 [OCR2.Automation]
 GasLimit = 6500000
+LogLimit = 5
