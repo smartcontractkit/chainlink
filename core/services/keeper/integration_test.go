@@ -56,10 +56,11 @@ func deployKeeperRegistry(
 	backend *client.SimulatedBackendClient,
 	commit func() common.Hash,
 	linkAddr, linkFeedAddr, gasFeedAddr common.Address,
-) (common.Address, *keeper.RegistryWrapper) {
+) (regAddr common.Address, wrapper *keeper.RegistryWrapper) {
 	switch version {
 	case keeper.RegistryVersion_1_1:
-		regAddr, _, _, err := keeper_registry_wrapper1_1.DeployKeeperRegistry(
+		var err error
+		regAddr, _, _, err = keeper_registry_wrapper1_1.DeployKeeperRegistry(
 			auth,
 			backend,
 			linkAddr,
@@ -75,13 +76,9 @@ func deployKeeperRegistry(
 			big.NewInt(20000000000000000),
 		)
 		require.NoError(t, err)
-		commit()
-
-		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
-		require.NoError(t, err)
-		return regAddr, wrapper
 	case keeper.RegistryVersion_1_2:
-		regAddr, _, _, err := keeper_registry_wrapper1_2.DeployKeeperRegistry(
+		var err error
+		regAddr, _, _, err = keeper_registry_wrapper1_2.DeployKeeperRegistry(
 			auth,
 			backend,
 			linkAddr,
@@ -103,10 +100,6 @@ func deployKeeperRegistry(
 			},
 		)
 		require.NoError(t, err)
-		commit()
-		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
-		require.NoError(t, err)
-		return regAddr, wrapper
 	case keeper.RegistryVersion_1_3:
 		logicAddr, _, _, err := keeper_registry_logic1_3.DeployKeeperRegistryLogic(
 			auth,
@@ -119,7 +112,7 @@ func deployKeeperRegistry(
 		require.NoError(t, err)
 		commit()
 
-		regAddr, _, _, err := keeper_registry_wrapper1_3.DeployKeeperRegistry(
+		regAddr, _, _, err = keeper_registry_wrapper1_3.DeployKeeperRegistry(
 			auth,
 			backend,
 			logicAddr,
@@ -139,13 +132,13 @@ func deployKeeperRegistry(
 			},
 		)
 		require.NoError(t, err)
-		commit()
-		wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
-		require.NoError(t, err)
-		return regAddr, wrapper
 	default:
 		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
 	}
+	commit()
+	wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
+	require.NoError(t, err)
+	return
 }
 
 func getUpkeepIdFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, registrationTx *types.Transaction, backend *client.SimulatedBackendClient) *big.Int {
@@ -266,7 +259,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				require.NoError(t, err2)
 				return received
 			}
-			g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+			g.Eventually(receivedBytes, 20*time.Second, time.Second).Should(gomega.Equal(payload1))
 
 			// submit from other keeper (because keepers must alternate)
 			_, err = registryWrapper.PerformUpkeep(nelly, upkeepID, []byte{})
@@ -370,11 +363,13 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 
 		fwdrAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(sergey, backend, linkAddr, sergey.From, steve.From, []byte{})
 		require.NoError(t, err)
+		commit()
 		_, err = authorizedForwarder.SetAuthorizedSenders(sergey, []common.Address{nodeAddress})
 		require.NoError(t, err)
 
 		upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
 		require.NoError(t, err)
+		commit()
 		_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
 		require.NoError(t, err)
 		_, err = linkToken.Approve(carrol, regAddr, oneHunEth)
@@ -474,10 +469,10 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			require.NoError(t, err2)
 			return received
 		}
-		g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+		g.Eventually(receivedBytes, 20*time.Second, time.Second).Should(gomega.Equal(payload1))
 
 		// Upkeep performed by the node through the forwarder
-		g.Eventually(lastKeeper, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(fwdrAddress))
+		g.Eventually(lastKeeper, 20*time.Second, time.Second).Should(gomega.Equal(fwdrAddress))
 	})
 }
 

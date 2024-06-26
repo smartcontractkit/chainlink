@@ -89,7 +89,7 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 	}
 }
 
-func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *verifier.Verifier, common.Address) {
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, commit func() common.Hash, *verifier.Verifier, common.Address) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
@@ -124,7 +124,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *ver
 	require.NoError(t, err)
 	commit()
 
-	return steve, backend, verifier, verifierAddress
+	return steve, backend, commit, verifier, verifierAddress
 }
 
 func TestIntegration_MercuryV1(t *testing.T) {
@@ -178,7 +178,7 @@ func integration_MercuryV1(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, commit, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -193,7 +193,7 @@ func integration_MercuryV1(t *testing.T) {
 		require.NoError(t, err)
 		finalityDepth := ch.Config().EVM().FinalityDepth()
 		for i := 0; i < int(finalityDepth); i++ {
-			backend.Commit()
+			commit()
 		}
 		return int(finalityDepth)
 	}()
@@ -343,7 +343,7 @@ func integration_MercuryV1(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
@@ -535,7 +535,7 @@ func integration_MercuryV2(t *testing.T) {
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, commit, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -548,7 +548,7 @@ func integration_MercuryV2(t *testing.T) {
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	// Set up n oracles
@@ -682,7 +682,7 @@ func integration_MercuryV2(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	runTestSetup := func() {
@@ -824,7 +824,7 @@ func integration_MercuryV3(t *testing.T) {
 	}
 	chainID := testutils.SimulatedChainID
 
-	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+	steve, backend, commit, verifier, verifierAddress := setupBlockchain(t)
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
@@ -837,7 +837,7 @@ func integration_MercuryV3(t *testing.T) {
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	// Set up n oracles
@@ -974,7 +974,7 @@ func integration_MercuryV3(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, ferr)
-		backend.Commit()
+		commit()
 	}
 
 	runTestSetup := func(reqs chan request) {
