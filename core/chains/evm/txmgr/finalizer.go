@@ -63,29 +63,18 @@ func NewEvmFinalizer(
 	}
 }
 
-// Start is a comment to appease the linter
+// Start the finalizer
 func (f *evmFinalizer) Start(ctx context.Context) error {
-	return f.StartOnce("Finalizer", func() error {
-		return f.startInternal(ctx)
-	})
-}
-
-func (f *evmFinalizer) startInternal(_ context.Context) error {
+	f.lggr.Debugf("started Finalizer with RPC batch size limit: %d", f.rpcBatchSize)
 	f.stopCh = make(chan struct{})
-	f.wg = sync.WaitGroup{}
 	f.wg.Add(1)
 	go f.runLoop()
 	return nil
 }
 
-// Close is a comment to appease the linter
+// Close the finalizer
 func (f *evmFinalizer) Close() error {
-	return f.StopOnce("Finalizer", func() error {
-		return f.closeInternal()
-	})
-}
-
-func (f *evmFinalizer) closeInternal() error {
+	f.lggr.Debug("closing Finalizer")
 	close(f.stopCh)
 	f.wg.Wait()
 	return nil
