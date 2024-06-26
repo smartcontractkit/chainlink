@@ -4,12 +4,13 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	goabi "github.com/umbracle/ethgo/abi"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -23,7 +24,7 @@ var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
 type KeeperRegistrar interface {
 	Address() string
 
-	EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool) ([]byte, error)
+	EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool, linkTokenAddr string) ([]byte, error)
 
 	Fund(ethAmount *big.Float) error
 }
@@ -123,13 +124,16 @@ type StaleUpkeepReportLog struct {
 
 // KeeperRegistryOpts opts to deploy keeper registry version
 type KeeperRegistryOpts struct {
-	RegistryVersion ethereum.KeeperRegistryVersion
-	LinkAddr        string
-	ETHFeedAddr     string
-	GasFeedAddr     string
-	TranscoderAddr  string
-	RegistrarAddr   string
-	Settings        KeeperRegistrySettings
+	RegistryVersion   ethereum.KeeperRegistryVersion
+	LinkAddr          string
+	ETHFeedAddr       string
+	GasFeedAddr       string
+	TranscoderAddr    string
+	RegistrarAddr     string
+	Settings          KeeperRegistrySettings
+	LinkUSDFeedAddr   string
+	NativeUSDFeedAddr string
+	WrappedNativeAddr string
 }
 
 // KeeperRegistrySettings represents the settings to fine tune keeper registry
@@ -148,6 +152,27 @@ type KeeperRegistrySettings struct {
 	MaxPerformDataSize   uint32
 	MaxRevertDataSize    uint32
 	RegistryVersion      ethereum.KeeperRegistryVersion
+}
+
+func (rcs *KeeperRegistrySettings) Create23OnchainConfig(registrar string, registryOwnerAddress, chainModuleAddress common.Address, reorgProtectionEnabled bool) i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig {
+	return i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23OnchainConfig{
+		CheckGasLimit:          rcs.CheckGasLimit,
+		StalenessSeconds:       rcs.StalenessSeconds,
+		GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
+		MaxPerformGas:          rcs.MaxPerformGas,
+		MaxCheckDataSize:       rcs.MaxCheckDataSize,
+		MaxPerformDataSize:     rcs.MaxPerformDataSize,
+		MaxRevertDataSize:      rcs.MaxRevertDataSize,
+		FallbackGasPrice:       rcs.FallbackGasPrice,
+		FallbackLinkPrice:      rcs.FallbackLinkPrice,
+		Transcoder:             common.Address{},
+		Registrars:             []common.Address{common.HexToAddress(registrar)},
+		UpkeepPrivilegeManager: registryOwnerAddress,
+		ChainModule:            chainModuleAddress,
+		ReorgProtectionEnabled: reorgProtectionEnabled,
+		FinanceAdmin:           registryOwnerAddress,
+		FallbackNativePrice:    big.NewInt(1),
+	}
 }
 
 func (rcs *KeeperRegistrySettings) Encode20OnchainConfig(registrar string) []byte {
@@ -218,6 +243,7 @@ type KeeperRegistrarSettings struct {
 	AutoApproveMaxAllowed uint16
 	RegistryAddr          string
 	MinLinkJuels          *big.Int
+	WETHTokenAddr         string
 }
 
 // KeeperInfo keeper status and balance info

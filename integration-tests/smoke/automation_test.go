@@ -110,6 +110,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
 		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
 		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
+		"registry_2_3_conditional":                     ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {

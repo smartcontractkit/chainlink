@@ -313,6 +313,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 			client.Addresses[keyNum].Hex(),
 			isLogTrigger,
 			isMercury,
+			linkToken.Address(),
 		)
 
 		if err != nil {
