@@ -227,7 +227,9 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			results, remaining := buf.Dequeue(tc.args.block, tc.args.blockRate, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector, false)
+			start, end := getBlockWindow(tc.args.block, tc.args.blockRate)
+
+			results, remaining := buf.Dequeue(start, end, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector, false)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
 		})
@@ -514,13 +516,13 @@ func TestLogEventBufferV1_BlockWindow(t *testing.T) {
 
 type dequeueArgs struct {
 	block          int64
-	blockRate      int64
+	blockRate      int
 	upkeepLimit    int
 	maxResults     int
 	upkeepSelector func(id *big.Int) bool
 }
 
-func newDequeueArgs(block int64, blockRate int64, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
+func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
 	args := dequeueArgs{
 		block:          block,
 		blockRate:      blockRate,

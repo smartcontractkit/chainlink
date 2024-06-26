@@ -464,14 +464,14 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 100, len(payloads))
 
-		assert.Equal(t, 49, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 51, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.queues["1"].logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.queues["2"].logs))
 
 		windowCount := remainingBlockWindowCounts(buffer.queues, 4)
 
-		assert.Equal(t, 0, windowCount[0])
-		assert.Equal(t, 6, windowCount[48])
-		assert.Equal(t, 6, windowCount[96])
+		assert.Equal(t, 2, windowCount[0])
+		assert.Equal(t, 4, windowCount[48])
+		assert.Equal(t, 4, windowCount[96])
 
 		// the second dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)
@@ -518,20 +518,24 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		windowCount := remainingBlockWindowCounts(buffer.queues, 4)
 
-		assert.Equal(t, 4, windowCount[100])
+		assert.Equal(t, 6, windowCount[100])
 
-		// upkeep 1 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 1, buffer.queues["1"].dequeued[100])
-		// upkeep 2 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 1, buffer.queues["2"].dequeued[100])
-
-		// the second dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 100, len(payloads))
 
-		assert.Equal(t, 2, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 2, countRemainingLogs(buffer.queues["2"].logs))
+		// upkeep 1 has had the minimum number of logs dequeued on the latest (incomplete) window
+		assert.Equal(t, 2, buffer.queues["1"].dequeued[100])
+		// upkeep 2 has had the minimum number of logs dequeued on the latest (incomplete) window
+		assert.Equal(t, 2, buffer.queues["2"].dequeued[100])
+
+		// the third dequeue call will retrieve the remaining 100 logs and exhaust the queues
+		payloads, err = provider.GetLatestPayloads(ctx)
+		assert.NoError(t, err)
+		assert.Equal(t, 4, len(payloads))
+
+		assert.Equal(t, 0, countRemainingLogs(buffer.queues["1"].logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.queues["2"].logs))
 
 		windowCount = remainingBlockWindowCounts(buffer.queues, 4)
 
@@ -541,7 +545,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 0, windowCount[36])
 		assert.Equal(t, 0, windowCount[48])
 		assert.Equal(t, 0, windowCount[96])
-		assert.Equal(t, 4, windowCount[100])
+		assert.Equal(t, 0, windowCount[100])
 	})
 
 	t.Run("min dequeue followed by best effort followed by reorg followed by best effort", func(t *testing.T) {
@@ -574,7 +578,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		windowCount := remainingBlockWindowCounts(buffer.queues, 4)
 
-		assert.Equal(t, 0, windowCount[28])
+		assert.Equal(t, 4, windowCount[28])
 
 		// reorg block 28
 		buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(28), TxHash: common.HexToHash(fmt.Sprintf("0xreorg1%d", 28)), LogIndex: 0, BlockHash: common.BytesToHash([]byte("reorg"))})
@@ -582,7 +586,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		windowCount = remainingBlockWindowCounts(buffer.queues, 4)
 
-		assert.Equal(t, 2, windowCount[28])
+		assert.Equal(t, 6, windowCount[28])
 
 		// the second dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)
@@ -641,20 +645,20 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 95, countRemainingLogs(buffer.queues["4"].logs))
 		assert.Equal(t, 100, countRemainingLogs(buffer.queues["5"].logs))
 
+		// perform two dequeues
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 100, len(payloads))
 
-		// the second dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, 100, len(payloads))
 
 		assert.Equal(t, 40, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 18, countRemainingLogs(buffer.queues["2"].logs))
-		assert.Equal(t, 48, countRemainingLogs(buffer.queues["3"].logs))
-		assert.Equal(t, 52, countRemainingLogs(buffer.queues["4"].logs))
-		assert.Equal(t, 57, countRemainingLogs(buffer.queues["5"].logs))
+		assert.Equal(t, 10, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.queues["3"].logs))
+		assert.Equal(t, 55, countRemainingLogs(buffer.queues["4"].logs))
+		assert.Equal(t, 60, countRemainingLogs(buffer.queues["5"].logs))
 	})
 }
 
