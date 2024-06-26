@@ -4,13 +4,16 @@ package actions
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pelletier/go-toml/v2"
 
 	geth "github.com/ethereum/go-ethereum"
@@ -23,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
@@ -40,7 +44,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/require"
-	"math"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
@@ -664,6 +667,45 @@ func ConfigureOCRv2AggregatorContracts(
 	return nil
 }
 
+// ReturnFunds attempts to return all the funds from the chainlink nodes to the network's default address
+// all from a remote, k8s style environment
+// Remove this once ccip-tests are moved to seth client
+func ReturnFunds(lggr zerolog.Logger, chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
+	if blockchainClient == nil {
+		return fmt.Errorf("blockchain client is nil, unable to return funds from chainlink nodes")
+	}
+	lggr.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	if blockchainClient.NetworkSimulated() {
+		lggr.Info().Str("Network Name", blockchainClient.GetNetworkName()).
+			Msg("Network is a simulated network. Skipping fund return.")
+		return nil
+	}
+
+	for _, chainlinkNode := range chainlinkNodes {
+		fundedKeys, err := chainlinkNode.ExportEVMKeysForChain(blockchainClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
+			if err != nil {
+				return err
+			}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
+			if err != nil {
+				lggr.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
+			}
+		}
+	}
+	return blockchainClient.WaitForEvents()
+}
+
 // TeardownSuite tears down networks/clients and environment and creates a logs folder for failed tests in the
 // specified path. Can also accept a testreporter (if one was used) to log further results
 func TeardownSuite(
@@ -674,6 +716,7 @@ func TeardownSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	grafnaUrlProvider testreporters.GrafanaURLProvider,
+	evmClients ...blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
@@ -685,7 +728,7 @@ func TeardownSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if chainlinkNodes != nil {
+	if chainlinkNodes != nil && chainClient != nil {
 		if err := ReturnFundsFromNodes(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes)); err != nil {
 			// This printed line is required for tests that use real funds to propagate the failure
 			// out to the system running the test. Do not remove
@@ -696,6 +739,29 @@ func TeardownSuite(
 		}
 	} else {
 		l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+	}
+	// The following is needed for tests using EVMClient,
+	// Remove this once ccip-tests are moved to seth client
+	for _, c := range evmClients {
+		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
+			if err := ReturnFunds(l, chainlinkNodes, c); err != nil {
+				// This printed line is required for tests that use real funds to propagate the failure
+				// out to the system running the test. Do not remove
+				fmt.Println(environment.FAILED_FUND_RETURN)
+				l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+					Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
+						"Environment is left running so you can try manually!")
+			}
+		} else {
+			l.Info().Msg("Successfully returned funds from chainlink nodes to default network wallets")
+		}
+		// nolint
+		if c != nil {
+			err := c.Close()
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return env.Shutdown()

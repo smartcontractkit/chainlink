@@ -283,7 +283,7 @@ jobs:
           github_token: ${{ github.token }}
           github_repository: ${{ github.repository }}
           workflow_run_id: ${{ github.run_id }}
-          github_job_name_regex: ^${{ matrix.network }} (?<cap>.?*)$
+          github_job_name_regex: ^${{ matrix.network }} (.*?)$
           message_title: ${{ matrix.network }}
           slack_channel_id: "#ccip-testing"
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}
