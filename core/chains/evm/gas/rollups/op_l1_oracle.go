@@ -56,8 +56,7 @@ type optimismL1Oracle struct {
 }
 
 const (
-	// isUpgradedPollingPeriod is the interval to poll if chain has been upgraded
-	// Set to poll every 4 hours
+	// upgradePollingPeriod is the interval to poll if chain has been upgraded
 	upgradePollingPeriod = 4 * time.Hour
 	// isEcotone fetches if the OP Stack GasPriceOracle contract has upgraded to Ecotone
 	isEcotoneMethod = "isEcotone"
@@ -550,6 +549,10 @@ func (o *optimismL1Oracle) getEcotoneFjordGasPrice(ctx context.Context) (*big.In
 	scaledGasPrice := new(big.Int).Add(scaledBaseFee, scaledBlobBaseFee)
 
 	// Gas price = scaled gas price / (16 * 10 ^ decimals)
+	// This formula is extracted from the gas cost methods in the precompile contract
+	// Note: The Fjord calculation in the contract uses estimated size instead of gas used which is why we have to scale down by (16 * 10 ^ decimals) as well
+	// Ecotone: https://github.com/ethereum-optimism/optimism/blob/71b93116738ee98c9f8713b1a5dfe626ce06c1b2/packages/contracts-bedrock/src/L2/GasPriceOracle.sol#L192
+	// Fjord: https://github.com/ethereum-optimism/optimism/blob/71b93116738ee98c9f8713b1a5dfe626ce06c1b2/packages/contracts-bedrock/src/L2/GasPriceOracle.sol#L229-L230
 	scale := new(big.Int).Exp(big.NewInt(10), decimals, nil)
 	scale = new(big.Int).Mul(scale, big.NewInt(16))
 
