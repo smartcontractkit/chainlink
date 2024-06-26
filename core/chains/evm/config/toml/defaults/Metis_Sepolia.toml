@@ -1,0 +1,16 @@
+ChainID = '59902'
+ChainType = 'metis'
+FinalityDepth = 10
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '0'
+OCR.ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'SuggestedPrice'
+PriceMin = '0'
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[NodePool]
+SyncThreshold = 10

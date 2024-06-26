@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := chainlink
 
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
-VERSION = $(shell cat VERSION)
+VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 
@@ -27,23 +27,26 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 	go mod download
 
 .PHONY: gomodtidy
-gomodtidy: gomods ## Run go mod tidy on all modules.
+gomodtidy: ## Run go mod tidy on all modules.
 	go mod tidy
 	cd ./core/scripts && go mod tidy
 	cd ./integration-tests && go mod tidy
 	cd ./integration-tests/load && go mod tidy
 	cd ./dashboard-lib && go mod tidy
-	cd ./charts/chainlink-cluster && go mod tidy
 
-.PHONY: godoc
-godoc: ## Install and run godoc
-	go install golang.org/x/tools/cmd/godoc@latest
-	# http://localhost:6060/pkg/github.com/smartcontractkit/chainlink/v2/
-	godoc -http=:6060
+.PHONY: docs
+docs: ## Install and run pkgsite to view Go docs
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
+	pkgsite
 
 .PHONY: install-chainlink
 install-chainlink: operator-ui ## Install the chainlink binary.
 	go install $(GOFLAGS) .
+
+.PHONY: install-chainlink-cover
+install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
+	go install -cover $(GOFLAGS) .
 
 .PHONY: chainlink
 chainlink: ## Build the chainlink binary.
@@ -79,15 +82,19 @@ docker-plugins:
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
-	go generate ./core/web
+	go run operator_ui/install.go .
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
 .PHONY: generate
-generate: abigen codecgen mockery protoc gomods ## Execute all go:generate commands.
-	gomods -w go generate -x ./...
+generate: abigen codecgen mockery protoc ## Execute all go:generate commands.
+	go generate -x ./...
+	cd ./core/scripts && go generate -x ./...
+	cd ./integration-tests && go generate -x ./...
+	cd ./integration-tests/load && go generate -x ./...
+	cd ./dashboard-lib && go generate -x ./...
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
@@ -99,11 +106,19 @@ testscripts: chainlink-test ## Install and run testscript against testdata/scrip
 testscripts-update: ## Update testdata/scripts/* files via testscript.
 	make testscripts TS_FLAGS="-u"
 
+.PHONY: setup-testdb
+setup-testdb: ## Setup the test database.
+	./core/scripts/setup_testdb.sh
+
 .PHONY: testdb
 testdb: ## Prepares the test database.
 	go run . local db preparetest
 
-.PHONY: testdb
+.PHONY: testdb-force
+testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
+	go run . local db preparetest --force
+
+.PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
@@ -116,11 +131,11 @@ presubmit: ## Format go files and imports.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.0
+	go install github.com/jmank88/gomods@v0.1.1
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.38.0
+	go install github.com/vektra/mockery/v2@v2.43.2
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -147,7 +162,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.56.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.59.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

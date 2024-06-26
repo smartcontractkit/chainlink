@@ -7,19 +7,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestInsertSelectDelete(t *testing.T) {
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	ctx := testutils.Context(t)
 	chainID := testutils.FixtureChainID
 	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	orm := NewORM(chainID, db)
 
 	inserted := []persistedStateRecord{
 		{
@@ -32,20 +30,20 @@ func TestInsertSelectDelete(t *testing.T) {
 		},
 	}
 
-	err := orm.BatchInsertRecords(inserted)
+	err := orm.BatchInsertRecords(ctx, inserted)
 
 	require.NoError(t, err, "no error expected from insert")
 
-	states, err := orm.SelectStatesByWorkIDs([]string{"0x1"})
+	states, err := orm.SelectStatesByWorkIDs(ctx, []string{"0x1"})
 
 	require.NoError(t, err, "no error expected from select")
 	require.Len(t, states, 1, "records return should equal records inserted")
 
-	err = orm.DeleteExpired(time.Now())
+	err = orm.DeleteExpired(ctx, time.Now())
 
 	assert.NoError(t, err, "no error expected from delete")
 
-	states, err = orm.SelectStatesByWorkIDs([]string{"0x1"})
+	states, err = orm.SelectStatesByWorkIDs(ctx, []string{"0x1"})
 
 	require.NoError(t, err, "no error expected from select")
 	require.Len(t, states, 0, "records return should be empty since records were deleted")

@@ -17,13 +17,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -71,15 +71,15 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 	lsn.l.Infow("Handling reverted txns")
 
 	// Fetch recent single and batch txns, that have not been force-fulfilled
-	recentSingleTxns, err := lsn.fetchRecentSingleTxns(ctx, lsn.q, lsn.chainID.Uint64(), pollPeriod)
+	recentSingleTxns, err := lsn.fetchRecentSingleTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
 		lsn.l.Fatalw("Fetch recent txns", "err", err)
 	}
-	recentBatchTxns, err := lsn.fetchRecentBatchTxns(ctx, lsn.q, lsn.chainID.Uint64(), pollPeriod)
+	recentBatchTxns, err := lsn.fetchRecentBatchTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
 		lsn.l.Fatalw("Fetch recent batch txns", "err", err)
 	}
-	recentForceFulfillmentTxns, err := lsn.fetchRevertedForceFulfilmentTxns(ctx, lsn.q, lsn.chainID.Uint64(), pollPeriod)
+	recentForceFulfillmentTxns, err := lsn.fetchRevertedForceFulfilmentTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
 		lsn.l.Fatalw("Fetch recent reverted force-fulfillment txns", "err", err)
 	}
@@ -108,10 +108,9 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 }
 
 func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
-	q pg.Q,
+	ds sqlutil.DataSource,
 	chainID uint64,
 	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
-
 	// (state = 'confirmed' OR state = 'unconfirmed')
 	sqlQuery := fmt.Sprintf(`
 		WITH already_ff as (
@@ -155,7 +154,7 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 	var recentReceipts []TxnReceiptDB
 
 	before := time.Now()
-	err := q.Select(&recentReceipts, sqlQuery, chainID)
+	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
@@ -172,7 +171,7 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 }
 
 func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
-	q pg.Q,
+	ds sqlutil.DataSource,
 	chainID uint64,
 	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
 	sqlQuery := fmt.Sprintf(`
@@ -217,7 +216,7 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 	var recentReceipts []TxnReceiptDB
 
 	before := time.Now()
-	err := q.Select(&recentReceipts, sqlQuery, chainID)
+	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
@@ -231,10 +230,9 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 }
 
 func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
-	q pg.Q,
+	ds sqlutil.DataSource,
 	chainID uint64,
 	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
-
 	sqlQuery := fmt.Sprintf(`
 		WITH txes AS (
 			SELECT *
@@ -271,7 +269,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	var recentReceipts []TxnReceiptDB
 
 	before := time.Now()
-	err := q.Select(&recentReceipts, sqlQuery, chainID)
+	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "Error fetching recent reverted force-fulfilled txns")
@@ -300,7 +298,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	`, ReqScanTimeRangeInDB)
 	var allReceipts []TxnReceiptDB
 	before = time.Now()
-	err = q.Select(&allReceipts, sqlQueryAll, chainID)
+	err = ds.SelectContext(ctx, &allReceipts, sqlQueryAll, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "Error fetching all recent force-fulfilled txns")
@@ -389,9 +387,10 @@ func (lsn *listenerV2) postSqlLog(ctx context.Context, begin time.Time, pollPeri
 		lsn.l.Debugw("SQL context canceled", "ms", elapsed.Milliseconds(), "err", ctx.Err(), "sql", queryName)
 	}
 
-	timeout := lsn.q.QueryTimeout
-	if timeout <= 0 {
-		timeout = pollPeriod
+	timeout := pollPeriod
+	deadline, ok := ctx.Deadline()
+	if ok {
+		timeout = deadline.Sub(begin)
 	}
 
 	pct := float64(elapsed) / float64(timeout)
@@ -415,7 +414,6 @@ func (lsn *listenerV2) postSqlLog(ctx context.Context, begin time.Time, pollPeri
 
 func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
 	recentReceipts []TxnReceiptDB) []RevertedVRFTxn {
-
 	revertedVRFTxns := make([]RevertedVRFTxn, 0)
 	for _, txnReceipt := range recentReceipts {
 		switch txnReceipt.ToAddress.Hex() {
@@ -470,7 +468,6 @@ func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
 func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	txnReceiptDB TxnReceiptDB) (
 	*RevertedVRFTxn, error) {
-
 	requestID := common.HexToHash(txnReceiptDB.RequestID).Big()
 	commitment, err := lsn.coordinator.GetCommitment(&bind.CallOpts{Context: ctx}, requestID)
 	if err != nil {

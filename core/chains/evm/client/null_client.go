@@ -231,3 +231,7 @@ func (nc *NullClient) IsL2() bool {
 func (nc *NullClient) LatestFinalizedBlock(_ context.Context) (*evmtypes.Head, error) {
 	return nil, nil
 }
+
+func (nc *NullClient) CheckTxValidity(_ context.Context, _ common.Address, _ common.Address, _ []byte) *SendError {
+	return nil
+}

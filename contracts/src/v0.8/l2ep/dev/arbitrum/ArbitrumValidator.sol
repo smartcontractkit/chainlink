@@ -98,9 +98,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address gasPriceL1FeedAddr,
     PaymentStrategy _paymentStrategy
   ) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l2ArbitrumSequencerUptimeFeedAddr != address(0), "Invalid ArbitrumSequencerUptimeFeed contract address");
     CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
     L2_SEQ_STATUS_RECORDER = l2ArbitrumSequencerUptimeFeedAddr;
@@ -301,11 +301,11 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @notice internal method that stores the gas configuration
   function _setGasConfig(uint256 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(maxGas > 0, "Max gas is zero");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(gasPriceBid > 0, "Gas price bid is zero");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
     s_gasConfig = GasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
@@ -345,7 +345,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @dev reverts if the caller does not have access to change the configuration
   modifier onlyOwnerOrConfigAccess() {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(
       msg.sender == owner() || (address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data)),
       "No access"

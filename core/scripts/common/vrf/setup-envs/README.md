@@ -33,6 +33,8 @@ go run . \
 --bhf-creds-file <path_to_file_with_creds> \
 --num-eth-keys=1 \
 --num-vrf-keys=1 \
+--num-bhs-sending-keys= 1 \
+--num-bhf-sending-keys=1 \
 --sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="true" \
 --subscription-balance="1e19" \
@@ -75,6 +77,8 @@ go run . \
 --bhf-creds-file <path_to_file_with_creds> \
 --num-eth-keys=1 \
 --num-vrf-keys=1 \
+--num-bhs-sending-keys= 1 \
+--num-bhf-sending-keys=1 \
 --sending-key-funding-amount="1e17" \
 --deploy-contracts-and-create-jobs="true" \
 --subscription-balance="1e19" \

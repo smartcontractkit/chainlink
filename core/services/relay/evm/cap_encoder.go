@@ -2,6 +2,8 @@ package evm
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -15,7 +17,6 @@ import (
 const (
 	abiConfigFieldName = "abi"
 	encoderName        = "user"
-	idLen              = 32
 )
 
 type capEncoder struct {
@@ -34,7 +35,7 @@ func NewEVMEncoder(config *values.Map) (consensustypes.Encoder, error) {
 	if !ok {
 		return nil, fmt.Errorf("expected %s to be a string", abiConfigFieldName)
 	}
-	selector, err := abiutil.ParseSignature("inner(" + selectorStr + ")")
+	selector, err := abiutil.ParseSelector("inner(" + selectorStr + ")")
 	if err != nil {
 		return nil, err
 	}
@@ -67,31 +68,81 @@ func (c *capEncoder) Encode(ctx context.Context, input values.Map) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	// prepend workflowID and workflowExecutionID to the encoded user data
-	workflowIDbytes, executionIDBytes, err := extractIDs(unwrappedMap)
+
+	metaMap, ok := input.Underlying[consensustypes.MetadataFieldName]
+	if !ok {
+		return nil, fmt.Errorf("expected metadata field to be present: %s", consensustypes.MetadataFieldName)
+	}
+
+	var meta consensustypes.Metadata
+	err = metaMap.UnwrapTo(&meta)
 	if err != nil {
 		return nil, err
 	}
-	return append(append(workflowIDbytes, executionIDBytes...), userPayload...), nil
+
+	return prependMetadataFields(meta, userPayload)
 }
 
-// extract workflowID and executionID from the input map, validate and align to 32 bytes
-// NOTE: consider requiring them to be exactly 32 bytes to avoid issues with padding
-func extractIDs(input map[string]any) ([]byte, []byte, error) {
-	workflowID, ok := input[consensustypes.WorkflowIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.WorkflowIDFieldName)
+func prependMetadataFields(meta consensustypes.Metadata, userPayload []byte) ([]byte, error) {
+	var err error
+	var result []byte
+
+	// 1. Version (1 byte)
+	if meta.Version > 255 {
+		return nil, fmt.Errorf("version must be between 0 and 255")
 	}
-	executionID, ok := input[consensustypes.ExecutionIDFieldName].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected %s to be a string", consensustypes.ExecutionIDFieldName)
+	result = append(result, byte(meta.Version))
+
+	// 2. Execution ID (32 bytes)
+	if result, err = decodeAndAppend(meta.ExecutionID, 32, result, "ExecutionID"); err != nil {
+		return nil, err
 	}
-	if len(workflowID) > 32 || len(executionID) > 32 {
-		return nil, nil, fmt.Errorf("IDs too long: %d, %d", len(workflowID), len(executionID))
+
+	// 3. Timestamp (4 bytes)
+	tsBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(tsBytes, meta.Timestamp)
+	result = append(result, tsBytes...)
+
+	// 4. DON ID (4 bytes)
+	if result, err = decodeAndAppend(meta.DONID, 4, result, "DONID"); err != nil {
+		return nil, err
 	}
-	alignedWorkflowID := make([]byte, idLen)
-	copy(alignedWorkflowID, workflowID)
-	alignedExecutionID := make([]byte, idLen)
-	copy(alignedExecutionID, executionID)
-	return alignedWorkflowID, alignedExecutionID, nil
+
+	// 5. DON config version (4 bytes)
+	cfgVersionBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(cfgVersionBytes, meta.DONConfigVersion)
+	result = append(result, cfgVersionBytes...)
+
+	// 6. Workflow ID / spec hash (32 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowID, 32, result, "WorkflowID"); err != nil {
+		return nil, err
+	}
+
+	// 7. Workflow Name (10 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowName, 10, result, "WorkflowName"); err != nil {
+		return nil, err
+	}
+
+	// 8. Workflow Owner (20 bytes)
+	if result, err = decodeAndAppend(meta.WorkflowOwner, 20, result, "WorkflowOwner"); err != nil {
+		return nil, err
+	}
+
+	// 9. Report ID (2 bytes)
+	if result, err = decodeAndAppend(meta.ReportID, 2, result, "ReportID"); err != nil {
+		return nil, err
+	}
+
+	return append(result, userPayload...), nil
+}
+
+func decodeAndAppend(id string, expectedLen int, prevResult []byte, logName string) ([]byte, error) {
+	b, err := hex.DecodeString(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hex-decode %s (%s): %w", logName, id, err)
+	}
+	if len(b) != expectedLen {
+		return nil, fmt.Errorf("incorrect length for id %s (%s), expected %d bytes, got %d", logName, id, expectedLen, len(b))
+	}
+	return append(prevResult, b...), nil
 }

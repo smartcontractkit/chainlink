@@ -5,27 +5,27 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 type ORM interface {
-	InsertTransmitRequest(serverURL string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
-	DeleteTransmitRequests(serverURL string, reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
-	GetTransmitRequests(serverURL string, jobID int32, qopts ...pg.QOpt) ([]*Transmission, error)
-	PruneTransmitRequests(serverURL string, jobID int32, maxSize int, qopts ...pg.QOpt) error
-	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+	InsertTransmitRequest(ctx context.Context, serverURLs []string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error
+	DeleteTransmitRequests(ctx context.Context, serverURL string, reqs []*pb.TransmitRequest) error
+	GetTransmitRequests(ctx context.Context, serverURL string, jobID int32) ([]*Transmission, error)
+	PruneTransmitRequests(ctx context.Context, serverURL string, jobID int32, maxSize int) error
+	LatestReport(ctx context.Context, feedID [32]byte) (report []byte, err error)
 }
 
 func FeedIDFromReport(report ocrtypes.Report) (feedID utils.FeedID, err error) {
@@ -36,41 +36,58 @@ func FeedIDFromReport(report ocrtypes.Report) (feedID utils.FeedID, err error) {
 }
 
 type orm struct {
-	q pg.Q
+	ds sqlutil.DataSource
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
-	namedLogger := lggr.Named("MercuryORM")
-	q := pg.NewQ(db, namedLogger, cfg)
-	return &orm{
-		q: q,
-	}
+func NewORM(ds sqlutil.DataSource) ORM {
+	return &orm{ds: ds}
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *orm) InsertTransmitRequest(serverURL string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+func (o *orm) InsertTransmitRequest(ctx context.Context, serverURLs []string, req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext) error {
 	feedID, err := FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
 	}
+	if len(serverURLs) == 0 {
+		return errors.New("no server URLs provided")
+	}
 
-	q := o.q.WithOpts(qopts...)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	var err1, err2 error
 
 	go func() {
 		defer wg.Done()
-		err1 = q.ExecQ(`
-		INSERT INTO mercury_transmit_requests (server_url, payload, payload_hash, config_digest, epoch, round, extra_hash, job_id, feed_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+
+		values := make([]string, len(serverURLs))
+		args := []interface{}{
+			req.Payload,
+			hashPayload(req.Payload),
+			reportCtx.ConfigDigest[:],
+			reportCtx.Epoch,
+			reportCtx.Round,
+			reportCtx.ExtraHash[:],
+			jobID,
+			feedID[:],
+		}
+		for i, serverURL := range serverURLs {
+			// server url is the only thing that changes, might as well re-use
+			// the same parameters for each insert
+			values[i] = fmt.Sprintf("($1, $2, $3, $4, $5, $6, $7, $8, $%d)", i+9)
+			args = append(args, serverURL)
+		}
+
+		_, err1 = o.ds.ExecContext(ctx, fmt.Sprintf(`
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id, feed_id, server_url)
+		VALUES %s
 		ON CONFLICT (server_url, payload_hash) DO NOTHING
-	`, serverURL, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID, feedID[:])
+	`, strings.Join(values, ",")), args...)
 	}()
 
 	go func() {
 		defer wg.Done()
-		err2 = q.ExecQ(`
+		_, err2 = o.ds.ExecContext(ctx, `
 		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at, job_id)
 		VALUES ($1, $2, $3, $4, NOW(), $5)
 		ON CONFLICT (feed_id) DO UPDATE
@@ -83,7 +100,7 @@ func (o *orm) InsertTransmitRequest(serverURL string, req *pb.TransmitRequest, j
 }
 
 // DeleteTransmitRequest deletes the given transmit requests if they exist.
-func (o *orm) DeleteTransmitRequests(serverURL string, reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error {
+func (o *orm) DeleteTransmitRequests(ctx context.Context, serverURL string, reqs []*pb.TransmitRequest) error {
 	if len(reqs) == 0 {
 		return nil
 	}
@@ -93,8 +110,7 @@ func (o *orm) DeleteTransmitRequests(serverURL string, reqs []*pb.TransmitReques
 		hashes = append(hashes, hashPayload(req.Payload))
 	}
 
-	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`
+	_, err := o.ds.ExecContext(ctx, `
 		DELETE FROM mercury_transmit_requests
 		WHERE server_url = $1 AND payload_hash = ANY($2)
 	`, serverURL, hashes)
@@ -102,11 +118,10 @@ func (o *orm) DeleteTransmitRequests(serverURL string, reqs []*pb.TransmitReques
 }
 
 // GetTransmitRequests returns all transmit requests in chronologically descending order.
-func (o *orm) GetTransmitRequests(serverURL string, jobID int32, qopts ...pg.QOpt) ([]*Transmission, error) {
-	q := o.q.WithOpts(qopts...)
+func (o *orm) GetTransmitRequests(ctx context.Context, serverURL string, jobID int32) ([]*Transmission, error) {
 	// The priority queue uses epoch and round to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
-	rows, err := q.QueryContext(q.ParentCtx, `
+	rows, err := o.ds.QueryContext(ctx, `
 		SELECT payload, config_digest, epoch, round, extra_hash
 		FROM mercury_transmit_requests
 		WHERE job_id = $1 AND server_url = $2
@@ -146,10 +161,9 @@ func (o *orm) GetTransmitRequests(serverURL string, jobID int32, qopts ...pg.QOp
 
 // PruneTransmitRequests keeps at most maxSize rows for the given job ID,
 // deleting the oldest transactions.
-func (o *orm) PruneTransmitRequests(serverURL string, jobID int32, maxSize int, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
+func (o *orm) PruneTransmitRequests(ctx context.Context, serverURL string, jobID int32, maxSize int) error {
 	// Prune the oldest requests by epoch and round.
-	return q.ExecQ(`
+	_, err := o.ds.ExecContext(ctx, `
 		DELETE FROM mercury_transmit_requests
 		WHERE job_id = $1 AND server_url = $2 AND
 		payload_hash NOT IN (
@@ -160,11 +174,11 @@ func (o *orm) PruneTransmitRequests(serverURL string, jobID int32, maxSize int, 
 			LIMIT $3
 		)
 	`, jobID, serverURL, maxSize)
+	return err
 }
 
-func (o *orm) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
-	q := o.q.WithOpts(qopts...)
-	err = q.GetContext(ctx, &report, `SELECT report FROM feed_latest_reports WHERE feed_id = $1`, feedID[:])
+func (o *orm) LatestReport(ctx context.Context, feedID [32]byte) (report []byte, err error) {
+	err = o.ds.GetContext(ctx, &report, `SELECT report FROM feed_latest_reports WHERE feed_id = $1`, feedID[:])
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/jmoiron/sqlx"
 
@@ -271,21 +271,6 @@ type MockCronEntry struct {
 	Function func()
 }
 
-// MockHeadTrackable allows you to mock HeadTrackable
-type MockHeadTrackable struct {
-	onNewHeadCount atomic.Int32
-}
-
-// OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *evmtypes.Head) {
-	m.onNewHeadCount.Add(1)
-}
-
-// OnNewLongestChainCount returns the count of new heads, safely.
-func (m *MockHeadTrackable) OnNewLongestChainCount() int32 {
-	return m.onNewHeadCount.Load()
-}
-
 // NeverSleeper is a struct that never sleeps
 type NeverSleeper struct{}
 
@@ -312,10 +297,11 @@ func MustRandomUser(t testing.TB) sessions.User {
 }
 
 func NewUserWithSession(t testing.TB, orm sessions.AuthenticationProvider) sessions.User {
+	ctx := testutils.Context(t)
 	u := MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
+	require.NoError(t, orm.CreateUser(ctx, &u))
 
-	_, err := orm.CreateSession(sessions.SessionRequest{
+	_, err := orm.CreateSession(ctx, sessions.SessionRequest{
 		Email:    u.Email,
 		Password: Password,
 	})
@@ -332,13 +318,13 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
-	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
+func (m *MockAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+	if user, err := orm.FindUser(ctx, APIEmailAdmin); err == nil {
 		return user, err
 	}
 	m.Count++
 	user := MustRandomUser(m.t)
-	return user, orm.CreateUser(&user)
+	return user, orm.CreateUser(ctx, &user)
 }
 
 func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {
@@ -408,7 +394,6 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	ch.On("Config").Return(scopedCfg)
 
 	return NewLegacyChainsWithChain(ch, cfg)
-
 }
 
 func NewLegacyChainsWithMockChainAndTxManager(t testing.TB, ethClient evmclient.Client, cfg legacyevm.AppConfig, txm txmgr.TxManager) legacyevm.LegacyChainContainer {

@@ -32,6 +32,19 @@ type ResponseSlice struct {
 	Data []map[string]interface{}
 }
 
+// HealthResponse is the generic model for services health statuses
+type HealthResponse struct {
+	Data []struct {
+		Type       string `json:"type"`
+		ID         string `json:"id"`
+		Attributes struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+			Output string `json:"output"`
+		} `json:"attributes"`
+	} `json:"data"`
+}
+
 // Response is the generic model that can be used for all Chainlink API responses
 type Response struct {
 	Data map[string]interface{}
@@ -1160,7 +1173,8 @@ observationSource                      = """
 type VRFV2PlusJobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1185,6 +1199,7 @@ type                     = "vrf"
 schemaVersion            = 1
 name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
@@ -1207,7 +1222,8 @@ observationSource = """
 type VRFV2JobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                     string        `toml:"publicKey"`          // Public key of the proving key
+	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
+	PublicKey                     string        `toml:"publicKey"` // Public key of the proving key
 	ExternalJobID                 string        `toml:"externalJobID"`
 	ObservationSource             string        `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations      int           `toml:"minIncomingConfirmations"`
@@ -1236,6 +1252,7 @@ schemaVersion            = 1
 name                     = "{{.Name}}"
 forwardingAllowed        = {{.ForwardingAllowed}}
 coordinatorAddress       = "{{.CoordinatorAddress}}"
+{{ if .BatchFulfillmentEnabled }}batchCoordinatorAddress                = "{{.BatchCoordinatorAddress}}"{{ else }}{{ end }}
 fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
 evmChainID               = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
@@ -1326,6 +1343,48 @@ pollPeriod              = "{{.PollPeriod}}"
 runTimeout          = "{{.RunTimeout}}"
 `
 	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
+}
+
+// BlockHeaderFeederJobSpec represents a blockheaderfeeder job
+type BlockHeaderFeederJobSpec struct {
+	Name                       string        `toml:"name"`
+	CoordinatorV2Address       string        `toml:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress   string        `toml:"coordinatorV2PlusAddress"`
+	BlockhashStoreAddress      string        `toml:"blockhashStoreAddress"`
+	BatchBlockhashStoreAddress string        `toml:"batchBlockhashStoreAddress"`
+	ExternalJobID              string        `toml:"externalJobID"`
+	FromAddresses              []string      `toml:"fromAddresses"`
+	EVMChainID                 string        `toml:"evmChainID"`
+	ForwardingAllowed          bool          `toml:"forwardingAllowed"`
+	PollPeriod                 time.Duration `toml:"pollPeriod"`
+	RunTimeout                 time.Duration `toml:"runTimeout"`
+	WaitBlocks                 int           `toml:"waitBlocks"`
+	LookbackBlocks             int           `toml:"lookbackBlocks"`
+}
+
+// Type returns the type of the job
+func (b *BlockHeaderFeederJobSpec) Type() string { return "blockheaderfeeder" }
+
+// String representation of the job
+func (b *BlockHeaderFeederJobSpec) String() (string, error) {
+	vrfTemplateString := `
+type                          = "blockheaderfeeder"
+schemaVersion                 = 1
+name                          = "{{.Name}}"
+forwardingAllowed             = {{.ForwardingAllowed}}
+coordinatorV2Address          = "{{.CoordinatorV2Address}}"
+coordinatorV2PlusAddress      = "{{.CoordinatorV2PlusAddress}}"
+blockhashStoreAddress	      = "{{.BlockhashStoreAddress}}"
+batchBlockhashStoreAddress	  = "{{.BatchBlockhashStoreAddress}}"
+fromAddresses                 = [{{range .FromAddresses}}"{{.}}",{{end}}]
+evmChainID                    = "{{.EVMChainID}}"
+externalJobID                 = "{{.ExternalJobID}}"
+waitBlocks                    = {{.WaitBlocks}}
+lookbackBlocks                = {{.LookbackBlocks}}
+pollPeriod                    = "{{.PollPeriod}}"
+runTimeout                    = "{{.RunTimeout}}"
+`
+	return MarshallTemplate(b, "BlockHeaderFeeder Job", vrfTemplateString)
 }
 
 // WebhookJobSpec reprsents a webhook job

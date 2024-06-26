@@ -62,6 +62,7 @@ func (m *mockLoopImpl) run() {
 }
 
 func TestLoopRegistry(t *testing.T) {
+	ctx := testutils.Context(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V2.Enabled = ptr(true)
@@ -80,7 +81,7 @@ func TestLoopRegistry(t *testing.T) {
 		model.LabelSet{"__metrics_path__": model.LabelValue(expectedLooppEndPoint)},
 	}
 
-	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	// register a mock loop

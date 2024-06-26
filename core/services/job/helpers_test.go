@@ -1,8 +1,6 @@
 package job_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -50,31 +48,30 @@ observationSource = """
 	%s
 """
 `
-	ocr2vrfJobSpecTemplate = `
-type                 	= "offchainreporting2"
-schemaVersion        	= 1
-name                 	= "ocr2 vrf spec"
-maxTaskDuration      	= "10s"
-contractID           	= "%s"
-ocrKeyBundleID       	= "%s"
-relay                	= "evm"
-pluginType           	= "ocr2vrf"
-transmitterID        	= "%s"
-forwardingAllowed       = %t
+
+	ocr2Keeper21JobSpecTemplate = `
+type = "offchainreporting2"
+pluginType = "ocr2automation"
+relay = "evm"
+name = "ocr2keeper"
+schemaVersion = 1
+contractID = "%s"
+contractConfigTrackerPollInterval = "15s"
+ocrKeyBundleID = "%s"
+transmitterID = "%s"
+p2pv2Bootstrappers = [
+"%s"
+]
 
 [relayConfig]
-chainID              	= %d
-fromBlock               = %d
-sendingKeys             = [%s]
+chainID = %d
 
 [pluginConfig]
-dkgEncryptionPublicKey 	= "%s"
-dkgSigningPublicKey    	= "%s"
-dkgKeyID               	= "%s"
-dkgContractAddress     	= "%s"
-
-vrfCoordinatorAddress   = "%s"
-linkEthFeedAddress     	= "%s"
+maxServiceWorkers = 100
+cacheEvictionInterval = "1s"
+mercuryCredentialName = "%s"
+contractVersion = "v2.1"
+useBufferV1 = %v
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
@@ -214,10 +211,10 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ExternalJobID: uuid.New(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
-	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
+	keyStore := cltest.NewKeyStore(t, db)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: evmtest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	_, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
+	_, err := ocr.ValidatedOracleSpecToml(cfg, legacyChains, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
@@ -269,38 +266,20 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	return &jb
 }
 
-func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralConfig,
-	transmitter common.Address, chainID *big.Int, fromBlock uint64) *job.Job {
+func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
 	t.Helper()
+	ctx := testutils.Context(t)
 
-	useForwarders := false
-	_, beacon := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, coordinator := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, feed := cltest.MustInsertRandomKey(t, ks.Eth())
-	_, dkg := cltest.MustInsertRandomKey(t, ks.Eth())
-	sendingKeys := fmt.Sprintf(`"%s"`, transmitter)
-	kb, _ := ks.OCR2().Create(chaintype.EVM)
+	bootstrapNodePort := freeport.GetOne(t)
+	bootstrapPeerID := "peerId"
 
-	vrfKey := make([]byte, 32)
-	_, err := rand.Read(vrfKey)
-	require.NoError(t, err)
+	kb, _ := ks.OCR2().Create(ctx, chaintype.EVM)
+	_, registry := cltest.MustInsertRandomKey(t, ks.Eth())
 
-	ocr2vrfJob := fmt.Sprintf(ocr2vrfJobSpecTemplate,
-		beacon.String(),
-		kb.ID(),
-		"",
-		useForwarders,
-		chainID,
-		fromBlock,
-		sendingKeys,
-		ks.DKGEncrypt(),
-		ks.DKGSign(),
-		hex.EncodeToString(vrfKey[:]),
-		dkg.String(),
-		coordinator.String(),
-		feed.String(),
-	)
-	jobSpec := makeOCR2JobSpecFromToml(t, ocr2vrfJob)
+	ocr2Keeper21Job := fmt.Sprintf(ocr2Keeper21JobSpecTemplate, registry.String(), kb.ID(), transmitter,
+		fmt.Sprintf("%s127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), chainID, "mercury cred", false)
+
+	jobSpec := makeOCR2JobSpecFromToml(t, ocr2Keeper21Job)
 
 	return jobSpec
 }

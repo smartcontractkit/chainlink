@@ -103,7 +103,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)
@@ -137,7 +137,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)

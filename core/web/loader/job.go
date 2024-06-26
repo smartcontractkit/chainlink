@@ -16,7 +16,7 @@ type jobBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobBatcher) loadByExternalJobIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobBatcher) loadByExternalJobIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -33,7 +33,7 @@ func (b *jobBatcher) loadByExternalJobIDs(_ context.Context, keys dataloader.Key
 	// Fetch the jobs
 	var jobs []job.Job
 	for _, id := range jobIDs {
-		job, err := b.app.JobORM().FindJobByExternalJobID(id)
+		job, err := b.app.JobORM().FindJobByExternalJobID(ctx, id)
 
 		if err != nil {
 			return []*dataloader.Result{{Data: nil, Error: err}}
@@ -63,7 +63,7 @@ func (b *jobBatcher) loadByExternalJobIDs(_ context.Context, keys dataloader.Key
 	return results
 }
 
-func (b *jobBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobBatcher) loadByPipelineSpecIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -77,7 +77,7 @@ func (b *jobBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader.Ke
 	}
 
 	// Fetch the jobs
-	jobs, err := b.app.JobORM().FindJobsByPipelineSpecIDs(plSpecIDs)
+	jobs, err := b.app.JobORM().FindJobsByPipelineSpecIDs(ctx, plSpecIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

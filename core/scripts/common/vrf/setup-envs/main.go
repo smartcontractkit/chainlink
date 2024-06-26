@@ -52,7 +52,6 @@ var (
 )
 
 func main() {
-
 	vrfPrimaryNodeURL := flag.String("vrf-primary-node-url", "", "remote node URL")
 	vrfBackupNodeURL := flag.String("vrf-backup-node-url", "", "remote node URL")
 	bhsNodeURL := flag.String("bhs-node-url", "", "remote node URL")
@@ -69,6 +68,8 @@ func main() {
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
 	provingKeyMaxGasPriceString := flag.String("proving-key-max-gas-price", "1e12", "Max Gas Price for proving key set in Coordinator config")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
+	numBHSSendingKeys := flag.Int("num-bhs-sending-keys", 1, "Number of sending keys for BHS to create")
+	numBHFSendingKeys := flag.Int("num-bhf-sending-keys", 1, "Number of sending keys for BHF to create")
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 	batchFulfillmentGasMultiplier := flag.Float64("batch-fulfillment-gas-multiplier", 1.1, "")
 	estimateGasMultiplier := flag.Float64("estimate-gas-multiplier", 1.1, "")
@@ -166,7 +167,16 @@ func main() {
 	for key, node := range nodesMap {
 		node := node
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
-		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL)
+
+		// assumption that we are dealing with VRF nodes
+		numKeysToCreate := numEthKeys
+		if key == model.BHSNodeName || key == model.BHSBackupNodeName {
+			numKeysToCreate = numBHSSendingKeys
+		} else if key == model.BHFNodeName {
+			numKeysToCreate = numBHFSendingKeys
+		}
+		ethKeys := createETHKeysIfNeeded(client, app, output, numKeysToCreate, &node.URL)
+
 		if key == model.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
@@ -187,7 +197,6 @@ func main() {
 	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[model.VRFBackupNodeName].CredsFile)
 
 	if *deployContractsAndCreateJobs {
-
 		contractAddresses := model.ContractAddresses{
 			LinkAddress:             *linkAddress,
 			LinkEthAddress:          *linkEthAddress,

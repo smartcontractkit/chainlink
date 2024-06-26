@@ -34,7 +34,7 @@ func newHead() evmtypes.Head {
 
 func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
 	lggr := logger.TestLogger(t)
@@ -49,10 +49,10 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 
 	txm, err := txmgr.NewTxm(
 		db,
-		db,
 		evmConfig,
 		evmConfig.GasEstimator(),
 		evmConfig.Transactions(),
+		nil,
 		dbConfig,
 		dbConfig.Listener(),
 		ethClient,
@@ -71,7 +71,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -95,9 +95,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		cfg := configtest.NewGeneralConfig(t, nil)
 		txStore := cltest.NewTestTxStore(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
@@ -114,7 +113,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 		servicetest.Run(t, reporter)
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
@@ -133,7 +132,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := promreporter.NewPromReporter(db.DB, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)

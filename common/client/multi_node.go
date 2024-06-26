@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -73,7 +72,6 @@ type MultiNode[
 
 	BatchCallContextAll(ctx context.Context, b []BATCH_ELEM) error
 	ConfiguredChainID() CHAIN_ID
-	IsL2() bool
 }
 
 type multiNode[
@@ -95,7 +93,6 @@ type multiNode[
 	nodes               []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID             CHAIN_ID
-	chainType           config.ChainType
 	lggr                logger.SugaredLogger
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
@@ -137,7 +134,6 @@ func NewMultiNode[
 	nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT],
 	sendonlys []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID,
-	chainType config.ChainType,
 	chainFamily string,
 	classifySendTxError func(tx TX, err error) SendTxReturnCode,
 	sendTxSoftTimeout time.Duration,
@@ -153,7 +149,6 @@ func NewMultiNode[
 		nodes:               nodes,
 		sendonlys:           sendonlys,
 		chainID:             chainID,
-		chainType:           chainType,
 		lggr:                logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
 		selectionMode:       selectionMode,
 		noNewHeadsThreshold: noNewHeadsThreshold,
@@ -239,7 +234,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return rpc, err
 	}
 	return n.RPC(), nil
-
 }
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
@@ -490,10 +484,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().ChainID(ctx)
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) ChainType() config.ChainType {
-	return c.chainType
-}
-
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) (code []byte, err error) {
 	n, err := c.selectNode()
 	if err != nil {
@@ -520,10 +510,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return e, err
 	}
 	return n.RPC().FilterEvents(ctx, query)
-}
-
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) IsL2() bool {
-	return c.ChainType().IsL2()
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) LatestBlockHeight(ctx context.Context) (h *big.Int, err error) {
@@ -559,6 +545,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return s, err
 	}
 	return n.RPC().PendingSequenceAt(ctx, addr)
+}
+
+type sendTxErrors map[SendTxReturnCode][]error
+
+// String - returns string representation of the errors map. Required by logger to properly represent the value
+func (errs sendTxErrors) String() string {
+	return fmt.Sprint(map[SendTxReturnCode][]error(errs))
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) SendEmptyTransaction(
@@ -602,7 +595,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	ctx, cancel := c.chStop.Ctx(ctx)
 	defer cancel()
 	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
-	errorsByCode := map[SendTxReturnCode][]error{}
+	errorsByCode := sendTxErrors{}
 	var softTimeoutChan <-chan time.Time
 	var resultsCount int
 loop:
@@ -634,12 +627,11 @@ loop:
 	// ignore critical error as it's reported in reportSendTxAnomalies
 	result, _ := aggregateTxResults(errorsByCode)
 	return result
-
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
 	defer c.wg.Done()
-	resultsByCode := map[SendTxReturnCode][]error{}
+	resultsByCode := sendTxErrors{}
 	// txResults eventually will be closed
 	for txResult := range txResults {
 		resultsByCode[txResult.ResultCode] = append(resultsByCode[txResult.ResultCode], txResult.Err)
@@ -653,7 +645,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 }
 
-func aggregateTxResults(resultsByCode map[SendTxReturnCode][]error) (txResult error, err error) {
+func aggregateTxResults(resultsByCode sendTxErrors) (txResult error, err error) {
 	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
 	successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
 	if hasSuccess {
@@ -752,7 +744,6 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 		c.wg.Add(1)
 		go c.reportSendTxAnomalies(tx, txResultsToReport)
-
 	})
 	if !ok {
 		return fmt.Errorf("aborted while broadcasting tx - multiNode is stopped: %w", context.Canceled)

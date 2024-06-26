@@ -37,7 +37,6 @@ func TestUnpackTransmitTxInput(t *testing.T) {
 }
 
 func TestUnpackTransmitTxInputErrors(t *testing.T) {
-
 	tests := []struct {
 		Name    string
 		RawData string

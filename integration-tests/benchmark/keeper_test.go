@@ -13,51 +13,22 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	env_client "github.com/smartcontractkit/chainlink-testing-framework/k8s/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
-
-	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 var (
-	keeperBenchmarkBaseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
-[Keeper]
-TurnLookBack = 0
-[WebServer]
-HTTPWriteTimeout = '1h'`
-
-	simulatedEVMNonDevTOML = `
-Enabled = true
-FinalityDepth = 50
-LogPollInterval = '1s'
-
-[EVM.HeadTracker]
-HistoryDepth = 100
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
-
 	performanceChainlinkResources = map[string]interface{}{
 		"resources": map[string]interface{}{
 			"requests": map[string]interface{}{
@@ -144,9 +115,11 @@ func TestAutomationBenchmark(t *testing.T) {
 	benchmarkTestNetwork := getNetworkConfig(&config)
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
+	testNetwork := seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, benchmarkNetwork, *testEnvironment)
 
-	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
-	require.NoError(t, err, "Error connecting to blockchain")
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(&config, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetAutoFixFn)
+	require.NoError(t, err, "Error getting Seth client")
+
 	registryVersions := addRegistry(&config)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
@@ -165,6 +138,7 @@ func TestAutomationBenchmark(t *testing.T) {
 				FallbackLinkPrice:    big.NewInt(2e18),
 				MaxCheckDataSize:     uint32(5_000),
 				MaxPerformDataSize:   uint32(5_000),
+				MaxRevertDataSize:    uint32(5_000),
 			},
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     *config.Keeper.Common.NumberOfUpkeeps,
@@ -244,7 +218,7 @@ func getNetworkConfig(config *tc.TestConfig) NetworkConfig {
 	var nc NetworkConfig
 	var ok bool
 	if nc, ok = networkConfig[evmNetwork.Name]; !ok {
-		return defaultNetworkConfig
+		nc = defaultNetworkConfig
 	}
 
 	if evmNetwork.Name == networks.SimulatedEVM.Name || evmNetwork.Name == networks.SimulatedEVMNonDev.Name {
@@ -284,7 +258,7 @@ var networkConfig = map[string]NetworkConfig{
 		blockTime:  12 * time.Second,
 		deltaStage: time.Duration(0),
 	},
-	networks.BaseGoerli.Name: {
+	networks.BaseSepolia.Name: {
 		upkeepSLA:  int64(60),
 		blockTime:  2 * time.Second,
 		deltaStage: 20 * time.Second,
@@ -320,13 +294,15 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 	l := logging.GetTestLogger(t)
 	testNetwork := networks.MustGetSelectedNetworkConfig(keeperTestConfig.GetNetworkConfig())[0] // Environment currently being used to run benchmark test on
 	blockTime := "1"
-	networkDetailTOML := `MinIncomingConfirmations = 1`
-
 	numberOfNodes := *keeperTestConfig.GetKeeperConfig().Common.NumberOfNodes
 
 	if strings.Contains(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest, "2_") {
 		numberOfNodes++
 	}
+
+	networkName := strings.ReplaceAll(testNetwork.Name, " ", "-")
+	networkName = strings.ReplaceAll(networkName, "_", "-")
+	testNetwork.Name = networkName
 
 	testEnvironment := environment.New(&environment.Config{
 		TTL: time.Hour * 720, // 30 days,
@@ -349,7 +325,6 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 
 	// Test can run on simulated, simulated-non-dev, testnets
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
-		networkDetailTOML = simulatedEVMNonDevTOML
 		testEnvironment.
 			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: testNetwork.Name,
@@ -382,20 +357,24 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 						},
 					},
 					"geth": map[string]interface{}{
-						"blocktime": blockTime,
+						"blocktime":      blockTime,
+						"capacity":       "20Gi",
+						"startGaslimit":  "20000000",
+						"targetGasLimit": "30000000",
 					},
 				},
 			}))
 	}
 
+	// TODO we need to update the image in CTF, the old one is not available anymore
 	// deploy blockscout if running on simulated
-	if testNetwork.Simulated {
-		testEnvironment.
-			AddChart(blockscout.New(&blockscout.Props{
-				Name:    "geth-blockscout",
-				WsURL:   testNetwork.URLs[0],
-				HttpURL: testNetwork.HTTPURLs[0]}))
-	}
+	// if testNetwork.Simulated {
+	// 	testEnvironment.
+	// 		AddChart(blockscout.New(&blockscout.Props{
+	// 			Name:    "geth-blockscout",
+	// 			WsURL:   testNetwork.URLs[0],
+	// 			HttpURL: testNetwork.HTTPURLs[0]}))
+	// }
 	err := testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 
@@ -437,8 +416,11 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 			ctf_config.MightConfigOverridePyroscopeKey(keeperTestConfig.GetPyroscopeConfig(), target)
 		}
 
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(keeperTestConfig, testNetwork)
+		require.NoError(t, err, "Error building TOML config")
+
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":      networks.AddNetworkDetailedConfig(keeperBenchmarkBaseTOML, keeperTestConfig.GetPyroscopeConfig(), networkDetailTOML, testNetwork),
+			"toml":      tomlConfig,
 			"chainlink": chainlinkResources,
 			"db":        dbResources,
 		}, keeperTestConfig.GetChainlinkImageConfig(), overrideFn)

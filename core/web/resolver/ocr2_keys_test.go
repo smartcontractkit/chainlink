@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -8,13 +9,13 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestResolver_GetOCR2KeyBundles(t *testing.T) {
@@ -69,7 +70,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr2.On("GetAll").Return(fakeKeys, nil)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -80,7 +81,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		{
 			name:          "generic error on GetAll()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr2.On("GetAll").Return(nil, gError)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -150,8 +151,8 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Create", chaintype.ChainType("evm")).Return(fakeKey, nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Create", mock.Anything, chaintype.ChainType("evm")).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -162,8 +163,8 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 		{
 			name:          "generic error on Create()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Create", chaintype.ChainType("evm")).Return(nil, gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Create", mock.Anything, chaintype.ChainType("evm")).Return(nil, gError)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -238,8 +239,8 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Delete", fakeKey.ID()).Return(nil)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Delete", mock.Anything, fakeKey.ID()).Return(nil)
 				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -251,7 +252,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, gError)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
@@ -268,8 +269,8 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 		{
 			name:          "generic error on Delete()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr2.On("Delete", fakeKey.ID()).Return(gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.ocr2.On("Delete", mock.Anything, fakeKey.ID()).Return(gError)
 				f.Mocks.ocr2.On("Get", fakeKey.ID()).Return(fakeKey, nil)
 				f.Mocks.keystore.On("OCR2").Return(f.Mocks.ocr2)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)

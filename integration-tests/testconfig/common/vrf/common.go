@@ -142,7 +142,7 @@ type General struct {
 	NumberOfWords                   *uint32  `toml:"number_of_words"`                    // Number of words to request
 	CallbackGasLimit                *uint32  `toml:"callback_gas_limit"`                 // Gas limit for the callback
 	MaxGasLimitCoordinatorConfig    *uint32  `toml:"max_gas_limit_coordinator_config"`   // Max gas limit for the VRF Coordinator config
-	FallbackWeiPerUnitLink          *int64   `toml:"fallback_wei_per_unit_link"`         // Fallback wei per unit LINK for the VRF Coordinator config
+	FallbackWeiPerUnitLink          *string  `toml:"fallback_wei_per_unit_link"`         // Fallback wei per unit LINK for the VRF Coordinator config
 	StalenessSeconds                *uint32  `toml:"staleness_seconds"`                  // Staleness in seconds for the VRF Coordinator config
 	GasAfterPaymentCalculation      *uint32  `toml:"gas_after_payment_calculation"`      // Gas after payment calculation for the VRF Coordinator
 
@@ -156,10 +156,9 @@ type General struct {
 	WaitFor256BlocksTimeout          *blockchain.StrDuration `toml:"wait_for_256_blocks_timeout"`          // How long to wait for 256 blocks to be mined
 
 	// Wrapper Config
-	WrapperGasOverhead                      *uint32  `toml:"wrapped_gas_overhead"`
-	CoordinatorGasOverhead                  *uint32  `toml:"coordinator_gas_overhead"`
-	WrapperPremiumPercentage                *uint8   `toml:"wrapper_premium_percentage"`
-	WrapperMaxNumberOfWords                 *uint8   `toml:"wrapper_max_number_of_words"`
+	WrapperGasOverhead      *uint32 `toml:"wrapped_gas_overhead"`
+	WrapperMaxNumberOfWords *uint8  `toml:"wrapper_max_number_of_words"`
+
 	WrapperConsumerFundingAmountNativeToken *float64 `toml:"wrapper_consumer_funding_amount_native_token"`
 	WrapperConsumerFundingAmountLink        *int64   `toml:"wrapper_consumer_funding_amount_link"`
 
@@ -177,6 +176,12 @@ type General struct {
 	BHSJobLookBackBlocks *int                    `toml:"bhs_job_lookback_blocks"`
 	BHSJobPollPeriod     *blockchain.StrDuration `toml:"bhs_job_poll_period"`
 	BHSJobRunTimeout     *blockchain.StrDuration `toml:"bhs_job_run_timeout"`
+
+	//BHF Job Config
+	BHFJobWaitBlocks     *int                    `toml:"bhf_job_wait_blocks"`
+	BHFJobLookBackBlocks *int                    `toml:"bhf_job_lookback_blocks"`
+	BHFJobPollPeriod     *blockchain.StrDuration `toml:"bhf_job_poll_period"`
+	BHFJobRunTimeout     *blockchain.StrDuration `toml:"bhf_job_run_timeout"`
 }
 
 func (c *General) Validate() error {
@@ -207,8 +212,8 @@ func (c *General) Validate() error {
 	if c.MaxGasLimitCoordinatorConfig == nil || *c.MaxGasLimitCoordinatorConfig == 0 {
 		return errors.New("max_gas_limit_coordinator_config must be set to a positive value")
 	}
-	if c.FallbackWeiPerUnitLink == nil || *c.FallbackWeiPerUnitLink == 0 {
-		return errors.New("fallback_wei_per_unit_link must be set to a positive value")
+	if c.FallbackWeiPerUnitLink == nil {
+		return errors.New("fallback_wei_per_unit_link must be set")
 	}
 	if c.StalenessSeconds == nil || *c.StalenessSeconds == 0 {
 		return errors.New("staleness_seconds must be set to a positive value")
@@ -238,12 +243,6 @@ func (c *General) Validate() error {
 	}
 	if c.WrapperGasOverhead == nil {
 		return errors.New("wrapped_gas_overhead must be set to a non-negative value")
-	}
-	if c.CoordinatorGasOverhead == nil || *c.CoordinatorGasOverhead == 0 {
-		return errors.New("coordinator_gas_overhead must be set to a non-negative value")
-	}
-	if c.WrapperPremiumPercentage == nil || *c.WrapperPremiumPercentage == 0 {
-		return errors.New("wrapper_premium_percentage must be set to a positive value")
 	}
 	if c.WrapperMaxNumberOfWords == nil || *c.WrapperMaxNumberOfWords == 0 {
 		return errors.New("wrapper_max_number_of_words must be set to a positive value")

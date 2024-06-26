@@ -1,13 +1,8 @@
-import '@nomiclabs/hardhat-ethers'
-import '@nomiclabs/hardhat-etherscan'
-import '@nomiclabs/hardhat-waffle'
-import '@openzeppelin/hardhat-upgrades'
+import '@nomicfoundation/hardhat-ethers'
+import '@nomicfoundation/hardhat-verify'
+import '@nomicfoundation/hardhat-chai-matchers'
 import '@typechain/hardhat'
 import 'hardhat-abi-exporter'
-import 'hardhat-contract-sizer'
-import 'hardhat-gas-reporter'
-import 'solidity-coverage'
-import 'hardhat-ignore-warnings'
 import { subtask } from 'hardhat/config'
 import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from 'hardhat/builtin-tasks/task-names'
 
@@ -25,7 +20,10 @@ const COMPILER_SETTINGS = {
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   async (_, __, runSuper) => {
     const paths = await runSuper()
-    return paths.filter((p: string) => !p.endsWith('.t.sol'))
+    const noTests = paths.filter((p: string) => !p.endsWith('.t.sol'))
+    return noTests.filter(
+      (p: string) => !p.includes('src/v0.8/vendor/forge-std'),
+    )
   },
 )
 
@@ -61,27 +59,7 @@ let config = {
   solidity: {
     compilers: [
       {
-        version: '0.4.24',
-        settings: COMPILER_SETTINGS,
-      },
-      {
-        version: '0.5.0',
-        settings: COMPILER_SETTINGS,
-      },
-      {
-        version: '0.6.6',
-        settings: COMPILER_SETTINGS,
-      },
-      {
-        version: '0.7.6',
-        settings: COMPILER_SETTINGS,
-      },
-      {
         version: '0.8.6',
-        settings: COMPILER_SETTINGS,
-      },
-      {
-        version: '0.8.15',
         settings: COMPILER_SETTINGS,
       },
       {
@@ -91,6 +69,13 @@ let config = {
       {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
+      },
+      {
+        version: '0.8.24',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
       },
     ],
     overrides: {
@@ -118,19 +103,15 @@ let config = {
           },
         },
       },
+      'src/v0.8/automation/AutomationForwarderLogic.sol': {
+        version: '0.8.19',
+        settings: COMPILER_SETTINGS,
+      },
     },
   },
-  contractSizer: {
-    alphaSort: true,
-    runOnCompile: false,
-    disambiguatePaths: false,
-  },
   mocha: {
-    timeout: 100000,
+    timeout: 150000,
     forbidOnly: Boolean(process.env.CI),
-  },
-  gasReporter: {
-    enabled: Boolean(process.env.REPORT_GAS),
   },
   warnings: !process.env.HIDE_WARNINGS,
 }

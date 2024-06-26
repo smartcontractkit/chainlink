@@ -3,7 +3,7 @@ FROM golang:1.21-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
-COPY GNUmakefile VERSION ./
+COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
@@ -13,6 +13,8 @@ RUN go mod download
 ARG COMMIT_SHA
 
 COPY . .
+
+RUN apt-get update && apt-get install -y jq
 
 # Build the golang binaries
 RUN make install-chainlink
@@ -60,7 +62,7 @@ RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
   && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
-  && apt-get update && apt-get install -y postgresql-client-14 \
+  && apt-get update && apt-get install -y postgresql-client-16 \
   && apt-get clean all
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/

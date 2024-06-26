@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -14,12 +15,12 @@ import (
 type DKGSign interface {
 	Get(id string) (dkgsignkey.Key, error)
 	GetAll() ([]dkgsignkey.Key, error)
-	Create() (dkgsignkey.Key, error)
-	Add(key dkgsignkey.Key) error
-	Delete(id string) (dkgsignkey.Key, error)
-	Import(keyJSON []byte, password string) (dkgsignkey.Key, error)
+	Create(ctx context.Context) (dkgsignkey.Key, error)
+	Add(ctx context.Context, key dkgsignkey.Key) error
+	Delete(ctx context.Context, id string) (dkgsignkey.Key, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (dkgsignkey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 }
 
 type dkgSign struct {
@@ -35,17 +36,17 @@ func newDKGSignKeyStore(km *keyManager) *dkgSign {
 var _ DKGSign = &dkgSign{}
 
 // Add implements DKGSign
-func (d *dkgSign) Add(key dkgsignkey.Key) error {
+func (d *dkgSign) Add(ctx context.Context, key dkgsignkey.Key) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if d.isLocked() {
 		return ErrLocked
 	}
-	return d.safeAddKey(key)
+	return d.safeAddKey(ctx, key)
 }
 
 // Create implements DKGSign
-func (d *dkgSign) Create() (dkgsignkey.Key, error) {
+func (d *dkgSign) Create(ctx context.Context) (dkgsignkey.Key, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if d.isLocked() {
@@ -55,11 +56,11 @@ func (d *dkgSign) Create() (dkgsignkey.Key, error) {
 	if err != nil {
 		return dkgsignkey.Key{}, errors.Wrap(err, "dkgsignkey New()")
 	}
-	return key, d.safeAddKey(key)
+	return key, d.safeAddKey(ctx, key)
 }
 
 // Delete implements DKGSign
-func (d *dkgSign) Delete(id string) (dkgsignkey.Key, error) {
+func (d *dkgSign) Delete(ctx context.Context, id string) (dkgsignkey.Key, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if d.isLocked() {
@@ -70,12 +71,12 @@ func (d *dkgSign) Delete(id string) (dkgsignkey.Key, error) {
 		return dkgsignkey.Key{}, err
 	}
 
-	err = d.safeRemoveKey(key)
+	err = d.safeRemoveKey(ctx, key)
 	return key, errors.Wrap(err, "safe remove key")
 }
 
 // EnsureKey implements DKGSign
-func (d *dkgSign) EnsureKey() error {
+func (d *dkgSign) EnsureKey(ctx context.Context) error {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if d.isLocked() {
@@ -92,7 +93,7 @@ func (d *dkgSign) EnsureKey() error {
 
 	d.logger.Infof("Created DKGSign key with ID %s", key.ID())
 
-	return d.safeAddKey(key)
+	return d.safeAddKey(ctx, key)
 }
 
 // Export implements DKGSign
@@ -133,7 +134,7 @@ func (d *dkgSign) GetAll() (keys []dkgsignkey.Key, err error) {
 }
 
 // Import implements DKGSign
-func (d *dkgSign) Import(keyJSON []byte, password string) (dkgsignkey.Key, error) {
+func (d *dkgSign) Import(ctx context.Context, keyJSON []byte, password string) (dkgsignkey.Key, error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 	if d.isLocked() {
@@ -147,7 +148,7 @@ func (d *dkgSign) Import(keyJSON []byte, password string) (dkgsignkey.Key, error
 	if err == nil {
 		return dkgsignkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, d.keyManager.safeAddKey(key)
+	return key, d.keyManager.safeAddKey(ctx, key)
 }
 
 // caller must hold lock

@@ -4,23 +4,26 @@ package reorg
 import (
 	"fmt"
 	"math/big"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
+
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
+	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -29,26 +32,14 @@ import (
 )
 
 var (
-	baseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-	networkTOML = `Enabled = true
-FinalityDepth = 200
-LogPollInterval = '1s'
-
-[EVM.HeadTracker]
-HistoryDepth = 400
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000`
+	reorgBlockCount       = 10 // Number of blocks to reorg (should be less than finalityDepth)
+	upkeepCount           = 2
+	nodeCount             = 6
+	nodeFundsAmount       = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+	finalityDepth         int
+	historyDepth          int
 
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
@@ -67,22 +58,6 @@ LimitDefault = 5_000_000`
 			},
 		},
 	}
-
-	defaultReorgEthereumSettings = &reorg.Props{
-		NetworkName: "",
-		NetworkType: "geth-reorg",
-		Values: map[string]interface{}{
-			"geth": map[string]interface{}{
-				"genesis": map[string]interface{}{
-					"networkId": "1337",
-				},
-				"miner": map[string]interface{}{
-					"replicas": 2,
-				},
-			},
-		},
-	}
-
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -96,34 +71,45 @@ LimitDefault = 5_000_000`
 		FallbackLinkPrice:    big.NewInt(2e18),
 		MaxCheckDataSize:     uint32(5000),
 		MaxPerformDataSize:   uint32(5000),
+		MaxRevertDataSize:    uint32(5000),
 	}
 )
 
-const (
-	defaultUpkeepGasLimit = uint32(2500000)
-	defaultLinkFunds      = int64(9e18)
-	numberOfUpkeeps       = 2
-	automationReorgBlocks = 50
-	numberOfNodes         = 6
-)
-
 /*
- * This test verifies that conditional upkeeps automatically recover from chain reorgs
- * The blockchain is configured to have two separate miners and one geth node. The test starts
- * with happy path where the two miners remain in sync and upkeeps are expected to be performed.
- * Then reorg starts and the connection between the two geth miners is severed. This makes the
- * chain unstable, however all the CL nodes get the same view of the unstable chain through the
- * same geth node.
+ * This test verifies that conditional upkeeps automatically recover from chain reorgs.
  *
- * Upkeeps are expected to be performed during the reorg as there are only two versions of the
- * the chain, on average 1/2 performUpkeeps should go through.
+ * The test starts with happy path where upkeeps are expected to be performed.
+ * Then reorg below finality depth happens which makes the chain unstable.
  *
- * The miner nodes are synced back after automationReorgBlocks. The syncing event can cause a
- * large reorg from CL node perspective, causing existing performUpkeeps to become staleUpkeeps.
- * Automation should be able to recover from this and upkeeps should continue to occur at a
- * normal pace after the event.
+ * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	c, err := tc.GetConfig("Reorg", tc.Automation)
+	require.NoError(t, err, "Error getting config")
+
+	findIntValue := func(text string, substring string) (int, error) {
+		re := regexp.MustCompile(fmt.Sprintf(`%s\s*=\s*(\d+)`, substring))
+
+		match := re.FindStringSubmatch(text)
+		if len(match) > 1 {
+			asInt, err := strconv.Atoi(match[1])
+			if err != nil {
+				return 0, err
+			}
+			return asInt, nil
+		}
+
+		return 0, fmt.Errorf("no match found for %s", substring)
+	}
+
+	finalityDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "FinalityDepth")
+	require.NoError(t, err, "Error getting finality depth")
+
+	historyDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "HistoryDepth")
+	require.NoError(t, err, "Error getting history depth")
+
+	require.Less(t, reorgBlockCount, finalityDepth, "Reorg block count should be less than finality depth")
+
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
@@ -131,8 +117,8 @@ func TestAutomationReorg(t *testing.T) {
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional": ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2,
+		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
 	}
 
 	for n, rv := range registryVersions {
@@ -147,8 +133,11 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
-			defaultAutomationSettings["replicas"] = numberOfNodes
-			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
+			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
+			require.NoError(t, err, "Error building TOML config")
+
+			defaultAutomationSettings["replicas"] = nodeCount
+			defaultAutomationSettings["toml"] = tomlConfig
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
@@ -157,19 +146,17 @@ func TestAutomationReorg(t *testing.T) {
 
 			cd := chainlink.NewWithOverride(0, defaultAutomationSettings, config.ChainlinkImage, overrideFn)
 
-			ethSetting := defaultReorgEthereumSettings
-			ethSetting.NetworkName = network.Name
-
 			testEnvironment := environment.
 				New(&environment.Config{
-					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
+					NamespacePrefix: fmt.Sprintf("automation-reorg-%d", reorgBlockCount),
 					TTL:             time.Hour * 1,
 					Test:            t}).
-				AddHelm(reorg.New(ethSetting)).
-				AddChart(blockscout.New(&blockscout.Props{
-					Name:    "geth-blockscout",
-					WsURL:   network.URL,
-					HttpURL: network.HTTPURLs[0]})).
+				// Use Geth blockchain to simulate reorgs
+				AddHelm(geth_helm.New(&geth_helm.Props{
+					NetworkName: network.Name,
+					Simulated:   true,
+					WsURLs:      network.URLs,
+				})).
 				AddHelm(cd)
 			err = testEnvironment.Run()
 			require.NoError(t, err, "Error setting up test environment")
@@ -177,39 +164,44 @@ func TestAutomationReorg(t *testing.T) {
 			if testEnvironment.WillUseRemoteRunner() {
 				return
 			}
+			if !testEnvironment.Cfg.InsideK8s {
+				// Test is running locally, set forwarded URL of Geth blockchain node
+				wsURLs := testEnvironment.URLs[network.Name+"_internal"]
+				httpURLs := testEnvironment.URLs[network.Name+"_internal_http"]
+				require.NotEmpty(t, wsURLs, "Forwarded Geth URLs should not be empty")
+				require.NotEmpty(t, httpURLs, "Forwarded Geth URLs should not be empty")
+				network.URLs = wsURLs
+				network.HTTPURLs = httpURLs
+			}
 
-			chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
+			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
+			chainClient, err := seth_utils.GetChainClient(config, network)
 			require.NoError(t, err, "Error connecting to blockchain")
-			contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
-			require.NoError(t, err, "Error building contract deployer")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
-			chainClient.ParallelTransactions(true)
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions.TeardownSuite(t, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config, chainClient)
+				err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-			require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-			err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
+			err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
 			require.NoError(t, err, "Error funding Chainlink nodes")
 
-			linkToken, err := contractDeployer.DeployLinkTokenContract()
+			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
 			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
+				chainClient,
 				registryVersion,
 				defaultOCRRegistryConfig,
 				linkToken,
-				contractDeployer,
-				chainClient,
 			)
+
 			// Fund the registry with LINK
-			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(upkeepCount))))
 			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
@@ -223,11 +215,31 @@ func TestAutomationReorg(t *testing.T) {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
 			require.NoError(t, err, "Registry config should be be set successfully")
-			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
 			// Use the name to determine if this is a log trigger or not
-			isLogTrigger := name == "registry_2_1_logtrigger"
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
+			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
+			consumers, upkeepIDs := actions.DeployConsumers(
+				t,
+				chainClient,
+				registry,
+				registrar,
+				linkToken,
+				upkeepCount,
+				big.NewInt(defaultLinkFunds),
+				defaultUpkeepGasLimit,
+				isLogTrigger,
+				false,
+			)
+
+			if isLogTrigger {
+				for i := 0; i < len(upkeepIDs); i++ {
+					if err := consumers[i].Start(); err != nil {
+						l.Error().Msg("Error when starting consumer")
+						return
+					}
+					l.Info().Int("Consumer index", i).Msg("Consumer started")
+				}
+			}
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 
@@ -246,20 +258,14 @@ func TestAutomationReorg(t *testing.T) {
 
 			l.Info().Msg("All upkeeps performed under happy path. Starting reorg")
 
-			rc, err := NewReorgController(
-				&ReorgConfig{
-					FromPodLabel:            reorg.TXNodesAppLabel,
-					ToPodLabel:              reorg.MinerNodesAppLabel,
-					Network:                 chainClient,
-					Env:                     testEnvironment,
-					BlockConsensusThreshold: 3,
-					Timeout:                 1800 * time.Second,
-				},
-			)
-
-			require.NoError(t, err, "Error getting reorg controller")
-			rc.ReOrg(automationReorgBlocks)
-			rc.WaitReorgStarted()
+			l.Info().
+				Str("URL", gethRPCClient.URL).
+				Int("BlocksBack", reorgBlockCount).
+				Int("FinalityDepth", finalityDepth).
+				Int("HistoryDepth", historyDepth).
+				Msg("Rewinding blocks on chain below finality depth")
+			err = gethRPCClient.GethSetHead(reorgBlockCount)
+			require.NoError(t, err, "Error rewinding blocks on chain")
 
 			l.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
 
@@ -274,23 +280,6 @@ func TestAutomationReorg(t *testing.T) {
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
 			}, "5m", "1s").Should(gomega.Succeed())
-
-			l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
-			err = rc.WaitDepthReached()
-			require.NoError(t, err)
-
-			l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
-			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
-				for i := 0; i < len(upkeepIDs); i++ {
-					counter, err := consumers[i].Counter(testcontext.Get(t))
-					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-					expect := 20
-					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				}
-			}, "10m", "1s").Should(gomega.Succeed())
 		})
 	}
 }

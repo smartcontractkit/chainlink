@@ -1,12 +1,17 @@
-{ pkgs ? import <nixpkgs> { } }:
+{ pkgs }:
 with pkgs;
 let
   go = go_1_21;
   postgresql = postgresql_14;
   nodejs = nodejs-18_x;
   nodePackages = pkgs.nodePackages.override { inherit nodejs; };
+
+  mkShell' = mkShell.override {
+    # The current nix default sdk for macOS fails to compile go projects, so we use a newer one for now.
+    stdenv = if stdenv.isDarwin then overrideSDK stdenv "11.0" else stdenv;
+  };
 in
-mkShell {
+mkShell' {
   nativeBuildInputs = [
     go
     goreleaser
@@ -14,13 +19,17 @@ mkShell {
 
     python3
     python3Packages.pip
+    protobuf
+    protoc-gen-go
+    protoc-gen-go-grpc
+
+    foundry-bin
 
     curl
     nodejs
     nodePackages.pnpm
     # TODO: compiler / gcc for secp compilation
     go-ethereum # geth
-    # parity # openethereum
     go-mockery
 
     # tooling
@@ -31,11 +40,8 @@ mkShell {
     github-cli
     jq
 
-    # deployment
-    awscli2
-    devspace
-    kubectl
-    kubernetes-helm
+    # cross-compiling, used in CRIB
+    zig
 
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
@@ -49,4 +55,5 @@ mkShell {
 
   PGDATA = "db";
   CL_DATABASE_URL = "postgresql://chainlink:chainlink@localhost:5432/chainlink_test?sslmode=disable";
+
 }

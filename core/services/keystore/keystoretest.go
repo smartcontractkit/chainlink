@@ -1,13 +1,12 @@
 package keystore
 
 import (
+	"context"
 	"errors"
 	"sync"
 
-	"github.com/jmoiron/sqlx"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -19,25 +18,25 @@ import (
 // to support DB callbacks.
 type memoryORM struct {
 	keyRing *encryptedKeyRing
-	q       pg.Queryer
+	ds      sqlutil.DataSource
 	mu      sync.RWMutex
 }
 
-func (o *memoryORM) isEmpty() (bool, error) {
+func (o *memoryORM) isEmpty(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (o *memoryORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) (err error) {
+func (o *memoryORM) saveEncryptedKeyRing(ctx context.Context, kr *encryptedKeyRing, callbacks ...func(sqlutil.DataSource) error) (err error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.keyRing = kr
 	for _, c := range callbacks {
-		err = errors.Join(err, c(o.q))
+		err = errors.Join(err, c(o.ds))
 	}
 	return
 }
 
-func (o *memoryORM) getEncryptedKeyRing() (encryptedKeyRing, error) {
+func (o *memoryORM) getEncryptedKeyRing(ctx context.Context) (encryptedKeyRing, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	if o.keyRing == nil {
@@ -46,15 +45,15 @@ func (o *memoryORM) getEncryptedKeyRing() (encryptedKeyRing, error) {
 	return *o.keyRing, nil
 }
 
-func newInMemoryORM(q pg.Queryer) *memoryORM {
-	return &memoryORM{q: q}
+func newInMemoryORM(ds sqlutil.DataSource) *memoryORM {
+	return &memoryORM{ds: ds}
 }
 
 // NewInMemory sets up a keystore which NOOPs attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
 // will still hit the DB.
-func NewInMemory(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
-	dbORM := NewORM(db, lggr, cfg)
-	memoryORM := newInMemoryORM(dbORM.q)
+func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
+	dbORM := NewORM(ds, lggr)
+	memoryORM := newInMemoryORM(ds)
 
 	km := &keyManager{
 		orm:          memoryORM,
@@ -68,7 +67,7 @@ func NewInMemory(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logge
 		keyManager: km,
 		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km, dbORM, dbORM.q),
+		eth:        newEthKeyStore(km, dbORM, ds),
 		ocr:        newOCRKeyStore(km),
 		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),

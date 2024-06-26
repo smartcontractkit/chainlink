@@ -143,7 +143,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	// Launch Gateway
 	lggr := logger.TestLogger(t)
 	gatewayConfig := fmt.Sprintf(gatewayConfigTemplate, nodeKeys.Address)
-	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, nil, lggr), lggr)
+	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, lggr), lggr)
 	require.NoError(t, err)
 	servicetest.Run(t, gateway)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()

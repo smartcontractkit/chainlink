@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -38,8 +40,8 @@ func TestQuery_PaginatedJobRuns(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("PipelineRuns", (*int32)(nil), PageDefaultOffset, PageDefaultLimit).Return([]pipeline.Run{
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("PipelineRuns", mock.Anything, (*int32)(nil), PageDefaultOffset, PageDefaultLimit).Return([]pipeline.Run{
 					{
 						ID: int64(200),
 					},
@@ -62,8 +64,8 @@ func TestQuery_PaginatedJobRuns(t *testing.T) {
 		{
 			name:          "generic error on PipelineRuns()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("PipelineRuns", (*int32)(nil), PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("PipelineRuns", mock.Anything, (*int32)(nil), PageDefaultOffset, PageDefaultLimit).Return(nil, 0, gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:  query,
@@ -116,11 +118,11 @@ func TestResolver_JobRun(t *testing.T) {
 	gError := errors.New("error")
 	_, idError := stringutils.ToInt64("asdasads")
 
-	inputs := pipeline.JSONSerializable{}
+	inputs := jsonserializable.JSONSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := pipeline.JSONSerializable{}
+	outputs := jsonserializable.JSONSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 
@@ -129,8 +131,8 @@ func TestResolver_JobRun(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindPipelineRunByID", int64(2)).Return(pipeline.Run{
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindPipelineRunByID", mock.Anything, int64(2)).Return(pipeline.Run{
 					ID:             2,
 					PipelineSpecID: 5,
 					CreatedAt:      f.Timestamp(),
@@ -141,7 +143,7 @@ func TestResolver_JobRun(t *testing.T) {
 					Outputs:        outputs,
 					State:          pipeline.RunStatusErrored,
 				}, nil)
-				f.Mocks.jobORM.On("FindJobsByPipelineSpecIDs", []int32{5}).Return([]job.Job{
+				f.Mocks.jobORM.On("FindJobsByPipelineSpecIDs", mock.Anything, []int32{5}).Return([]job.Job{
 					{
 						ID:             1,
 						PipelineSpecID: 2,
@@ -178,8 +180,8 @@ func TestResolver_JobRun(t *testing.T) {
 		{
 			name:          "not found error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindPipelineRunByID", int64(2)).Return(pipeline.Run{}, sql.ErrNoRows)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindPipelineRunByID", mock.Anything, int64(2)).Return(pipeline.Run{}, sql.ErrNoRows)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     query,
@@ -195,8 +197,8 @@ func TestResolver_JobRun(t *testing.T) {
 		{
 			name:          "generic error on FindPipelineRunByID()",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.jobORM.On("FindPipelineRunByID", int64(2)).Return(pipeline.Run{}, gError)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindPipelineRunByID", mock.Anything, int64(2)).Return(pipeline.Run{}, gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     query,
@@ -267,11 +269,11 @@ func TestResolver_RunJob(t *testing.T) {
 		"id": idStr,
 	}
 
-	inputs := pipeline.JSONSerializable{}
+	inputs := jsonserializable.JSONSerializable{}
 	err := inputs.UnmarshalJSON([]byte(`{"foo": "bar"}`))
 	require.NoError(t, err)
 
-	outputs := pipeline.JSONSerializable{}
+	outputs := jsonserializable.JSONSerializable{}
 	err = outputs.UnmarshalJSON([]byte(`[{"baz": "bar"}]`))
 	require.NoError(t, err)
 
@@ -283,9 +285,9 @@ func TestResolver_RunJob(t *testing.T) {
 		{
 			name:          "success without body",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
-				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{
+				f.Mocks.pipelineORM.On("FindRun", mock.Anything, int64(25)).Return(pipeline.Run{
 					ID:             2,
 					PipelineSpecID: 5,
 					CreatedAt:      f.Timestamp(),
@@ -336,7 +338,7 @@ func TestResolver_RunJob(t *testing.T) {
 		{
 			name:          "not found job error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), webhook.ErrJobNotExists)
 			},
 			query: mutation,
@@ -354,7 +356,7 @@ func TestResolver_RunJob(t *testing.T) {
 		{
 			name:          "generic error on RunJobV2",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), gError)
 			},
 			query: mutation,
@@ -374,9 +376,9 @@ func TestResolver_RunJob(t *testing.T) {
 		{
 			name:          "generic error on FindRun",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("RunJobV2", mock.Anything, id, (map[string]interface{})(nil)).Return(int64(25), nil)
-				f.Mocks.pipelineORM.On("FindRun", int64(25)).Return(pipeline.Run{}, gError)
+				f.Mocks.pipelineORM.On("FindRun", mock.Anything, int64(25)).Return(pipeline.Run{}, gError)
 				f.App.On("PipelineORM").Return(f.Mocks.pipelineORM)
 			},
 			query: mutation,

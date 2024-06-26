@@ -1,12 +1,12 @@
 package s4
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type key struct {
@@ -32,7 +32,7 @@ func NewInMemoryORM() ORM {
 	}
 }
 
-func (o *inMemoryOrm) Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o *inMemoryOrm) Get(ctx context.Context, address *big.Big, slotId uint) (*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
@@ -47,7 +47,7 @@ func (o *inMemoryOrm) Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row
 	return mrow.Row.Clone(), nil
 }
 
-func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
+func (o *inMemoryOrm) Update(ctx context.Context, row *Row) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -74,7 +74,7 @@ func (o *inMemoryOrm) Update(row *Row, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt) (int64, error) {
+func (o *inMemoryOrm) DeleteExpired(ctx context.Context, limit uint, now time.Time) (int64, error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -94,7 +94,7 @@ func (o *inMemoryOrm) DeleteExpired(limit uint, now time.Time, qopts ...pg.QOpt)
 	return int64(len(queue)), nil
 }
 
-func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
+func (o *inMemoryOrm) GetSnapshot(ctx context.Context, _ *AddressRange) ([]*SnapshotRow, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
@@ -115,7 +115,7 @@ func (o *inMemoryOrm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) 
 	return rows, nil
 }
 
-func (o *inMemoryOrm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
+func (o *inMemoryOrm) GetUnconfirmedRows(ctx context.Context, limit uint) ([]*Row, error) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 

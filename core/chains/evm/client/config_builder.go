@@ -8,12 +8,14 @@ import (
 	"go.uber.org/multierr"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/common/config"
+
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
-type nodeConfig struct {
+type NodeConfig struct {
 	Name     *string
 	WSURL    *string
 	HTTPURL  *string
@@ -28,15 +30,19 @@ func NewClientConfigs(
 	selectionMode *string,
 	leaseDuration time.Duration,
 	chainType string,
-	nodeCfgs []nodeConfig,
+	nodeCfgs []NodeConfig,
 	pollFailureThreshold *uint32,
 	pollInterval time.Duration,
 	syncThreshold *uint32,
 	nodeIsSyncingEnabled *bool,
-) (evmconfig.NodePool, []*toml.Node, config.ChainType, error) {
+	noNewHeadsThreshold time.Duration,
+	finalityDepth *uint32,
+	finalityTagEnabled *bool,
+
+) (commonclient.ChainConfig, evmconfig.NodePool, []*toml.Node, error) {
 	nodes, err := parseNodeConfigs(nodeCfgs)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, nil, err
 	}
 	nodePool := toml.NodePool{
 		SelectionMode:        selectionMode,
@@ -47,10 +53,20 @@ func NewClientConfigs(
 		NodeIsSyncingEnabled: nodeIsSyncingEnabled,
 	}
 	nodePoolCfg := &evmconfig.NodePoolConfig{C: nodePool}
-	return nodePoolCfg, nodes, config.ChainType(chainType), nil
+	chainConfig := &evmconfig.EVMConfig{
+		C: &toml.EVMConfig{
+			Chain: toml.Chain{
+				ChainType:           chaintype.NewChainTypeConfig(chainType),
+				FinalityDepth:       finalityDepth,
+				FinalityTagEnabled:  finalityTagEnabled,
+				NoNewHeadsThreshold: commonconfig.MustNewDuration(noNewHeadsThreshold),
+			},
+		},
+	}
+	return chainConfig, nodePoolCfg, nodes, nil
 }
 
-func parseNodeConfigs(nodeCfgs []nodeConfig) ([]*toml.Node, error) {
+func parseNodeConfigs(nodeCfgs []NodeConfig) ([]*toml.Node, error) {
 	nodes := make([]*toml.Node, len(nodeCfgs))
 	for i, nodeCfg := range nodeCfgs {
 		if nodeCfg.WSURL == nil || nodeCfg.HTTPURL == nil {
