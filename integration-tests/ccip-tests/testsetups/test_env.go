@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/foundry"
 
@@ -257,6 +259,16 @@ func DeployLocalCluster(
 	privateEthereumNetworks := []*ctfconfig.EthereumNetworkConfig{}
 	for _, network := range testInputs.EnvInput.PrivateEthereumNetworks {
 		privateEthereumNetworks = append(privateEthereumNetworks, network)
+
+		for _, networkCfg := range networks.MustGetSelectedNetworkConfig(testInputs.EnvInput.Network) {
+			for _, key := range networkCfg.PrivateKeys {
+				address, err := conversions.PrivateKeyHexToAddress(key)
+				require.NoError(t, err, "failed to convert private key to address: %w", err)
+				network.EthereumChainConfig.AddressesToFund = append(
+					network.EthereumChainConfig.AddressesToFund, address.Hex(),
+				)
+			}
+		}
 	}
 
 	if len(selectedNetworks) > len(privateEthereumNetworks) {

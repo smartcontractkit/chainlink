@@ -907,6 +907,7 @@ func CCIPDefaultTestSetUp(
 	if testConfig.useSeparateTokenDeployer() {
 		for _, net := range testConfig.AllNetworks {
 			chainClient := chainClientByChainID[net.ChainID]
+			require.NotNil(t, chainClient, "Chain client not found for chainID %d", net.ChainID)
 			require.GreaterOrEqual(t, len(chainClient.GetWallets()), 2, "The test is using a TokenAdminRegistry, and has CCIPOwnerTokens set to 'false'. The test needs a second wallet to deploy token contracts from. Please add a second wallet to the 'evm_clients' config option.")
 			tokenDeployerWallet := chainClient.GetWallets()[1]
 			// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
