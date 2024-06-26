@@ -866,7 +866,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		}
 		// Additional sanity checks, don't necessarily trust the RPC.
 		if currentBlock == nil {
-			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
+			lp.lggr.Errorw("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
 			return nil, pkgerrors.Errorf("Got nil block for %d", currentBlockNumber)
 		}
 		if currentBlock.Number != currentBlockNumber {
@@ -1023,6 +1023,11 @@ func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, e
 		latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 		if err != nil {
 			return nil, 0, err
+		}
+		if latestBlock == nil {
+			// Shouldn't happen with a real client, but still better rather to
+			// return error than panic
+			return nil, 0, errors.New("latest block is nil")
 		}
 		// If chain has fewer blocks than finalityDepth, return 0
 		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
