@@ -343,7 +343,7 @@ func (p *logEventProvider) bestEffortDequeue(latestBlock int64, numOfUpkeeps int
 		start += int64(blockRate)
 	}
 
-	p.currentIteration += 1
+	p.currentIteration++
 
 	return payloads
 }
