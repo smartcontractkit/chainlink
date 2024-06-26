@@ -41,9 +41,9 @@ var (
 	// GCInterval is the interval at which the recovery cache is cleaned up
 	GCInterval = RecoveryCacheTTL - time.Second
 	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
-	MaxProposals = 20
+	MaxProposals = 10
 	// recoveryBatchSize is the number of filters to recover in a single batch
-	recoveryBatchSize = 10
+	recoveryBatchSize = 5
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
@@ -51,7 +51,7 @@ var (
 	blockTimeUpdateCadence = 10 * time.Minute
 	// maxPendingPayloadsPerUpkeep is the number of logs we can have pending for a single upkeep
 	// at any given time
-	maxPendingPayloadsPerUpkeep = 500
+	maxPendingPayloadsPerUpkeep = 250
 )
 
 type LogRecoverer interface {
