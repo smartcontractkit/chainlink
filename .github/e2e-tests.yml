@@ -12,6 +12,8 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
+    test-config-override:
+      chainlink-version: mycustomversion    
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
@@ -48,7 +50,7 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    test-config-overrides:
+    test-config-override:
       chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
       chainlink-upgrade-version: develop
       chainlink-image: public.ecr.aws/chainlink/chainlink
@@ -62,7 +64,7 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-overrides:
+    test-config-override:
       chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
       chainlink-upgrade-version: develop
       chainlink-image: public.ecr.aws/chainlink/chainlink
@@ -76,7 +78,7 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-overrides:
+    test-config-override:
       chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
       chainlink-upgrade-version: develop
       chainlink-image: public.ecr.aws/chainlink/chainlink

@@ -27,6 +27,8 @@ func init() {
 	rootCmd.AddCommand(checkTestsCmd)
 	rootCmd.AddCommand(filterCmd)
 	rootCmd.AddCommand(envreplaceCmd)
-	rootCmd.AddCommand(createTestConfigOverrideCmd)
-	rootCmd.AddCommand(maskTestConfigOverrideCmd)
+	rootCmd.AddCommand(testConfigCmd)
+	testConfigCmd.AddCommand(maskTestConfigCmd)
+	testConfigCmd.AddCommand(createTestConfigCmd)
+	testConfigCmd.AddCommand(overrideTestConfigCmd)
 }

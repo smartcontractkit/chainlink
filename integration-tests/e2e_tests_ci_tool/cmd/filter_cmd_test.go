@@ -24,7 +24,7 @@ func TestFilterTestsByID(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			filtered := filterTests(tests, "", "", "", c.inputIDs)
+			filtered := filterTests(tests, "", "", c.inputIDs)
 			if len(filtered) != c.expectedLen {
 				t.Errorf("FilterTests(%s) returned %d tests, expected %d", c.description, len(filtered), c.expectedLen)
 			}
@@ -55,7 +55,7 @@ func TestFilterTestsIntegration(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.description, func(t *testing.T) {
-			filtered := filterTests(tests, c.inputNames, c.inputWorkflow, c.inputTestType, c.inputIDs)
+			filtered := filterTests(tests, c.inputWorkflow, c.inputTestType, c.inputIDs)
 			if len(filtered) != c.expectedLen {
 				t.Errorf("FilterTests(%s) returned %d tests, expected %d", c.description, len(filtered), c.expectedLen)
 			}

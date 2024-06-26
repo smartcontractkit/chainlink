@@ -13,6 +13,10 @@ on:
         default: "*"
         required: true
         type: string
+      test-config-base64-override:
+        description: 'Custom base64 test config'
+        required: false
+        type: string          
       enable-check-test-configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -36,6 +40,7 @@ jobs:
     with:
       chainlink-version: ${{ github.event.inputs.chainlink-version }}
       test-ids: ${{ github.event.inputs.test-ids }}
+      test-config-base64-override: ${{ github.event.inputs.test-config-base64-override }}
       with-existing-remote-runner-version: ${{ github.event.inputs.with-existing-remote-runner-version }}
       # Use fromJSON to convert string to boolean. More info: https://github.com/actions/runner/issues/2206#issuecomment-1532246677
       enable-check-test-configurations: ${{ fromJSON(github.event.inputs.enable-check-test-configurations) }}

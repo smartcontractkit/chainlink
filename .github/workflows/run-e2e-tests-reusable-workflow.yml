@@ -17,7 +17,7 @@ on:
         required: false
         type: string        
       test-config-base64-override:
-        description: 'Custom base64 test config override'
+        description: 'Custom base64 test config'
         required: false
         type: string        
       enable-check-test-configurations:
@@ -88,7 +88,7 @@ jobs:
           go-version: '1.21.7'
       - name: Run Check Tests Command
         run: |
-          if ! go run .github/scripts/e2e_tests_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
+          if ! go run integration-tests/e2e_tests_ci_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
             echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
           fi
 
@@ -113,14 +113,16 @@ jobs:
       - name: Generate Docker Tests Matrix
         id: set-docker-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+          cd integration-tests/e2e_tests_ci_tool/
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
-          MATRIX_JSON=$(go run .github/scripts/e2e_tests_tool/main.go filter --file .github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+          cd integration-tests/e2e_tests_ci_tool/
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -155,7 +157,6 @@ jobs:
         shell: bash   
 
   # Run Docker tests
-
   docker-tests:
     name: Run Docker Tests (${{ matrix.tests.id }})
     needs: load-test-configurations
@@ -179,31 +180,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
-        with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-          duplicate-authorization-header: "true"
-      - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
-        with:
-          runId: ${{ github.run_id }}
-          # testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.chainlink-version }}
-          pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.tests.pyroscopeEnv }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Show test configuration
+        run: echo '${{ toJson(matrix.tests) }}' | jq .
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
@@ -212,27 +192,47 @@ jobs:
       - name: Set default test config override
         if: ${{ inputs.test-config-base64-override == '' }}
         run: |      
-          chainlink_version="${{ github.sha || matrix.tests.testConfigOverride.chainlinkVersion }}"
+          # Mask secret args before using them
+          # For more, see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
+          echo ::add-mask::${{ env.CHAINLINK_IMAGE }}
+          echo "cl image: ${{ env.CHAINLINK_IMAGE }}"
+
+          # Use overrides from e2e-tests.yml or defaults 
+          chainlink_version="${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}"
+          chainlink_image="${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}"
           chainlink_postgres_version="${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}"
           chainlink_upgrade_version="${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}"
-          selected_networks="${{ env.SELECTED_NETWORKS || matrix.tests.testConfigOverride.selectedNetworks }}"
+          selected_networks="${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}"
 
+          # Build the command line arguments
+          # Need to check if the variable is set before adding it to the command
+          # Otherwise "" will be passed as an argument which is not what we want
           cmd_args=""
+          if [ -n "$chainlink_image" ]; then
+            cmd_args+="--chainlink-image=$chainlink_image "
+          fi
           if [ -n "$chainlink_version" ]; then
-            cmd_args+="--chainlink-version=\"$chainlink_version\" "
+            cmd_args+="--chainlink-version=$chainlink_version "
           fi
           if [ -n "$chainlink_postgres_version" ]; then
-            cmd_args+="--chainlink-postgres-version=\"$chainlink_postgres_version\" "
+            cmd_args+="--chainlink-postgres-version=$chainlink_postgres_version "
           fi
           if [ -n "$chainlink_upgrade_version" ]; then
-            cmd_args+="--chainlink-upgrade-version=\"$chainlink_upgrade_version\" "
+            cmd_args+="--chainlink-upgrade-version=$chainlink_upgrade_version "
           fi
           if [ -n "$selected_networks" ]; then
-            cmd_args+="--selected-networks=\"$selected_networks\" "
+            cmd_args+="--selected-networks=$selected_networks "
           fi    
+          
+          cd integration-tests/e2e_tests_ci_tool/
 
-          config_override=$(go run .github/scripts/e2e_tests_tool/main.go mask-test-config-override $cmd_args)  
-          echo $config_override
+          # Mask secrets inside the test config override (like resolved env vars)
+          go run main.go test-config mask-secrets $cmd_args
+
+          echo $chainlink_version
+
+          # Create a base64 encoded string of the test config override
+          config_override=$(go run main.go test-config create $cmd_args)
 
           BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
@@ -241,15 +241,61 @@ jobs:
       - name: Set custom test config override
         if: ${{ inputs.test-config-base64-override != '' }}          
         run: |
-          BASE64_CONFIG_OVERRIDE="${{ inputs.test-config-base64-override }}"
-          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
+          # Show what parts of the test config are being overridden
+          go run main.go test-config override \
+            --dry-run \
+            --from-base64-config ${{ inputs.test-config-base64-override }} \
+            --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
+            --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
+            --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
+            --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
+            --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
+            --grafana-url "http://localhost:8080/primary" \
+            --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
+            --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }} \
+
+          # Override custom test config with CI secrets
+          config_override=$(go run main.go test-config override \
+            --from-base64-config ${{ inputs.test-config-base64-override }} \
+            --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
+            --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
+            --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
+            --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
+            --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
+            --grafana-url "http://localhost:8080/primary" \
+            --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
+            --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }} \
+          )
+
+          BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
+          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
-      - name: Show Test Configuration
-        run: echo '${{ toJson(matrix.tests) }}' | jq .
-
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          duplicate-authorization-header: "true"
+      # - name: Prepare Base64 TOML override
+      #   uses: ./.github/actions/setup-create-base64-config
+      #   with:
+      #     runId: ${{ github.run_id }}
+      #     # testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
+      #     selectedNetworks: ${{ env.SELECTED_NETWORKS }}
+      #     chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
+      #     chainlinkVersion: ${{ inputs.chainlink-version }}
+      #     pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+      #     pyroscopeEnvironment: ${{ matrix.tests.pyroscopeEnv }}
+      #     pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+      #     lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+      #     lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      #     lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      #     logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+      #     grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
+      #     grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+      #     grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:

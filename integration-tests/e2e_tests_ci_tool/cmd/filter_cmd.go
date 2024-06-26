@@ -12,7 +12,7 @@ import (
 )
 
 // Filter tests based on workflow, test type, and test IDs.
-func filterTests(tests []CITestConf, names, workflow, testType, ids string) []CITestConf {
+func filterTests(tests []CITestConf, workflow, testType, ids string) []CITestConf {
 	workflowFilter := workflow
 	typeFilter := testType
 	idFilter := strings.Split(ids, ",")
@@ -51,7 +51,6 @@ Example usage:
 ./e2e_tests_tool filter --file .github/e2e-tests.yml --workflow "Run Nightly E2E Tests" --test-type "docker" --test-ids "test1,test2"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		yamlFile, _ := cmd.Flags().GetString("file")
-		names, _ := cmd.Flags().GetString("name")
 		workflow, _ := cmd.Flags().GetString("workflow")
 		testType, _ := cmd.Flags().GetString("test-type")
 		testIDs, _ := cmd.Flags().GetString("test-ids")
@@ -67,7 +66,7 @@ Example usage:
 			log.Fatalf("Error parsing YAML data: %v", err)
 		}
 
-		filteredTests := filterTests(config.Tests, names, workflow, testType, testIDs)
+		filteredTests := filterTests(config.Tests, workflow, testType, testIDs)
 		matrix := map[string][]CITestConf{"tests": filteredTests}
 		matrixJSON, err := json.Marshal(matrix)
 		if err != nil {
@@ -80,7 +79,6 @@ Example usage:
 
 func init() {
 	filterCmd.Flags().StringP("file", "f", "", "Path to the YAML file")
-	filterCmd.Flags().StringP("name", "n", "", "Comma-separated list of test names to filter by")
 	filterCmd.Flags().StringP("workflow", "t", "", "Workflow filter")
 	filterCmd.Flags().StringP("test-type", "y", "", "Type of test to filter by")
 	filterCmd.Flags().StringP("test-ids", "i", "*", "Comma-separated list of test IDs to filter by")
