@@ -38,7 +38,7 @@ func NewClientConfigs(
 	noNewHeadsThreshold time.Duration,
 	finalityDepth *uint32,
 	finalityTagEnabled *bool,
-	finalityBlockOffset *uint32,
+	finalizedBlockOffset *uint32,
 	enforceRepeatableRead *bool,
 	deathDeclarationDelay time.Duration,
 
@@ -65,7 +65,7 @@ func NewClientConfigs(
 				FinalityDepth:        finalityDepth,
 				FinalityTagEnabled:   finalityTagEnabled,
 				NoNewHeadsThreshold:  commonconfig.MustNewDuration(noNewHeadsThreshold),
-				FinalizedBlockOffset: finalityBlockOffset,
+				FinalizedBlockOffset: finalizedBlockOffset,
 			},
 		},
 	}
