@@ -21,7 +21,6 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -152,22 +151,17 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOpti
 func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
 
-	// Define namespace if default not set
-	if o.namespace == "" {
-		nsPre := fmt.Sprintf("soak-ocr-v%s-", o.OCRVersion)
-		if o.OperatorForwarderFlow {
-			nsPre = fmt.Sprintf("%sforwarder-", nsPre)
-		}
-
-		nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
-		nsPre = strings.ReplaceAll(nsPre, "_", "-")
-
-		o.namespace = fmt.Sprintf("%s-%s", nsPre, uuid.NewString()[0:5])
+	nsPre := fmt.Sprintf("soak-ocr-v%s-", o.OCRVersion)
+	if o.OperatorForwarderFlow {
+		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
+
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
-		Namespace:          o.namespace,
+		NamespacePrefix:    nsPre,
 		Test:               o.t,
 		PreventPodEviction: true,
 	}
