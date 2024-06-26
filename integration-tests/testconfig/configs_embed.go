@@ -17,7 +17,7 @@ import "embed"
 //go:embed ocr2/ocr2.toml
 //go:embed vrf/vrf.toml
 //go:embed vrfv2/vrfv2.toml
-//go:embed ocrvrfv2/ocrvrfv2.toml
+//go:embed ocr2vrf/ocr2vrf.toml
 //go:embed vrfv2plus/vrfv2plus.toml
 var embeddedConfigsFs embed.FS
 
