@@ -802,7 +802,7 @@ func (d *Delegate) newServicesMercury(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("mercury services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
 	}
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
@@ -894,9 +894,6 @@ func (d *Delegate) newServicesLLO(
 	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
-	}
-	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("streams services: expected EVM relayer got %s", rid.Network)
 	}
 	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
@@ -1079,7 +1076,7 @@ func (d *Delegate) newServicesDKG(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "DKG"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("DKG services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("DKG services: expected EVM relayer got %q", rid.Network)
 	}
 
 	chain, err2 := d.legacyChains.Get(rid.ChainID)
@@ -1144,7 +1141,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "VRF"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("VRF services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("VRF services: expected EVM relayer got %q", rid.Network)
 	}
 	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
@@ -1358,7 +1355,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %q", rid.Network)
 	}
 
 	transmitterID := spec.TransmitterID.String
@@ -1511,7 +1508,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %q", rid.Network)
 	}
 	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
@@ -1639,7 +1636,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "functions"}
 	}
 	if rid.Network != relay.NetworkEVM {
-		return nil, fmt.Errorf("functions services: expected EVM relayer got %s", rid.Network)
+		return nil, fmt.Errorf("functions services: expected EVM relayer got %q", rid.Network)
 	}
 	chain, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
