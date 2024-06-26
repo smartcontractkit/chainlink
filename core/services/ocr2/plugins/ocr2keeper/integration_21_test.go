@@ -116,9 +116,9 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 	require.NoError(t, err)
-	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+	registry := deployKeeper21Registry(t, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	setupNodes(t, nodeKeys, registry, backend, steve, false)
+	setupNodes(t, nodeKeys, registry, backend, commit, steve, false)
 
 	<-time.After(time.Second * 5)
 
@@ -218,15 +218,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
-			registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
-			setupNodes(t, nodeKeys, registry, backend, steve, tc.logBufferVersion == logprovider.BufferVersionV1)
+			registry := deployKeeper21Registry(t, steve, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
+			setupNodes(t, nodeKeys, registry, backend, commit, steve, tc.logBufferVersion == logprovider.BufferVersionV1)
 			upkeeps := 1
 
 			_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 			require.NoError(t, err)
 			commit()
 
-			ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
+			ids, addrs, contracts := deployUpkeeps(t, backend, commit, carrol, steve, linkToken, registry, upkeeps)
 			require.Equal(t, upkeeps, len(ids))
 			require.Equal(t, len(ids), len(contracts))
 			require.Equal(t, len(ids), len(addrs))
@@ -244,7 +244,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 			t.Run("recover logs", func(t *testing.T) {
 				addr, contract := addrs[0], contracts[0]
-				upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
+				upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend, commit)
 				commit()
 				t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
 				// Emit 100 logs in a burst
@@ -329,9 +329,9 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
-			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+			registry := deployKeeper21Registry(t, registryOwner, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
-			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
+			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, commit, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
 
 			const upkeepCount = 10
 			const mercuryFailCount = upkeepCount * 3 * 2
@@ -386,13 +386,14 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 			feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
 			require.NoError(t, err, "no error expected from creating a feed lookup controller")
+			commit()
 
 			// deploy multiple upkeeps that listen to a log emitter and need to be
 			// performed for each log event
 			_ = feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, func(int) bool {
 				return false
 			})
-			_ = feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken)
+			_ = feeds.RegisterAndFund(t, registry, registryOwner, backend, commit, linkToken)
 			_ = feeds.EnableMercury(t, backend, registry, registryOwner)
 			_ = feeds.VerifyEnv(t, backend, registry, registryOwner)
 
@@ -464,9 +465,9 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(registryOwner, backend.Client(), 18, big.NewInt(2000000000000000000))
 			require.NoError(t, err)
 
-			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+			registry := deployKeeper21Registry(t, registryOwner, backend, commit, linkAddr, linkFeedAddr, gasFeedAddr)
 
-			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
+			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, commit, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
 
 			upkeepCount := 10
 
@@ -498,6 +499,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 			feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
 			require.NoError(t, err, "no error expected from creating a feed lookup controller")
+			commit()
 
 			// deploy multiple upkeeps that listen to a log emitter and need to be
 			// performed for each log event
@@ -505,7 +507,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 				return i%2 == 1
 			}
 			require.NoError(t, feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount, checkResultsProvider))
-			require.NoError(t, feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken))
+			require.NoError(t, feeds.RegisterAndFund(t, registry, registryOwner, backend, commit, linkToken))
 			require.NoError(t, feeds.EnableMercury(t, backend, registry, registryOwner))
 			require.NoError(t, feeds.VerifyEnv(t, backend, registry, registryOwner))
 
@@ -634,7 +636,7 @@ func listenPerformed(t *testing.T, backend *simulated.Backend, registry *iregist
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
-func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *simulated.Backend, usr *bind.TransactOpts, useBufferV1 bool) ([]Node, *mercury.SimulatedMercuryServer) {
+func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *simulated.Backend, commit func() common.Hash, usr *bind.TransactOpts, useBufferV1 bool) ([]Node, *mercury.SimulatedMercuryServer) {
 	lggr := logger.TestLogger(t)
 	mServer := mercury.NewSimulatedMercuryServer()
 	mServer.Start()
@@ -651,7 +653,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
+		commit()
 	}
 
 	var (
@@ -794,17 +796,17 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		offchainConfig,
 	)
 	require.NoError(t, err)
-	backend.Commit() //TODO race write (with miner commit)
+	commit()
 
 	return nodes, mServer
 }
 
-func deployUpkeeps(t *testing.T, backend *simulated.Backend, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
+func deployUpkeeps(t *testing.T, backend *simulated.Backend, commit func() common.Hash, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
 	ids := make([]*big.Int, n)
 	addrs := make([]common.Address, n)
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
 	for i := 0; i < n; i++ {
-		backend.Commit()
+		commit()
 		time.Sleep(1 * time.Second)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			carrol, backend.Client(),
@@ -812,14 +814,14 @@ func deployUpkeeps(t *testing.T, backend *simulated.Backend, carrol, steve *bind
 		)
 		require.NoError(t, err)
 
-		upkeepID := registerUpkeep(t, registry, upkeepAddr, carrol, steve, backend)
+		upkeepID := registerUpkeep(t, registry, upkeepAddr, carrol, steve, backend, commit)
 
 		// Fund the upkeep
 		_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
 		require.NoError(t, err)
 		_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
 		require.NoError(t, err)
-		backend.Commit()
+		commit()
 
 		ids[i] = upkeepID
 		contracts[i] = upkeepContract
@@ -828,7 +830,7 @@ func deployUpkeeps(t *testing.T, backend *simulated.Backend, carrol, steve *bind
 	return ids, addrs, contracts
 }
 
-func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend *simulated.Backend) *big.Int {
+func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend *simulated.Backend, commit func() common.Hash) *big.Int {
 	logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
 	logTriggerConfig, err := abi.Encode(map[string]interface{}{
 		"contractAddress": upkeepAddr,
@@ -842,7 +844,7 @@ func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, u
 
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
 
 	return upkeepID
@@ -852,12 +854,13 @@ func deployKeeper21Registry(
 	t *testing.T,
 	auth *bind.TransactOpts,
 	backend *simulated.Backend,
+	commit func() common.Hash,
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
 ) *iregistry21.IKeeperRegistryMaster {
 	automationForwarderLogicAddr, _, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend.Client())
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 	registryLogicBAddr, _, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		auth,
 		backend.Client(),
@@ -868,7 +871,7 @@ func deployKeeper21Registry(
 		automationForwarderLogicAddr,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	registryLogicAAddr, _, _, err := registrylogica21.DeployKeeperRegistryLogicA(
 		auth,
@@ -876,7 +879,7 @@ func deployKeeper21Registry(
 		registryLogicBAddr,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	registryAddr, _, _, err := registry21.DeployKeeperRegistry(
 		auth,
@@ -884,7 +887,7 @@ func deployKeeper21Registry(
 		registryLogicAAddr,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	registryMaster, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, backend.Client())
 	require.NoError(t, err)
@@ -907,6 +910,7 @@ func registerAndFund(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 	backend *simulated.Backend,
+	commit func() common.Hash,
 	linkToken *link_token_interface.LinkToken,
 ) registerAndFundFunc {
 	return func(t *testing.T, upkeepAddr common.Address, upkeepOwner *bind.TransactOpts, trigger uint8, config []byte) *big.Int {
@@ -923,7 +927,7 @@ func registerAndFund(
 		)
 		require.NoError(t, err)
 
-		backend.Commit()
+		commit()
 
 		receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
 		require.NoError(t, err)
@@ -940,7 +944,7 @@ func registerAndFund(
 		_, err = registry.AddFunds(upkeepOwner, upkeepID, oneHunEth)
 		require.NoError(t, err)
 
-		backend.Commit()
+		commit()
 
 		return upkeepID
 	}
@@ -968,8 +972,6 @@ func newFeedLookupUpkeepController(
 	if err != nil {
 		return nil, err
 	}
-
-	backend.Commit()
 
 	return &feedLookupUpkeepController{
 		logSrcAddr:    addr,
@@ -1027,6 +1029,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 	registry *iregistry21.IKeeperRegistryMaster,
 	registryOwner *bind.TransactOpts,
 	backend *simulated.Backend,
+	commit func() common.Hash,
 	linkToken *link_token_interface.LinkToken,
 ) error {
 	ids := make([]*big.Int, len(c.contracts))
@@ -1045,7 +1048,7 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 
 	require.NoError(t, err)
 
-	registerFunc := registerAndFund(registry, registryOwner, backend, linkToken)
+	registerFunc := registerAndFund(registry, registryOwner, backend, commit, linkToken)
 
 	for x := range c.contracts {
 		ids[x] = registerFunc(t, c.addresses[x], c.contractsOwner, 1, config)

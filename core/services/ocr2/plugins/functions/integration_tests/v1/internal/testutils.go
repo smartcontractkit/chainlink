@@ -29,7 +29,6 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -169,7 +168,7 @@ type Coordinator struct {
 	Contract *functions_coordinator.FunctionsCoordinator
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *simulated.Backend, *time.Ticker, Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *simulated.Backend, func() common.Hash, func(), Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
@@ -258,12 +257,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	}
 
 	CommitWithFinality(b)
-	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for range ticker.C {
-			b.Commit()
-		}
-	}()
+	commit, stop := cltest.Mine(b, time.Second)
 
 	active := Coordinator{
 		Contract: coordinatorContract,
@@ -273,7 +267,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Contract: proposalContract,
 		Address:  proposalAddress,
 	}
-	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
+	return owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
 func SetupRouterRoutes(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {

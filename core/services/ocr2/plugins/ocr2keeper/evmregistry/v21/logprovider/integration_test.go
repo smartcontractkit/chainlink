@@ -92,7 +92,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 			poll := pollFn(ctx, t, lp, ethClient)
 
-			triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
+			triggerEvents(ctx, t, backend, commit, carrol, logsRounds, poll, contracts...)
 
 			poll(commit())
 
@@ -268,7 +268,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 			rounds := 8
 			for i := 0; i < rounds; i++ {
 				poll(commit())
-				triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+				triggerEvents(ctx, t, backend, commit, carrol, n, poll, contracts...)
 				poll(commit())
 			}
 
@@ -326,7 +326,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+		triggerEvents(ctx, t, backend, commit, carrol, n, poll, contracts...)
 		poll(commit())
 	}
 	poll(commit())
@@ -420,6 +420,7 @@ func triggerEvents(
 	ctx context.Context,
 	t *testing.T,
 	backend *simulated.Backend,
+	commit func() common.Hash,
 	account *bind.TransactOpts,
 	rounds int,
 	poll func(blockHash common.Hash),
@@ -437,7 +438,7 @@ func triggerEvents(
 			}
 			_, err := upkeepContract.Start(account)
 			require.NoError(t, err)
-			blockHash = backend.Commit()
+			blockHash = commit()
 		}
 		poll(blockHash)
 	}

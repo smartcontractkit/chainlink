@@ -129,6 +129,7 @@ func TestReader_Integration(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+	sim.Commit()
 
 	nodeSet := [][32]byte{
 		randomWord(),
@@ -167,6 +168,7 @@ func TestReader_Integration(t *testing.T) {
 	}
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
+	sim.Commit()
 
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
@@ -182,9 +184,8 @@ func TestReader_Integration(t *testing.T) {
 		true,
 		1,
 	)
-	sim.Commit()
-
 	require.NoError(t, err)
+	sim.Commit()
 
 	factory := newContractReaderFactory(t, sim)
 	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())

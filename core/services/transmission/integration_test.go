@@ -396,7 +396,9 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
+
+	ctx := testutils.Context(t)
+	_, err = bind.WaitMined(ctx, backend.Client(), tx)
 	require.NoError(t, err)
 
 	// Generate encoded paymaster data to fund the VRF consumer.
@@ -434,7 +436,7 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	tx, err = universe.entryPoint.DepositTo(holder1, paymasterAddress)
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = bind.WaitMined(testutils.Context(t), backend.Client(), tx)
+	_, err = bind.WaitMined(ctx, backend.Client(), tx)
 	require.NoError(t, err)
 	holder1.Value = assets.Ether(0).ToInt()
 	balance, err := universe.entryPoint.BalanceOf(nil, paymasterAddress)
@@ -443,13 +445,13 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 
 	// Run handleOps from holder2's account, to demonstrate that any account can execute this signed user operation.
 	// Manually execute transaction to test ABI packing.
-	gasPrice, err := backend.Client().SuggestGasPrice(testutils.Context(t))
+	gasPrice, err := backend.Client().SuggestGasPrice(ctx)
 	require.NoError(t, err)
-	accountNonce, err := backend.Client().PendingNonceAt(testutils.Context(t), holder2.From)
+	accountNonce, err := backend.Client().PendingNonceAt(ctx, holder2.From)
 	require.NoError(t, err)
 	payload, err := entrypointABI.Pack("handleOps", []entry_point.UserOperation{userOp}, holder1.From)
 	require.NoError(t, err)
-	gas, err := backend.Client().EstimateGas(testutils.Context(t), ethereum.CallMsg{
+	gas, err := backend.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From:     holder2.From,
 		To:       &universe.entryPointAddress,
 		Gas:      0,
@@ -467,15 +469,15 @@ func Test4337WithLinkTokenVRFRequestAndPaymaster(t *testing.T) {
 	require.NoError(t, err)
 	signedtx, err := holder2.Signer(holder2.From, unsigned)
 	require.NoError(t, err)
-	err = backend.Client().SendTransaction(testutils.Context(t), signedtx)
+	err = backend.Client().SendTransaction(ctx, signedtx)
 	require.NoError(t, err)
-	backend.Client()
-	receipt, err := bind.WaitMined(testutils.Context(t), backend.Client(), signedtx)
+	backend.Commit()
+	receipt, err := bind.WaitMined(ctx, backend.Client(), signedtx)
 	require.NoError(t, err)
 	t.Log("Receipt:", receipt.Status)
 
 	// Assert the VRF request was correctly made.
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{
+	logs, err := backend.Client().FilterLogs(ctx, ethereum.FilterQuery{
 		Addresses: []common.Address{universe.vrfCoordinatorAddress},
 	})
 	require.NoError(t, err)
