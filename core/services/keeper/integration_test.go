@@ -223,6 +223,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			_, err = registryWrapper.SetKeepers(steve, []common.Address{nodeAddress, nelly.From}, []common.Address{nodeAddress, nelly.From})
 			require.NoError(t, err)
+			commit()
 			registrationTx, err := registryWrapper.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
 			require.NoError(t, err)
 			commit()

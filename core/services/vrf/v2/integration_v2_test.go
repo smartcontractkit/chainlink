@@ -1535,6 +1535,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
 			owner, backend.Client(), linkAddress, common.Address{}, common.Address{})
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 		FulfillmentFlatFeeLinkPPMTier1: 0,
 		FulfillmentFlatFeeLinkPPMTier2: 0,
@@ -1566,6 +1567,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	_, err = coordinator.AddConsumer(owner, 1, consumerAddress)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{})
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{})
@@ -1574,6 +1576,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	// Reassign ownership, check that only new owner can request
 	_, err = consumer.TransferOwnership(owner, random.From)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{})
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{})

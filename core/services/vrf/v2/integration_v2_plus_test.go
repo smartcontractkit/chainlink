@@ -714,6 +714,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			owner, backend.Client(), common.Address{}) //bhs not needed for this test
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = coordinator.SetConfig(owner,
 		uint16(1),      // minimumRequestConfirmations
 		uint32(10000),  // maxGasLimit
@@ -754,6 +755,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	_, err = coordinator.AddConsumer(owner, subID, consumerAddress)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = consumer.RequestRandomWords(random, subID, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(owner, subID, 1, 1, 1, [32]byte{}, false)
@@ -762,8 +764,10 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	// Reassign ownership, check that only new owner can request
 	_, err = consumer.TransferOwnership(owner, random.From)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = consumer.AcceptOwnership(random)
 	require.NoError(t, err)
+	backend.Commit()
 	_, err = consumer.RequestRandomWords(owner, subID, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(random, subID, 1, 1, 1, [32]byte{}, false)

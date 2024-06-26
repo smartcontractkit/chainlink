@@ -230,6 +230,7 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 	_, _, requestIDBase, err :=
 		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend.Client())
 	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
+	backend.Commit()
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
