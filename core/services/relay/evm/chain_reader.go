@@ -188,7 +188,7 @@ type GetLatestValueRequest struct {
 // BatchGetLatestValueRequests string is contract name.
 type BatchGetLatestValueRequests map[string][]GetLatestValueRequest
 
-func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request BatchGetLatestValueRequests) error {
+func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
 	return cr.bindings.BatchGetLatestValue(ctx, request)
 }
 

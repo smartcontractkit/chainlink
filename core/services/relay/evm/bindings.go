@@ -68,31 +68,51 @@ func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContrac
 	return nil
 }
 
-func (b bindings) BatchGetLatestValue(ctx context.Context, batchRequests BatchGetLatestValueRequests) error {
+func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
 	var batchCall BatchCall
-	for contractName, contractBatch := range batchRequests {
+	toChainAgnosticMethodName := make(map[string]string)
+	for contractName, contractBatch := range request {
 		cb := b.contractBindings[contractName]
 		for i := range contractBatch {
 			req := contractBatch[i]
-			switch rb := cb.readBindings[req.readName].(type) {
+			switch rb := cb.readBindings[req.ReadName].(type) {
 			case *methodBinding:
+				toChainAgnosticMethodName[rb.method] = req.ReadName
 				batchCall = append(batchCall, Call{
 					ContractAddress: rb.address,
 					ContractName:    cb.name,
 					MethodName:      rb.method,
-					Params:          req.params,
-					ReturnVal:       req.params,
+					Params:          req.Params,
+					ReturnVal:       req.ReturnVal,
 				})
 				// results here will have chain specific method names.
-
 			case *eventBinding:
 				// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
 			}
 		}
 	}
 
-	_, err := b.BatchCall(ctx, 0, batchCall)
-	return err
+	results, err := b.BatchCall(ctx, 0, batchCall)
+	if err != nil {
+		return nil, err
+	}
+
+	// reconstruct results from batchCall and filteredLogs into common type while maintaining order from request.
+	batchGetLatestValueResults := make(commontypes.BatchGetLatestValueResult)
+	for contractName, contractResult := range results {
+		batchGetLatestValueResults[contractName] = commontypes.ContractBatchResults{}
+		for _, methodResult := range contractResult {
+			batchGetLatestValueResults[contractName] = append(
+				batchGetLatestValueResults[contractName],
+				commontypes.BatchReadResult{
+					ReadName:    toChainAgnosticMethodName[methodResult.MethodName],
+					ReturnValue: methodResult.ReturnValue,
+					Err:         methodResult.Err,
+				})
+		}
+	}
+
+	return batchGetLatestValueResults, err
 }
 
 func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contractBinding) error) error {
