@@ -106,7 +106,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	}
 
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	defer stopMining()
 
 	// Deploy registry
@@ -132,7 +132,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 0, []byte{}, []byte{}, []byte{})
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
 
 	// Fund the upkeep
@@ -142,14 +142,14 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	// Set upkeep to be performed
 	_, err = upkeepContract.SetBytesToSend(carrol, payload1)
 	require.NoError(t, err)
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
 
@@ -207,7 +207,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			}
 
 			backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-			stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+			commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 			defer stopMining()
 
 			// Deploy registry
@@ -224,18 +224,18 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 			_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 			require.NoError(t, err)
-			backend.Commit()
+			commit()
 
 			ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
 			require.Equal(t, upkeeps, len(ids))
 			require.Equal(t, len(ids), len(contracts))
 			require.Equal(t, len(ids), len(addrs))
 
-			backend.Commit()
+			commit()
 
 			emits := 1
 			go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
-				backend.Commit()
+				commit()
 			})
 
 			listener, done := listenPerformed(t, backend, registry, ids, int64(1))
@@ -245,7 +245,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			t.Run("recover logs", func(t *testing.T) {
 				addr, contract := addrs[0], contracts[0]
 				upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
-				backend.Commit()
+				commit()
 				t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
 				// Emit 100 logs in a burst
 				recoverEmits := 100
@@ -253,7 +253,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 				emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
 					i++
 					if i%(recoverEmits/4) == 0 {
-						backend.Commit()
+						commit()
 						time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
 					}
 				})
@@ -265,7 +265,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 				// Mine enough blocks to ensure these logs don't fall into log provider range
 				dummyBlocks := 500
 				for i := 0; i < dummyBlocks; i++ {
-					backend.Commit()
+					commit()
 					time.Sleep(time.Millisecond * 10)
 				}
 
@@ -316,7 +316,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 			}
 
 			backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-			stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+			commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 			defer stopMining()
 
 			// Deploy registry
@@ -382,7 +382,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 			_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
 			require.NoError(t, err)
 
-			backend.Commit()
+			commit()
 
 			feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
 			require.NoError(t, err, "no error expected from creating a feed lookup controller")
@@ -451,7 +451,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			}
 
 			backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-			stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+			commit, stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 			defer stopMining()
 
 			// Deploy registry
@@ -494,7 +494,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 			_, err = linkToken.Transfer(linkOwner, upkeepOwner.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeepCount+1))))
 			require.NoError(t, err)
 
-			backend.Commit()
+			commit()
 
 			feeds, err := newFeedLookupUpkeepController(backend, registryOwner)
 			require.NoError(t, err, "no error expected from creating a feed lookup controller")
@@ -522,8 +522,6 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 					time.Sleep(3 * time.Second)
 				})
 			}()
-
-			go makeDummyBlocks(t, backend, 3*time.Second, 1000)
 
 			idsToCheck := make([]*big.Int, 0)
 			for i, uid := range feeds.UpkeepsIds() {
@@ -556,18 +554,6 @@ func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercurySer
 			_, _ = w.Write(body)
 		}
 	})
-}
-
-func makeDummyBlocks(t *testing.T, backend *simulated.Backend, interval time.Duration, count int) {
-	go func() {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
-		defer cancel()
-
-		for i := 0; i < count && ctx.Err() == nil; i++ {
-			backend.Commit()
-			time.Sleep(interval)
-		}
-	}()
 }
 
 func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
@@ -808,7 +794,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		offchainConfig,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	backend.Commit() //TODO race write (with miner commit)
 
 	return nodes, mServer
 }

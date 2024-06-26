@@ -1,10 +1,10 @@
 package cltest
 
 import (
-	"sync"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
@@ -76,21 +76,37 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 }
 
 // Mine forces the simulated backend to produce a new block every X seconds
-func Mine(backend evmtypes.Backend, blockTime time.Duration) (stopMining func()) {
+// If you need to manually commit blocks, you must use the returned commit func, rather than calling Commit() directly,
+// which will race.
+func Mine(backend evmtypes.Backend, blockTime time.Duration) (commit func() common.Hash, stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	commitCh := make(chan chan common.Hash)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for {
 			select {
 			case <-timer.C:
 				backend.Commit()
+			case hash := <-commitCh:
+				hash <- backend.Commit()
 			case <-chStop:
-				wg.Done()
 				return
 			}
 		}
 	}()
-	return func() { close(chStop); timer.Stop(); wg.Wait() }
+	return func() common.Hash {
+			hash := make(chan common.Hash)
+			select {
+			case <-chStop:
+				return common.Hash{}
+			case commitCh <- hash:
+				return <-hash
+			}
+		}, func() {
+			close(chStop)
+			timer.Stop()
+			<-done
+		}
 }

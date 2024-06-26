@@ -93,8 +93,8 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *ver
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	backend.Commit()                                  // ensure starting block number at least 1
-	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	backend.Commit()                                          // ensure starting block number at least 1
+	commit, stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
 	// Deploy contracts
@@ -120,7 +120,7 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, *simulated.Backend, *ver
 	require.NoError(t, err)
 	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
-	backend.Commit()
+	commit()
 
 	return steve, backend, verifier, verifierAddress
 }
