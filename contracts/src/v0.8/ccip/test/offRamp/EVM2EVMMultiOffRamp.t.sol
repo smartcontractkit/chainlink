@@ -3237,63 +3237,6 @@ contract EVM2EVMMultiOffRamp_applySourceChainConfigUpdates is EVM2EVMMultiOffRam
   }
 }
 
-contract EVM2EVMMultiOffRamp_setLatestPriceSequenceNumber is EVM2EVMMultiOffRampSetup {
-  function test_setLatestPriceSequenceNumber_Success() public {
-    uint64 latestSequenceNumber = 1782155;
-
-    vm.expectEmit();
-    emit EVM2EVMMultiOffRamp.LatestPriceSequenceNumberSet(
-      s_offRamp.getLatestPriceSequenceNumber(), latestSequenceNumber
-    );
-
-    s_offRamp.setLatestPriceSequenceNumber(latestSequenceNumber);
-    assertEq(s_offRamp.getLatestPriceSequenceNumber(), latestSequenceNumber);
-  }
-
-  function test_PriceEpochCleared_Success() public {
-    // Set latest price epoch and round to non-zero.
-    uint64 latestSequenceNumber = 1782155;
-    s_offRamp.setLatestPriceSequenceNumber(latestSequenceNumber);
-    assertEq(latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
-
-    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
-    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
-      ocrPluginType: uint8(Internal.OCRPluginType.Execution),
-      configDigest: s_configDigestExec,
-      F: s_F,
-      isSignatureVerificationEnabled: false,
-      signers: s_emptySigners,
-      transmitters: s_validTransmitters
-    });
-    s_offRamp.setOCR3Configs(ocrConfigs);
-
-    // Execution plugin OCR config should not clear latest epoch and round
-    assertEq(latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
-
-    // Commit plugin config should clear latest epoch & round
-    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
-      ocrPluginType: uint8(Internal.OCRPluginType.Commit),
-      configDigest: s_configDigestCommit,
-      F: s_F,
-      isSignatureVerificationEnabled: true,
-      signers: s_validSigners,
-      transmitters: s_validTransmitters
-    });
-    s_offRamp.setOCR3Configs(ocrConfigs);
-
-    // Assert cleared.
-    assertEq(0, s_offRamp.getLatestPriceSequenceNumber());
-  }
-
-  // Reverts
-
-  function test_OnlyOwner_Revert() public {
-    vm.stopPrank();
-    vm.expectRevert("Only callable by owner");
-    s_offRamp.setLatestPriceSequenceNumber(6723);
-  }
-}
-
 contract EVM2EVMMultiOffRamp_commit is EVM2EVMMultiOffRampSetup {
   uint64 internal s_maxInterval = 12;
 
@@ -3422,6 +3365,54 @@ contract EVM2EVMMultiOffRamp_commit is EVM2EVMMultiOffRampSetup {
 
     _commit(commitReport, s_latestSequenceNumber);
     assertEq(s_latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
+  }
+
+  function test_PriceSequenceNumberCleared_Success() public {
+    EVM2EVMMultiOffRamp.MerkleRoot[] memory roots = new EVM2EVMMultiOffRamp.MerkleRoot[](0);
+    EVM2EVMMultiOffRamp.CommitReport memory commitReport = EVM2EVMMultiOffRamp.CommitReport({
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      merkleRoots: roots
+    });
+
+    vm.expectEmit();
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+    _commit(commitReport, s_latestSequenceNumber);
+
+    assertEq(s_latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
+
+    vm.startPrank(OWNER);
+    MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: uint8(Internal.OCRPluginType.Execution),
+      configDigest: s_configDigestExec,
+      F: s_F,
+      isSignatureVerificationEnabled: false,
+      signers: s_emptySigners,
+      transmitters: s_validTransmitters
+    });
+    s_offRamp.setOCR3Configs(ocrConfigs);
+
+    // Execution plugin OCR config should not clear latest epoch and round
+    assertEq(s_latestSequenceNumber, s_offRamp.getLatestPriceSequenceNumber());
+
+    // Commit plugin config should clear latest epoch & round
+    ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
+      ocrPluginType: uint8(Internal.OCRPluginType.Commit),
+      configDigest: s_configDigestCommit,
+      F: s_F,
+      isSignatureVerificationEnabled: true,
+      signers: s_validSigners,
+      transmitters: s_validTransmitters
+    });
+    s_offRamp.setOCR3Configs(ocrConfigs);
+
+    assertEq(0, s_offRamp.getLatestPriceSequenceNumber());
+
+    // The same sequence number can be reported again
+    vm.expectEmit();
+    emit PriceRegistry.UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+
+    _commit(commitReport, s_latestSequenceNumber);
   }
 
   function test_ValidPriceUpdateThenStaleReportWithRoot_Success() public {

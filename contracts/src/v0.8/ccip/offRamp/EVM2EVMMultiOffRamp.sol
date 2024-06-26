@@ -80,7 +80,6 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// @dev RMN depends on this event, if changing, please notify the RMN maintainers.
   event CommitReportAccepted(CommitReport report);
   event RootRemoved(bytes32 root);
-  event LatestPriceSequenceNumberSet(uint64 oldSequenceNumber, uint64 newSequenceNumber);
 
   /// @notice Static offRamp config
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
@@ -178,7 +177,7 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
 
   // sourceChainSelector => merkleRoot => timestamp when received
   mapping(uint64 sourceChainSelector => mapping(bytes32 merkleRoot => uint256 timestamp)) internal s_roots;
-  /// @dev The sequence number of the last report
+  /// @dev The sequence number of the last price update
   uint64 private s_latestPriceSequenceNumber;
 
   constructor(StaticConfig memory staticConfig, SourceChainConfigArgs[] memory sourceChainConfigs) MultiOCR3Base() {
@@ -675,19 +674,9 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   }
 
   /// @notice Returns the sequence number of the last price update.
-  /// @return the latest price sequence number.
+  /// @return the latest price update sequence number.
   function getLatestPriceSequenceNumber() public view returns (uint64) {
     return s_latestPriceSequenceNumber;
-  }
-
-  /// @notice Sets the latest sequence number for price update.
-  /// @param latestPriceSequenceNumber The new sequence number for prices
-  function setLatestPriceSequenceNumber(uint64 latestPriceSequenceNumber) external onlyOwner {
-    uint64 oldPriceSequenceNumber = s_latestPriceSequenceNumber;
-
-    s_latestPriceSequenceNumber = latestPriceSequenceNumber;
-
-    emit LatestPriceSequenceNumberSet(oldPriceSequenceNumber, latestPriceSequenceNumber);
   }
 
   /// @notice Returns the timestamp of a potentially previously committed merkle root.
@@ -743,8 +732,8 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
   /// @inheritdoc MultiOCR3Base
   function _afterOCR3ConfigSet(uint8 ocrPluginType) internal override {
     if (ocrPluginType == uint8(Internal.OCRPluginType.Commit)) {
-      // When the OCR config changes, we reset the price epoch and round
-      // since epoch and rounds are scoped per config digest.
+      // When the OCR config changes, we reset the sequence number
+      // since it is scoped per config digest.
       // Note that s_minSeqNr/roots do not need to be reset as the roots persist
       // across reconfigurations and are de-duplicated separately.
       s_latestPriceSequenceNumber = 0;
