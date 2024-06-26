@@ -557,7 +557,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     if (expectedToSucceed) {
       // Get actual cost from RequestProcessed event log
       (uint96 totalCostJuels, , , , , ) = abi.decode(
-        vm.getRecordedLogs()[requestProcessedStartIndex].data,
+        vm.getRecordedLogs()[requestProcessedStartIndex+1].data,
         (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
       );
       // Store response of first request

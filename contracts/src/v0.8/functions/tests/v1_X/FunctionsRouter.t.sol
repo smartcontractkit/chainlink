@@ -1213,6 +1213,8 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
   }
 
+  event SubscriptionBalanceModified(uint64 indexed subscriptionId, uint256 balance);
+
   function test_Fulfill_SuccessFulfilled() public {
     // Fulfill request 1
     uint256 requestToFulfill = 1;
@@ -1227,10 +1229,15 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     errors[0] = err;
 
     // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1SubscriptionId = true;
     bool checkTopic1RequestId = true;
     bool checkTopic2 = false;
     bool checkTopic3 = false;
     bool checkData = true;
+
+    vm.expectEmit(checkTopic1SubscriptionId, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionBalanceModified(s_subscriptionId, 9764487666666666668);
+    
     vm.expectEmit(checkTopic1RequestId, checkTopic2, checkTopic3, checkData);
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,

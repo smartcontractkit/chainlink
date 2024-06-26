@@ -55,6 +55,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
+  event SubscriptionBalanceModified(uint64 indexed subscriptionId, uint256 balance);
 
   error TooManyConsumers(uint16 maximumConsumers);
   error InsufficientBalance(uint96 currentBalanceJuels);
@@ -125,6 +126,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
     // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
+
+    // Emit an event reporting the updated balance after each charge
+    // This allows the consumer to fetch an up to date balance instead of making calculations an mantaining a copy that might diverge
+    emit SubscriptionBalanceModified(subscriptionId, s_subscriptions[subscriptionId].balance);
 
     // Unblock earmarked funds
     s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
@@ -232,6 +237,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     s_subscriptions[subscriptionId].balance += uint96(amount);
     s_totalLinkBalance += uint96(amount);
     emit SubscriptionFunded(subscriptionId, oldBalance, oldBalance + amount);
+    // Emit an event reporting the updated balance after each found
+    emit SubscriptionBalanceModified(subscriptionId, s_subscriptions[subscriptionId].balance);
   }
 
   // ================================================================
