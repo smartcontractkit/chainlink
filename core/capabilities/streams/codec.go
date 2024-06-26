@@ -23,8 +23,7 @@ func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRe
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
-	dest := []datastreams.FeedReport{}
-	err := wrapped.UnwrapTo(&dest)
+	dest, err := datastreams.UnwrapFeedReportList(wrapped)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unwrap: %v", err)
 	}
@@ -44,6 +43,9 @@ func (c *codec) UnwrapValid(wrapped values.Value, allowedSigners [][]byte, minRe
 				continue
 			}
 			validated[signerAddr] = struct{}{}
+			if len(validated) >= minRequiredSignatures {
+				break // early exit
+			}
 		}
 		if len(validated) < minRequiredSignatures {
 			return nil, fmt.Errorf("not enough valid signatures %d, needed %d", len(validated), minRequiredSignatures)
