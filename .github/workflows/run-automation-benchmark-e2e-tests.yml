@@ -1,0 +1,56 @@
+name: Run Automation Benchmark E2E Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-id:
+        description: Select a test to run
+        required: true
+        default: TestAutomationBenchmark
+        type: choice
+        options:
+          - TestAutomationBenchmark
+          - TestAutomationBenchmark_1000Upkeeps_2_1
+      test-config-base64-override:
+        description: Custom base64 test config
+        required: false
+        type: string
+
+# TODO:
+# 1. list of tests to select 
+# 2. prepare toml config with grafana url for automation benchmark, take it from github secrets
+# 3. Still support customBase64Config if provided 
+# 4. Add slack notification, have slackMemberID para as input 
+
+jobs:
+  call-run-e2e-tests-workflow:
+    name: Run E2E Tests
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read    
+    with:
+      chainlink-version: develop
+      test-ids: ${{ github.event.inputs.test-id }}
+      # Select tests to run from .github/e2e_tests.yml based on workflow name 
+      test-workflow: Run Automation Product Nightly E2E Tests
+      test-config-base64-override: ${{ github.event.inputs.test-config-base64-override }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
+

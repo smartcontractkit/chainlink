@@ -16,6 +16,10 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
+      test-config-base64-override:
+        description: 'Custom base64 test config override'
+        required: false
+        type: string        
       enable-check-test-configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -204,22 +208,48 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: '1.21.7'
-      - name: Set Test Config Override
-        if: ${{ matrix.tests.testConfigOverride != '' }}
-        run: |
-          echo "::add-mask::${{ env.CHAINLINK_IMAGE }}"
 
-          # Use the Go tool to replace environment variables
-          replaced_content=$(go run .github/scripts/e2e_tests_tool/main.go envreplace --input '${{ matrix.tests.testConfigOverride }}')
-          
-          # Encode the replaced content to Base64
-          BASE64_CONFIG_OVERRIDE=$(echo "$replaced_content" | base64 -w 0)
+      - name: Set default test config override
+        if: ${{ inputs.test-config-base64-override == '' }}
+        run: |      
+          chainlink_version="${{ github.sha || matrix.tests.testConfigOverride.chainlinkVersion }}"
+          chainlink_postgres_version="${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}"
+          chainlink_upgrade_version="${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}"
+          selected_networks="${{ env.SELECTED_NETWORKS || matrix.tests.testConfigOverride.selectedNetworks }}"
+
+          cmd_args=""
+          if [ -n "$chainlink_version" ]; then
+            cmd_args+="--chainlink-version=\"$chainlink_version\" "
+          fi
+          if [ -n "$chainlink_postgres_version" ]; then
+            cmd_args+="--chainlink-postgres-version=\"$chainlink_postgres_version\" "
+          fi
+          if [ -n "$chainlink_upgrade_version" ]; then
+            cmd_args+="--chainlink-upgrade-version=\"$chainlink_upgrade_version\" "
+          fi
+          if [ -n "$selected_networks" ]; then
+            cmd_args+="--selected-networks=\"$selected_networks\" "
+          fi    
+
+          config_override=$(go run .github/scripts/e2e_tests_tool/main.go mask-test-config-override $cmd_args)  
+          echo $config_override
+
+          BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+
+      - name: Set custom test config override
+        if: ${{ inputs.test-config-base64-override != '' }}          
+        run: |
+          BASE64_CONFIG_OVERRIDE="${{ inputs.test-config-base64-override }}"
+          echo "::add-mask::$BASE64_CONFIG_OVERRIDE"
+          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+
       - name: Install jq
         run: sudo apt-get install -y jq
       - name: Show Test Configuration
         run: echo '${{ toJson(matrix.tests) }}' | jq .
+
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
