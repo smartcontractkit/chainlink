@@ -206,9 +206,7 @@ bhs_test_rps = 1
 ### POLYGON AMOY Config
 
 [POLYGON_AMOY.VRFv2Plus.General]
-use_existing_env = true
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
-# NOTE - with test might fail with minimum_confirmations = 0
 minimum_confirmations = 3
 
 # Consumer Request config
@@ -216,7 +214,6 @@ subscription_billing_type = "LINK_AND_NATIVE"
 callback_gas_limit = 1000000
 
 # NEW ENV CONFIG
-# as per https://smartcontract-it.atlassian.net/wiki/spaces/VRF/pages/666173463/VRF+v2.5+Current+Deployments#Testnet-Configs.3
 # CL Node config
 cl_node_max_gas_price_gwei = 200
 number_of_sending_keys_to_create = 0
@@ -347,4 +344,509 @@ test_duration = "2m"
 rate_limit_unit_duration = "3s"
 rps = 1
 
+### ARBITRUM SEPOLIA Config
 
+[ARBITRUM_SEPOLIA.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+subscription_billing_type = "LINK_AND_NATIVE"
+
+cl_node_max_gas_price_gwei = 50
+number_of_sending_keys_to_create = 0
+
+# Coordinator config
+callback_gas_limit = 1000000
+max_gas_limit_coordinator_config = 2500000
+fallback_wei_per_unit_link = "5352799651145251"
+staleness_seconds = 172_800
+gas_after_payment_calculation = 56000
+fulfillment_flat_fee_native_ppm=0
+fulfillment_flat_fee_link_discount_ppm=0
+native_premium_percentage=60
+link_premium_percentage=50
+
+# Wrapper config
+wrapped_gas_overhead = 13_400
+coordinator_gas_overhead_native = 104_500
+coordinator_gas_overhead_link = 126_500
+coordinator_gas_overhead_per_word = 435
+coordinator_native_premium_percentage=60
+coordinator_link_premium_percentage=50
+wrapper_max_number_of_words = 10
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 3.0
+vrf_job_batch_fulfillment_enabled = true
+vrf_job_batch_fulfillment_gas_multiplier = 1.1
+vrf_job_poll_period = "300ms"
+vrf_job_request_timeout = "2h0m0s"
+vrf_job_simulation_block="pending"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 200
+bhs_job_poll_period = "300ms"
+bhs_job_run_timeout = "30s"
+# NEW ENV CONFIG END
+
+[ARBITRUM_SEPOLIA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xF7ba1Cf141F9729abC43c146dc2bf86EbcfD8603"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xe13aa26fe94bfcd2ae055911f4d3bf1aed54ca6cf77af34e17f918802fd69ba1"
+create_fund_subs_and_add_consumers = true
+link_address = "0xb1D4538B4571d411F07960EF2838Ce337FE1E80E"
+node_sending_key_funding_min = 20
+node_sending_keys = [
+    "0xbE21ae371FcA1aC2d8A152e707D21e68d7d99252",
+    "0xb13e9BA0aE94FD3b89B13b092e6d41614c805134",
+    "0x27aa703e585Ee165B7c977EAA652eCFa13b08294",
+    "0x9324643ACD2ec5b0813488E5EdAb64C3758ae4Ee",
+    "0x7CBA8c8e86f23f23363051650Fe5AE4DE78c3652",
+    "0x9A0143a4BAB55A826331A8ef82462557633aA016",
+    "0xD4259633F8e87949F683433a17e1fFcCE27865AC",
+    "0x5e47B71d6F95f68cd5538907ec6A9635b1Fe30Fa",
+    "0xa850a1a257FDF439c8f854ce3b89dd5b6F411827",
+    "0x7c82D56087c10aF2c3970f9a9Be7786B2850ce91",
+    "0x9545CB59956347d3debf27f5029754bBE1d398FA",
+    "0xEb8C69ac19709f27A97FB4A561f51AD2F9b34c5B",
+    #   BHS
+    "0xf0e8cF7Fbd28Fc4D412B76B744CDA269df671F8e",
+    "0x317A02A658d12E5Bb4A6270171E7385928dD2d53",
+    "0x480f1dbcEc118Bd91e4dbb7e45bFa4A73180d21f",
+    "0x500a2662FaF981EC4669f791349D37Cbf1bE7d85",
+    "0x2ad350374B904c10B47c64ECdBD9e70BB0833Be2",
+    "0x0b946F0bF4e63C12b5157137f1c130f0788bC1b1",
+    #    BHF
+    "0x571BBF4a5b07fc3F47Bd3B65CE2FE73739f86623"
+]
+
+#SMOKE TEST CONFIG
+[ARBITRUM_SEPOLIA-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5
+subscription_funding_amount_native = 1
+subscription_refunding_amount_link = 20
+subscription_refunding_amount_native = 10
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "100s"
+
+wrapper_consumer_funding_amount_native_token = 1.0
+wrapper_consumer_funding_amount_link = 5
+
+[ARBITRUM_SEPOLIA-Smoke.VRFv2Plus.Performance]
+test_duration = "1s"
+rate_limit_unit_duration = "10s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[ARBITRUM_SEPOLIA-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 100
+
+[ARBITRUM_SEPOLIA-Soak.VRFv2Plus.Performance]
+test_duration = "1h"
+rate_limit_unit_duration = "10s"
+rps = 1
+
+# LOAD TEST CONFIG
+[ARBITRUM_SEPOLIA-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 100
+subscription_funding_amount_native = 60
+
+[ARBITRUM_SEPOLIA-Load.VRFv2Plus.Performance]
+test_duration = "30m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[ARBITRUM_SEPOLIA-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[ARBITRUM_SEPOLIA-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+### AVALANCHE FUJI Config
+[AVALANCHE_FUJI.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 0
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+# NEW ENV CONFIG
+# CL Node config
+cl_node_max_gas_price_gwei = 300
+number_of_sending_keys_to_create = 0
+
+# Coordinator config
+max_gas_limit_coordinator_config = 2500000
+fallback_wei_per_unit_link = "378709808510249900"
+staleness_seconds = 172_800
+gas_after_payment_calculation = 56_000
+fulfillment_flat_fee_native_ppm = 0
+fulfillment_flat_fee_link_discount_ppm = 0
+native_premium_percentage = 60
+link_premium_percentage = 50
+
+# Wrapper config
+wrapped_gas_overhead = 13_400
+coordinator_gas_overhead_native = 107_000
+coordinator_gas_overhead_link = 129_000
+coordinator_gas_overhead_per_word = 435
+coordinator_native_premium_percentage = 60
+coordinator_link_premium_percentage = 50
+wrapper_max_number_of_words = 10
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 3.0
+vrf_job_batch_fulfillment_enabled = true
+vrf_job_batch_fulfillment_gas_multiplier = 1.1
+vrf_job_poll_period = "2s"
+vrf_job_request_timeout = "2h0m0s"
+vrf_job_simulation_block = "pending"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 200
+bhs_job_poll_period = "2s"
+bhs_job_run_timeout = "30s"
+# NEW ENV CONFIG END
+
+[AVALANCHE_FUJI.VRFv2Plus.ExistingEnv]
+coordinator_address = "0xE122bf3Badd6545bDec5D4627a6DAd16352A1b36"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x5b03254a80ea3eb72139ff0423cb88be42612780c3dd25f1d95a5ba7708a4be1"
+create_fund_subs_and_add_consumers = true
+link_address = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
+node_sending_key_funding_min = 50
+node_sending_keys = [
+    "0x3D7Da5D6A23CA2240CE576C8638C1798a023920a",
+    #   BHS
+    "0x72c8565279430F5179b0090d51ab8BB53Da323B5"
+]
+
+#SMOKE TEST CONFIG
+[AVALANCHE_FUJI-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link =  20
+subscription_funding_amount_native = 20
+subscription_refunding_amount_link = 20
+subscription_refunding_amount_native = 20
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "10m"
+
+wrapper_consumer_funding_amount_native_token = 1.0
+wrapper_consumer_funding_amount_link = 5
+
+[AVALANCHE_FUJI-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "10s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[AVALANCHE_FUJI-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[AVALANCHE_FUJI-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[AVALANCHE_FUJI-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[AVALANCHE_FUJI-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[AVALANCHE_FUJI-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[AVALANCHE_FUJI-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+### ETH SEPOLIA Config
+[SEPOLIA.VRFv2Plus.General]
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 3
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+# NEW ENV CONFIG
+# CL Node config
+cl_node_max_gas_price_gwei = 100
+number_of_sending_keys_to_create = 0
+
+# Coordinator config
+max_gas_limit_coordinator_config = 2500000
+fallback_wei_per_unit_link = "5354747932930759"
+staleness_seconds = 172_800
+gas_after_payment_calculation = 38_900
+fulfillment_flat_fee_native_ppm = 0
+fulfillment_flat_fee_link_discount_ppm = 0
+native_premium_percentage = 24
+link_premium_percentage = 20
+
+# Wrapper config
+wrapped_gas_overhead = 13_400
+coordinator_gas_overhead_native = 90_000
+coordinator_gas_overhead_link = 112_000
+coordinator_gas_overhead_per_word = 435
+coordinator_native_premium_percentage = 24
+coordinator_link_premium_percentage = 20
+wrapper_max_number_of_words = 10
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 1.15
+vrf_job_batch_fulfillment_enabled = false
+vrf_job_batch_fulfillment_gas_multiplier = 1.1
+vrf_job_poll_period = "5s"
+vrf_job_request_timeout = "2h0m0s"
+vrf_job_simulation_block = "latest"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 200
+bhs_job_poll_period = "30s"
+bhs_job_run_timeout = "1m0s"
+# NEW ENV CONFIG END
+
+[SEPOLIA.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x2F3b892710523Ee9A85c3155a42089fFe99Ca31e"
+consumer_address = ""
+sub_id = ""
+key_hash = "0xf5b4a359df0598eef89872ea2170f2afa844dbf74b417e6d44d4bda9420aceb2"
+create_fund_subs_and_add_consumers = true
+link_address = "0x779877A7B0D9E8603169DdbD7836e478b4624789"
+node_sending_key_funding_min = 50
+node_sending_keys = [
+    "0x0c0DC7f33A1256f0247c5ea75861d385fa5FED31",
+    #    BHS
+    "0xEd8A4b792d16484f6c9B4df1e721e8280925Db80",
+]
+
+#SMOKE TEST CONFIG
+[SEPOLIA-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5
+subscription_funding_amount_native = 1
+subscription_refunding_amount_link = 5
+subscription_refunding_amount_native = 1
+number_of_words = 1
+random_words_fulfilled_event_timeout = "1m30s"
+wait_for_256_blocks_timeout = "70m"
+
+wrapper_consumer_funding_amount_native_token = 1.0
+wrapper_consumer_funding_amount_link = 5
+
+[SEPOLIA-Smoke.VRFv2Plus.Performance]
+test_duration = "2s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+#SOAK TEST CONFIG
+[SEPOLIA-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 500
+subscription_funding_amount_native = 200
+
+[SEPOLIA-Soak.VRFv2Plus.Performance]
+test_duration = "2h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[SEPOLIA-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 30
+
+[SEPOLIA-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# STRESS TEST CONFIG
+[SEPOLIA-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[SEPOLIA-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+### BSC SEPOLIA Config
+[BSC_TESTNET.VRFv2Plus.General]
+use_existing_env = true
+#todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
+minimum_confirmations = 3
+
+# Consumer Request config
+subscription_billing_type = "LINK_AND_NATIVE"
+callback_gas_limit = 1000000
+
+# NEW ENV CONFIG
+# CL Node config
+cl_node_max_gas_price_gwei = 50
+number_of_sending_keys_to_create = 0
+
+# Coordinator config
+max_gas_limit_coordinator_config = 2500000
+fallback_wei_per_unit_link = "30531029880396850"
+staleness_seconds = 172_800
+gas_after_payment_calculation = 48_500
+fulfillment_flat_fee_native_ppm = 0
+fulfillment_flat_fee_link_discount_ppm = 0
+native_premium_percentage = 60
+link_premium_percentage = 50
+
+# Wrapper config
+wrapped_gas_overhead = 13_400
+coordinator_gas_overhead_native = 99_500
+coordinator_gas_overhead_link = 121_500
+coordinator_gas_overhead_per_word = 435
+coordinator_native_premium_percentage = 60
+coordinator_link_premium_percentage = 50
+wrapper_max_number_of_words = 10
+
+# VRF Job config
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 1.1
+vrf_job_batch_fulfillment_enabled = true
+vrf_job_batch_fulfillment_gas_multiplier = 1.1
+vrf_job_poll_period = "3s"
+vrf_job_request_timeout = "2h0m0s"
+vrf_job_simulation_block = "latest"
+
+# BHS Job config
+bhs_job_wait_blocks = 30
+bhs_job_lookback_blocks = 200
+bhs_job_poll_period = "2s"
+bhs_job_run_timeout = "30s"
+# NEW ENV CONFIG END
+
+[BSC_TESTNET.VRFv2Plus.ExistingEnv]
+coordinator_address = "0x84A477F6ebF33501eE3ACA86fEcB980b1fC99AC2"
+consumer_address = ""
+sub_id = ""
+key_hash = "0x4d43763d3eff849a89cf578a42787baa32132d7a80032125710e95b3972cd214"
+create_fund_subs_and_add_consumers = true
+link_address = "0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06"
+node_sending_key_funding_min = 150
+node_sending_keys = [
+    "0x4EE2Cc6D50E8acb6BaEf673B03559525a6c92fB8",
+    #   BHS
+    "0xAFB44568f7DAc218EA6e1C71c366692ED4758A07"
+]
+
+#SMOKE TEST CONFIG
+[BSC_TESTNET-Smoke.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 10
+subscription_funding_amount_native = 10
+
+[BSC_TESTNET-Smoke.VRFv2Plus.Performance]
+test_duration = "15s"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+#SOAK TEST CONFIG
+[BSC_TESTNET-Soak.VRFv2Plus.General]
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 400
+subscription_funding_amount_native = 200
+
+[BSC_TESTNET-Soak.VRFv2Plus.Performance]
+test_duration = "5h"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+# LOAD TEST CONFIG
+[BSC_TESTNET-Load.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 300
+subscription_funding_amount_native = 300
+
+[BSC_TESTNET-Load.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
+
+
+# STRESS TEST CONFIG
+[BSC_TESTNET-Stress.VRFv2Plus.General]
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+number_of_sub_to_create = 1
+subscription_funding_amount_link = 5.0
+subscription_funding_amount_native = 0.1
+
+[BSC_TESTNET-Stress.VRFv2Plus.Performance]
+test_duration = "2m"
+rate_limit_unit_duration = "3s"
+rps = 1
