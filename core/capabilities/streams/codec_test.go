@@ -93,12 +93,14 @@ func newFeedID(t *testing.T) ([32]byte, string) {
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
 	raw, err := v3Codec.BuildReport(v3.ReportFields{
-		BenchmarkPrice: price,
-		Timestamp:      uint32(timestamp),
-		Bid:            big.NewInt(0),
-		Ask:            big.NewInt(0),
-		LinkFee:        big.NewInt(0),
-		NativeFee:      big.NewInt(0),
+		BenchmarkPrice:     price,
+		Timestamp:          uint32(timestamp),
+		ValidFromTimestamp: uint32(timestamp),
+		Bid:                price,
+		Ask:                price,
+		LinkFee:            price,
+		NativeFee:          price,
+		ExpiresAt:          uint32(timestamp + 1000000),
 	})
 	require.NoError(t, err)
 	return raw

@@ -130,6 +130,7 @@ type Node struct {
 	App          chainlink.Application
 	ClientPubKey credentials.StaticSizedPublicKey
 	KeyBundle    ocr2key.KeyBundle
+	ObservedLogs *observer.ObservedLogs
 }
 
 func (node *Node) AddStreamJob(t *testing.T, spec string) {
@@ -197,7 +198,11 @@ func setupNode(
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	if backend != nil {
+		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	} else {
+		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+	}
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
@@ -236,74 +241,79 @@ observationSource = """
 		bridgeName,
 	))
 }
-func addBootstrapJob(t *testing.T, bootstrapNode Node, chainID *big.Int, verifierAddress common.Address, name string) {
+
+func addBootstrapJob(t *testing.T, bootstrapNode Node, verifierAddress common.Address, name string, relayType, relayConfig string) {
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
 type                              = "bootstrap"
-relay                             = "evm"
+relay                             = "%s"
 schemaVersion                     = 1
 name                              = "boot-%s"
 contractID                        = "%s"
 contractConfigTrackerPollInterval = "1s"
 
 [relayConfig]
-chainID = %s
-providerType = "llo"
-	`, name, verifierAddress.Hex(), chainID.String()))
+%s
+providerType = "llo"`, relayType, name, verifierAddress.Hex(), relayConfig))
 }
 
 func addLLOJob(
 	t *testing.T,
 	node Node,
-	verifierAddress,
-	configStoreAddress common.Address,
+	verifierAddress common.Address,
 	bootstrapPeerID string,
 	bootstrapNodePort int,
-	serverURL string,
-	serverPubKey,
 	clientPubKey ed25519.PublicKey,
 	jobName string,
-	chainID *big.Int,
-	fromBlock int,
+	pluginConfig,
+	relayType,
+	relayConfig string,
 ) {
 	node.AddLLOJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
 schemaVersion = 1
-name = "%[1]s"
+name = "%s"
 forwardingAllowed = false
 maxTaskDuration = "1s"
-contractID = "%[2]s"
+contractID = "%s"
 contractConfigTrackerPollInterval = "1s"
-ocrKeyBundleID = "%[3]s"
+ocrKeyBundleID = "%s"
 p2pv2Bootstrappers = [
-  "%[4]s"
+  "%s"
 ]
-relay = "evm"
+relay = "%s"
 pluginType = "llo"
-transmitterID = "%[5]x"
+transmitterID = "%x"
 
 [pluginConfig]
-serverURL = "%[6]s"
-serverPubKey = "%[7]x"
-channelDefinitionsContractFromBlock = %[8]d
-channelDefinitionsContractAddress = "%[9]s"
+%s
 
 [relayConfig]
-chainID = %[10]s
-fromBlock = 1`,
+%s`,
 		jobName,
 		verifierAddress.Hex(),
 		node.KeyBundle.ID(),
 		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
+		relayType,
 		clientPubKey,
-		serverURL,
-		serverPubKey,
-		fromBlock,
-		configStoreAddress.Hex(),
-		chainID.String(),
+		pluginConfig,
+		relayConfig,
 	))
 }
 
-func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, serverURL string, verifierAddress common.Address, bootstrapPeerID string, bootstrapNodePort int, nodes []Node, configStoreAddress common.Address, clientPubKeys []ed25519.PublicKey, chainID *big.Int, fromBlock int) {
+func addOCRJobs(
+	t *testing.T,
+	streams []Stream,
+	serverPubKey ed25519.PublicKey,
+	serverURL string,
+	verifierAddress common.Address,
+	bootstrapPeerID string,
+	bootstrapNodePort int,
+	nodes []Node,
+	configStoreAddress common.Address,
+	clientPubKeys []ed25519.PublicKey,
+	pluginConfig,
+	relayType,
+	relayConfig string) {
 	ctx := testutils.Context(t)
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -343,15 +353,13 @@ func addOCRJobs(t *testing.T, streams []Stream, serverPubKey ed25519.PublicKey, 
 			t,
 			node,
 			verifierAddress,
-			configStoreAddress,
 			bootstrapPeerID,
 			bootstrapNodePort,
-			serverURL,
-			serverPubKey,
 			clientPubKeys[i],
 			"feed-1",
-			chainID,
-			fromBlock,
+			pluginConfig,
+			relayType,
+			relayConfig,
 		)
 	}
 }
