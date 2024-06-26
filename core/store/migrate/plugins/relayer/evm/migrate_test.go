@@ -66,9 +66,13 @@ func TestGoDataMigration(t *testing.T) {
 		{
 			table: "key_states",
 		},
+		{
+			table: "log_poller_blocks",
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.table+" data migration", func(t *testing.T) {
+			t.Parallel()
 			ctx := testutils.Context(t)
 			db := loadLegacyDatabase(t, ctx)
 
@@ -250,5 +254,15 @@ func loadLegacyDatabase(t *testing.T, ctx context.Context) *sqlx.DB {
 	err = db.Get(&cnt, "SELECT COUNT(*) FROM evm.key_states")
 	require.NoError(t, err)
 	require.Equal(t, 3, cnt)
+
+	// load the legacy log_poller_blocks data
+	logPollerBlocksMigration, err := os.ReadFile("testdata/log_poller_blocks/initial.sql")
+	require.NoError(t, err)
+	_, err = db.Exec(string(logPollerBlocksMigration))
+	require.NoError(t, err)
+	err = db.Get(&cnt, "SELECT COUNT(*) FROM evm.log_poller_blocks")
+	require.NoError(t, err)
+	require.Equal(t, 3, cnt)
+
 	return db
 }

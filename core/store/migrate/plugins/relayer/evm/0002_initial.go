@@ -28,6 +28,12 @@ var keyStatesUpTmpl string
 //go:embed key_statesDown.tmpl.sql
 var keyStatesDownTmpl string
 
+//go:embed log_poller_blocksUp.tmpl.sql
+var logPollerBlocksUpTmpl string
+
+//go:embed log_poller_blocksDown.tmpl.sql
+var logPollerBlocksDownTmpl string
+
 type initialMigration struct {
 	upTmpl   string
 	downTmpl string
@@ -38,19 +44,28 @@ var (
 	forwarderMigration = initialMigration{
 		upTmpl:   forwardersUpTmpl,
 		downTmpl: forwardersDownTmpl,
-		version:  2}
+		version:  2,
+	}
 
 	headsMigration = initialMigration{
 		upTmpl:   headsUpTmpl,
 		downTmpl: headsDownTmpl,
-		version:  3}
+		version:  3,
+	}
 
 	keyStatesMigration = initialMigration{
 		upTmpl:   keyStatesUpTmpl,
 		downTmpl: keyStatesDownTmpl,
-		version:  4}
+		version:  4,
+	}
 
-	initialMigrations = []initialMigration{forwarderMigration, headsMigration, keyStatesMigration}
+	logPollerBlocksMigration = initialMigration{
+		upTmpl:   logPollerBlocksUpTmpl,
+		downTmpl: logPollerBlocksDownTmpl,
+		version:  5,
+	}
+
+	initialMigrations = []initialMigration{forwarderMigration, headsMigration, keyStatesMigration, logPollerBlocksMigration}
 )
 
 func generateGoMigration(val Cfg, m initialMigration) (*goose.Migration, error) {
