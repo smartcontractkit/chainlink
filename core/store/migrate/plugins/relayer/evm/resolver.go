@@ -25,11 +25,24 @@ type Cfg struct {
 	ChainID *big.Big
 }
 
+func (c Cfg) Validate() error {
+	if c.Schema == "" {
+		return fmt.Errorf("schema is required")
+	}
+	if c.ChainID == nil {
+		return fmt.Errorf("chain id is required")
+	}
+	return nil
+}
+
 var migrationSuffix = ".tmpl.sql"
 
 func resolve(out io.Writer, in string, val Cfg) error {
+	if err := val.Validate(); err != nil {
+		return err
+	}
 	id := fmt.Sprintf("init_%s_%s", val.Schema, val.ChainID)
-	tmpl, err := template.New(id).Parse(in)
+	tmpl, err := template.New(id).Option("missingkey=error").Parse(in)
 	if err != nil {
 		return fmt.Errorf("failed to parse template %s: %w", in, err)
 	}

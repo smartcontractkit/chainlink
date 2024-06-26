@@ -44,12 +44,10 @@ func newProvider(db *sqlx.DB, cfg Cfg) (*goose.Provider, error) {
 		return nil, fmt.Errorf("failed to create goose store for table %s: %w", mTable, err)
 	}
 
-	goMigrations := make([]*goose.Migration, 0)
-	up0002, down0002, err := generate0002(cfg)
+	goMigrations, err := generateInitialMigrations(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate migration 0002 for cfg %v: %w", cfg, err)
+		return nil, fmt.Errorf("failed to generate initial migrations for cfg %v: %w", cfg, err)
 	}
-	goMigrations = append(goMigrations, goose.NewGoMigration(2, up0002, down0002))
 
 	// note we are leaking here, but can't delete the temp dir until the migrations are actually executed
 	// maybe update the cache to store the temp dir and delete it when cache is deleted
@@ -87,19 +85,6 @@ func newProvider(db *sqlx.DB, cfg Cfg) (*goose.Provider, error) {
 	return p, nil
 }
 
-/*
-func setupPluginMigrations(cfg Cfg) error {
-	// reset the base fs and the global migrations
-	goose.SetBaseFS(nil) // we don't want to use the base fs for plugin migrations because the embedded fs contains templates, not sql files
-	goose.ResetGlobalMigrations()
-	goose.SetTableName(fmt.Sprintf("goose_migration_relayer_%s_%s", cfg.Schema, cfg.ChainID.String()))
-	err := Register0002(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to register migration 0002: %w", err)
-	}
-	return nil
-}
-*/
 // Migrate migrates a subsystem of the chainlink database.
 // It generates migrations based on the template for the subsystem and applies them to the database.
 func Migrate(ctx context.Context, db *sqlx.DB, cfg Cfg) error {
@@ -110,24 +95,6 @@ func Migrate(ctx context.Context, db *sqlx.DB, cfg Cfg) error {
 	if todo, _ := p.HasPending(ctx); !todo {
 		return nil
 	}
-	/*
-		tmpDir, err := os.MkdirTemp("", cfg.Schema)
-		if err != nil {
-			return fmt.Errorf("failed to create temp dir: %w", err)
-		}
-		defer os.RemoveAll(tmpDir)
-
-		d := filepath.Join(tmpDir, cfg.Schema, cfg.ChainID.String())
-		err = os.MkdirAll(d, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", d, err)
-		}
-		migrations, err := generateMigrations(embeddedTmplFS, MigrationRootDir, d, cfg)
-		if err != nil {
-			return fmt.Errorf("failed to generate migrations for opt %v: %w", cfg, err)
-		}
-		fmt.Printf("Generated migrations: %v\n", migrations)
-	*/
 	// seems to be upside about global go migrations?
 	//goose.ResetGlobalMigrations()
 	r, err := p.Up(ctx)

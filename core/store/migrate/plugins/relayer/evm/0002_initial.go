@@ -6,60 +6,58 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
-	"io"
 
 	"github.com/pressly/goose/v3"
 )
 
-//go:embed initUp.tmpl.sql
-var upTmpl string
+//go:embed forwardersUp.tmpl.sql
+var forwardersUpTmpl string
 
-func resolveUp(out io.Writer, val Cfg) error {
-	if upTmpl == "" {
-		return fmt.Errorf("upTmpl is empty")
-	}
-	return resolve(out, upTmpl, val)
+//go:embed  forwardersDown.tmpl.sql
+var forwardersDownTmpl string
+
+//go:embed headsUp.tmpl.sql
+var headsUpTmpl string
+
+//go:embed headsDown.tmpl.sql
+var headsDownTmpl string
+
+//go:embed key_statesUp.tmpl.sql
+var keyStatesUpTmpl string
+
+//go:embed key_statesDown.tmpl.sql
+var keyStatesDownTmpl string
+
+type initialMigration struct {
+	upTmpl   string
+	downTmpl string
+	version  int64
 }
 
-//go:embed  initDown.tmpl.sql
-var downTmpl string
+var (
+	forwarderMigration = initialMigration{
+		upTmpl:   forwardersUpTmpl,
+		downTmpl: forwardersDownTmpl,
+		version:  2}
 
-func resolveDown(out io.Writer, val Cfg) error {
-	return resolve(out, downTmpl, val)
-}
+	headsMigration = initialMigration{
+		upTmpl:   headsUpTmpl,
+		downTmpl: headsDownTmpl,
+		version:  3}
 
-// Register0002 registers the migration with goose
-/*
-func Register0002(val Cfg) error {
+	keyStatesMigration = initialMigration{
+		upTmpl:   keyStatesUpTmpl,
+		downTmpl: keyStatesDownTmpl,
+		version:  4}
+
+	initialMigrations = []initialMigration{forwarderMigration, headsMigration, keyStatesMigration}
+)
+
+func generateGoMigration(val Cfg, m initialMigration) (*goose.Migration, error) {
 	upSQL := &bytes.Buffer{}
-	err := resolveUp(upSQL, val)
+	err := resolve(upSQL, m.upTmpl, val)
 	if err != nil {
-		return fmt.Errorf("failed to resolve up sql: %w", err)
-	}
-	upFunc := func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, upSQL.String())
-		return err
-	}
-
-	downSQL := &bytes.Buffer{}
-	err = resolveDown(downSQL, val)
-	if err != nil {
-		return fmt.Errorf("failed to resolve down sql: %w", err)
-	}
-	downFunc := func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, downSQL.String())
-		return err
-	}
-	goose.AddMigrationContext(upFunc, downFunc)
-	return nil
-}
-*/
-
-func generate0002(val Cfg) (up *goose.GoFunc, down *goose.GoFunc, err error) {
-	upSQL := &bytes.Buffer{}
-	err = resolveUp(upSQL, val)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve up sql: %w", err)
+		return nil, fmt.Errorf("failed to resolve up sql: %w", err)
 	}
 	upFunc := func(ctx context.Context, tx *sql.Tx) error {
 		_, terr := tx.ExecContext(ctx, upSQL.String())
@@ -67,16 +65,27 @@ func generate0002(val Cfg) (up *goose.GoFunc, down *goose.GoFunc, err error) {
 	}
 
 	downSQL := &bytes.Buffer{}
-	err = resolveDown(downSQL, val)
+	err = resolve(downSQL, m.downTmpl, val)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to resolve down sql: %w", err)
+		return nil, fmt.Errorf("failed to resolve down sql: %w", err)
 	}
 	downFunc := func(ctx context.Context, tx *sql.Tx) error {
 		_, terr := tx.ExecContext(ctx, downSQL.String())
 		return terr
 	}
-	up = &goose.GoFunc{RunTx: upFunc}
-	down = &goose.GoFunc{RunTx: downFunc}
-	//P	goose.AddMigrationContext(upFunc, downFunc)
-	return up, down, nil
+	up := &goose.GoFunc{RunTx: upFunc}
+	down := &goose.GoFunc{RunTx: downFunc}
+	return goose.NewGoMigration(m.version, up, down), nil
+}
+
+func generateInitialMigrations(val Cfg) ([]*goose.Migration, error) {
+	migrations := []*goose.Migration{}
+	for _, m := range initialMigrations {
+		mig, err := generateGoMigration(val, m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate migration: %w", err)
+		}
+		migrations = append(migrations, mig)
+	}
+	return migrations, nil
 }
