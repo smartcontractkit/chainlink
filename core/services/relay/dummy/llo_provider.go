@@ -1,4 +1,4 @@
-package evm
+package dummy
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
@@ -27,9 +26,9 @@ type lloProvider struct {
 }
 
 func NewLLOProvider(
+	lggr logger.Logger,
 	cp commontypes.ConfigProvider,
 	transmitter llo.Transmitter,
-	lggr logger.Logger,
 	channelDefinitionCache llotypes.ChannelDefinitionCache,
 ) relaytypes.LLOProvider {
 	return &lloProvider{
@@ -59,7 +58,7 @@ func (p *lloProvider) Name() string {
 }
 
 func (p *lloProvider) HealthReport() map[string]error {
-	report := map[string]error{}
+	report := map[string]error{p.Name(): nil}
 	services.CopyHealth(report, p.cp.HealthReport())
 	services.CopyHealth(report, p.transmitter.HealthReport())
 	services.CopyHealth(report, p.channelDefinitionCache.HealthReport())
