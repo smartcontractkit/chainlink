@@ -2,7 +2,6 @@ package ocr
 
 import (
 	"context"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -82,7 +81,7 @@ func (m *VU) Setup(_ *wasp.Generator) error {
 	if err != nil {
 		return err
 	}
-	err = actions.CreateOCRJobs(ocrInstances, m.bootstrapNode, m.workerNodes, 5, m.msClient, fmt.Sprint(m.seth.ChainID))
+	err = actions.CreateOCRJobs(ocrInstances, m.bootstrapNode, m.workerNodes, 5, m.msClient, m.seth.ChainID, false)
 	if err != nil {
 		return err
 	}

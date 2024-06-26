@@ -189,7 +189,7 @@ func TestOCRChaos(t *testing.T) {
 
 			ocrInstances, err := actions.DeployOCRv1Contracts(l, seth, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
+			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, seth.ChainID, false)
 			require.NoError(t, err)
 
 			chaosApplied := false

@@ -392,14 +392,9 @@ func (o *OCRSoakTest) Run() {
 	o.startingBlockNum = latestBlockNum
 
 	startingValue := 5
-	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.t, o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.seth.ChainID)
-	} else if o.OCRVersion == "1" {
-		ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
-		chainId, err := o.seth.Client.ChainID(ctx)
-		cancel()
+	if o.OCRVersion == "1" {
 		require.NoError(o.t, err, "Error getting chain ID")
-		err = actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, chainId.String())
+		err = actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.seth.ChainID, o.OperatorForwarderFlow)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	} else if o.OCRVersion == "2" {
 		err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, startingValue, o.seth.ChainID, o.OperatorForwarderFlow)
