@@ -41,10 +41,15 @@ func TestHomeChainConfigPoller_HealthReport(t *testing.T) {
 		mock.Anything,
 		mock.Anything).Return(fmt.Errorf("error"))
 
+	var (
+		tickTime       = 10 * time.Millisecond
+		totalSleepTime = 11 * tickTime
+	)
+
 	configPoller := NewHomeChainConfigPoller(
 		homeChainReader,
 		logger.Test(t),
-		50*time.Millisecond,
+		tickTime,
 	)
 	_ = configPoller.Start(context.Background())
 
@@ -53,12 +58,12 @@ func TestHomeChainConfigPoller_HealthReport(t *testing.T) {
 	assert.Equal(t, map[string]error{configPoller.Name(): error(nil)}, healthy)
 
 	// After one second it will try polling 10 times and fail
-	time.Sleep(1 * time.Second)
+	time.Sleep(totalSleepTime)
 
 	errors := configPoller.HealthReport()
 
 	err := configPoller.Close()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(tickTime)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(errors))
 	assert.Errorf(t, errors[configPoller.Name()], "polling failed %d times in a row", MaxFailedPolls)
@@ -123,21 +128,27 @@ func Test_PollingWorking(t *testing.T) {
 			*arg = onChainConfigs
 		}).Return(nil)
 
+	var (
+		tickTime       = 20 * time.Millisecond
+		totalSleepTime = (tickTime * 2) + (10 * time.Millisecond)
+		expNumCalls    = int(totalSleepTime/tickTime) + 1 // +1 for the initial call
+	)
+
 	configPoller := NewHomeChainConfigPoller(
 		homeChainReader,
 		logger.Test(t),
-		400*time.Millisecond,
+		tickTime,
 	)
 
 	ctx := context.Background()
 	err := configPoller.Start(ctx)
 	assert.NoError(t, err)
-	time.Sleep(1 * time.Second)
+	time.Sleep(totalSleepTime)
 	err = configPoller.Close()
 	assert.NoError(t, err)
 
 	// called 3 times, once when it's started, and 2 times when it's polling
-	homeChainReader.AssertNumberOfCalls(t, "GetLatestValue", 3)
+	homeChainReader.AssertNumberOfCalls(t, "GetLatestValue", expNumCalls)
 
 	configs, err := configPoller.GetAllChainConfigs()
 	assert.NoError(t, err)
