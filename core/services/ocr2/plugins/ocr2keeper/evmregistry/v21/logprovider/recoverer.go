@@ -350,17 +350,11 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
-	var wg sync.WaitGroup
 	for _, f := range filters {
-		wg.Add(1)
-		go func(f upkeepFilter) {
-			defer wg.Done()
-			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
-				r.lggr.Debugw("error recovering filter", "err", err.Error())
-			}
-		}(f)
+		if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
+			r.lggr.Debugw("error recovering filter", "err", err.Error())
+		}
 	}
-	wg.Wait()
 
 	return nil
 }
