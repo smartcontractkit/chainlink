@@ -1515,8 +1515,8 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240625075314-affd4529a8f
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240625075314-affd4529a8f5/go.mod h1:NbXXQaNFskVMYRut0MvBlcHu/vDgipGMwYjamvjVB9Y=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba h1:YNSlhK5mobyAaw02LPGgIEuS3lXyCTXcc6oaV2L6uUI=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba/go.mod h1:UVFRacRkP7O7TQAzFmR52v5mUlxf+G1ovMlCQAB/cHU=
-github.com/smartcontractkit/chainlink-testing-framework v1.31.5-0.20240624114029-36c59004a627 h1:5KXmAtnaBeY95dgrII9rEQSTdfctqnAnkLdtLoPXl6Y=
-github.com/smartcontractkit/chainlink-testing-framework v1.31.5-0.20240624114029-36c59004a627/go.mod h1:E6uNEZhZZid9PHv6/Kq5Vn63GlO61ZcKB+/f0DKo3Q4=
+github.com/smartcontractkit/chainlink-testing-framework v1.31.5 h1:PemXseNS74zz1Oitm1MOCeJyQSIYCFck/QsnjM1y06c=
+github.com/smartcontractkit/chainlink-testing-framework v1.31.5/go.mod h1:E6uNEZhZZid9PHv6/Kq5Vn63GlO61ZcKB+/f0DKo3Q4=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239 h1:Kk5OVlx/5g9q3Z3lhxytZS4/f8ds1MiNM8yaHgK3Oe8=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239/go.mod h1:DC8sQMyTlI/44UCTL8QWFwb0bYNoXCfjwCv2hMivYZU=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868 h1:FFdvEzlYwcuVHkdZ8YnZR/XomeMGbz5E2F2HZI3I3w8=
