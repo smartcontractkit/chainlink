@@ -42,10 +42,6 @@ func (b bindings) AddReadBinding(contractName, readName string, rb readBinding) 
 	cb.readBindings[readName] = rb
 }
 
-func (b bindings) SetBatchCaller(batchCaller BatchCaller) {
-	b.BatchCaller = batchCaller
-}
-
 // Bind binds contract addresses to contract bindings and read bindings.
 // Bind also registers the common contract polling filter and eventBindings polling filters.
 func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContracts []commontypes.BoundContract) error {
@@ -87,7 +83,9 @@ func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.B
 				})
 				// results here will have chain specific method names.
 			case *eventBinding:
-				// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
+			// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
+			default:
+				return nil, fmt.Errorf("%w: missing read binding type for contract: %s read: %s", commontypes.ErrInvalidConfig, contractName, req.ReadName)
 			}
 		}
 	}

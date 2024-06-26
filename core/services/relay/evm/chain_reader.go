@@ -52,7 +52,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		lggr:     lggr.Named("ChainReader"),
 		lp:       lp,
 		client:   client,
-		bindings: bindings{},
+		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
 		parsed:   &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
@@ -64,6 +64,15 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 	if cr.codec, err = cr.parsed.toCodec(); err != nil {
 		return nil, err
 	}
+
+	cr.bindings.BatchCaller = NewDynamicLimitedBatchCaller(
+		cr.lggr,
+		cr.codec,
+		cr.client,
+		DefaultRpcBatchSizeLimit,
+		DefaultRpcBatchBackOffMultiplier,
+		DefaultMaxParallelRpcCalls,
+	)
 
 	err = cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 		for _, rb := range cb.readBindings {
@@ -120,15 +129,6 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 		}
 		cr.bindings.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
-	cr.bindings.SetBatchCaller(
-		NewDynamicLimitedBatchCaller(
-			cr.lggr,
-			cr.codec,
-			cr.client,
-			DefaultRpcBatchSizeLimit,
-			DefaultRpcBatchBackOffMultiplier,
-			DefaultMaxParallelRpcCalls,
-		))
 	return nil
 }
 
