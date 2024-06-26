@@ -23,6 +23,8 @@ type HomeChain interface {
 	GetKnownCCIPChains() (mapset.Set[cciptypes.ChainSelector], error)
 	// GetFChain Gets the FChain value for each chain
 	GetFChain() (map[cciptypes.ChainSelector]int, error)
+	// GetOCRConfigs Gets the OCR3Configs for a given donID and pluginType
+	GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]OCR3ConfigWithMeta, error)
 	services.Service
 }
 
@@ -179,6 +181,19 @@ func (r *homeChainPoller) GetFChain() (map[cciptypes.ChainSelector]int, error) {
 	return r.state.fChain, nil
 }
 
+func (r *homeChainPoller) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]OCR3ConfigWithMeta, error) {
+	var ocrConfigs []OCR3ConfigWithMeta
+	err := r.homeChainReader.GetLatestValue(ctx, "CCIPCapabilityConfiguration", "getOCRConfig", map[string]any{
+		"donId":      donID,
+		"pluginType": pluginType,
+	}, &ocrConfigs)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching OCR configs: %w", err)
+	}
+
+	return ocrConfigs, nil
+}
+
 func (r *homeChainPoller) Close() error {
 	return r.sync.StopOnce(r.Name(), func() error {
 		close(r.stopCh)
@@ -271,6 +286,27 @@ type ChainConfig struct {
 	SupportedNodes mapset.Set[libocrtypes.PeerID] `json:"supportedNodes"`
 	// Config is the chain specific configuration.
 	Config []byte `json:"config"`
+}
+
+// OCR3Config mirrors CCIPCapabilityConfiguration.sol's OCR3Config struct
+type OCR3Config struct {
+	PluginType            uint8                   `json:"pluginType"`
+	ChainSelector         cciptypes.ChainSelector `json:"chainSelector"`
+	F                     uint8                   `json:"F"`
+	OffchainConfigVersion uint64                  `json:"offchainConfigVersion"`
+	OfframpAddress        []byte                  `json:"offrampAddress"`
+	BootstrapP2PIds       [][32]byte              `json:"bootstrapP2PIds"`
+	P2PIds                [][32]byte              `json:"p2pIds"`
+	Signers               [][]byte                `json:"signers"`
+	Transmitters          [][]byte                `json:"transmitters"`
+	OffchainConfig        []byte                  `json:"offchainConfig"`
+}
+
+// OCR3ConfigWithmeta mirrors CCIPCapabilityConfiguration.sol's OCR3ConfigWithMeta struct
+type OCR3ConfigWithMeta struct {
+	Config       OCR3Config `json:"config"`
+	ConfigCount  uint64     `json:"configCount"`
+	ConfigDigest [32]byte   `json:"configDigest"`
 }
 
 var _ HomeChain = (*homeChainPoller)(nil)

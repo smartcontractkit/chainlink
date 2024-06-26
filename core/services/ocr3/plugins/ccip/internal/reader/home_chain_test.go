@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -153,4 +154,47 @@ func Test_PollingWorking(t *testing.T) {
 	configs, err := configPoller.GetAllChainConfigs()
 	assert.NoError(t, err)
 	assert.Equal(t, homeChainConfig, configs)
+}
+
+func Test_HomeChainPoller_GetOCRConfig(t *testing.T) {
+	donID := uint32(1)
+	pluginType := uint8(1) // execution
+	homeChainReader := mocks.NewContractReaderMock()
+	homeChainReader.On(
+		"GetLatestValue",
+		mock.Anything,
+		"CCIPCapabilityConfiguration",
+		"getOCRConfig",
+		map[string]any{
+			"donId":      donID,
+			"pluginType": pluginType,
+		},
+		mock.AnythingOfType("*[]reader.OCR3ConfigWithMeta"),
+	).Return(nil).Run(func(args mock.Arguments) {
+		arg := args.Get(4).(*[]OCR3ConfigWithMeta)
+		*arg = append(*arg, OCR3ConfigWithMeta{
+			ConfigCount: 1,
+			Config: OCR3Config{
+				PluginType:     pluginType,
+				ChainSelector:  1,
+				F:              1,
+				OfframpAddress: []byte("offramp"),
+			},
+		})
+	})
+	defer homeChainReader.AssertExpectations(t)
+
+	configPoller := NewHomeChainConfigPoller(
+		homeChainReader,
+		logger.Test(t),
+		10*time.Millisecond,
+	)
+
+	configs, err := configPoller.GetOCRConfigs(context.Background(), donID, pluginType)
+	require.NoError(t, err)
+	require.Len(t, configs, 1)
+	require.Equal(t, uint8(1), configs[0].Config.PluginType)
+	require.Equal(t, cciptypes.ChainSelector(1), configs[0].Config.ChainSelector)
+	require.Equal(t, uint8(1), configs[0].Config.F)
+	require.Equal(t, []byte("offramp"), configs[0].Config.OfframpAddress)
 }
