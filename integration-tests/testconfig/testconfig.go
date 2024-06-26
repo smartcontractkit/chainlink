@@ -271,7 +271,6 @@ func GetConfigurationNameFromEnv() (string, error) {
 
 const (
 	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
-	NoKey                    = "NO_KEY"
 )
 
 func GetConfig(configurationNames []string, product Product) (TestConfig, error) {
@@ -282,6 +281,14 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		configurationNames[idx] = strings.ReplaceAll(configurationName, " ", "_")
 		configurationNames[idx] = cases.Title(language.English, cases.NoLower).String(configurationName)
 	}
+
+	// append unnamed (default) configuration
+	configurationNamesCopy := make([]string, len(configurationNames))
+	copy(configurationNamesCopy, configurationNames)
+
+	configurationNames = []string{}
+	configurationNames = append([]string{""}, configurationNamesCopy...)
+
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
