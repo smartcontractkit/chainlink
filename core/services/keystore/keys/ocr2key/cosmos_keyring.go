@@ -7,12 +7,13 @@ import (
 
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/crypto/blake2s"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ ocrtypes.OnchainKeyring = &cosmosKeyring{}
