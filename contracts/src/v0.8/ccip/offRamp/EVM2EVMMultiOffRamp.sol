@@ -437,32 +437,34 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
         }
       }
 
-      // In the scenario where we upgrade offRamps, we still want to have sequential nonces.
-      // Referencing the old offRamp to check the expected nonce if none is set for a
-      // given sender allows us to skip the current message if it would not be the next according
-      // to the old offRamp. This preserves sequencing between updates.
-      (uint64 prevNonce, bool isFromPrevRamp) = _getSenderNonce(sourceChainSelector, message.sender);
-      if (isFromPrevRamp) {
-        if (prevNonce + 1 != message.nonce) {
-          // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
-          // is guaranteed to equal (largest v1 onramp nonce + 1).
-          // if this message's nonce isn't (v1 offramp nonce + 1), then v1 offramp nonce != largest v1 onramp nonce,
-          // it tells us there are still messages inflight for v1 offramp
-          emit SkippedSenderWithPreviousRampMessageInflight(sourceChainSelector, message.nonce, message.sender);
-          continue;
+      if (message.nonce > 0) {
+        // In the scenario where we upgrade offRamps, we still want to have sequential nonces.
+        // Referencing the old offRamp to check the expected nonce if none is set for a
+        // given sender allows us to skip the current message if it would not be the next according
+        // to the old offRamp. This preserves sequencing between updates.
+        (uint64 prevNonce, bool isFromPrevRamp) = _getSenderNonce(sourceChainSelector, message.sender);
+        if (isFromPrevRamp) {
+          if (prevNonce + 1 != message.nonce) {
+            // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
+            // is guaranteed to equal (largest v1 onramp nonce + 1).
+            // if this message's nonce isn't (v1 offramp nonce + 1), then v1 offramp nonce != largest v1 onramp nonce,
+            // it tells us there are still messages inflight for v1 offramp
+            emit SkippedSenderWithPreviousRampMessageInflight(sourceChainSelector, message.nonce, message.sender);
+            continue;
+          }
+          // Otherwise this nonce is indeed the "transitional nonce", that is
+          // all messages sent to v1 ramp have been executed by the DON and the sequence can resume in V2.
+          // Note if first time user in V2, then prevNonce will be 0, and message.nonce = 1, so this will be a no-op.
+          s_senderNonce[sourceChainSelector][message.sender] = prevNonce;
         }
-        // Otherwise this nonce is indeed the "transitional nonce", that is
-        // all messages sent to v1 ramp have been executed by the DON and the sequence can resume in V2.
-        // Note if first time user in V2, then prevNonce will be 0, and message.nonce = 1, so this will be a no-op.
-        s_senderNonce[sourceChainSelector][message.sender] = prevNonce;
-      }
 
-      // UNTOUCHED messages MUST be executed in order always
-      if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
-        if (prevNonce + 1 != message.nonce) {
-          // We skip the message if the nonce is incorrect
-          emit SkippedIncorrectNonce(sourceChainSelector, message.nonce, message.sender);
-          continue;
+        // UNTOUCHED messages MUST be executed in order always IF message.nonce > 0.
+        if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
+          if (prevNonce + 1 != message.nonce) {
+            // We skip the message if the nonce is incorrect, since message.nonce > 0.
+            emit SkippedIncorrectNonce(sourceChainSelector, message.nonce, message.sender);
+            continue;
+          }
         }
       }
 
@@ -495,12 +497,13 @@ contract EVM2EVMMultiOffRamp is IAny2EVMMultiOffRamp, ITypeAndVersion, MultiOCR3
         revert InvalidNewState(sourceChainSelector, message.sequenceNumber, newState);
       }
 
-      // Nonce changes per state transition
+      // Nonce changes per state transition.
+      // These only apply for ordered messages.
       // UNTOUCHED -> FAILURE  nonce bump
       // UNTOUCHED -> SUCCESS  nonce bump
       // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
-      if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
+      if (message.nonce > 0 && originalState == Internal.MessageExecutionState.UNTOUCHED) {
         s_senderNonce[sourceChainSelector][message.sender]++;
       }
 

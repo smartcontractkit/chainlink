@@ -268,7 +268,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     address onRamp,
     uint64 sequenceNumber
   ) internal view returns (Internal.EVM2EVMMessage memory) {
-    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, new Client.EVMTokenAmount[](0));
+    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, new Client.EVMTokenAmount[](0), false);
   }
 
   function _generateAny2EVMMessageWithTokens(
@@ -281,20 +281,21 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     for (uint256 i = 0; i < tokenAmounts.length; ++i) {
       tokenAmounts[i].amount = amounts[i];
     }
-    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, tokenAmounts);
+    return _generateAny2EVMMessage(sourceChainSelector, onRamp, sequenceNumber, tokenAmounts, false);
   }
 
   function _generateAny2EVMMessage(
     uint64 sourceChainSelector,
     address onRamp,
     uint64 sequenceNumber,
-    Client.EVMTokenAmount[] memory tokenAmounts
+    Client.EVMTokenAmount[] memory tokenAmounts,
+    bool allowOutOfOrderExecution
   ) internal view returns (Internal.EVM2EVMMessage memory) {
     bytes memory data = abi.encode(0);
     Internal.EVM2EVMMessage memory message = Internal.EVM2EVMMessage({
       sequenceNumber: sequenceNumber,
       sender: OWNER,
-      nonce: sequenceNumber,
+      nonce: allowOutOfOrderExecution ? 0 : sequenceNumber,
       gasLimit: GAS_LIMIT,
       strict: false,
       sourceChainSelector: sourceChainSelector,
@@ -342,8 +343,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     Client.EVMTokenAmount[] memory tokenAmounts = getCastedSourceEVMTokenAmountsWithZeroAmounts();
     tokenAmounts[0].amount = 1e18;
     tokenAmounts[1].amount = 5e18;
-    messages[0] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 1, tokenAmounts);
-    messages[1] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 2, tokenAmounts);
+    messages[0] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 1, tokenAmounts, false);
+    messages[1] = _generateAny2EVMMessage(sourceChainSelector, onRamp, 2, tokenAmounts, false);
 
     return messages;
   }

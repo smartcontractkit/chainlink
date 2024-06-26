@@ -428,6 +428,53 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
     assertGt(s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender), nonceBefore);
   }
 
+  function test_SingleMessageNoTokensUnordered_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    messages[0].nonce = 0;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+      messages[0].sourceChainSelector,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    // Nonce never increments on unordered messages.
+    uint64 nonceBefore = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(
+      s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender),
+      nonceBefore,
+      "nonce must remain unchanged on unordered messages"
+    );
+
+    messages[0].sequenceNumber++;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+      messages[0].sourceChainSelector,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    // Nonce never increments on unordered messages.
+    nonceBefore = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender);
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+    assertEq(
+      s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender),
+      nonceBefore,
+      "nonce must remain unchanged on unordered messages"
+    );
+  }
+
   function test_SingleMessageNoTokensOtherChain_Success() public {
     Internal.EVM2EVMMessage[] memory messagesChain1 =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -519,6 +566,29 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
 
   function test__execute_SkippedAlreadyExecutedMessage_Success() public {
     Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+      messages[0].sourceChainSelector,
+      messages[0].sequenceNumber,
+      messages[0].messageId,
+      Internal.MessageExecutionState.SUCCESS,
+      ""
+    );
+
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+
+    vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.SkippedAlreadyExecutedMessage(SOURCE_CHAIN_SELECTOR_1, messages[0].sequenceNumber);
+
+    s_offRamp.executeSingleReport(_generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0));
+  }
+
+  function test__execute_SkippedAlreadyExecutedMessageUnordered_Success() public {
+    Internal.EVM2EVMMessage[] memory messages = _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
+    messages[0].nonce = 0;
+    messages[0].messageId =
+      Internal._hash(messages[0], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
 
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
@@ -639,6 +709,49 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
       _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages)
     );
     assertEq(uint64(2), s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
+  }
+
+  function test_Fuzz_InterleavingOrderedAndUnorderedMessages_Success(bool[7] memory orderings) public {
+    Internal.EVM2EVMMessage[] memory messages = new Internal.EVM2EVMMessage[](orderings.length);
+    // number of tokens needs to be capped otherwise we hit UnsupportedNumberOfTokens.
+    Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](3);
+    for (uint256 i = 0; i < 3; ++i) {
+      tokenAmounts[i].token = s_sourceTokens[i % s_sourceTokens.length];
+      tokenAmounts[i].amount = 1e18;
+    }
+    uint64 expectedNonce = 0;
+    for (uint256 i = 0; i < orderings.length; ++i) {
+      messages[i] =
+        _generateAny2EVMMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1, uint64(i + 1), tokenAmounts, !orderings[i]);
+      if (orderings[i]) {
+        messages[i].nonce = ++expectedNonce;
+      }
+      messages[i].messageId =
+        Internal._hash(messages[i], s_offRamp.metadataHash(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1));
+
+      vm.expectEmit();
+      emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
+        SOURCE_CHAIN_SELECTOR_1,
+        messages[i].sequenceNumber,
+        messages[i].messageId,
+        Internal.MessageExecutionState.SUCCESS,
+        ""
+      );
+    }
+
+    uint64 nonceBefore = s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER);
+    assertEq(uint64(0), nonceBefore, "nonce before exec should be 0");
+    s_offRamp.executeSingleReport(
+      _generateReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), _getGasLimitsFromMessages(messages)
+    );
+    // all executions should succeed.
+    for (uint256 i = 0; i < orderings.length; ++i) {
+      assertEq(
+        uint256(s_offRamp.getExecutionState(SOURCE_CHAIN_SELECTOR_1, messages[i].sequenceNumber)),
+        uint256(Internal.MessageExecutionState.SUCCESS)
+      );
+    }
+    assertEq(nonceBefore + expectedNonce, s_offRamp.getSenderNonce(SOURCE_CHAIN_SELECTOR_1, OWNER));
   }
 
   function test_InvalidSourcePoolAddress_Success() public {

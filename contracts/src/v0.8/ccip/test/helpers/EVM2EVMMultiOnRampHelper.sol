@@ -41,4 +41,11 @@ contract EVM2EVMMultiOnRampHelper is EVM2EVMMultiOnRamp, IgnoreContractSize {
   ) external view returns (uint256, uint32, uint32) {
     return _getTokenTransferCost(destChainSelector, feeToken, feeTokenPrice, tokenAmounts);
   }
+
+  function extraArgsFromBytes(
+    bytes calldata extraArgs,
+    uint64 destChainSelector
+  ) external view returns (Client.EVMExtraArgsV2 memory) {
+    return _extraArgsFromBytes(extraArgs, s_destChainConfig[destChainSelector].dynamicConfig.defaultTxGasLimit);
+  }
 }
