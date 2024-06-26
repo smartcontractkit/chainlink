@@ -15,6 +15,7 @@ contract LiquidityManagerBaseTest is Test {
 
   IERC20 internal s_l1Token;
   IERC20 internal s_l2Token;
+  IERC20 internal s_otherToken;
   WETH9 internal s_l1Weth;
   WETH9 internal s_l2Weth;
 
@@ -28,6 +29,7 @@ contract LiquidityManagerBaseTest is Test {
   function setUp() public virtual {
     s_l1Token = new ERC20("l1", "L1");
     s_l2Token = new ERC20("l2", "L2");
+    s_otherToken = new ERC20("other", "OTHER");
 
     s_l1Weth = new WETH9();
     s_l2Weth = new WETH9();

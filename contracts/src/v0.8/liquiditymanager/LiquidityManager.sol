@@ -234,6 +234,14 @@ contract LiquidityManager is ILiquidityManager, OCR3Base {
     emit LiquidityRemovedFromContainer(msg.sender, amount);
   }
 
+  /// @notice escape hatch to manually withdraw any ERC20 token from the LM contract
+  /// @param token The address of the token to withdraw
+  /// @param amount The amount of tokens to withdraw
+  /// @param destination The address to send the tokens to
+  function withdrawERC20(address token, uint256 amount, address destination) external onlyFinance {
+    IERC20(token).safeTransfer(destination, amount);
+  }
+
   /// @notice Transfers liquidity to another chain.
   /// @dev This function is a public version of the internal _rebalanceLiquidity function.
   /// to allow the owner to also initiate a rebalancing when needed.
