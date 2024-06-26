@@ -302,8 +302,16 @@ func setupAllNodesReadAllChains(ctx context.Context, t *testing.T, lggr logger.L
 			chainB,
 			cciptypes.NewSeqNumRange(21, cciptypes.SeqNum(21+cfg.NewMsgScanBatchSize)),
 		).Return([]cciptypes.CCIPMsg{
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{1}, ID: "1", SourceChain: chainB, SeqNum: 21}},
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{2}, ID: "2", SourceChain: chainB, SeqNum: 22}},
+			{
+				CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+					MsgHash: cciptypes.Bytes32{1}, ID: "1", SourceChain: chainB, SeqNum: 21,
+				},
+			},
+			{
+				CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+					MsgHash: cciptypes.Bytes32{2}, ID: "2", SourceChain: chainB, SeqNum: 22,
+				},
+			},
 		}, nil)
 
 		n.ccipReader.On("GasPrices", ctx, []cciptypes.ChainSelector{chainA, chainB}).
@@ -402,8 +410,16 @@ func setupNodesDoNotAgreeOnMsgs(ctx context.Context, t *testing.T, lggr logger.L
 				cciptypes.SeqNum(21+cfg.NewMsgScanBatchSize),
 			),
 		).Return([]cciptypes.CCIPMsg{
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{1}, ID: "1" + strconv.Itoa(i), SourceChain: chainB, SeqNum: 21 + cciptypes.SeqNum(i*10)}},
-			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{MsgHash: cciptypes.Bytes32{2}, ID: "2" + strconv.Itoa(i), SourceChain: chainB, SeqNum: 22 + cciptypes.SeqNum(i*20)}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+				MsgHash:     cciptypes.Bytes32{1},
+				ID:          "1" + strconv.Itoa(i),
+				SourceChain: chainB,
+				SeqNum:      21 + cciptypes.SeqNum(i*10)}},
+			{CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+				MsgHash:     cciptypes.Bytes32{2},
+				ID:          "2" + strconv.Itoa(i),
+				SourceChain: chainB,
+				SeqNum:      22 + cciptypes.SeqNum(i*20)}},
 		}, nil)
 
 		n.ccipReader.On("GasPrices", ctx, []cciptypes.ChainSelector{chainA, chainB}).
@@ -430,7 +446,15 @@ type nodeSetup struct {
 	msgHasher   *mocks.MessageHasher
 }
 
-func newNode(ctx context.Context, t *testing.T, lggr logger.Logger, id int, cfg cciptypes.CommitPluginConfig, homeChain reader.HomeChain, oracleIDToP2pID map[commontypes.OracleID]libocrtypes.PeerID) nodeSetup {
+func newNode(
+	ctx context.Context,
+	t *testing.T,
+	lggr logger.Logger,
+	id int,
+	cfg cciptypes.CommitPluginConfig,
+	homeChain reader.HomeChain,
+	oracleIDToP2pID map[commontypes.OracleID]libocrtypes.PeerID,
+) nodeSetup {
 	ccipReader := mocks.NewCCIPReader()
 	priceReader := mocks.NewTokenPricesReader()
 	reportCodec := mocks.NewCommitPluginJSONReportCodec()
@@ -461,7 +485,8 @@ func newNode(ctx context.Context, t *testing.T, lggr logger.Logger, id int, cfg 
 func setupHomeChainPoller(lggr logger.Logger, chainConfigInfos []reader.ChainConfigInfo) reader.HomeChain {
 	homeChainReader := mocks.NewContractReaderMock()
 	homeChainReader.On(
-		"GetLatestValue", mock.Anything, "CCIPCapabilityConfiguration", "getAllChainConfigs", mock.Anything, mock.Anything).Run(
+		"GetLatestValue", mock.Anything, "CCIPCapabilityConfiguration", "getAllChainConfigs", mock.Anything, mock.Anything,
+	).Run(
 		func(args mock.Arguments) {
 			arg := args.Get(4).(*[]reader.ChainConfigInfo)
 			*arg = chainConfigInfos
@@ -470,7 +495,9 @@ func setupHomeChainPoller(lggr logger.Logger, chainConfigInfos []reader.ChainCon
 	homeChain := reader.NewHomeChainConfigPoller(
 		homeChainReader,
 		lggr,
-		10*time.Millisecond, // to prevent linting error because of logging after finishing tests, we close the poller after each test, having lower polling interval make it catch up faster
+		// to prevent linting error because of logging after finishing tests, we close the poller after each test, having
+		// lower polling interval make it catch up faster
+		10*time.Millisecond,
 	)
 
 	return homeChain

@@ -19,22 +19,29 @@ func NewCCIPReader() *CCIPReader {
 	}
 }
 
-func (r CCIPReader) CommitReportsGTETimestamp(ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int) ([]cciptypes.CommitPluginReportWithMeta, error) {
+func (r CCIPReader) CommitReportsGTETimestamp(
+	ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int,
+) ([]cciptypes.CommitPluginReportWithMeta, error) {
 	args := r.Called(ctx, dest, ts, limit)
 	return args.Get(0).([]cciptypes.CommitPluginReportWithMeta), args.Error(1)
 }
 
-func (r CCIPReader) ExecutedMessageRanges(ctx context.Context, source, dest cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.SeqNumRange, error) {
+func (r CCIPReader) ExecutedMessageRanges(
+	ctx context.Context, source, dest cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange,
+) ([]cciptypes.SeqNumRange, error) {
 	args := r.Called(ctx, source, dest, seqNumRange)
 	return args.Get(0).([]cciptypes.SeqNumRange), args.Error(1)
 }
 
-func (r CCIPReader) MsgsBetweenSeqNums(ctx context.Context, chain cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.CCIPMsg, error) {
+func (r CCIPReader) MsgsBetweenSeqNums(
+	ctx context.Context, chain cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange,
+) ([]cciptypes.CCIPMsg, error) {
 	args := r.Called(ctx, chain, seqNumRange)
 	return args.Get(0).([]cciptypes.CCIPMsg), args.Error(1)
 }
 
-func (r CCIPReader) NextSeqNum(ctx context.Context, chains []cciptypes.ChainSelector) (seqNum []cciptypes.SeqNum, err error) {
+func (r CCIPReader) NextSeqNum(ctx context.Context, chains []cciptypes.ChainSelector) (
+	seqNum []cciptypes.SeqNum, err error) {
 	args := r.Called(ctx, chains)
 	return args.Get(0).([]cciptypes.SeqNum), args.Error(1)
 }

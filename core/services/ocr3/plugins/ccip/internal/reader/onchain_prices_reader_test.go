@@ -90,11 +90,15 @@ func TestOnchainTokenPricesReader_GetTokenPricesUSD(t *testing.T) {
 
 }
 
-func createMockReader(mockPrices map[ocr2types.Account]*big.Int, errorAccounts []ocr2types.Account) *mocks.ContractReaderMock {
+func createMockReader(
+	mockPrices map[ocr2types.Account]*big.Int, errorAccounts []ocr2types.Account,
+) *mocks.ContractReaderMock {
 	reader := mocks.NewContractReaderMock()
 	for _, acc := range errorAccounts {
 		acc := acc
-		reader.On("GetLatestValue", mock.Anything, "PriceAggregator", "getTokenPrice", acc, mock.Anything).Return(fmt.Errorf("error"))
+		reader.On(
+			"GetLatestValue", mock.Anything, "PriceAggregator", "getTokenPrice", acc, mock.Anything,
+		).Return(fmt.Errorf("error"))
 	}
 	for acc, price := range mockPrices {
 		acc := acc

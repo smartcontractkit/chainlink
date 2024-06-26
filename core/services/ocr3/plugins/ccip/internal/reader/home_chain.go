@@ -107,7 +107,9 @@ func (r *homeChainPoller) poll() {
 
 func (r *homeChainPoller) fetchAndSetConfigs(ctx context.Context) error {
 	var chainConfigInfos []ChainConfigInfo
-	err := r.homeChainReader.GetLatestValue(ctx, "CCIPCapabilityConfiguration", "getAllChainConfigs", nil, &chainConfigInfos)
+	err := r.homeChainReader.GetLatestValue(
+		ctx, "CCIPCapabilityConfiguration", "getAllChainConfigs", nil, &chainConfigInfos,
+	)
 	if err != nil {
 		r.lggr.Errorw("fetching on-chain configs failed", "err", err)
 		return err
@@ -153,7 +155,9 @@ func (r *homeChainPoller) GetAllChainConfigs() (map[cciptypes.ChainSelector]Chai
 	return r.state.chainConfigs, nil
 }
 
-func (r *homeChainPoller) GetSupportedChainsForPeer(id libocrtypes.PeerID) (mapset.Set[cciptypes.ChainSelector], error) {
+func (r *homeChainPoller) GetSupportedChainsForPeer(
+	id libocrtypes.PeerID,
+) (mapset.Set[cciptypes.ChainSelector], error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 	s := r.state
@@ -181,7 +185,9 @@ func (r *homeChainPoller) GetFChain() (map[cciptypes.ChainSelector]int, error) {
 	return r.state.fChain, nil
 }
 
-func (r *homeChainPoller) GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]OCR3ConfigWithMeta, error) {
+func (r *homeChainPoller) GetOCRConfigs(
+	ctx context.Context, donID uint32, pluginType uint8,
+) ([]OCR3ConfigWithMeta, error) {
 	var ocrConfigs []OCR3ConfigWithMeta
 	err := r.homeChainReader.GetLatestValue(ctx, "CCIPCapabilityConfiguration", "getOCRConfig", map[string]any{
 		"donId":      donID,
@@ -236,7 +242,9 @@ func createKnownChains(chainConfigs map[cciptypes.ChainSelector]ChainConfig) map
 	return knownChains
 }
 
-func createNodesSupportedChains(chainConfigs map[cciptypes.ChainSelector]ChainConfig) map[libocrtypes.PeerID]mapset.Set[cciptypes.ChainSelector] {
+func createNodesSupportedChains(
+	chainConfigs map[cciptypes.ChainSelector]ChainConfig,
+) map[libocrtypes.PeerID]mapset.Set[cciptypes.ChainSelector] {
 	nodeSupportedChains := map[libocrtypes.PeerID]mapset.Set[cciptypes.ChainSelector]{}
 	for chainSelector, config := range chainConfigs {
 		for _, p2pID := range config.SupportedNodes.ToSlice() {
@@ -250,7 +258,9 @@ func createNodesSupportedChains(chainConfigs map[cciptypes.ChainSelector]ChainCo
 	return nodeSupportedChains
 }
 
-func convertOnChainConfigToHomeChainConfig(capabilityConfigs []ChainConfigInfo) (map[cciptypes.ChainSelector]ChainConfig, error) {
+func convertOnChainConfigToHomeChainConfig(
+	capabilityConfigs []ChainConfigInfo,
+) (map[cciptypes.ChainSelector]ChainConfig, error) {
 	chainConfigs := make(map[cciptypes.ChainSelector]ChainConfig)
 	for _, capabilityConfig := range capabilityConfigs {
 		chainSelector := capabilityConfig.ChainSelector
@@ -264,21 +274,25 @@ func convertOnChainConfigToHomeChainConfig(capabilityConfigs []ChainConfigInfo) 
 	return chainConfigs, nil
 }
 
-// HomeChainConfigMapper This is a 1-1 mapping between the config that we get from the contract to make se/deserializing easier
+// HomeChainConfigMapper This is a 1-1 mapping between the config that we get from the contract to make
+// se/deserializing easier
 type HomeChainConfigMapper struct {
 	Readers []libocrtypes.PeerID `json:"readers"`
 	FChain  uint8                `json:"fChain"`
 	Config  []byte               `json:"config"`
 }
 
-// ChainConfigInfo This is a 1-1 mapping between the config that we get from the contract to make se/deserializing easier
+// ChainConfigInfo This is a 1-1 mapping between the config that we get from the contract to make
+// se/deserializing easier
 type ChainConfigInfo struct {
+	// nolint:lll // don't split up the long url
 	// Calling function https://github.com/smartcontractkit/ccip/blob/330c5e98f624cfb10108c92fe1e00ced6d345a99/contracts/src/v0.8/ccip/capability/CCIPCapabilityConfiguration.sol#L140
 	ChainSelector cciptypes.ChainSelector `json:"chainSelector"`
 	ChainConfig   HomeChainConfigMapper   `json:"chainConfig"`
 }
 
-// ChainConfig will live on the home chain and will be used to update chain configuration like F value and supported nodes dynamically.
+// ChainConfig will live on the home chain and will be used to update chain configuration like F value and supported
+// nodes dynamically.
 type ChainConfig struct {
 	// FChain defines the FChain value for the chain. FChain is used while forming consensus based on the observations.
 	FChain int `json:"fChain"`

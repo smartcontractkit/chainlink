@@ -36,9 +36,13 @@ func observeLatestCommittedSeqNums(
 		if err != nil {
 			return latestCommittedSeqNumsObservation, fmt.Errorf("get next seq nums: %w", err)
 		}
-		lggr.Debugw("observed latest committed sequence numbers on destination", "latestCommittedSeqNumsObservation", onChainLatestCommittedSeqNums)
+		lggr.Debugw("observed latest committed sequence numbers on destination",
+			"latestCommittedSeqNumsObservation", onChainLatestCommittedSeqNums)
 		for i, ch := range knownSourceChains {
-			latestCommittedSeqNumsObservation = append(latestCommittedSeqNumsObservation, cciptypes.NewSeqNumChain(ch, onChainLatestCommittedSeqNums[i]))
+			latestCommittedSeqNumsObservation = append(
+				latestCommittedSeqNumsObservation,
+				cciptypes.NewSeqNumChain(ch, onChainLatestCommittedSeqNums[i]),
+			)
 		}
 	}
 	return latestCommittedSeqNumsObservation, nil
@@ -132,7 +136,11 @@ func observeTokenPrices(
 	return tokenPricesUSD, nil
 }
 
-func observeGasPrices(ctx context.Context, ccipReader cciptypes.CCIPReader, chains []cciptypes.ChainSelector) ([]cciptypes.GasPriceChain, error) {
+func observeGasPrices(
+	ctx context.Context,
+	ccipReader cciptypes.CCIPReader,
+	chains []cciptypes.ChainSelector,
+) ([]cciptypes.GasPriceChain, error) {
 	if len(chains) == 0 {
 		return nil, nil
 	}
@@ -345,14 +353,17 @@ func newMsgsConsensusForChain(
 //     of the chain, then the report will revert onchain but still succeed upon retry
 //   - We minimize the risk of naturally hitting the error condition minSeqNum > maxSeqNum due to oracles
 //     delayed views of the chain (would be an issue with taking sorted_mins[-f])
-func maxSeqNumsConsensus(lggr logger.Logger, fChain int, observations []cciptypes.CommitPluginObservation) []cciptypes.SeqNumChain {
+func maxSeqNumsConsensus(
+	lggr logger.Logger, fChain int, observations []cciptypes.CommitPluginObservation,
+) []cciptypes.SeqNumChain {
 	observedSeqNumsPerChain := make(map[cciptypes.ChainSelector][]cciptypes.SeqNum)
 	for _, obs := range observations {
 		for _, maxSeqNum := range obs.MaxSeqNums {
 			if _, exists := observedSeqNumsPerChain[maxSeqNum.ChainSel]; !exists {
 				observedSeqNumsPerChain[maxSeqNum.ChainSel] = make([]cciptypes.SeqNum, 0)
 			}
-			observedSeqNumsPerChain[maxSeqNum.ChainSel] = append(observedSeqNumsPerChain[maxSeqNum.ChainSel], maxSeqNum.SeqNum)
+			observedSeqNumsPerChain[maxSeqNum.ChainSel] =
+				append(observedSeqNumsPerChain[maxSeqNum.ChainSel], maxSeqNum.SeqNum)
 		}
 	}
 
@@ -399,7 +410,9 @@ func tokenPricesConsensus(
 	return consensusPrices, nil
 }
 
-func gasPricesConsensus(lggr logger.Logger, observations []cciptypes.CommitPluginObservation, fChain int) []cciptypes.GasPriceChain {
+func gasPricesConsensus(
+	lggr logger.Logger, observations []cciptypes.CommitPluginObservation, fChain int,
+) []cciptypes.GasPriceChain {
 	// Group the observed gas prices by chain.
 	gasPricePerChain := make(map[cciptypes.ChainSelector][]cciptypes.BigInt)
 	for _, obs := range observations {
@@ -425,7 +438,10 @@ func gasPricesConsensus(lggr logger.Logger, observations []cciptypes.CommitPlugi
 		)
 	}
 
-	sort.Slice(consensusGasPrices, func(i, j int) bool { return consensusGasPrices[i].ChainSel < consensusGasPrices[j].ChainSel })
+	sort.Slice(
+		consensusGasPrices,
+		func(i, j int) bool { return consensusGasPrices[i].ChainSel < consensusGasPrices[j].ChainSel },
+	)
 	return consensusGasPrices
 }
 

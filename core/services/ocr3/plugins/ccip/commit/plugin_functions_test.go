@@ -70,7 +70,10 @@ func Test_observeMaxSeqNumsPerChain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			mockReader := mocks.NewCCIPReader()
-			knownSourceChains := slicelib.Filter(tc.readChains, func(ch cciptypes.ChainSelector) bool { return ch != tc.destChain })
+			knownSourceChains := slicelib.Filter(
+				tc.readChains,
+				func(ch cciptypes.ChainSelector) bool { return ch != tc.destChain },
+			)
 			lggr := logger.Test(t)
 
 			onChainSeqNums := make([]cciptypes.SeqNum, 0)

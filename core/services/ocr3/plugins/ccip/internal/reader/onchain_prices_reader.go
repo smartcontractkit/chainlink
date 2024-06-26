@@ -21,14 +21,18 @@ type OnchainTokenPricesReader struct {
 	ContractReader commontypes.ContractReader
 }
 
-func NewOnchainTokenPricesReader(tokenPriceConfig TokenPriceConfig, contractReader commontypes.ContractReader) *OnchainTokenPricesReader {
+func NewOnchainTokenPricesReader(
+	tokenPriceConfig TokenPriceConfig, contractReader commontypes.ContractReader,
+) *OnchainTokenPricesReader {
 	return &OnchainTokenPricesReader{
 		TokenPriceConfig: tokenPriceConfig,
 		ContractReader:   contractReader,
 	}
 }
 
-func (pr *OnchainTokenPricesReader) GetTokenPricesUSD(ctx context.Context, tokens []ocr2types.Account) ([]*big.Int, error) {
+func (pr *OnchainTokenPricesReader) GetTokenPricesUSD(
+	ctx context.Context, tokens []ocr2types.Account,
+) ([]*big.Int, error) {
 	const (
 		contractName = "PriceAggregator"
 		functionName = "getTokenPrice"

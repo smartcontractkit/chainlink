@@ -144,7 +144,9 @@ func Test_getPendingExecutedReports(t *testing.T) {
 			t.Parallel()
 
 			mockReader := mocks.NewCCIPReader()
-			mockReader.On("CommitReportsGTETimestamp", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.reports, nil)
+			mockReader.On(
+				"CommitReportsGTETimestamp", mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+			).Return(tt.reports, nil)
 			for k, v := range tt.ranges {
 				mockReader.On("ExecutedMessageRanges", mock.Anything, k, mock.Anything, mock.Anything).Return(v, nil)
 			}

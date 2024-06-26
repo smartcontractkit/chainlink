@@ -45,7 +45,9 @@ func (p *Plugin) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (ty
 	return types.Query{}, nil
 }
 
-func getPendingExecutedReports(ctx context.Context, ccipReader cciptypes.CCIPReader, dest cciptypes.ChainSelector, ts time.Time) (cciptypes.ExecutePluginCommitObservations, time.Time, error) {
+func getPendingExecutedReports(
+	ctx context.Context, ccipReader cciptypes.CCIPReader, dest cciptypes.ChainSelector, ts time.Time,
+) (cciptypes.ExecutePluginCommitObservations, time.Time, error) {
 	latestReportTS := time.Time{}
 	commitReports, err := ccipReader.CommitReportsGTETimestamp(ctx, dest, ts, 1000)
 	if err != nil {
@@ -106,18 +108,22 @@ func getPendingExecutedReports(ctx context.Context, ccipReader cciptypes.CCIPRea
 //
 // Phase 2: Gather messages from the source chains and build the execution
 // report.
-func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, _ types.Query) (types.Observation, error) {
+func (p *Plugin) Observation(
+	ctx context.Context, outctx ocr3types.OutcomeContext, _ types.Query,
+) (types.Observation, error) {
 	previousOutcome, err := cciptypes.DecodeExecutePluginOutcome(outctx.PreviousOutcome)
 	if err != nil {
 		return types.Observation{}, err
 	}
 
-	// Phase 1: Gather commit reports from the destination chain and determine which messages are required to build a valid execution report.
+	// Phase 1: Gather commit reports from the destination chain and determine which messages are required to build a
+	//          valid execution report.
 	ownConfig := p.cfg.ObserverInfo[p.reportingCfg.OracleID]
 	var groupedCommits cciptypes.ExecutePluginCommitObservations
 	if slices.Contains(ownConfig.Reads, p.cfg.DestChain) {
 		var latestReportTS time.Time
-		groupedCommits, latestReportTS, err = getPendingExecutedReports(ctx, p.ccipReader, p.cfg.DestChain, time.UnixMilli(p.lastReportTS.Load()))
+		groupedCommits, latestReportTS, err =
+			getPendingExecutedReports(ctx, p.ccipReader, p.cfg.DestChain, time.UnixMilli(p.lastReportTS.Load()))
 		if err != nil {
 			return types.Observation{}, err
 		}
@@ -168,13 +174,16 @@ func (p *Plugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContex
 	return cciptypes.NewExecutePluginObservation(groupedCommits, messages).Encode()
 }
 
-func (p *Plugin) ValidateObservation(outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
+func (p *Plugin) ValidateObservation(
+	outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation,
+) error {
 	decodedObservation, err := cciptypes.DecodeExecutePluginObservation(ao.Observation)
 	if err != nil {
 		return fmt.Errorf("decode observation: %w", err)
 	}
 
-	if err := validateObserverReadingEligibility(p.reportingCfg.OracleID, p.cfg.ObserverInfo, decodedObservation.Messages); err != nil {
+	err = validateObserverReadingEligibility(p.reportingCfg.OracleID, p.cfg.ObserverInfo, decodedObservation.Messages)
+	if err != nil {
 		return fmt.Errorf("validate observer reading eligibility: %w", err)
 	}
 
@@ -190,7 +199,9 @@ func (p *Plugin) ObservationQuorum(outctx ocr3types.OutcomeContext, query types.
 	return ocr3types.QuorumFPlusOne, nil
 }
 
-func (p *Plugin) Outcome(outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
+func (p *Plugin) Outcome(
+	outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation,
+) (ocr3types.Outcome, error) {
 	decodedObservations, err := decodeAttributedObservations(aos)
 	if err != nil {
 		return ocr3types.Outcome{}, err
@@ -244,11 +255,15 @@ func (p *Plugin) Reports(seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.R
 	panic("implement me")
 }
 
-func (p *Plugin) ShouldAcceptAttestedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte]) (bool, error) {
+func (p *Plugin) ShouldAcceptAttestedReport(
+	ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte],
+) (bool, error) {
 	panic("implement me")
 }
 
-func (p *Plugin) ShouldTransmitAcceptedReport(ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte]) (bool, error) {
+func (p *Plugin) ShouldTransmitAcceptedReport(
+	ctx context.Context, u uint64, r ocr3types.ReportWithInfo[[]byte],
+) (bool, error) {
 	panic("implement me")
 }
 

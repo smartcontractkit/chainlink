@@ -41,9 +41,11 @@ func validateObserverReadingEligibility(
 	return nil
 }
 
-// validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain and
-// that they match the observed max sequence numbers.
-func validateObservedSequenceNumbers(observedData map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitDataWithMessages) error {
+// validateObservedSequenceNumbers checks if the sequence numbers of the provided messages are unique for each chain
+// and that they match the observed max sequence numbers.
+func validateObservedSequenceNumbers(
+	observedData map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitDataWithMessages,
+) error {
 	for _, commitData := range observedData {
 		// observed commitData must not contain duplicates
 
@@ -115,15 +117,16 @@ func groupByChainSelector(reports []cciptypes.CommitPluginReportWithMeta) ccipty
 	commitReportCache := make(map[cciptypes.ChainSelector][]cciptypes.ExecutePluginCommitDataWithMessages)
 	for _, report := range reports {
 		for _, singleReport := range report.Report.MerkleRoots {
-			commitReportCache[singleReport.ChainSel] = append(commitReportCache[singleReport.ChainSel], cciptypes.ExecutePluginCommitDataWithMessages{
-				ExecutePluginCommitData: cciptypes.ExecutePluginCommitData{
-					SourceChain:         singleReport.ChainSel,
-					Timestamp:           report.Timestamp,
-					BlockNum:            report.BlockNum,
-					MerkleRoot:          singleReport.MerkleRoot,
-					SequenceNumberRange: singleReport.SeqNumsRange,
-					ExecutedMessages:    nil,
-				}})
+			commitReportCache[singleReport.ChainSel] = append(commitReportCache[singleReport.ChainSel],
+				cciptypes.ExecutePluginCommitDataWithMessages{
+					ExecutePluginCommitData: cciptypes.ExecutePluginCommitData{
+						SourceChain:         singleReport.ChainSel,
+						Timestamp:           report.Timestamp,
+						BlockNum:            report.BlockNum,
+						MerkleRoot:          singleReport.MerkleRoot,
+						SequenceNumberRange: singleReport.SeqNumsRange,
+						ExecutedMessages:    nil,
+					}})
 		}
 	}
 	return commitReportCache
@@ -131,7 +134,9 @@ func groupByChainSelector(reports []cciptypes.CommitPluginReportWithMeta) ccipty
 
 // filterOutExecutedMessages returns a new reports slice with fully executed messages removed.
 // Unordered inputs are supported.
-func filterOutExecutedMessages(reports []cciptypes.ExecutePluginCommitDataWithMessages, executedMessages []cciptypes.SeqNumRange) ([]cciptypes.ExecutePluginCommitDataWithMessages, error) {
+func filterOutExecutedMessages(
+	reports []cciptypes.ExecutePluginCommitDataWithMessages, executedMessages []cciptypes.SeqNumRange,
+) ([]cciptypes.ExecutePluginCommitDataWithMessages, error) {
 	sort.Slice(reports, func(i, j int) bool {
 		return reports[i].SequenceNumberRange.Start() < reports[j].SequenceNumberRange.Start()
 	})
@@ -222,7 +227,9 @@ func decodeAttributedObservations(aos []types.AttributedObservation) ([]decodedA
 	return decoded, nil
 }
 
-func mergeMessageObservations(aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int) (cciptypes.ExecutePluginMessageObservations, error) {
+func mergeMessageObservations(
+	aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int,
+) (cciptypes.ExecutePluginMessageObservations, error) {
 	// Create a validator for each chain
 	validators := make(map[cciptypes.ChainSelector]validation.MinObservationFilter[cciptypes.CCIPMsg])
 	idFunc := func(data cciptypes.CCIPMsg) [32]byte {
@@ -267,14 +274,18 @@ func mergeMessageObservations(aos []decodedAttributedObservation, fChain map[cci
 
 // mergeCommitObservations merges all observations which reach the fChain threshold into a single result.
 // Any observations, or subsets of observations, which do not reach the threshold are ignored.
-func mergeCommitObservations(aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int) (cciptypes.ExecutePluginCommitObservations, error) {
+func mergeCommitObservations(
+	aos []decodedAttributedObservation, fChain map[cciptypes.ChainSelector]int,
+) (cciptypes.ExecutePluginCommitObservations, error) {
 	// Create a validator for each chain
-	validators := make(map[cciptypes.ChainSelector]validation.MinObservationFilter[cciptypes.ExecutePluginCommitDataWithMessages])
+	validators :=
+		make(map[cciptypes.ChainSelector]validation.MinObservationFilter[cciptypes.ExecutePluginCommitDataWithMessages])
 	idFunc := func(data cciptypes.ExecutePluginCommitDataWithMessages) [32]byte {
 		return sha3.Sum256([]byte(fmt.Sprintf("%v", data)))
 	}
 	for selector, f := range fChain {
-		validators[selector] = validation.NewMinObservationValidator[cciptypes.ExecutePluginCommitDataWithMessages](f+1, idFunc)
+		validators[selector] =
+			validation.NewMinObservationValidator[cciptypes.ExecutePluginCommitDataWithMessages](f+1, idFunc)
 	}
 
 	// Add reports to the validator for each chain selector.

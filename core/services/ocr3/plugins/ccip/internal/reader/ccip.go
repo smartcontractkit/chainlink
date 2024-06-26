@@ -18,14 +18,19 @@ var (
 	ErrContractWriterNotFound = errors.New("contract writer not found")
 )
 
-// TODO: unit test the implementation when the actual contract reader and writer interfaces are finalized and mocks can be generated.
+// TODO: unit test the implementation when the actual contract reader and writer interfaces are finalized and mocks
+// can be generated.
 type CCIPChainReader struct {
 	contractReaders map[cciptypes.ChainSelector]types.ContractReader
 	contractWriters map[cciptypes.ChainSelector]types.ChainWriter
 	destChain       cciptypes.ChainSelector
 }
 
-func NewCCIPChainReader(contractReaders map[cciptypes.ChainSelector]types.ContractReader, contractWriters map[cciptypes.ChainSelector]types.ChainWriter, destChain cciptypes.ChainSelector) *CCIPChainReader {
+func NewCCIPChainReader(
+	contractReaders map[cciptypes.ChainSelector]types.ContractReader,
+	contractWriters map[cciptypes.ChainSelector]types.ChainWriter,
+	destChain cciptypes.ChainSelector,
+) *CCIPChainReader {
 	return &CCIPChainReader{
 		contractReaders: contractReaders,
 		contractWriters: contractWriters,
@@ -33,21 +38,27 @@ func NewCCIPChainReader(contractReaders map[cciptypes.ChainSelector]types.Contra
 	}
 }
 
-func (r *CCIPChainReader) CommitReportsGTETimestamp(ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int) ([]cciptypes.CommitPluginReportWithMeta, error) {
+func (r *CCIPChainReader) CommitReportsGTETimestamp(
+	ctx context.Context, dest cciptypes.ChainSelector, ts time.Time, limit int,
+) ([]cciptypes.CommitPluginReportWithMeta, error) {
 	if err := r.validateReaderExistence(dest); err != nil {
 		return nil, err
 	}
 	panic("implement me")
 }
 
-func (r *CCIPChainReader) ExecutedMessageRanges(ctx context.Context, source, dest cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.SeqNumRange, error) {
+func (r *CCIPChainReader) ExecutedMessageRanges(
+	ctx context.Context, source, dest cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange,
+) ([]cciptypes.SeqNumRange, error) {
 	if err := r.validateReaderExistence(source, dest); err != nil {
 		return nil, err
 	}
 	panic("implement me")
 }
 
-func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange) ([]cciptypes.CCIPMsg, error) {
+func (r *CCIPChainReader) MsgsBetweenSeqNums(
+	ctx context.Context, chain cciptypes.ChainSelector, seqNumRange cciptypes.SeqNumRange,
+) ([]cciptypes.CCIPMsg, error) {
 	if err := r.validateReaderExistence(chain); err != nil {
 		return nil, err
 	}
@@ -108,7 +119,9 @@ func (r *CCIPChainReader) MsgsBetweenSeqNums(ctx context.Context, chain cciptype
 	return msgs, nil
 }
 
-func (r *CCIPChainReader) NextSeqNum(ctx context.Context, chains []cciptypes.ChainSelector) ([]cciptypes.SeqNum, error) {
+func (r *CCIPChainReader) NextSeqNum(
+	ctx context.Context, chains []cciptypes.ChainSelector,
+) ([]cciptypes.SeqNum, error) {
 	if err := r.validateReaderExistence(r.destChain); err != nil {
 		return nil, err
 	}
