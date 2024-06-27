@@ -30,9 +30,9 @@ import (
 	liquiditymanagermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/chain/evm/mocks"
 	discoverermocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/discoverer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/liquidityrebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalalgo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/testhelpers"
 )
 
@@ -1563,7 +1563,7 @@ func newNode(t *testing.T, lggr logger.Logger, f int) node {
 	// discovererMock.On("Discover", mock.Anything).Return(g, nil).Maybe()
 	discovererFactory.On("NewDiscoverer", mock.Anything, mock.Anything).Return(discovererMock, nil).Maybe()
 	bridgeFactory := bridgemocks.NewFactory(t)
-	rebalancerAlg := liquidityrebalancer.NewPingPong()
+	rebalancerAlg := rebalalgo.NewPingPong()
 
 	node1 := NewPlugin(
 		f,
@@ -1603,7 +1603,7 @@ type pluginWithMocks struct {
 	lmFactory         *mocks.Factory
 	discovererFactory *discoverermocks.Factory
 	bridgeFactory     *bridgemocks.Factory
-	rebalancerAlg     *liquidityrebalancer.PingPong
+	rebalancerAlg     *rebalalgo.PingPong
 }
 
 func newPluginWithMocksAndDefaults(t *testing.T) *pluginWithMocks {
@@ -1625,7 +1625,7 @@ func newPluginWithMocks(
 	discovererMock := discoverermocks.NewDiscoverer(t)
 	discovererFactory.On("NewDiscoverer", mock.Anything, mock.Anything).Return(discovererMock, nil).Maybe()
 	bridgeFactory := bridgemocks.NewFactory(t)
-	rebalancerAlg := liquidityrebalancer.NewPingPong()
+	rebalancerAlg := rebalalgo.NewPingPong()
 	return &pluginWithMocks{
 		plugin: NewPlugin(
 			f,

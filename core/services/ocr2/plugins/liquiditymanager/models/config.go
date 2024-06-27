@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 )
 
@@ -17,6 +18,11 @@ type PluginConfig struct {
 
 type RebalancerConfig struct {
 	Type string `json:"type"`
+}
+
+type NetworkTarget struct {
+	Network NetworkSelector `json:"network,string"`
+	Target  *big.Int        `json:"target"`
 }
 
 func ValidateRebalancerConfig(config RebalancerConfig) error {

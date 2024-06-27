@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/discoverer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/graph"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/inflight"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/liquidityrebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalalgo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalcalc"
 )
 
@@ -33,7 +33,7 @@ type Plugin struct {
 	bridgeFactory           bridge.Factory
 	mu                      sync.RWMutex
 	liquidityGraph          graph.Graph
-	liquidityRebalancer     liquidityrebalancer.Rebalancer
+	liquidityRebalancer     rebalalgo.RebalancingAlgo
 	inflight                inflight.Container
 	lggr                    logger.Logger
 	reportCodec             evmliquiditymanager.OnchainReportCodec
@@ -47,7 +47,7 @@ func NewPlugin(
 	liquidityManagerFactory evmliquiditymanager.Factory,
 	discoverer discoverer.Discoverer,
 	bridgeFactory bridge.Factory,
-	liquidityRebalancer liquidityrebalancer.Rebalancer,
+	liquidityRebalancer rebalalgo.RebalancingAlgo,
 	reportCodec evmliquiditymanager.OnchainReportCodec,
 	lggr logger.Logger,
 ) *Plugin {
@@ -217,8 +217,8 @@ func combinedUnexecutedTransfers(
 	pendingTransfers []models.PendingTransfer,
 	resolvedTransfersQuorum []models.Transfer,
 	inflightTransfers []models.Transfer,
-) []liquidityrebalancer.UnexecutedTransfer {
-	unexecuted := make([]liquidityrebalancer.UnexecutedTransfer, 0, len(resolvedTransfersQuorum)+len(inflightTransfers)+len(pendingTransfers))
+) []rebalalgo.UnexecutedTransfer {
+	unexecuted := make([]rebalalgo.UnexecutedTransfer, 0, len(resolvedTransfersQuorum)+len(inflightTransfers)+len(pendingTransfers))
 	for _, resolvedTransfer := range resolvedTransfersQuorum {
 		unexecuted = append(unexecuted, resolvedTransfer)
 	}

@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge"
 	liquiditymanager "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/chain/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/discoverer"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/liquidityrebalancer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/rebalalgo"
 )
 
 const (
@@ -60,14 +60,14 @@ func NewPluginFactory(
 	}, nil
 }
 
-func (p PluginFactory) buildRebalancer() (liquidityrebalancer.Rebalancer, error) {
+func (p PluginFactory) buildRebalancer() (rebalalgo.RebalancingAlgo, error) {
 	switch p.config.RebalancerConfig.Type {
 	case models.RebalancerTypePingPong:
-		return liquidityrebalancer.NewPingPong(), nil
+		return rebalalgo.NewPingPong(), nil
 	case models.RebalancerTypeMinLiquidity:
-		return liquidityrebalancer.NewMinLiquidityRebalancer(p.lggr), nil
+		return rebalalgo.NewMinLiquidityRebalancer(p.lggr), nil
 	case models.RebalancerTypeTargetAndMin:
-		return liquidityrebalancer.NewTargetMinBalancer(p.lggr), nil
+		return rebalalgo.NewTargetMinBalancer(p.lggr), nil
 	default:
 		return nil, fmt.Errorf("invalid rebalancer type %s", p.config.RebalancerConfig.Type)
 	}

@@ -1,4 +1,4 @@
-package liquidityrebalancer
+package rebalalgo
 
 import (
 	"math/big"
