@@ -368,7 +368,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 					return
 				}
 
-				e.triggerEvents <- event
+				select {
+				case <-e.stopCh:
+					return
+				case e.triggerEvents <- event:
+				}
 			}
 		}
 	}()
