@@ -61,7 +61,15 @@ You can see the results of each test in the terminal with normal `go test` outpu
 
 These tests remain bound to a Kubernetes run environment, and require more complex setup and running instructions not documented here. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
 
+We will only mention that once you have prepared `overrides.toml` (with at least the Chainlink image entry) you can run OCR-related test using `make` command:
+* OCRv1 -> `make test_soak_ocr1`
+* OCRv2 -> `make test_soak_ocr2`
+* OCRv1 with forwarders -> `make test_soak_forwarder_ocr1`
+* OCRv2 with forwarders -> `make test_soak_forwarder_ocr2`
+
 ### How to run reorg tests
+It's crucial to remember that these tests currently run on **OCRv1**.
+
 Run soak/ocr_test.go with reorg below finality and `FinalityTagEnabled=false`
 
 ```bash

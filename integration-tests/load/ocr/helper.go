@@ -1,7 +1,6 @@
 package ocr
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"time"
@@ -45,7 +44,7 @@ func SetupFeed(
 	if err != nil {
 		return nil, err
 	}
-	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, fmt.Sprint(seth.ChainID))
+	err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, msClient, seth.ChainID, false)
 	if err != nil {
 		return nil, err
 	}

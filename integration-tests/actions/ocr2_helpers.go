@@ -190,7 +190,7 @@ func CreateOCRv2Jobs(
 	mockserver *ctfClient.MockserverClient,
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId int64, // EVM chain ID
-	forwardingAllowed bool,
+	withForwarders bool,
 ) error {
 	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -266,7 +266,7 @@ func CreateOCRv2Jobs(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: withForwarders,
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",

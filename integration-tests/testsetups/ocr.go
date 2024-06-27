@@ -116,6 +116,14 @@ func WithForwarderFlow(forwarderFlow bool) OCRSoakTestOption {
 
 // NewOCRSoakTest creates a new OCR soak test to setup and run
 func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOption) (*OCRSoakTest, error) {
+	if config.OCR2 != nil && config.OCR != nil {
+		return nil, fmt.Errorf("both OCR and OCR2 are set. Please check your TOML config and make sure you only have one of them set")
+	}
+
+	if config.GetActiveOCRConfig() == nil {
+		return nil, fmt.Errorf("no OCR[1/2] config not set. Please check your TOML config and make sure you have an OCR[1/2] config set")
+	}
+
 	test := &OCRSoakTest{
 		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
@@ -305,7 +313,9 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
-	} else if o.OCRVersion == "1" {
+	}
+
+	if o.OCRVersion == "1" {
 		if o.OperatorForwarderFlow {
 			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
@@ -382,14 +392,9 @@ func (o *OCRSoakTest) Run() {
 	o.startingBlockNum = latestBlockNum
 
 	startingValue := 5
-	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.t, o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.seth.ChainID)
-	} else if o.OCRVersion == "1" {
-		ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
-		chainId, err := o.seth.Client.ChainID(ctx)
-		cancel()
+	if o.OCRVersion == "1" {
 		require.NoError(o.t, err, "Error getting chain ID")
-		err = actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, chainId.String())
+		err = actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.seth.ChainID, o.OperatorForwarderFlow)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	} else if o.OCRVersion == "2" {
 		err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, startingValue, o.seth.ChainID, o.OperatorForwarderFlow)

@@ -3,10 +3,8 @@ package actions
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -26,7 +24,8 @@ func CreateOCRJobs(
 	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
-	evmChainID string,
+	evmChainID int64,
+	withForwarders bool,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -37,7 +36,7 @@ func CreateOCRJobs(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      evmChainID,
+			EVMChainID:      fmt.Sprint(evmChainID),
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -82,12 +81,13 @@ func CreateOCRJobs(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         evmChainID,
+				EVMChainID:         fmt.Sprint(evmChainID),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  client.ObservationSourceSpecBridge(bta),
+				ForwardingAllowed:  withForwarders,
 			}
 			_, err = node.MustCreateJob(ocrSpec)
 			if err != nil {
@@ -96,69 +96,6 @@ func CreateOCRJobs(
 		}
 	}
 	return nil
-}
-
-// CreateOCRJobsWithForwarder bootstraps the first node and to the other nodes sends ocr jobs that
-// read from different adapters, to be used in combination with SetAdapterResponses
-func CreateOCRJobsWithForwarder(
-	t *testing.T,
-	ocrInstances []contracts.OffchainAggregator,
-	bootstrapNode *client.ChainlinkK8sClient,
-	workerNodes []*client.ChainlinkK8sClient,
-	mockValue int,
-	mockserver *ctfClient.MockserverClient,
-	evmChainID int64,
-) {
-	for _, ocrInstance := range ocrInstances {
-		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
-		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
-		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
-		bootstrapSpec := &client.OCRBootstrapJobSpec{
-			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
-			ContractAddress: ocrInstance.Address(),
-			EVMChainID:      fmt.Sprint(evmChainID),
-			P2PPeerID:       bootstrapP2PId,
-			IsBootstrapPeer: true,
-		}
-		_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
-		require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-
-		for nodeIndex, node := range workerNodes {
-			nodeP2PIds, err := node.MustReadP2PKeys()
-			require.NoError(t, err, "Shouldn't fail reading P2P keys from OCR node %d", nodeIndex+1)
-			nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
-			nodeTransmitterAddress, err := node.PrimaryEthAddress()
-			require.NoError(t, err, "Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
-			nodeOCRKeys, err := node.MustReadOCRKeys()
-			require.NoError(t, err, "Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
-
-			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
-			require.NoError(t, err, "Failed building node contract pair ID for mockserver")
-			bta := &client.BridgeTypeAttributes{
-				Name: nodeContractPairID,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
-			}
-			err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
-			require.NoError(t, err, "Failed setting adapter responses for node %d", nodeIndex+1)
-			err = node.MustCreateBridge(bta)
-			require.NoError(t, err, "Failed creating bridge on OCR node %d", nodeIndex+1)
-
-			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
-			ocrSpec := &client.OCRTaskJobSpec{
-				ContractAddress:    ocrInstance.Address(),
-				EVMChainID:         fmt.Sprint(evmChainID),
-				P2PPeerID:          nodeP2PId,
-				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
-				TransmitterAddress: nodeTransmitterAddress,
-				ObservationSource:  client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed:  true,
-			}
-			_, err = node.MustCreateJob(ocrSpec)
-			require.NoError(t, err, "Shouldn't fail creating OCR Task job on OCR node %d", nodeIndex+1)
-		}
-	}
 }
 
 // SetAdapterResponse sets a single adapter response that correlates with an ocr contract and a chainlink node
