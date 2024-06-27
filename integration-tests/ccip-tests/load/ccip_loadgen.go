@@ -360,7 +360,7 @@ func (c *CCIPE2ELoad) Validate(lggr zerolog.Logger, sendTx *types.Transaction, t
 			stat.UpdateState(&lggr, stat.SeqNum, testreporters.SourceLogFinalized,
 				sourceLogFinalizedAt.Sub(sourceLogTime), testreporters.Success,
 				testreporters.TransactionStats{
-					TxHash:           msgLogs[0].Raw.TxHash.String(),
+					TxHash:           msgLogs[0].Raw.TxHash.Hex(),
 					FinalizedByBlock: strconv.FormatUint(lstFinalizedBlock, 10),
 					FinalizedAt:      sourceLogFinalizedAt.String(),
 				})
@@ -368,7 +368,7 @@ func (c *CCIPE2ELoad) Validate(lggr zerolog.Logger, sendTx *types.Transaction, t
 	} else {
 		var finalizingBlock uint64
 		sourceLogFinalizedAt, finalizingBlock, err = c.Lane.Source.AssertSendRequestedLogFinalized(
-			&lggr, sendTx.Hash(), sourceLogTime, stats)
+			&lggr, msgLogs[0].Raw.TxHash, sourceLogTime, stats)
 		if err != nil {
 			return err
 		}
