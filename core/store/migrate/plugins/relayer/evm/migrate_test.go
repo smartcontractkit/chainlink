@@ -41,6 +41,7 @@ func TestMigrate(t *testing.T) {
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, v2, int64(2))
 
+		assert.Equal(t, int64(6), v2)
 		err = evm.Rollback(ctx, db, null.IntFrom(0), cfg)
 		require.NoError(t, err)
 
@@ -68,6 +69,9 @@ func TestGoDataMigration(t *testing.T) {
 		},
 		{
 			table: "log_poller_blocks",
+		},
+		{
+			table: "log_poller_filters",
 		},
 	}
 	for _, tt := range cases {
@@ -264,5 +268,13 @@ func loadLegacyDatabase(t *testing.T, ctx context.Context) *sqlx.DB {
 	require.NoError(t, err)
 	require.Equal(t, 3, cnt)
 
+	// load the legacy log_poller_filters data
+	logPollerFiltersMigration, err := os.ReadFile("testdata/log_poller_filters/initial.sql")
+	require.NoError(t, err)
+	_, err = db.Exec(string(logPollerFiltersMigration))
+	require.NoError(t, err)
+	err = db.Get(&cnt, "SELECT COUNT(*) FROM evm.log_poller_filters")
+	require.NoError(t, err)
+	require.Equal(t, 3, cnt)
 	return db
 }

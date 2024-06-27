@@ -34,6 +34,12 @@ var logPollerBlocksUpTmpl string
 //go:embed log_poller_blocksDown.tmpl.sql
 var logPollerBlocksDownTmpl string
 
+//go:embed log_poller_filtersUp.tmpl.sql
+var logPollerFiltersUpTmpl string
+
+//go:embed log_poller_filtersDown.tmpl.sql
+var logPollerFiltersDownTmpl string
+
 type initialMigration struct {
 	upTmpl   string
 	downTmpl string
@@ -65,10 +71,17 @@ var (
 		version:  5,
 	}
 
-	initialMigrations = []initialMigration{forwarderMigration, headsMigration, keyStatesMigration, logPollerBlocksMigration}
+	logPollerFiltersMigration = initialMigration{
+		upTmpl:   logPollerFiltersUpTmpl,
+		downTmpl: logPollerFiltersDownTmpl,
+		version:  6,
+	}
+
+	initialMigrations = []initialMigration{forwarderMigration, headsMigration, keyStatesMigration, logPollerBlocksMigration, logPollerFiltersMigration}
 )
 
 func generateGoMigration(val Cfg, m initialMigration) (*goose.Migration, error) {
+	fmt.Printf("Generating migration for version %d %v up %s\n", m.version, val, m.upTmpl)
 	upSQL := &bytes.Buffer{}
 	err := resolve(upSQL, m.upTmpl, val)
 	if err != nil {
