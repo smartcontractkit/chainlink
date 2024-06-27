@@ -149,9 +149,6 @@ func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.T
 		require.NoError(t, err, "Error creating seth client")
 	}
 
-	if !test.Interrupted() {
-		test.DeployEnvironment(config)
-	}
 	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
 	if !test.Interrupted() {
 		test.DeployEnvironment(config)

@@ -357,7 +357,7 @@ func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.
 	var transmitter llo.Transmitter
 	if lloCfg.BenchmarkMode {
 		r.lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
-		transmitter = bm.NewTransmitter(r.lggr, privKey.PublicKey)
+		transmitter = bm.NewTransmitter(r.lggr, fmt.Sprintf("%x", privKey.PublicKey))
 	} else {
 		var client wsrpc.Client
 		client, err = r.mercuryPool.Checkout(context.Background(), privKey, lloCfg.ServerPubKey, lloCfg.ServerURL())
@@ -713,6 +713,14 @@ func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commo
 	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
+}
+
+func (r *Relayer) NewCCIPCommitProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
+	return nil, errors.New("ccip.commit is not supported for evm")
+}
+
+func (r *Relayer) NewCCIPExecProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
+	return nil, errors.New("ccip.exec is not supported for evm")
 }
 
 var _ commontypes.MedianProvider = (*medianProvider)(nil)

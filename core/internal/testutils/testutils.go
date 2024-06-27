@@ -367,15 +367,17 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //
 //	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 //	lggr := logger.TestLogger(t, observedZapCore)
-func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
+func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) (le observer.LoggedEntry) {
 	AssertEventually(t, func() bool {
 		for _, l := range observedLogs.All() {
 			if strings.Contains(l.Message, msg) {
+				le = l
 				return true
 			}
 		}
 		return false
 	})
+	return
 }
 
 // WaitForLogMessageCount waits until at least count log message containing the

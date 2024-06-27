@@ -282,11 +282,10 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		configurationNames[idx] = cases.Title(language.English, cases.NoLower).String(configurationName)
 	}
 
-	// append unnamed (default) configuration
+	// add unnamed (default) configuration as the first one to be read
 	configurationNamesCopy := make([]string, len(configurationNames))
 	copy(configurationNamesCopy, configurationNames)
 
-	configurationNames = []string{}
 	configurationNames = append([]string{""}, configurationNamesCopy...)
 
 	fileNames := []string{

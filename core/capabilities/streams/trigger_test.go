@@ -194,7 +194,10 @@ func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerE
 	eventVal, err := values.Wrap(triggerEvent)
 	require.NoError(t, err)
 
-	marshaled, err := pb.MarshalCapabilityResponse(capabilities.CapabilityResponse{Value: eventVal})
+	marshaled, err := pb.MarshalCapabilityResponse(
+		capabilities.CapabilityResponse{
+			Value: eventVal.(*values.Map),
+		})
 	require.NoError(t, err)
 	msg := &remotetypes.MessageBody{
 		Sender: sender[:],

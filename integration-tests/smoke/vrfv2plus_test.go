@@ -37,33 +37,6 @@ import (
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
-func TestVRFv2PlusConfig(t *testing.T) {
-	t.Parallel()
-
-	config, err := tc.GetChainAndTestTypeSpecificConfig(tc.VRFv2Plus, "Smoke")
-	require.NoError(t, err, "Error getting config")
-
-	//config, err := tc.GetConfig([]string{"Smoke"}, tc.VRFv2Plus)
-	//require.NoError(t, err, "Error getting config")
-
-	fmt.Println("config.GetNetworkConfig().SelectedNetworks[0]", config.GetNetworkConfig().SelectedNetworks[0])
-	fmt.Println(config.GetNetworkConfig().SelectedNetworks[0] + "-Smoke")
-
-	//config, err = tc.GetConfig([]string{"Smoke", config.GetNetworkConfig().SelectedNetworks[0], config.GetNetworkConfig().SelectedNetworks[0] + "-Smoke"}, tc.VRFv2Plus)
-	//require.NoError(t, err, "Error getting config")
-
-	//todo - use_existing_env in [POLYGON_AMOY.VRFv2Plus.General] is set to true, but real value is false
-	fmt.Println("UseExistingEnv", *config.VRFv2Plus.General.UseExistingEnv)
-	fmt.Println("TestDuration", config.VRFv2Plus.Performance.TestDuration.Duration.String())
-	fmt.Println("RateLimitUnitDuration", config.VRFv2Plus.Performance.RateLimitUnitDuration.Duration.String())
-
-	//todo - resolve issue - config from default config is used, instead of the one from the network
-	fmt.Println("FallbackWeiPerUnitLink", *config.VRFv2Plus.General.FallbackWeiPerUnitLink)
-	//todo - resolve issue - config from default config is used, instead of the one from the network
-	fmt.Println("VRFv2Plus.ExistingEnv.CoordinatorAddress", *config.VRFv2Plus.ExistingEnvConfig.CoordinatorAddress)
-
-	//
-}
 func TestVRFv2Plus(t *testing.T) {
 	t.Parallel()
 	var (
