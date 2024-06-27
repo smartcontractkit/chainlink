@@ -715,6 +715,14 @@ func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commo
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
 }
 
+func (r *Relayer) NewCCIPCommitProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
+	return nil, errors.New("ccip.commit is not supported for evm")
+}
+
+func (r *Relayer) NewCCIPExecProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
+	return nil, errors.New("ccip.exec is not supported for evm")
+}
+
 var _ commontypes.MedianProvider = (*medianProvider)(nil)
 
 type medianProvider struct {
