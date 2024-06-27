@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	bridgetestutils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -753,6 +755,11 @@ func Test_filterExecuted(t *testing.T) {
 }
 
 func Test_partitionTransfers(t *testing.T) {
+	var (
+		localToken                = testutils.NewAddress()
+		l1BridgeAdapterAddress    = testutils.NewAddress()
+		l2LiquidityManagerAddress = testutils.NewAddress()
+	)
 	type args struct {
 		localToken                models.Address
 		l1BridgeAdapterAddress    common.Address
@@ -768,7 +775,288 @@ func Test_partitionTransfers(t *testing.T) {
 		wantReady     []*liquiditymanager.LiquidityManagerLiquidityTransferred
 		wantReadyData [][]byte
 		wantErr       bool
-	}{}
+	}{
+		{
+			name: "happy path - one ready, one not ready, one already received",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					// Amount = 100, ready
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+					// Amount = 200, not ready
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(200),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					},
+					// Amount = 300, already received
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(300),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					// Amount = 100, ready
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(100),
+					},
+					// Amount = 300, already received
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(300),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					// Amount = 300, already received
+					{
+						To:                 l2LiquidityManagerAddress,
+						Amount:             big.NewInt(300),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+					},
+				},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				// Amount = 200, not ready
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(200),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+				},
+			},
+			wantReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				// Amount = 100, ready
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				}},
+			wantReadyData: [][]byte{bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001")},
+			wantErr:       false,
+		},
+		{
+			name: "mismatched token address",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: testutils.NewAddress(), // Mismatched address
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(100),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				},
+			},
+			wantReady:     []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			wantReadyData: nil,
+			wantErr:       false,
+		},
+		{
+			name: "mismatched deposit finalized From address",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: localToken,
+						From:    testutils.NewAddress(), // Mismatched address
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(100),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				},
+			},
+			wantReady:     []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			wantReadyData: nil,
+			wantErr:       false,
+		},
+		{
+			name: "mismatched deposit finalized To address",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      testutils.NewAddress(), // Mismatched address
+						Amount:  big.NewInt(100),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				},
+			},
+			wantReady:     []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			wantReadyData: nil,
+			wantErr:       false,
+		},
+		{
+			name: "mismatched deposit finalized amount",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(200), // Mismatched amount
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				},
+			},
+			wantReady:     []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			wantReadyData: nil,
+			wantErr:       false,
+		},
+		{
+			name: "amount matching for dep finalized event but mismatched for received log, should never happen",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(100),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:                 l2LiquidityManagerAddress,
+						Amount:             big.NewInt(200), // Mismatched amount
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+			},
+			wantNotReady:  nil,
+			wantReady:     nil,
+			wantReadyData: nil,
+			wantErr:       true,
+		},
+		{
+			name: "mismatched bridge specific data for received event",
+			args: args{
+				localToken:                models.Address(localToken),
+				l1BridgeAdapterAddress:    l1BridgeAdapterAddress,
+				l2LiquidityManagerAddress: l2LiquidityManagerAddress,
+				sentLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:               l2LiquidityManagerAddress,
+						Amount:           big.NewInt(100),
+						BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+				depositFinalizedLogs: []*l2_arbitrum_gateway.L2ArbitrumGatewayDepositFinalized{
+					{
+						L1Token: localToken,
+						From:    l1BridgeAdapterAddress,
+						To:      l2LiquidityManagerAddress,
+						Amount:  big.NewInt(100),
+					},
+				},
+				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+					{
+						To:     l2LiquidityManagerAddress,
+						Amount: big.NewInt(100),
+						// Mismatched bridge specific data
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x1111000000000000000000000000000000000000000000000000000000000001"),
+					},
+				},
+			},
+			wantNotReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
+			wantReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
+				{
+					To:               l2LiquidityManagerAddress,
+					Amount:           big.NewInt(100),
+					BridgeReturnData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+				},
+			},
+			wantReadyData: [][]byte{bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001")},
+			wantErr:       false,
+		},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotNotReady, gotReady, gotReadyData, err := partitionTransfers(tt.args.localToken, tt.args.l1BridgeAdapterAddress, tt.args.l2LiquidityManagerAddress, tt.args.sentLogs, tt.args.depositFinalizedLogs, tt.args.receivedLogs)
@@ -776,8 +1064,8 @@ func Test_partitionTransfers(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tt.wantNotReady, gotNotReady)
-				require.Equal(t, tt.wantReady, gotReady)
+				bridgetestutils.AssertLiquidityTransferredEventSlicesEqual(t, tt.wantNotReady, gotNotReady, bridgetestutils.SortByBridgeReturnData)
+				bridgetestutils.AssertLiquidityTransferredEventSlicesEqual(t, tt.wantReady, gotReady, bridgetestutils.SortByBridgeReturnData)
 				require.Equal(t, tt.wantReadyData, gotReadyData)
 			}
 		})

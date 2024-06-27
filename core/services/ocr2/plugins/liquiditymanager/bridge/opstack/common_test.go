@@ -9,6 +9,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	bridgetestutils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_standard_bridge"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -113,7 +115,7 @@ func Test_filterExecuted(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -125,7 +127,7 @@ func Test_filterExecuted(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					BridgeSpecificData: []byte{},
 				},
 			},
@@ -141,7 +143,7 @@ func Test_filterExecuted(t *testing.T) {
 						To:                l2LiquidityManagerAddress,
 						Amount:            big.NewInt(1),
 						// nonce = 1
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -153,7 +155,7 @@ func Test_filterExecuted(t *testing.T) {
 						Amount:            big.NewInt(1),
 						BridgeReturnData:  []byte{},
 						// nonce = 2
-						BridgeSpecificData: mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					}},
 			},
 			wantReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
@@ -163,7 +165,7 @@ func Test_filterExecuted(t *testing.T) {
 					To:                l2LiquidityManagerAddress,
 					Amount:            big.NewInt(1),
 					// nonce = 1
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					BridgeSpecificData: []byte{},
 				},
 			},
@@ -179,7 +181,7 @@ func Test_filterExecuted(t *testing.T) {
 						To:                l2LiquidityManagerAddress,
 						Amount:            big.NewInt(1),
 						// nonce = 1
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -191,7 +193,7 @@ func Test_filterExecuted(t *testing.T) {
 						Amount:            big.NewInt(1),
 						BridgeReturnData:  []byte{},
 						// nonce = 1
-						BridgeSpecificData: mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					}},
 			},
 			wantReady: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
@@ -207,7 +209,7 @@ func Test_filterExecuted(t *testing.T) {
 						To:                l2LiquidityManagerAddress,
 						Amount:            big.NewInt(1),
 						// nonce = 1, is executed
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 					{
@@ -216,7 +218,7 @@ func Test_filterExecuted(t *testing.T) {
 						To:                l2LiquidityManagerAddress,
 						Amount:            big.NewInt(1),
 						// nonce = 2, not executed
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 						BridgeSpecificData: []byte{},
 					},
 					{
@@ -225,7 +227,7 @@ func Test_filterExecuted(t *testing.T) {
 						To:                l2LiquidityManagerAddress,
 						Amount:            big.NewInt(1),
 						// nonce = 3, is executed
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -237,7 +239,7 @@ func Test_filterExecuted(t *testing.T) {
 						Amount:            big.NewInt(1),
 						BridgeReturnData:  []byte{},
 						// nonce = 1
-						BridgeSpecificData: mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					},
 					{
 						FromChainSelector: l1ChainSelector,
@@ -246,7 +248,7 @@ func Test_filterExecuted(t *testing.T) {
 						Amount:            big.NewInt(1),
 						BridgeReturnData:  []byte{},
 						// nonce = 3
-						BridgeSpecificData: mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 					},
 				},
 			},
@@ -258,7 +260,7 @@ func Test_filterExecuted(t *testing.T) {
 					To:                l2LiquidityManagerAddress,
 					Amount:            big.NewInt(1),
 					// nonce = 2
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					BridgeSpecificData: []byte{},
 				},
 			},
@@ -272,7 +274,7 @@ func Test_filterExecuted(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assertLiquidityTransferredEventSlicesEqual(t, tt.wantReady, gotReady, sortByBridgeReturnData)
+				bridgetestutils.AssertLiquidityTransferredEventSlicesEqual(t, tt.wantReady, gotReady, bridgetestutils.SortByBridgeReturnData)
 			}
 		})
 	}

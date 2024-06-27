@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_standard_bridge"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/abiutils"
+	bridgetestutils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/bridge/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/liquiditymanager/models"
 )
 
@@ -43,9 +44,9 @@ func Test_l1ToL2Bridge_QuorumizedBridgePayload(t *testing.T) {
 			"non-matching nonces/payloads",
 			args{
 				[][]byte{
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 				},
 				1,
 			},
@@ -56,25 +57,25 @@ func Test_l1ToL2Bridge_QuorumizedBridgePayload(t *testing.T) {
 			"happy path",
 			args{
 				[][]byte{
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 				},
 				1,
 			},
-			mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+			bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 			false,
 		},
 		{
 			"happy path, fewer payloads",
 			args{
 				[][]byte{
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
-					mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 				},
 				1,
 			},
-			mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+			bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 			false,
 		},
 	}
@@ -148,7 +149,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 					// This one is ready (present in sentLogs and finalized logs)
@@ -157,7 +158,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 						BridgeSpecificData: []byte{},
 					},
 					// This one is done/already received (present in sentLogs, finalized logs, and receivedLogs), should not be included in any output slices
@@ -166,7 +167,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -178,7 +179,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        l1BridgeAdapterAddress,
 						To:          l2LiquidityManagerAddress,
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					},
 					// This one is already done (present in sentLogs, finalized logs, and receivedLogs)
 					{
@@ -187,7 +188,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        l1BridgeAdapterAddress,
 						To:          l2LiquidityManagerAddress,
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 					},
 					// This one is missing (not present in sentLogs)
 					{
@@ -196,7 +197,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        l1BridgeAdapterAddress,
 						To:          l2LiquidityManagerAddress,
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000065"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000065"),
 					},
 				},
 				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{
@@ -206,7 +207,7 @@ func Test_partitionTransfers(t *testing.T) {
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
 						BridgeReturnData:   []byte{},
-						BridgeSpecificData: mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						BridgeSpecificData: bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 					},
 				},
 			},
@@ -217,7 +218,7 @@ func Test_partitionTransfers(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					BridgeSpecificData: []byte{},
 				},
 			},
@@ -228,7 +229,7 @@ func Test_partitionTransfers(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					BridgeSpecificData: []byte{},
 				},
 			},
@@ -240,7 +241,7 @@ func Test_partitionTransfers(t *testing.T) {
 					From:        l1BridgeAdapterAddress,
 					To:          l2LiquidityManagerAddress,
 					Amount:      big.NewInt(1),
-					ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000065"),
+					ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000065"),
 				},
 			},
 			wantErr: false,
@@ -258,7 +259,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 						BridgeSpecificData: []byte{},
 					},
 					// Mismatched finalized event 'to' field
@@ -267,7 +268,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 						BridgeSpecificData: []byte{},
 					},
 					// Mismatched finalized event 'remote_token' field
@@ -276,7 +277,7 @@ func Test_partitionTransfers(t *testing.T) {
 						ToChainSelector:    l2ChainSelector,
 						To:                 l2LiquidityManagerAddress,
 						Amount:             big.NewInt(1),
-						BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 						BridgeSpecificData: []byte{},
 					},
 				},
@@ -288,7 +289,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        common.HexToAddress("0x123"),
 						To:          l2LiquidityManagerAddress,
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					},
 					// Mismatched finalized event 'to' field
 					{
@@ -297,7 +298,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        l1BridgeAdapterAddress,
 						To:          common.HexToAddress("0x456"),
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					},
 					// Mismatched finalized event 'remote_token' field
 					{
@@ -306,7 +307,7 @@ func Test_partitionTransfers(t *testing.T) {
 						From:        l1BridgeAdapterAddress,
 						To:          l2LiquidityManagerAddress,
 						Amount:      big.NewInt(1),
-						ExtraData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+						ExtraData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 					},
 				},
 				receivedLogs: []*liquiditymanager.LiquidityManagerLiquidityTransferred{},
@@ -318,7 +319,7 @@ func Test_partitionTransfers(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000001"),
 					BridgeSpecificData: []byte{},
 				},
 				// Mismatched finalized event 'to' field
@@ -327,7 +328,7 @@ func Test_partitionTransfers(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000002"),
 					BridgeSpecificData: []byte{},
 				},
 				// Mismatched finalized event 'remote_token' field
@@ -336,7 +337,7 @@ func Test_partitionTransfers(t *testing.T) {
 					ToChainSelector:    l2ChainSelector,
 					To:                 l2LiquidityManagerAddress,
 					Amount:             big.NewInt(1),
-					BridgeReturnData:   mustPackBridgeTransferNonce(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
+					BridgeReturnData:   bridgetestutils.MustPackBridgeData(t, "0x0000000000000000000000000000000000000000000000000000000000000003"),
 					BridgeSpecificData: []byte{},
 				}},
 			wantReady:       nil,
@@ -351,8 +352,8 @@ func Test_partitionTransfers(t *testing.T) {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				assertLiquidityTransferredEventSlicesEqual(t, tt.wantNotReady, gotNotReady, sortByBridgeReturnData)
-				assertLiquidityTransferredEventSlicesEqual(t, tt.wantReady, gotReady, sortByBridgeReturnData)
+				bridgetestutils.AssertLiquidityTransferredEventSlicesEqual(t, tt.wantNotReady, gotNotReady, bridgetestutils.SortByBridgeReturnData)
+				bridgetestutils.AssertLiquidityTransferredEventSlicesEqual(t, tt.wantReady, gotReady, bridgetestutils.SortByBridgeReturnData)
 				assert.Equal(t, tt.wantMissingSent, gotMissingSent)
 			}
 		})

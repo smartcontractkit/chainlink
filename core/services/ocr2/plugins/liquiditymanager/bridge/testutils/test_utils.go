@@ -1,4 +1,4 @@
-package opstack
+package testutils
 
 import (
 	"encoding/hex"
@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/liquiditymanager"
 )
 
-func assertLiquidityTransferredEventSlicesEqual(
+func AssertLiquidityTransferredEventSlicesEqual(
 	t *testing.T,
 	expected,
 	actual []*liquiditymanager.LiquidityManagerLiquidityTransferred,
@@ -35,17 +35,17 @@ func assertLiquidityTransferredEventSlicesEqual(
 	}
 }
 
-func sortByBridgeReturnData(a, b *liquiditymanager.LiquidityManagerLiquidityTransferred) bool {
+func SortByBridgeReturnData(a, b *liquiditymanager.LiquidityManagerLiquidityTransferred) bool {
 	return hex.EncodeToString(a.BridgeReturnData) < hex.EncodeToString(b.BridgeReturnData)
 }
 
-func mustPackBridgeTransferNonce(t *testing.T, bridgeDataHex string) []byte {
+func MustPackBridgeData(t *testing.T, bridgeDataHex string) []byte {
 	packed, err := hex.DecodeString(bridgeDataHex[2:])
 	require.NoError(t, err)
 	return packed
 }
 
-func mustConvertHexBridgeSpecificDataToBytes(t *testing.T, hexData string) []byte {
+func MustConvertHexBridgeDataToBytes(t *testing.T, hexData string) []byte {
 	packed, err := hex.DecodeString(hexData[2:])
 	require.NoError(t, err)
 	return packed

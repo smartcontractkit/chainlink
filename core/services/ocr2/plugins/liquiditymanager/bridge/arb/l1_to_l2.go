@@ -242,16 +242,6 @@ func (l *l1ToL2Bridge) GetTransfers(
 		return nil, err
 	}
 
-	slices.SortFunc(sendLogs, func(a, b logpoller.Log) int {
-		return a.BlockTimestamp.Compare(b.BlockTimestamp)
-	})
-	slices.SortFunc(depositFinalizedLogs, func(a, b logpoller.Log) int {
-		return a.BlockTimestamp.Compare(b.BlockTimestamp)
-	})
-	slices.SortFunc(receiveLogs, func(a, b logpoller.Log) int {
-		return a.BlockTimestamp.Compare(b.BlockTimestamp)
-	})
-
 	lggr.Infow("got logs",
 		"sendLogs", len(sendLogs),
 		"depositFinalizedLogs", len(depositFinalizedLogs),
@@ -285,11 +275,7 @@ func (l *l1ToL2Bridge) GetTransfers(
 	// event, such as the l1 to l2 tx id. This is only available as part of the calldata for when the L2 calls
 	// submitRetryable on the ArbRetryableTx precompile.
 	// e.g https://sepolia.arbiscan.io/tx/0xce0d0d7e74f184fa8cb264b6d9aab5ced159faf3d0d9ae54b67fd40ba9d965a7
-	// therefore we're kind of relegated here to doing a simple count check - filter out all of the
-	// LiquidityTransferred logs destined for the liquidityManager on L2 and all the DepositFinalized logs that
-	// pay out to the liquidityManager on L2.
-	// We can _probably_ assume that the earlier LiquidityTransferred logs on L1
-	// are more likely to be finalizedNotExecuted than later ones.
+	// therefore we're kind of relegated here to simply checking on the `amount` transferred.
 	notReady, ready, readyData, err := partitionTransfers(
 		localToken,
 		l.l1BridgeAdapter.Address(),
@@ -412,7 +398,6 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 	return transfers, nil
 }
 
-// precondition: the input logs are already sorted in time-ascending order
 func partitionTransfers(
 	localToken models.Address,
 	l1BridgeAdapterAddress common.Address,
@@ -427,25 +412,23 @@ func partitionTransfers(
 	err error,
 ) {
 	effectiveDepositFinalized := getEffectiveEvents(localToken, l1BridgeAdapterAddress, l2LiquidityManagerAddress, depositFinalizedLogs)
-	// determine ready and not ready first
-	if len(sentLogs) > len(effectiveDepositFinalized) {
-		// more sent than have been finalized
-		for i := len(sentLogs) - len(effectiveDepositFinalized) + 1; i < len(sentLogs); i++ {
-			notReady = append(notReady, sentLogs[i])
+
+	// Loop through sentLogs and find an effectiveDepositFinalized log with a matching 'amount' and 'to' address.
+	// If found, it is ready to be received by L2 LM. If not found, it still needs to be finalized.
+	for _, sentLog := range sentLogs {
+		var found bool
+		for _, depFinalized := range effectiveDepositFinalized {
+			if sentLog.Amount.Cmp(depFinalized.Amount) == 0 && sentLog.To == depFinalized.To {
+				ready = append(ready, sentLog)
+				found = true
+				break
+			}
 		}
-		for i := 0; i < (len(sentLogs) - len(effectiveDepositFinalized)); i++ {
-			ready = append(ready, sentLogs[i])
+		if !found {
+			notReady = append(notReady, sentLog)
 		}
-	} else if len(sentLogs) < len(effectiveDepositFinalized) {
-		// more finalized than have been sent - should be impossible
-		// TODO: what if a rebalance is triggered at T=0, the sent log is emitted at t=1
-		// and the DepositFinalized log is emitted at T=2, and our query goes back to T=2. There will be
-		// 1 DepositFinalized log and 0 sent logs. Maybe drop this condition and just do the matching
-		return nil, nil, nil, fmt.Errorf("got more finalized logs than sent - should be impossible: len(sent) = %d, len(finalized) = %d",
-			len(sentLogs), len(effectiveDepositFinalized))
-	} else {
-		ready = sentLogs
 	}
+
 	// figure out if any of the ready have been executed
 	ready, err = filterExecuted(ready, receivedLogs)
 	if err != nil {
@@ -497,6 +480,10 @@ func matchingExecutionExists(
 				err, hexutil.Encode(recvLog.BridgeSpecificData))
 		}
 		if sendL1ToL2TxId.Cmp(recvL1ToL2TxId) == 0 {
+			if readyCandidate.Amount.Cmp(recvLog.Amount) != 0 {
+				return false, fmt.Errorf("bridge data matched but amount mismatched: send amount %s, receive amount %s",
+					readyCandidate.Amount, recvLog.Amount)
+			}
 			return true, nil
 		}
 	}
