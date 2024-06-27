@@ -27,6 +27,7 @@ type CommitReportingPluginFactory struct {
 }
 
 // NewCommitReportingPluginFactory return a new CommitReportingPluginFactory.
+// TODO: wire through a GasEstimatorProvider here to solve two relayer one provider problem for CommitStoreReader
 func NewCommitReportingPluginFactory(config CommitPluginStaticConfig) *CommitReportingPluginFactory {
 	return &CommitReportingPluginFactory{
 		config:    config,

@@ -228,6 +228,7 @@ func (c JSONCommitOffchainConfig) Validate() error {
 	return nil
 }
 
+// TODO: Pass a Gas Estimator through to the plugin directly
 func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
 	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onchainConfig)
 	if err != nil {
@@ -249,6 +250,7 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		return "", fmt.Errorf("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
 	}
 
+	// TODO: do this in the factory
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(
 		*c.estimator,
 		c.sourceMaxGasPrice,

@@ -27,6 +27,19 @@ type CommitPluginJobSpecConfig struct {
 	PriceGetterConfig *DynamicPriceGetterConfig `json:"priceGetterConfig,omitempty"`
 }
 
+type CommitPluginConfig struct {
+	IsSourceProvider                 bool
+	SourceStartBlock, DestStartBlock uint64
+}
+
+func (c CommitPluginConfig) Encode() ([]byte, error) {
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
 // DynamicPriceGetterConfig specifies which configuration to use for getting the price of tokens (map keys).
 type DynamicPriceGetterConfig struct {
 	AggregatorPrices map[common.Address]AggregatorPriceConfig `json:"aggregatorPrices"`
@@ -91,8 +104,8 @@ func (c *DynamicPriceGetterConfig) Validate() error {
 	return nil
 }
 
-// ExecutionPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPExecution plugin.
-type ExecutionPluginJobSpecConfig struct {
+// ExecPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPExecution plugin.
+type ExecPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
 	USDCConfig                       USDCConfig
 }
@@ -104,6 +117,21 @@ type USDCConfig struct {
 	AttestationAPITimeoutSeconds    uint
 	// AttestationAPIIntervalMilliseconds can be set to -1 to disable or 0 to use a default interval.
 	AttestationAPIIntervalMilliseconds int
+}
+
+type ExecPluginConfig struct {
+	SourceStartBlock, DestStartBlock uint64 // Only for first time job add.
+	IsSourceProvider                 bool
+	USDCConfig                       USDCConfig
+	JobID                            string
+}
+
+func (e ExecPluginConfig) Encode() ([]byte, error) {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }
 
 func (uc *USDCConfig) ValidateUSDCConfig() error {
