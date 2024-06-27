@@ -349,9 +349,19 @@ func (g *generalConfig) StarkNetEnabled() bool {
 // BCI-3511: https://smartcontract-it.atlassian.net/browse/BCI-3511
 func (g *generalConfig) AptosEnabled() bool {
 	for _, c := range g.c.Aptos {
-		if c != nil {
-			if v, ok := (*c)["Enabled"]; ok {
-				return v == nil || *v.(*bool) // Enabled attribute for config is *bool
+		if c == nil {
+			continue
+		}
+		if v, ok := (*c)["Enabled"]; ok {
+			switch typedV := v.(type) {
+			case nil:
+				return true
+			case bool:
+				return typedV
+			case *bool:
+				return *typedV
+			default:
+				panic(fmt.Sprintf("AptosEnabled: 'Enabled' has unexpected type %T", v))
 			}
 		}
 	}
