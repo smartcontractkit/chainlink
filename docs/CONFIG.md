@@ -1842,8 +1842,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
-BlockRate = 20
-LogLimit = 2
+BlockRate = 1
+LogLimit = 20
 ```
 
 </p></details>
@@ -2026,8 +2026,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 20
-LogLimit = 2
+BlockRate = 1
+LogLimit = 20
 ```
 
 </p></details>
@@ -2118,8 +2118,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 20
-LogLimit = 2
+BlockRate = 1
+LogLimit = 20
 ```
 
 </p></details>
@@ -2580,8 +2580,8 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -2854,8 +2854,8 @@ ObservationGracePeriod = '500ms'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -3131,8 +3131,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -4235,8 +4235,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -4602,8 +4602,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -4786,8 +4786,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -5061,8 +5061,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -5430,8 +5430,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -5522,8 +5522,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -6071,8 +6071,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -6162,8 +6162,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -6254,8 +6254,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -6346,8 +6346,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
-BlockRate = 5
-LogLimit = 2
+BlockRate = 1
+LogLimit = 5
 ```
 
 </p></details>
@@ -6900,8 +6900,8 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 10500000
-BlockRate = 20
-LogLimit = 2
+BlockRate = 1
+LogLimit = 20
 ```
 
 </p></details>

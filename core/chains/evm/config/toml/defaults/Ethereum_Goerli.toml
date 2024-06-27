@@ -10,4 +10,4 @@ BlockHistorySize = 4
 TransactionPercentile = 50
 
 [OCR2.Automation]
-BlockRate = 20
+LogLimit = 20

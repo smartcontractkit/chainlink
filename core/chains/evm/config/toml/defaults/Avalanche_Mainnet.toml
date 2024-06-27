@@ -17,4 +17,4 @@ PriceMin = '25 gwei'
 BlockHistorySize = 24
 
 [OCR2.Automation]
-BlockRate = 5
+LogLimit = 5

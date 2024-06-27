@@ -36,4 +36,4 @@ HistoryDepth = 2000
 SyncThreshold = 10
 
 [OCR2.Automation]
-BlockRate = 5
+LogLimit = 5

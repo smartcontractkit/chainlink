@@ -24,4 +24,4 @@ ObservationGracePeriod = '500ms'
 SyncThreshold = 10
 
 [OCR2.Automation]
-BlockRate = 5
+LogLimit = 5

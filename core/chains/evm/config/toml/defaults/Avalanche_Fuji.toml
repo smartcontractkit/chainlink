@@ -19,4 +19,4 @@ BlockHistorySize = 24
 FinalityTagBypass = false
 
 [OCR2.Automation]
-BlockRate = 5
+LogLimit = 5

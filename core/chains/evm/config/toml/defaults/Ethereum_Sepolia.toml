@@ -11,7 +11,7 @@ TransactionPercentile = 50
 
 [OCR2.Automation]
 GasLimit = 10500000
-BlockRate = 20
+LogLimit = 20
 
 [HeadTracker]
 FinalityTagBypass = false
