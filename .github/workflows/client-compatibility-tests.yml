@@ -38,14 +38,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  workflow-telemetry-action:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@v2
-        with:
-          comment_on_pr: false
-          theme: 'dark'
   # Build Test Dependencies
 
   check-dependency-bump:
@@ -506,6 +498,15 @@ jobs:
           jq . compatibility_test_list.json
           JOB_MATRIX_JSON=$(jq -c . compatibility_test_list.json)
           echo "JOB_MATRIX_JSON=${JOB_MATRIX_JSON}" >> $GITHUB_ENV           
+
+  workflow-telemetry-action:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2
+        with:
+          comment_on_pr: false
+          theme: 'dark'
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
