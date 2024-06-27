@@ -45,7 +45,6 @@ func (t *telemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.He
 		}
 	}
 	request := &telem.HeadReportRequest{
-		ChainId: head.EVMChainID.ToInt().Uint64(),
 		Latest: &telem.Block{
 			Timestamp: uint64(head.Timestamp.UTC().Unix()),
 			Number:    uint64(head.Number),
