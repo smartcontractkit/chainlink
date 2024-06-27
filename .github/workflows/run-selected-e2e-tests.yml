@@ -13,7 +13,7 @@ on:
         default: "*"
         required: true
         type: string
-      test_config_base64_override_unsafe:
+      test_config_base64_override_unsafe2:
         description: 'Custom base64 test config'
         required: false
         type: string          
@@ -36,7 +36,7 @@ jobs:
       - name: Run Check Tests Command
         id: mask-config 
         run: |
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.test_config_base64_override_unsafe' $GITHUB_EVENT_PATH)
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.test_config_base64_override_unsafe2' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           echo "::set-output name=config::$BASE64_CONFIG_OVERRIDE"
@@ -46,12 +46,6 @@ jobs:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     needs: mask
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read    
     with:
       chainlink-version: ${{ github.event.inputs.chainlink-version }}
       test-ids: ${{ github.event.inputs.test-ids }}
