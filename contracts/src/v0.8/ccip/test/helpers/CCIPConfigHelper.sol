@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {CCIPCapabilityConfiguration} from "../../capability/CCIPCapabilityConfiguration.sol";
+import {CCIPConfig} from "../../capability/CCIPConfig.sol";
 
-contract CCIPCapabilityConfigurationHelper is CCIPCapabilityConfiguration {
-  constructor(address capabilityRegistry) CCIPCapabilityConfiguration(capabilityRegistry) {}
+contract CCIPConfigHelper is CCIPConfig {
+  constructor(address capabilitiesRegistry) CCIPConfig(capabilitiesRegistry) {}
 
   function stateFromConfigLength(uint256 configLength) public pure returns (ConfigState) {
     return _stateFromConfigLength(configLength);

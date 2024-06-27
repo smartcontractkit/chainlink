@@ -3,18 +3,19 @@ pragma solidity 0.8.24;
 
 import {ICapabilityConfiguration} from "../../keystone/interfaces/ICapabilityConfiguration.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
-import {ICapabilityRegistry} from "./interfaces/ICapabilityRegistry.sol";
+import {ICapabilitiesRegistry} from "./interfaces/ICapabilitiesRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
+import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
-/// @notice CCIPCapabilityConfiguration stores the configuration for the CCIP capability.
-/// We have two classes of configuration: chain configuration and DON (in the CapabilityRegistry sense) configuration.
+/// @notice CCIPConfig stores the configuration for the CCIP capability.
+/// We have two classes of configuration: chain configuration and DON (in the CapabilitiesRegistry sense) configuration.
 /// Each chain will have a single configuration which includes information like the router address.
 /// Each CR DON will have up to four configurations: for each of (commit, exec), one blue and one green configuration.
 /// This is done in order to achieve "blue-green" deployments.
-contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator {
+contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator, IERC165 {
   using EnumerableSet for EnumerableSet.UintSet;
 
   /// @notice Emitted when a chain's configuration is set.
@@ -28,7 +29,7 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
 
   error ChainConfigNotSetForChain(uint64 chainSelector);
   error NodeNotInRegistry(bytes32 p2pId);
-  error OnlyCapabilityRegistryCanCall();
+  error OnlyCapabilitiesRegistryCanCall();
   error ChainSelectorNotFound(uint64 chainSelector);
   error ChainSelectorNotSet();
   error TooManyOCR3Configs();
@@ -72,7 +73,7 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
   /// @notice Chain configuration.
   /// Changes to chain configuration are detected out-of-band in plugins and decoded offchain.
   struct ChainConfig {
-    bytes32[] readers; // The P2P IDs of the readers for the chain. These IDs must be registered in the capability registry.
+    bytes32[] readers; // The P2P IDs of the readers for the chain. These IDs must be registered in the capabilities registry.
     uint8 fChain; // The fault tolerance parameter of the chain.
     bytes config; // The chain configuration. This is kept intentionally opaque so as to add fields in the future if needed.
   }
@@ -108,10 +109,10 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
   }
 
   /// @notice Type and version override.
-  string public constant override typeAndVersion = "CCIPCapabilityConfiguration 1.6.0-dev";
+  string public constant override typeAndVersion = "CCIPConfig 1.6.0-dev";
 
-  /// @notice The canonical capability registry address.
-  address internal immutable i_capabilityRegistry;
+  /// @notice The canonical capabilities registry address.
+  address internal immutable i_capabilitiesRegistry;
 
   /// @notice chain configuration for each chain that CCIP is deployed on.
   mapping(uint64 chainSelector => ChainConfig chainConfig) internal s_chainConfigurations;
@@ -131,9 +132,14 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
   uint8 internal constant MAX_OCR3_CONFIGS_PER_DON = 4;
   uint8 internal constant MAX_NUM_ORACLES = 31;
 
-  /// @param capabilityRegistry the canonical capability registry address.
-  constructor(address capabilityRegistry) {
-    i_capabilityRegistry = capabilityRegistry;
+  /// @param capabilitiesRegistry the canonical capabilities registry address.
+  constructor(address capabilitiesRegistry) {
+    i_capabilitiesRegistry = capabilitiesRegistry;
+  }
+
+  /// @inheritdoc IERC165
+  function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+    return interfaceId == type(ICapabilityConfiguration).interfaceId || interfaceId == type(IERC165).interfaceId;
   }
 
   // ================================================================
@@ -180,8 +186,8 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
     uint64, /* configCount */
     uint32 donId
   ) external override {
-    if (msg.sender != i_capabilityRegistry) {
-      revert OnlyCapabilityRegistryCanCall();
+    if (msg.sender != i_capabilitiesRegistry) {
+      revert OnlyCapabilitiesRegistryCanCall();
     }
 
     OCR3Config[] memory ocr3Configs = abi.decode(config, (OCR3Config[]));
@@ -398,7 +404,7 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
     }
     if (cfg.bootstrapP2PIds.length > cfg.p2pIds.length) revert TooManyBootstrapP2PIds();
 
-    // Check that the readers are in the capability registry.
+    // Check that the readers are in the capabilities registry.
     // TODO: check for duplicate signers, duplicate p2p ids, etc.
     // TODO: check that p2p ids in cfg.bootstrapP2PIds are included in cfg.p2pIds.
     for (uint256 i = 0; i < cfg.signers.length; ++i) {
@@ -473,7 +479,7 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
       bytes32[] memory readers = chainConfig.readers;
       uint64 chainSelector = chainConfigAdds[i].chainSelector;
 
-      // Verify that the provided readers are present in the capability registry.
+      // Verify that the provided readers are present in the capabilities registry.
       for (uint256 j = 0; j < readers.length; j++) {
         _ensureInRegistry(readers[j]);
       }
@@ -490,10 +496,10 @@ contract CCIPCapabilityConfiguration is ITypeAndVersion, ICapabilityConfiguratio
     }
   }
 
-  /// @notice Helper function to ensure that a node is in the capability registry.
+  /// @notice Helper function to ensure that a node is in the capabilities registry.
   /// @param p2pId The P2P ID of the node to check.
   function _ensureInRegistry(bytes32 p2pId) internal view {
-    (ICapabilityRegistry.NodeInfo memory node,) = ICapabilityRegistry(i_capabilityRegistry).getNode(p2pId);
+    ICapabilitiesRegistry.NodeInfo memory node = ICapabilitiesRegistry(i_capabilitiesRegistry).getNode(p2pId);
     if (node.p2pId == bytes32("")) {
       revert NodeNotInRegistry(p2pId);
     }

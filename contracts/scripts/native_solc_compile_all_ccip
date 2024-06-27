@@ -75,7 +75,7 @@ compileContract ccip/RMN.sol
 compileContract ccip/ARMProxy.sol
 compileContract ccip/tokenAdminRegistry/TokenAdminRegistry.sol
 compileContract ccip/tokenAdminRegistry/RegistryModuleOwnerCustom.sol
-compileContract ccip/capability/CCIPCapabilityConfiguration.sol
+compileContract ccip/capability/CCIPConfig.sol
 
 # Test helpers
 compileContract ccip/test/helpers/BurnMintERC677Helper.sol
