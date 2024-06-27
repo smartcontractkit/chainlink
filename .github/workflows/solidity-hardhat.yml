@@ -25,46 +25,17 @@ jobs:
         with:
           filters: |
             src:
-              - 'contracts/src/!(v0.8/(llo-feeds|keystone|ccip|functions|transmission)/**)/**/*'
+              - 'contracts/src/!(v0.8/(ccip|functions|keystone|l2ep|llo-feeds|transmission|vrf)/**)/**/*'
               - 'contracts/test/**/*'
               - 'contracts/package.json'
               - 'contracts/pnpm-lock.yaml'
               - 'contracts/hardhat.config.ts'
-              - 'contracts/ci.json'
               - '.github/workflows/solidity-hardhat.yml'
 
-  split-tests:
-    name: Split Solidity Tests
-    runs-on: ubuntu-latest
-    outputs:
-      splits: ${{ steps.split.outputs.splits }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Generate splits
-        id: split
-        uses: ./.github/actions/split-tests
-        with:
-          config: ./contracts/ci.json
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: solidity-split-tests
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Split Solidity Tests
-        continue-on-error: true
-
-  solidity-splits:
-    needs: [changes, split-tests]
+  hardhat-test:
+    needs: [changes]
     if: needs.changes.outputs.changes == 'true'
-    name: Solidity ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
-    strategy:
-      fail-fast: false
-      matrix:
-        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    name: Solidity ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -76,23 +47,20 @@ jobs:
         with:
           namespace: coverage
       - name: Run tests
-        env:
-          SPLIT: ${{ matrix.split.tests }}
         working-directory: contracts
-        run: pnpm test -- $SPLIT
+        run: pnpm test
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: solidity-splits
+          id: hardhat-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Solidity ${{ matrix.split.id }}
         continue-on-error: true
 
   solidity:
-    needs: [changes, solidity-splits]
+    needs: [changes, hardhat-test]
     name: Solidity
     runs-on: ubuntu-latest
     if: always()
