@@ -44,13 +44,7 @@ func TestInMemoryStore_FindTxesPendingCallback(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	head := evmtypes.Head{
@@ -201,13 +195,7 @@ func TestInMemoryStore_FindTxAttemptsRequiringResend(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// insert the transaction into the persistent store
@@ -302,13 +290,7 @@ func TestInMemoryStore_FindTxesWithMetaFieldByReceiptBlockNum(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize the Meta field which is sqlutil.JSON
@@ -397,13 +379,7 @@ func TestInMemoryStore_FindTxesWithMetaFieldByStates(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize the Meta field which is sqlutil.JSON
@@ -472,13 +448,7 @@ func TestInMemoryStore_FindTxesByMetaFieldAndStates(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize the Meta field which is sqlutil.JSON
@@ -549,13 +519,7 @@ func TestInMemoryStore_FindTxWithIdempotencyKey(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	idempotencyKey := "777"
@@ -614,25 +578,17 @@ func TestInMemoryStore_CheckTxQueueCapacity(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
-	inTxs := []evmtxmgr.Tx{
-		cltest.NewEthTx(fromAddress),
-		cltest.NewEthTx(fromAddress),
-	}
-	for _, inTx := range inTxs {
-		// insert the transaction into the persistent store
-		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
-		// insert the transaction into the in-memory store
-		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
-	}
+	// insert the transaction into the persistent store
+	// insert the transaction into the in-memory store
+	tx1 := cltest.NewEthTx(fromAddress)
+	require.NoError(t, persistentStore.InsertTx(ctx, &tx1))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &tx1))
+	tx2 := cltest.NewEthTx(fromAddress)
+	require.NoError(t, persistentStore.InsertTx(ctx, &tx2))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &tx2))
 
 	tcs := []struct {
 		name           string
@@ -678,26 +634,17 @@ func TestInMemoryStore_CountUnstartedTransactions(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
-	// initialize unstarted transactions
-	inUnstartedTxs := []evmtxmgr.Tx{
-		cltest.NewEthTx(fromAddress),
-		cltest.NewEthTx(fromAddress),
-	}
-	for _, inTx := range inUnstartedTxs {
-		// insert the transaction into the persistent store
-		require.NoError(t, persistentStore.InsertTx(ctx, &inTx))
-		// insert the transaction into the in-memory store
-		require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &inTx))
-	}
+	// insert the transaction into the persistent store
+	// insert the transaction into the in-memory store
+	tx1 := cltest.NewEthTx(fromAddress)
+	require.NoError(t, persistentStore.InsertTx(ctx, &tx1))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &tx1))
+	tx2 := cltest.NewEthTx(fromAddress)
+	require.NoError(t, persistentStore.InsertTx(ctx, &tx2))
+	require.NoError(t, inMemoryStore.XXXTestInsertTx(fromAddress, &tx2))
 
 	tcs := []struct {
 		name          string
@@ -742,13 +689,7 @@ func TestInMemoryStore_CountUnconfirmedTransactions(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize unconfirmed transactions
@@ -803,13 +744,7 @@ func TestInMemoryStore_FindTxAttemptsConfirmedMissingReceipt(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize transactions
@@ -876,13 +811,7 @@ func TestInMemoryStore_FindTxAttemptsRequiringReceiptFetch(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	// initialize transactions
@@ -949,13 +878,7 @@ func TestInMemoryStore_GetInProgressTxAttempts(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("gets 0 in progress transaction", func(t *testing.T) {
@@ -997,13 +920,7 @@ func TestInMemoryStore_HasInProgressTransaction(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no in progress transaction", func(t *testing.T) {
@@ -1042,13 +959,7 @@ func TestInMemoryStore_GetTxByID(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no transaction", func(t *testing.T) {
@@ -1090,13 +1001,7 @@ func TestInMemoryStore_FindTxWithSequence(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1153,13 +1058,7 @@ func TestInMemoryStore_CountTransactionsByState(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1200,13 +1099,7 @@ func TestInMemoryStore_FindTxsRequiringResubmissionDueToInsufficientEth(t *testi
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1278,13 +1171,7 @@ func TestInMemoryStore_GetNonFatalTransactions(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1329,13 +1216,7 @@ func TestInMemoryStore_FindTransactionsConfirmedInBlockRange(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1383,13 +1264,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedBroadcastTime(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1430,13 +1305,7 @@ func TestInMemoryStore_FindEarliestUnconfirmedTxAttemptBlock(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("no results", func(t *testing.T) {
@@ -1484,13 +1353,7 @@ func TestInMemoryStore_LoadTxAttempts(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("load tx attempt", func(t *testing.T) {
@@ -1529,13 +1392,7 @@ func TestInMemoryStore_PreloadTxes(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("load transaction", func(t *testing.T) {
@@ -1574,13 +1431,7 @@ func TestInMemoryStore_IsTxFinalized(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("tx not past finality depth", func(t *testing.T) {
@@ -1630,13 +1481,7 @@ func TestInMemoryStore_FindTxsRequiringGasBump(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("gets transactions requiring gas bumping", func(t *testing.T) {
@@ -1681,13 +1526,7 @@ func TestInMemoryStore_SaveInProgressAttempt(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("saves new in_progress attempt if attempt is new", func(t *testing.T) {
@@ -1788,13 +1627,7 @@ func TestInMemoryStore_UpdateBroadcastAts(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("does not update when broadcast_at is Null", func(t *testing.T) {
@@ -1867,13 +1700,7 @@ func TestInMemoryStore_SetBroadcastBeforeBlockNum(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("saves block num to unconfirmed evm.tx_attempts without one", func(t *testing.T) {
@@ -1938,13 +1765,7 @@ func TestInMemoryStore_UpdateTxCallbackCompleted(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("sets tx callback as completed", func(t *testing.T) {
@@ -1994,13 +1815,7 @@ func TestInMemoryStore_SaveInsufficientFundsAttempt(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	defaultDuration := time.Second * 5
@@ -2060,13 +1875,7 @@ func TestInMemoryStore_SaveSentAttempt(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	defaultDuration := time.Second * 5
@@ -2127,13 +1936,7 @@ func TestInMemoryStore_Abandon(t *testing.T) {
 	chainID := ethClient.ConfiguredChainID()
 	ctx := testutils.Context(t)
 
-	inMemoryStore, err := commontxmgr.NewInMemoryStore[
-		*big.Int,
-		common.Address, common.Hash, common.Hash,
-		*evmtypes.Receipt,
-		evmtypes.Nonce,
-		evmgas.EvmFee,
-	](ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
+	inMemoryStore, err := commontxmgr.NewInMemoryStore(ctx, lggr, chainID, kst.Eth(), persistentStore, evmcfg.Transactions())
 	require.NoError(t, err)
 
 	t.Run("Abandon transactions successfully", func(t *testing.T) {
