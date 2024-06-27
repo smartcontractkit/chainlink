@@ -1,4 +1,4 @@
-package capabilities
+package registrysyncer
 
 import (
 	"context"
@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -39,7 +38,8 @@ var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *backends.SimulatedBackend) {
 	owner := testutils.MustNewSimTransactor(t)
 
-	oneEth, _ := new(big.Int).SetString("100000000000000000000", 10)
+	i := &big.Int{}
+	oneEth, _ := i.SetString("100000000000000000000", 10)
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
 
 	simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{owner.From: {
@@ -109,24 +109,6 @@ func randomWord() [32]byte {
 		panic(err)
 	}
 	return [32]byte(word)
-}
-
-type mockWrapper struct {
-	services.Service
-	peer p2ptypes.Peer
-}
-
-func (m mockWrapper) GetPeer() p2ptypes.Peer {
-	return m.peer
-}
-
-type mockPeer struct {
-	p2ptypes.Peer
-	peerID p2ptypes.PeerID
-}
-
-func (m mockPeer) ID() p2ptypes.PeerID {
-	return m.peerID
 }
 
 func TestReader_Integration(t *testing.T) {
@@ -205,12 +187,7 @@ func TestReader_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	factory := newContractReaderFactory(t, sim)
-	pw := mockWrapper{
-		peer: mockPeer{
-			peerID: nodeSet[0],
-		},
-	}
-	reader, err := newRemoteRegistryReader(ctx, logger.TestLogger(t), pw, factory, regAddress.Hex())
+	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	s, err := reader.state(ctx)
@@ -277,10 +254,4 @@ func TestReader_Integration(t *testing.T) {
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
 	}, s.IDsToNodes)
-
-	node, err := reader.LocalNode(ctx)
-	require.NoError(t, err)
-
-	assert.Equal(t, p2ptypes.PeerID(nodeSet[0]), *node.PeerID)
-	assert.Equal(t, fmt.Sprint(1), node.WorkflowDON.ID)
 }
