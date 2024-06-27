@@ -103,12 +103,11 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx
 		if n.State() != NodeStateAlive {
 			continue
 		}
-		if do(ctx, n.RPC(), false) {
-			callsCompleted++
-		}
+		do(ctx, n.RPC(), false)
+		callsCompleted++
 	}
 	if callsCompleted == 0 {
-		return fmt.Errorf("no calls were completed")
+		return ErroringNodeError
 	}
 
 	for _, n := range c.sendOnlyNodes {
@@ -118,7 +117,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx
 		if n.State() != NodeStateAlive {
 			continue
 		}
-		do(ctx, n.RPC(), false)
+		do(ctx, n.RPC(), true)
 	}
 	return nil
 }
@@ -167,11 +166,11 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
 	return ch
 }
 
-// Dial starts every node in the pool
+// Start starts every node in the pool
 //
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Dial(ctx context.Context) error {
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.primaryNodes) == 0 {
 			return fmt.Errorf("no available nodes for chain %s", c.chainID.String())

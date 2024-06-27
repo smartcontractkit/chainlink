@@ -828,11 +828,9 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	_, err = erroringClient.CallContract(ctx, ethereum.CallMsg{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
-	// TODO-1663: test actual ChainID() call once client.go is deprecated.
-	id, err := erroringClient.ChainID()
+	id := erroringClient.ConfiguredChainID()
 	var expected *big.Int
 	require.Equal(t, id, expected)
-	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)

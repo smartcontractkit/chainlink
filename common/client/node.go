@@ -190,8 +190,6 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
-	n.stateMu.RLock()
-	defer n.stateMu.RUnlock()
 	return n.chainID
 }
 

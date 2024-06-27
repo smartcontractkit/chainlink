@@ -32,8 +32,6 @@ type Client interface {
 	Close()
 	// ChainID locally stored for quick access
 	ConfiguredChainID() *big.Int
-	// ChainID RPC call
-	ChainID() (*big.Int, error)
 
 	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
@@ -231,16 +229,6 @@ func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.Call
 	return rpc.PendingCallContract(ctx, msg)
 }
 
-// TODO-1663: change this to actual ChainID() call once client.go is deprecated.
-func (c *chainClient) ChainID() (*big.Int, error) {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Progagate context
-	return rpc.ChainID(context.Background())
-}
-
 func (c *chainClient) Close() {
 	_ = c.multiNode.Close()
 }
@@ -258,7 +246,7 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	return c.multiNode.Dial(ctx)
+	return c.multiNode.Start(ctx)
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
@@ -390,10 +378,7 @@ func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	if err != nil {
 		return nil, nil, err
 	}
-	chainID, err := c.ChainID()
-	if err != nil {
-		return nil, nil, err
-	}
+	chainID := c.ConfiguredChainID()
 	forwardCh, csf := newChainIDSubForwarder(chainID, ch)
 	err = csf.start(sub, err)
 	if err != nil {
