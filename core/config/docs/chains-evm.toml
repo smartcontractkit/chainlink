@@ -434,6 +434,8 @@ Order = 100 # Default
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 GasLimit = 5400000 # Default
+BlockRate = 1 # Default
+LogLimit = 2 # Default
 
 [EVM.Workflow]
 # FromAddress is Address of the transmitter key to use for workflow writes.
