@@ -16,10 +16,6 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
-      test-config-base64-override:
-        description: 'Custom base64 test config'
-        required: false
-        type: string        
       enable-check-test-configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
