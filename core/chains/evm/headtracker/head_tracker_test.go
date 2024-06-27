@@ -337,7 +337,6 @@ func TestHeadTracker_Start(t *testing.T) {
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewWithT(t)
 
 	db := pgtest.NewSqlxDB(t)
 	config := testutils.NewTestChainScopedConfig(t, nil)
@@ -367,7 +366,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	headers := <-chchHeaders
 	headers.TrySend(&evmtypes.Head{Number: 1, Hash: utils.NewHash(), EVMChainID: ubig.New(testutils.FixtureChainID)})
-	g.Eventually(checker.OnNewLongestChainCount).Should(gomega.Equal(int32(1)))
+	tests.AssertEventually(t, func() bool { return checker.OnNewLongestChainCount() == 1 })
 
 	ht.Stop(t)
 	assert.Equal(t, int32(1), checker.OnNewLongestChainCount())
