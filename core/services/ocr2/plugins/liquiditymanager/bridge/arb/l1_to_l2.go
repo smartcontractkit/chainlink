@@ -365,8 +365,9 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: []byte{}, // no finalization data, not ready
-				Stage:      bridgecommon.StageRebalanceConfirmed,
+				BridgeData:      []byte{}, // no finalization data, not ready
+				Stage:           bridgecommon.StageRebalanceConfirmed,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			Status: models.TransferStatusNotReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
@@ -386,8 +387,9 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: readyData[i], // finalization data since its ready
-				Stage:      bridgecommon.StageFinalizeReady,
+				BridgeData:      readyData[i], // finalization data since its ready
+				Stage:           bridgecommon.StageFinalizeReady,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			Status: models.TransferStatusReady, // ready == finalized for L1 -> L2 transfers due to auto-finalization by the native bridge
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),

@@ -496,8 +496,9 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: transfer.BridgeReturnData, // unique nonce from the OP Bridge Adapter
-				Stage:      bridgecommon.StageRebalanceConfirmed,
+				BridgeData:      transfer.BridgeReturnData, // unique nonce from the OP Bridge Adapter
+				Stage:           bridgecommon.StageRebalanceConfirmed,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			Status: models.TransferStatusNotReady,
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
@@ -517,8 +518,9 @@ func (l *l1ToL2Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: transfer.BridgeReturnData, // unique nonce from the OP Bridge Adapter
-				Stage:      bridgecommon.StageFinalizeReady,
+				BridgeData:      transfer.BridgeReturnData, // unique nonce from the OP Bridge Adapter
+				Stage:           bridgecommon.StageFinalizeReady,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			Status: models.TransferStatusReady, // ready == finalized for L1 -> L2 transfers due to auto-finalization by the native bridge
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),

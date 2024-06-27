@@ -215,6 +215,10 @@ func (l *l2ToL1Bridge) GetTransfers(
 	if len(missingSent) > 0 {
 		l.lggr.Errorw("missing sent logs", "missingSent", missingSent)
 	}
+	l.lggr.Infow("partitioned withdrawal transfers",
+		"needsToBeProven", needsToBeProven,
+		"needsToBeFinalized", needsToBeFinalized,
+	)
 
 	return l.toPendingTransfers(ctx, lggr, localToken, remoteToken, needsToBeProven, needsToBeFinalized, parsedToLp)
 }
@@ -382,8 +386,9 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: provePayload,
-				Stage:      bridgecommon.StageRebalanceConfirmed,
+				BridgeData:      provePayload,
+				Stage:           bridgecommon.StageRebalanceConfirmed,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			// Both "prove" and "finalize" are handled by the "finalizeWithdrawalERC20" call in the
 			// OptimismL1BridgeAdapter, therefore we set the status to "Ready"
@@ -409,8 +414,9 @@ func (l *l2ToL1Bridge) toPendingTransfers(
 					TxHash:   transfer.Raw.TxHash,
 					LogIndex: int64(transfer.Raw.Index),
 				}].BlockTimestamp,
-				BridgeData: finalizePayload,
-				Stage:      bridgecommon.StageFinalizeReady,
+				BridgeData:      finalizePayload,
+				Stage:           bridgecommon.StageFinalizeReady,
+				NativeBridgeFee: ubig.NewI(0),
 			},
 			Status: models.TransferStatusReady, // Ready to be finalized
 			ID:     fmt.Sprintf("%s-%d", transfer.Raw.TxHash.Hex(), transfer.Raw.Index),
