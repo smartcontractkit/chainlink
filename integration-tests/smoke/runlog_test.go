@@ -44,9 +44,6 @@ func TestRunLogBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 
-	//TODO remove me
-	require.True(t, false, "on-demand")
-
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
 

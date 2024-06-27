@@ -274,9 +274,7 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    # if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    # TODO remove me
-    if: false
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -389,12 +387,10 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3686d686da64f978179cda62b7040469fb4d7428 # v2.3.23
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@a8afe9cb511125685ce02bb8694298ca89685028 # v2.3.23
 
   eth-smoke-tests-matrix-log-poller:
-    # if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
-    # TODO remove me
-    if: false
+    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
     environment: integration
     permissions:
       checks: write
@@ -504,6 +500,11 @@ jobs:
           path: .covdata
           retention-days: 1
 
+      - name: Print failed test summary
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@a8afe9cb511125685ce02bb8694298ca89685028 # v2.3.23
+
+
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -533,60 +534,60 @@ jobs:
             nodes: 2
             os: ubuntu-latest
             pyroscope_env: "ci-smoke-cron-evm-simulated"
-#          - name: flux
-#            id: flux
-#            nodes: 1
-#            os: ubuntu-latest
-#            pyroscope_env: "ci-smoke-flux-evm-simulated"
-#          - name: ocr
-#            id: ocr
-#            nodes: 2
-#            os: ubuntu-latest
-#            file: ocr
-#            pyroscope_env: ci-smoke-ocr-evm-simulated
-#          - name: reorg_above_finality
-#            id: reorg_above_finality
-#            nodes: 1
-#            os: ubuntu-latest
-#            file: reorg_above_finality
-#            pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
-#          - name: ocr2
-#            id: ocr2
-#            nodes: 6
-#            os: ubuntu22.04-16cores-64GB
-#            file: ocr2
-#            pyroscope_env: ci-smoke-ocr2-evm-simulated
-#          - name: ocr2
-#            id: ocr2-plugins
-#            nodes: 6
-#            os: ubuntu22.04-16cores-64GB
-#            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
-#            tag_suffix: "-plugins"
-#          - name: vrf
-#            id: vrf
-#            nodes: 2
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-vrf-evm-simulated
-#          - name: vrfv2
-#            id: vrfv2
-#            nodes: 6
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-vrf2-evm-simulated
-#          - name: vrfv2plus
-#            id: vrfv2plus
-#            nodes: 9
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-#          - name: forwarder_ocr
-#            id: forwarder_ocr
-#            nodes: 2
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-#          - name: forwarders_ocr2
-#            id: forwarders_ocr2
-#            nodes: 2
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: flux
+            id: flux
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: "ci-smoke-flux-evm-simulated"
+          - name: ocr
+            id: ocr
+            nodes: 2
+            os: ubuntu-latest
+            file: ocr
+            pyroscope_env: ci-smoke-ocr-evm-simulated
+          - name: reorg_above_finality
+            id: reorg_above_finality
+            nodes: 1
+            os: ubuntu-latest
+            file: reorg_above_finality
+            pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
+          - name: ocr2
+            id: ocr2
+            nodes: 6
+            os: ubuntu22.04-16cores-64GB
+            file: ocr2
+            pyroscope_env: ci-smoke-ocr2-evm-simulated
+          - name: ocr2
+            id: ocr2-plugins
+            nodes: 6
+            os: ubuntu22.04-16cores-64GB
+            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
+            tag_suffix: "-plugins"
+          - name: vrf
+            id: vrf
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf-evm-simulated
+          - name: vrfv2
+            id: vrfv2
+            nodes: 6
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2-evm-simulated
+          - name: vrfv2plus
+            id: vrfv2plus
+            nodes: 9
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+          - name: forwarder_ocr
+            id: forwarder_ocr
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: forwarders_ocr2
+            id: forwarders_ocr2
+            nodes: 2
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
@@ -662,15 +663,18 @@ jobs:
             -v $PWD/../../integration-tests/smoke/traces:/tracing \
             --user "$(id -u):$(id -g)" \
             -p 4317:4317 otel/opentelemetry-collector:0.88.0 --config=/etc/otel-collector.yaml
+
       - name: Locate Docker Volume
         id: locate-volume
         if: false
         run: |
           echo "VOLUME_PATH=$(docker volume inspect --format '{{ .Mountpoint }}' otel-traces)" >> $GITHUB_OUTPUT
+
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         id: setup-gap
@@ -681,6 +685,7 @@ jobs:
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           # other inputs
           duplicate-authorization-header: "true"
+
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/setup-create-base64-config
         with:
@@ -699,6 +704,7 @@ jobs:
           grafanaUrl: "http://localhost:8080/primary"
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
@@ -747,23 +753,27 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
           should_tidy: "false"
+
       - name: Show Otel-Collector Logs
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           docker logs otel-collector
+
       - name: Permissions on traces
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         run: |
           ls -l ./integration-tests/smoke/traces
+
       - name: Upload Trace Data
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.product.tag_suffix == '-plugins'
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         with:
           name: trace-data
           path: ./integration-tests/smoke/traces/trace-data.json
+
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@0ff5b1182597d32c625a2baae3dc822e607f5e1c # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@a8afe9cb511125685ce02bb8694298ca89685028 # v2.3.23
         with:
           test_directory: ./integration-tests/smoke/
 
