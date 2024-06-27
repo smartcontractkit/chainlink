@@ -57,7 +57,9 @@ on:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN:
         required: true
       AWS_API_GW_HOST_GRAFANA:
-        required: true        
+        required: true
+      CUSTOM_SECRET:
+        required: false
                
 env: 
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
