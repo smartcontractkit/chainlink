@@ -355,9 +355,25 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			}}
 	}
 
+	e.wg.Add(1)
 	go func() {
-		for event := range eventsCh {
-			e.triggerEvents <- event
+		defer e.wg.Done()
+
+		for {
+			select {
+			case <-e.stopCh:
+				return
+			case event, isOpen := <-eventsCh:
+				if !isOpen {
+					return
+				}
+
+				select {
+				case <-e.stopCh:
+					return
+				case e.triggerEvents <- event:
+				}
+			}
 		}
 	}()
 
