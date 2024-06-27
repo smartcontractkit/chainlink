@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -48,8 +49,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
 			defer leaseLock2.Release()
-			err := leaseLock2.TakeAndHold(testutils.Context(t))
-			require.NoError(t, err)
+			require.NoError(t, leaseLock2.TakeAndHold(testutils.Context(t)))
 			close(started2)
 		}()
 

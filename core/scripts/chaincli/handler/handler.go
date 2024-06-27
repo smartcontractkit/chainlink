@@ -106,24 +106,30 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	nodeClient := ethclient.NewClient(rpcClient)
 
 	// Parse private key
-	d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
-	pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-	privateKey := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: crypto.S256(),
-			X:     pkX,
-			Y:     pkY,
-		},
-		D: d,
-	}
+	var fromAddr common.Address
+	var privateKey *ecdsa.PrivateKey
+	if cfg.PrivateKey != "" {
+		d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
+		pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
+		privateKey = &ecdsa.PrivateKey{
+			PublicKey: ecdsa.PublicKey{
+				Curve: crypto.S256(),
+				X:     pkX,
+				Y:     pkY,
+			},
+			D: d,
+		}
 
-	// Init from address
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
+		// Init from address
+		publicKey := privateKey.Public()
+		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+		if !ok {
+			log.Fatal("error casting public key to ECDSA")
+		}
+		fromAddr = crypto.PubkeyToAddress(*publicKeyECDSA)
+	} else {
+		log.Println("WARNING: no PRIVATE_KEY set: cannot use commands that deploy contracts or send transactions")
 	}
-	fromAddr := crypto.PubkeyToAddress(*publicKeyECDSA)
 
 	// Create link token wrapper
 	linkToken, err := link.NewLinkToken(common.HexToAddress(cfg.LinkTokenAddr), nodeClient)

@@ -32,7 +32,7 @@ runs:
   steps:
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -40,7 +40,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}
@@ -48,7 +48,7 @@ runs:
         file: ./integration-tests/test.Dockerfile
         build-args: |
           BASE_IMAGE=${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/test-base-image
-          IMAGE_VERSION=v0.32.9
+          IMAGE_VERSION=v0.38.2
           SUITES="${{ inputs.suites }}"
         AWS_REGION: ${{ inputs.QA_AWS_REGION }}
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}

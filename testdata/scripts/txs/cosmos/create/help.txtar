@@ -3,7 +3,7 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink txs cosmos create - Send <amount> Atom from node Cosmos account <fromAddress> to destination <toAddress>.
+   chainlink txs cosmos create - Send <amount> of <token> from node Cosmos account <fromAddress> to destination <toAddress>.
 
 USAGE:
    chainlink txs cosmos create [command options] [arguments...]

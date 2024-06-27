@@ -2,7 +2,7 @@
 
 # Runs tests for a specific product
 
-set -ex
+set -x
 
 # get this scripts directory
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -16,6 +16,16 @@ cd "$SCRIPT_DIR"/../ || exit 1
 
 # run the tests
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+
+exit_code=$?
+
+echo "Test exit code: ${exit_code}"
+
+# 3 is the code for an interrupted test, we only want to restart the test when the test is interrupted and in a state 
+# that it can recover from. Otherwise we mark the test as "passed" as far as K8s is concerned so it doesn't restart it.
+if [ $exit_code -eq 3 ]; then
+  exit 1  # Exiting with non-zero status to trigger pod restart
+fi
 
 # Sleep for the amount of time provided by the POST_RUN_SLEEP env var
 upload_to_slack() {

@@ -36,6 +36,7 @@ compileContract tests/VRFCoordinatorMock.sol
 
 # Keeper/Automation
 compileContract KeeperRegistry1_1.sol
+compileContract KeeperRegistry1_1Mock.sol
 compileContract UpkeepRegistrationRequests.sol
 compileContract tests/UpkeepPerformCounterRestrictive.sol
 compileContract tests/UpkeepCounter.sol

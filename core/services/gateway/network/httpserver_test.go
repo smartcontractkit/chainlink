@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -73,4 +74,16 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 
 	resp := sendRequest(t, url, []byte("0123456789"))
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestHTTPServer_HandleHealthCheck(t *testing.T) {
+	server, _, url := startNewServer(t, 100_000, 100_000)
+	defer server.Close()
+
+	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
+	resp := sendRequest(t, url, []byte{})
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
 }

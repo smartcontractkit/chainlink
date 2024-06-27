@@ -235,6 +235,21 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		assert.NoError(t, err) // errors just logged
 		assert.False(t, should)
 	})
+
+	t.Run("don't save expired", func(t *testing.T) {
+		ormRows := make([]*s4_svc.Row, 0)
+		rows := generateTestRows(t, 2, -time.Minute)
+
+		report, err := proto.Marshal(&s4.Rows{
+			Rows: rows,
+		})
+		assert.NoError(t, err)
+
+		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		assert.NoError(t, err)
+		assert.False(t, should)
+		assert.Equal(t, 0, len(ormRows))
+	})
 }
 
 func TestPlugin_Query(t *testing.T) {
@@ -345,7 +360,7 @@ func TestPlugin_Observation(t *testing.T) {
 		ormRows := generateTestOrmRows(t, int(config.MaxObservationEntries), time.Minute)
 		snapshot := make([]*s4_svc.SnapshotRow, len(ormRows))
 		for i, or := range ormRows {
-			or.Confirmed = i < numUnconfirmed
+			or.Confirmed = i < numUnconfirmed // First half are confirmed
 			or.Version = uint64(i)
 			snapshot[i] = &s4_svc.SnapshotRow{
 				Address:   or.Address,
@@ -355,21 +370,23 @@ func TestPlugin_Observation(t *testing.T) {
 			}
 		}
 		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
-		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[:numUnconfirmed], nil).Once()
+		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return(ormRows[numUnconfirmed:], nil).Once()
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
 
 		snapshotRows := rowsToShapshotRows(ormRows)
 		query := &s4.Query{
 			Rows: make([]*s4.SnapshotRow, len(snapshotRows)),
 		}
+		numHigherVersion := 2
 		for i, v := range snapshotRows {
 			query.Rows[i] = &s4.SnapshotRow{
 				Address: v.Address.Bytes(),
 				Slotid:  uint32(v.SlotId),
 				Version: v.Version,
 			}
-			if i < 5 {
+			if i < numHigherVersion {
 				ormRows[i].Version++
+				snapshot[i].Version++
 				orm.On("Get", v.Address, v.SlotId, mock.Anything).Return(ormRows[i], nil).Once()
 			}
 		}
@@ -382,11 +399,66 @@ func TestPlugin_Observation(t *testing.T) {
 		rows := &s4.Rows{}
 		err = proto.Unmarshal(observation, rows)
 		assert.NoError(t, err)
-		assert.Len(t, rows.Rows, int(config.MaxObservationEntries))
+		assert.Len(t, rows.Rows, numUnconfirmed+numHigherVersion)
 
 		for i := 0; i < numUnconfirmed; i++ {
-			assert.Equal(t, ormRows[i].Version, rows.Rows[i].Version)
+			assert.Equal(t, ormRows[numUnconfirmed+i].Version, rows.Rows[i].Version)
 		}
+		for i := 0; i < numHigherVersion; i++ {
+			assert.Equal(t, ormRows[i].Version, rows.Rows[numUnconfirmed+i].Version)
+		}
+	})
+
+	t.Run("missing from query", func(t *testing.T) {
+		vLow, vHigh := uint64(2), uint64(5)
+		ormRows := generateTestOrmRows(t, 3, time.Minute)
+		// Follower node has 3 confirmed entries with latest versions.
+		snapshot := make([]*s4_svc.SnapshotRow, len(ormRows))
+		for i, or := range ormRows {
+			or.Confirmed = true
+			or.Version = vHigh
+			snapshot[i] = &s4_svc.SnapshotRow{
+				Address:   or.Address,
+				SlotId:    or.SlotId,
+				Version:   or.Version,
+				Confirmed: or.Confirmed,
+			}
+		}
+
+		// Query snapshot has:
+		//   - First entry with same version
+		//	 - Second entry with lower version
+		//   - Third entry missing
+		query := &s4.Query{
+			Rows: []*s4.SnapshotRow{
+				&s4.SnapshotRow{
+					Address: snapshot[0].Address.Bytes(),
+					Slotid:  uint32(snapshot[0].SlotId),
+					Version: vHigh,
+				},
+				&s4.SnapshotRow{
+					Address: snapshot[1].Address.Bytes(),
+					Slotid:  uint32(snapshot[1].SlotId),
+					Version: vLow,
+				},
+			},
+		}
+		queryBytes, err := proto.Marshal(query)
+		assert.NoError(t, err)
+
+		orm.On("DeleteExpired", uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
+		orm.On("GetUnconfirmedRows", config.MaxObservationEntries, mock.Anything).Return([]*s4_svc.Row{}, nil).Once()
+		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(snapshot, nil).Once()
+		orm.On("Get", snapshot[1].Address, snapshot[1].SlotId, mock.Anything).Return(ormRows[1], nil).Once()
+		orm.On("Get", snapshot[2].Address, snapshot[2].SlotId, mock.Anything).Return(ormRows[2], nil).Once()
+
+		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, queryBytes)
+		assert.NoError(t, err)
+
+		rows := &s4.Rows{}
+		err = proto.Unmarshal(observation, rows)
+		assert.NoError(t, err)
+		assert.Len(t, rows.Rows, 2)
 	})
 }
 
@@ -419,4 +491,15 @@ func TestPlugin_Report(t *testing.T) {
 	err = proto.Unmarshal(report, reportRows)
 	assert.NoError(t, err)
 	assert.Len(t, reportRows.Rows, 10)
+
+	ok2, report2, err2 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, nil, aos)
+	assert.NoError(t, err2)
+	assert.True(t, ok2)
+
+	reportRows2 := &s4.Rows{}
+	err = proto.Unmarshal(report2, reportRows2)
+	assert.NoError(t, err)
+
+	// Verify that the same report was produced
+	assert.Equal(t, reportRows, reportRows2)
 }

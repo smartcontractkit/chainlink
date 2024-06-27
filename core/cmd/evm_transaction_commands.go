@@ -133,7 +133,7 @@ func (s *Shell) ShowTransaction(c *cli.Context) (err error) {
 // SendEther transfers ETH from the node's account to a specified address.
 func (s *Shell) SendEther(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("the following arguments expected: (chain) id (in multi-chain setup), amount, fromAddress and toAddress"))
 	}
 
 	var amount assets.Eth

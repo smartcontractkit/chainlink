@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+
 	"github.com/gorilla/websocket"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -59,6 +61,16 @@ type gatewayConnector struct {
 	lggr        logger.Logger
 }
 
+func (c *gatewayConnector) HealthReport() map[string]error {
+	m := map[string]error{c.Name(): c.Healthy()}
+	for _, g := range c.gateways {
+		services.CopyHealth(m, g.conn.HealthReport())
+	}
+	return m
+}
+
+func (c *gatewayConnector) Name() string { return c.lggr.Name() }
+
 type gatewayState struct {
 	conn     network.WSConnectionWrapper
 	config   ConnectorGatewayConfig
@@ -67,7 +79,7 @@ type gatewayState struct {
 }
 
 func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
-	if signer == nil || handler == nil || clock == nil {
+	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
 	if len(config.DonId) == 0 || len(config.DonId) > int(network.HandshakeDonIdLen) {
@@ -85,7 +97,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 		signer:      signer,
 		handler:     handler,
 		shutdownCh:  make(chan struct{}),
-		lggr:        lggr,
+		lggr:        lggr.Named("GatewayConnector"),
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
@@ -102,7 +114,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 			return nil, err
 		}
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(),
+			conn:     network.NewWSConnectionWrapper(lggr),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -189,7 +201,7 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		}
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
-			if err := gatewayState.conn.Start(); err != nil {
+			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
 			}
 			c.closeWait.Add(2)

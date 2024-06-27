@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func init() {
-	goose.AddMigration(Up36, Down36)
+	goose.AddMigrationContext(Up36, Down36)
 }
 
 const (
@@ -35,9 +36,9 @@ const (
 )
 
 // nolint
-func Up36(tx *sql.Tx) error {
+func Up36(ctx context.Context, tx *sql.Tx) error {
 	// Add the external ID column and remove type specific ones.
-	if _, err := tx.Exec(up36_1); err != nil {
+	if _, err := tx.ExecContext(ctx, up36_1); err != nil {
 		return err
 	}
 
@@ -45,7 +46,7 @@ func Up36(tx *sql.Tx) error {
 	// We do this to avoid using the uuid postgres extension.
 	var jobIDs []int32
 	txx := sqlx.NewTx(tx, "postgres")
-	if err := txx.Select(&jobIDs, "SELECT id FROM jobs"); err != nil {
+	if err := txx.SelectContext(ctx, &jobIDs, "SELECT id FROM jobs"); err != nil {
 		return err
 	}
 	if len(jobIDs) != 0 {
@@ -58,22 +59,22 @@ func Up36(tx *sql.Tx) error {
 			}
 		}
 		stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
-		if _, err := tx.Exec(stmt); err != nil {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return err
 
 		}
 	}
 
 	// Add constraints on the external_job_id.
-	if _, err := tx.Exec(up36_2); err != nil {
+	if _, err := tx.ExecContext(ctx, up36_2); err != nil {
 		return err
 	}
 	return nil
 }
 
 // nolint
-func Down36(tx *sql.Tx) error {
-	if _, err := tx.Exec(down36); err != nil {
+func Down36(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, down36); err != nil {
 		return err
 	}
 	return nil

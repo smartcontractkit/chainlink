@@ -4,8 +4,8 @@ pragma solidity ^0.8.4;
 
 import "../../shared/access/ConfirmedOwner.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+import "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title The ERC20BalanceMonitor contract.

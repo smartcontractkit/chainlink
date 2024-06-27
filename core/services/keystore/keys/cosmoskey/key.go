@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/types"
 )
 
 var secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
@@ -78,10 +77,8 @@ func (key Key) PublicKey() (pubKey cryptotypes.PubKey) {
 	return key.k.PubKey()
 }
 
-// PublicKeyStr returns the cosmos address of the public key
 func (key Key) PublicKeyStr() string {
-	addr := types.AccAddress(key.k.PubKey().Address())
-	return addr.String()
+	return fmt.Sprintf("%X", key.k.PubKey().Bytes())
 }
 
 func (key Key) Raw() Raw {

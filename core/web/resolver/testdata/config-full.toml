@@ -1,4 +1,3 @@
-ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
@@ -36,13 +35,19 @@ LeaseRefreshInterval = '1s'
 [TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
+
+[[TelemetryIngress.Endpoints]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'endpoint-1.test'
+ServerPubKey = 'test-pub-key-1'
 
 [AuditLogger]
 Enabled = true
@@ -208,6 +213,16 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
+[Tracing]
+Enabled = false
+CollectorTarget = 'localhost:4317'
+NodeID = 'NodeID'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false
@@ -290,6 +305,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -319,11 +335,12 @@ SendOnly = true
 [[Cosmos]]
 ChainID = 'Malaga-420'
 Enabled = true
+Bech32Prefix = 'wasm'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FCDURL = 'http://cosmos.com'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'

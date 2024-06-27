@@ -51,6 +51,7 @@ func CreateAndStartBHSJob(
 	app *cltest.TestApplication,
 	bhsAddress, coordinatorV1Address, coordinatorV2Address, coordinatorV2PlusAddress string,
 	trustedBlockhashStoreAddress string, trustedBlockhashStoreBatchSize int32, lookback int,
+	heartbeatPeriod time.Duration, waitBlocks int,
 ) job.Job {
 	jid := uuid.New()
 	s := testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{
@@ -59,8 +60,9 @@ func CreateAndStartBHSJob(
 		CoordinatorV1Address:           coordinatorV1Address,
 		CoordinatorV2Address:           coordinatorV2Address,
 		CoordinatorV2PlusAddress:       coordinatorV2PlusAddress,
-		WaitBlocks:                     100,
+		WaitBlocks:                     waitBlocks,
 		LookbackBlocks:                 lookback,
+		HeartbeatPeriod:                heartbeatPeriod,
 		BlockhashStoreAddress:          bhsAddress,
 		TrustedBlockhashStoreAddress:   trustedBlockhashStoreAddress,
 		TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,

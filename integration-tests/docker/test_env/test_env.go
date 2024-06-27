@@ -1,30 +1,37 @@
 package test_env
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"math/big"
-	"sync"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	tc "github.com/testcontainers/testcontainers-go"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	tc "github.com/testcontainers/testcontainers-go"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
-	ErrFundCLNode     = "failed to fund CL node"
-	ErrGetNodeCSAKeys = "failed get CL node CSA keys"
+	ErrFundCLNode = "failed to fund CL node"
 )
 
 type CLClusterTestEnv struct {
@@ -33,66 +40,87 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	CLNodes          []*ClNode
-	Geth             *Geth                       // for tests using --dev networks
-	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
-	MockServer       *MockServer
+	ClCluster        *ClCluster
+	Geth             *test_env.Geth          // for tests using --dev networks
+	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
+	MockAdapter      *test_env.Killgrave
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
+	l                zerolog.Logger
+	t                *testing.T
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
 	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
+	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err
 	}
-	networks := []string{network.Name}
+	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Network:    network,
-		Geth:       NewGeth(networks),
-		MockServer: NewMockServer(networks),
+		Geth:        test_env.NewGeth(n),
+		MockAdapter: test_env.NewKillgrave(n, ""),
+		Network:     network,
+		l:           log.Logger,
 	}, nil
 }
 
-func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
-	if err != nil {
-		return nil, err
-	}
-	networks := []string{network.Name}
-	log.Info().Interface("Cfg", cfg).Send()
-	return &CLClusterTestEnv{
-		Cfg:        cfg,
-		Network:    network,
-		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
-	}, nil
+// WithTestEnvConfig sets the test environment cfg.
+// Sets up the Geth and MockAdapter containers with the provided cfg.
+func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
+	te.Cfg = cfg
+	n := []string{te.Network.Name}
+	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
+	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+	return te
+}
+
+func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
+	te.t = t
+	te.l = logging.GetTestLogger(t)
+	te.Geth.WithTestLogger(t)
+	te.MockAdapter.WithTestLogger(t)
+	return te
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
-	var chains []test_env.PrivateGethChain
+func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+	var chains []test_env.PrivateChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{m.Network.Name}))
+		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		if te.t != nil {
+			pgc.GetPrimaryNode().WithTestLogger(te.t)
+		}
+		chains = append(chains, pgc)
+		var privateChain test_env.PrivateChain
+		switch n.SimulationType {
+		case "besu":
+			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.Network.Name})
+		default:
+			privateChain = test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		}
+		chains = append(chains, privateChain)
 	}
-	m.PrivateGethChain = chains
-	return m
+	te.PrivateChain = chains
+	return te
 }
 
-func (m *CLClusterTestEnv) StartPrivateGethChain() error {
-	for _, chain := range m.PrivateGethChain {
-		err := chain.PrimaryNode.Start()
+func (te *CLClusterTestEnv) StartPrivateChain() error {
+	for _, chain := range te.PrivateChain {
+		primaryNode := chain.GetPrimaryNode()
+		if primaryNode == nil {
+			return errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
+		}
+		err := primaryNode.Start()
 		if err != nil {
 			return err
 		}
-		err = chain.PrimaryNode.ConnectToClient()
+		err = primaryNode.ConnectToClient()
 		if err != nil {
 			return err
 		}
@@ -100,80 +128,41 @@ func (m *CLClusterTestEnv) StartPrivateGethChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartMockServer() error {
-	return te.MockServer.StartContainer()
+func (te *CLClusterTestEnv) StartMockAdapter() error {
+	return te.MockAdapter.StartContainer()
 }
 
-func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
-	clients := make([]*client.ChainlinkClient, 0)
-	for _, c := range te.CLNodes {
-		clients = append(clients, c.API)
-	}
-	return clients
-}
-
-// StartClNodes start one bootstrap node and {count} OCR nodes
-func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
-	var wg sync.WaitGroup
-	var errs = []error{}
-	var mu sync.Mutex
-
-	// Start nodes
-	for i := 0; i < count; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			var nodeContainerName, dbContainerName string
-			if te.Cfg != nil {
-				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = te.Cfg.Nodes[i].DbContainerName
-			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig,
-				WithNodeContainerName(nodeContainerName),
-				WithDbContainerName(dbContainerName),
+func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
+	if te.Cfg != nil && te.Cfg.ClCluster != nil {
+		te.ClCluster = te.Cfg.ClCluster
+	} else {
+		te.ClCluster = &ClCluster{}
+		for i := 0; i < count; i++ {
+			ocrNode := NewClNode([]string{te.Network.Name}, nodeConfig,
+				WithSecrets(secretsConfig),
 			)
-			err := n.StartContainer()
-			if err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-			} else {
-				mu.Lock()
-				te.CLNodes = append(te.CLNodes, n)
-				mu.Unlock()
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return multierr.Combine(errs...)
-	}
-	return nil
-}
-
-// ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
-	addresses := make([]common.Address, 0)
-	for _, n := range te.CLNodes {
-		primaryAddress, err := n.ChainlinkNodeAddress()
-		if err != nil {
-			return nil, err
+			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)
 		}
-		addresses = append(addresses, primaryAddress)
 	}
-	return addresses, nil
+
+	// Set test logger
+	if te.t != nil {
+		for _, n := range te.ClCluster.Nodes {
+			n.SetTestLogger(te.t)
+		}
+	}
+
+	// Start/attach node containers
+	return te.ClCluster.Start()
 }
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
-	for _, cl := range te.CLNodes {
+	for _, cl := range te.ClCluster.Nodes {
 		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
@@ -181,20 +170,115 @@ func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	return te.EVMClient.WaitForEvents()
 }
 
-func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
-	var keys []string
-	for _, n := range te.CLNodes {
-		csaKeys, err := n.GetNodeCSAKeys()
-		if err != nil {
-			return nil, errors.Wrap(err, ErrGetNodeCSAKeys)
-		}
-		keys = append(keys, csaKeys.Data[0].ID)
-	}
-	return keys, nil
+func (te *CLClusterTestEnv) Terminate() error {
+	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
+	// the containers and the Network
+	return nil
 }
 
-func (te *CLClusterTestEnv) Terminate() error {
-	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
-	// the containers and the Network
+// Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
+func (te *CLClusterTestEnv) Cleanup() error {
+	te.l.Info().Msg("Cleaning up test environment")
+	if te.t == nil {
+		return errors.New("cannot cleanup test environment without a testing.T")
+	}
+	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
+		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
+	}
+
+	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
+	// Collect logs if the test fails, or if we just want them
+	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+		if err := te.collectTestLogs(); err != nil {
+			return err
+		}
+	}
+
+	if te.EVMClient == nil {
+		return errors.New("evm client is nil, unable to return funds from chainlink nodes during cleanup")
+	} else if te.EVMClient.NetworkSimulated() {
+		te.l.Info().
+			Str("Network Name", te.EVMClient.GetNetworkName()).
+			Msg("Network is a simulated network. Skipping fund return.")
+	} else {
+		if err := te.returnFunds(); err != nil {
+			return err
+		}
+	}
+
+	// close EVMClient connections
+	if te.EVMClient != nil {
+		err := te.EVMClient.Close()
+		return err
+	}
+
+	return nil
+}
+
+// collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
+func (te *CLClusterTestEnv) collectTestLogs() error {
+	te.l.Info().Msg("Collecting test logs")
+	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		return err
+	}
+
+	eg := &errgroup.Group{}
+	for _, n := range te.ClCluster.Nodes {
+		node := n
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			defer logFile.Close()
+			logReader, err := node.Container.Logs(context.Background())
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	return nil
+}
+
+func (te *CLClusterTestEnv) returnFunds() error {
+	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	for _, chainlinkNode := range te.ClCluster.Nodes {
+		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
+			if err != nil {
+				return err
+			}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+				// If we fail to return funds from one, go on to try the others anyway
+				te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
+			}
+		}
+	}
+
+	te.l.Info().Msg("Returned funds from Chainlink nodes")
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"maps"
 	"math/rand"
 	"testing"
 	"time"
@@ -26,7 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 )
 
 // Disclaimer: this is not a true integration test, it's more of a S4 feature test, on purpose.

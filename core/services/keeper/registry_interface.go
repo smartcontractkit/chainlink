@@ -185,9 +185,9 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(opts *bind.CallOpts) ([]*big.Int, 
 	}
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
-		cancelledUpkeeps, err := rw.contract1_1.GetCanceledUpkeepList(opts)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get cancelled upkeeps")
+		cancelledUpkeeps, err2 := rw.contract1_1.GetCanceledUpkeepList(opts)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "failed to get cancelled upkeeps")
 		}
 		cancelledSet := make(map[int64]bool)
 		for _, upkeepID := range cancelledUpkeeps {

@@ -33,6 +33,8 @@ type Event struct {
 }
 
 // BHS defines an interface for interacting with a BlockhashStore contract.
+//
+//go:generate mockery --quiet --name BHS --output ./mocks/ --case=underscore
 type BHS interface {
 	// Store the hash associated with blockNum.
 	Store(ctx context.Context, blockNum uint64) error

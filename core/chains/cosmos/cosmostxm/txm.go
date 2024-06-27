@@ -1,14 +1,16 @@
 package cosmostxm
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -25,10 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -40,32 +41,33 @@ var (
 
 // Txm manages transactions for the cosmos blockchain.
 type Txm struct {
-	starter    utils.StartStopOnce
-	eb         pg.EventBroadcaster
-	sub        pg.Subscription
-	orm        *ORM
-	lggr       logger.Logger
-	tc         func() (cosmosclient.ReaderWriter, error)
-	ks         keystore.Cosmos
-	stop, done chan struct{}
-	cfg        coscfg.Config
-	gpe        cosmosclient.ComposedGasPriceEstimator
+	starter         utils.StartStopOnce
+	eb              pg.EventBroadcaster
+	sub             pg.Subscription
+	orm             *ORM
+	lggr            logger.Logger
+	tc              func() (cosmosclient.ReaderWriter, error)
+	keystoreAdapter *KeystoreAdapter
+	stop, done      chan struct{}
+	cfg             coscfg.Config
+	gpe             cosmosclient.ComposedGasPriceEstimator
 }
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
-func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
+func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks loop.Keystore, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = logger.Named(lggr, "Txm")
+	keystoreAdapter := NewKeystoreAdapter(ks, cfg.Bech32Prefix())
 	return &Txm{
-		starter: utils.StartStopOnce{},
-		eb:      eb,
-		orm:     NewORM(chainID, db, lggr, logCfg),
-		ks:      ks,
-		tc:      tc,
-		lggr:    lggr,
-		stop:    make(chan struct{}),
-		done:    make(chan struct{}),
-		cfg:     cfg,
-		gpe:     gpe,
+		starter:         utils.StartStopOnce{},
+		eb:              eb,
+		orm:             NewORM(chainID, db, lggr, logCfg),
+		lggr:            lggr,
+		tc:              tc,
+		keystoreAdapter: keystoreAdapter,
+		stop:            make(chan struct{}),
+		done:            make(chan struct{}),
+		cfg:             cfg,
+		gpe:             gpe,
 	}
 }
 
@@ -176,12 +178,15 @@ func (e *msgValidator) add(msg adapters.Msg) {
 }
 
 func (e *msgValidator) sortValid() {
-	slices.SortFunc(e.valid, func(a, b adapters.Msg) bool {
+	slices.SortFunc(e.valid, func(a, b adapters.Msg) int {
 		ac, bc := a.CreatedAt, b.CreatedAt
 		if ac.Equal(bc) {
-			return a.ID < b.ID
+			return cmp.Compare(a.ID, b.ID)
 		}
-		return ac.Before(bc)
+		if ac.After(bc) {
+			return 1
+		}
+		return -1 // ac.Before(bc)
 	})
 }
 
@@ -259,14 +264,11 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	}
 	for s, msgs := range msgsByFrom {
 		sender, _ := sdk.AccAddressFromBech32(s) // Already checked validity above
-		key, err := txm.ks.Get(sender.String())
+		err := txm.sendMsgBatchFromAddress(ctx, gasPrice, sender, msgs)
 		if err != nil {
-			txm.lggr.Errorw("unable to find key for from address", "err", err, "from", sender.String())
-			// We check the transmitter key exists when the job is added. So it would have to be deleted
-			// after it was added for this to happen. Retry on next poll should the key be re-added.
+			txm.lggr.Errorw("Could not send message batch", "err", err, "from", sender.String())
 			continue
 		}
-		txm.sendMsgBatchFromAddress(ctx, gasPrice, sender, key, msgs)
 		if ctx.Err() != nil {
 			return
 		}
@@ -274,18 +276,18 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 
 }
 
-func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key cosmoskey.Key, msgs adapters.Msgs) {
+func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, msgs adapters.Msgs) error {
 	tc, err := txm.tc()
 	if err != nil {
 		logger.Criticalw(txm.lggr, "unable to get client", "err", err)
-		return
+		return err
 	}
 	an, sn, err := tc.Account(sender)
 	if err != nil {
 		txm.lggr.Warnw("unable to read account", "err", err, "from", sender.String())
 		// If we can't read the account, assume transient api issues and leave msgs unstarted
 		// to retry on next poll.
-		return
+		return err
 	}
 
 	txm.lggr.Debugw("simulating batch", "from", sender, "msgs", msgs, "seqnum", sn)
@@ -296,27 +298,27 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 		// Note one rare scenario in which this can happen: the cosmos node misbehaves
 		// in that it confirms a txhash is present but still gives an old seq num.
 		// This is benign as the next retry will succeeds.
-		return
+		return err
 	}
 	txm.lggr.Debugw("simulation results", "from", sender, "succeeded", simResults.Succeeded, "failed", simResults.Failed)
 	err = txm.orm.UpdateMsgs(simResults.Failed.GetSimMsgsIDs(), db.Errored, nil)
 	if err != nil {
 		txm.lggr.Errorw("unable to mark failed sim txes as errored", "err", err, "from", sender.String())
 		// If we can't mark them as failed retry on next poll. Presumably same ones will fail.
-		return
+		return err
 	}
 
 	// Continue if there are no successful txes
 	if len(simResults.Succeeded) == 0 {
 		txm.lggr.Warnw("all sim msgs errored, not sending tx", "from", sender.String())
-		return
+		return errors.New("all sim msgs errored")
 	}
 	// Get the gas limit for the successful batch
 	s, err := tc.SimulateUnsigned(simResults.Succeeded.GetMsgs(), sn)
 	if err != nil {
 		// In the OCR context this should only happen upon stale report
 		txm.lggr.Warnw("unexpected failure after successful simulation", "err", err)
-		return
+		return err
 	}
 	gasLimit := s.GasInfo.GasUsed
 
@@ -324,14 +326,20 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 	if err != nil {
 		txm.lggr.Warnw("unable to get latest block", "err", err, "from", sender.String())
 		// Assume transient api issue and retry.
-		return
+		return err
 	}
-	timeoutHeight := uint64(lb.Block.Header.Height) + uint64(txm.cfg.BlocksUntilTxTimeout())
+	header, timeout := lb.SdkBlock.Header.Height, txm.cfg.BlocksUntilTxTimeout()
+	if header < 0 {
+		return fmt.Errorf("invalid negative header height: %d", header)
+	} else if timeout < 0 {
+		return fmt.Errorf("invalid negative blocks until tx timeout: %d", timeout)
+	}
+	timeoutHeight := uint64(header) + uint64(timeout)
 	signedTx, err := tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
-		gasPrice, NewKeyWrapper(key), timeoutHeight)
+		gasPrice, NewKeyWrapper(txm.keystoreAdapter, sender.String()), timeoutHeight)
 	if err != nil {
 		txm.lggr.Errorw("unable to sign tx", "err", err, "from", sender.String())
-		return
+		return err
 	}
 
 	// We need to ensure that we either broadcast successfully and mark the tx as
@@ -367,14 +375,16 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 	if err != nil {
 		txm.lggr.Errorw("error broadcasting tx", "err", err, "from", sender.String())
 		// Was unable to broadcast, retry on next poll
-		return
+		return err
 	}
 
 	maxPolls, pollPeriod := txm.confirmPollConfig()
 	if err := txm.confirmTx(ctx, tc, resp.TxResponse.TxHash, simResults.Succeeded.GetSimMsgsIDs(), maxPolls, pollPeriod); err != nil {
 		txm.lggr.Errorw("error confirming tx", "err", err, "hash", resp.TxResponse.TxHash)
-		return
+		return err
 	}
+
+	return nil
 }
 
 func (txm *Txm) confirmPollConfig() (maxPolls int, pollPeriod time.Duration) {
@@ -498,12 +508,12 @@ func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 	return txm.orm.GetMsgs(ids...)
 }
 
-// GasPrice returns the gas price from the estimator in uatom.
+// GasPrice returns the gas price from the estimator in the configured fee token.
 func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices["uatom"]
+	gasPrice, ok := prices[txm.cfg.GasToken()]
 	if !ok {
-		return sdk.DecCoin{}, errors.New("unexpected empty uatom price")
+		return sdk.DecCoin{}, errors.New("unexpected empty gas price")
 	}
 	return gasPrice, nil
 }

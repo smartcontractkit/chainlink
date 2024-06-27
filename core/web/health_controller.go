@@ -5,7 +5,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -13,6 +12,11 @@ import (
 type HealthController struct {
 	App chainlink.Application
 }
+
+const (
+	HealthStatusPassing = "passing"
+	HealthStatusFailing = "failing"
+)
 
 // NOTE: We only implement the k8s readiness check, *not* the liveness check. Liveness checks are only recommended in cases
 // where the app doesn't crash itself on panic, and if implemented incorrectly can cause cascading failures.
@@ -38,11 +42,11 @@ func (hc *HealthController) Readyz(c *gin.Context) {
 	checks := make([]presenters.Check, 0, len(errors))
 
 	for name, err := range errors {
-		status := services.StatusPassing
+		status := HealthStatusPassing
 		var output string
 
 		if err != nil {
-			status = services.StatusFailing
+			status = HealthStatusFailing
 			output = err.Error()
 		}
 
@@ -74,11 +78,11 @@ func (hc *HealthController) Health(c *gin.Context) {
 	checks := make([]presenters.Check, 0, len(errors))
 
 	for name, err := range errors {
-		status := services.StatusPassing
+		status := HealthStatusPassing
 		var output string
 
 		if err != nil {
-			status = services.StatusFailing
+			status = HealthStatusFailing
 			output = err.Error()
 		}
 

@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {Common} from "../../libraries/Common.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
 import {IVerifierFeeManager} from "./IVerifierFeeManager.sol";
 
 interface IVerifierProxy {
@@ -10,10 +10,27 @@ interface IVerifierProxy {
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier, and bills the user if applicable.
    * @param payload The encoded data to be verified, including the signed
-   * report and any metadata for billing.
-   * @return verifiedReport The encoded report from the verifier.
+   * report.
+   * @param parameterPayload fee metadata for billing
+   * @return verifierResponse The encoded report from the verifier.
    */
-  function verify(bytes calldata payload) external payable returns (bytes memory verifiedReport);
+  function verify(
+    bytes calldata payload,
+    bytes calldata parameterPayload
+  ) external payable returns (bytes memory verifierResponse);
+
+  /**
+   * @notice Bulk verifies that the data encoded has been signed
+   * correctly by routing to the correct verifier, and bills the user if applicable.
+   * @param payloads The encoded payloads to be verified, including the signed
+   * report.
+   * @param parameterPayload fee metadata for billing
+   * @return verifiedReports The encoded reports from the verifier.
+   */
+  function verifyBulk(
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload
+  ) external payable returns (bytes[] memory verifiedReports);
 
   /**
    * @notice Sets the verifier address initially, allowing `setVerifier` to be set by this Verifier in the future

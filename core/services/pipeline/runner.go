@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -37,7 +38,7 @@ type Runner interface {
 
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
-	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run *Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
 	InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
@@ -55,7 +56,7 @@ type runner struct {
 	btORM                  bridges.ORM
 	config                 Config
 	bridgeConfig           BridgeConfig
-	chainSet               evm.ChainSet
+	legacyEVMChains        evm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        utils.SleeperTask
@@ -97,17 +98,17 @@ var (
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"job_id", "job_name", "task_id", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_id", "task_type", "bridge_name", "status"},
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains evm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
-		chainSet:               chainSet,
+		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
 		chStop:                 make(chan struct{}),
@@ -195,8 +196,8 @@ func (err ErrRunPanicked) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
-func NewRun(spec Spec, vars Vars) Run {
-	return Run{
+func NewRun(spec Spec, vars Vars) *Run {
+	return &Run{
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
@@ -217,16 +218,16 @@ func (r *runner) ExecuteRun(
 	spec Spec,
 	vars Vars,
 	l logger.Logger,
-) (Run, TaskRunResults, error) {
+) (*Run, TaskRunResults, error) {
 	run := NewRun(spec, vars)
 
-	pipeline, err := r.initializePipeline(&run)
+	pipeline, err := r.initializePipeline(run)
 
 	if err != nil {
 		return run, nil, err
 	}
 
-	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
+	taskRunResults := r.run(ctx, pipeline, run, vars, l)
 
 	if run.Pending {
 		return run, nil, pkgerrors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
@@ -260,7 +261,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).chainSet = r.chainSet
+			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
@@ -271,12 +272,12 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeVRFV2Plus:
 			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).legacyChains = r.legacyEVMChains
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
-			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).legacyChains = r.legacyEVMChains
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
 			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed
@@ -487,7 +488,13 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	} else {
 		status = "completed"
 	}
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
+
+	bridgeName := ""
+	if bridgeTask, ok := trr.Task.(*BridgeTask); ok {
+		bridgeName = bridgeTask.Name
+	}
+
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
@@ -504,7 +511,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, nil
 	}
 
-	if err = r.orm.InsertFinishedRun(&run, saveSuccessfulTaskRuns); err != nil {
+	if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
 		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return run.ID, finalResult, nil

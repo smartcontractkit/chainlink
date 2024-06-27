@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../shared/interfaces/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 
-import "./VRFRequestIDBase.sol";
+import {VRFRequestIDBase} from "./VRFRequestIDBase.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -113,6 +113,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomness(bytes32 requestId, uint256 randomness) internal virtual;
 
   /**
@@ -149,6 +150,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @dev concurrent requests. It is passed as the first argument to
    * @dev fulfillRandomness.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function requestRandomness(bytes32 _keyHash, uint256 _fee) internal returns (bytes32 requestId) {
     LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, USER_SEED_PLACEHOLDER));
     // This is the seed passed to VRFCoordinator. The oracle will mix this with
@@ -165,12 +167,15 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     return makeRequestId(_keyHash, vRFSeed);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface internal immutable LINK;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address private immutable vrfCoordinator;
 
   // Nonces for each VRF key from which randomness has been requested.
   //
   // Must stay in sync with VRFCoordinator[_keyHash][this]
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   mapping(bytes32 => uint256) /* keyHash */ /* nonce */ private nonces;
 
   /**
@@ -188,6 +193,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
   function rawFulfillRandomness(bytes32 requestId, uint256 randomness) external {
+    // solhint-disable-next-line custom-errors
     require(msg.sender == vrfCoordinator, "Only VRFCoordinator can fulfill");
     fulfillRandomness(requestId, randomness);
   }

@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -14,13 +13,13 @@ const (
 )
 
 func main() {
-	s := plugins.StartServer(loggerName)
+	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
 	p := median.NewPlugin(s.Logger)
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p.Name(), p)
+	s.MustRegister(p)
 
 	stop := make(chan struct{})
 	defer close(stop)

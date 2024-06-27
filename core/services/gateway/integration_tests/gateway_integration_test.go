@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -110,6 +111,8 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	t.Parallel()
 
 	nodeKeys := common.NewTestNodes(t, 1)[0]
+	// Verify that addresses in config are case-insensitive
+	nodeKeys.Address = strings.ToUpper(nodeKeys.Address)
 
 	// Launch Gateway
 	lggr := logger.TestLogger(t)

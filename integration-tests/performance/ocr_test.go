@@ -17,11 +17,13 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -31,10 +33,10 @@ func TestOCRBasic(t *testing.T) {
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
-
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	l := logging.GetTestLogger(t)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -57,9 +59,9 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Error waiting for events")
 
 	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
-		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
+		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer, chainClient.GetChainID().String())
 		require.NoError(t, err)
-		err = actions.StartNewRound(1, ocrInstances, chainClient)
+		err = actions.StartNewRound(1, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
 		answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
@@ -68,7 +70,7 @@ func TestOCRBasic(t *testing.T) {
 
 		err = mockServer.SetValuePath("ocr", 10)
 		require.NoError(t, err)
-		err = actions.StartNewRound(2, ocrInstances, chainClient)
+		err = actions.StartNewRound(2, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())
@@ -105,19 +107,21 @@ Enabled = true
 Enabled = true
 ListenIP = '0.0.0.0'
 ListenPort = 6690`
-	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	cd := chainlink.New(0, map[string]interface{}{
+		"replicas": 6,
+		"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
+
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

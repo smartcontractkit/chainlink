@@ -27,8 +27,8 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	db := app.GetSqlxDB()
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, app.Config.Database()).Eth()
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	client := app.NewHTTPClient(nil)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 2, from) // tx2
@@ -69,7 +69,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
@@ -82,8 +82,8 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
+	client := app.NewHTTPClient(nil)
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
 	require.Len(t, tx.TxAttempts, 1)
@@ -115,8 +115,8 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
+	client := app.NewHTTPClient(nil)
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, from)
 	require.Len(t, tx.TxAttempts, 1)
 	attempt := tx.TxAttempts[0]

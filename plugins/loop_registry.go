@@ -6,6 +6,9 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 const (
@@ -16,22 +19,24 @@ var ErrExists = errors.New("plugin already registered")
 
 type RegisteredLoop struct {
 	Name   string
-	EnvCfg EnvConfig
+	EnvCfg loop.EnvConfig
 }
 
 // LoopRegistry is responsible for assigning ports to plugins that are to be used for the
-// plugin's prometheus HTTP server
+// plugin's prometheus HTTP server, and for passing the tracing configuration to the plugin.
 type LoopRegistry struct {
 	mu       sync.Mutex
 	registry map[string]*RegisteredLoop
 
-	lggr logger.Logger
+	lggr       logger.Logger
+	cfgTracing config.Tracing
 }
 
-func NewLoopRegistry(lggr logger.Logger) *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger, tracingConfig config.Tracing) *LoopRegistry {
 	return &LoopRegistry{
-		registry: map[string]*RegisteredLoop{},
-		lggr:     lggr,
+		registry:   map[string]*RegisteredLoop{},
+		lggr:       logger.Named(lggr, "LoopRegistry"),
+		cfgTracing: tracingConfig,
 	}
 }
 
@@ -45,10 +50,17 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		return nil, ErrExists
 	}
 	nextPort := pluginDefaultPort + len(m.registry)
-	envCfg := NewEnvConfig(nextPort)
+	envCfg := loop.EnvConfig{PrometheusPort: nextPort}
+
+	if m.cfgTracing != nil {
+		envCfg.TracingEnabled = m.cfgTracing.Enabled()
+		envCfg.TracingCollectorTarget = m.cfgTracing.CollectorTarget()
+		envCfg.TracingAttributes = m.cfgTracing.Attributes()
+		envCfg.TracingSamplingRatio = m.cfgTracing.SamplingRatio()
+	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
-	m.lggr.Debug("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort())
+	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
 	return m.registry[id], nil
 }
 

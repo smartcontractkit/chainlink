@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
@@ -34,17 +34,17 @@ import (
 )
 
 const (
-	addEthTxQuery = `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
+	addEthTxQuery = `INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
 		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11
 		)
-		RETURNING "eth_txes".*`
+		RETURNING "txes".*`
 
-	addConfirmedEthTxQuery = `INSERT INTO eth_txes (nonce, broadcast_at, initial_broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
+	addConfirmedEthTxQuery = `INSERT INTO evm.txes (nonce, broadcast_at, initial_broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
 		$1, NOW(), NOW(), NULL, $2, $3, $4, $5, $6, 'confirmed', NOW(), $7, $8, $9, $10, $11
 		)
-		RETURNING "eth_txes".*`
+		RETURNING "txes".*`
 )
 
 func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*uint64, *string) {
@@ -153,7 +153,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
 	q := pg.NewQ(db, lggr, cfg)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)
 	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
@@ -220,7 +220,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
 	q := pg.NewQ(db, lggr, cfg)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)
 	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
@@ -283,7 +283,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	cfg := pgtest.NewQConfig(false)
 	q := pg.NewQ(db, lggr, cfg)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg)
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)
 	subID := new(big.Int).SetUint64(1)
@@ -468,7 +468,7 @@ func TestListener_handleLog(tt *testing.T) {
 			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
 		}).Toml())
 		require.NoError(t, err)
-		fulfilledLog := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{
+		fulfilledLog := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{
 			RequestId: big.NewInt(requestID),
 			Raw:       types.Log{BlockNumber: blockNumber},
 		}

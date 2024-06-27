@@ -3,8 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
-	"math/big"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,9 +15,9 @@ import (
 
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -199,7 +197,7 @@ func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
 	return g.c.Solana
 }
 
@@ -313,15 +311,6 @@ func (g *generalConfig) EVMRPCEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) DefaultChainID() *big.Int {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			return (*big.Int)(c.ChainID)
-		}
-	}
-	return nil
-}
-
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
 		if c.IsEnabled() {
@@ -407,18 +396,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
-}
-
-func (g *generalConfig) Explorer() config.Explorer {
-	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
-}
-
-func (g *generalConfig) ExplorerURL() *url.URL {
-	u := (*url.URL)(g.c.ExplorerURL)
-	if *u == zeroURL {
-		u = nil
-	}
-	return u
 }
 
 func (g *generalConfig) FluxMonitor() config.FluxMonitor {
@@ -528,7 +505,8 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-var (
-	zeroURL        = url.URL{}
-	zeroSha256Hash = models.Sha256Hash{}
-)
+func (g *generalConfig) Tracing() coreconfig.Tracing {
+	return &tracingConfig{s: g.c.Tracing}
+}
+
+var zeroSha256Hash = models.Sha256Hash{}

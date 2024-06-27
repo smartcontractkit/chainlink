@@ -348,6 +348,12 @@ func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
 	}
 }
 
+func EvmTxRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.IdempotencyKey = &idempotencyKey
+	}
+}
+
 func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
 	txRequest := txmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -362,7 +368,7 @@ func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress c
 }
 
 func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
-	tx, err := txStore.CreateTransaction(txRequest, chainID)
+	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
 	require.NoError(t, err)
 	return tx
 }
@@ -437,7 +443,7 @@ func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, bl
 	return r
 }
 
-// Inserts into eth_receipts but does not update eth_txes or eth_tx_attempts
+// Inserts into evm.receipts but does not update evm.txes or evm.tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
 	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
@@ -452,7 +458,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.T
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, &chainID)
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
 	require.NoError(t, err)
 	return etx
 }
@@ -466,67 +472,25 @@ func MustInsertFatalErrorEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, fromA
 	return etx
 }
 
-func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	t.Helper()
+type RandomKey struct {
+	Nonce    int64
+	Disabled bool
 
-	k := MustGenerateRandomKey(t)
-	MustAddKeyToKeystore(t, k, &FixtureChainID, ethKeyStore)
-
-	return k, k.Address
+	chainIDs []utils.Big // nil: Fixture, set empty for none
 }
 
-func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
-	t.Helper()
-	ethKeyStore.XXXTestingOnlyAdd(key)
-	require.NoError(t, ethKeyStore.Add(key.Address, chainID))
-	require.NoError(t, ethKeyStore.Enable(key.Address, chainID))
-}
-
-// MustInsertRandomKey inserts a randomly generated (not cryptographically
-// secure) key for testing
-// By default it is enabled for the fixture chain
-func MustInsertRandomKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.KeyV2, common.Address) {
-	t.Helper()
-
-	chainIDs := []utils.Big{*utils.NewBig(&FixtureChainID)}
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case utils.Big:
-			chainIDs[0] = v
-		case []utils.Big:
-			chainIDs = v
-		}
+func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	if r.chainIDs == nil {
+		r.chainIDs = []utils.Big{*utils.NewBig(&FixtureChainID)}
 	}
 
 	key := MustGenerateRandomKey(t)
 	keystore.XXXTestingOnlyAdd(key)
 
-	for _, cid := range chainIDs {
-		var nonce int64
-		enabled := true
-		for _, opt := range opts {
-			switch v := opt.(type) {
-			case int:
-				nonce = int64(v)
-			case int64:
-				nonce = v
-			case evmtypes.Nonce:
-				nonce = v.Int64()
-			case bool:
-				enabled = v
-			default:
-				t.Logf("ignoring unknown type in MustInsertRandomKey: %T, note: chain IDs are processed earlier", opt)
-			}
-		}
+	for _, cid := range r.chainIDs {
 		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
-		err := keystore.Reset(key.Address, cid.ToInt(), nonce)
-		require.NoError(t, err)
-		if !enabled {
+		if r.Disabled {
 			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}
 	}
@@ -534,29 +498,29 @@ func MustInsertRandomKey(
 	return key, key.Address
 }
 
-func MustInsertRandomEnabledKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.KeyV2, common.Address) {
-	return MustInsertRandomKey(t, keystore, append(opts, true))
-}
-
-func MustInsertRandomDisabledKey(
-	t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (key ethkey.KeyV2, address common.Address) {
-	return MustInsertRandomKey(t, keystore, append(opts, false))
-}
-
-func MustInsertRandomKeyReturningState(t testing.TB,
-	keystore keystore.Eth,
-	opts ...interface{},
-) (ethkey.State, common.Address) {
-	k, address := MustInsertRandomKey(t, keystore, opts...)
+func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	k, address := r.MustInsert(t, keystore)
 	state := MustGetStateForKey(t, keystore, k)
 	return state, address
+}
+
+// MustInsertRandomKey inserts a randomly generated (not cryptographically secure) key for testing.
+// By default, it is enabled for the fixture chain. Pass chainIDs to override.
+// Use MustInsertRandomKeyNoChains for a key associate with no chains.
+func MustInsertRandomKey(t testing.TB, keystore keystore.Eth, chainIDs ...utils.Big) (ethkey.KeyV2, common.Address) {
+	r := RandomKey{}
+	if len(chainIDs) > 0 {
+		r.chainIDs = chainIDs
+	}
+	return r.MustInsert(t, keystore)
+}
+
+func MustInsertRandomKeyNoChains(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	return RandomKey{chainIDs: []utils.Big{}}.MustInsert(t, keystore)
+}
+
+func MustInsertRandomKeyReturningState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
+	return RandomKey{}.MustInsertWithState(t, keystore)
 }
 
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
@@ -565,7 +529,7 @@ func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	return key
 }
 
-func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
+func MustGenerateRandomKeyState(_ testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
@@ -610,15 +574,15 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OCROracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
+	require.NoError(t, db.Get(&spec, `INSERT INTO ocr_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, database_timeout, observation_grace_period, contract_transmitter_transmit_timeout, evm_chain_id) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{}
+	drs := &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
@@ -634,7 +598,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
+	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at,evm_chain_id) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING *`, contract, from, testutils.SimulatedChainID.Int64())
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -662,7 +626,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 }
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
-	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
+	key, _ := MustInsertRandomKey(t, ethKeyStore, *utils.NewBig(testutils.SimulatedChainID))
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()

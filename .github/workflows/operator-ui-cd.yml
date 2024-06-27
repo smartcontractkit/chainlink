@@ -1,0 +1,58 @@
+name: Operator UI CD
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */1 * * *" # Run every hour
+
+jobs:
+  update-version:
+    permissions:
+      id-token: write
+    name: Update Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Update version
+        id: update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./operator_ui/check.sh
+
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
+          role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
+          role-session-name: operator-ui-cd.update-version
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@chore/update-github-app-token-issuer
+        with:
+          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
+        with:
+          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          token: ${{ steps.get-gh-token.outputs.access-token }}
+          branch: chore/update-operator-ui
+          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          body: ${{ steps.update.outputs.body }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Update Version
+        continue-on-error: true

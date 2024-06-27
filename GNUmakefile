@@ -51,22 +51,18 @@ chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
 chainlink-test: operator-ui ## Build a test build of chainlink binary.
-	go build -tags test $(GOFLAGS) .
+	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
 chainlink-local-start:
 	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
-
-.PHONY: install-solana
-install-solana: ## Build & install the chainlink-solana binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
 
 .PHONY: install-median
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
 .PHONY: install-starknet
-install-starknet: ## Build & install the chainlink-solana binary.
+install-starknet: ## Build & install the chainlink-starknet binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
@@ -105,11 +101,11 @@ testscripts-update: ## Update testdata/scripts/* files via testscript.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run -tags test . local db preparetest
+	go run . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run -tags test . local db preparetest --user-only
+	go run . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
@@ -120,7 +116,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
+	go install github.com/vektra/mockery/v2@v2.35.4
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -145,7 +141,8 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.55.0 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 
 GORELEASER_CONFIG ?= .goreleaser.yaml

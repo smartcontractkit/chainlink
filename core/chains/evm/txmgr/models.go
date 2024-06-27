@@ -25,7 +25,7 @@ type (
 	TransactionStore       = txmgrtypes.TransactionStore[common.Address, *big.Int, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
 	TxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	NonceSyncer            = txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash]
+	NonceSyncer            = txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash, evmtypes.Nonce]
 	TransmitCheckerFactory = txmgr.TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	Txm                    = txmgr.Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TxManager              = txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]

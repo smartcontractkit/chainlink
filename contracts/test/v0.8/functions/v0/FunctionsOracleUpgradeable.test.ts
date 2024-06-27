@@ -44,17 +44,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleOriginalFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleOriginalHelper.sol:FunctionsOracleOriginalHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleOriginalHelper.sol:FunctionsOracleOriginalHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
@@ -221,7 +221,7 @@ describe('FunctionsOracleUpgradeable', () => {
 
     it('can be upgraded to a new implementation', async () => {
       const upgradedOracle = await migrateAndCheck(
-        'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleMigrationHelper.sol:FunctionsOracleMigrationHelper',
+        'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleMigrationHelper.sol:FunctionsOracleMigrationHelper',
       )
 
       // Check that upgrade was successful
@@ -240,7 +240,7 @@ describe('FunctionsOracleUpgradeable', () => {
 
     it('can be upgraded to the latest implementation', async () => {
       await migrateAndCheck(
-        'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleUpgradeableHelper.sol:FunctionsOracleUpgradeableHelper',
+        'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleUpgradeableHelper.sol:FunctionsOracleUpgradeableHelper',
       )
     })
   })

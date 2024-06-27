@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -25,20 +25,20 @@ import (
 var _ job.ServiceCtx = &service{}
 
 type Delegate struct {
-	logger logger.Logger
-	chains evm.ChainSet
-	ks     keystore.Eth
+	logger       logger.Logger
+	legacyChains evm.LegacyChainContainer
+	ks           keystore.Eth
 }
 
 func NewDelegate(
 	logger logger.Logger,
-	chains evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
-		logger: logger,
-		chains: chains,
-		ks:     ks,
+		logger:       logger,
+		legacyChains: legacyChains,
+		ks:           ks,
 	}
 }
 
@@ -48,12 +48,12 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
 
-	chain, err := d.chains.Get(jb.BlockHeaderFeederSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
@@ -124,8 +124,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		coordinators = append(coordinators, coord)
 	}
 	if jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress != nil {
-		var c *v2plus.VRFCoordinatorV2Plus
-		if c, err = v2plus.NewVRFCoordinatorV2Plus(
+		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
+		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
 			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
@@ -156,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.Wrap(err, "building batchBHS")
 	}
 
-	log := d.logger.Named("Block Header Feeder").With(
+	log := d.logger.Named("BlockHeaderFeeder").With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"bhsAddress", bhs.Address(),

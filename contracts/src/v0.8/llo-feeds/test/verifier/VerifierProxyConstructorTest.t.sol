@@ -2,9 +2,8 @@
 pragma solidity 0.8.16;
 
 import {BaseTest} from "./BaseVerifierTest.t.sol";
-import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 
 contract VerifierProxyConstructorTest is BaseTest {
   function test_correctlySetsTheOwner() public {
@@ -20,6 +19,6 @@ contract VerifierProxyConstructorTest is BaseTest {
 
   function test_correctlySetsVersion() public {
     string memory version = s_verifierProxy.typeAndVersion();
-    assertEq(version, "VerifierProxy 1.1.0");
+    assertEq(version, "VerifierProxy 2.0.0");
   }
 }

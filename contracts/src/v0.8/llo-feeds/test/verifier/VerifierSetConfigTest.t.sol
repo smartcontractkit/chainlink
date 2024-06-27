@@ -3,7 +3,6 @@ pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
-import {VerifierProxy} from "../../VerifierProxy.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierSetConfigTest is BaseTest {
@@ -129,6 +128,7 @@ contract VerifierSetConfigTest is BaseTest {
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(
       FEED_ID,
+      block.chainid,
       address(s_verifier),
       1,
       _getSignerAddresses(signers),
@@ -223,6 +223,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(
       FEED_ID,
+      block.chainid,
       address(s_verifier),
       s_numConfigsSet + 1,
       _getSignerAddresses(newSigners),

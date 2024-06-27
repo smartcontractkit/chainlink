@@ -69,7 +69,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
@@ -172,7 +172,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
+	_, err := r.runner.Run(ctx, run, jobLggr, true, nil)
 	if err != nil {
 		jobLggr.Errorw("Error running pipeline for webhook job", "err", err)
 		return 0, err

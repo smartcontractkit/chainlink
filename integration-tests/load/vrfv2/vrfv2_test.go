@@ -1,10 +1,11 @@
 package loadvrfv2
 
 import (
+	"testing"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestVRFV2Load(t *testing.T) {
@@ -31,7 +32,7 @@ func TestVRFV2Load(t *testing.T) {
 		T:          t,
 		LoadType:   wasp.VU,
 		GenName:    "vu",
-		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.EVMClient, vrfv2Contracts),
+		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.ClCluster.NodeAPIs(), env.EVMClient, vrfv2Contracts),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}

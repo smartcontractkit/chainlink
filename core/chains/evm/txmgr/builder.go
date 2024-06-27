@@ -47,7 +47,7 @@ func NewTxm(
 	// create tx attempt builder
 	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(db, lggr, dbConfig)
-	txNonceSyncer := NewNonceSyncer(txStore, lggr, client, keyStore)
+	txNonceSyncer := NewNonceSyncer(txStore, lggr, client)
 
 	txmCfg := NewEvmTxmConfig(chainConfig) // wrap Evm specific config
 	feeCfg := NewEvmTxmFeeConfig(fCfg)     // wrap Evm specific config
@@ -130,5 +130,5 @@ func NewEvmBroadcaster(
 	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
 ) *Broadcaster {
-	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress)
+	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress, evmtypes.GenerateNextNonce)
 }

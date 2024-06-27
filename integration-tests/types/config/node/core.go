@@ -2,66 +2,67 @@ package node
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"math/big"
-	"net"
-	"path/filepath"
+	"os"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/segmentio/ksuid"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
+	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
-var (
-	BaseConf = &chainlink.Config{
+func NewBaseConfig() *chainlink.Config {
+	return &chainlink.Config{
 		Core: toml.Core{
-			RootDir: ptr("/home/chainlink"),
+			RootDir: utils2.Ptr("/home/chainlink"),
 			Database: toml.Database{
-				MaxIdleConns:     ptr(int64(20)),
-				MaxOpenConns:     ptr(int64(40)),
-				MigrateOnStartup: ptr(true),
+				MaxIdleConns:     utils2.Ptr(int64(20)),
+				MaxOpenConns:     utils2.Ptr(int64(40)),
+				MigrateOnStartup: utils2.Ptr(true),
 			},
 			Log: toml.Log{
-				Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
-				JSONConsole: ptr(true),
+				Level:       utils2.Ptr(toml.LogLevel(zapcore.DebugLevel)),
+				JSONConsole: utils2.Ptr(true),
+				File: toml.LogFile{
+					MaxSize: utils2.Ptr(utils.FileSize(0)),
+				},
 			},
 			WebServer: toml.WebServer{
-				AllowOrigins:   ptr("*"),
-				HTTPPort:       ptr[uint16](6688),
-				SecureCookies:  ptr(false),
+				AllowOrigins:   utils2.Ptr("*"),
+				HTTPPort:       utils2.Ptr[uint16](6688),
+				SecureCookies:  utils2.Ptr(false),
 				SessionTimeout: models.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
-					HTTPSPort: ptr[uint16](0),
+					HTTPSPort: utils2.Ptr[uint16](0),
 				},
 				RateLimit: toml.WebServerRateLimit{
-					Authenticated:   ptr(int64(2000)),
-					Unauthenticated: ptr(int64(100)),
+					Authenticated:   utils2.Ptr(int64(2000)),
+					Unauthenticated: utils2.Ptr(int64(100)),
 				},
 			},
 			Feature: toml.Feature{
-				LogPoller:    ptr(true),
-				FeedsManager: ptr(true),
-				UICSAKeys:    ptr(true),
+				LogPoller:    utils2.Ptr(true),
+				FeedsManager: utils2.Ptr(true),
+				UICSAKeys:    utils2.Ptr(true),
 			},
 			P2P: toml.P2P{},
 		},
 	}
-	//go:embed defaults/*.toml
-	defaultsFS embed.FS
-)
+}
 
 type NodeConfigOpt = func(c *chainlink.Config)
 
@@ -73,26 +74,28 @@ func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Con
 }
 
 func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Config, error) {
-	path := filepath.Join("defaults", tomlFile+".toml")
-	b, err := defaultsFS.ReadFile(path)
+	readFile, err := os.ReadFile(tomlFile)
 	if err != nil {
 		return nil, err
 	}
 	var cfg chainlink.Config
-	err = config.DecodeTOML(bytes.NewReader(b), &cfg)
+	if err != nil {
+		return nil, err
+	}
+	err = config.DecodeTOML(bytes.NewReader(readFile), &cfg)
 	if err != nil {
 		return nil, err
 	}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	return &cfg, err
+	return &cfg, nil
 }
 
 func WithOCR1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.OCR = toml.OCR{
-			Enabled: ptr(true),
+			Enabled: utils2.Ptr(true),
 		}
 	}
 }
@@ -100,7 +103,7 @@ func WithOCR1() NodeConfigOpt {
 func WithOCR2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.OCR2 = toml.OCR2{
-			Enabled: ptr(true),
+			Enabled: utils2.Ptr(true),
 		}
 	}
 }
@@ -108,9 +111,9 @@ func WithOCR2() NodeConfigOpt {
 func WithP2Pv1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V1 = toml.P2PV1{
-			Enabled:    ptr(true),
-			ListenIP:   mustIP("0.0.0.0"),
-			ListenPort: ptr[uint16](6690),
+			Enabled:    utils2.Ptr(true),
+			ListenIP:   utils2.MustIP("0.0.0.0"),
+			ListenPort: utils2.Ptr[uint16](6690),
 		}
 	}
 }
@@ -118,8 +121,23 @@ func WithP2Pv1() NodeConfigOpt {
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
-			Enabled:         ptr(true),
+			Enabled:         utils2.Ptr(true),
 			ListenAddresses: &[]string{"0.0.0.0:6690"},
+		}
+	}
+}
+
+func WithTracing() NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.Tracing = toml.Tracing{
+			Enabled: utils2.Ptr(true),
+			CollectorTarget: utils2.Ptr("otel-collector:4317"),
+			// ksortable unique id
+			NodeID: 		 utils2.Ptr(ksuid.New().String()),
+			Attributes:      map[string]string{
+				"env": "smoke",
+			},
+			SamplingRatio:  utils2.Ptr(1.0),
 		}
 	}
 }
@@ -133,12 +151,12 @@ func SetChainConfig(
 ) {
 	if cfg.EVM == nil {
 		var nodes []*evmcfg.Node
-		for i, _ := range wsUrls {
+		for i := range wsUrls {
 			node := evmcfg.Node{
-				Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-				WSURL:    mustURL(wsUrls[i]),
-				HTTPURL:  mustURL(httpUrls[i]),
-				SendOnly: ptr(false),
+				Name:     utils2.Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
+				WSURL:    utils2.MustURL(wsUrls[i]),
+				HTTPURL:  utils2.MustURL(httpUrls[i]),
+				SendOnly: utils2.Ptr(false),
 			}
 
 			nodes = append(nodes, &node)
@@ -146,8 +164,8 @@ func SetChainConfig(
 		var chainConfig evmcfg.Chain
 		if chain.Simulated {
 			chainConfig = evmcfg.Chain{
-				AutoCreateKey:      ptr(true),
-				FinalityDepth:      ptr[uint32](1),
+				AutoCreateKey:      utils2.Ptr(true),
+				FinalityDepth:      utils2.Ptr[uint32](1),
 				MinContractPayment: assets.NewLinkFromJuels(0),
 			}
 		}
@@ -160,7 +178,7 @@ func SetChainConfig(
 		}
 		if forwarders {
 			cfg.EVM[0].Transactions = evmcfg.Transactions{
-				ForwardersEnabled: ptr(true),
+				ForwardersEnabled: utils2.Ptr(true),
 			}
 		}
 	}
@@ -172,25 +190,25 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
 			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
-				AutoCreateKey:      ptr(true),
-				FinalityDepth:      ptr[uint32](50),
+				AutoCreateKey:      utils2.Ptr(true),
+				FinalityDepth:      utils2.Ptr[uint32](50),
 				MinContractPayment: assets.NewLinkFromJuels(0),
 				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth: ptr(uint32(100)),
+					HistoryDepth: utils2.Ptr(uint32(100)),
 				},
 				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  ptr(uint32(6000000)),
+					LimitDefault:  utils2.Ptr(uint32(6000000)),
 					PriceMax:      assets.GWei(200),
 					FeeCapDefault: assets.GWei(200),
 				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:     ptr(network.Name),
-					WSURL:    mustURL(network.URLs[0]),
-					HTTPURL:  mustURL(network.HTTPURLs[0]),
-					SendOnly: ptr(false),
+					Name:     utils2.Ptr(network.Name),
+					WSURL:    utils2.MustURL(network.URLs[0]),
+					HTTPURL:  utils2.MustURL(network.HTTPURLs[0]),
+					SendOnly: utils2.Ptr(false),
 				},
 			},
 		})
@@ -205,35 +223,17 @@ func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
 			{
-				Key: ptr(ethkey.EIP55Address(addr)),
+				Key: utils2.Ptr(ethkey.EIP55Address(addr)),
 				GasEstimator: evmcfg.KeySpecificGasEstimator{
 					PriceMax: est,
 				},
 			},
 		}
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: ptr[uint32](3500000),
+			LimitDefault: utils2.Ptr[uint32](3500000),
 		}
 		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
-			MaxQueued: ptr[uint32](10000),
+			MaxQueued: utils2.Ptr[uint32](10000),
 		}
 	}
-}
-
-func ptr[T any](t T) *T { return &t }
-
-func mustURL(s string) *models.URL {
-	var u models.URL
-	if err := u.UnmarshalText([]byte(s)); err != nil {
-		panic(err)
-	}
-	return &u
-}
-
-func mustIP(s string) *net.IP {
-	var ip net.IP
-	if err := ip.UnmarshalText([]byte(s)); err != nil {
-		panic(err)
-	}
-	return &ip
 }

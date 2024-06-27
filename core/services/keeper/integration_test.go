@@ -405,6 +405,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
+			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
@@ -417,7 +418,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
 
-		addr, err := app.Chains.EVM.Chains()[0].TxManager().GetForwarderForEOA(nodeAddress)
+		addr, err := app.GetRelayers().LegacyEVMChains().Slice()[0].TxManager().GetForwarderForEOA(nodeAddress)
 		require.NoError(t, err)
 		require.Equal(t, addr, fwdrAddress)
 
@@ -430,6 +431,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			KeeperSpec: &job.KeeperSpec{
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
+				EVMChainID:      (*utils.Big)(testutils.SimulatedChainID),
 			},
 			SchemaVersion:     1,
 			ForwardingAllowed: true,
@@ -538,7 +540,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("keeper_max_perform_data_test"), func(c *chainlink.Config, s *chainlink.Secrets) {
+		config, db := heavyweight.FullTestDBV2(t, "keeper_max_perform_data_test", func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 			c.Keeper.Registry.MaxPerformDataSize = ptr(uint32(maxPerformDataSize))  // set the max perform data size

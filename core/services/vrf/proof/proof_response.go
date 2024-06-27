@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -138,11 +138,11 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 func GenerateProofResponseFromProofV2Plus(
 	p vrfkey.Proof,
 	s PreSeedDataV2Plus) (
-	vrf_coordinator_v2plus.VRFProof,
-	vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment,
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof,
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment,
 	error) {
-	var proof vrf_coordinator_v2plus.VRFProof
-	var rc vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment
+	var proof vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof
+	var rc vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment
 	solidityProof, err := SolidityPrecalculations(&p)
 	if err != nil {
 		return proof, rc, errors.Wrap(err,
@@ -153,7 +153,7 @@ func GenerateProofResponseFromProofV2Plus(
 	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
 	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
 	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	return vrf_coordinator_v2plus.VRFProof{
+	return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{
 			Pk:            [2]*big.Int{x, y},
 			Gamma:         [2]*big.Int{gx, gy},
 			C:             solidityProof.P.C,
@@ -163,7 +163,7 @@ func GenerateProofResponseFromProofV2Plus(
 			CGammaWitness: [2]*big.Int{cgx, cgy},
 			SHashWitness:  [2]*big.Int{shx, shy},
 			ZInv:          solidityProof.ZInv,
-		}, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment{
+		}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
 			BlockNum:         s.BlockNum,
 			SubId:            s.SubId,
 			CallbackGasLimit: s.CallbackGasLimit,
@@ -195,12 +195,12 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 }
 
 func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (
-	vrf_coordinator_v2plus.VRFProof, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment, error) {
+	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
-		return vrf_coordinator_v2plus.VRFProof{}, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment{}, err
+		return vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof{}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{}, err
 	}
 	return GenerateProofResponseFromProofV2Plus(proof, s)
 }

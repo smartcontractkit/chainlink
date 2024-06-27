@@ -1,5 +1,3 @@
-# ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
-ExplorerURL = 'ws://explorer.url' # Example
 # **ADVANCED**
 # InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
 InsecureFastScrypt = false # Default
@@ -90,9 +88,9 @@ LeaseRefreshInterval = '1s' # Default
 UniConn = true # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
-# ServerPubKey is the public key of the telemetry server.
+# ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
 ServerPubKey = 'test-pub-key' # Example
-# URL is where to send telemetry.
+# URL is where to send telemetry. This field will be removed in a furture version
 URL = 'https://prom.test' # Example
 # BufferSize is the number of telemetry messages to buffer before dropping new ones.
 BufferSize = 100 # Default
@@ -104,6 +102,16 @@ SendInterval = '500ms' # Default
 SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
+
+[[TelemetryIngress.Endpoints]] # Example
+# Network aka EVM, Solana, Starknet
+Network = 'EVM' # Example
+# ChainID of the network
+ChainID = '111551111' # Example
+# ServerPubKey is the public key of the telemetry server.
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+# URL is where to send telemetry.
+URL = 'localhost-111551111-evm:9000' # Example
 
 [AuditLogger]
 # Enabled determines if this logger should be configured at all
@@ -532,3 +540,17 @@ InfiniteDepthQueries = false # Default
 # DisableRateLimiting skips ratelimiting on asset requests.
 DisableRateLimiting = false # Default
 
+[Tracing]
+# Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+Enabled = false # Default
+# CollectorTarget is the logical address of the OTEL Tracing Collector.
+CollectorTarget = "localhost:4317" # Example
+# NodeID is an unique name for this node relative to any other node traces are collected for.
+NodeID = "NodeID" # Example
+# SamplingRatio is the ratio of traces to sample for this node.
+SamplingRatio = 1.0 # Example
+
+# Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+[Tracing.Attributes]
+# env is an example user specified key-value pair
+env = "test" # Example

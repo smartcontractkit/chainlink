@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/stretchr/testify/assert"
@@ -28,12 +27,12 @@ func TestGetUpkeepType(t *testing.T) {
 		},
 		{
 			"condition trigger",
-			genUpkeepID(ocr2keepers.ConditionTrigger, "").Bytes(),
+			GenUpkeepID(ocr2keepers.ConditionTrigger, "").BigInt().Bytes(),
 			ocr2keepers.ConditionTrigger,
 		},
 		{
 			"log trigger",
-			genUpkeepID(ocr2keepers.LogTrigger, "111").Bytes(),
+			GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt().Bytes(),
 			ocr2keepers.LogTrigger,
 		},
 		{
@@ -53,10 +52,4 @@ func TestGetUpkeepType(t *testing.T) {
 			assert.Equal(t, tc.upkeepType, GetUpkeepType(uid))
 		})
 	}
-}
-
-func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) *big.Int {
-	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
-	b = append(b, []byte(rand)...)
-	return big.NewInt(0).SetBytes(b)
 }

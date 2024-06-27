@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ txmgrtypes.TxStrategy = SendEveryStrategy{}
@@ -33,7 +32,7 @@ func NewSendEveryStrategy() txmgrtypes.TxStrategy {
 type SendEveryStrategy struct{}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
+func (SendEveryStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (int64, error) {
 	return 0, nil
 }
 
@@ -57,11 +56,12 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(pruneService txmgrtypes.UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), s.queryTimeout)
-
+func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (n int64, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
-	n, err = pruneService.PruneUnstartedTxQueue(s.queueSize, s.subject, pg.WithParentCtx(ctx), qopt)
+
+	n, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize, s.subject)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}

@@ -41,7 +41,7 @@ type Delegate struct {
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	chainSet              evm.ChainSet
+	legacyChains          evm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
 	mailMon               *utils.MailboxMonitor
@@ -58,22 +58,22 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		db,
-		jobORM,
-		keyStore,
-		pipelineRunner,
-		peerWrapper,
-		monitoringEndpointGen,
-		chainSet,
-		lggr.Named("OCR"),
-		cfg,
-		mailMon,
+		db:                    db,
+		jobORM:                jobORM,
+		keyStore:              keyStore,
+		pipelineRunner:        pipelineRunner,
+		peerWrapper:           peerWrapper,
+		monitoringEndpointGen: monitoringEndpointGen,
+		legacyChains:          legacyChains,
+		lggr:                  lggr.Named("OCR"),
+		cfg:                   cfg,
+		mailMon:               mailMon,
 	}
 }
 
@@ -87,11 +87,11 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 		if jb.GasLimit.Valid {
 			jsGasLimit = &jb.GasLimit.Uint32
 		}
-		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
+		gasLimit := pipeline.SelectGasLimit(chain.Config().EVM().GasEstimator(), jb.Type.String(), jsGasLimit)
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -274,7 +274,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
+		runResults := make(chan *pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -297,7 +297,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 
 		enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 		if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
-			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA), lggr.Named("Enhanced Telemetry"))
+			enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, enhancedTelemChan, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.EnhancedEA, "EVM", chain.ID().String()), lggr.Named("EnhancedTelemetry"))
 			services = append(services, enhancedTelemService)
 		}
 
@@ -319,7 +319,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 			Logger:                       ocrLogger,
 			V1Bootstrappers:              v1BootstrapPeers,
 			V2Bootstrappers:              v2Bootstrappers,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.OCR),
+			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(concreteSpec.ContractAddress.String(), synchronization.OCR, "EVM", chain.ID().String()),
 			ConfigOverrider:              configOverrider,
 		})
 		if err != nil {

@@ -1,19 +1,45 @@
 package logprovider
 
 import (
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"sync"
 	"sync/atomic"
 
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var (
+	// maxLogsPerUpkeepInBlock is the maximum number of logs allowed per upkeep in a block.
+	maxLogsPerUpkeepInBlock = 32
+	// maxLogsPerBlock is the maximum number of blocks in the buffer.
+	maxLogsPerBlock = 1024
+)
+
 // fetchedLog holds the log and the ID of the upkeep
 type fetchedLog struct {
-	id  *big.Int
-	log logpoller.Log
+	upkeepID *big.Int
+	log      logpoller.Log
+	// cachedLogID is the cached log identifier, used for sorting.
+	// It is calculated lazily, and cached for performance.
+	cachedLogID string
+}
+
+func (l *fetchedLog) getLogID() string {
+	if len(l.cachedLogID) == 0 {
+		ext := ocr2keepers.LogTriggerExtension{
+			Index: uint32(l.log.LogIndex),
+		}
+		copy(ext.TxHash[:], l.log.TxHash[:])
+		copy(ext.BlockHash[:], l.log.BlockHash[:])
+		l.cachedLogID = hex.EncodeToString(ext.LogIdentifier())
+	}
+	return l.cachedLogID
 }
 
 // fetchedBlock holds the logs fetched for a block
@@ -26,31 +52,86 @@ type fetchedBlock struct {
 	visited []fetchedLog
 }
 
-// Reset resets the block to the given block number, if the block is newer than the current block.
-func (b fetchedBlock) Reset(block int64) (fetchedBlock, int64) {
-	if b.blockNumber < block {
-		return fetchedBlock{
-			blockNumber: block,
-		}, b.blockNumber
+func (b *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxBlockLogs, maxUpkeepLogs int) (fetchedLog, bool) {
+	has, upkeepLogs := b.has(fl.upkeepID, fl.log)
+	if has {
+		// Skipping known logs
+		return fetchedLog{}, false
 	}
-	return b, b.blockNumber
+	// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
+	b.logs = append(b.logs, fl)
+
+	// drop logs if we reached limits.
+	if upkeepLogs+1 > maxUpkeepLogs {
+		// in case we have logs overflow for a particular upkeep, we drop a log of that upkeep,
+		// based on shared, random (per block) order of the logs in the block.
+		b.Sort()
+		var dropped fetchedLog
+		currentLogs := make([]fetchedLog, 0, len(b.logs)-1)
+		for _, l := range b.logs {
+			if dropped.upkeepID == nil && l.upkeepID.Cmp(fl.upkeepID) == 0 {
+				dropped = l
+				continue
+			}
+			currentLogs = append(currentLogs, l)
+		}
+		b.logs = currentLogs
+		return dropped, true
+	} else if len(b.logs)+len(b.visited) > maxBlockLogs {
+		// in case we have logs overflow in the buffer level, we drop a log based on
+		// shared, random (per block) order of the logs in the block.
+		b.Sort()
+		dropped := b.logs[0]
+		b.logs = b.logs[1:]
+		return dropped, true
+	}
+
+	return fetchedLog{}, true
 }
 
 // Has returns true if the block has the log,
 // and the number of logs for that upkeep in the block.
-func (b fetchedBlock) Has(id *big.Int, log logpoller.Log) (bool, int) {
+func (b fetchedBlock) has(id *big.Int, log logpoller.Log) (bool, int) {
 	allLogs := append(b.logs, b.visited...)
 	upkeepLogs := 0
 	for _, l := range allLogs {
-		if l.id.Cmp(id) != 0 {
+		if l.upkeepID.Cmp(id) != 0 {
 			continue
 		}
 		upkeepLogs++
-		if l.log.BlockNumber == log.BlockNumber && l.log.TxHash == log.TxHash && l.log.LogIndex == log.LogIndex {
+		if l.log.BlockHash == log.BlockHash && l.log.TxHash == log.TxHash && l.log.LogIndex == log.LogIndex {
 			return true, upkeepLogs
 		}
 	}
 	return false, upkeepLogs
+}
+
+func (b fetchedBlock) Clone() fetchedBlock {
+	logs := make([]fetchedLog, len(b.logs))
+	copy(logs, b.logs)
+	visited := make([]fetchedLog, len(b.visited))
+	copy(visited, b.visited)
+	return fetchedBlock{
+		blockNumber: b.blockNumber,
+		logs:        logs,
+		visited:     visited,
+	}
+}
+
+// Sort by log identifiers, shuffled using a pseduorandom souce that is shared across all nodes
+// for a given block.
+func (b *fetchedBlock) Sort() {
+	randSeed := random.GetRandomKeySource(nil, uint64(b.blockNumber))
+
+	shuffledLogIDs := make(map[string]string, len(b.logs))
+	for _, log := range b.logs {
+		logID := log.getLogID()
+		shuffledLogIDs[logID] = random.ShuffleString(logID, randSeed)
+	}
+
+	sort.SliceStable(b.logs, func(i, j int) bool {
+		return shuffledLogIDs[b.logs[i].getLogID()] < shuffledLogIDs[b.logs[j].getLogID()]
+	})
 }
 
 // logEventBuffer is a circular/ring buffer of fetched logs.
@@ -62,7 +143,7 @@ type logEventBuffer struct {
 	// size is the number of blocks supported by the buffer
 	size int32
 
-	maxBlockLogs, maxUpkeepLogsPerBlock int32
+	maxBlockLogs, maxUpkeepLogsPerBlock int
 	// blocks is the circular buffer of fetched blocks
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
@@ -74,8 +155,8 @@ func newLogEventBuffer(lggr logger.Logger, size, maxBlockLogs, maxUpkeepLogsPerB
 		lggr:                  lggr.Named("KeepersRegistry.LogEventBuffer"),
 		size:                  int32(size),
 		blocks:                make([]fetchedBlock, size),
-		maxBlockLogs:          int32(maxBlockLogs),
-		maxUpkeepLogsPerBlock: int32(maxUpkeepLogsPerBlock),
+		maxBlockLogs:          maxBlockLogs,
+		maxUpkeepLogsPerBlock: maxUpkeepLogsPerBlock,
 	}
 }
 
@@ -88,6 +169,7 @@ func (b *logEventBuffer) bufferSize() int {
 }
 
 // enqueue adds logs (if not exist) to the buffer, returning the number of logs added
+// minus the number of logs dropped.
 func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -98,40 +180,39 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	maxUpkeepLogs := int(b.maxUpkeepLogsPerBlock)
 
 	latestBlock := b.latestBlockSeen()
-	added := 0
+	added, dropped := 0, 0
+
 	for _, log := range logs {
 		if log.BlockNumber == 0 {
 			// invalid log
 			continue
 		}
 		i := b.blockNumberIndex(log.BlockNumber)
-		block, prevBlock := b.blocks[i].Reset(log.BlockNumber)
-		if prevBlock > 0 {
-			if prevBlock > log.BlockNumber {
-				lggr.Debugw("Skipping old log", "currentBlock", block.blockNumber, "newBlock", log.BlockNumber)
-				continue
-			} else if prevBlock < log.BlockNumber {
-				lggr.Debugw("Overriding block", "prevBlock", prevBlock, "newBlock", log.BlockNumber)
-			}
-		}
-		if len(block.logs)+1 > maxBlockLogs {
-			lggr.Debugw("Reached max logs number per block, dropping log", "blockNumber", log.BlockNumber,
-				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
+		currentBlock := b.blocks[i]
+		if currentBlock.blockNumber < log.BlockNumber {
+			lggr.Debugw("Got log on a new block", "prevBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
+			currentBlock.blockNumber = log.BlockNumber
+			currentBlock.logs = nil
+			currentBlock.visited = nil
+		} else if currentBlock.blockNumber > log.BlockNumber {
+			// not expected to happen
+			lggr.Debugw("Skipping log from old block", "currentBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
 			continue
 		}
-		if has, upkeepLogs := block.Has(id, log); has {
-			// lggr.Debugw("Skipping existing log", "blockNumber", log.BlockNumber,
-			// 	"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
-			continue
-		} else if upkeepLogs+1 > maxUpkeepLogs {
-			lggr.Debugw("Reached max logs number per upkeep, dropping log", "blockNumber", log.BlockNumber,
-				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
+		droppedLog, ok := currentBlock.Append(lggr, fetchedLog{upkeepID: id, log: log}, maxBlockLogs, maxUpkeepLogs)
+		if !ok {
+			// Skipping known logs
 			continue
 		}
-		// lggr.Debugw("Adding log", "i", i, "blockBlock", block.blockNumber, "logBlock", log.BlockNumber, "id", id)
-		block.logs = append(block.logs, fetchedLog{id: id, log: log})
-		b.blocks[i] = block
+		if droppedLog.upkeepID != nil {
+			dropped++
+			lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", droppedLog.log.BlockNumber,
+				"blockHash", droppedLog.log.BlockHash, "txHash", droppedLog.log.TxHash, "logIndex", droppedLog.log.LogIndex,
+				"upkeepID", droppedLog.upkeepID.String())
+		}
 		added++
+		b.blocks[i] = currentBlock
+
 		if log.BlockNumber > latestBlock {
 			latestBlock = log.BlockNumber
 		}
@@ -141,10 +222,10 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 		atomic.StoreInt64(&b.latestBlock, latestBlock)
 	}
 	if added > 0 {
-		lggr.Debugw("Added logs to buffer", "addedLogs", added, "latestBlock", latestBlock)
+		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
 	}
 
-	return added
+	return added - dropped
 }
 
 // peek returns the logs in range [latestBlock-blocks, latestBlock]
@@ -185,42 +266,65 @@ func (b *logEventBuffer) peekRange(start, end int64) []fetchedLog {
 	return results
 }
 
-// peek returns the logs in range [latestBlock-blocks, latestBlock]
-func (b *logEventBuffer) dequeue(blocks int) []fetchedLog {
-	latestBlock := b.latestBlockSeen()
-	if latestBlock == 0 {
-		return nil
-	}
-	if blocks > int(latestBlock) {
-		blocks = int(latestBlock) - 1
-	}
-	return b.dequeueRange(latestBlock-int64(blocks), latestBlock)
-}
-
 // dequeueRange returns the logs between start and end inclusive.
-func (b *logEventBuffer) dequeueRange(start, end int64) []fetchedLog {
+func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit, totalLimit int) []fetchedLog {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
-
-	var results []fetchedLog
-	for i, block := range blocksInRange {
-		// double checking that we don't have any gaps in the range
-		if block.blockNumber < start || block.blockNumber > end {
-			continue
-		}
-		results = append(results, block.logs...)
-		block.visited = append(block.visited, block.logs...)
-		block.logs = nil
-		b.blocks[i] = block
+	fetchedBlocks := make([]fetchedBlock, 0, len(blocksInRange))
+	for _, block := range blocksInRange {
+		// Create clone of the blocks as they get processed and update underlying b.blocks
+		fetchedBlocks = append(fetchedBlocks, block.Clone())
 	}
 
-	sort.SliceStable(results, func(i, j int) bool {
-		return results[i].log.BlockNumber < results[j].log.BlockNumber
+	// Sort the blocks in reverse order of block number so that latest logs
+	// are preferred while dequeueing.
+	sort.SliceStable(fetchedBlocks, func(i, j int) bool {
+		return fetchedBlocks[i].blockNumber > fetchedBlocks[j].blockNumber
 	})
 
-	b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
+	logsCount := map[string]int{}
+	totalCount := 0
+	var results []fetchedLog
+	for _, block := range fetchedBlocks {
+		if block.blockNumber < start || block.blockNumber > end {
+			// double checking that we don't have any gaps in the range
+			continue
+		}
+		if totalCount >= totalLimit {
+			// reached total limit, no need to process more blocks
+			break
+		}
+		// Sort the logs in random order that is shared across all nodes.
+		// This ensures that nodes across the network will process the same logs.
+		block.Sort()
+		var remainingLogs, blockResults []fetchedLog
+		for _, log := range block.logs {
+			if totalCount >= totalLimit {
+				remainingLogs = append(remainingLogs, log)
+				continue
+			}
+			if logsCount[log.upkeepID.String()] >= upkeepLimit {
+				remainingLogs = append(remainingLogs, log)
+				continue
+			}
+			blockResults = append(blockResults, log)
+			logsCount[log.upkeepID.String()]++
+			totalCount++
+		}
+		if len(blockResults) == 0 {
+			continue
+		}
+		results = append(results, blockResults...)
+		block.visited = append(block.visited, blockResults...)
+		block.logs = remainingLogs
+		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
+	}
+
+	if len(results) > 0 {
+		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
+	}
 
 	return results
 }
@@ -229,47 +333,42 @@ func (b *logEventBuffer) dequeueRange(start, end int64) []fetchedLog {
 // NOTE: this function should be called with the lock held
 func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
 	var blocksInRange []fetchedBlock
-	start, end = b.normalRange(start, end)
+	start, end = b.blockRangeToIndices(start, end)
 	if start == -1 || end == -1 {
 		// invalid range
 		return blocksInRange
 	}
-	if start < end {
-		return b.blocks[start:end]
+	if start <= end {
+		// Normal range, need to return indices from start to end(inclusive)
+		return b.blocks[start : end+1]
 	}
 	// in case we get circular range such as [0, 1, end, ... , start, ..., size-1]
-	// we need to return the blocks in two ranges: [start, size-1] and [0, end]
+	// we need to return the blocks in two ranges: [0, end](inclusive) and [start, size-1]
 	blocksInRange = append(blocksInRange, b.blocks[start:]...)
-	blocksInRange = append(blocksInRange, b.blocks[:end]...)
+	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
 
 	return blocksInRange
 }
 
-// normalRange returns the normalized range of start and end,
-// aligned with buffer sizes.
-func (b *logEventBuffer) normalRange(start, end int) (int, int) {
-	if end < start || end == 0 {
+// blockRangeToIndices returns the normalized range of start to end block range,
+// to indices aligned with buffer size. Note ranges inclusive of start, end indices.
+func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
+	latest := b.latestBlockSeen()
+	if end > int(latest) {
+		// Limit end of range to latest block seen
+		end = int(latest)
+	}
+	if end < start || start == 0 || end == 0 {
 		// invalid range
 		return -1, -1
 	}
 	size := b.bufferSize()
-	if start == 0 {
-		// we reduce start by 1 to make it easier to calculate the index,
-		// but we need to ensure we don't go below 0.
-		start++
-	}
-	if start == end {
-		// ensure we have at least one block in range
-		end++
-	}
-	if end-start > size {
-		// ensure we don't have more than the buffer size
+	if end-start >= size {
+		// If range requires more than buffer size blocks, only to return
+		// last size blocks as that's the max the buffer stores.
 		start = (end - size) + 1
 	}
-	start = (start - 1) % size
-	end = end % size
-
-	return start, end
+	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
 }
 
 // blockNumberIndex returns the index of the block in the buffer

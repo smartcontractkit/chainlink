@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../VRFRequestIDBase.sol";
+import {VRFRequestIDBase} from "../VRFRequestIDBase.sol";
 
 contract VRFRequestIDBaseTestHelper is VRFRequestIDBase {
   function makeVRFInputSeed_(

@@ -6,4 +6,4 @@ paymaster_wrapper: ../../../contracts/solc/v0.8.15/Paymaster.abi ../../../contra
 sca: ../../../contracts/solc/v0.8.15/SCA.abi ../../../contracts/solc/v0.8.15/SCA.bin ae0f860cdac87d4ac505edbd228bd3ea1108550453aba67aebcb61f09cf70d0b
 sca_wrapper: ../../../contracts/solc/v0.8.15/SCA.abi ../../../contracts/solc/v0.8.15/SCA.bin 2a8100fbdb41e6ce917ed333a624eaa4a8984b07e2d8d8ca6bba9bc9f74b05d7
 smart_contract_account_factory: ../../../contracts/solc/v0.8.15/SmartContractAccountFactory.abi ../../../contracts/solc/v0.8.15/SmartContractAccountFactory.bin a44d6fa2dbf9cb3441d6d637d89e1cd656f28b6bf4146f58d508067474bf845b
-smart_contract_account_helper: ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.abi ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.bin 0db06d3fdb558d152c13bed492301179ea0fcdc6f992990291f1ecabbf836bb9
+smart_contract_account_helper: ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.abi ../../../contracts/solc/v0.8.15/SmartContractAccountHelper.bin 22f960a74bd1581a12aa4f8f438a3f265f32f43682f5c1897ca50707b9982d56

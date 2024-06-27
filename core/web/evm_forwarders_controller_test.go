@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +31,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMForwardersController{
 		app:    app,
@@ -51,7 +50,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	})
 
 	// Build EVMForwarderRequest
-	address := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+	address := utils.RandomAddress()
 	body, err := json.Marshal(web.TrackEVMForwarderRequest{
 		EVMChainID: chainId,
 		Address:    address,
@@ -69,7 +68,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)
@@ -91,11 +90,11 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	fwdrs := []web.TrackEVMForwarderRequest{
 		{
 			EVMChainID: chainId,
-			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81"),
+			Address:    utils.RandomAddress(),
 		},
 		{
 			EVMChainID: chainId,
-			Address:    common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d82"),
+			Address:    utils.RandomAddress(),
 		},
 	}
 	for _, fwdr := range fwdrs {

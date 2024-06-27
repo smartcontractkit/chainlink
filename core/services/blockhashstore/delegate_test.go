@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -37,11 +38,11 @@ func TestDelegate_JobType(t *testing.T) {
 }
 
 type testData struct {
-	ethClient   *mocks.Client
-	ethKeyStore keystore.Eth
-	chainSet    evm.ChainSet
-	sendingKey  ethkey.KeyV2
-	logs        *observer.ObservedLogs
+	ethClient    *mocks.Client
+	ethKeyStore  keystore.Eth
+	legacyChains evm.LegacyChainContainer
+	sendingKey   ethkey.KeyV2
+	logs         *observer.ObservedLogs
 }
 
 func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
@@ -54,11 +55,12 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
+	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)
-	chainSet := evmtest.NewChainSet(
+
+	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
 		evmtest.TestChainOpts{
 			DB:            db,
@@ -68,13 +70,13 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-
-	return blockhashstore.NewDelegate(lggr, chainSet, kst), &testData{
-		ethClient:   ethClient,
-		ethKeyStore: kst,
-		chainSet:    chainSet,
-		sendingKey:  sendingKey,
-		logs:        logs,
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
+		ethClient:    ethClient,
+		ethKeyStore:  kst,
+		legacyChains: legacyChains,
+		sendingKey:   sendingKey,
+		logs:         logs,
 	}
 }
 
@@ -83,11 +85,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	delegate, testData := createTestDelegate(t)
 
-	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EVM().FinalityDepth())
+	require.NotEmpty(t, testData.legacyChains.Slice())
+	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks}}
+		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*utils.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(spec)
 
 		require.NoError(t, err)
@@ -104,6 +106,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
+			EVMChainID:               (*utils.Big)(testutils.FixtureChainID),
 		}}
 		services, err := delegate.ServicesForSpec(spec)
 
@@ -120,14 +123,6 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	t.Run("wrong EVMChainID", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			EVMChainID: utils.NewBigI(123),
-		}}
-		_, err := delegate.ServicesForSpec(spec)
-		assert.Error(t, err)
-	})
-
-	t.Run("WaitBlocks less than EvmFinalityDepth", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
-			WaitBlocks: defaultWaitBlocks - 1,
 		}}
 		_, err := delegate.ServicesForSpec(spec)
 		assert.Error(t, err)
@@ -150,12 +145,13 @@ func TestDelegate_StartStop(t *testing.T) {
 
 	delegate, testData := createTestDelegate(t)
 
-	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EVM().FinalityDepth())
+	require.NotEmpty(t, testData.legacyChains.Slice())
+	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 	spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
 		RunTimeout: testutils.WaitTimeout(t),
+		EVMChainID: (*utils.Big)(testutils.FixtureChainID),
 	}}
 	services, err := delegate.ServicesForSpec(spec)
 

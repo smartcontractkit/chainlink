@@ -122,6 +122,24 @@ func newTable(line string, desc lines) *table {
 	return t
 }
 
+func newArrayOfTables(line string, desc lines) *table {
+	t := &table{
+		name:  strings.Trim(strings.Trim(line, fieldExample), "[]"),
+		codes: []string{line},
+		desc:  desc,
+	}
+	if len(desc) > 0 {
+		if strings.HasPrefix(strings.TrimSpace(desc[0]), tokenAdvanced) {
+			t.adv = true
+			t.desc = t.desc[1:]
+		} else if strings.HasPrefix(strings.TrimSpace(desc[len(desc)-1]), tokenExtended) {
+			t.ext = true
+			t.desc = t.desc[:len(desc)-1]
+		}
+	}
+	return t
+}
+
 func (t table) advanced() string {
 	if t.adv {
 		return advancedWarning("Do not change these settings unless you know what you are doing.")
@@ -217,6 +235,10 @@ func parseTOMLDocs(s string) (items []fmt.Stringer, err error) {
 				items = append(items, desc)
 				desc = nil
 			}
+		} else if strings.HasPrefix(line, "[[") {
+			currentTable = newArrayOfTables(line, desc)
+			items = append(items, currentTable)
+			desc = nil
 		} else if strings.HasPrefix(line, "[") {
 			currentTable = newTable(line, desc)
 			items = append(items, currentTable)

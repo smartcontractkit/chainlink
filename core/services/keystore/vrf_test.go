@@ -169,28 +169,4 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 			assert.NotZero(t, pf)
 		})
 	})
-
-	t.Run("returns V1 keys as V2", func(t *testing.T) {
-		defer reset()
-		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_vrf_keys")))
-
-		v1 := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-		err := utils.JustError(db.Exec(`INSERT INTO encrypted_vrf_keys (public_key, vrf_key, created_at, updated_at, deleted_at) VALUES ($1, '{"address":"b94276ad4e5452732ec0cccf30ef7919b67844b6","crypto":{"cipher":"aes-128-ctr","ciphertext":"ff66d61d02dba54a61bab1ceb8414643f9e76b7351785d2959e2c8b50ee69a92","cipherparams":{"iv":"75705da271b11e330a27b8d593a3930c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"efe5b372e4fe79d0af576a79d65a1ee35d0792d9c92b70107b5ada1817ea7c7b"},"mac":"e4d0bb08ffd004ab03aeaa42367acbd9bb814c6cfd981f5157503f54c30816e7"},"version": 3}',  NOW(), NOW(), NULL)`, v1.PublicKey))
-		require.NoError(t, err)
-
-		t.Run("returns 0 keys passing password as empty string", func(t *testing.T) {
-			keys, err := ks.GetV1KeysAsV2("")
-			require.NoError(t, err)
-
-			assert.Len(t, keys, 0)
-		})
-
-		t.Run("returns V1 keys as V2", func(t *testing.T) {
-			keys, err := ks.GetV1KeysAsV2("p4SsW0rD1!@#_")
-			require.NoError(t, err)
-
-			assert.Len(t, keys, 1)
-			assert.Equal(t, fmt.Sprintf("VRFKeyV2{PublicKey: %s}", keys[0].PublicKey), keys[0].GoString())
-		})
-	})
 }

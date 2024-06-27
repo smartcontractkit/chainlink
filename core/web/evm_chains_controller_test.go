@@ -2,7 +2,9 @@ package web_test
 
 import (
 	"fmt"
+	"math/big"
 	"net/http"
+	"sort"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -101,10 +103,17 @@ func Test_EVMChainsController_Show(t *testing.T) {
 func Test_EVMChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	newChains := evmcfg.EVMConfigs{
-		{ChainID: utils.NewBig(testutils.NewRandomEVMChainID()), Chain: evmcfg.Defaults(nil)},
+	// sort test chain ids to make expected comparison easy
+	chainIDs := []*big.Int{testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID()}
+	sort.Slice(chainIDs, func(i, j int) bool {
+
+		return chainIDs[i].String() < chainIDs[j].String()
+	})
+
+	configuredChains := evmcfg.EVMConfigs{
+		{ChainID: utils.NewBig(chainIDs[0]), Chain: evmcfg.Defaults(nil)},
 		{
-			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
+			ChainID: utils.NewBig(chainIDs[1]),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](13),
 				GasEstimator: evmcfg.GasEstimator{
@@ -117,7 +126,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 			}),
 		},
 		{
-			ChainID: utils.NewBig(testutils.NewRandomEVMChainID()),
+			ChainID: utils.NewBig(chainIDs[2]),
 			Chain: evmcfg.Defaults(nil, &evmcfg.Chain{
 				RPCBlockQueryDelay: ptr[uint16](5),
 				GasEstimator: evmcfg.GasEstimator{
@@ -131,8 +140,9 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		},
 	}
 
+	assert.Len(t, configuredChains, 3)
 	controller := setupEVMChainsControllerTest(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM = append(c.EVM, newChains...)
+		c.EVM = append(c.EVM, configuredChains...)
 	}))
 
 	badResp, cleanup := controller.client.Get("/v2/chains/evm?size=asd")
@@ -147,37 +157,40 @@ func Test_EVMChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	require.Equal(t, 1+len(newChains), metaCount)
+	require.Equal(t, 1+len(configuredChains), metaCount)
 
 	var links jsonapi.Links
 
-	var chains []presenters.EVMChainResource
-	err = web.ParsePaginatedResponse(body, &chains, &links)
+	var gotChains []presenters.EVMChainResource
+	err = web.ParsePaginatedResponse(body, &gotChains, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[1].ChainID.String(), chains[2].ID)
-	toml, err := newChains[1].TOMLString()
+	// the difference in index value here seems to be due to the fact
+	// that cltest always has a default EVM chain, which is the off-by-one
+	// in the indices
+	assert.Equal(t, gotChains[2].ID, configuredChains[1].ChainID.String())
+	toml, err := configuredChains[1].TOMLString()
 	require.NoError(t, err)
-	assert.Equal(t, toml, chains[2].Config)
+	assert.Equal(t, toml, gotChains[2].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	chains = []presenters.EVMChainResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
+	gotChains = []presenters.EVMChainResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &gotChains, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"].Href)
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[2].ChainID.String(), chains[0].ID)
-	toml, err = newChains[2].TOMLString()
+	assert.Equal(t, gotChains[0].ID, configuredChains[2].ChainID.String())
+	toml, err = configuredChains[2].TOMLString()
 	require.NoError(t, err)
-	assert.Equal(t, toml, chains[0].Config)
+	assert.Equal(t, toml, gotChains[0].Config)
 }
 
 type TestEVMChainsController struct {
@@ -191,7 +204,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMChainsController{
 		app:    app,

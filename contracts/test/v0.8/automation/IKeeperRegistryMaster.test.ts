@@ -87,7 +87,7 @@ describe('IKeeperRegistryMaster', () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))
     const knownChecksum = fs
       .readFileSync(
-        'src/v0.8/dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol',
+        'src/v0.8/automation/interfaces/v2_1/IKeeperRegistryMaster.sol',
       )
       .toString()
       .slice(17, 83) // checksum located at top of file

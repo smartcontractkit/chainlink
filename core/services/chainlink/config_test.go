@@ -10,13 +10,15 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -156,7 +157,7 @@ var (
 					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
-		Solana: []*solana.SolanaConfig{
+		Solana: []*solana.TOMLConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -191,6 +192,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	zeroSeconds := models.MustMakeDuration(time.Second * 0)
 	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
@@ -213,7 +215,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: toml.Core{
-			ExplorerURL:         mustURL("http://explorer.url"),
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
@@ -222,6 +223,16 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRDevelopmentMode:   ptr(false),
 				InfiniteDepthQueries: ptr(false),
 				DisableRateLimiting:  ptr(false),
+			},
+			Tracing: toml.Tracing{
+				Enabled:         ptr(true),
+				CollectorTarget: ptr("localhost:4317"),
+				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				Attributes: map[string]string{
+					"test": "load",
+					"env":  "dev",
+				},
+				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -272,14 +283,21 @@ func TestConfig_Marshal(t *testing.T) {
 	full.TelemetryIngress = toml.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
-		ServerPubKey: ptr("test-pub-key"),
-		URL:          mustURL("https://prom.test"),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
+		URL:          ptr(models.URL{}),
+		ServerPubKey: ptr(""),
+		Endpoints: []toml.TelemetryIngressEndpoint{{
+			Network:      ptr("EVM"),
+			ChainID:      ptr("1"),
+			ServerPubKey: ptr("test-pub-key"),
+			URL:          mustURL("prom.test")},
+		},
 	}
+
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: ptr(true),
@@ -529,6 +547,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
+					LeaseDuration:        &zeroSeconds,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -560,7 +579,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*solana.SolanaConfig{
+	full.Solana = []*solana.TOMLConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -609,11 +628,12 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
+				Bech32Prefix:         ptr("wasm"),
 				BlockRate:            relayutils.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout: ptr[int64](12),
 				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
-				FCDURL:               relayutils.MustParseURL("http://cosmos.com"),
+				GasToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
 				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
@@ -634,8 +654,7 @@ func TestConfig_Marshal(t *testing.T) {
 		exp    string
 	}{
 		{"empty", Config{}, ``},
-		{"global", global, `ExplorerURL = 'http://explorer.url'
-InsecureFastScrypt = true
+		{"global", global, `InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
@@ -644,6 +663,16 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -684,14 +713,21 @@ LeaseRefreshInterval = '1s'
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
+
+[[TelemetryIngress.Endpoints]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'prom.test'
+ServerPubKey = 'test-pub-key'
 `},
+
 		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]
 Level = 'crit'
 JSONConsole = true
@@ -927,6 +963,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -956,11 +993,12 @@ SendOnly = true
 		{"Cosmos", Config{Cosmos: full.Cosmos}, `[[Cosmos]]
 ChainID = 'Malaga-420'
 Enabled = true
+Bech32Prefix = 'wasm'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FCDURL = 'http://cosmos.com'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'
@@ -1057,6 +1095,17 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
+	}
+
+	// Except for TelemetryIngress.ServerPubKey as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.ServerPubKey == nil {
+		got.TelemetryIngress.ServerPubKey = ptr("")
+	}
+	// Except for TelemetryIngress.URL as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.URL == nil {
+		got.TelemetryIngress.URL = new(models.URL)
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)
@@ -1301,9 +1350,7 @@ func TestSecrets_Validate(t *testing.T) {
 	}{
 		{name: "partial",
 			toml: `
-Database.AllowSimplePasswords = true
-Explorer.AccessKey = "access_key"
-Explorer.Secret = "secret"`,
+Database.AllowSimplePasswords = true`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty`},
@@ -1363,7 +1410,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
-	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {

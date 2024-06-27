@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./SimpleReadAccessController.sol";
-import "./interfaces/AccessControllerInterface.sol";
-import "./interfaces/FlagsInterface.sol";
+import {SimpleReadAccessController} from "./shared/access/SimpleReadAccessController.sol";
+import {AccessControllerInterface} from "./shared/interfaces/AccessControllerInterface.sol";
+import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
 
 /**
  * @title The Flags contract
@@ -13,10 +13,11 @@ import "./interfaces/FlagsInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
+// solhint-disable custom-errors
 contract Flags is FlagsInterface, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
 
-  mapping(address => bool) private flags;
+  mapping(address => bool) private s_flags;
 
   event FlagRaised(address indexed subject);
   event FlagLowered(address indexed subject);
@@ -36,7 +37,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * false value indicates that no flag was raised.
    */
   function getFlag(address subject) external view override checkAccess returns (bool) {
-    return flags[subject];
+    return s_flags[subject];
   }
 
   /**
@@ -48,7 +49,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   function getFlags(address[] calldata subjects) external view override checkAccess returns (bool[] memory) {
     bool[] memory responses = new bool[](subjects.length);
     for (uint256 i = 0; i < subjects.length; i++) {
-      responses[i] = flags[subjects[i]];
+      responses[i] = s_flags[subjects[i]];
     }
     return responses;
   }
@@ -60,9 +61,9 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * @param subject The contract address whose flag is being raised
    */
   function raiseFlag(address subject) external override {
-    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+    require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
-    tryToRaiseFlag(subject);
+    _tryToRaiseFlag(subject);
   }
 
   /**
@@ -72,10 +73,10 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * @param subjects List of the contract addresses whose flag is being raised
    */
   function raiseFlags(address[] calldata subjects) external override {
-    require(allowedToRaiseFlags(), "Not allowed to raise flags");
+    require(_allowedToRaiseFlags(), "Not allowed to raise flags");
 
     for (uint256 i = 0; i < subjects.length; i++) {
-      tryToRaiseFlag(subjects[i]);
+      _tryToRaiseFlag(subjects[i]);
     }
   }
 
@@ -87,8 +88,8 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     for (uint256 i = 0; i < subjects.length; i++) {
       address subject = subjects[i];
 
-      if (flags[subject]) {
-        flags[subject] = false;
+      if (s_flags[subject]) {
+        s_flags[subject] = false;
         emit FlagLowered(subject);
       }
     }
@@ -110,13 +111,13 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
   // PRIVATE
 
-  function allowedToRaiseFlags() private view returns (bool) {
+  function _allowedToRaiseFlags() private view returns (bool) {
     return msg.sender == owner() || raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 
-  function tryToRaiseFlag(address subject) private {
-    if (!flags[subject]) {
-      flags[subject] = true;
+  function _tryToRaiseFlag(address subject) private {
+    if (!s_flags[subject]) {
+      s_flags[subject] = true;
       emit FlagRaised(subject);
     }
   }

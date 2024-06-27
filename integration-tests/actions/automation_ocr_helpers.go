@@ -11,25 +11,24 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 func BuildAutoOCR2ConfigVars(
@@ -39,7 +38,7 @@ func BuildAutoOCR2ConfigVars(
 	registrar string,
 	deltaStage time.Duration,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{})
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -49,8 +48,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	registrar string,
 	deltaStage time.Duration,
 	keyIndex int,
+	registryOwnerAddress common.Address,
 ) (contracts.OCRv2Config, error) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
@@ -71,7 +71,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
 			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   1,
+			MaxUpkeepBatchSize:   10,
 		})
 		if err != nil {
 			return contracts.OCRv2Config{}, err
@@ -81,7 +81,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 			10*time.Second,        // deltaProgress time.Duration,
 			15*time.Second,        // deltaResend time.Duration,
 			500*time.Millisecond,  // deltaInitial time.Duration,
-			3000*time.Millisecond, // deltaRound time.Duration,
+			1000*time.Millisecond, // deltaRound time.Duration,
 			200*time.Millisecond,  // deltaGrace time.Duration,
 			300*time.Millisecond,  // deltaCertifiedCommitRequest time.Duration
 			deltaStage,            // deltaStage time.Duration,
@@ -149,7 +149,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}
@@ -174,7 +174,7 @@ func CreateOCRKeeperJobs(
 	keyIndex int,
 	registryVersion ethereum.KeeperRegistryVersion,
 ) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
@@ -203,7 +203,8 @@ func CreateOCRKeeperJobs(
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.Name(), 6690)
+	// TODO: Use service name returned by chainlink-env once that is available
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s-node-1:%d", bootstrapP2PId, bootstrapNode.Name(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
@@ -250,40 +251,24 @@ func DeployAutoOCRRegistryAndRegistrar(
 	t *testing.T,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
-	numberOfUpkeeps int,
 	linkToken contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
 	registry := deployRegistry(t, registryVersion, registrySettings, contractDeployer, client, linkToken)
-
-	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
-	err := linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
-	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
 	registrar := deployRegistrar(t, registryVersion, registry, linkToken, contractDeployer, client)
 
 	return registry, registrar
 }
 
-func DeployConsumers(
-	t *testing.T,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	numberOfUpkeeps int,
-	linkFundsForEachUpkeep *big.Int,
-	upkeepGasLimit uint32,
-) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps)
+func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger, isMercury)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
+		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger, isMercury,
 	)
 	return upkeeps, upkeepIds
 }
@@ -310,9 +295,7 @@ func DeployPerformanceConsumers(
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
 	return upkeeps, upkeepIds
 }
 
@@ -333,9 +316,7 @@ func DeployPerformDataCheckerConsumers(
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
 	return upkeeps, upkeepIds
 }
 

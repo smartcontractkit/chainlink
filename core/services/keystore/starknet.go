@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/caigo"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -13,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 )
 
-//go:generate mockery --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
+//go:generate mockery --quiet --name StarkNet --output ./mocks/ --case=underscore --filename starknet.go
 type StarkNet interface {
 	Get(id string) (starkkey.Key, error)
 	GetAll() ([]starkkey.Key, error)

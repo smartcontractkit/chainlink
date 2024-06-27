@@ -26,7 +26,7 @@ before(async () => {
 
   // Contract factories
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/OptimismCrossDomainForwarder.sol:OptimismCrossDomainForwarder',
+    'src/v0.8/l2ep/dev/optimism/OptimismCrossDomainForwarder.sol:OptimismCrossDomainForwarder',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(
@@ -40,9 +40,8 @@ before(async () => {
 
 describe('OptimismCrossDomainForwarder', () => {
   beforeEach(async () => {
-    crossDomainMessenger = await crossDomainMessengerFactory.deploy(
-      l1OwnerAddress,
-    )
+    crossDomainMessenger =
+      await crossDomainMessengerFactory.deploy(l1OwnerAddress)
     forwarder = await forwarderFactory.deploy(
       crossDomainMessenger.address,
       l1OwnerAddress,

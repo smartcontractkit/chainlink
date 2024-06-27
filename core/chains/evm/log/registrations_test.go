@@ -49,8 +49,7 @@ func TestUnit_Registrations_InvariantViolations(t *testing.T) {
 
 	// Different subscriber same jobID/contract address is not ok
 	assert.Panics(t, func() {
-		opts := ListenerOpts{Contract: contractAddr, MinIncomingConfirmations: 1}
-		subError := &subscriber{l, opts}
+		subError := &subscriber{l, ListenerOpts{Contract: contractAddr, MinIncomingConfirmations: 1}}
 
 		r.addSubscriber(subError)
 	})

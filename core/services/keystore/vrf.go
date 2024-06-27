@@ -21,8 +21,6 @@ type VRF interface {
 	Export(id string, password string) ([]byte, error)
 
 	GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error)
-
-	GetV1KeysAsV2(password string) ([]vrfkey.KeyV2, error)
 }
 
 var (
@@ -141,24 +139,6 @@ func (ks *vrf) GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error) {
 		return vrfkey.Proof{}, err
 	}
 	return key.GenerateProof(seed)
-}
-
-func (ks *vrf) GetV1KeysAsV2(password string) (keys []vrfkey.KeyV2, _ error) {
-	if len(password) == 0 {
-		return keys, nil
-	}
-	v1Keys, err := ks.orm.GetEncryptedV1VRFKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		pk, err := vrfkey.Decrypt(keyV1, password) // V1 VRF keys have their own password
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, pk.ToV2())
-	}
-	return keys, nil
 }
 
 func (ks *vrf) getByID(id string) (vrfkey.KeyV2, error) {

@@ -42,7 +42,6 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemetry := []byte("101010")
 	address := common.HexToAddress("0xa")
 	telemPayload := synchronization.TelemPayload{
-		Ctx:        testutils.Context(t),
 		Telemetry:  telemetry,
 		ContractID: address.String(),
 		TelemType:  synchronization.OCR,
@@ -60,7 +59,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	telemIngressClient.Send(telemPayload)
+	telemIngressClient.Send(testutils.Context(t), telemPayload.Telemetry, telemPayload.ContractID, telemPayload.TelemType)
 
 	// Wait for the telemetry to be handled
 	gomega.NewWithT(t).Eventually(called.Load).Should(gomega.BeTrue())

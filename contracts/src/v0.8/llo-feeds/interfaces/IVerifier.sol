@@ -14,9 +14,9 @@ interface IVerifier is IERC165 {
    * @dev Verification is typically only done through the proxy contract so
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
-   * @return response The encoded verified response.
+   * @return verifierResponse The encoded verified response.
    */
-  function verify(bytes calldata signedReport, address sender) external returns (bytes memory response);
+  function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
@@ -31,6 +31,34 @@ interface IVerifier is IERC165 {
    */
   function setConfig(
     bytes32 feedId,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external;
+
+  /**
+   * @notice identical to `setConfig` except with args for sourceChainId and sourceAddress
+   * @param feedId Feed ID to set config for
+   * @param sourceChainId Chain ID of source config
+   * @param sourceAddress Address of source config Verifier
+   * @param newConfigCount Param to force the new config count
+   * @param signers addresses with which oracles sign the reports
+   * @param offchainTransmitters CSA key for the ith Oracle
+   * @param f number of faulty oracles the system can tolerate
+   * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
+   * @param offchainConfigVersion version number for offchainEncoding schema
+   * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
+   * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
+   */
+  function setConfigFromSource(
+    bytes32 feedId,
+    uint256 sourceChainId,
+    address sourceAddress,
+    uint32 newConfigCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
     uint8 f,

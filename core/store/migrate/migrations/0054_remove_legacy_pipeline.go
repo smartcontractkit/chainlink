@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/pkg/errors"
@@ -28,26 +29,26 @@ ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
 
 func init() {
-	goose.AddMigration(Up54, Down54)
+	goose.AddMigrationContext(Up54, Down54)
 }
 
 // nolint
-func Up54(tx *sql.Tx) error {
+func Up54(ctx context.Context, tx *sql.Tx) error {
 	if err := CheckNoLegacyJobs(tx); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(up54); err != nil {
+	if _, err := tx.ExecContext(ctx, up54); err != nil {
 		return err
 	}
 	return nil
 }
 
 // nolint
-func Down54(tx *sql.Tx) error {
+func Down54(ctx context.Context, tx *sql.Tx) error {
 	return errors.New("irreversible migration")
 }
 
-// CheckNoLegacyJobs ensures that there are are no legacy job specs
+// CheckNoLegacyJobs ensures that there are no legacy job specs
 func CheckNoLegacyJobs(tx *sql.Tx) error {
 	var count int
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {

@@ -135,8 +135,12 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relayty
 	}
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
+		chain.Client(),
 		chain.LogPoller(),
-		contractAddress)
+		contractAddress,
+		// TODO: Does ocr2vrf need to support config contract? DF-19182
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}

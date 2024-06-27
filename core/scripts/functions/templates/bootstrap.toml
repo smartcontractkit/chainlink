@@ -1,9 +1,12 @@
 type = "bootstrap"
 schemaVersion = 1
-name = "Functions bootstrap {{timestamp}}"
+name = "Functions V1 bootstrap {{timestamp}}"
 forwardingAllowed = false
-contractID = "{{oracle_contract_address}}"
+contractID = "{{router_contract_address}}"
 relay = "evm"
 
 [relayConfig]
 chainID = {{chain_id}}
+contractUpdateCheckFrequencySec = 60
+contractVersion = 1
+donID = "{{don_id}}"

@@ -10,7 +10,7 @@ before(async () => {
   roles = (await getUsers()).roles
 
   authorizedOriginReceiverFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/AuthorizedOriginReceiverTestHelper.sol:AuthorizedOriginReceiverTestHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/AuthorizedOriginReceiverTestHelper.sol:AuthorizedOriginReceiverTestHelper',
     roles.defaultAccount,
   )
 })

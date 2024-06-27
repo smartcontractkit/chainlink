@@ -3,16 +3,17 @@ import chai, { assert, expect } from 'chai'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import * as h from '../../test-helpers/helpers'
+import { mineBlock } from '../../test-helpers/helpers'
 import { IAggregatorProxy__factory as IAggregatorProxyFactory } from '../../../typechain/factories/IAggregatorProxy__factory'
 import { ILinkAvailable__factory as ILinkAvailableFactory } from '../../../typechain/factories/ILinkAvailable__factory'
 import { LinkAvailableBalanceMonitor, LinkToken } from '../../../typechain'
 import { BigNumber } from 'ethers'
-import { mineBlock } from '../../test-helpers/helpers'
 import deepEqualInAnyOrder from 'deep-equal-in-any-order'
 import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
+
 chai.use(deepEqualInAnyOrder)
 
 //////////////////////////////// GAS USAGE LIMITS - CHANGE WITH CAUTION //////////////////////////
@@ -136,7 +137,10 @@ const setup = async () => {
     'LinkAvailableBalanceMonitor',
     owner,
   )
-  const ltFactory = await ethers.getContractFactory('LinkToken', owner)
+  const ltFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+    owner,
+  )
 
   lt = await ltFactory.deploy()
   labm = await labmFactory.deploy(lt.address, twoLINK)

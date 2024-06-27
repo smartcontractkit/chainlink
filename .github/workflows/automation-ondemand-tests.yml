@@ -10,6 +10,16 @@ on:
         description: Chainlink image repo to use (Leave empty to build from head/ref)
         required: false
         type: string
+      chainlinkVersionUpdate:
+        description: Chainlink image version to use initially for upgrade test
+        default: latest
+        required: true
+        type: string
+      chainlinkImageUpdate:
+        description: Chainlink image repo to use initially for upgrade test
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+        type: string
 
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
@@ -36,20 +46,20 @@ jobs:
       - name: Collect Metrics
         if: inputs.chainlinkImage == ''
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Build Chainlink Image ${{ matrix.image.name }}
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 #v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -57,7 +67,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -81,14 +91,14 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Build Test Image
         continue-on-error: true
       - name: Checkout the repo
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Build Test Image
@@ -130,8 +140,8 @@ jobs:
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade
             suite: smoke
-            nodes: 1
-            os: ubuntu-latest
+            nodes: 3
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade$ ./smoke
@@ -139,7 +149,7 @@ jobs:
     name: Automation On Demand ${{ matrix.tests.name }} Test
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Determine build to use
@@ -150,30 +160,33 @@ jobs:
             echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
             echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
           else
             echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
           fi
           if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
-            echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-            echo "version=develop" >>$GITHUB_OUTPUT
+            echo "image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+            echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 #v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         env:
           PYROSCOPE_SERVER: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           SELECTED_NETWORKS: ${{ matrix.tests.network }}
           TEST_SUITE: ${{ matrix.tests.suite }}
-          TEST_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
-          TEST_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
+          UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 60m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
           publish_check_name: Automation On Demand Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -192,7 +205,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

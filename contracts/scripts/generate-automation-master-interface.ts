@@ -9,7 +9,7 @@ import { utils } from 'ethers'
 import fs from 'fs'
 import { exec } from 'child_process'
 
-const dest = 'src/v0.8/dev/automation/2_1/interfaces'
+const dest = 'src/v0.8/automation/interfaces/v2_1'
 const srcDest = `${dest}/IKeeperRegistryMaster.sol`
 const tmpDest = `${dest}/tmp.txt`
 
@@ -26,6 +26,14 @@ for (const abi of abis) {
     const id = utils.id(JSON.stringify(entry))
     if (!abiSet.has(id)) {
       abiSet.add(id)
+      if (
+        entry.type === 'function' &&
+        (entry.name === 'checkUpkeep' ||
+          entry.name === 'checkCallback' ||
+          entry.name === 'simulatePerformUpkeep')
+      ) {
+        entry.stateMutability = 'view' // override stateMutability for check / callback / simulate functions
+      }
       combinedABI.push(entry)
     }
   }

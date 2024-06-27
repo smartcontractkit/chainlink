@@ -17,8 +17,9 @@ import (
 
 var (
 	constraints = s4.Constraints{
-		MaxSlotsPerUser:     5,
-		MaxPayloadSizeBytes: 32,
+		MaxSlotsPerUser:        5,
+		MaxPayloadSizeBytes:    32,
+		MaxExpirationLengthSec: 3600,
 	}
 )
 
@@ -98,6 +99,20 @@ func TestStorage_Errors(t *testing.T) {
 		}
 		err := storage.Put(testutils.Context(t), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPastExpiration)
+	})
+
+	t.Run("ErrExpirationTooLong", func(t *testing.T) {
+		key := &s4.Key{
+			Address: testutils.NewAddress(),
+			SlotId:  1,
+			Version: 0,
+		}
+		record := &s4.Record{
+			Payload:    make([]byte, 10),
+			Expiration: now.UnixMilli() + 10000000,
+		}
+		err := storage.Put(testutils.Context(t), key, record, []byte{})
+		assert.ErrorIs(t, err, s4.ErrExpirationTooLong)
 	})
 
 	t.Run("ErrWrongSignature", func(t *testing.T) {
@@ -202,7 +217,8 @@ func TestStorage_List(t *testing.T) {
 		},
 	}
 
-	addressRange := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	addressRange, err := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	assert.NoError(t, err)
 	ormMock.On("GetSnapshot", addressRange, mock.Anything).Return(ormRows, nil)
 
 	rows, err := storage.List(testutils.Context(t), address)

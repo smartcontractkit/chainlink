@@ -3,6 +3,8 @@
 ChainID = 'Malaga-420' # Example
 # Enabled enables this chain.
 Enabled = true # Default
+# Bech32Prefix is the human-readable prefix for addresses on this Cosmos chain. See https://docs.cosmos.network/v0.47/spec/addresses/bech32.
+Bech32Prefix = 'wasm' # Default
 # BlockRate is the average time between blocks.
 BlockRate = '6s' # Default
 # BlocksUntilTxTimeout is the number of blocks to wait before giving up on the tx getting confirmed.
@@ -11,8 +13,8 @@ BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 # FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 FallbackGasPrice = '0.015' # Default
-# FCDURL sets the FCD (Full Client Daemon) URL.
-FCDURL = 'http://cosmos.com' # Example
+# GasToken is the token denomination which is being used to pay gas fees on this chain.
+GasToken = 'ucosm' # Default
 # GasLimitMultiplier scales the estimated gas limit.
 GasLimitMultiplier = '1.5' # Default
 # MaxMsgsPerBatch limits the numbers of mesages per transaction batch.

@@ -160,7 +160,7 @@ func TestBatchCallContext(t *testing.T) {
 		mock.MatchedBy(
 			func(b []rpc.BatchElem) bool {
 				return len(b) == 2 &&
-					b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == blockNum && b[0].Args[1] == true
+					b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == blockNum && b[0].Args[1].(bool)
 			})).Return(nil).Once().Return(nil)
 
 	s.SetEthClient(mockBatchSender, nil)

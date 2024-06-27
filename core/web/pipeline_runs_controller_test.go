@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -50,16 +52,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -68,7 +68,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(nil)
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -111,16 +111,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
+		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -129,7 +127,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(nil)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -149,7 +147,12 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/pipeline/runs")
+	url := url.URL{Path: "/v2/pipeline/runs"}
+	query := url.Query()
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	url.RawQuery = query.Encode()
+
+	response, cleanup := client.Get(url.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -237,7 +240,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -247,6 +250,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V1.Enabled = ptr(true)
@@ -257,15 +261,18 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
+	nameAndExternalJobID := uuid.New()
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
-	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+	externalJobID       = "%s"
+	name               = "%s"
 	contractAddress    = "%s"
+	evmChainID		   = "0"
 	p2pBootstrapPeers  = [
 		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 	]
@@ -290,7 +297,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, nameAndExternalJobID, nameAndExternalJobID, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)

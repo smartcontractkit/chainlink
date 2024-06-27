@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "@openzeppelin/contracts/utils/Address.sol";
-import "./shared/access/ConfirmedOwner.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {ConfirmedOwner} from "./shared/access/ConfirmedOwner.sol";
 
 /**
  * @title PermissionedForwardProxy

@@ -1,56 +1,62 @@
 package cosmostxm
 
 import (
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"bytes"
+	"context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 )
 
-var _ cryptotypes.PrivKey = KeyWrapper{}
-
-// KeyWrapper wrapper around a cosmos transmitter key
-// for use in the cosmos txbuilder and client, see chainlink-cosmos.
+// KeyWrapper uses a KeystoreAdapter to implement the cosmos-sdk PrivKey interface for a specific key.
 type KeyWrapper struct {
-	key cosmoskey.Key
+	adapter *KeystoreAdapter
+	account string
 }
 
-// NewKeyWrapper create a key wrapper
-func NewKeyWrapper(key cosmoskey.Key) KeyWrapper {
-	return KeyWrapper{key: key}
+var _ cryptotypes.PrivKey = &KeyWrapper{}
+
+func NewKeyWrapper(adapter *KeystoreAdapter, account string) *KeyWrapper {
+	return &KeyWrapper{
+		adapter: adapter,
+		account: account,
+	}
 }
 
-// Reset nop
-func (k KeyWrapper) Reset() {}
-
-// ProtoMessage nop
-func (k KeyWrapper) ProtoMessage() {}
-
-// String nop
-func (k KeyWrapper) String() string {
-	return ""
+func (a *KeyWrapper) Bytes() []byte {
+	// don't expose the private key.
+	return nil
 }
 
-// Bytes does not expose private key
-func (k KeyWrapper) Bytes() []byte {
-	return []byte{}
+func (a *KeyWrapper) Sign(msg []byte) ([]byte, error) {
+	return a.adapter.Sign(context.Background(), a.account, msg)
 }
 
-// Sign sign a message with key
-func (k KeyWrapper) Sign(msg []byte) ([]byte, error) {
-	return k.key.ToPrivKey().Sign(msg)
+func (a *KeyWrapper) PubKey() cryptotypes.PubKey {
+	pubKey, err := a.adapter.PubKey(a.account)
+	if err != nil {
+		// return an empty pubkey if it's not found.
+		return &secp256k1.PubKey{Key: []byte{}}
+	}
+	return pubKey
 }
 
-// PubKey get the pubkey
-func (k KeyWrapper) PubKey() cryptotypes.PubKey {
-	return k.key.PublicKey()
+func (a *KeyWrapper) Equals(other cryptotypes.LedgerPrivKey) bool {
+	return bytes.Equal(a.PubKey().Bytes(), other.PubKey().Bytes())
 }
 
-// Equals compare against another key
-func (k KeyWrapper) Equals(a cryptotypes.LedgerPrivKey) bool {
-	return k.PubKey().Address().String() == a.PubKey().Address().String()
+func (a *KeyWrapper) Type() string {
+	return "secp256k1"
 }
 
-// Type nop
-func (k KeyWrapper) Type() string {
-	return ""
+func (a *KeyWrapper) Reset() {
+	// no-op
+}
+
+func (a *KeyWrapper) String() string {
+	return "<redacted>"
+}
+
+func (a *KeyWrapper) ProtoMessage() {
+	// no-op
 }

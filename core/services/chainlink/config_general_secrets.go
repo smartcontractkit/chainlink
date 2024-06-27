@@ -14,17 +14,3 @@ func (g *generalConfig) DatabaseURL() url.URL {
 func (g *generalConfig) DatabaseBackupURL() *url.URL {
 	return g.secrets.Database.BackupURL.URL()
 }
-
-func (g *generalConfig) ExplorerAccessKey() string {
-	if g.secrets.Explorer.AccessKey == nil {
-		return ""
-	}
-	return string(*g.secrets.Explorer.AccessKey)
-}
-
-func (g *generalConfig) ExplorerSecret() string {
-	if g.secrets.Explorer.Secret == nil {
-		return ""
-	}
-	return string(*g.secrets.Explorer.Secret)
-}

@@ -42,6 +42,22 @@ contract ErroredVerifier is IVerifier {
     revert("Failed to set config");
   }
 
+  function setConfigFromSource(
+    bytes32,
+    uint256,
+    address,
+    uint32,
+    address[] memory,
+    bytes32[] memory,
+    uint8,
+    bytes memory,
+    uint64,
+    bytes memory,
+    Common.AddressAndWeight[] memory
+  ) external pure override {
+    revert("Failed to set config");
+  }
+
   function activateConfig(bytes32, bytes32) external pure {
     revert("Failed to activate config");
   }

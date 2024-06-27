@@ -1,0 +1,44 @@
+
+[Common]
+minimum_confirmations = 3
+
+[NewEnvConfig]
+sub_funds_link = 1000
+sub_funds_native = 1000
+node_funds = 10
+number_of_sub_to_create = 10
+
+[ExistingEnvConfig]
+coordinator_address = "0x4931Ce2e341398c8eD8A5D0F6ADb920476D6DaBb"
+consumer_address = "0x087F232165D9bA1A602f148025e5D0666953F64a"
+sub_id = "52116875585187328970776211988181422347535732407068188096422095950800466618218"
+key_hash = "0x4c422465ed6a06cfc84575a5437fef7b9dc6263133f648afbe6ae7b2c694d3b3"
+
+
+# 10 RPM - 1 tx request with 1 rand request in each tx every 6 seconds
+[Soak]
+rate_limit_unit_duration = "6s"
+rps = 1
+randomness_request_count_per_request = 1 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+
+# approx 60 RPM - 1 tx request with 4 rand requests in each tx every 3 seconds
+[Load]
+rate_limit_unit_duration = "3s"
+rps = 1
+randomness_request_count_per_request = 3 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 2 #NOTE - deviation should be less than randomness_request_count_per_request setting
+
+# approx 540 RPM - 3 tx requests per second with 4 rand requests in each tx
+[Stress]
+rate_limit_unit_duration = "0"
+rps = 3
+randomness_request_count_per_request = 4 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting
+
+# approx 150 RPM - 1 tx request with 150 rand requests in each tx every 60 seconds
+[Spike]
+rate_limit_unit_duration = "1m"
+rps = 1
+randomness_request_count_per_request = 150 # amount of randomness requests to make per one TX request
+randomness_request_count_per_request_deviation = 0 #NOTE - deviation should be less than randomness_request_count_per_request setting

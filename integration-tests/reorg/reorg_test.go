@@ -1,6 +1,7 @@
 package reorg
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"os"
@@ -23,15 +24,34 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 const (
+	baseDRTOML = `
+[Feature]
+LogPoller = true
+`
+	networkDRTOML = `
+Enabled = true
+FinalityDepth = %s
+LogPollInterval = '1s'
+
+[EVM.HeadTracker]
+HistoryDepth = %s
+`
+)
+
+const (
 	EVMFinalityDepth         = "200"
 	EVMTrackerHistoryDepth   = "400"
-	reorgBlocks              = 50
+	reorgBlocks              = 10
 	minIncomingConfirmations = "200"
 	timeout                  = "15m"
 	interval                 = "2s"
@@ -71,6 +91,7 @@ func CleanupReorgTest(
 
 func TestDirectRequestReorg(t *testing.T) {
 	logging.Init()
+	l := logging.GetTestLogger(t)
 	testEnvironment := environment.New(&environment.Config{
 		TTL:  1 * time.Hour,
 		Test: t,
@@ -102,22 +123,19 @@ func TestDirectRequestReorg(t *testing.T) {
 	// related https://app.shortcut.com/chainlinklabs/story/38295/creating-an-evm-chain-via-cli-or-api-immediately-polling-the-nodes-and-returning-an-error
 	// node must work and reconnect even if network is not working
 	time.Sleep(90 * time.Second)
-	chainlinkDeployment, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"env": map[string]interface{}{
-			"eth_url":                        "ws://geth-ethereum-geth:8546",
-			"eth_http_url":                   "http://geth-ethereum-geth:8544",
-			"eth_chain_id":                   "1337",
-			"ETH_FINALITY_DEPTH":             EVMFinalityDepth,
-			"ETH_HEAD_TRACKER_HISTORY_DEPTH": EVMTrackerHistoryDepth,
-		},
+	activeEVMNetwork = networks.SimulatedEVMNonDev
+	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
+	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
+		"replicas": 1,
+		"toml":     client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
 	})
-	require.NoError(t, err, "Error building Chainlink deployment")
-	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
+
+	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
-	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -154,17 +172,18 @@ func TestDirectRequestReorg(t *testing.T) {
 	err = chainlinkNodes[0].MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
 
-	os := &client.DirectRequestTxPipelineSpec{
+	drps := &client.DirectRequestTxPipelineSpec{
 		BridgeTypeAttributes: bta,
 		DataPath:             "data,result",
 	}
-	ost, err := os.String()
+	ost, err := drps.String()
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
 	_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
 		Name:                     "direct_request",
 		MinIncomingConfirmations: minIncomingConfirmations,
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               chainClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -199,4 +218,13 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	err = rc.WaitDepthReached()
 	require.NoError(t, err, "Error waiting for depth to be reached")
+
+	gom := gomega.NewGomegaWithT(t)
+	gom.Eventually(func(g gomega.Gomega) {
+		d, err := consumer.Data(context.Background())
+		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting data from consumer contract shouldn't fail")
+		g.Expect(d).ShouldNot(gomega.BeNil(), "Expected the initial on chain data to be nil")
+		log.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
+		g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
+	}, timeout, interval).Should(gomega.Succeed())
 }

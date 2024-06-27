@@ -10,6 +10,8 @@ on:
           - "GOERLI"
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_GOERLI"
+          - "ARBITRUM_SEPOLIA"
+          - "ARBITRUM_MAINNET"
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
           - "BASE_GOERLI"
@@ -17,7 +19,11 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
+          - "SCROLL_MAINNET"
+          - "MUMBAI"
+          - "POLYGON_MAINNET"   
+          - "LINEA_GOERLI"
+          - "LINEA_MAINNET"  
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -81,7 +87,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -104,7 +110,7 @@ jobs:
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
           echo SLACK_USER=$SLACK_USER >> $GITHUB_ENV
       - name: Checkout the repo
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ env.REF_NAME }}
       - name: Setup Push Tag
@@ -121,7 +127,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak

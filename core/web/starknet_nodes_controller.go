@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -9,6 +10,8 @@ import (
 var ErrStarkNetNotEnabled = errChainDisabled{name: "StarkNet", tomlKey: "Starknet.Enabled"}
 
 func NewStarkNetNodesController(app chainlink.Application) NodesController {
+	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.StarkNet)
+
 	return newNodesController[presenters.StarkNetNodeResource](
-		app.GetChains().StarkNet, ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
+		scopedNodeStatuser, ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
 }

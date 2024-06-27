@@ -49,6 +49,7 @@ type OCR2JobConfig {
 	enabled: Boolean!
 	isBootstrap: Boolean!
 	multiaddr: String
+	forwarderAddress: String
 	p2pPeerID: String
 	keyBundleID: String
 	plugins: Plugins!
@@ -117,6 +118,7 @@ input CreateFeedsManagerChainConfigInput {
 	ocr2Enabled: Boolean!
 	ocr2IsBootstrap: Boolean
 	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
 	ocr2Plugins: String!
@@ -157,6 +159,7 @@ input UpdateFeedsManagerChainConfigInput {
 	ocr2Enabled: Boolean!
 	ocr2IsBootstrap: Boolean
 	ocr2Multiaddr: String
+	ocr2ForwarderAddress: String
 	ocr2P2PPeerID: String
 	ocr2KeyBundleID: String
 	ocr2Plugins: String!

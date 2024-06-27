@@ -465,9 +465,9 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	} else if resp.StatusCode == http.StatusForbidden {
 		return b, errForbidden
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		errorMessage, err := parseErrorResponseBody(b)
-		if err != nil {
-			return b, err
+		errorMessage, err2 := parseErrorResponseBody(b)
+		if err2 != nil {
+			return b, err2
 		}
 		return b, errors.New(errorMessage)
 	}

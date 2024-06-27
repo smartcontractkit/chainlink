@@ -330,6 +330,7 @@ type BlockhashStoreSpec struct {
 	CoordinatorV2PlusAddress       *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
 	WaitBlocks                     int32                 `json:"waitBlocks"`
 	LookbackBlocks                 int32                 `json:"lookbackBlocks"`
+	HeartbeatPeriod                time.Duration         `json:"heartbeatPeriod"`
 	BlockhashStoreAddress          ethkey.EIP55Address   `json:"blockhashStoreAddress"`
 	TrustedBlockhashStoreAddress   *ethkey.EIP55Address  `json:"trustedBlockhashStoreAddress"`
 	TrustedBlockhashStoreBatchSize int32                 `json:"trustedBlockhashStoreBatchSize"`
@@ -349,6 +350,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 		CoordinatorV2PlusAddress:       spec.CoordinatorV2PlusAddress,
 		WaitBlocks:                     spec.WaitBlocks,
 		LookbackBlocks:                 spec.LookbackBlocks,
+		HeartbeatPeriod:                spec.HeartbeatPeriod,
 		BlockhashStoreAddress:          spec.BlockhashStoreAddress,
 		TrustedBlockhashStoreAddress:   spec.TrustedBlockhashStoreAddress,
 		TrustedBlockhashStoreBatchSize: spec.TrustedBlockhashStoreBatchSize,
@@ -523,6 +525,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
+	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
+		// unsupported
 	}
 
 	jes := []JobError{}

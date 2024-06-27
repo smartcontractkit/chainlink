@@ -1,14 +1,12 @@
 package keystore_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -112,25 +110,5 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import([]byte(exportedKey), "p4SsW0rD1!@#_")
 		require.NoError(t, err)
 		require.Equal(t, "7cfd89bbb018e4778a44fd61172e8834dd24b4a2baf61ead795143b117221c61", importedKey.ID())
-	})
-
-	t.Run("", func(t *testing.T) {
-		defer reset()
-		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_ocr_key_bundles")))
-
-		ocr1 := utils.NewHash()
-		b, err := ocrkey.New()
-		require.NoError(t, err)
-		eb, err := b.Encrypt(cltest.Password, utils.FastScryptParams)
-		require.NoError(t, err)
-
-		err = utils.JustError(db.Exec(`INSERT INTO encrypted_ocr_key_bundles (id, on_chain_signing_address, off_chain_public_key, encrypted_private_keys, created_at, updated_at, config_public_key, deleted_at) VALUES ($1, $2, $3, $4, NOW(), NOW(), $5, NULL)`, ocr1, testutils.NewAddress(), utils.NewHash(), eb.EncryptedPrivateKeys, utils.NewHash()))
-		require.NoError(t, err)
-
-		keys, err := ks.GetV1KeysAsV2()
-		require.NoError(t, err)
-
-		assert.Len(t, keys, 1)
-		assert.Equal(t, fmt.Sprintf("OCRKeyV2{ID: %s}", keys[0].ID()), keys[0].GoString())
 	})
 }

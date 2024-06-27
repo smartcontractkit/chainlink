@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,7 +13,7 @@ import (
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -25,21 +26,21 @@ var _ job.ServiceCtx = &service{}
 
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
-	logger logger.Logger
-	chains evm.ChainSet
-	ks     keystore.Eth
+	logger       logger.Logger
+	legacyChains evm.LegacyChainContainer
+	ks           keystore.Eth
 }
 
 // NewDelegate creates a new Delegate.
 func NewDelegate(
 	logger logger.Logger,
-	chains evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
-		logger: logger,
-		chains: chains,
-		ks:     ks,
+		logger:       logger,
+		legacyChains: legacyChains,
+		ks:           ks,
 	}
 }
 
@@ -49,13 +50,13 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.BlockhashStoreSpec == nil {
 		return nil, errors.Errorf(
 			"blockhashstore.Delegate expects a BlockhashStoreSpec to be present, got %+v", jb)
 	}
 
-	chain, err := d.chains.Get(jb.BlockhashStoreSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.BlockhashStoreSpec.EVMChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
@@ -63,12 +64,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	if !chain.Config().Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
-	}
-
-	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EVM().FinalityDepth()) {
-		return nil, fmt.Errorf(
-			"waitBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EVM().FinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
@@ -133,8 +128,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		coordinators = append(coordinators, coord)
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2PlusAddress != nil {
-		var c *v2plus.VRFCoordinatorV2Plus
-		if c, err = v2plus.NewVRFCoordinatorV2Plus(
+		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
+		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
 			jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 
 			return nil, errors.Wrap(err, "building V2Plus coordinator")
@@ -162,7 +157,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
-	log := d.logger.Named("BHS Feeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+	log := d.logger.Named("BHSFeeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
 	feeder := NewFeeder(
 		log,
 		NewMultiCoordinator(coordinators...),
@@ -171,6 +166,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize,
 		int(jb.BlockhashStoreSpec.WaitBlocks),
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
+		jb.BlockhashStoreSpec.HeartbeatPeriod,
 		func(ctx context.Context) (uint64, error) {
 			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 			if err != nil {
@@ -184,7 +180,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
-		done:       make(chan struct{}),
 	}}, nil
 }
 
@@ -204,7 +199,7 @@ func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	done       chan struct{}
+	wg         sync.WaitGroup
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -218,8 +213,13 @@ func (s *service) Start(context.Context) error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
+		s.wg.Add(2)
 		go func() {
-			defer close(s.done)
+			defer s.wg.Done()
+			s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
+		}()
+		go func() {
+			defer s.wg.Done()
 			defer ticker.Stop()
 			for {
 				select {
@@ -239,7 +239,7 @@ func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
 		s.cancel()
-		<-s.done
+		s.wg.Wait()
 		return nil
 	})
 }

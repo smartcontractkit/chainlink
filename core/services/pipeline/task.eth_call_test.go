@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -24,6 +25,7 @@ import (
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestETHCallTask(t *testing.T) {
@@ -54,7 +56,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -74,7 +76,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"$(gasLimit)",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -95,7 +97,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			&specGasLimit,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -115,7 +117,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -136,7 +138,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xThisAintGonnaWork",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -151,7 +153,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -166,7 +168,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -181,7 +183,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -196,7 +198,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -225,7 +227,7 @@ func TestETHCallTask(t *testing.T) {
 					On("CallContract", mock.Anything, ethereum.CallMsg{To: &contractAddr, Data: []byte("foo bar")}, (*big.Int)(nil)).
 					Return([]byte("baz quux"), nil).Maybe()
 			},
-			nil, nil, "not found",
+			nil, nil, chains.ErrNoSuchChainID.Error(),
 		},
 	}
 
@@ -255,14 +257,15 @@ func TestETHCallTask(t *testing.T) {
 			txManager := txmmocks.NewMockEvmTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 
-			var cc evm.ChainSet
+			var legacyChains evm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				cc = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
-				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
+				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)
 			}
 
-			task.HelperSetDependencies(cc, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
+			task.HelperSetDependencies(legacyChains, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
 
 			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)

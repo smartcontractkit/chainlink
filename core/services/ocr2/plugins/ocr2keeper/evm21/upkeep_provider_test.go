@@ -1,94 +1,112 @@
 package evm
 
 import (
-	"bytes"
 	"math/big"
-	"sort"
-	"sync"
+	"sync/atomic"
 	"testing"
 
-	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	clientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
-	t.Skip()
 	ctx := testutils.Context(t)
-	c := new(clientmocks.Client)
 
-	r := &EvmRegistry{
-		mu:     sync.RWMutex{},
-		active: map[string]activeUpkeep{},
-		client: c,
-	}
 	var lp logpoller.LogPoller
-
-	p := NewUpkeepProvider(r, lp)
 
 	tests := []struct {
 		name        string
-		active      map[string]activeUpkeep
-		blockHeader coreTypes.Header
+		active      ActiveUpkeepList
+		latestBlock *ocr2keepers.BlockKey
 		want        []ocr2keepers.UpkeepPayload
 		wantErr     bool
 	}{
 		{
 			"empty",
-			map[string]activeUpkeep{},
-			coreTypes.Header{Number: big.NewInt(0)},
+			&mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{}
+				},
+			},
+			&ocr2keepers.BlockKey{Number: 1},
 			nil,
 			false,
 		},
 		{
 			"happy flow",
-			map[string]activeUpkeep{
-				"1": {
-					ID: big.NewInt(1),
-				},
-				"2": {
-					ID: big.NewInt(2),
+			&mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{
+						big.NewInt(1),
+						big.NewInt(2),
+					}
 				},
 			},
-			coreTypes.Header{Number: big.NewInt(1)},
+			&ocr2keepers.BlockKey{Number: 1},
 			[]ocr2keepers.UpkeepPayload{
 				{
-					UpkeepID: upkeepIDFromInt("10"),
+					UpkeepID: core.UpkeepIDFromInt("1"),
+					Trigger:  ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(1), [32]byte{}),
+					WorkID:   "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
 				},
 				{
-					UpkeepID: upkeepIDFromInt("15"),
+					UpkeepID: core.UpkeepIDFromInt("2"),
+					Trigger:  ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(1), [32]byte{}),
+					WorkID:   "405787fa12a823e0f2b7631cc41b3ba8828b3321ca811111fa75cd3aa3bb5ace",
 				},
 			},
 			false,
+		},
+		{
+			"latest block not found",
+			&mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{
+						big.NewInt(1),
+						big.NewInt(2),
+					}
+				},
+			},
+			nil,
+			[]ocr2keepers.UpkeepPayload{},
+			true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			b := coreTypes.NewBlockWithHeader(&tc.blockHeader)
-			c.On("BlockByNumber", mock.Anything, mock.Anything).Return(b, nil)
-
-			r.mu.Lock()
-			r.active = tc.active
-			r.mu.Unlock()
+			bs := &BlockSubscriber{
+				latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{},
+			}
+			bs.latestBlock.Store(tc.latestBlock)
+			p := NewUpkeepProvider(tc.active, bs, lp)
 
 			got, err := p.GetActiveUpkeeps(ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
 			require.NoError(t, err)
 			require.Len(t, got, len(tc.want))
-			sort.Slice(got, func(i, j int) bool {
-				return bytes.Compare(got[i].UpkeepID[:], got[j].UpkeepID[:]) < 0
-			})
-			for i, payload := range got {
-				expected := tc.want[i]
-				// require.Equal(t, expected.ID, payload.ID) // TODO: uncomment once we change to workID
-				require.Equal(t, expected.UpkeepID, payload.UpkeepID)
-				require.Equal(t, b.Number().Int64(), payload.Trigger.BlockNumber)
-			}
+			require.Equal(t, tc.want, got)
 		})
 	}
+}
+
+type mockActiveUpkeepList struct {
+	ActiveUpkeepList
+	ViewFn     func(...ocr2keepers.UpkeepType) []*big.Int
+	IsActiveFn func(id *big.Int) bool
+}
+
+func (l *mockActiveUpkeepList) View(u ...ocr2keepers.UpkeepType) []*big.Int {
+	return l.ViewFn(u...)
+}
+
+func (l *mockActiveUpkeepList) IsActive(id *big.Int) bool {
+	return l.IsActiveFn(id)
 }

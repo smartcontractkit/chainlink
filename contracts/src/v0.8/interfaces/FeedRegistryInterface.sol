@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 pragma abicoder v2;
 
-import "./AggregatorV2V3Interface.sol";
+import {AggregatorV2V3Interface} from "./AggregatorV2V3Interface.sol";
 
 interface FeedRegistryInterface {
   struct Phase {

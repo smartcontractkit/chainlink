@@ -5,12 +5,11 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
-
-	maps "golang.org/x/exp/maps"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +23,6 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
-	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
 	assert.False(t, config.CosmosEnabled())
@@ -133,9 +131,6 @@ func TestConfig_LogSQL(t *testing.T) {
 //go:embed testdata/mergingsecretsdata/secrets-database.toml
 var databaseSecretsTOML string
 
-//go:embed testdata/mergingsecretsdata/secrets-explorer.toml
-var explorerSecretsTOML string
-
 //go:embed testdata/mergingsecretsdata/secrets-password.toml
 var passwordSecretsTOML string
 
@@ -158,8 +153,6 @@ func TestConfig_SecretsMerging(t *testing.T) {
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)
-		explorerSecrets, err1 := parseSecrets(explorerSecretsTOML)
-		require.NoErrorf(t, err1, "error: %s", err1)
 		passwordSecrets, err2 := parseSecrets(passwordSecretsTOML)
 		require.NoErrorf(t, err2, "error: %s", err2)
 		pyroscopeSecrets, err3 := parseSecrets(pyroscopeSecretsTOML)
@@ -179,7 +172,6 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		}
 		secretsFiles := []string{
 			"testdata/mergingsecretsdata/secrets-database.toml",
-			"testdata/mergingsecretsdata/secrets-explorer.toml",
 			"testdata/mergingsecretsdata/secrets-password.toml",
 			"testdata/mergingsecretsdata/secrets-pyroscope.toml",
 			"testdata/mergingsecretsdata/secrets-prometheus.toml",
@@ -196,8 +188,6 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
 		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
 
-		assert.Equal(t, (string)(*explorerSecrets.Explorer.AccessKey), (string)(*opts.Secrets.Explorer.AccessKey))
-		assert.Equal(t, (string)(*explorerSecrets.Explorer.Secret), (string)(*opts.Secrets.Explorer.Secret))
 		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Secrets.Password.Keystore))
 		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Secrets.Password.VRF))
 		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))

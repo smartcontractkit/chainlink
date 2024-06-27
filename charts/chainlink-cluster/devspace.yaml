@@ -43,6 +43,7 @@ deployments:
           image: ${DEVSPACE_IMAGE}
           stateful: false
         geth:
+          version: v1.12.0
           wsrpc-port: 8546
           httprpc-port: 8544
           networkid: 1337

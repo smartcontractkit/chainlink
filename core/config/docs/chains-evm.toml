@@ -311,6 +311,7 @@ PollInterval = '10s' # Default
 # SelectionMode controls node selection strategy:
 # - HighestHead: use the node with the highest head number
 # - RoundRobin: rotate through nodes, per-request
+# - PriorityLevel: use the node with the smallest order number
 # - TotalDifficulty: use the node with the greatest total difficulty
 SelectionMode = 'HighestHead' # Default
 # SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
@@ -318,6 +319,13 @@ SelectionMode = 'HighestHead' # Default
 #
 # Set to 0 to disable this check.
 SyncThreshold = 5 # Default
+# LeaseDuration is the minimum duration that the selected "best" node (as defined by SelectionMode) will be used,
+# before switching to a better one if available. It also controls how often the lease check is done.
+# Setting this to a low value (under 1m) might cause RPC to switch too aggressively.
+# Recommended value is over 5m
+#
+# Set to '0s' to disable
+LeaseDuration = '0s' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

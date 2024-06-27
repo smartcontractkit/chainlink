@@ -237,6 +237,15 @@ func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
+
+func (q Q) SelectNamed(dest interface{}, query string, arg interface{}) error {
+	query, args, err := q.BindNamed(query, arg)
+	if err != nil {
+		return errors.Wrap(err, "error binding arg")
+	}
+	return q.Select(dest, query, args...)
+}
+
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
@@ -247,6 +256,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
+
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {

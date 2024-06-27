@@ -25,7 +25,8 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	u := cltest.User{}
+	client := app.NewHTTPClient(&u)
 
 	testCases := []struct {
 		name           string
@@ -56,10 +57,10 @@ func TestUserController_UpdatePassword(t *testing.T) {
 		},
 		{
 			name:           "New password includes api email",
-			reqBody:        fmt.Sprintf(`{"newPassword": "%slonglonglonglong", "oldPassword": "%s"}`, cltest.APIEmailAdmin, cltest.Password),
+			reqBody:        fmt.Sprintf(`{"newPassword": "%slonglonglonglong", "oldPassword": "%s"}`, u.Email, cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
-			wantErrMessage: fmt.Sprintf("%s	%s\n", utils.ErrMsgHeader, "password may not contain: \"apiuser@chainlink.test\""),
+			wantErrMessage: fmt.Sprintf("%s	%s%s\n", utils.ErrMsgHeader, "password may not contain: ", fmt.Sprintf(`"%s"`, u.Email)),
 		},
 		{
 			name:           "Success",
@@ -90,7 +91,7 @@ func TestUserController_CreateUser(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	longPassword := strings.Repeat("x", sessions.MaxBcryptPasswordLength+1)
 
@@ -185,7 +186,7 @@ func TestUserController_UpdateRole(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
 	err := app.SessionORM().CreateUser(&user)
 	require.NoError(t, err)
@@ -232,7 +233,7 @@ func TestUserController_DeleteUser(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	user := cltest.MustRandomUser(t)
 	err := app.SessionORM().CreateUser(&user)
 	require.NoError(t, err)
@@ -258,7 +259,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -280,7 +281,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
@@ -296,7 +297,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
@@ -313,7 +314,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})

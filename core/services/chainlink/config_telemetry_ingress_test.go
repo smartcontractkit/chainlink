@@ -18,11 +18,17 @@ func TestTelemetryIngressConfig(t *testing.T) {
 	ticfg := cfg.TelemetryIngress()
 	assert.True(t, ticfg.Logging())
 	assert.True(t, ticfg.UniConn())
-	assert.Equal(t, "test-pub-key", ticfg.ServerPubKey())
-	assert.Equal(t, "https://prom.test", ticfg.URL().String())
 	assert.Equal(t, uint(1234), ticfg.BufferSize())
 	assert.Equal(t, uint(4321), ticfg.MaxBatchSize())
 	assert.Equal(t, time.Minute, ticfg.SendInterval())
 	assert.Equal(t, 5*time.Second, ticfg.SendTimeout())
 	assert.True(t, ticfg.UseBatchSend())
+
+	tec := cfg.TelemetryIngress().Endpoints()
+
+	assert.Equal(t, 1, len(tec))
+	assert.Equal(t, "EVM", tec[0].Network())
+	assert.Equal(t, "1", tec[0].ChainID())
+	assert.Equal(t, "prom.test", tec[0].URL().String())
+	assert.Equal(t, "test-pub-key", tec[0].ServerPubKey())
 }

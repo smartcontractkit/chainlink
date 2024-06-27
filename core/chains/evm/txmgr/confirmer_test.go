@@ -117,12 +117,12 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
 
 	// Add some fromAddresses
-	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	cltest.MustInsertRandomKey(t, ethKeyStore)
+	cltest.MustInsertRandomKey(t, ethKeyStore)
 	estimator := gasmocks.NewEvmEstimator(t)
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
@@ -185,10 +185,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-	require.NoError(t, err)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 	nonce := int64(0)
 	ctx := testutils.Context(t)
@@ -599,15 +598,13 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
@@ -666,9 +663,8 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 	// tx is not forwarded and doesn't have meta set. EthConfirmer should handle nil meta values
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
@@ -715,15 +711,13 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	var attempts []txmgr.TxAttempt
@@ -773,13 +767,11 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 1, fromAddress)
@@ -801,18 +793,16 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 	cfg := configtest.NewTestGeneralConfig(t)
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	chainId1, chainId2 := 1, 2
 
-	_, fromAddress1_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
-	_, fromAddress1_2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId1)
-	_, fromAddress2_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, chainId2)
+	_, fromAddress1_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, fromAddress1_2 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
+	_, fromAddress2_1 := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(20), nil)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -824,7 +814,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 	etx2_9 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 3, fromAddress1_2)
 	// there also happens to be a confirmed tx with a higher nonce from a different chain in the DB
 	etx_other_chain := cltest.MustInsertUnconfirmedEthTx(t, txStore, 8, fromAddress2_1)
-	pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx_other_chain.ID)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET state='confirmed' WHERE id = $1`, etx_other_chain.ID)
 
 	attempt2_9 := newBroadcastLegacyEthTxAttempt(t, etx2_9.ID, int64(1))
 	require.NoError(t, txStore.InsertTxAttempt(&attempt2_9))
@@ -873,15 +863,13 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -914,7 +902,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	attempt3_1 := newBroadcastLegacyEthTxAttempt(t, etx3.ID, int64(1))
 	require.NoError(t, txStore.InsertTxAttempt(&attempt3_1))
 
-	pgtest.MustExec(t, db, `UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
+	pgtest.MustExec(t, db, `UPDATE evm.tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
 
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
 		txmReceipt0 := evmtypes.Receipt{
@@ -961,7 +949,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// Expected state is that the "top" eth_tx is now confirmed, with the
 		// two below it "confirmed_missing_receipt" and the "bottom" eth_tx also confirmed
-		etx3, err := txStore.FindTxWithAttempts(etx3.ID)
+		var err error
+		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 
@@ -1021,7 +1010,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
-		etx3, err := txStore.FindTxWithAttempts(etx3.ID)
+		var err error
+		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindTxWithAttempts(etx2.ID)
@@ -1065,7 +1055,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
-		etx3, err := txStore.FindTxWithAttempts(etx3.ID)
+		var err error
+		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindTxWithAttempts(etx2.ID)
@@ -1105,7 +1096,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it marked as "fatal_error" and the bottom one remains confirmed
-		etx3, err := txStore.FindTxWithAttempts(etx3.ID)
+		var err error
+		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxConfirmed, etx3.State)
 		etx2, err = txStore.FindTxWithAttempts(etx2.ID)
@@ -1131,15 +1123,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -1182,6 +1172,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 
 	// Expected state is that the "top" eth_tx is untouched but the other two
 	// are marked as unconfirmed
+	var err error
 	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
@@ -1211,15 +1202,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -1250,6 +1239,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
 
 	// Expected state is that all txes are marked as unconfirmed, since the batch call had failed
+	var err error
 	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, txmgrcommon.TxUnconfirmed, etx0.State)
@@ -1276,15 +1266,13 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
-
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ctx := testutils.Context(t)
 
 	// STATE
@@ -1321,6 +1309,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 	require.NoError(t, ec.CheckConfirmedMissingReceipt(ctx))
 
 	// Expected state is that all transactions since failed batch will be unconfirmed
+	var err error
 	etx0, err = txStore.FindTxWithAttempts(etx0.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx0.State)
@@ -1348,7 +1337,7 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	evmFromAddress := fromAddress
 	currentHead := int64(30)
 	gasBumpThreshold := int64(10)
@@ -1360,13 +1349,12 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	mustInsertConfirmedEthTx(t, txStore, nonce, fromAddress)
 	nonce++
 
-	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	evmOtherAddress := otherAddress
 
 	lggr := logger.TestLogger(t)
 
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	require.NoError(t, err)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(testutils.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
@@ -1399,8 +1387,9 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx1.TxAttempts[0]
-	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt1_1.ID))
+	var dbAttempt txmgr.DbEthTxAttempt
+	dbAttempt.FromTxAttempt(&attempt1_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt1_1.ID))
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID)
 	attempt1_2.BroadcastBeforeBlockNum = &onTheMoney
 	attempt1_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(30000)}
@@ -1416,8 +1405,9 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt2_1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt2_1.ID))
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt2_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt2_1.ID))
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(testutils.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
@@ -1463,14 +1453,16 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt3_1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_1.ID))
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt3_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_1.ID))
 
 	// NOTE: It should ignore qualifying eth_txes from a different address
 	etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, otherAddress)
 	attemptOther1 := etxOther.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attemptOther1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attemptOther1.ID))
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attemptOther1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attemptOther1.ID))
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
 		etxs, err := ec.FindTxsRequiringRebroadcast(testutils.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 10, 0, &cltest.FixtureChainID)
@@ -1519,15 +1511,17 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt4_1 := etx4.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attemptOther1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt4_1.ID))
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt4_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt4_1.ID))
 
 	t.Run("ignores pending transactions for another key", func(t *testing.T) {
 		// Re-use etx3 nonce for another key, it should not affect the results for this key
 		etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, (*etx3.Sequence).Int64(), otherAddress)
 		aOther := etxOther.TxAttempts[0]
-		dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&aOther)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, aOther.ID))
+		dbAttempt = txmgr.DbEthTxAttempt{}
+		dbAttempt.FromTxAttempt(&aOther)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, aOther.ID))
 
 		etxs, err := ec.FindTxsRequiringRebroadcast(testutils.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 6, 0, &cltest.FixtureChainID)
 		require.NoError(t, err)
@@ -1645,7 +1639,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1659,8 +1653,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		attempt1 := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&attempt1)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
@@ -1690,7 +1685,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1703,8 +1698,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		attempt1 := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&attempt1)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(clienttypes.Successful, nil).Once()
@@ -1739,8 +1735,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	addresses := []gethCommon.Address{fromAddress}
 	kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 	// Use a mock keystore for this test
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
-	require.NoError(t, err)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 	currentHead := int64(30)
 	oldEnough := int64(19)
 	nonce := int64(0)
@@ -1754,7 +1749,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	nonce++
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
 		// simulate bumped transaction that is somehow impossible to sign
@@ -1765,7 +1760,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			mock.Anything).Return(nil, errors.New("signing error")).Once()
 
 		// Do the thing
-		err = ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
+		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "signing error")
 
@@ -1796,7 +1791,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
@@ -1828,7 +1823,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
@@ -1867,7 +1862,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
@@ -1883,13 +1878,13 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Run("does nothing if there is an attempt without BroadcastBeforeBlockNum set", func(t *testing.T) {
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
 		require.Len(t, etx.TxAttempts, 2)
 	})
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
 	var attempt1_3 txmgr.TxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
@@ -1913,7 +1908,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
@@ -1927,7 +1922,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt1_3.State)
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_3.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_3.ID))
 	var attempt1_4 txmgr.TxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
@@ -1953,7 +1948,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
@@ -1974,13 +1969,13 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[3].State)
 	})
 
-	// Mark original tx as confirmed so we won't pick it up any more
-	pgtest.MustExec(t, db, `UPDATE eth_txes SET state = 'confirmed'`)
+	// Mark original tx as confirmed, so we won't pick it up anymore
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET state = 'confirmed'`)
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
 	var attempt2_2 txmgr.TxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
@@ -2004,7 +1999,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Unknown, errors.New("some network error")).Once()
 
 		// Do the thing
-		err = ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
+		err := ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "some network error")
 
@@ -2048,7 +2043,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	// Set BroadcastBeforeBlockNum again so the next test will pick it up
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_2.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_2.ID))
 
 	t.Run("assumes that 'nonce too low' error means confirmed_missing_receipt", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
@@ -2072,6 +2067,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Creates new attempt as normal if currentHead is not high enough
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+		var err error
 		etx2, err = txStore.FindTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 		assert.Equal(t, txmgrcommon.TxConfirmedMissingReceipt, etx2.State)
@@ -2083,11 +2079,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx2.TxAttempts[2].State)
 	})
 
-	// Original tx is confirmed so we won't pick it up any more
+	// Original tx is confirmed, so we won't pick it up anymore
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.TxAttempts[0]
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`, oldEnough, assets.NewWeiI(35000000000), attempt3_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`, oldEnough, assets.NewWeiI(35000000000), attempt3_1.ID))
 
 	var attempt3_2 txmgr.TxAttempt
 
@@ -2112,7 +2108,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
@@ -2125,7 +2121,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt3_2.TxFee.Legacy.ToInt().Int64())
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_2.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_2.ID))
 	var attempt3_3 txmgr.TxAttempt
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
@@ -2149,7 +2145,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
@@ -2160,7 +2156,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt3_3.TxFee.Legacy.ToInt().Int64())
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_3.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_3.ID))
 	var attempt3_4 txmgr.TxAttempt
 
 	t.Run("pretends it was accepted and continues the cycle if rejected for being temporarily underpriced", func(t *testing.T) {
@@ -2188,7 +2184,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
@@ -2199,7 +2195,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
 
 	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped transactions would exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		// Set price such that the next bump will exceed EVM.GasEstimator.PriceMax
@@ -2209,16 +2205,15 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60500000000)
 		})
 		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
-		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec2 := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
@@ -2230,7 +2225,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
 
 	t.Run("resubmits at the old price and does not create a new attempt if the current price is exactly EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		// Set price such that the current price is already at EVM.GasEstimator.PriceMax
@@ -2240,16 +2235,15 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60480000000)
 		})
 		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
-		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec2 := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
 
@@ -2257,14 +2251,14 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx3.TxAttempts, 4)
-		attempt3_4 := etx3.TxAttempts[0]
+		attempt3_4 = etx3.TxAttempts[0]
 		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
 
 	// The EIP-1559 etx and attempt
 	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, nonce, fromAddress)
 	attempt4_1 := etx4.TxAttempts[0]
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, assets.GWei(35), assets.GWei(100), attempt4_1.ID))
 	var attempt4_2 txmgr.TxAttempt
 
@@ -2286,7 +2280,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			return evmtypes.Nonce(tx.Nonce()) == *etx4.Sequence && gasTipCap.ToInt().Cmp(tx.GasTipCap()) == 0
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx4, err = txStore.FindTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
@@ -2301,7 +2295,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt1_2.State)
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, assets.GWei(999), assets.GWei(1000), attempt4_2.ID))
 
 	t.Run("EIP-1559: resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
@@ -2309,8 +2303,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 			c.EVM[0].GasEstimator.PriceMax = assets.GWei(1000)
 		})
 		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
-		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec2 := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
 
 		// Third attempt failed to bump, resubmits old one instead
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -2318,7 +2311,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx4, err = txStore.FindTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
@@ -2326,12 +2319,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx4.TxAttempts, 2)
-		attempt4_2 := etx4.TxAttempts[0]
-		assert.Equal(t, assets.GWei(999).Int64(), attempt4_2.TxFee.DynamicTipCap.ToInt().Int64())
-		assert.Equal(t, assets.GWei(1000).Int64(), attempt4_2.TxFee.DynamicFeeCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(999).Int64(), etx4.TxAttempts[0].TxFee.DynamicTipCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(1000).Int64(), etx4.TxAttempts[0].TxFee.DynamicFeeCap.ToInt().Int64())
 	})
 
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, assets.GWei(45), assets.GWei(100), attempt4_2.ID))
 
 	t.Run("EIP-1559: saves attempt anyway if replacement transaction is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
@@ -2356,7 +2348,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Do it
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
-
+		var err error
 		etx4, err = txStore.FindTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
@@ -2397,8 +2389,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	t.Run("terminally underpriced transaction with in_progress attempt is retried with more gas", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithAttemptState(t, txStore, nonce, fromAddress, txmgrtypes.TxAttemptInProgress, originalBroadcastAt)
@@ -2420,18 +2411,16 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 	})
 
-	realKst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in legacy mode", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 		nonce++
 		legacyAttempt := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&legacyAttempt)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&legacyAttempt)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
@@ -2447,7 +2436,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedLegacyTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedLegacyTx, err := realKst.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
+			thisSignedLegacyTx, err := ethKeyStore.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedLegacyTx = *thisSignedLegacyTx
 		}).Times(4) // 3 failures 1 success
@@ -2456,14 +2445,14 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in EIP-1559 mode", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, nonce, fromAddress)
 		nonce++
 		dxFeeAttempt := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&dxFeeAttempt)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&dxFeeAttempt)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
@@ -2479,7 +2468,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedDxFeeTx, err := realKst.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
+			thisSignedDxFeeTx, err := ethKeyStore.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedDxFeeTx = *thisSignedDxFeeTx
 		}).Times(4) // 3 failures 1 success
@@ -2497,7 +2486,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	_, err := ethKeyStore.EnabledKeysForChain(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -2513,15 +2502,15 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx.TxAttempts[0]
-	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+	var dbAttempt txmgr.DbEthTxAttempt
+	dbAttempt.FromTxAttempt(&attempt1_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
 	var attempt1_2 txmgr.TxAttempt
 
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
@@ -2547,8 +2536,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
@@ -2573,8 +2561,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
@@ -2606,8 +2593,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 			c.EVM[0].GasEstimator.BumpTxDepth = ptr(uint32(depth))
 		})
 		evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 
 		for i := 0; i < etxCount; i++ {
 			n := nonce
@@ -2623,7 +2609,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 		var dbAttempts []txmgr.DbEthTxAttempt
 
-		require.NoError(t, db.Select(&dbAttempts, "SELECT * FROM eth_tx_attempts WHERE state = 'insufficient_eth'"))
+		require.NoError(t, db.Select(&dbAttempts, "SELECT * FROM evm.tx_attempts WHERE state = 'insufficient_eth'"))
 		require.Len(t, dbAttempts, 0)
 	})
 }
@@ -2637,13 +2623,12 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	config := newTestChainScopedConfig(t)
-	ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-	require.NoError(t, err)
+	ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 	head := evmtypes.Head{
 		Hash:   utils.NewHash(),
@@ -2811,7 +2796,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 
 	config := newTestChainScopedConfig(t)
 	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
@@ -2824,8 +2809,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts one eth_tx if it falls within in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) &&
@@ -2840,8 +2824,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("uses default gas limit if overrideGasLimit is 0", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) &&
@@ -2856,8 +2839,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("rebroadcasts several eth_txes in nonce range", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx1.Sequence) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && tx.Gas() == uint64(overrideGasLimit)
@@ -2871,8 +2853,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("broadcasts zero transactions if eth_tx doesn't exist for that nonce", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(1)
@@ -2898,8 +2879,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	t.Run("zero transactions use default gas limit if override wasn't specified", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
-		require.NoError(t, err)
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, config, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
@@ -2918,7 +2898,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db, config.Database()).Eth()
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
@@ -2943,30 +2923,28 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
-		require.NoError(t, err)
 
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err = ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
 
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
-		require.NoError(t, err)
 
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
@@ -2974,9 +2952,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		cltest.MustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err = ec.ResumePendingTaskRuns(testutils.Context(t), &head)
+		err := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
 		require.NoError(t, err)
 
 	})
@@ -2984,22 +2962,21 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
 		var err error
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil
 		})
-		require.NoError(t, err)
 
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 		receipt := cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)
@@ -3024,24 +3001,23 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
 		ch := make(chan interface{})
 		var err error
-		ec, err := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
+		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, func(id uuid.UUID, value interface{}, thisErr error) error {
 			err = thisErr
 			ch <- value
 			return nil
 		})
-		require.NoError(t, err)
 
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
 		cltest.MustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
 			err2 := ec.ResumePendingTaskRuns(testutils.Context(t), &head)

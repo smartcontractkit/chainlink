@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	gh "github.com/cli/go-gh/v2"
+	"github.com/cli/go-gh/v2"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/manifoldco/promptui"
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 )
 
 func waitForWorkflowRun(branch, ghUser string) (string, error) {

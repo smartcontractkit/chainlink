@@ -18,13 +18,15 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 
+	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -37,23 +39,73 @@ import (
 // TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
+var (
+	// ErrChainIDEmpty is returned when chain is required but was empty.
+	ErrChainIDEmpty = errors.New("chain id empty")
+	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
+	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
+)
+
+// Chain is a wrap for easy use in other places in the core node
+type Chain = adapters.Chain
+
+// ChainOpts holds options for configuring a Chain.
+type ChainOpts struct {
+	QueryConfig      pg.QConfig
+	Logger           logger.Logger
+	DB               *sqlx.DB
+	KeyStore         loop.Keystore
+	EventBroadcaster pg.EventBroadcaster
+}
+
+func (o *ChainOpts) Validate() (err error) {
+	required := func(s string) error {
+		return fmt.Errorf("%s is required", s)
+	}
+	if o.QueryConfig == nil {
+		err = multierr.Append(err, required("Config"))
+	}
+	if o.Logger == nil {
+		err = multierr.Append(err, required("Logger'"))
+	}
+	if o.DB == nil {
+		err = multierr.Append(err, required("DB"))
+	}
+	if o.KeyStore == nil {
+		err = multierr.Append(err, required("KeyStore"))
+	}
+	if o.EventBroadcaster == nil {
+		err = multierr.Append(err, required("EventBroadcaster"))
+	}
+	return
+}
+
+func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
 	id   string
-	cfg  coscfg.Config
+	cfg  *CosmosConfig
 	txm  *cosmostxm.Txm
-	cfgs types.Configs
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCfg pg.QConfig, eb pg.EventBroadcaster, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
 		id:   id,
 		cfg:  cfg,
-		cfgs: cfgs,
 		lggr: logger.Named(lggr, "Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
@@ -62,7 +114,7 @@ func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, log
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
 			return map[string]sdk.DecCoin{
-				"uatom": sdk.NewDecCoinFromDec("uatom", cfg.FallbackGasPrice()),
+				cfg.GasToken(): sdk.NewDecCoinFromDec(cfg.GasToken(), cfg.FallbackGasPrice()),
 			}, nil
 		}),
 	}, lggr)
@@ -76,6 +128,10 @@ func (c *chain) Name() string {
 }
 
 func (c *chain) ID() string {
+	return c.id
+}
+
+func (c *chain) ChainID() string {
 	return c.id
 }
 
@@ -95,31 +151,31 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, err := c.cfgs.Nodes(c.id)
+		nodes, err := c.cfg.ListNodes()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get nodes")
+			return nil, fmt.Errorf("failed to list nodes: %w", err)
 		}
 		if len(nodes) == 0 {
 			return nil, errors.New("no nodes available")
 		}
 		nodeIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(nodes))))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not generate a random node index")
+			return nil, fmt.Errorf("could not generate a random node index: %w", err)
 		}
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.cfgs.Node(name)
+		node, err = c.cfg.GetNode(name)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get node named %s", name)
+			return nil, fmt.Errorf("failed to get node named %s: %w", name, err)
 		}
 		if node.CosmosChainID != c.id {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.CosmosChainID)
 		}
 	}
-	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+name))
+	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+name))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create client")
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "tendermint-url", node.TendermintURL)
 	return client, nil
@@ -148,13 +204,48 @@ func (c *chain) Ready() error {
 }
 
 func (c *chain) HealthReport() map[string]error {
-	return map[string]error{
-		c.Name(): multierr.Combine(
-			c.StartStopOnce.Healthy(),
-			c.txm.Healthy()),
-	}
+	m := map[string]error{c.Name(): c.Healthy()}
+	services.CopyHealth(m, c.txm.HealthReport())
+	return m
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+// ChainService interface
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: *c.cfg.Enabled,
+		Config:  toml,
+	}, nil
+}
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
+	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+}
+
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
+}
+
+// TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
+func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
+	stats := make([]relaytypes.NodeStatus, 0)
+	total := len(c.cfg.Nodes)
+	if start >= total {
+		return stats, total, relaychains.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	nodes := c.cfg.Nodes[start:end]
+	for _, node := range nodes {
+		stat, err := nodeStatus(node, c.ChainID())
+		if err != nil {
+			return stats, total, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, total, nil
 }

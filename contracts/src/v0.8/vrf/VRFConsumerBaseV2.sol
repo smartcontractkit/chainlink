@@ -96,6 +96,7 @@ pragma solidity ^0.8.4;
  */
 abstract contract VRFConsumerBaseV2 {
   error OnlyCoordinatorCanFulfill(address have, address want);
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address private immutable vrfCoordinator;
 
   /**
@@ -119,6 +120,7 @@ abstract contract VRFConsumerBaseV2 {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomWords the VRF output expanded to the requested number of words
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal virtual;
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF

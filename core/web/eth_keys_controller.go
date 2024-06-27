@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -124,7 +125,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.app.GetKeyStore().Eth()
 
 	cid := c.Query("evmChainID")
-	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	chain, ok := ekc.getChain(c, cid)
 	if !ok {
 		return
 	}
@@ -210,7 +211,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 	oldPassword := c.Query("oldpassword")
 	cid := c.Query("evmChainID")
-	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	chain, ok := ekc.getChain(c, cid)
 	if !ok {
 		return
 	}
@@ -271,19 +272,11 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	address := common.HexToAddress((keyID))
 
 	cid := c.Query("evmChainID")
-	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
+	chain, ok := ekc.getChain(c, cid)
 	if !ok {
 		return
 	}
 
-	var nonce int64 = -1
-	if nonceStr := c.Query("nextNonce"); nonceStr != "" {
-		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
-		if err != nil || nonce < 0 {
-			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
-			return
-		}
-	}
 	abandon := false
 	if abandonStr := c.Query("abandon"); abandonStr != "" {
 		abandon, err = strconv.ParseBool(abandonStr)
@@ -294,13 +287,9 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	}
 
 	// Reset the chain
-	if abandon || nonce >= 0 {
+	if abandon {
 		var resetErr error
-		err = chain.TxManager().Reset(func() {
-			if nonce >= 0 {
-				resetErr = kst.Reset(address, chain.ID(), nonce)
-			}
-		}, address, abandon)
+		err = chain.TxManager().Reset(address, abandon)
 		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {
@@ -356,9 +345,9 @@ func (ekc *ETHKeysController) setEthBalance(bal *big.Int) presenters.NewETHKeyOp
 // queries the EthClient for the ETH balance at the address associated with state
 func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.State) *big.Int {
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetChains().EVM.Get(chainID)
+	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
 		return nil
@@ -383,9 +372,9 @@ func (ekc *ETHKeysController) setLinkBalance(bal *assets.Link) presenters.NewETH
 func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *assets.Link {
 	var bal *assets.Link
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetChains().EVM.Get(chainID)
+	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
@@ -409,9 +398,9 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(price *assets.Wei) presenters
 func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) *assets.Wei {
 	var price *assets.Wei
 	chainID := state.EVMChainID.ToInt()
-	chain, err := ekc.app.GetChains().EVM.Get(chainID)
+	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
@@ -422,13 +411,10 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 
 // getChain is a convenience wrapper to retrieve a chain for a given request
 // and call the corresponding API response error function for 400, 404 and 500 results
-func (ekc *ETHKeysController) getChain(c *gin.Context, cs evm.ChainSet, chainIDstr string) (chain evm.Chain, ok bool) {
-	chain, err := getChain(ekc.app.GetChains().EVM, chainIDstr)
+func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain evm.Chain, ok bool) {
+	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr)
 	if err != nil {
-		if errors.Is(err, ErrInvalidChainID) {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return nil, false
-		} else if errors.Is(err, ErrMultipleChains) {
+		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return nil, false
 		} else if errors.Is(err, ErrMissingChainID) {

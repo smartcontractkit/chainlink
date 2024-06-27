@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
@@ -19,12 +20,14 @@ import (
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
@@ -62,18 +65,18 @@ func TestVRFv2Basic(t *testing.T) {
 	err = vrfv2_actions.FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.SubID, vrfConst.VRFSubscriptionFundingAmountLink)
 	require.NoError(t, err)
 
-	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
+	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.ClCluster.NodeAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
 	require.NoError(t, err)
 
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
 	require.NoError(t, err)
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	require.NoError(t, err)
 
 	// test and assert
@@ -91,7 +94,7 @@ func TestVRFv2Basic(t *testing.T) {
 	timeout := time.Minute * 2
 	var lastRequestID *big.Int
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
 		lastRequestID, err = vrfv2Contracts.LoadTestConsumer.GetLastRequestId(context.Background())

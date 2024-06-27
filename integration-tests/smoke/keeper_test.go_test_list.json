@@ -1,0 +1,58 @@
+{
+  "tests": [
+    {
+      "name": "TestKeeperBasicSmoke",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperBlockCountPerTurn",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperSimulation",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestKeeperCheckPerformGasLimit",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperRegisterUpkeep",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperAddFunds",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperRemove",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperPauseRegistry",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestKeeperMigrateRegistry"
+    },
+    {
+      "name": "TestKeeperNodeDown",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 3
+    },
+    {
+      "name": "TestKeeperPauseUnPauseUpkeep"
+    },
+    {
+      "name": "TestKeeperUpdateCheckData"
+    }
+  ]
+}

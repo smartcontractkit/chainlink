@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -34,7 +35,7 @@ type inMemoryDataSource struct {
 
 type dataSourceBase struct {
 	inMemoryDataSource
-	runResults chan<- pipeline.Run
+	runResults chan<- *pipeline.Run
 }
 
 // dataSource implements dataSourceBase with the proper Observe return type for ocr1
@@ -54,7 +55,7 @@ type ObservationTimestamp struct {
 	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- *pipeline.Run, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
 	return &dataSource{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -69,7 +70,7 @@ func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, runResults chan<- *pipeline.Run, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
 	return &dataSourceV2{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -112,7 +113,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (pipeline.Run, pipeline.FinalResult, error) {
+func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp ObservationTimestamp) (*pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		ds.lggr.Warnw("unable to attach metadata for run", "err", err)
@@ -131,7 +132,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context, timestamp Observat
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	finalResult := trrs.FinalResult(ds.lggr)
 	promSetBridgeParseMetrics(ds, &trrs)

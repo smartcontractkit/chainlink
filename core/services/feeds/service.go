@@ -113,7 +113,7 @@ type service struct {
 	ocrCfg       OCRConfig
 	ocr2cfg      OCR2Config
 	connMgr      ConnectionsManager
-	chainSet     evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 	lggr         logger.Logger
 	version      string
 }
@@ -130,7 +130,7 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	dbCfg pg.QConfig,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	version string,
 ) *service {
@@ -149,7 +149,7 @@ func NewService(
 		ocrCfg:       ocrCfg,
 		ocr2cfg:      ocr2Cfg,
 		connMgr:      newConnectionsManager(lggr),
-		chainSet:     chainSet,
+		legacyChains: legacyChains,
 		lggr:         lggr,
 		version:      version,
 	}
@@ -450,6 +450,10 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, errors.Wrap(err, "DeleteProposal failed")
 	}
 
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
+	}
+
 	return proposal.ID, nil
 }
 
@@ -492,6 +496,10 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		s.lggr.Errorw("Failed to revoke the proposal", "err", err)
 
 		return 0, errors.Wrap(err, "RevokeSpec failed")
+	}
+
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
 	}
 
 	return proposal.ID, nil
@@ -1017,7 +1025,7 @@ func (s *service) observeJobProposalCounts() error {
 
 	// Set the prometheus gauge metrics.
 	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
-		JobProposalStatusCancelled, JobProposalStatusRejected} {
+		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
 
 		status := status
 
@@ -1094,7 +1102,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled
@@ -1207,9 +1215,10 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 	}
 
 	msg := &pb.OCR2Config{
-		Enabled:     true,
-		IsBootstrap: cfg.IsBootstrap,
-		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Enabled:          true,
+		IsBootstrap:      cfg.IsBootstrap,
+		Multiaddr:        cfg.Multiaddr.ValueOrZero(),
+		ForwarderAddress: cfg.ForwarderAddress.Ptr(),
 		Plugins: &pb.OCR2Config_Plugins{
 			Commit:  cfg.Plugins.Commit,
 			Execute: cfg.Plugins.Execute,

@@ -13,7 +13,7 @@ import (
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -25,7 +25,7 @@ import (
 )
 
 func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, vrfBeacon contracts.VRFBeacon) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	ocr2VrfConfig := BuildOCR2VRFConfigVars(t, ocr2VRFPluginConfig)
 	l.Debug().Interface("OCR2 VRF Config", ocr2VrfConfig).Msg("OCR2 VRF Config prepared")
 
@@ -45,7 +45,7 @@ func SetAndWaitForVRFBeaconProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OC
 }
 
 func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFPluginConfig, dkg contracts.DKG) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	ocr2DkgConfig := BuildOCR2DKGConfigVars(t, ocr2VRFPluginConfig)
 
 	// set config for DKG OCR
@@ -208,7 +208,7 @@ func RequestAndRedeemRandomness(
 	confirmationDelay *big.Int,
 	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomness(
 		numberOfRandomWordsToRequest,
 		subscriptionID,
@@ -244,7 +244,7 @@ func RequestRandomnessFulfillmentAndWaitForFulfilment(
 	confirmationDelay *big.Int,
 	randomnessTransmissionEventTimeout time.Duration,
 ) *big.Int {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	receipt, err := consumer.RequestRandomnessFulfillment(
 		numberOfRandomWordsToRequest,
 		subscriptionID,

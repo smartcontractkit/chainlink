@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,6 +30,7 @@ type logPollerWrapper struct {
 	subscribers         map[string]evmRelayTypes.RouteUpdateSubscriber
 	activeCoordinator   common.Address
 	proposedCoordinator common.Address
+	blockOffset         int64
 	nextBlock           int64
 	mu                  sync.Mutex
 	closeWait           sync.WaitGroup
@@ -43,10 +45,15 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	if err != nil {
 		return nil, err
 	}
+	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
+	if blockOffset < 0 {
+		blockOffset = 0
+	}
 
 	return &logPollerWrapper{
 		routerContract: routerContract,
 		pluginConfig:   pluginConfig,
+		blockOffset:    blockOffset,
 		logPoller:      logPoller,
 		client:         client,
 		subscribers:    make(map[string]evmRelayTypes.RouteUpdateSubscriber),
@@ -65,11 +72,11 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			l.proposedCoordinator = l.routerContract.Address()
 		} else if l.pluginConfig.ContractVersion == 1 {
 			nextBlock, err := l.logPoller.LatestBlock()
-			l.nextBlock = nextBlock
 			if err != nil {
 				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
+				l.nextBlock = nextBlock - l.blockOffset
 			}
 			l.closeWait.Add(1)
 			go l.checkForRouteUpdates()
@@ -102,8 +109,11 @@ func (l *logPollerWrapper) Ready() error {
 // methods of LogPollerWrapper
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
-	coordinators := []common.Address{l.activeCoordinator}
-	if l.activeCoordinator != l.proposedCoordinator {
+	coordinators := []common.Address{}
+	if l.activeCoordinator != (common.Address{}) {
+		coordinators = append(coordinators, l.activeCoordinator)
+	}
+	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
 	nextBlock := l.nextBlock
@@ -112,6 +122,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.mu.Unlock()
 		return nil, nil, err
 	}
+	latest -= l.blockOffset
 	if latest >= nextBlock {
 		l.nextBlock = latest + 1
 	}
@@ -120,6 +131,10 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	// outside of the lock
 	resultsReq := []evmRelayTypes.OracleRequest{}
 	resultsResp := []evmRelayTypes.OracleResponse{}
+	if len(coordinators) == 0 {
+		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
+		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
+	}
 	if latest < nextBlock {
 		l.lggr.Debugw("LatestEvents: no new blocks to check", "latest", latest, "nextBlock", nextBlock)
 		return resultsReq, resultsResp, nil
@@ -257,6 +272,7 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 		active, proposed, err := l.getCurrentCoordinators(timeoutCtx)
 		if err != nil {
 			l.lggr.Errorw("LogPollerWrapper: error calling getCurrentCoordinators", "err", err)
+			return
 		}
 		l.handleRouteUpdate(active, proposed)
 	}
@@ -303,6 +319,12 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, proposedCoordinator common.Address) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if activeCoordinator == (common.Address{}) {
+		l.lggr.Error("LogPollerWrapper: cannot update activeCoordinator to zero address")
+		return
+	}
+
 	if activeCoordinator == l.activeCoordinator && proposedCoordinator == l.proposedCoordinator {
 		l.lggr.Debug("LogPollerWrapper: no changes to routes")
 		return

@@ -325,6 +325,8 @@ SELECT
 	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
 	COUNT(*) filter (where job_proposals.status = 'approved' AND job_proposals.pending_update = FALSE) as approved,
 	COUNT(*) filter (where job_proposals.status = 'rejected' AND job_proposals.pending_update = FALSE) as rejected,
+	COUNT(*) filter (where job_proposals.status = 'revoked' AND job_proposals.pending_update = FALSE) as revoked,
+	COUNT(*) filter (where job_proposals.status = 'deleted' AND job_proposals.pending_update = FALSE) as deleted,
 	COUNT(*) filter (where job_proposals.status = 'cancelled' AND job_proposals.pending_update = FALSE) as cancelled
 FROM job_proposals;
 	`
@@ -559,23 +561,39 @@ SELECT exists (
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
 }
 
-// DeleteProposal performs a soft delete of the job proposal by setting the status to deleted and
-// update the status to deleted
+// DeleteProposal performs a soft delete of the job proposal by setting the status to deleted
 func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+	// Get the latest spec for the proposal.
 	stmt := `
+	SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
+FROM job_proposal_specs
+WHERE (job_proposal_id, version) IN
+(
+	SELECT job_proposal_id, MAX(version)
+	FROM job_proposal_specs
+	GROUP BY job_proposal_id
+)
+AND job_proposal_id = $1
+`
+
+	var spec JobProposalSpec
+	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
+	if err != nil {
+		return err
+	}
+
+	// Set pending update to true only if the latest proposal is approved so that any running jobs
+	// are reminded to be cancelled.
+	pendingUpdate := spec.Status == SpecStatusApproved
+	stmt = `
 UPDATE job_proposals
 SET status = $1,
-    pending_update = (
-        CASE
-            WHEN status = 'approved' THEN true
-            ELSE false
-        END
-    ),
+    pending_update = $3,
     updated_at = NOW()
 WHERE id = $2;
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, id, pendingUpdate)
 	if err != nil {
 		return err
 	}
