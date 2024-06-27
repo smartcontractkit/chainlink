@@ -787,9 +787,7 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
   }
 
   function test_WithCurseOnAnotherSourceChain_Success() public {
-    s_mockRMN.voteToCurse(
-      0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, bytes16(uint128(SOURCE_CHAIN_SELECTOR_2))
-    );
+    s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_2, true);
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
@@ -832,7 +830,7 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
@@ -841,9 +839,7 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
       new uint256[](0)
     );
     // Uncurse should succeed
-    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
-    records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
-    s_mockRMN.ownerUnvoteToCurse(records);
+    s_mockRMN.setGlobalCursed(false);
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
@@ -853,8 +849,7 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
   }
 
   function test_UnhealthySingleChainCurse_Revert() public {
-    bytes16 subject = bytes16(uint128(SOURCE_CHAIN_SELECTOR_1));
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, subject);
+    s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_1, true);
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
@@ -863,9 +858,7 @@ contract EVM2EVMMultiOffRamp_executeSingleReport is EVM2EVMMultiOffRampSetup {
       new uint256[](0)
     );
     // Uncurse should succeed
-    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
-    records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
-    s_mockRMN.ownerUnvoteToCurse(records, subject);
+    s_mockRMN.setChainCursed(SOURCE_CHAIN_SELECTOR_1, false);
     s_offRamp.executeSingleReport(
       _generateReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
@@ -1569,7 +1562,7 @@ contract EVM2EVMMultiOffRamp_batchExecute is EVM2EVMMultiOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMMultiOffRamp.CursedByRMN.selector, SOURCE_CHAIN_SELECTOR_1));
     s_offRamp.batchExecute(
       _generateBatchReportFromMessages(
@@ -1578,9 +1571,7 @@ contract EVM2EVMMultiOffRamp_batchExecute is EVM2EVMMultiOffRampSetup {
       new uint256[][](1)
     );
     // Uncurse should succeed
-    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
-    records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
-    s_mockRMN.ownerUnvoteToCurse(records);
+    s_mockRMN.setGlobalCursed(false);
     s_offRamp.batchExecute(
       _generateBatchReportFromMessages(
         SOURCE_CHAIN_SELECTOR_1, _generateMessagesWithTokens(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1)
@@ -3533,7 +3524,7 @@ contract EVM2EVMMultiOffRamp_commit is EVM2EVMMultiOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    s_mockRMN.setGlobalCursed(true);
     EVM2EVMMultiOffRamp.MerkleRoot[] memory roots = new EVM2EVMMultiOffRamp.MerkleRoot[](1);
     roots[0] = EVM2EVMMultiOffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,

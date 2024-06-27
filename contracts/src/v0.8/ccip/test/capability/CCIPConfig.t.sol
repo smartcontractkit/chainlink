@@ -606,8 +606,8 @@ contract CCIPConfig_ConfigStateMachine is CCIPConfigSetup {
   }
 
   function test_Fuzz__groupByPluginType_Success(uint256 numCommitCfgs, uint256 numExecCfgs) public {
-    vm.assume(numCommitCfgs >= 0 && numCommitCfgs < 3);
-    vm.assume(numExecCfgs >= 0 && numExecCfgs < 3);
+    numCommitCfgs = bound(numCommitCfgs, 0, 2);
+    numExecCfgs = bound(numExecCfgs, 0, 2);
 
     bytes32[] memory p2pIds = _makeBytes32Array(4, 0);
     bytes[] memory signers = _makeBytesArray(4, 10);

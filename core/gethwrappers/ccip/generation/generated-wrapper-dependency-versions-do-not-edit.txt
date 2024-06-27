@@ -1,5 +1,5 @@
 GETH_VERSION: 1.13.8
-arm_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 16a210d759aa4b6a4a765837277495aa7ba62e3f9497439fbd64c5376cdfd9aa
+arm_contract: ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin 1a0abacf84def916519013f713b667f106434a091af8b9f441e12cc90aa2cdf8
 arm_proxy_contract: ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin b048d8e752e3c41113ebb305c1efa06737ad36b4907b93e627fb0a3113023454
 burn_from_mint_token_pool: ../../../contracts/solc/v0.8.24/BurnFromMintTokenPool/BurnFromMintTokenPool.abi ../../../contracts/solc/v0.8.24/BurnFromMintTokenPool/BurnFromMintTokenPool.bin c98d5a536e2735f1e8950a5fab6aaaf7fcbd06bb16361e99bf527f2f0027559b
 burn_mint_token_pool: ../../../contracts/solc/v0.8.24/BurnMintTokenPool/BurnMintTokenPool.abi ../../../contracts/solc/v0.8.24/BurnMintTokenPool/BurnMintTokenPool.bin fee3f82935ce7a26c65e12f19a472a4fccdae62755abdb42d8b0a01f0f06981a
@@ -17,7 +17,7 @@ lock_release_token_pool: ../../../contracts/solc/v0.8.24/LockReleaseTokenPool/Lo
 lock_release_token_pool_and_proxy: ../../../contracts/solc/v0.8.24/LockReleaseTokenPoolAndProxy/LockReleaseTokenPoolAndProxy.abi ../../../contracts/solc/v0.8.24/LockReleaseTokenPoolAndProxy/LockReleaseTokenPoolAndProxy.bin 8b929fab79d1caeea4c57e08cc523eb8ab45ec5c08f46da866b82c15ba94d9ad
 maybe_revert_message_receiver: ../../../contracts/solc/v0.8.24/MaybeRevertMessageReceiver/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.24/MaybeRevertMessageReceiver/MaybeRevertMessageReceiver.bin d73956c26232ebcc4a5444429fa99cbefed960e323be9b5a24925885c2e477d5
 message_hasher: ../../../contracts/solc/v0.8.24/MessageHasher/MessageHasher.abi ../../../contracts/solc/v0.8.24/MessageHasher/MessageHasher.bin 595d2e1c5172dd1838c9f56c1da09c9243975b2be98c9174c1fcab6802585e20
-mock_arm_contract: ../../../contracts/solc/v0.8.24/MockRMN/MockRMN.abi ../../../contracts/solc/v0.8.24/MockRMN/MockRMN.bin e7a3a6c3eda5fb882e16bcc2b4340f78523acb67907bcdcaf3c8ffc51488688e
+mock_arm_contract: ../../../contracts/solc/v0.8.24/MockRMN1_0/MockRMN.abi ../../../contracts/solc/v0.8.24/MockRMN1_0/MockRMN.bin e7a3a6c3eda5fb882e16bcc2b4340f78523acb67907bcdcaf3c8ffc51488688e
 mock_usdc_token_messenger: ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin e0cf17a38b438239fc6294ddca88f86b6c39e4542aefd9815b2d92987191b8bd
 mock_usdc_token_transmitter: ../../../contracts/solc/v0.8.24/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.abi ../../../contracts/solc/v0.8.24/MockE2EUSDCTransmitter/MockE2EUSDCTransmitter.bin 33bdad70822e889de7c720ed20085cf9cd3f8eba8b68f26bd6535197749595fe
 mock_v3_aggregator_contract: ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.abi ../../../contracts/solc/v0.8.24/MockV3Aggregator/MockV3Aggregator.bin 518e19efa2ff52b0fefd8e597b05765317ee7638189bfe34ca43de2f6599faf4

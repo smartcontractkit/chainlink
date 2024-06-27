@@ -70,7 +70,7 @@ contract BurnMintTokenPool_lockOrBurn is BurnMintTokenPoolSetup {
 
   // Should not burn tokens if cursed.
   function test_PoolBurnRevertNotHealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(0));
+    s_mockRMN.setGlobalCursed(true);
     uint256 before = s_burnMintERC677.balanceOf(address(s_pool));
     vm.startPrank(s_burnMintOnRamp);
 
@@ -130,7 +130,7 @@ contract BurnMintTokenPool_releaseOrMint is BurnMintTokenPoolSetup {
 
   function test_PoolMintNotHealthy_Revert() public {
     // Should not mint tokens if cursed.
-    s_mockRMN.voteToCurse(bytes16(0));
+    s_mockRMN.setGlobalCursed(true);
     uint256 before = s_burnMintERC677.balanceOf(OWNER);
     vm.startPrank(s_burnMintOffRamp);
 

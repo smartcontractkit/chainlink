@@ -296,7 +296,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
 
   function test_WhenNotHealthy_Revert() public {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
-    s_mockRMN.voteToCurse(bytes16(0));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(Router.BadARMSignal.selector);
     s_sourceRouter.ccipSend(DEST_CHAIN_SELECTOR, message);
   }
@@ -864,7 +864,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
   }
 
   function test_WhenNotHealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(0));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(Router.BadARMSignal.selector);
     s_destRouter.routeMessage(
       generateReceiverMessage(SOURCE_CHAIN_SELECTOR), GAS_FOR_CALL_EXACT_CHECK, 100_000, address(s_receiver)

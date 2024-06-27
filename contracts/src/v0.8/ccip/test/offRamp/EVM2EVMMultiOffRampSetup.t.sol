@@ -474,13 +474,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
   function _setupRealRMN() internal {
     RMN.Voter[] memory voters = new RMN.Voter[](1);
-    voters[0] = RMN.Voter({
-      blessVoteAddr: BLESS_VOTE_ADDR,
-      curseVoteAddr: address(9999),
-      curseUnvoteAddr: address(19999),
-      blessWeight: 1,
-      curseWeight: 1
-    });
+    voters[0] =
+      RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
     // Overwrite base mock rmn with real.
     s_realRMN = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
   }

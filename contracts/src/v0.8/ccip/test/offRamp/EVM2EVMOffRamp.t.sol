@@ -629,13 +629,11 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(EVM2EVMOffRamp.CursedByRMN.selector);
     s_offRamp.execute(_generateReportFromMessages(_generateMessagesWithTokens()), new uint256[](0));
     // Uncurse should succeed
-    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
-    records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
-    s_mockRMN.ownerUnvoteToCurse(records);
+    s_mockRMN.setGlobalCursed(false);
     s_offRamp.execute(_generateReportFromMessages(_generateMessagesWithTokens()), new uint256[](0));
   }
 

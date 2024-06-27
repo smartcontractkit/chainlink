@@ -55,13 +55,8 @@ contract CommitStoreRealRMNSetup is PriceRegistrySetup, OCR2BaseSetup {
     OCR2BaseSetup.setUp();
 
     RMN.Voter[] memory voters = new RMN.Voter[](1);
-    voters[0] = RMN.Voter({
-      blessVoteAddr: BLESS_VOTE_ADDR,
-      curseVoteAddr: address(9999),
-      curseUnvoteAddr: address(19999),
-      blessWeight: 1,
-      curseWeight: 1
-    });
+    voters[0] =
+      RMN.Voter({blessVoteAddr: BLESS_VOTE_ADDR, curseVoteAddr: address(9999), blessWeight: 1, curseWeight: 1});
     // Overwrite base mock rmn with real.
     s_rmn = new RMN(RMN.Config({voters: voters, blessWeightThreshold: 1, curseWeightThreshold: 1}));
     s_commitStore = new CommitStoreHelper(
@@ -424,7 +419,7 @@ contract CommitStore_report is CommitStoreSetup {
   }
 
   function test_Unhealthy_Revert() public {
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     vm.expectRevert(CommitStore.CursedByRMN.selector);
     bytes memory report;
     s_commitStore.report(report, ++s_latestEpochAndRound);
@@ -587,14 +582,14 @@ contract CommitStore_isUnpausedAndRMNHealthy is CommitStoreSetup {
     assertTrue(s_commitStore.isUnpausedAndNotCursed());
 
     // Test rmn
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     assertFalse(s_commitStore.isUnpausedAndNotCursed());
-    RMN.UnvoteToCurseRecord[] memory records = new RMN.UnvoteToCurseRecord[](1);
-    records[0] = RMN.UnvoteToCurseRecord({curseVoteAddr: OWNER, cursesHash: bytes32(uint256(0)), forceUnvote: true});
-    s_mockRMN.ownerUnvoteToCurse(records);
+    s_mockRMN.setGlobalCursed(false);
+    // TODO: also test with s_mockRMN.setChainCursed(sourceChainSelector),
+    // also for other similar tests (e.g., OffRamp, OnRamp)
     assertTrue(s_commitStore.isUnpausedAndNotCursed());
 
-    s_mockRMN.voteToCurse(bytes16(type(uint128).max));
+    s_mockRMN.setGlobalCursed(true);
     s_commitStore.pause();
     assertFalse(s_commitStore.isUnpausedAndNotCursed());
   }

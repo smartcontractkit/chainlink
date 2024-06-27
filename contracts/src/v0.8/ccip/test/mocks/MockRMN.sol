@@ -5,53 +5,51 @@ import {RMN} from "../../RMN.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 import {OwnerIsCreator} from "./../../../shared/access/OwnerIsCreator.sol";
 
-contract MockRMN is IRMN, OwnerIsCreator {
+/// @notice WARNING: This contract is to be only used for testing, all methods are unprotected.
+contract MockRMN is IRMN {
   error CustomError(bytes err);
 
-  bool private s_curse;
-  bytes private s_err;
-  RMN.VersionedConfig private s_versionedConfig;
-  mapping(bytes16 subject => bool cursed) private s_curseBySubject;
+  bytes private s_isCursedRevert;
 
-  function isCursed() external view override returns (bool) {
-    if (s_err.length != 0) {
-      revert CustomError(s_err);
+  bool private s_globalCursed;
+  mapping(bytes16 subject => bool cursed) private s_cursedBySubject;
+  mapping(address commitStore => mapping(bytes32 root => bool blessed)) private s_blessedByRoot;
+
+  function setTaggedRootBlessed(IRMN.TaggedRoot calldata taggedRoot, bool blessed) external {
+    s_blessedByRoot[taggedRoot.commitStore][taggedRoot.root] = blessed;
+  }
+
+  function setGlobalCursed(bool cursed) external {
+    s_globalCursed = cursed;
+  }
+
+  function setChainCursed(uint64 chainSelector, bool cursed) external {
+    s_cursedBySubject[bytes16(uint128(chainSelector))] = cursed;
+  }
+
+  /// @notice Setting a revert error with length of 0 will disable reverts
+  /// @dev Useful to test revert handling of ARMProxy
+  function setIsCursedRevert(bytes calldata revertErr) external {
+    s_isCursedRevert = revertErr;
+  }
+
+  // IRMN implementation follows
+
+  function isCursed() external view returns (bool) {
+    if (s_isCursedRevert.length > 0) {
+      revert CustomError(s_isCursedRevert);
     }
-    return s_curse;
+    return s_globalCursed;
   }
 
-  function isCursed(bytes16 subject) external view override returns (bool) {
-    if (s_err.length != 0) {
-      revert CustomError(s_err);
+  function isCursed(bytes16 subject) external view returns (bool) {
+    if (s_isCursedRevert.length > 0) {
+      revert CustomError(s_isCursedRevert);
     }
-    return s_curse || s_curseBySubject[subject];
+    return s_globalCursed || s_cursedBySubject[subject];
   }
 
-  function voteToCurse(bytes32) external {
-    s_curse = true;
-  }
-
-  function voteToCurse(bytes32, bytes16 subject) external {
-    s_curseBySubject[subject] = true;
-  }
-
-  function ownerUnvoteToCurse(RMN.UnvoteToCurseRecord[] memory) external {
-    s_curse = false;
-  }
-
-  function ownerUnvoteToCurse(RMN.UnvoteToCurseRecord[] memory, bytes16 subject) external {
-    s_curseBySubject[subject] = false;
-  }
-
-  function setRevert(bytes memory err) external {
-    s_err = err;
-  }
-
-  function isBlessed(IRMN.TaggedRoot calldata) external view override returns (bool) {
-    return !s_curse;
-  }
-
-  function getConfigDetails() external view returns (uint32 version, uint32 blockNumber, RMN.Config memory config) {
-    return (s_versionedConfig.configVersion, s_versionedConfig.blockNumber, s_versionedConfig.config);
+  function isBlessed(IRMN.TaggedRoot calldata taggedRoot) external view returns (bool) {
+    return s_blessedByRoot[taggedRoot.commitStore][taggedRoot.root];
   }
 }

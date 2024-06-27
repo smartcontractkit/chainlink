@@ -5,8 +5,6 @@ import {ARMProxy} from "../../ARMProxy.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract ARMProxyStandaloneTest is Test {
-  event ARMSet(address arm);
-
   address internal constant EMPTY_ADDRESS = address(0x1);
   address internal constant OWNER_ADDRESS = 0xC0ffeeEeC0fFeeeEc0ffeEeEc0ffEEEEC0FfEEee;
   address internal constant MOCK_RMN_ADDRESS = 0x1337133713371337133713371337133713371337;
@@ -23,14 +21,14 @@ contract ARMProxyStandaloneTest is Test {
 
   function test_Constructor() public {
     vm.expectEmit();
-    emit ARMSet(MOCK_RMN_ADDRESS);
+    emit ARMProxy.ARMSet(MOCK_RMN_ADDRESS);
     ARMProxy proxy = new ARMProxy(MOCK_RMN_ADDRESS);
     assertEq(proxy.getARM(), MOCK_RMN_ADDRESS);
   }
 
   function test_SetARM() public {
     vm.expectEmit();
-    emit ARMSet(MOCK_RMN_ADDRESS);
+    emit ARMProxy.ARMSet(MOCK_RMN_ADDRESS);
     vm.prank(OWNER_ADDRESS);
     s_armProxy.setARM(MOCK_RMN_ADDRESS);
     assertEq(s_armProxy.getARM(), MOCK_RMN_ADDRESS);
@@ -57,9 +55,9 @@ contract ARMProxyStandaloneTest is Test {
     );
 
     if (expectedSuccess) {
-      vm.mockCall(MOCK_ARM_ADDRESS, 0, call, ret);
+      vm.mockCall(MOCK_RMN_ADDRESS, 0, call, ret);
     } else {
-      vm.mockCallRevert(MOCK_ARM_ADDRESS, 0, call, ret);
+      vm.mockCallRevert(MOCK_RMN_ADDRESS, 0, call, ret);
     }
     (bool actualSuccess, bytes memory result) = address(s_armProxy).call(call);
     vm.clearMockedCalls();

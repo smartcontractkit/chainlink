@@ -13,7 +13,7 @@ package ccip
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.abi ../../../contracts/solc/v0.8.24/TokenPool/TokenPool.bin TokenPool token_pool
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/RMN/RMN.abi ../../../contracts/solc/v0.8.24/RMN/RMN.bin ARMContract arm_contract
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.abi ../../../contracts/solc/v0.8.24/ARMProxy/ARMProxy.bin ARMProxyContract arm_proxy_contract
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockRMN/MockRMN.abi ../../../contracts/solc/v0.8.24/MockRMN/MockRMN.bin MockARMContract mock_arm_contract
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockRMN1_0/MockRMN.abi ../../../contracts/solc/v0.8.24/MockRMN1_0/MockRMN.bin MockARMContract mock_arm_contract
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.abi ../../../contracts/solc/v0.8.24/TokenAdminRegistry/TokenAdminRegistry.bin TokenAdminRegistry token_admin_registry
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.abi ../../../contracts/solc/v0.8.24/RegistryModuleOwnerCustom/RegistryModuleOwnerCustom.bin RegistryModuleOwnerCustom registry_module_owner_custom
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.abi ../../../contracts/solc/v0.8.24/MockE2EUSDCTokenMessenger/MockE2EUSDCTokenMessenger.bin MockE2EUSDCTokenMessenger mock_usdc_token_messenger
