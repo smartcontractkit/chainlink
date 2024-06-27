@@ -63,7 +63,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords,
     bytes memory extraArgs
   ) internal returns (uint256 requestId, uint256 reqPrice) {
-    reqPrice = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
+    reqPrice = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit, _numWords);
     i_linkToken.transferAndCall(
       address(i_vrfV2PlusWrapper),
       reqPrice,
@@ -79,7 +79,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords,
     bytes memory extraArgs
   ) internal returns (uint256 requestId, uint256 requestPrice) {
-    requestPrice = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
+    requestPrice = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit, _numWords);
     return (
       i_vrfV2PlusWrapper.requestRandomWordsInNative{value: requestPrice}(
         _callbackGasLimit,

@@ -27,7 +27,6 @@ type cacheItem[T any] struct {
 
 // NewBlockCache constructs a new cache.
 func NewBlockCache[T any](evictionWindow time.Duration) *ocrCache[T] {
-
 	// Construct cache cleaner to evict old items.
 	cleaner := &intervalCacheCleaner[T]{
 		interval: evictionWindow,
@@ -50,7 +49,6 @@ func NewBlockCache[T any](evictionWindow time.Duration) *ocrCache[T] {
 
 // AddItem adds an item to the cache.
 func (l *ocrCache[T]) CacheItem(item T, itemKey common.Hash, timeStored time.Time) {
-
 	// Construct new item to be stored.
 	newItem := &cacheItem[T]{
 		item:       item,
@@ -72,7 +70,6 @@ func (l *ocrCache[T]) SetEvictonWindow(newWindow time.Duration) {
 
 // AddItem adds an item to the cache.
 func (l *ocrCache[T]) GetItem(itemKey common.Hash) (item *T) {
-
 	// Lock, and defer unlock.
 	l.cacheMu.Lock()
 	defer l.cacheMu.Unlock()
@@ -90,7 +87,6 @@ func (l *ocrCache[T]) GetItem(itemKey common.Hash) (item *T) {
 
 // EvictExpiredItems removes all expired items stored in the cache.
 func (l *ocrCache[T]) EvictExpiredItems(currentTime time.Time) {
-
 	// Lock, and defer unlock.
 	l.cacheMu.Lock()
 	defer l.cacheMu.Unlock()

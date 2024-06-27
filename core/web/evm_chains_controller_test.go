@@ -106,7 +106,6 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	// sort test chain ids to make expected comparison easy
 	chainIDs := []*big.Int{testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID(), testutils.NewRandomEVMChainID()}
 	sort.Slice(chainIDs, func(i, j int) bool {
-
 		return chainIDs[i].String() < chainIDs[j].String()
 	})
 
@@ -202,7 +201,8 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	ctx := testutils.Context(t)
+	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
 

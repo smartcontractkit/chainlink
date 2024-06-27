@@ -110,6 +110,8 @@ runs:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
         aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: true
+        role-session-name: build-sign-publish-chainlink
 
     - if: inputs.publish == 'true'
       name: Login to ECR

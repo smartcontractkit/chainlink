@@ -1,60 +1,60 @@
 package keeper
 
 import (
+	"context"
 	"math/rand"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
-	q      pg.Q
+	ds     sqlutil.DataSource
 	logger logger.Logger
 }
 
 // NewORM is the constructor of postgresORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, config pg.QConfig) ORM {
+func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *ORM {
 	lggr = lggr.Named("KeeperORM")
-	return ORM{
-		q:      pg.NewQ(db, lggr, config),
+	return &ORM{
+		ds:     ds,
 		logger: lggr,
 	}
 }
 
-func (korm ORM) Q() pg.Q {
-	return korm.q
+func (o *ORM) DataSource() sqlutil.DataSource {
+	return o.ds
 }
 
 // Registries returns all registries
-func (korm ORM) Registries() ([]Registry, error) {
+func (o *ORM) Registries(ctx context.Context) ([]Registry, error) {
 	var registries []Registry
-	err := korm.q.Select(&registries, `SELECT * FROM keeper_registries ORDER BY id ASC`)
+	err := o.ds.SelectContext(ctx, &registries, `SELECT * FROM keeper_registries ORDER BY id ASC`)
 	return registries, errors.Wrap(err, "failed to get registries")
 }
 
 // RegistryByContractAddress returns a single registry based on provided address
-func (korm ORM) RegistryByContractAddress(registryAddress types.EIP55Address) (Registry, error) {
+func (o *ORM) RegistryByContractAddress(ctx context.Context, registryAddress types.EIP55Address) (Registry, error) {
 	var registry Registry
-	err := korm.q.Get(&registry, `SELECT * FROM keeper_registries WHERE keeper_registries.contract_address = $1`, registryAddress)
+	err := o.ds.GetContext(ctx, &registry, `SELECT * FROM keeper_registries WHERE keeper_registries.contract_address = $1`, registryAddress)
 	return registry, errors.Wrap(err, "failed to get registry")
 }
 
 // RegistryForJob returns a specific registry for a job with the given ID
-func (korm ORM) RegistryForJob(jobID int32) (Registry, error) {
+func (o *ORM) RegistryForJob(ctx context.Context, jobID int32) (Registry, error) {
 	var registry Registry
-	err := korm.q.Get(&registry, `SELECT * FROM keeper_registries WHERE job_id = $1 LIMIT 1`, jobID)
+	err := o.ds.GetContext(ctx, &registry, `SELECT * FROM keeper_registries WHERE job_id = $1 LIMIT 1`, jobID)
 	return registry, errors.Wrapf(err, "failed to get registry with job_id %d", jobID)
 }
 
 // UpsertRegistry upserts registry by the given input
-func (korm ORM) UpsertRegistry(registry *Registry) error {
+func (o *ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 	stmt := `
 INSERT INTO keeper_registries (job_id, keeper_index, contract_address, from_address, check_gas, block_count_per_turn, num_keepers, keeper_index_map) VALUES (
 :job_id, :keeper_index, :contract_address, :from_address, :check_gas, :block_count_per_turn, :num_keepers, :keeper_index_map
@@ -66,12 +66,16 @@ INSERT INTO keeper_registries (job_id, keeper_index, contract_address, from_addr
 	keeper_index_map = :keeper_index_map
 RETURNING *
 `
-	err := korm.q.GetNamed(stmt, registry, registry)
+	query, args, err := o.ds.BindNamed(stmt, registry)
+	if err != nil {
+		return errors.Wrap(err, "failed to upsert registry")
+	}
+	err = o.ds.GetContext(ctx, registry, query, args...)
 	return errors.Wrap(err, "failed to upsert registry")
 }
 
 // UpsertUpkeep upserts upkeep by the given input
-func (korm ORM) UpsertUpkeep(registration *UpkeepRegistration) error {
+func (o *ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistration) error {
 	stmt := `
 INSERT INTO upkeep_registrations (registry_id, execute_gas, check_data, upkeep_id, positioning_constant, last_run_block_height) VALUES (
 :registry_id, :execute_gas, :check_data, :upkeep_id, :positioning_constant, :last_run_block_height
@@ -81,13 +85,17 @@ INSERT INTO upkeep_registrations (registry_id, execute_gas, check_data, upkeep_i
 	positioning_constant = :positioning_constant
 RETURNING *
 `
-	err := korm.q.GetNamed(stmt, registration, registration)
+	query, args, err := o.ds.BindNamed(stmt, registration)
+	if err != nil {
+		return errors.Wrap(err, "failed to upsert upkeep")
+	}
+	err = o.ds.GetContext(ctx, registration, query, args...)
 	return errors.Wrap(err, "failed to upsert upkeep")
 }
 
 // UpdateUpkeepLastKeeperIndex updates the last keeper index for an upkeep
-func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Big, fromAddress types.EIP55Address) error {
-	_, err := korm.q.Exec(`
+func (o *ORM) UpdateUpkeepLastKeeperIndex(ctx context.Context, jobID int32, upkeepID *big.Big, fromAddress types.EIP55Address) error {
+	_, err := o.ds.ExecContext(ctx, `
 	UPDATE upkeep_registrations
 	SET
 		last_keeper_index = CAST((SELECT keeper_index_map -> $3 FROM keeper_registries WHERE job_id = $1) AS int)
@@ -98,12 +106,12 @@ func (korm ORM) UpdateUpkeepLastKeeperIndex(jobID int32, upkeepID *big.Big, from
 }
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
-func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []big.Big) (int64, error) {
+func (o *ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeepIDs []big.Big) (int64, error) {
 	strIds := []string{}
 	for _, upkeepID := range upkeepIDs {
 		strIds = append(strIds, upkeepID.String())
 	}
-	res, err := korm.q.Exec(`
+	res, err := o.ds.ExecContext(ctx, `
 DELETE FROM upkeep_registrations WHERE registry_id IN (
 	SELECT id FROM keeper_registries WHERE job_id = $1
 ) AND upkeep_id = ANY($2)
@@ -125,7 +133,7 @@ DELETE FROM upkeep_registrations WHERE registry_id IN (
 // -- OR is it my buddy's turn AND they were the last keeper to do the perform for this upkeep
 // DEV: note we cast upkeep_id and binaryHash as 32 bits, even though both are 256 bit numbers when performing XOR. This is enough information
 // to distribute the upkeeps over the keepers so long as num keepers < 4294967296
-func (korm ORM) EligibleUpkeepsForRegistry(registryAddress types.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
+func (o *ORM) EligibleUpkeepsForRegistry(ctx context.Context, registryAddress types.EIP55Address, blockNumber int64, gracePeriod int64, binaryHash string) (upkeeps []UpkeepRegistration, err error) {
 	stmt := `
 SELECT upkeep_registrations.*
 FROM upkeep_registrations
@@ -165,10 +173,10 @@ WHERE keeper_registries.contract_address = $1
 			)
 		)
 `
-	if err = korm.q.Select(&upkeeps, stmt, registryAddress, gracePeriod, blockNumber, binaryHash); err != nil {
+	if err = o.ds.SelectContext(ctx, &upkeeps, stmt, registryAddress, gracePeriod, blockNumber, binaryHash); err != nil {
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to get upkeep_registrations")
 	}
-	if err = loadUpkeepsRegistry(korm.q, upkeeps); err != nil {
+	if err = o.loadUpkeepsRegistry(ctx, upkeeps); err != nil {
 		return upkeeps, errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
 	}
 
@@ -179,7 +187,7 @@ WHERE keeper_registries.contract_address = $1
 	return upkeeps, err
 }
 
-func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
+func (o *ORM) loadUpkeepsRegistry(ctx context.Context, upkeeps []UpkeepRegistration) error {
 	registryIDM := make(map[int64]*Registry)
 	var registryIDs []int64
 	for _, upkeep := range upkeeps {
@@ -189,7 +197,7 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 		}
 	}
 	var registries []*Registry
-	err := q.Select(&registries, `SELECT * FROM keeper_registries WHERE id = ANY($1)`, pq.Array(registryIDs))
+	err := o.ds.SelectContext(ctx, &registries, `SELECT * FROM keeper_registries WHERE id = ANY($1)`, pq.Array(registryIDs))
 	if err != nil {
 		return errors.Wrap(err, "loadUpkeepsRegistry failed")
 	}
@@ -202,8 +210,8 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 	return nil
 }
 
-func (korm ORM) AllUpkeepIDsForRegistry(regID int64) (upkeeps []big.Big, err error) {
-	err = korm.q.Select(&upkeeps, `
+func (o *ORM) AllUpkeepIDsForRegistry(ctx context.Context, regID int64) (upkeeps []big.Big, err error) {
+	err = o.ds.SelectContext(ctx, &upkeeps, `
 SELECT upkeep_id
 FROM upkeep_registrations
 WHERE registry_id = $1
@@ -212,8 +220,8 @@ WHERE registry_id = $1
 }
 
 // SetLastRunInfoForUpkeepOnJob sets the last run block height and the associated keeper index only if the new block height is greater than the previous.
-func (korm ORM) SetLastRunInfoForUpkeepOnJob(jobID int32, upkeepID *big.Big, height int64, fromAddress types.EIP55Address, qopts ...pg.QOpt) (int64, error) {
-	res, err := korm.q.WithOpts(qopts...).Exec(`
+func (o *ORM) SetLastRunInfoForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID *big.Big, height int64, fromAddress types.EIP55Address) (int64, error) {
+	res, err := o.ds.ExecContext(ctx, `
 	UPDATE upkeep_registrations
 	SET last_run_block_height = $1,
 		last_keeper_index = CAST((SELECT keeper_index_map -> $4 FROM keeper_registries WHERE job_id = $3) AS int)

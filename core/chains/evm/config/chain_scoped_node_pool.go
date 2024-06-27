@@ -33,3 +33,11 @@ func (n *NodePoolConfig) LeaseDuration() time.Duration {
 func (n *NodePoolConfig) NodeIsSyncingEnabled() bool {
 	return *n.C.NodeIsSyncingEnabled
 }
+
+func (n *NodePoolConfig) FinalizedBlockPollInterval() time.Duration {
+	return n.C.FinalizedBlockPollInterval.Duration()
+}
+
+func (n *NodePoolConfig) Errors() ClientErrors {
+	return &clientErrorsConfig{c: n.C.Errors}
+}

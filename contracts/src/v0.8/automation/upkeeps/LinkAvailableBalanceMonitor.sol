@@ -32,7 +32,7 @@ interface ILinkAvailable {
 /// at your own risk!!!
 /// @dev some areas for improvement / acknowledgement of limitations:
 ///  validate that all addresses conform to interface when adding them to the watchlist
-///  this is a "trusless" upkeep, meaning it does not trust the caller of performUpkeep;
+///  this is a "trustless" upkeep, meaning it does not trust the caller of performUpkeep;
 /// we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
 /// which has significantly different trust assumptions
 contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInterface, Pausable {
@@ -47,7 +47,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   event MinWaitPeriodSet(uint256 s_minWaitPeriodSeconds, uint256 minWaitPeriodSeconds);
   event TopUpBlocked(address indexed topUpAddress);
   event TopUpFailed(address indexed recipient);
-  event TopUpSucceeded(address indexed topUpAddress);
+  event TopUpSucceeded(address indexed topUpAddress, uint256 amount);
   event TopUpUpdated(address indexed addr, uint256 oldTopUpAmount, uint256 newTopUpAmount);
   event WatchlistUpdated();
 
@@ -170,9 +170,9 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
   /// @param targetAddress the address to be added to the watchlist
   /// @param dstChainSelector carries a non-zero value in case the targetAddress is an onRamp, otherwise it carries a 0
   /// @dev this function has to be compatible with the event onRampSet(address, dstChainSelector) emitted by
-  /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decomissioned,
+  /// the CCIP router. Important detail to know is this event is also emitted when an onRamp is decommissioned,
   /// in which case it will carry the proper dstChainSelector along with the 0x0 address
-  function addToWatchListOrDecomission(address targetAddress, uint64 dstChainSelector) public onlyAdminOrExecutor {
+  function addToWatchListOrDecommission(address targetAddress, uint64 dstChainSelector) public onlyAdminOrExecutor {
     if (s_targets[targetAddress].isActive) revert DuplicateAddress(targetAddress);
     if (targetAddress == address(0) && dstChainSelector == 0) revert InvalidAddress(targetAddress);
     bool onRampExists = s_onRampAddresses.contains(dstChainSelector);
@@ -195,7 +195,7 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
       if (dstChainSelector > 0) {
         s_onRampAddresses.set(dstChainSelector, targetAddress);
       }
-      // else if is refundant as this is the only corner case left, maintaining it for legibility
+      // else if is redundant as this is the only corner case left, maintaining it for legibility
     } else if (targetAddress == address(0) && dstChainSelector > 0) {
       s_onRampAddresses.remove(dstChainSelector);
     }
@@ -227,21 +227,21 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     uint256 minWaitPeriod = s_minWaitPeriodSeconds;
     address[] memory targetsToFund = new address[](maxPerform);
     MonitoredAddress memory contractToFund;
+    address targetAddress;
     for (
       uint256 numChecked = 0;
       numChecked < numToCheck;
       (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)
     ) {
-      address targetAddress = s_watchList.at(idx);
+      targetAddress = s_watchList.at(idx);
       contractToFund = s_targets[targetAddress];
-      if (
-        _needsFunding(
-          targetAddress,
-          contractToFund.lastTopUpTimestamp + minWaitPeriod,
-          contractToFund.minBalance,
-          contractToFund.isActive
-        )
-      ) {
+      (bool fundingNeeded, ) = _needsFunding(
+        targetAddress,
+        contractToFund.lastTopUpTimestamp + minWaitPeriod,
+        contractToFund.minBalance,
+        contractToFund.isActive
+      );
+      if (fundingNeeded) {
         targetsToFund[numFound] = targetAddress;
         numFound++;
         if (numFound == maxPerform) {
@@ -266,64 +266,64 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     for (uint256 idx = 0; idx < targetAddresses.length; idx++) {
       address targetAddress = targetAddresses[idx];
       contractToFund = s_targets[targetAddress];
-      s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
-      if (
-        localBalance >= contractToFund.topUpAmount &&
-        _needsFunding(
-          targetAddress,
-          contractToFund.lastTopUpTimestamp + minWaitPeriod,
-          contractToFund.minBalance,
-          contractToFund.isActive
-        )
-      ) {
-        bool success = i_linkToken.transfer(targetAddress, contractToFund.topUpAmount);
+
+      (bool fundingNeeded, address target) = _needsFunding(
+        targetAddress,
+        contractToFund.lastTopUpTimestamp + minWaitPeriod,
+        contractToFund.minBalance,
+        contractToFund.isActive
+      );
+      if (localBalance >= contractToFund.topUpAmount && fundingNeeded) {
+        bool success = i_linkToken.transfer(target, contractToFund.topUpAmount);
         if (success) {
           localBalance -= contractToFund.topUpAmount;
-          emit TopUpSucceeded(targetAddress);
+          s_targets[targetAddress].lastTopUpTimestamp = uint56(block.timestamp);
+          emit TopUpSucceeded(target, contractToFund.topUpAmount);
         } else {
           emit TopUpFailed(targetAddress);
         }
       } else {
-        s_targets[targetAddress].lastTopUpTimestamp = contractToFund.lastTopUpTimestamp;
         emit TopUpBlocked(targetAddress);
       }
     }
   }
 
   /// @notice checks the target (could be direct target or IAggregatorProxy), and determines
-  /// if it is elligible for funding
+  /// if it is eligible for funding
   /// @param targetAddress the target to check
   /// @param minBalance minimum balance required for the target
   /// @param minWaitPeriodPassed the minimum wait period (target lastTopUpTimestamp + minWaitPeriod)
   /// @return bool whether the target needs funding or not
+  /// @return address the address to fund. for DF, this is the aggregator address behind the proxy address.
+  ///         for other products, it's the original target address
   function _needsFunding(
     address targetAddress,
     uint256 minWaitPeriodPassed,
     uint256 minBalance,
     bool contractIsActive
-  ) private view returns (bool) {
+  ) private view returns (bool, address) {
     // Explicitly check if the targetAddress is the zero address
     // or if it's not a contract. In both cases return with false,
     // to prevent target.linkAvailableForPayment from running,
     // which would revert the operation.
     if (targetAddress == address(0) || targetAddress.code.length == 0) {
-      return false;
+      return (false, address(0));
     }
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
     try proxy.aggregator() returns (address aggregatorAddress) {
       // proxy.aggregator() can return a 0 address if the address is not an aggregator
-      if (aggregatorAddress == address(0)) return false;
+      if (aggregatorAddress == address(0)) return (false, address(0));
       target = ILinkAvailable(aggregatorAddress);
     } catch {
       target = ILinkAvailable(targetAddress);
     }
     try target.linkAvailableForPayment() returns (int256 balance) {
       if (balance < int256(minBalance) && minWaitPeriodPassed <= block.timestamp && contractIsActive) {
-        return true;
+        return (true, address(target));
       }
     } catch {}
-    return false;
+    return (false, address(0));
   }
 
   /// @notice Gets list of subscription ids that are underfunded and returns a keeper-compatible payload.
@@ -333,9 +333,18 @@ contract LinkAvailableBalanceMonitor is AccessControl, AutomationCompatibleInter
     bytes calldata
   ) external view override whenNotPaused returns (bool upkeepNeeded, bytes memory performData) {
     address[] memory needsFunding = sampleUnderfundedAddresses();
-    upkeepNeeded = needsFunding.length > 0;
-    performData = abi.encode(needsFunding);
-    return (upkeepNeeded, performData);
+    if (needsFunding.length == 0) {
+      return (false, "");
+    }
+    uint96 total_batch_balance;
+    for (uint256 idx = 0; idx < needsFunding.length; idx++) {
+      address targetAddress = needsFunding[idx];
+      total_batch_balance = total_batch_balance + s_targets[targetAddress].topUpAmount;
+    }
+    if (i_linkToken.balanceOf(address(this)) >= total_batch_balance) {
+      return (true, abi.encode(needsFunding));
+    }
+    return (false, "");
   }
 
   /// @notice Called by the keeper to send funds to underfunded addresses.

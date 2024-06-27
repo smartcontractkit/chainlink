@@ -6,7 +6,7 @@ set -e
 # jq ^1.6 https://stedolan.github.io/jq/
 
 repo=smartcontractkit/operator-ui
-gitRoot=$(git rev-parse --show-toplevel)
+gitRoot="$(dirname -- "$0")/../"
 cd "$gitRoot/operator_ui"
 
 tag_file=TAG

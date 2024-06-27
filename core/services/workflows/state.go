@@ -2,42 +2,70 @@ package workflows
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
-type stepOutput struct {
-	err   error
-	value values.Value
-}
+// copyState returns a deep copy of the input executionState
+func copyState(es store.WorkflowExecution) store.WorkflowExecution {
+	steps := map[string]*store.WorkflowExecutionStep{}
+	for ref, step := range es.Steps {
+		var mval *values.Map
+		if step.Inputs != nil {
+			mp := values.Proto(step.Inputs).GetMapValue()
+			mval = values.FromMapValueProto(mp)
+		}
 
-type stepState struct {
-	inputs  *values.Map
-	outputs *stepOutput
-}
+		op := values.Proto(step.Outputs.Value)
+		copiedov := values.FromProto(op)
 
-type executionState struct {
-	steps       map[string]*stepState
-	executionID string
-	workflowID  string
+		newState := &store.WorkflowExecutionStep{
+			ExecutionID: step.ExecutionID,
+			Ref:         step.Ref,
+			Status:      step.Status,
+
+			Outputs: store.StepOutput{
+				Err:   step.Outputs.Err,
+				Value: copiedov,
+			},
+
+			Inputs: mval,
+		}
+
+		steps[ref] = newState
+	}
+	return store.WorkflowExecution{
+		ExecutionID: es.ExecutionID,
+		WorkflowID:  es.WorkflowID,
+		Status:      es.Status,
+		Steps:       steps,
+	}
 }
 
 // interpolateKey takes a multi-part, dot-separated key and attempts to replace
 // it with its corresponding value in `state`.
-// A key is valid if:
-// - it contains at least two parts, with the first part being the workflow step's `ref` variable, and the second being one of `inputs` or `outputs`
-// - any subsequent parts will be processed as a list index (if the current element is a list) or a map key (if it's a map)
-func interpolateKey(key string, state *executionState) (any, error) {
+//
+// A key is valid if it contains at least two parts, with:
+//   - the first part being the workflow step's `ref` variable
+//   - the second part being one of `inputs` or `outputs`
+//
+// If a key has more than two parts, then we traverse the parts
+// to find the value we want to replace.
+// We support traversing both nested maps and lists and any combination of the two.
+func interpolateKey(key string, state store.WorkflowExecution) (any, error) {
 	parts := strings.Split(key, ".")
 
 	if len(parts) < 2 {
 		return "", fmt.Errorf("cannot interpolate %s: must have at least two parts", key)
 	}
 
-	sc, ok := state.steps[parts[0]]
+	// lookup the step we want to get either input or output state from
+	sc, ok := state.Steps[parts[0]]
 	if !ok {
 		return "", fmt.Errorf("could not find ref `%s`", parts[0])
 	}
@@ -45,13 +73,13 @@ func interpolateKey(key string, state *executionState) (any, error) {
 	var value values.Value
 	switch parts[1] {
 	case "inputs":
-		value = sc.inputs
+		value = sc.Inputs
 	case "outputs":
-		if sc.outputs.err != nil {
+		if sc.Outputs.Err != nil {
 			return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: step has errored", parts[1], sc)
 		}
 
-		value = sc.outputs.value
+		value = sc.Outputs.Value
 	default:
 		return "", fmt.Errorf("cannot interpolate ref part `%s` in `%+v`: second part must be `inputs` or `outputs`", parts[1], sc)
 	}
@@ -67,78 +95,44 @@ func interpolateKey(key string, state *executionState) (any, error) {
 		case map[string]any:
 			inner, ok := v[r]
 			if !ok {
-				return "", fmt.Errorf("could not find ref part `%s` in `%+v`", r, v)
+				return "", fmt.Errorf("could not find ref part `%s` (ref: `%s`) in `%+v`", r, key, v)
 			}
 
 			val = inner
 		case []any:
-			d, err := strconv.Atoi(r)
+			i, err := strconv.Atoi(r)
 			if err != nil {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: `%s` is not convertible to an int", r, v, r)
+				return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`: `%s` is not convertible to an int", r, key, v, r)
 			}
 
-			if d > len(v)-1 {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: cannot fetch index %d", r, v, d)
+			if (i > len(v)-1) || (i < 0) {
+				return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`: index out of bounds %d", r, key, v, i)
 			}
 
-			if d < 0 {
-				return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`: index %d must be a positive number", r, v, d)
-			}
-
-			val = v[d]
+			val = v[i]
 		default:
-			return "", fmt.Errorf("could not interpolate ref part `%s` in `%+v`", r, val)
+			return "", fmt.Errorf("could not interpolate ref part `%s` (ref: `%s`) in `%+v`", r, key, val)
 		}
 	}
 
 	return val, nil
 }
 
-var (
-	interpolationTokenRe = regexp.MustCompile(`^\$\((\S+)\)$`)
-)
-
 // findAndInterpolateAllKeys takes an `input` any value, and recursively
 // identifies any values that should be replaced from `state`.
-// A value `v` should be replaced if it is wrapped as follows `$(v)`.
-func findAndInterpolateAllKeys(input any, state *executionState) (any, error) {
-	switch tv := input.(type) {
-	case string:
-		matches := interpolationTokenRe.FindStringSubmatch(tv)
-		if len(matches) < 2 {
-			return tv, nil
-		}
-
-		interpolatedVar := matches[1]
-		nv, err := interpolateKey(interpolatedVar, state)
-		if err != nil {
-			return nil, err
-		}
-
-		return nv, nil
-	case map[string]any:
-		nm := map[string]any{}
-		for k, v := range tv {
-			nv, err := findAndInterpolateAllKeys(v, state)
-			if err != nil {
-				return nil, err
+//
+// A value `v` should be replaced if it is wrapped as follows: `$(v)`.
+func findAndInterpolateAllKeys(input any, state store.WorkflowExecution) (any, error) {
+	return workflows.DeepMap(
+		input,
+		func(el string) (any, error) {
+			matches := workflows.InterpolationTokenRe.FindStringSubmatch(el)
+			if len(matches) < 2 {
+				return el, nil
 			}
 
-			nm[k] = nv
-		}
-		return nm, nil
-	case []any:
-		a := []any{}
-		for _, el := range tv {
-			ne, err := findAndInterpolateAllKeys(el, state)
-			if err != nil {
-				return nil, err
-			}
-
-			a = append(a, ne)
-		}
-		return a, nil
-	}
-
-	return nil, fmt.Errorf("cannot interpolate item %+v of type %T", input, input)
+			interpolatedVar := matches[1]
+			return interpolateKey(interpolatedVar, state)
+		},
+	)
 }

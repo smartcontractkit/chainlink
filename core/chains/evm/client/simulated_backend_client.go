@@ -451,7 +451,7 @@ func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.
 
 // SuggestGasPrice recommends a gas price.
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	panic("unimplemented")
+	return c.b.SuggestGasPrice(ctx)
 }
 
 // BatchCallContext makes a batch rpc call.
@@ -772,6 +772,10 @@ func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interfac
 	default:
 		return fmt.Errorf("SimulatedBackendClient unexpected Type %T", r)
 	}
+}
+
+func (c *SimulatedBackendClient) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *SendError {
+	return nil
 }
 
 func toCallMsg(params map[string]interface{}) ethereum.CallMsg {

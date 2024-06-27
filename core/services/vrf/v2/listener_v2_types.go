@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
@@ -222,8 +222,8 @@ func (lsn *listenerV2) processBatch(
 	)
 	ll.Info("Enqueuing batch fulfillment")
 	var ethTX txmgr.Tx
-	err = lsn.q.Transaction(func(tx pg.Queryer) error {
-		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
+	err = sqlutil.TransactDataSource(ctx, lsn.ds, nil, func(tx sqlutil.DataSource) error {
+		if err = lsn.pipelineRunner.InsertFinishedRuns(ctx, tx, batch.runs, true); err != nil {
 			return fmt.Errorf("inserting finished pipeline runs: %w", err)
 		}
 

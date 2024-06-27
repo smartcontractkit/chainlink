@@ -2,6 +2,19 @@ name: On Demand OCR Soak Test
 on:
   workflow_dispatch:
     inputs:
+      testToRun:
+        description: Select a test to run
+        required: true
+        default: TestOCRSoak
+        type: choice
+        options:
+          - TestOCRSoak
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
+          - TestOCRSoak_GasSpike
+          - TestOCRSoak_ChangeBlockGasLimit
+          - TestOCRSoak_RPCDownForAllCLNodes
+          - TestOCRSoak_RPCDownForHalfCLNodes
       base64Config:
         description: base64-ed config
         required: true
@@ -32,8 +45,9 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@0281b09807758be1dcc41651e44e62b353808c47 # v2.1.0
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
+          id: on-demand-ocr-soak-test
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
@@ -72,7 +86,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@5bee84d30d90295010bda68b0cd46be3a1eea917 # v2.3.9
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
@@ -82,7 +96,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}

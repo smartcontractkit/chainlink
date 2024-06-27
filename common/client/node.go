@@ -43,6 +43,13 @@ type NodeConfig interface {
 	SelectionMode() string
 	SyncThreshold() uint32
 	NodeIsSyncingEnabled() bool
+	FinalizedBlockPollInterval() time.Duration
+}
+
+type ChainConfig interface {
+	NodeNoNewHeadsThreshold() time.Duration
+	FinalityDepth() uint32
+	FinalityTagEnabled() bool
 }
 
 //go:generate mockery --quiet --name Node --structname mockNode --filename "mock_node_test.go" --inpackage --case=underscore
@@ -73,14 +80,14 @@ type node[
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	services.StateMachine
-	lfcLog              logger.Logger
-	name                string
-	id                  int32
-	chainID             CHAIN_ID
-	nodePoolCfg         NodeConfig
-	noNewHeadsThreshold time.Duration
-	order               int32
-	chainFamily         string
+	lfcLog      logger.Logger
+	name        string
+	id          int32
+	chainID     CHAIN_ID
+	nodePoolCfg NodeConfig
+	chainCfg    ChainConfig
+	order       int32
+	chainFamily string
 
 	ws   url.URL
 	http *url.URL
@@ -90,13 +97,11 @@ type node[
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
 	// Each node is tracking the last received head number and total difficulty
-	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *big.Int
+	stateLatestBlockNumber          int64
+	stateLatestTotalDifficulty      *big.Int
+	stateLatestFinalizedBlockNumber int64
 
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
@@ -113,7 +118,7 @@ func NewNode[
 	RPC NodeClient[CHAIN_ID, HEAD],
 ](
 	nodeCfg NodeConfig,
-	noNewHeadsThreshold time.Duration,
+	chainCfg ChainConfig,
 	lggr logger.Logger,
 	wsuri url.URL,
 	httpuri *url.URL,
@@ -129,13 +134,13 @@ func NewNode[
 	n.id = id
 	n.chainID = chainID
 	n.nodePoolCfg = nodeCfg
-	n.noNewHeadsThreshold = noNewHeadsThreshold
+	n.chainCfg = chainCfg
 	n.ws = wsuri
 	n.order = nodeOrder
 	if httpuri != nil {
 		n.http = httpuri
 	}
-	n.nodeCtx, n.cancelNodeCtx = context.WithCancel(context.Background())
+	n.stopCh = make(services.StopChan)
 	lggr = logger.Named(lggr, "Node")
 	lggr = logger.With(lggr,
 		"nodeTier", Primary.String(),
@@ -192,7 +197,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 
-	n.cancelNodeCtx()
+	close(n.stopCh)
 	n.state = nodeStateClosed
 	return nil
 }

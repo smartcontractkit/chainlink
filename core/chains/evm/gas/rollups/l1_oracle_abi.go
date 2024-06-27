@@ -11,3 +11,7 @@ const GasEstimateL1ComponentAbiString = `[{"inputs":[{"internalType":"address","
 // All ABIs found at https://optimistic.etherscan.io/address/0xc0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3c0d3000f#code
 const L1BaseFeeAbiString = `[{"inputs":[],"name":"l1BaseFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 const GetL1FeeAbiString = `[{"inputs":[{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"getL1Fee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
+
+// ABIs for OP Stack Ecotone GasPriceOracle methods needed to calculated encoded gas price
+const OPIsEcotoneAbiString = `[{"inputs":[],"name":"isEcotone","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}]`
+const OPGetL1GasUsedAbiString = `[{"inputs":[{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"getL1GasUsed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`

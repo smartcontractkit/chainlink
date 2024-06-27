@@ -33,7 +33,6 @@ contract HeartbeatRequester is TypeAndVersionInterface, ConfirmedOwner {
    * - HeartbeatRequester 1.0.0: The requester fetches the latest aggregator address from proxy, and request a new round
    *                             using the aggregator address.
    */
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "HeartbeatRequester 1.0.0";
 
   constructor() ConfirmedOwner(msg.sender) {}

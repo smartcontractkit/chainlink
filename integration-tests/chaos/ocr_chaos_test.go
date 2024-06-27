@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/seth"
 	"github.com/stretchr/testify/require"
 
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -20,13 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -52,11 +51,6 @@ var (
 	chaosEndRound   int64 = 4
 )
 
-func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
-	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
-	return defaultAutomationSettings
-}
-
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -68,7 +62,12 @@ func TestOCRChaos(t *testing.T) {
 		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}
 
-	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
+	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, networks.MustGetSelectedNetworkConfig(config.Network)[0])
+	require.NoError(t, err, "Error building TOML config")
+
+	defaultOCRSettings["toml"] = tomlConfig
+
+	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCRSettings, config.ChainlinkImage, overrideFn)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
@@ -164,36 +163,31 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 
 			cfg := config.MustCopy().(tc.TestConfig)
-			readSethCfg := cfg.GetSethConfig()
-			require.NotNil(t, readSethCfg, "Seth config shouldn't be nil")
 
 			network := networks.MustGetSelectedNetworkConfig(cfg.GetNetworkConfig())[0]
-			network = utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
+			network = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, network, *testEnvironment)
 
-			sethCfg := utils.MergeSethAndEvmNetworkConfigs(l, network, *readSethCfg)
-			err = utils.ValidateSethNetworkConfig(sethCfg.Network)
-			require.NoError(t, err, "Error validating seth network config")
-			seth, err := seth.NewClientWithConfig(&sethCfg)
+			seth, err := seth_utils.GetChainClient(&cfg, network)
 			require.NoError(t, err, "Error creating seth client")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
 			bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 			t.Cleanup(func() {
-				err := actions_seth.TeardownRemoteSuite(t, seth, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &cfg)
+				err := actions.TeardownRemoteSuite(t, seth, testEnvironment.Cfg.Namespace, chainlinkNodes, nil, &cfg)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
 			ms, err := ctfClient.ConnectMockServer(testEnvironment)
 			require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
-			linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+			linkContract, err := contracts.DeployLinkTokenContract(l, seth)
 			require.NoError(t, err, "Error deploying link token contract")
 
-			err = actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
+			err = actions.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), big.NewFloat(10))
 			require.NoError(t, err)
 
-			ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, linkDeploymentData.Address, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+			ocrInstances, err := actions.DeployOCRv1Contracts(l, seth, 1, common.HexToAddress(linkContract.Address()), contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 			require.NoError(t, err)
 			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, fmt.Sprint(seth.ChainID))
 			require.NoError(t, err)

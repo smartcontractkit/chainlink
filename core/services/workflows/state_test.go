@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
 func TestInterpolateKey(t *testing.T) {
+	t.Parallel()
 	val, err := values.NewMap(
 		map[string]any{
 			"reports": map[string]any{
@@ -26,48 +28,48 @@ func TestInterpolateKey(t *testing.T) {
 	testCases := []struct {
 		name     string
 		key      string
-		state    *executionState
+		state    store.WorkflowExecution
 		expected any
 		errMsg   string
 	}{
 		{
 			name: "digging into a string",
 			key:  "evm_median.outputs.reports",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: values.NewString("<a report>"),
+						Outputs: store.StepOutput{
+							Value: values.NewString("<a report>"),
 						},
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `reports` in `<a report>`",
+			errMsg: "could not interpolate ref part `reports` (ref: `evm_median.outputs.reports`) in `<a report>`",
 		},
 		{
 			name: "ref doesn't exist",
 			key:  "evm_median.outputs.reports",
-			state: &executionState{
-				steps: map[string]*stepState{},
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{},
 			},
 			errMsg: "could not find ref `evm_median`",
 		},
 		{
 			name: "less than 2 parts",
 			key:  "evm_median",
-			state: &executionState{
-				steps: map[string]*stepState{},
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{},
 			},
 			errMsg: "must have at least two parts",
 		},
 		{
 			name: "second part isn't `inputs` or `outputs`",
 			key:  "evm_median.foo",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: values.NewString("<a report>"),
+						Outputs: store.StepOutput{
+							Value: values.NewString("<a report>"),
 						},
 					},
 				},
@@ -77,11 +79,11 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "outputs has errored",
 			key:  "evm_median.outputs",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							err: errors.New("catastrophic error"),
+						Outputs: store.StepOutput{
+							Err: errors.New("catastrophic error"),
 						},
 					},
 				},
@@ -91,11 +93,11 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "digging into a recursive map",
 			key:  "evm_median.outputs.reports.inner",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
@@ -105,25 +107,25 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "missing key in map",
 			key:  "evm_median.outputs.reports.missing",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
 			},
-			errMsg: "could not find ref part `missing` in",
+			errMsg: "could not find ref part `missing` (ref: `evm_median.outputs.reports.missing`) in",
 		},
 		{
 			name: "digging into an array",
 			key:  "evm_median.outputs.reportsList.0",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
@@ -133,58 +135,58 @@ func TestInterpolateKey(t *testing.T) {
 		{
 			name: "digging into an array that's too small",
 			key:  "evm_median.outputs.reportsList.2",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
 			},
-			errMsg: "cannot fetch index 2",
+			errMsg: "index out of bounds 2",
 		},
 		{
 			name: "digging into an array with a string key",
 			key:  "evm_median.outputs.reportsList.notAString",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `notAString` in `[listElement]`: `notAString` is not convertible to an int",
+			errMsg: "could not interpolate ref part `notAString` (ref: `evm_median.outputs.reportsList.notAString`) in `[listElement]`: `notAString` is not convertible to an int",
 		},
 		{
 			name: "digging into an array with a negative index",
 			key:  "evm_median.outputs.reportsList.-1",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
 			},
-			errMsg: "could not interpolate ref part `-1` in `[listElement]`: index -1 must be a positive number",
+			errMsg: "could not interpolate ref part `-1` (ref: `evm_median.outputs.reportsList.-1`) in `[listElement]`: index out of bounds -1",
 		},
 		{
 			name: "empty element",
 			key:  "evm_median.outputs..notAString",
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: val,
+						Outputs: store.StepOutput{
+							Value: val,
 						},
 					},
 				},
 			},
-			errMsg: "could not find ref part `` in",
+			errMsg: "could not find ref part `` (ref: `evm_median.outputs..notAString`) in",
 		},
 	}
 
@@ -202,10 +204,11 @@ func TestInterpolateKey(t *testing.T) {
 }
 
 func TestInterpolateInputsFromState(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name     string
 		inputs   map[string]any
-		state    *executionState
+		state    store.WorkflowExecution
 		expected any
 		errMsg   string
 	}{
@@ -216,11 +219,11 @@ func TestInterpolateInputsFromState(t *testing.T) {
 					"shouldinterpolate": "$(evm_median.outputs)",
 				},
 			},
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: values.NewString("<a report>"),
+						Outputs: store.StepOutput{
+							Value: values.NewString("<a report>"),
 						},
 					},
 				},
@@ -236,11 +239,11 @@ func TestInterpolateInputsFromState(t *testing.T) {
 			inputs: map[string]any{
 				"foo": "bar",
 			},
-			state: &executionState{
-				steps: map[string]*stepState{
+			state: store.WorkflowExecution{
+				Steps: map[string]*store.WorkflowExecutionStep{
 					"evm_median": {
-						outputs: &stepOutput{
-							value: values.NewString("<a report>"),
+						Outputs: store.StepOutput{
+							Value: values.NewString("<a report>"),
 						},
 					},
 				},

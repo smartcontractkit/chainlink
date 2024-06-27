@@ -15,6 +15,7 @@ import (
 )
 
 func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
+	t.Parallel()
 	var (
 		fluxAggregator    = mocks.NewFluxAggregator(t)
 		orm               = fmmocks.NewORM(t)

@@ -3,9 +3,13 @@
 flowchart LR
   subgraph chains
     chainlink-cosmos
-    chainlink-evm
     chainlink-solana
     chainlink-starknet/relayer
+    subgraph chainlink-integrations
+      direction LR
+      chainlink-integrations/evm/relayer
+      chainlink-integrations/common
+    end
   end
 
   subgraph products
@@ -20,8 +24,6 @@ flowchart LR
   classDef outline stroke-dasharray:6,fill:none;
   class chains,products outline
 
-  chainlink/v2 --> caigo
-  click caigo href "https://github.com/smartcontractkit/caigo"
   chainlink/v2 --> chain-selectors
   click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
   chainlink/v2 --> chainlink-automation
@@ -60,7 +62,6 @@ flowchart LR
   chainlink-feeds --> libocr
   chainlink-solana --> chainlink-common
   chainlink-solana --> libocr
-  chainlink-starknet/relayer --> caigo
   chainlink-starknet/relayer --> chainlink-common
   chainlink-starknet/relayer --> libocr
   chainlink-vrf --> libocr

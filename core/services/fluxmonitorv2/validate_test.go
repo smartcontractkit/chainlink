@@ -21,6 +21,7 @@ func (testcfg) DefaultHTTPTimeout() commonconfig.Duration {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	var tt = []struct {
 		name      string
 		toml      string

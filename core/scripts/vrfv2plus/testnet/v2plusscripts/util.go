@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/montanaflynn/stats"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -198,33 +200,64 @@ func RegisterCoordinatorProvingKey(e helpers.Environment,
 	)
 }
 
+func RegisterMigratableCoordinator(
+	e helpers.Environment,
+	coordinator vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateToAddress common.Address,
+) {
+	tx, err := coordinator.RegisterMigratableCoordinator(e.Owner, coordinatorMigrateToAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Coordinator %s registered migratable coordinator %s", coordinator.Address().String(), coordinatorMigrateToAddress.String()),
+	)
+}
+
+func MigrateSub(
+	e helpers.Environment,
+	coordinatorMigrateSubFrom vrf_coordinator_v2_5.VRFCoordinatorV25,
+	coordinatorMigrateSubTo common.Address,
+	subID *big.Int,
+) {
+	tx, err := coordinatorMigrateSubFrom.Migrate(e.Owner, subID, coordinatorMigrateSubTo)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(
+		context.Background(),
+		e.Ec,
+		tx,
+		e.ChainID,
+		fmt.Sprintf("Sub Migrated from Coordinator: %s,", coordinatorMigrateSubFrom.Address().String()),
+		fmt.Sprintf("Sub Migrated TO Coordinator: %s,", coordinatorMigrateSubTo.String()),
+		fmt.Sprintf("Sub ID which was migrated: %s,", subID.String()),
+	)
+}
+
 func WrapperDeploy(
 	e helpers.Environment,
-	link, linkEthFeed, coordinator common.Address,
-) (common.Address, *big.Int) {
+	link, linkEthFeed, coordinator common.Address, subID *big.Int,
+) common.Address {
 	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,
-		coordinator)
+		coordinator,
+		subID)
 	helpers.PanicErr(err)
 
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Println("VRFV2Wrapper address:", address)
 
-	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(address, e.Ec)
-	helpers.PanicErr(err)
-
-	subID, err := wrapper.SUBSCRIPTIONID(nil)
-	helpers.PanicErr(err)
-	fmt.Println("VRFV2Wrapper subscription id:", subID)
-
-	return address, subID
+	return address
 }
 
 func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead uint,
+	wrapperGasOverhead uint,
+	coordinatorGasOverheadNative, coordinatorGasOverheadLink uint,
+	coordinatorGasOverheadPerWord uint,
 	nativePremiumPercentage, linkPremiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
@@ -239,7 +272,9 @@ func WrapperConfigure(
 	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverhead),
+		uint32(coordinatorGasOverheadNative),
+		uint32(coordinatorGasOverheadLink),
+		uint16(coordinatorGasOverheadPerWord),
 		uint8(nativePremiumPercentage),
 		uint8(linkPremiumPercentage),
 		common.HexToHash(keyHash),
@@ -252,6 +287,13 @@ func WrapperConfigure(
 
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func PrintWrapperConfig(wrapper *vrfv2plus_wrapper.VRFV2PlusWrapper) {
+	cfg, err := wrapper.GetConfig(nil)
+	helpers.PanicErr(err)
+	fmt.Printf("Wrapper config: %+v\n", cfg)
+	fmt.Printf("Wrapper Keyhash: %s\n", fmt.Sprintf("0x%x", cfg.KeyHash))
 }
 
 func WrapperConsumerDeploy(
@@ -275,4 +317,41 @@ func EoaV2PlusLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerC
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func CalculateFulfillmentResponseTimePercentiles(e helpers.Environment, consumer *vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics) (float64, float64, error) {
+	var responseTimesInBlocks []uint32
+	for {
+		currentResponseTimesInBlocks, err := consumer.GetRequestBlockTimes(&bind.CallOpts{
+			From:    e.Owner.From,
+			Context: context.Background(),
+		}, big.NewInt(int64(len(responseTimesInBlocks))), big.NewInt(1000))
+		if err != nil {
+			return 0, 0, err
+		}
+		if len(currentResponseTimesInBlocks) == 0 {
+			break
+		}
+		responseTimesInBlocks = append(responseTimesInBlocks, currentResponseTimesInBlocks...)
+	}
+	var p90FulfillmentBlockTime, p95FulfillmentBlockTime float64
+	var err error
+	if len(responseTimesInBlocks) == 0 {
+		p90FulfillmentBlockTime = 0
+		p95FulfillmentBlockTime = 0
+	} else {
+		responseTimesInBlocksFloat64 := make([]float64, len(responseTimesInBlocks))
+		for i, value := range responseTimesInBlocks {
+			responseTimesInBlocksFloat64[i] = float64(value)
+		}
+		p90FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 90)
+		if err != nil {
+			return 0, 0, err
+		}
+		p95FulfillmentBlockTime, err = stats.Percentile(responseTimesInBlocksFloat64, 95)
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return p90FulfillmentBlockTime, p95FulfillmentBlockTime, nil
 }

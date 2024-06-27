@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 
@@ -37,10 +38,10 @@ const (
 // Authenticator defines the interface to authenticate requests against a
 // datastore.
 type Authenticator interface {
-	AuthorizedUserWithSession(sessionID string) (clsessions.User, error)
-	FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error)
-	FindUser(email string) (clsessions.User, error)
-	FindUserByAPIToken(apiToken string) (clsessions.User, error)
+	AuthorizedUserWithSession(ctx context.Context, sessionID string) (clsessions.User, error)
+	FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error)
+	FindUser(ctx context.Context, email string) (clsessions.User, error)
+	FindUserByAPIToken(ctx context.Context, apiToken string) (clsessions.User, error)
 }
 
 // authMethod defines a method which can be used to authenticate a request. This
@@ -52,13 +53,14 @@ type authMethod func(ctx *gin.Context, store Authenticator) error
 //
 // Implements authMethod
 func AuthenticateBySession(c *gin.Context, authr Authenticator) error {
+	ctx := c.Request.Context()
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)
 	if !ok {
 		return auth.ErrorAuthFailed
 	}
 
-	user, err := authr.AuthorizedUserWithSession(sessionID)
+	user, err := authr.AuthorizedUserWithSession(ctx, sessionID)
 	if err != nil {
 		return err
 	}
@@ -74,6 +76,7 @@ var _ authMethod = AuthenticateBySession
 //
 // Implements authMethod
 func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
+	ctx := c.Request.Context()
 	token := &auth.Token{
 		AccessKey: c.GetHeader(APIKey),
 		Secret:    c.GetHeader(APISecret),
@@ -87,7 +90,7 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 	}
 
 	// We need to first load the user row so we can compare tokens using the stored salt
-	user, err := authr.FindUserByAPIToken(token.AccessKey)
+	user, err := authr.FindUserByAPIToken(ctx, token.AccessKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, clsessions.ErrUserSessionExpired) {
 			return auth.ErrorAuthFailed
@@ -114,12 +117,13 @@ var _ authMethod = AuthenticateByToken
 //
 // Implements authMethod
 func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
+	ctx := c.Request.Context()
 	eia := &auth.Token{
 		AccessKey: c.GetHeader(static.ExternalInitiatorAccessKeyHeader),
 		Secret:    c.GetHeader(static.ExternalInitiatorSecretHeader),
 	}
 
-	ei, err := store.FindExternalInitiator(eia)
+	ei, err := store.FindExternalInitiator(ctx, eia)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return auth.ErrorAuthFailed

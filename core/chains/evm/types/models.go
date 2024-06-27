@@ -168,11 +168,15 @@ func (h *Head) ChainHashes() []common.Hash {
 }
 
 func (h *Head) LatestFinalizedHead() commontypes.Head[common.Hash] {
-	for h != nil && !h.IsFinalized {
+	for h != nil {
+		if h.IsFinalized {
+			return h
+		}
+
 		h = h.Parent
 	}
 
-	return h
+	return nil
 }
 
 func (h *Head) ChainID() *big.Int {
@@ -369,7 +373,6 @@ var ErrMissingBlock = pkgerrors.New("missing block")
 
 // UnmarshalJSON unmarshals to a Block
 func (b *Block) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	bi := blocks.BlockInternal{}
 
@@ -419,7 +422,6 @@ const LegacyTxType = blocks.TxType(0x0)
 
 // UnmarshalJSON unmarshals a Transaction
 func (t *Transaction) UnmarshalJSON(data []byte) error {
-
 	var h codec.Handle = new(codec.JsonHandle)
 	ti := blocks.TransactionInternal{}
 
@@ -443,7 +445,6 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
-
 	ti := toInternalTxn(*t)
 
 	buf := bytes.NewBuffer(make([]byte, 0, 256))
@@ -461,7 +462,7 @@ var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
-// ../../contracts/src/v0.6/ChainlinkClient.sol
+// ../../contracts/src/v0.8/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // ReceiptIndicatesRunLogFulfillment returns true if this tx receipt is the result of a

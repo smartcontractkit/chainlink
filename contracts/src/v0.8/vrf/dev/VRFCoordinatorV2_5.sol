@@ -691,6 +691,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   error CoordinatorAlreadyRegistered(address coordinatorAddress);
 
   /// @dev encapsulates data to be migrated from current coordinator
+  // solhint-disable-next-line gas-struct-packing
   struct V1MigrationData {
     uint8 fromVersion;
     uint256 subId;
@@ -736,9 +737,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address subOwner, address[] memory consumers) = getSubscription(subId);
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(subOwner == msg.sender, "Not subscription owner");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
@@ -755,7 +756,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 

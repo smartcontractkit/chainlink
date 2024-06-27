@@ -33,9 +33,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasLimit the gasLimit to use for sending a message from L1 to L2
    */
   constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit) {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(l2UptimeFeedAddr != address(0), "Invalid OptimismSequencerUptimeFeed contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;

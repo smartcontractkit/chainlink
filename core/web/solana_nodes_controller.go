@@ -10,7 +10,7 @@ import (
 var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", tomlKey: "Solana.Enabled"}
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
-	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.Solana)
+	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.NetworkSolana)
 
 	return newNodesController[presenters.SolanaNodeResource](
 		scopedNodeStatuser, ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())

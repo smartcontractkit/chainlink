@@ -122,7 +122,7 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
   // solhint-disable-next-line func-name-mixedcase
   function __VRFConsumerBaseV2_init(address _vrfCoordinator) internal onlyInitializing {
     if (_vrfCoordinator == address(0)) {
-      // solhint-disable-next-line custom-errors
+      // solhint-disable-next-line gas-custom-errors
       revert("must give valid coordinator address");
     }
 

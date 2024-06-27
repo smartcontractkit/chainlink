@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/prommetrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -172,6 +173,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 	sent := false
 	retryErr := retry.Do(
 		func() error {
+			prommetrics.AutomationStreamsRetries.WithLabelValues(prommetrics.StreamsVersion02).Inc()
 			var httpResponse *http.Response
 			var responseBody []byte
 			var blobBytes []byte
@@ -206,6 +208,7 @@ func (c *client) singleFeedRequest(ctx context.Context, ch chan<- mercury.Mercur
 				return nil
 			}
 
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion02, fmt.Sprintf("%d", httpResponse.StatusCode)).Inc()
 			switch httpResponse.StatusCode {
 			case http.StatusNotFound, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 				// Considered as pipeline error, but if retry attempts go over threshold, is changed upstream to ErrCode

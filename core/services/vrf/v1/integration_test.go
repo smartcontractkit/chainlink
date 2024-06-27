@@ -45,6 +45,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
 			config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
 				c.EVM[0].ChainID = (*ubig.Big)(testutils.SimulatedChainID)
@@ -54,10 +55,10 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key1, key2)
 			incomingConfs := 2
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.Backend, key1, key2)
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(ctx))
 
 			jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
-			require.NoError(t, app.JobSpawner().CreateJob(&jb))
+			require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 
 			_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,
 				vrfKey.PublicKey.MustHash(), big.NewInt(100))
@@ -75,7 +76,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}
 			var runs []pipeline.Run
 			gomega.NewWithT(t).Eventually(func() bool {
-				runs, err = app.PipelineORM().GetAllRuns()
+				runs, err = app.PipelineORM().GetAllRuns(ctx)
 				require.NoError(t, err)
 				// It possible that we send the test request
 				// before the Job spawner has started the vrf services, which is fine
@@ -92,12 +93,12 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// stop jobs as to not cause a race condition in geth simulated backend
 			// between job creating new tx and fulfillment logs polling below
-			require.NoError(t, app.JobSpawner().DeleteJob(jb.ID))
+			require.NoError(t, app.JobSpawner().DeleteJob(ctx, nil, jb.ID))
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger())
-				uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key1.Address, testutils.SimulatedChainID)
+				orm := txmgr.NewTxStore(app.GetDB(), app.GetLogger())
+				uc, err2 := orm.CountUnconfirmedTransactions(ctx, key1.Address, testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -115,11 +116,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			}, testutils.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 
 			// Check that each sending address sent one transaction
-			n1, err := cu.Backend.PendingNonceAt(testutils.Context(t), key1.Address)
+			n1, err := cu.Backend.PendingNonceAt(ctx, key1.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n1)
 
-			n2, err := cu.Backend.PendingNonceAt(testutils.Context(t), key2.Address)
+			n2, err := cu.Backend.PendingNonceAt(ctx, key2.Address)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, n2)
 		})
@@ -128,6 +129,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 func TestIntegration_VRF_WithBHS(t *testing.T) {
 	t.Parallel()
+	ctx := testutils.Context(t)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
 		c.EVM[0].BlockBackfillDepth = ptr[uint32](500)
@@ -140,7 +142,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	incomingConfs := 2
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, cu.Backend, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(ctx))
 
 	// Create VRF Job but do not start it yet
 	jb, vrfKey := createVRFJobRegisterKey(t, cu, app, incomingConfs)
@@ -153,7 +155,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(ctx, 1))
 
 	// Create a VRF request
 	_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,
@@ -192,11 +194,11 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	}
 
 	// Start the VRF Job and wait until it's processed
-	require.NoError(t, app.JobSpawner().CreateJob(&jb))
+	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 
 	var runs []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err = app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(t, err)
 		cu.Backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
@@ -207,13 +209,13 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// stop jobs as to not cause a race condition in geth simulated backend
 	// between job creating new tx and fulfillment logs polling below
-	require.NoError(t, app.JobSpawner().DeleteJob(jb.ID))
-	require.NoError(t, app.JobSpawner().DeleteJob(bhsJob.ID))
+	require.NoError(t, app.JobSpawner().DeleteJob(ctx, nil, jb.ID))
+	require.NoError(t, app.JobSpawner().DeleteJob(ctx, nil, bhsJob.ID))
 
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
-		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger())
-		uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key.Address, testutils.SimulatedChainID)
+		orm := txmgr.NewTxStore(app.GetDB(), app.GetLogger())
+		uc, err2 := orm.CountUnconfirmedTransactions(ctx, key.Address, testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
@@ -231,7 +233,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 }
 
 func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse, app *cltest.TestApplication, incomingConfs int) (job.Job, vrfkey.KeyV2) {
-	vrfKey, err := app.KeyStore.VRF().Create()
+	ctx := testutils.Context(t)
+	vrfKey, err := app.KeyStore.VRF().Create(ctx)
 	require.NoError(t, err)
 
 	jid := uuid.MustParse("96a8a26f-d426-4784-8d8f-fb387d4d8345")

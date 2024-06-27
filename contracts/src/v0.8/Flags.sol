@@ -13,7 +13,7 @@ import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
  * to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-// solhint-disable custom-errors
+// solhint-disable gas-custom-errors
 contract Flags is FlagsInterface, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
 

@@ -43,7 +43,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords);
       s_lastRequestId = requestId;
@@ -65,7 +65,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -105,7 +105,7 @@ contract VRFV2WrapperLoadTestConsumer is VRFV2WrapperConsumerBase, ConfirmedOwne
       uint256 fulfilmentBlockNumber
     )
   {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (

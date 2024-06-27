@@ -1,8 +1,12 @@
 package smoke
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
+
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -11,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -20,9 +25,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.ForwarderOcr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
@@ -30,16 +33,12 @@ func TestForwarderOCRBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
-		WithForwarders().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
-
-	env.ParallelTransactions(true)
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
@@ -47,42 +46,55 @@ func TestForwarderOCRBasic(t *testing.T) {
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
-	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
+	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	fundingAmount := big.NewFloat(.05)
+	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), fundingAmount)
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	//nolint:staticcheck //ignore SA1019 we will migrate that test later
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, env.ContractDeployer, linkTokenContract, env.EVMClient, len(workerNodes),
+		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
 	)
+
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
+
 	for i := range workerNodes {
-		//nolint:staticcheck //ignore SA1019 we will migrate that test later
 		actions.AcceptAuthorizedReceiversOperator(
-			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader,
+			t, l, sethClient, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]},
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
-		require.NoError(t, err)
-		err = env.EVMClient.WaitForEvents()
+		actions.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
 	}
-	ocrInstances, err := actions.DeployOCRContractsForwarderFlowLocal(
+	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
+		l,
+		sethClient,
 		1,
-		linkTokenContract,
-		env.ContractDeployer,
-		workerNodes,
+		common.HexToAddress(lt.Address()),
+		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 		authorizedForwarders,
-		env.EVMClient,
 	)
 	require.NoError(t, err, "Error deploying OCR contracts")
 
-	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, fmt.Sprint(sethClient.ChainID))
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions.WatchNewRound(1, ocrInstances, env.EVMClient, l)
-	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -90,10 +102,8 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
-	err = actions.WatchNewRound(2, ocrInstances, env.EVMClient, l)
-	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
+	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
+	require.NoError(t, err, "error watching for new OCR round")
 
 	answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
 	require.NoError(t, err, "Error getting latest OCR answer")

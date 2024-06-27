@@ -248,5 +248,4 @@ func TestTxPriorityQueue(t *testing.T) {
 		assert.Nil(t, pq.PeekNextTx())
 		assert.Equal(t, capacity, pq.Cap())
 	})
-
 }

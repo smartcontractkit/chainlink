@@ -251,7 +251,6 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		}
 		l.logger.Errorw("error sending log to HTTP log service", "statusCode", resp.StatusCode, "bodyString", string(bodyBytes))
 		return
-
 	}
 }
 

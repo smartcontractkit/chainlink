@@ -13,7 +13,7 @@ sudo kubefwd svc -n cl-cluster
 
 Change environment connection configuration [here](../../../charts/chainlink-cluster/connect.toml)
 
-If you haven't changed anything in [devspace.yaml](../../../charts/chainlink-cluster/devspace.yaml) then default connection configuration will work
+If you haven't changed anything in [devspace.yaml](../../crib/devspace.yaml) then default connection configuration will work
 
 ## Usage
 

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -53,7 +52,7 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 
 	for i := 0; i < size; i++ {
 		ns := fmt.Sprintf("s4_int_test_%d", i)
-		orm := s4_svc.NewPostgresORM(db, logger, pgtest.NewQConfig(false), s4_svc.SharedTableName, ns)
+		orm := s4_svc.NewPostgresORM(db, s4_svc.SharedTableName, ns)
 		orms[i] = orm
 
 		ocrLogger := commonlogger.NewOCRWrapper(logger, true, func(msg string) {})
@@ -149,7 +148,7 @@ func checkNoErrors(t *testing.T, errors []error) {
 func checkNoUnconfirmedRows(ctx context.Context, t *testing.T, orm s4_svc.ORM, limit uint) {
 	t.Helper()
 
-	rows, err := orm.GetUnconfirmedRows(limit, pg.WithParentCtx(ctx))
+	rows, err := orm.GetUnconfirmedRows(ctx, limit)
 	assert.NoError(t, err)
 	assert.Empty(t, rows)
 }
@@ -161,10 +160,10 @@ func TestS4Integration_HappyDON(t *testing.T) {
 	// injecting new records
 	rows := generateTestOrmRows(t, 10, time.Minute)
 	for _, row := range rows {
-		err := don.orms[0].Update(row, pg.WithParentCtx(ctx))
+		err := don.orms[0].Update(ctx, row)
 		require.NoError(t, err)
 	}
-	originSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	originSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 
 	// S4 to propagate all records in one OCR round
@@ -172,7 +171,7 @@ func TestS4Integration_HappyDON(t *testing.T) {
 	checkNoErrors(t, errors)
 
 	for i := 0; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		equal := compareSnapshots(originSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)
@@ -188,7 +187,7 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 	for o := 0; o < don.size; o++ {
 		rows := generateTestOrmRows(t, 10, time.Minute)
 		for _, row := range rows {
-			err := don.orms[o].Update(row, pg.WithParentCtx(ctx))
+			err := don.orms[o].Update(ctx, row)
 			require.NoError(t, err)
 		}
 	}
@@ -197,11 +196,11 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 	errors := don.simulateOCR(ctx, 1)
 	checkNoErrors(t, errors)
 
-	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	firstSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 
 	for i := 1; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		equal := compareSnapshots(firstSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)
@@ -217,10 +216,10 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 	rows := generateTestOrmRows(t, 10, time.Minute)
 	rows[0].Signature = rows[1].Signature
 	for _, row := range rows {
-		err := don.orms[0].Update(row, pg.WithParentCtx(ctx))
+		err := don.orms[0].Update(ctx, row)
 		require.NoError(t, err)
 	}
-	originSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	originSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 	originSnapshot = filter(originSnapshot, func(row *s4_svc.SnapshotRow) bool {
 		return row.Address.Cmp(rows[0].Address) != 0 || row.SlotId != rows[0].SlotId
@@ -232,14 +231,14 @@ func TestS4Integration_WrongSignature(t *testing.T) {
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
-		snapshot, err2 := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err2 := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err2)
 		equal := compareSnapshots(originSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)
 	}
 
 	// record with a wrong signature must remain unconfirmed
-	ur, err := don.orms[0].GetUnconfirmedRows(10, pg.WithParentCtx(ctx))
+	ur, err := don.orms[0].GetUnconfirmedRows(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, ur, 1)
 }
@@ -253,10 +252,10 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 	// injecting new records
 	rows := generateTestOrmRows(t, 10, time.Minute)
 	for _, row := range rows {
-		err := don.orms[0].Update(row, pg.WithParentCtx(ctx))
+		err := don.orms[0].Update(ctx, row)
 		require.NoError(t, err)
 	}
-	originSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	originSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 
 	// It requires at least two rounds due to MaxObservationEntries = rows / 2
@@ -264,7 +263,7 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		equal := compareSnapshots(originSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)
@@ -280,7 +279,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	// injecting expiring records
 	rows := generateTestOrmRows(t, 10, time.Millisecond)
 	for _, row := range rows {
-		err := don.orms[0].Update(row, pg.WithParentCtx(ctx))
+		err := don.orms[0].Update(ctx, row)
 		require.NoError(t, err)
 	}
 
@@ -290,7 +289,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	checkNoErrors(t, errors)
 
 	for i := 0; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		require.Len(t, snapshot, 0)
 	}
@@ -305,10 +304,10 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 	// injecting lots of new records (to be close to normal address distribution)
 	rows := generateTestOrmRows(t, 1000, time.Minute)
 	for _, row := range rows {
-		err := don.orms[0].Update(row, pg.WithParentCtx(ctx))
+		err := don.orms[0].Update(ctx, row)
 		require.NoError(t, err)
 	}
-	originSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	originSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 
 	// this still requires one round, because Observation takes all unconfirmed rows
@@ -316,7 +315,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 	checkNoErrors(t, errors)
 
 	for i := 1; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		equal := compareSnapshots(originSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)
@@ -332,7 +331,7 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 	rows := generateConfirmedTestOrmRows(t, 10, time.Minute)
 	for o := 0; o < don.size-1; o++ {
 		for _, row := range rows {
-			err := don.orms[o].Update(row, pg.WithParentCtx(ctx))
+			err := don.orms[o].Update(ctx, row)
 			require.NoError(t, err)
 		}
 	}
@@ -342,9 +341,9 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 	errors := don.simulateOCR(ctx, 4)
 	checkNoErrors(t, errors)
 
-	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	firstSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
-	lastSnapshot, err := don.orms[don.size-1].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	lastSnapshot, err := don.orms[don.size-1].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 	equal := compareSnapshots(firstSnapshot, lastSnapshot)
 	assert.True(t, equal)
@@ -389,7 +388,7 @@ func TestS4Integration_RandomState(t *testing.T) {
 			sig, err := env.Sign(user.privateKey)
 			require.NoError(t, err)
 			row.Signature = sig
-			err = don.orms[o].Update(row, pg.WithParentCtx(ctx))
+			err = don.orms[o].Update(ctx, row)
 			require.NoError(t, err)
 		}
 	}
@@ -398,13 +397,13 @@ func TestS4Integration_RandomState(t *testing.T) {
 	errors := don.simulateOCR(ctx, 4)
 	checkNoErrors(t, errors)
 
-	firstSnapshot, err := don.orms[0].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+	firstSnapshot, err := don.orms[0].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 	require.NoError(t, err)
 	require.NotEmpty(t, firstSnapshot)
 	checkNoUnconfirmedRows(ctx, t, don.orms[0], 1000)
 
 	for i := 1; i < don.size; i++ {
-		snapshot, err := don.orms[i].GetSnapshot(s4_svc.NewFullAddressRange(), pg.WithParentCtx(ctx))
+		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
 		equal := compareSnapshots(firstSnapshot, snapshot)
 		assert.True(t, equal, "oracle %d", i)

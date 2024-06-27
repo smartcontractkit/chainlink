@@ -1,4 +1,5 @@
 ChainID = '2442'
+ChainType = 'zkevm'
 FinalityDepth = 500
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
@@ -12,7 +13,7 @@ ContractConfirmations = 1
 ResendAfterThreshold = '3m'
 
 [GasEstimator]
-PriceMin = '50 mwei'
+PriceMin = '1 mwei'
 BumpPercent = 40
 BumpMin = '20 mwei'
 

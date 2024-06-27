@@ -7,11 +7,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
+const PeerIDLength = 32
+
+type PeerID = ragetypes.PeerID
+
 //go:generate mockery --quiet --name Peer --output ./mocks/ --case=underscore
 type Peer interface {
 	services.Service
-	UpdateConnections(peers map[ragetypes.PeerID]StreamConfig) error
-	Send(peerID ragetypes.PeerID, msg []byte) error
+	ID() PeerID
+	UpdateConnections(peers map[PeerID]StreamConfig) error
+	Send(peerID PeerID, msg []byte) error
 	Receive() <-chan Message
 }
 
@@ -21,8 +26,13 @@ type PeerWrapper interface {
 	GetPeer() Peer
 }
 
+//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
+type Signer interface {
+	Sign(data []byte) ([]byte, error)
+}
+
 type Message struct {
-	Sender  ragetypes.PeerID
+	Sender  PeerID
 	Payload []byte
 }
 

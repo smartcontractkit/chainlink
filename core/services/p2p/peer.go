@@ -20,7 +20,6 @@ import (
 )
 
 var (
-	defaultGroupID    = [32]byte{0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}
 	defaultStreamName = "stream"
 	defaultRecvChSize = 10000
 )
@@ -49,9 +48,10 @@ type peer struct {
 	myID        ragetypes.PeerID
 	recvCh      chan p2ptypes.Message
 
-	stopCh services.StopChan
-	wg     sync.WaitGroup
-	lggr   logger.Logger
+	stopCh  services.StopChan
+	wg      sync.WaitGroup
+	lggr    logger.Logger
+	groupID *counter
 }
 
 var _ p2ptypes.Peer = &peer{}
@@ -99,7 +99,12 @@ func NewPeer(cfg PeerConfig, lggr logger.Logger) (*peer, error) {
 		recvCh:      make(chan p2ptypes.Message, defaultRecvChSize),
 		stopCh:      make(services.StopChan),
 		lggr:        lggr.Named("P2PPeer"),
+		groupID:     &counter{},
 	}, nil
+}
+
+func (p *peer) ID() ragetypes.PeerID {
+	return p.myID
 }
 
 func (p *peer) UpdateConnections(peers map[ragetypes.PeerID]p2ptypes.StreamConfig) error {
@@ -109,18 +114,21 @@ func (p *peer) UpdateConnections(peers map[ragetypes.PeerID]p2ptypes.StreamConfi
 			return err
 		}
 	}
-
-	if err := p.discoverer.RemoveGroup(defaultGroupID); err != nil {
-		p.lggr.Warnw("failed to remove old group", "groupID", defaultGroupID)
-	}
+	// updating the group is a small optimization that avoids reconnecting to existing peers
+	currentGroupID := p.groupID.Bytes()
+	newGroupID := p.groupID.Inc().Bytes()
 	peerIDs := []ragetypes.PeerID{}
 	for pid := range peers {
 		peerIDs = append(peerIDs, pid)
 	}
-	if err := p.discoverer.AddGroup(defaultGroupID, peerIDs, p.cfg.Bootstrappers); err != nil {
-		p.lggr.Warnw("failed to add group", "groupID", defaultGroupID)
+	if err := p.discoverer.AddGroup(newGroupID, peerIDs, p.cfg.Bootstrappers); err != nil {
+		p.lggr.Warnw("failed to add group", "groupID", newGroupID)
 		return err
 	}
+	if err := p.discoverer.RemoveGroup(currentGroupID); err != nil {
+		p.lggr.Warnw("failed to remove old group", "groupID", currentGroupID)
+	}
+
 	return nil
 }
 

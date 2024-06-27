@@ -36,4 +36,9 @@ type Head[BLOCK_HASH Hashable] interface {
 	// Returns the total difficulty of the block. For chains who do not have a concept of block
 	// difficulty, return 0.
 	BlockDifficulty() *big.Int
+	// IsValid returns true if the head is valid.
+	IsValid() bool
+
+	// Returns the latest finalized based on finality tag or depth
+	LatestFinalizedHead() Head[BLOCK_HASH]
 }

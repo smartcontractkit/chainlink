@@ -14,12 +14,12 @@ import (
 type Solana interface {
 	Get(id string) (solkey.Key, error)
 	GetAll() ([]solkey.Key, error)
-	Create() (solkey.Key, error)
-	Add(key solkey.Key) error
-	Delete(id string) (solkey.Key, error)
-	Import(keyJSON []byte, password string) (solkey.Key, error)
+	Create(ctx context.Context) (solkey.Key, error)
+	Add(ctx context.Context, key solkey.Key) error
+	Delete(ctx context.Context, id string) (solkey.Key, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (solkey.Key, error)
 	Export(id string, password string) ([]byte, error)
-	EnsureKey() error
+	EnsureKey(ctx context.Context) error
 	Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error)
 }
 
@@ -72,7 +72,7 @@ func (ks *solana) GetAll() (keys []solkey.Key, _ error) {
 	return keys, nil
 }
 
-func (ks *solana) Create() (solkey.Key, error) {
+func (ks *solana) Create(ctx context.Context) (solkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -82,10 +82,10 @@ func (ks *solana) Create() (solkey.Key, error) {
 	if err != nil {
 		return solkey.Key{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *solana) Add(key solkey.Key) error {
+func (ks *solana) Add(ctx context.Context, key solkey.Key) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -94,10 +94,10 @@ func (ks *solana) Add(key solkey.Key) error {
 	if _, found := ks.keyRing.Solana[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *solana) Delete(id string) (solkey.Key, error) {
+func (ks *solana) Delete(ctx context.Context, id string) (solkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -107,11 +107,11 @@ func (ks *solana) Delete(id string) (solkey.Key, error) {
 	if err != nil {
 		return solkey.Key{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *solana) Import(keyJSON []byte, password string) (solkey.Key, error) {
+func (ks *solana) Import(ctx context.Context, keyJSON []byte, password string) (solkey.Key, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -124,7 +124,7 @@ func (ks *solana) Import(keyJSON []byte, password string) (solkey.Key, error) {
 	if _, found := ks.keyRing.Solana[key.ID()]; found {
 		return solkey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *solana) Export(id string, password string) ([]byte, error) {
@@ -140,7 +140,7 @@ func (ks *solana) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *solana) EnsureKey() error {
+func (ks *solana) EnsureKey(ctx context.Context) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -157,7 +157,7 @@ func (ks *solana) EnsureKey() error {
 
 	ks.logger.Infof("Created Solana key with ID %s", key.ID())
 
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
 func (ks *solana) Sign(_ context.Context, id string, msg []byte) (signature []byte, err error) {

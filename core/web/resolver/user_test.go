@@ -1,9 +1,11 @@
 package resolver
 
 import (
+	"context"
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -43,8 +45,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -53,9 +55,9 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
-				f.Mocks.authProvider.On("SetPassword", session.User, "new").Return(nil)
-				f.Mocks.authProvider.On("ClearNonCurrentSessions", session.SessionID).Return(nil)
+				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("SetPassword", mock.Anything, session.User, "new").Return(nil)
+				f.Mocks.authProvider.On("ClearNonCurrentSessions", mock.Anything, session.SessionID).Return(nil)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
@@ -72,14 +74,14 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "update password match error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
 				session.User.HashedPassword = "random-string"
 
-				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
@@ -98,8 +100,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "failed to clear session error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -108,8 +110,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
-				f.Mocks.authProvider.On("ClearNonCurrentSessions", session.SessionID).Return(
+				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("ClearNonCurrentSessions", mock.Anything, session.SessionID).Return(
 					clearSessionsError{},
 				)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
@@ -129,8 +131,8 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 		{
 			name:          "failed to update current user password error",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -139,9 +141,9 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 
 				session.User.HashedPassword = pwd
 
-				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
-				f.Mocks.authProvider.On("ClearNonCurrentSessions", session.SessionID).Return(nil)
-				f.Mocks.authProvider.On("SetPassword", session.User, "new").Return(failedPasswordUpdateError{})
+				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
+				f.Mocks.authProvider.On("ClearNonCurrentSessions", mock.Anything, session.SessionID).Return(nil)
+				f.Mocks.authProvider.On("SetPassword", mock.Anything, session.User, "new").Return(failedPasswordUpdateError{})
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,

@@ -61,6 +61,7 @@ URL = 'http://stark.node'
 
 -- out.txt --
 ok Cosmos.Foo.Chain
+ok Cosmos.Foo.Relayer
 ok Cosmos.Foo.Txm
 ok EVM.1
 ok EVM.1.BalanceMonitor
@@ -80,6 +81,7 @@ ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
+ok PipelineRunner.BridgeCache
 ok PromReporter
 ok Solana.Bar
 ok StarkNet.Baz
@@ -93,6 +95,15 @@ ok TelemetryManager
       "id": "Cosmos.Foo.Chain",
       "attributes": {
         "name": "Cosmos.Foo.Chain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Cosmos.Foo.Relayer",
+      "attributes": {
+        "name": "Cosmos.Foo.Relayer",
         "status": "passing",
         "output": ""
       }
@@ -255,6 +266,15 @@ ok TelemetryManager
       "id": "PipelineRunner",
       "attributes": {
         "name": "PipelineRunner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
         "status": "passing",
         "output": ""
       }
