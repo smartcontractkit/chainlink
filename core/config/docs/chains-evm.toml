@@ -434,7 +434,9 @@ Order = 100 # Default
 [EVM.OCR2.Automation]
 # GasLimit controls the gas limit for transmit transactions from ocr2automation job.
 GasLimit = 5400000 # Default
+# BlockRate is the number of blocks that make up a block window.
 BlockRate = 1 # Default
+# LogLimit is the number of logs per upkeep per block window we guarantee will be processed.
 LogLimit = 2 # Default
 
 [EVM.Workflow]
