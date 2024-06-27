@@ -65,7 +65,7 @@ const (
 var oc OverrideConfig
 
 func init() {
-	cmds := []*cobra.Command{maskTestConfigCmd, createTestConfigCmd, overrideTestConfigCmd}
+	cmds := []*cobra.Command{createTestConfigCmd, overrideTestConfigCmd}
 	for _, c := range cmds {
 		c.Flags().StringArrayVar(&oc.SelectedNetworks, SelectedNetworksFlag, nil, "Selected networks")
 		c.Flags().StringVar(&oc.ChainlinkImage, ChainlinkImageFlag, "", "Chainlink image")

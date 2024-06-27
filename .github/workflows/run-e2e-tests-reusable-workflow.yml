@@ -16,8 +16,8 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
-      test-config-base64-override:
-        description: 'Custom base64 test config'
+      test-config-base64-override-unsafe:
+        description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
         required: false
         type: string        
       enable-check-test-configurations:
@@ -190,7 +190,7 @@ jobs:
           go-version: '1.21.7'
 
       - name: Set default test config override
-        if: ${{ inputs.test-config-base64-override == '' }}
+        if: ${{ inputs.test-config-base64-override-unsafe == '' }}
         run: |      
           # Mask secret args before using them
           # For more, see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
@@ -238,38 +238,50 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
-      - name: Set custom test config override
-        if: ${{ inputs.test-config-base64-override != '' }}          
-        run: |
-          # Show what parts of the test config are being overridden
-          go run main.go test-config override \
-            --dry-run \
-            --from-base64-config ${{ inputs.test-config-base64-override }} \
-            --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
-            --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
-            --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
-            --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
-            --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
-            --grafana-url "http://localhost:8080/primary" \
-            --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
-            --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }} \
+      - name: Mask secrets in test config base64 override
+        id: mask-secrets-in-test-config-base64-override
+        if: ${{ inputs.test-config-base64-override-unsafe != '' }}
+        run: "to do"
+          # - name: Remove secrets from test config base64 override
+          #   id: mask-in
+          # - name: Set outputs
+          #   id: set-outputs
+          #   run: |
+          #     echo "::set-output name=base64ConfigNoSecrets::$BASE64_CONFIG_OVERRIDE"
 
-          # Override custom test config with CI secrets
-          config_override=$(go run main.go test-config override \
-            --from-base64-config ${{ inputs.test-config-base64-override }} \
-            --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
-            --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
-            --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
-            --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
-            --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
-            --grafana-url "http://localhost:8080/primary" \
-            --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
-            --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }} \
-          )
+      # TODO: Remove this step since we allow custom secrets in the test config but we mask them    
+      # - name: Override secrets in custom test config
+      #   if: ${{ inputs.test-config-base64-override-unsafe != '' }}          
+      #   run: |
+      #     # Show what parts of the test config are being overridden
+      #     go run main.go test-config override \
+      #       --dry-run \
+      #       --from-base64-config ${{ inputs.test-config-base64-override-unsafe }} \
+      #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
+      #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
+      #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
+      #       --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
+      #       --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
+      #       --grafana-url "http://localhost:8080/primary" \
+      #       --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
+      #       --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
-          BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+      #     # Override custom test config with CI secrets
+      #     config_override=$(go run main.go test-config override \
+      #       --from-base64-config ${{ inputs.test-config-base64-override-unsafe }} \
+      #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
+      #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
+      #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
+      #       --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
+      #       --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
+      #       --grafana-url "http://localhost:8080/primary" \
+      #       --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
+      #       --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      #     )
+
+      #     BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
+      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
+      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
