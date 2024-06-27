@@ -10,6 +10,8 @@ import (
 )
 
 // assertTxEqual asserts that two transactions are equal
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	assert.Equal(t, exp.ID, act.ID)
 	assert.Equal(t, exp.IdempotencyKey, act.IdempotencyKey)
@@ -39,6 +41,7 @@ func assertTxEqual(t *testing.T, exp, act evmtxmgr.Tx) {
 	}
 }
 
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func assertTxAttemptEqual(t *testing.T, exp, act evmtxmgr.TxAttempt) {
 	assert.Equal(t, exp.ID, act.ID)
 	assert.Equal(t, exp.TxID, act.TxID)
@@ -58,6 +61,7 @@ func assertTxAttemptEqual(t *testing.T, exp, act evmtxmgr.TxAttempt) {
 	}
 }
 
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func assertChainReceiptEqual(t *testing.T, exp, act evmtxmgr.ChainReceipt) {
 	assert.Equal(t, exp.GetStatus(), act.GetStatus())
 	assert.Equal(t, exp.GetTxHash(), act.GetTxHash())
