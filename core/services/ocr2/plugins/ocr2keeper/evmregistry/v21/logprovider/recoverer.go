@@ -130,53 +130,53 @@ func (r *logRecoverer) Start(ctx context.Context) error {
 	return r.StartOnce(LogRecovererServiceName, func() error {
 		r.updateBlockTime(ctx)
 
-		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
+		r.lggr.Infow("starting no op log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-		r.threadCtrl.Go(func(ctx context.Context) {
-			recoveryTicker := time.NewTicker(r.interval)
-			defer recoveryTicker.Stop()
-
-			for {
-				select {
-				case <-recoveryTicker.C:
-					if err := r.recover(ctx); err != nil {
-						r.lggr.Warnw("failed to recover logs", "err", err)
-					}
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
-
-		r.threadCtrl.Go(func(ctx context.Context) {
-			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
-			defer cleanupTicker.Stop()
-
-			for {
-				select {
-				case <-cleanupTicker.C:
-					r.clean(ctx)
-					cleanupTicker.Reset(utils.WithJitter(GCInterval))
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
-
-		r.threadCtrl.Go(func(ctx context.Context) {
-			blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
-			defer blockTimeTicker.Stop()
-
-			for {
-				select {
-				case <-blockTimeTicker.C:
-					r.updateBlockTime(ctx)
-					blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	recoveryTicker := time.NewTicker(r.interval)
+		//	defer recoveryTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-recoveryTicker.C:
+		//			if err := r.recover(ctx); err != nil {
+		//				r.lggr.Warnw("failed to recover logs", "err", err)
+		//			}
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
+		//
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+		//	defer cleanupTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-cleanupTicker.C:
+		//			r.clean(ctx)
+		//			cleanupTicker.Reset(utils.WithJitter(GCInterval))
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
+		//
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
+		//	defer blockTimeTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-blockTimeTicker.C:
+		//			r.updateBlockTime(ctx)
+		//			blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
 
 		return nil
 	})
