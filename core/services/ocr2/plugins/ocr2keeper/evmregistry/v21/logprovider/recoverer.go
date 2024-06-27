@@ -41,9 +41,9 @@ var (
 	// GCInterval is the interval at which the recovery cache is cleaned up
 	GCInterval = RecoveryCacheTTL - time.Second
 	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
-	MaxProposals = 20
+	MaxProposals = 10
 	// recoveryBatchSize is the number of filters to recover in a single batch
-	recoveryBatchSize = 10
+	recoveryBatchSize = 5
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
@@ -51,7 +51,7 @@ var (
 	blockTimeUpdateCadence = 10 * time.Minute
 	// maxPendingPayloadsPerUpkeep is the number of logs we can have pending for a single upkeep
 	// at any given time
-	maxPendingPayloadsPerUpkeep = 500
+	maxPendingPayloadsPerUpkeep = 250
 )
 
 type LogRecoverer interface {
@@ -130,53 +130,53 @@ func (r *logRecoverer) Start(ctx context.Context) error {
 	return r.StartOnce(LogRecovererServiceName, func() error {
 		r.updateBlockTime(ctx)
 
-		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
+		r.lggr.Infow("starting no op log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-		r.threadCtrl.Go(func(ctx context.Context) {
-			recoveryTicker := time.NewTicker(r.interval)
-			defer recoveryTicker.Stop()
-
-			for {
-				select {
-				case <-recoveryTicker.C:
-					if err := r.recover(ctx); err != nil {
-						r.lggr.Warnw("failed to recover logs", "err", err)
-					}
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
-
-		r.threadCtrl.Go(func(ctx context.Context) {
-			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
-			defer cleanupTicker.Stop()
-
-			for {
-				select {
-				case <-cleanupTicker.C:
-					r.clean(ctx)
-					cleanupTicker.Reset(utils.WithJitter(GCInterval))
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
-
-		r.threadCtrl.Go(func(ctx context.Context) {
-			blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
-			defer blockTimeTicker.Stop()
-
-			for {
-				select {
-				case <-blockTimeTicker.C:
-					r.updateBlockTime(ctx)
-					blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
-				case <-ctx.Done():
-					return
-				}
-			}
-		})
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	recoveryTicker := time.NewTicker(r.interval)
+		//	defer recoveryTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-recoveryTicker.C:
+		//			if err := r.recover(ctx); err != nil {
+		//				r.lggr.Warnw("failed to recover logs", "err", err)
+		//			}
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
+		//
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+		//	defer cleanupTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-cleanupTicker.C:
+		//			r.clean(ctx)
+		//			cleanupTicker.Reset(utils.WithJitter(GCInterval))
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
+		//
+		//r.threadCtrl.Go(func(ctx context.Context) {
+		//	blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
+		//	defer blockTimeTicker.Stop()
+		//
+		//	for {
+		//		select {
+		//		case <-blockTimeTicker.C:
+		//			r.updateBlockTime(ctx)
+		//			blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
+		//		case <-ctx.Done():
+		//			return
+		//		}
+		//	}
+		//})
 
 		return nil
 	})
@@ -285,6 +285,10 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	r.lggr.Debugf("returning 0 recoverable payloads in no op recoverer")
+
+	return nil, nil
+
 	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
@@ -350,17 +354,11 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
-	var wg sync.WaitGroup
 	for _, f := range filters {
-		wg.Add(1)
-		go func(f upkeepFilter) {
-			defer wg.Done()
-			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
-				r.lggr.Debugw("error recovering filter", "err", err.Error())
-			}
-		}(f)
+		if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
+			r.lggr.Debugw("error recovering filter", "err", err.Error())
+		}
 	}
-	wg.Wait()
 
 	return nil
 }
