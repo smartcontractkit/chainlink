@@ -347,14 +347,39 @@ func (c *CCIPTestConfig) SetOCRParams() error {
 
 // TestConfigOverrideOption is a function that modifies the test config and overrides any values passed in by test files
 // This is useful for setting up test specific configurations.
+// The return should be a short, explanatory string that describes the change made by the override.
+// This is logged at the beginning of the test run.
 type TestConfigOverrideOption func(*CCIPTestConfig) string
 
-// WithCCIPOwnerTokens dictates that tokens be deployed and owned by the same account that owns all CCIP contracts.
-// With Self-Serve tokens, this is unrealistic.
-func WithCCIPOwnerTokens() TestConfigOverrideOption {
+// UseCCIPOwnerTokens defines whether all tokens are deployed by the same address as the CCIP owner
+func UseCCIPOwnerTokens(yes bool) TestConfigOverrideOption {
 	return func(c *CCIPTestConfig) string {
-		c.TestGroupInput.TokenConfig.CCIPOwnerTokens = pointer.ToBool(true)
-		return "CCIPOwnerTokens set to true"
+		c.TestGroupInput.TokenConfig.CCIPOwnerTokens = pointer.ToBool(yes)
+		return fmt.Sprintf("CCIPOwnerTokens set to %t", yes)
+	}
+}
+
+// WithTokensPerChain sets the number of tokens to deploy on each chain
+func WithTokensPerChain(count int) TestConfigOverrideOption {
+	return func(c *CCIPTestConfig) string {
+		c.TestGroupInput.TokenConfig.NoOfTokensPerChain = pointer.ToInt(count)
+		return fmt.Sprintf("NoOfTokensPerChain set to %d", count)
+	}
+}
+
+// WithMsgDetails sets the message details for the test
+func WithMsgDetails(details *testconfig.MsgDetails) TestConfigOverrideOption {
+	return func(c *CCIPTestConfig) string {
+		c.TestGroupInput.MsgDetails = details
+		return "Message set"
+	}
+}
+
+// WithNoTokensPerMessage sets how many tokens can be sent in a single message
+func WithNoTokensPerMessage(noOfTokens int) TestConfigOverrideOption {
+	return func(c *CCIPTestConfig) string {
+		c.TestGroupInput.MsgDetails.NoOfTokens = pointer.ToInt(noOfTokens)
+		return fmt.Sprintf("MsgDetails.NoOfTokens set to %d", noOfTokens)
 	}
 }
 

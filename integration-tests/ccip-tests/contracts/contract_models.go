@@ -1715,6 +1715,7 @@ func (onRamp *OnRamp) SetNops() error {
 	return onRamp.client.ProcessTransaction(tx)
 }
 
+// SetTokenTransferFeeConfig sets the token transfer fee configuration for the OnRamp
 func (onRamp *OnRamp) SetTokenTransferFeeConfig(tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) error {
 	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
 	if err != nil {

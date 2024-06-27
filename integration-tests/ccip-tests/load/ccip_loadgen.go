@@ -379,7 +379,7 @@ func (c *CCIPE2ELoad) Validate(lggr zerolog.Logger, sendTx *types.Transaction, t
 	for _, msgLog := range msgLogs {
 		seqNum := msgLog.SequenceNumber
 		var reqStat *testreporters.RequestStat
-		lggr = lggr.With().Str("msgId ", fmt.Sprintf("0x%x", msgLog.MessageId[:])).Logger()
+		lggr = lggr.With().Str("MsgID", fmt.Sprintf("0x%x", msgLog.MessageId[:])).Logger()
 		for _, stat := range stats {
 			if stat.SeqNum == seqNum {
 				reqStat = stat

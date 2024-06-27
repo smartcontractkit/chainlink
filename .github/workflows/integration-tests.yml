@@ -354,18 +354,24 @@ jobs:
             os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
-          - name: ccip-smoke-self-serve-offramp-arl
+          - name: ccip-smoke-on-ramp-limits
             nodes: 1
             dir: ccip-tests/smoke
             os: ubuntu-latest
             file: ccip
-            run: -run ^TestSmokeCCIPSelfServeRateLimitOffRamp$
-          - name: ccip-smoke-self-serve-onramp-arl
+            run: -run ^TestSmokeCCIPOnRampLimits$
+          - name: ccip-smoke-off-ramp-capacity
             nodes: 1
             dir: ccip-tests/smoke
             os: ubuntu-latest
             file: ccip
-            run: -run ^TestSmokeCCIPSelfServeRateLimitOnRamp$
+            run: -run ^TestSmokeCCIPOffRampCapacityLimit$
+          - name: ccip-smoke-off-ramp-agg-rate-limit
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPOffRampAggRateLimit$
           - name: runlog
             id: runlog
             nodes: 2

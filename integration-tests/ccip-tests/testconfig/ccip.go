@@ -19,12 +19,10 @@ import (
 )
 
 const (
-	CONTRACTS_OVERRIDE_CONFIG        = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
+	CONTRACTS_OVERRIDE_CONFIG string = "BASE64_CCIP_CONFIG_OVERRIDE_CONTRACTS"
 	TokenOnlyTransfer         string = "Token"
-
-	DataOnlyTransfer string = "Data"
-
-	DataAndTokenTransfer string = "DataWithToken"
+	DataOnlyTransfer          string = "Data"
+	DataAndTokenTransfer      string = "DataWithToken"
 )
 
 type OffRampConfig struct {

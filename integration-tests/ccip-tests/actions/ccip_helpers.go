@@ -84,6 +84,7 @@ const (
 
 	defaultUSDCDestBytesOverhead = 640
 	defaultUSDCDestGasOverhead   = 120_000
+	DefaultDestinationGasLimit   = 600_000
 	// DefaultResubscriptionTimeout denotes the max backoff duration for resubscription for various watch events
 	// if the subscription keeps failing even after this duration, the test will fail
 	DefaultResubscriptionTimeout = 2 * time.Hour
@@ -1502,6 +1503,9 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 ) {
 	if len(sourceCCIP.TransferAmount) > 0 {
 		for i := range sourceCCIP.TransferAmount {
+			if sourceCCIP.TransferAmount[i] == nil { // nil transfer amount means no transfer for this token
+				continue
+			}
 			// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 			token := sourceCCIP.Common.BridgeTokens[0]
 			if i < len(sourceCCIP.Common.BridgeTokens) {
@@ -1632,7 +1636,7 @@ func (sourceCCIP *SourceCCIPModule) AssertEventCCIPSendRequested(
 						seqNum := sendRequestedEvent.SequenceNumber
 						lggr = ptr.Ptr(lggr.With().
 							Uint64("SequenceNumber", seqNum).
-							Str("msgId ", fmt.Sprintf("0x%x", sendRequestedEvent.MessageId[:])).
+							Str("MsgID", fmt.Sprintf("0x%x", sendRequestedEvent.MessageId[:])).
 							Logger())
 						// prevEventAt is the time when the message was successful, this should be same as the time when the event was emitted
 						reqStat[i].UpdateState(lggr, seqNum, testreporters.CCIPSendRe, 0, testreporters.Success,
@@ -1691,6 +1695,9 @@ func (sourceCCIP *SourceCCIPModule) CCIPMsg(
 
 	tokenAndAmounts := []router.ClientEVMTokenAmount{}
 	for i, amount := range sourceCCIP.TransferAmount {
+		if amount == nil { // make nil transfer amount 0 to avoid panics
+			sourceCCIP.TransferAmount[i] = big.NewInt(0)
+		}
 		token := sourceCCIP.Common.BridgeTokens[0]
 		// if length of sourceCCIP.TransferAmount is more than available bridge token use first bridge token
 		if i < len(sourceCCIP.Common.BridgeTokens) {
@@ -2755,7 +2762,7 @@ func (lane *CCIPLane) AddToSentReqs(txHash common.Hash, reqStats []*testreporter
 func (lane *CCIPLane) Multicall(noOfRequests int, multiSendAddr common.Address) error {
 	var ccipMultipleMsg []contracts.CCIPMsgData
 	feeToken := common.HexToAddress(lane.Source.Common.FeeToken.Address())
-	genericMsg, err := lane.Source.CCIPMsg(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(600_000))
+	genericMsg, err := lane.Source.CCIPMsg(lane.Dest.ReceiverDapp.EthAddress, big.NewInt(DefaultDestinationGasLimit))
 	if err != nil {
 		return fmt.Errorf("failed to form the ccip message: %w", err)
 	}
@@ -2984,7 +2991,7 @@ func (lane *CCIPLane) ExecuteManually(options ...ManualExecutionOption) error {
 				OnRamp:           lane.Source.OnRamp.Address(),
 				OffRamp:          lane.Dest.OffRamp.Address(),
 				SendReqLogIndex:  logIndex,
-				GasLimit:         big.NewInt(600_000),
+				GasLimit:         big.NewInt(DefaultDestinationGasLimit),
 			}
 			timeNow := time.Now().UTC()
 			tx, err := args.ExecuteManually()
