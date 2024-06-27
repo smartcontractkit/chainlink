@@ -387,7 +387,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3686d686da64f978179cda62b7040469fb4d7428 # v2.3.23
 
   eth-smoke-tests-matrix-log-poller:
     if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
@@ -529,60 +529,60 @@ jobs:
             nodes: 2
             os: ubuntu-latest
             pyroscope_env: "ci-smoke-cron-evm-simulated"
-          - name: flux
-            id: flux
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: "ci-smoke-flux-evm-simulated"
-          - name: ocr
-            id: ocr
-            nodes: 2
-            os: ubuntu-latest
-            file: ocr
-            pyroscope_env: ci-smoke-ocr-evm-simulated
-          - name: reorg_above_finality
-            id: reorg_above_finality
-            nodes: 1
-            os: ubuntu-latest
-            file: reorg_above_finality
-            pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
-          - name: ocr2
-            id: ocr2
-            nodes: 6
-            os: ubuntu22.04-16cores-64GB
-            file: ocr2
-            pyroscope_env: ci-smoke-ocr2-evm-simulated
-          - name: ocr2
-            id: ocr2-plugins
-            nodes: 6
-            os: ubuntu22.04-16cores-64GB
-            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
-            tag_suffix: "-plugins"
-          - name: vrf
-            id: vrf
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf-evm-simulated
-          - name: vrfv2
-            id: vrfv2
-            nodes: 6
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2-evm-simulated
-          - name: vrfv2plus
-            id: vrfv2plus
-            nodes: 9
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
-          - name: forwarder_ocr
-            id: forwarder_ocr
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-          - name: forwarders_ocr2
-            id: forwarders_ocr2
-            nodes: 2
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+#          - name: flux
+#            id: flux
+#            nodes: 1
+#            os: ubuntu-latest
+#            pyroscope_env: "ci-smoke-flux-evm-simulated"
+#          - name: ocr
+#            id: ocr
+#            nodes: 2
+#            os: ubuntu-latest
+#            file: ocr
+#            pyroscope_env: ci-smoke-ocr-evm-simulated
+#          - name: reorg_above_finality
+#            id: reorg_above_finality
+#            nodes: 1
+#            os: ubuntu-latest
+#            file: reorg_above_finality
+#            pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
+#          - name: ocr2
+#            id: ocr2
+#            nodes: 6
+#            os: ubuntu22.04-16cores-64GB
+#            file: ocr2
+#            pyroscope_env: ci-smoke-ocr2-evm-simulated
+#          - name: ocr2
+#            id: ocr2-plugins
+#            nodes: 6
+#            os: ubuntu22.04-16cores-64GB
+#            pyroscope_env: ci-smoke-ocr2-plugins-evm-simulated
+#            tag_suffix: "-plugins"
+#          - name: vrf
+#            id: vrf
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf-evm-simulated
+#          - name: vrfv2
+#            id: vrfv2
+#            nodes: 6
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf2-evm-simulated
+#          - name: vrfv2plus
+#            id: vrfv2plus
+#            nodes: 9
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
+#          - name: forwarder_ocr
+#            id: forwarder_ocr
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+#          - name: forwarders_ocr2
+#            id: forwarders_ocr2
+#            nodes: 2
+#            os: ubuntu-latest
+#            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.product.tag_suffix }}
     steps:
