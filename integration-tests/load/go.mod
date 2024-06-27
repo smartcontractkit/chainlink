@@ -17,7 +17,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240625145034-72dab520f468
-	github.com/smartcontractkit/chainlink-testing-framework v1.31.7-0.20240627112251-b8409d48bf4f
+	github.com/smartcontractkit/chainlink-testing-framework v1.31.7
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20240214231432-4ad5eb95178c
 	github.com/smartcontractkit/chainlink/v2 v2.9.0-beta0.0.20240216210048-da02459ddad8
 	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c

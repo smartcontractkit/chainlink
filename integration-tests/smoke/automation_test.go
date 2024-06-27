@@ -120,7 +120,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 
-			cfg, err := tc.GetConfig("Smoke", tc.Automation)
+			cfg, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			if nodeUpgrade {
@@ -271,7 +271,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -453,7 +453,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
@@ -530,7 +530,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -629,7 +629,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -723,7 +723,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -801,7 +801,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -907,7 +907,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -979,7 +979,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 			a := setupAutomationTestDocker(
 				t, registryVersion, automationDefaultRegistryConfig(config), false, false, &config,
@@ -1133,7 +1133,7 @@ func TestUpdateCheckData(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			require.NoError(t, err, "Failed to get config")
 
 			a := setupAutomationTestDocker(
@@ -1213,7 +1213,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			config, err := tc.GetConfig("Smoke", tc.Automation)
+			config, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}

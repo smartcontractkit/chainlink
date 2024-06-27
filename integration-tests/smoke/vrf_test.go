@@ -186,7 +186,7 @@ func TestVRFJobReplacement(t *testing.T) {
 }
 
 func prepareVRFtestEnv(t *testing.T, l zerolog.Logger) (*test_env.CLClusterTestEnv, *vrfv1.Contracts, *seth.Client) {
-	config, err := tc.GetConfig("Smoke", tc.VRF)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.VRF)
 	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)

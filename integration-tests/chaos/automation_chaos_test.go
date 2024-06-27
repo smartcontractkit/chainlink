@@ -134,7 +134,7 @@ func TestAutomationChaos(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			config, err := tc.GetConfig("Chaos", tc.Automation)
+			config, err := tc.GetConfig([]string{"Chaos"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}

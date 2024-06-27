@@ -45,7 +45,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err)
-	testConfig, err := tc.GetConfig(testType, tc.VRFv2Plus)
+	testConfig, err := tc.GetConfig([]string{testType}, tc.VRFv2Plus)
 	require.NoError(t, err)
 	cfgl := testConfig.Logging.Loki
 
@@ -188,7 +188,7 @@ func TestVRFV2PlusBHSPerformance(t *testing.T) {
 
 	testType, err := tc.GetConfigurationNameFromEnv()
 	require.NoError(t, err)
-	testConfig, err := tc.GetConfig(testType, tc.VRFv2Plus)
+	testConfig, err := tc.GetConfig([]string{testType}, tc.VRFv2Plus)
 	require.NoError(t, err)
 	vrfv2PlusConfig := testConfig.VRFv2Plus
 	testReporter := &testreporters.VRFV2PlusTestReporter{}
