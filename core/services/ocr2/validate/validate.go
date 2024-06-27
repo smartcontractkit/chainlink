@@ -422,7 +422,7 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
 		return errors.New("pluginConfig is empty")
 	}
-	var cfg config.ExecutionPluginJobSpecConfig
+	var cfg config.ExecPluginJobSpecConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")

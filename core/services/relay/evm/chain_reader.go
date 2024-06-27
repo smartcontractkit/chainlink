@@ -10,10 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"

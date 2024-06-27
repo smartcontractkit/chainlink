@@ -130,7 +130,7 @@ func TestCommitConfig(t *testing.T) {
 }
 
 func TestExecutionConfig(t *testing.T) {
-	exampleConfig := ExecutionPluginJobSpecConfig{
+	exampleConfig := ExecPluginJobSpecConfig{
 		SourceStartBlock: 222,
 		DestStartBlock:   333,
 	}
@@ -138,7 +138,7 @@ func TestExecutionConfig(t *testing.T) {
 	bts, err := json.Marshal(exampleConfig)
 	require.NoError(t, err)
 
-	parsedConfig := ExecutionPluginJobSpecConfig{}
+	parsedConfig := ExecPluginJobSpecConfig{}
 	require.NoError(t, json.Unmarshal(bts, &parsedConfig))
 
 	require.Equal(t, exampleConfig, parsedConfig)

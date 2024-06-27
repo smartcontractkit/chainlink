@@ -752,7 +752,7 @@ USDCConfig.AttestationAPIIntervalMilliseconds = 100
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
-				expected := config.ExecutionPluginJobSpecConfig{
+				expected := config.ExecPluginJobSpecConfig{
 					SourceStartBlock: 1,
 					DestStartBlock:   2,
 					USDCConfig: config.USDCConfig{
@@ -763,7 +763,7 @@ USDCConfig.AttestationAPIIntervalMilliseconds = 100
 						AttestationAPIIntervalMilliseconds: 100,
 					},
 				}
-				var cfg config.ExecutionPluginJobSpecConfig
+				var cfg config.ExecPluginJobSpecConfig
 				err = json.Unmarshal(os.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				require.NoError(t, err)
 				require.Equal(t, expected, cfg)

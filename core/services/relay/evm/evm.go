@@ -1,13 +1,21 @@
 package evm
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -71,6 +79,57 @@ func init() {
 }
 
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
+
+// The current PluginProvider interface does not support an error return. This was fine up until CCIP.
+// CCIP is the first product to introduce the idea of incomplete implementations of a provider based on
+// what chain (for CCIP, src or dest) the provider is created for. The Unimplemented* implementations below allow us to return
+// a non nil value, which is hopefully a better developer experience should you find yourself using the right methods
+// but on the *wrong* provider.
+
+// [UnimplementedOffchainConfigDigester] satisfies the OCR OffchainConfigDigester interface
+type UnimplementedOffchainConfigDigester struct{}
+
+func (e UnimplementedOffchainConfigDigester) ConfigDigest(config ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
+	return ocrtypes.ConfigDigest{}, fmt.Errorf("unimplemented for this relayer")
+}
+
+func (e UnimplementedOffchainConfigDigester) ConfigDigestPrefix() (ocrtypes.ConfigDigestPrefix, error) {
+	return 0, fmt.Errorf("unimplemented for this relayer")
+}
+
+// [UnimplementedContractConfigTracker] satisfies the OCR ContractConfigTracker interface
+type UnimplementedContractConfigTracker struct{}
+
+func (u UnimplementedContractConfigTracker) Notify() <-chan struct{} {
+	return nil
+}
+
+func (u UnimplementedContractConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	return 0, ocrtypes.ConfigDigest{}, fmt.Errorf("unimplemented for this relayer")
+}
+
+func (u UnimplementedContractConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	return ocrtypes.ContractConfig{}, fmt.Errorf("unimplemented for this relayer")
+}
+
+func (u UnimplementedContractConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+	return 0, fmt.Errorf("unimplemented for this relayer")
+}
+
+// [UnimplementedContractTransmitter] satisfies the OCR ContractTransmitter interface
+type UnimplementedContractTransmitter struct{}
+
+func (u UnimplementedContractTransmitter) Transmit(context.Context, ocrtypes.ReportContext, ocrtypes.Report, []ocrtypes.AttributedOnchainSignature) error {
+	return fmt.Errorf("unimplemented for this relayer")
+}
+
+func (u UnimplementedContractTransmitter) FromAccount() (ocrtypes.Account, error) {
+	return "", fmt.Errorf("unimplemented for this relayer")
+}
+
+func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, err error) {
+	return ocrtypes.ConfigDigest{}, 0, fmt.Errorf("unimplemented for this relayer")
+}
 
 type Relayer struct {
 	ds                   sqlutil.DataSource
@@ -216,7 +275,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +371,154 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	transmitter := mercury.NewTransmitter(lggr, r.transmitterCfg, clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, r.triggerCapability)
 
 	return NewMercuryProvider(cp, r.chainReader, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
+}
+
+func chainToUUID(chainID *big.Int) uuid.UUID {
+	// See https://www.rfc-editor.org/rfc/rfc4122.html#section-4.1.3 for the list of supported versions.
+	const VersionSHA1 = 5
+	var buf bytes.Buffer
+	buf.WriteString("CCIP:")
+	buf.Write(chainID.Bytes())
+	// We use SHA-256 instead of SHA-1 because the former has better collision resistance.
+	// The UUID will contain only the first 16 bytes of the hash.
+	// You can't say which algorithms was used just by looking at the UUID bytes.
+	return uuid.NewHash(sha256.New(), uuid.NameSpaceOID, buf.Bytes(), VersionSHA1)
+}
+
+// NewCCIPCommitProvider constructs a provider of type CCIPCommitProvider. Since this is happening in the Relayer,
+// which lives in a separate process from delegate which is requesting a provider, we need to wire in through pargs
+// which *type* (impl) of CCIPCommitProvider should be created. CCIP is currently a special case where the provider has a
+// subset of implementations of the complete interface as certain contracts in a CCIP lane are only deployed on the src
+// chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
+func (r *Relayer) NewCCIPCommitProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	versionFinder := ccip.NewEvmVersionFinder()
+
+	var commitPluginConfig ccipconfig.CommitPluginConfig
+	err := json.Unmarshal(pargs.PluginConfig, &commitPluginConfig)
+	if err != nil {
+		return nil, err
+	}
+	sourceStartBlock := commitPluginConfig.SourceStartBlock
+	destStartBlock := commitPluginConfig.DestStartBlock
+
+	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
+	// bail early.
+	if commitPluginConfig.IsSourceProvider {
+		return NewSrcCommitProvider(
+			r.lggr,
+			sourceStartBlock,
+			r.chain.Client(),
+			r.chain.LogPoller(),
+		), nil
+	}
+
+	relayOpts := types.NewRelayOpts(rargs)
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	if err != nil {
+		return nil, err
+	}
+	address := common.HexToAddress(relayOpts.ContractID)
+	typ, ver, err := ccipconfig.TypeAndVersion(address, r.chain.Client())
+	if err != nil {
+		return nil, err
+	}
+	fn, err := ccipcommit.CommitReportToEthTxMeta(typ, ver)
+	if err != nil {
+		return nil, err
+	}
+	subjectID := chainToUUID(configWatcher.chain.ID())
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
+		subjectID: &subjectID,
+	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDstCommitProvider(
+		r.lggr,
+		versionFinder,
+		destStartBlock,
+		r.chain.Client(),
+		r.chain.LogPoller(),
+		r.chain.GasEstimator(),
+		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+		*contractTransmitter,
+		configWatcher,
+	), nil
+}
+
+// NewCCIPExecProvider constructs a provider of type CCIPExecProvider. Since this is happening in the Relayer,
+// which lives in a separate process from delegate which is requesting a provider, we need to wire in through pargs
+// which *type* (impl) of CCIPExecProvider should be created. CCIP is currently a special case where the provider has a
+// subset of implementations of the complete interface as certain contracts in a CCIP lane are only deployed on the src
+// chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
+func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
+	// TODO https://smartcontract-it.atlassian.net/browse/BCF-2887
+	ctx := context.Background()
+
+	versionFinder := ccip.NewEvmVersionFinder()
+
+	var execPluginConfig ccipconfig.ExecPluginConfig
+	err := json.Unmarshal(pargs.PluginConfig, &execPluginConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	usdcConfig := execPluginConfig.USDCConfig
+
+	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
+	// bail early.
+	if execPluginConfig.IsSourceProvider {
+		return NewSrcExecProvider(
+			r.lggr,
+			versionFinder,
+			r.chain.Client(),
+			r.chain.LogPoller(),
+			execPluginConfig.SourceStartBlock,
+			execPluginConfig.JobID,
+			usdcConfig.AttestationAPI,
+			int(usdcConfig.AttestationAPITimeoutSeconds),
+			usdcConfig.AttestationAPIIntervalMilliseconds,
+			usdcConfig.SourceMessageTransmitterAddress,
+		)
+	}
+
+	relayOpts := types.NewRelayOpts(rargs)
+	configWatcher, err := newStandardConfigProvider(ctx, r.lggr, r.chain, relayOpts)
+	if err != nil {
+		return nil, err
+	}
+	address := common.HexToAddress(relayOpts.ContractID)
+	typ, ver, err := ccipconfig.TypeAndVersion(address, r.chain.Client())
+	if err != nil {
+		return nil, err
+	}
+	fn, err := ccipexec.ExecReportToEthTxMeta(ctx, typ, ver)
+	if err != nil {
+		return nil, err
+	}
+	subjectID := chainToUUID(configWatcher.chain.ID())
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
+		subjectID: &subjectID,
+	}, OCR2AggregatorTransmissionContractABI, fn, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDstExecProvider(
+		r.lggr,
+		versionFinder,
+		r.chain.Client(),
+		r.chain.LogPoller(),
+		execPluginConfig.DestStartBlock,
+		contractTransmitter,
+		configWatcher,
+		r.chain.GasEstimator(),
+		*r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
+	)
 }
 
 func (r *Relayer) NewLLOProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
@@ -532,7 +739,7 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, reportToEvmTxMeta ReportToEthMetadata, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, reportToEvmTxMeta ReportToEthMetadata, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -662,7 +869,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, nil, 0)
 	if err != nil {
 		return nil, err
 	}

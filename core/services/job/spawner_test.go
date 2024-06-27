@@ -73,6 +73,13 @@ func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
 	return evmrelayer.NewLoopRelayServerAdapter(g.r, g.e), nil
 }
 
+func (g *relayGetter) List(...types.RelayID) (map[types.RelayID]loop.Relayer, error) {
+	relayMap := make(map[types.RelayID]loop.Relayer, 1)
+	r := evmrelayer.NewLoopRelayServerAdapter(g.r, g.e)
+	relayMap[types.RelayID{Network: "dummy", ChainID: "dummy"}] = r
+	return relayMap, nil
+}
+
 func (g *relayGetter) GetIDToRelayerMap() (map[types.RelayID]loop.Relayer, error) {
 	return map[types.RelayID]loop.Relayer{}, nil
 }
