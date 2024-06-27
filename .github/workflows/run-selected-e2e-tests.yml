@@ -13,7 +13,7 @@ on:
         default: "*"
         required: true
         type: string
-      test_config_base64_override:
+      test_config_base64_override_unsafe:
         description: 'Custom base64 test config'
         required: false
         type: string          
@@ -36,7 +36,7 @@ jobs:
       - name: Run Check Tests Command
         id: mask-config 
         run: |
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.test_config_base64_override' $GITHUB_EVENT_PATH)
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.test_config_base64_override_unsafe' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
           echo "::set-output name=config::$BASE64_CONFIG_OVERRIDE"
