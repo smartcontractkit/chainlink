@@ -110,7 +110,10 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
 		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
 		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
-		"registry_2_3_conditional":                     ethereum.RegistryVersion_2_3,
+		"registry_2_3_conditional_native":              ethereum.RegistryVersion_2_3,
+		"registry_2_3_conditional_link":                ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_native":               ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_link":                 ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -129,8 +132,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				}
 			}
 
-			// Use the name to determine if this is a log trigger or mercury
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
+			// Use the name to determine if this is a log trigger or mercury or billing token is LINK
+			isBillingTokenNative := name == "registry_2_3_conditional_native" || name == "registry_2_3_logtrigger_native"
+			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02" || name == "registry_2_3_logtrigger_native" || name == "registry_2_3_logtrigger_link"
 			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_with_mercury_v02" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
 			isMercuryV03 := name == "registry_2_1_with_mercury_v03" || name == "registry_2_2_with_mercury_v03"
 			isMercury := isMercuryV02 || isMercuryV03
@@ -153,6 +157,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				automationDefaultUpkeepGasLimit,
 				isLogTrigger,
 				isMercury,
+				isBillingTokenNative,
+				a.WETHToken,
 			)
 
 			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
@@ -189,8 +195,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
-			// TODO Tune this timeout window after stress testing
-			l.Info().Msg("Waiting 10m for all upkeeps to perform at least 1 upkeep")
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
@@ -292,6 +296,8 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				true,
 				false,
+				false,
+				nil,
 			)
 
 			// Start log trigger based upkeeps for all consumers
@@ -473,6 +479,8 @@ func TestAutomationAddFunds(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -551,6 +559,8 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -650,6 +660,8 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -744,6 +756,8 @@ func TestAutomationPauseRegistry(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -822,6 +836,8 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {
@@ -1235,6 +1251,8 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 				automationDefaultUpkeepGasLimit,
 				false,
 				false,
+				false,
+				nil,
 			)
 
 			t.Cleanup(func() {

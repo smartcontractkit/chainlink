@@ -37,9 +37,12 @@
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 1,
+      "nodes": 4,
       "run":[
-        {"name":"registry_2_3_conditional"}
+        {"name":"registry_2_3_conditional_native"},
+        {"name":"registry_2_3_conditional_link"},
+        {"name":"registry_2_3_logtrigger_native"},
+        {"name":"registry_2_3_logtrigger_link"}
       ]
     },
     {
