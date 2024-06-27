@@ -340,7 +340,7 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 10500000
-BlockRate = 1
+BlockRate = 20
 LogLimit = 2
 
 [[EVM.Nodes]]
@@ -438,6 +438,8 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 5400000
+BlockRate = 1
+LogLimit = 2
 
 [[EVM.Nodes]]
 Name = 'foo'
@@ -528,6 +530,8 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 5400000
+BlockRate = 5
+LogLimit = 2
 
 [[EVM.Nodes]]
 Name = 'bar'

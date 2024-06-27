@@ -620,7 +620,9 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				OCR2: evmcfg.OCR2{
 					Automation: evmcfg.Automation{
-						GasLimit: ptr[uint32](540),
+						GasLimit:  ptr[uint32](540),
+						BlockRate: ptr[uint32](1),
+						LogLimit:  ptr[uint32](2),
 					},
 				},
 			},
@@ -1088,6 +1090,8 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 540
+BlockRate = 1
+LogLimit = 2
 
 [[EVM.Nodes]]
 Name = 'foo'
