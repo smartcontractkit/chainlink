@@ -763,7 +763,7 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3686d686da64f978179cda62b7040469fb4d7428 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@0ff5b1182597d32c625a2baae3dc822e607f5e1c # v2.3.19
         with:
           test_directory: ./integration-tests/smoke/
 
