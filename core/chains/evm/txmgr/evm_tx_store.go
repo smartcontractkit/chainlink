@@ -467,6 +467,18 @@ func (o *evmTxStore) TransactionsWithAttempts(ctx context.Context, offset, limit
 	return
 }
 
+// GetAllTransactions returns all eth transactions
+func (o *evmTxStore) GetAllTransactions(ctx context.Context, chainID *big.Int) (txs []Tx, err error) {
+	var dbEtxs []DbEthTx
+	sql := `SELECT * FROM evm.txes WHERE evm_chain_id = $1 ORDER BY id desc`
+	if err = o.q.SelectContext(ctx, &dbEtxs, sql, chainID.String()); err != nil {
+		return
+	}
+	txs = dbEthTxsToEvmEthTxs(dbEtxs)
+	err = o.preloadTxAttempts(ctx, txs)
+	return
+}
+
 // TxAttempts returns the last tx attempts sorted by created_at descending.
 func (o *evmTxStore) TxAttempts(ctx context.Context, offset, limit int) (txs []TxAttempt, count int, err error) {
 	sql := `SELECT count(*) FROM evm.tx_attempts`
