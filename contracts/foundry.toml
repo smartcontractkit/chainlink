@@ -7,7 +7,7 @@ src = 'src/v0.8'
 test = 'test/v0.8'
 out = 'foundry-artifacts'
 cache_path  = 'foundry-cache'
-libs = ['node_modules', 'foundry-lib']
+libs = ['node_modules']
 bytecode_hash = "none"
 ffi = false
 

@@ -506,8 +506,9 @@ targets:
 `
 )
 
-func mockAction() (*mockCapability, values.Value) {
-	outputs := values.NewString("output")
+func mockAction(t *testing.T) (*mockCapability, values.Value) {
+	outputs, err := values.NewMap(map[string]any{"output": "foo"})
+	require.NoError(t, err)
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
 			"read_chain_action@1.0.0",
@@ -533,7 +534,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, out := mockAction()
+	action, out := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 
 	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
@@ -580,7 +581,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, _ := mockAction()
+	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 	dbstore := newTestDBStore(t, clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
@@ -632,7 +633,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, _ := mockAction()
+	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 
 	clock := clockwork.NewFakeClock()
@@ -812,6 +813,94 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	<-hooks.initSuccessful
 
 	assert.Equal(t, node, eng.localNode)
+}
+
+const passthroughInterpolationWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
+    inputs: "$(evm_median.outputs)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+func TestEngine_PassthroughInterpolation(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_ethereum-testnet-sepolia@1.0.0"
+	target := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		passthroughInterpolationWorkflow,
+	)
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	// There is passthrough interpolation between the consensus and target steps,
+	// so the input of one should be the output of the other, exactly.
+	gotInputs, err := values.Unwrap(state.Steps[writeID].Inputs)
+	require.NoError(t, err)
+
+	gotOutputs, err := values.Unwrap(state.Steps["evm_median"].Outputs.Value)
+	require.NoError(t, err)
+	assert.Equal(t, gotInputs, gotOutputs)
 }
 
 func TestEngine_Error(t *testing.T) {
