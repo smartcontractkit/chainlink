@@ -113,7 +113,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
-	gasLimit := uint64(chain.Config().EVM().GasEstimator().LimitTransfer())
+	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
 	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr))

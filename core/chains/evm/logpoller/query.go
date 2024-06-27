@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
@@ -24,19 +25,21 @@ func concatBytes[T bytesProducer](byteSlice []T) [][]byte {
 	return output
 }
 
-// queryArgs is a helper for building the arguments to a postgres query created by DbORM
+// queryArgs is a helper for building the arguments to a postgres query created by DSORM
 // Besides the convenience methods, it also keeps track of arguments validation and sanitization.
 type queryArgs struct {
-	args map[string]interface{}
-	err  []error
+	args      map[string]any
+	idxLookup map[string]uint8
+	err       []error
 }
 
 func newQueryArgs(chainId *big.Int) *queryArgs {
 	return &queryArgs{
-		args: map[string]interface{}{
+		args: map[string]any{
 			"evm_chain_id": ubig.New(chainId),
 		},
-		err: []error{},
+		idxLookup: make(map[string]uint8),
+		err:       []error{},
 	}
 }
 
@@ -46,16 +49,62 @@ func newQueryArgsForEvent(chainId *big.Int, address common.Address, eventSig com
 		withEventSig(eventSig)
 }
 
+func (q *queryArgs) withField(fieldName string, value any) *queryArgs {
+	_, args := q.withIndexableField(fieldName, value, false)
+
+	return args
+}
+
+func (q *queryArgs) withIndexedField(fieldName string, value any) string {
+	field, _ := q.withIndexableField(fieldName, value, true)
+
+	return field
+}
+
+func (q *queryArgs) withIndexableField(fieldName string, value any, addIndex bool) (string, *queryArgs) {
+	if addIndex {
+		idx := q.nextIdx(fieldName)
+		idxName := fmt.Sprintf("%s_%d", fieldName, idx)
+
+		q.idxLookup[fieldName] = uint8(idx)
+		fieldName = idxName
+	}
+
+	switch typed := value.(type) {
+	case common.Hash:
+		q.args[fieldName] = typed.Bytes()
+	case []common.Hash:
+		q.args[fieldName] = concatBytes(typed)
+	case types.HashArray:
+		q.args[fieldName] = concatBytes(typed)
+	case []common.Address:
+		q.args[fieldName] = concatBytes(typed)
+	default:
+		q.args[fieldName] = typed
+	}
+
+	return fieldName, q
+}
+
+func (q *queryArgs) nextIdx(baseFieldName string) int {
+	idx, ok := q.idxLookup[baseFieldName]
+	if !ok {
+		return 0
+	}
+
+	return int(idx) + 1
+}
+
 func (q *queryArgs) withEventSig(eventSig common.Hash) *queryArgs {
-	return q.withCustomHashArg("event_sig", eventSig)
+	return q.withField("event_sig", eventSig)
 }
 
 func (q *queryArgs) withEventSigArray(eventSigs []common.Hash) *queryArgs {
-	return q.withCustomArg("event_sig_array", concatBytes(eventSigs))
+	return q.withField("event_sig_array", eventSigs)
 }
 
 func (q *queryArgs) withTopicArray(topicValues types.HashArray, topicNum uint64) *queryArgs {
-	return q.withCustomArg(fmt.Sprintf("topic%d", topicNum), concatBytes(topicValues))
+	return q.withField(fmt.Sprintf("topic%d", topicNum), topicValues)
 }
 
 func (q *queryArgs) withTopicArrays(topic2Vals types.HashArray, topic3Vals types.HashArray, topic4Vals types.HashArray) *queryArgs {
@@ -65,47 +114,47 @@ func (q *queryArgs) withTopicArrays(topic2Vals types.HashArray, topic3Vals types
 }
 
 func (q *queryArgs) withAddress(address common.Address) *queryArgs {
-	return q.withCustomArg("address", address)
+	return q.withField("address", address)
 }
 
 func (q *queryArgs) withAddressArray(addresses []common.Address) *queryArgs {
-	return q.withCustomArg("address_array", concatBytes(addresses))
+	return q.withField("address_array", addresses)
 }
 
 func (q *queryArgs) withStartBlock(startBlock int64) *queryArgs {
-	return q.withCustomArg("start_block", startBlock)
+	return q.withField("start_block", startBlock)
 }
 
 func (q *queryArgs) withEndBlock(endBlock int64) *queryArgs {
-	return q.withCustomArg("end_block", endBlock)
+	return q.withField("end_block", endBlock)
 }
 
 func (q *queryArgs) withWordIndex(wordIndex int) *queryArgs {
-	return q.withCustomArg("word_index", wordIndex)
+	return q.withField("word_index", wordIndex)
 }
 
 func (q *queryArgs) withWordValueMin(wordValueMin common.Hash) *queryArgs {
-	return q.withCustomHashArg("word_value_min", wordValueMin)
+	return q.withField("word_value_min", wordValueMin)
 }
 
 func (q *queryArgs) withWordValueMax(wordValueMax common.Hash) *queryArgs {
-	return q.withCustomHashArg("word_value_max", wordValueMax)
+	return q.withField("word_value_max", wordValueMax)
 }
 
 func (q *queryArgs) withWordIndexMin(wordIndex int) *queryArgs {
-	return q.withCustomArg("word_index_min", wordIndex)
+	return q.withField("word_index_min", wordIndex)
 }
 
 func (q *queryArgs) withWordIndexMax(wordIndex int) *queryArgs {
-	return q.withCustomArg("word_index_max", wordIndex)
+	return q.withField("word_index_max", wordIndex)
 }
 
 func (q *queryArgs) withWordValue(wordValue common.Hash) *queryArgs {
-	return q.withCustomHashArg("word_value", wordValue)
+	return q.withField("word_value", wordValue)
 }
 
-func (q *queryArgs) withConfs(confs Confirmations) *queryArgs {
-	return q.withCustomArg("confs", confs)
+func (q *queryArgs) withConfs(confs evmtypes.Confirmations) *queryArgs {
+	return q.withField("confs", confs)
 }
 
 func (q *queryArgs) withTopicIndex(index int) *queryArgs {
@@ -114,53 +163,45 @@ func (q *queryArgs) withTopicIndex(index int) *queryArgs {
 		q.err = append(q.err, fmt.Errorf("invalid index for topic: %d", index))
 	}
 	// Add 1 since postgresql arrays are 1-indexed.
-	return q.withCustomArg("topic_index", index+1)
+	return q.withField("topic_index", index+1)
 }
 
 func (q *queryArgs) withTopicValueMin(valueMin common.Hash) *queryArgs {
-	return q.withCustomHashArg("topic_value_min", valueMin)
+	return q.withField("topic_value_min", valueMin)
 }
 
 func (q *queryArgs) withTopicValueMax(valueMax common.Hash) *queryArgs {
-	return q.withCustomHashArg("topic_value_max", valueMax)
+	return q.withField("topic_value_max", valueMax)
 }
 
 func (q *queryArgs) withTopicValues(values []common.Hash) *queryArgs {
-	return q.withCustomArg("topic_values", concatBytes(values))
+	return q.withField("topic_values", concatBytes(values))
 }
 
 func (q *queryArgs) withBlockTimestampAfter(after time.Time) *queryArgs {
-	return q.withCustomArg("block_timestamp_after", after)
+	return q.withField("block_timestamp_after", after)
 }
 
 func (q *queryArgs) withTxHash(hash common.Hash) *queryArgs {
-	return q.withCustomHashArg("tx_hash", hash)
+	return q.withField("tx_hash", hash)
 }
 
 func (q *queryArgs) withRetention(retention time.Duration) *queryArgs {
-	return q.withCustomArg("retention", retention)
+	return q.withField("retention", retention)
 }
 
 func (q *queryArgs) withLogsPerBlock(logsPerBlock uint64) *queryArgs {
-	return q.withCustomArg("logs_per_block", logsPerBlock)
+	return q.withField("logs_per_block", logsPerBlock)
 }
 
 func (q *queryArgs) withMaxLogsKept(maxLogsKept uint64) *queryArgs {
-	return q.withCustomArg("max_logs_kept", maxLogsKept)
+	return q.withField("max_logs_kept", maxLogsKept)
 }
 
-func (q *queryArgs) withCustomHashArg(name string, arg common.Hash) *queryArgs {
-	return q.withCustomArg(name, arg.Bytes())
-}
-
-func (q *queryArgs) withCustomArg(name string, arg any) *queryArgs {
-	q.args[name] = arg
-	return q
-}
-
-func (q *queryArgs) toArgs() (map[string]interface{}, error) {
+func (q *queryArgs) toArgs() (map[string]any, error) {
 	if len(q.err) > 0 {
 		return nil, errors.Join(q.err...)
 	}
+
 	return q.args, nil
 }

@@ -8,22 +8,23 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type headSaver struct {
 	orm      ORM
-	config   Config
-	htConfig HeadTrackerConfig
+	config   commontypes.Config
+	htConfig commontypes.HeadTrackerConfig
 	logger   logger.Logger
 	heads    Heads
 }
 
-var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
+var _ headtracker.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
+func NewHeadSaver(lggr logger.Logger, orm ORM, config commontypes.Config, htConfig commontypes.HeadTrackerConfig) httypes.HeadSaver {
 	return &headSaver{
 		orm:      orm,
 		config:   config,

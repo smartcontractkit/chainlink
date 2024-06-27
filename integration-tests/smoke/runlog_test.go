@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
+
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -26,9 +29,7 @@ func TestRunLogBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	config, err := tc.GetConfig("Smoke", tc.RunLog)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
@@ -36,22 +37,35 @@ func TestRunLogBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestInstance(t).
 		WithTestConfig(&config).
-		WithPrivateEthereumNetwork(privateNetwork).
+		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithMockAdapter().
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(.1)).
 		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 
-	lt, err := env.ContractDeployer.DeployLinkTokenContract()
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	sethClient, err := seth_utils.GetChainClient(config, *evmNetwork)
+	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(*config.Common.ChainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
+
+	t.Cleanup(func() {
+		// ignore error, we will see failures in the logs anyway
+		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
+	})
+
+	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	oracle, err := env.ContractDeployer.DeployOracle(lt.Address())
+
+	oracle, err := contracts.DeployOracle(sethClient, lt.Address())
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
-	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
+	consumer, err := contracts.DeployAPIConsumer(sethClient, lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
-	err = env.EVMClient.SetDefaultWallet(0)
-	require.NoError(t, err, "Setting default wallet shouldn't fail")
+
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
@@ -78,7 +92,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
-		EVMChainID:               env.EVMClient.GetChainID().String(),
+		EVMChainID:               fmt.Sprint(sethClient.ChainID),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

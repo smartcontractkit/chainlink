@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -14,10 +15,10 @@ import (
 type VRF interface {
 	Get(id string) (vrfkey.KeyV2, error)
 	GetAll() ([]vrfkey.KeyV2, error)
-	Create() (vrfkey.KeyV2, error)
-	Add(key vrfkey.KeyV2) error
-	Delete(id string) (vrfkey.KeyV2, error)
-	Import(keyJSON []byte, password string) (vrfkey.KeyV2, error)
+	Create(ctx context.Context) (vrfkey.KeyV2, error)
+	Add(ctx context.Context, key vrfkey.KeyV2) error
+	Delete(ctx context.Context, id string) (vrfkey.KeyV2, error)
+	Import(ctx context.Context, keyJSON []byte, password string) (vrfkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 
 	GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error)
@@ -60,7 +61,7 @@ func (ks *vrf) GetAll() (keys []vrfkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks *vrf) Create() (vrfkey.KeyV2, error) {
+func (ks *vrf) Create(ctx context.Context) (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -70,10 +71,10 @@ func (ks *vrf) Create() (vrfkey.KeyV2, error) {
 	if err != nil {
 		return vrfkey.KeyV2{}, err
 	}
-	return key, ks.safeAddKey(key)
+	return key, ks.safeAddKey(ctx, key)
 }
 
-func (ks *vrf) Add(key vrfkey.KeyV2) error {
+func (ks *vrf) Add(ctx context.Context, key vrfkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -82,10 +83,10 @@ func (ks *vrf) Add(key vrfkey.KeyV2) error {
 	if _, found := ks.keyRing.VRF[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.safeAddKey(key)
+	return ks.safeAddKey(ctx, key)
 }
 
-func (ks *vrf) Delete(id string) (vrfkey.KeyV2, error) {
+func (ks *vrf) Delete(ctx context.Context, id string) (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -95,11 +96,11 @@ func (ks *vrf) Delete(id string) (vrfkey.KeyV2, error) {
 	if err != nil {
 		return vrfkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(ctx, key)
 	return key, err
 }
 
-func (ks *vrf) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
+func (ks *vrf) Import(ctx context.Context, keyJSON []byte, password string) (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -112,7 +113,7 @@ func (ks *vrf) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
 	if _, found := ks.keyRing.VRF[key.ID()]; found {
 		return vrfkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.keyManager.safeAddKey(key)
+	return key, ks.keyManager.safeAddKey(ctx, key)
 }
 
 func (ks *vrf) Export(id string, password string) ([]byte, error) {

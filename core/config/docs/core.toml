@@ -30,7 +30,7 @@ MaxIdleConns = 10 # Default
 # MaxOpenConns configures the maximum number of database connections that a Chainlink node will have open at any one time. Think of this as the maximum burst upper bound limit of database connections per Chainlink node instance. Increasing this number can help to improve performance under database-heavy workloads.
 #
 # Postgres has connection limits, so you must use caution when increasing this value. If you are running several instances of a Chainlink node or another application on a single database server, you might run out of Postgres connection slots if you raise this value too high.
-MaxOpenConns = 20 # Default
+MaxOpenConns = 100 # Default
 # MigrateOnStartup controls whether a Chainlink node will attempt to automatically migrate the database on boot. If you want more control over your database migration process, set this variable to `false` and manually migrate the database using the CLI `migrate` command instead.
 MigrateOnStartup = true # Default
 
@@ -281,11 +281,11 @@ ReaperThreshold = '24h' # Default
 # ResultWriteQueueDepth controls how many writes will be buffered before subsequent writes are dropped, for jobs that write results asynchronously for performance reasons, such as OCR.
 ResultWriteQueueDepth = 100 # Default
 # VerboseLogging enables detailed logging of pipeline execution steps. 
-# This is disabled by default because it increases log volume for pipeline
-# runs, but can be useful for debugging failed runs without relying on the UI
-# or database. Consider enabling this if you disabled run saving by setting
-# MaxSuccessfulRuns to zero.
-VerboseLogging = false # Default
+# This can be useful for debugging failed runs without relying on the UI
+# or database.
+#
+# You may disable if this results in excessive log volume.
+VerboseLogging = true # Default
 
 [JobPipeline.HTTPRequest]
 # DefaultTimeout defines the default timeout for HTTP requests made by `http` and `bridge` adapters.
@@ -439,6 +439,14 @@ DeltaReconcile = '1m' # Default
 # ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`, 
 # but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
+
+[Capabilities.ExternalRegistry]
+# Address is the address for the capabilities registry contract.
+Address = '0x0' # Example
+# NetworkID identifies the target network where the remote registry is located.
+NetworkID = 'evm' # Default
+# ChainID identifies the target chain id where the remote registry is located.
+ChainID = '1' # Default
 
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
@@ -622,3 +630,17 @@ LatestReportDeadline = "5s" # Default
 [Mercury.TLS]
 # CertFile is the path to a PEM file of trusted root certificate authority certificates
 CertFile = "/path/to/client/certs.pem" # Example
+
+# Mercury.Transmitter controls settings for the mercury transmitter
+[Mercury.Transmitter]
+# TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
+# per OCR instance. If the queue is full, the transmitter will start dropping
+# the oldest messages in order to make space.
+#
+# This is useful if mercury server goes offline and the nop needs to buffer
+# transmissions.
+TransmitQueueMaxSize = 10_000 # Default
+# TransmitTimeout controls how long the transmitter will wait for a response
+# when sending a message to the mercury server, before aborting and considering
+# the transmission to be failed.
+TransmitTimeout = "5s" # Default

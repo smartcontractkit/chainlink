@@ -109,6 +109,11 @@ export const assertSatisfiesInterface = (
       continue
     }
 
+    // addFunds is a payable function starting from v2.3, skipping the stateMutability check
+    if (functionName === 'addFunds(uint256,uint96)') {
+      continue
+    }
+
     const propertiesToMatch: (keyof FunctionFragment)[] = [
       'constant',
       'stateMutability',
@@ -169,7 +174,10 @@ export const deployRegistry23 = async (
   allowedReadOnlyAddress: Parameters<
     AutomationRegistryLogicC2_3Factory['deploy']
   >[3],
-  payoutMode: Parameters<AutomationRegistryLogicB2_3Factory['deploy']>[6],
+  payoutMode: Parameters<AutomationRegistryLogicC2_3Factory['deploy']>[6],
+  wrappedNativeTokenAddress: Parameters<
+    AutomationRegistryLogicC2_3Factory['deploy']
+  >[7],
 ): Promise<IAutomationRegistry2_3> => {
   const logicCFactory = await ethers.getContractFactory(
     'AutomationRegistryLogicC2_3',
@@ -197,6 +205,7 @@ export const deployRegistry23 = async (
       forwarderLogic.address,
       allowedReadOnlyAddress,
       payoutMode,
+      wrappedNativeTokenAddress,
     )
   const logicB = await logicBFactory.connect(from).deploy(logicC.address)
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)

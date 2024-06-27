@@ -55,7 +55,7 @@ func SmokeTestVRF(e helpers.Environment) {
 
 	// required flags
 	linkAddress := smokeCmd.String("link-address", "", "address of link token")
-	linkEthAddress := smokeCmd.String("link-eth-feed", "", "address of link eth feed")
+	linkNativeAddress := smokeCmd.String("link-native-feed", "", "address of link native feed")
 	bhsAddressStr := smokeCmd.String("bhs-address", "", "address of blockhash store")
 	batchBHSAddressStr := smokeCmd.String("batch-bhs-address", "", "address of batch blockhash store")
 	coordinatorAddressStr := smokeCmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
@@ -69,7 +69,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	maxGasLimit := smokeCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 	stalenessSeconds := smokeCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 	gasAfterPayment := smokeCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
-	flatFeeEthPPM := smokeCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
+	flatFeeNativePPM := smokeCmd.Int64("flat-fee-native-ppm", 500, "fulfillment flat fee Native ppm")
 	flatFeeLinkDiscountPPM := smokeCmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := smokeCmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := smokeCmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
@@ -95,10 +95,10 @@ func SmokeTestVRF(e helpers.Environment) {
 		linkAddress = &address
 	}
 
-	if len(*linkEthAddress) == 0 {
-		fmt.Println("\nDeploying LINK/ETH Feed...")
+	if len(*linkNativeAddress) == 0 {
+		fmt.Println("\nDeploying LINK/Native Feed...")
 		address := helpers.DeployLinkEthFeed(e, *linkAddress, fallbackWeiPerUnitLink).String()
-		linkEthAddress = &address
+		linkNativeAddress = &address
 	}
 
 	var bhsContractAddress common.Address
@@ -120,7 +120,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	var coordinatorAddress common.Address
 	if len(*coordinatorAddressStr) == 0 {
 		fmt.Println("\nDeploying Coordinator...")
-		coordinatorAddress = DeployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+		coordinatorAddress = DeployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkNativeAddress)
 	} else {
 		coordinatorAddress = common.HexToAddress(*coordinatorAddressStr)
 	}
@@ -146,7 +146,7 @@ func SmokeTestVRF(e helpers.Environment) {
 			uint32(*stalenessSeconds),
 			uint32(*gasAfterPayment),
 			fallbackWeiPerUnitLink,
-			uint32(*flatFeeEthPPM),
+			uint32(*flatFeeNativePPM),
 			uint32(*flatFeeLinkDiscountPPM),
 			uint8(*nativePremiumPercentage),
 			uint8(*linkPremiumPercentage),
@@ -259,7 +259,7 @@ func SmokeTestVRF(e helpers.Environment) {
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
-		"\nLINK/ETH Feed contract address:", *linkEthAddress,
+		"\nLINK/Native Feed contract address:", *linkNativeAddress,
 		"\nBlockhash Store contract address:", bhsContractAddress,
 		"\nBatch Blockhash Store contract address:", batchBHSAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
@@ -474,7 +474,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	// required flags
 	nativeOnly := deployCmd.Bool("native-only", false, "if true, link and link feed are not set up")
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
-	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
+	linkNativeAddress := deployCmd.String("link-native-feed", "", "address of link native feed")
 	bhsContractAddressString := deployCmd.String("bhs-address", "", "address of BHS contract")
 	batchBHSAddressString := deployCmd.String("batch-bhs-address", "", "address of Batch BHS contract")
 	coordinatorAddressString := deployCmd.String("coordinator-address", "", "address of VRF Coordinator contract")
@@ -491,7 +491,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	bhsJobLookBackBlocks := flag.Int("bhs-job-look-back-blocks", 200, "")
 	bhsJobPollPeriod := flag.String("bhs-job-poll-period", "3s", "")
 	bhsJobRunTimeout := flag.String("bhs-job-run-timeout", "1m", "")
-	simulationBlock := deployCmd.String("simulation-block", "pending", "simulation block can be 'pending' or 'latest'")
+	simulationBlock := deployCmd.String("simulation-block", "latest", "simulation block can be 'pending' or 'latest'")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
@@ -503,7 +503,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	maxGasLimit := deployCmd.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", constants.GasAfterPayment, "gas after payment calculation")
-	flatFeeEthPPM := deployCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
+	flatFeeNativePPM := deployCmd.Int64("flat-fee-native-ppm", 500, "fulfillment flat fee Native ppm")
 	flatFeeLinkDiscountPPM := deployCmd.Int64("flat-fee-link-discount-ppm", 100, "fulfillment flat fee discount for LINK payment denominated in native ppm")
 	nativePremiumPercentage := deployCmd.Int64("native-premium-percentage", 1, "premium percentage for native payment")
 	linkPremiumPercentage := deployCmd.Int64("link-premium-percentage", 1, "premium percentage for LINK payment")
@@ -514,8 +514,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	)
 
 	if *nativeOnly {
-		if *linkAddress != "" || *linkEthAddress != "" {
-			panic("native-only flag is set, but link address or link eth address is provided")
+		if *linkAddress != "" || *linkNativeAddress != "" {
+			panic("native-only flag is set, but link address or link native address is provided")
 		}
 		if *subscriptionBalanceJuelsString != "0" {
 			panic("native-only flag is set, but link subscription balance is provided")
@@ -551,7 +551,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 
 	contractAddresses := model.ContractAddresses{
 		LinkAddress:             *linkAddress,
-		LinkEthAddress:          *linkEthAddress,
+		LinkEthAddress:          *linkNativeAddress,
 		BhsContractAddress:      bhsContractAddress,
 		BatchBHSAddress:         batchBHSAddress,
 		CoordinatorAddress:      coordinatorAddress,
@@ -564,7 +564,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		StalenessSeconds:                  *stalenessSeconds,
 		GasAfterPayment:                   *gasAfterPayment,
 		FallbackWeiPerUnitLink:            fallbackWeiPerUnitLink,
-		FulfillmentFlatFeeNativePPM:       uint32(*flatFeeEthPPM),
+		FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),
 		FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM),
 		NativePremiumPercentage:           uint8(*nativePremiumPercentage),
 		LinkPremiumPercentage:             uint8(*linkPremiumPercentage),
@@ -657,7 +657,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	}
 
 	if !nativeOnly && len(contractAddresses.LinkEthAddress) == 0 {
-		fmt.Println("\nDeploying LINK/ETH Feed...")
+		fmt.Println("\nDeploying LINK/Native Feed...")
 		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}
 
@@ -836,7 +836,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	fmt.Println(
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", contractAddresses.LinkAddress,
-		"\nLINK/ETH Feed contract address:", contractAddresses.LinkEthAddress,
+		"\nLINK/Native Feed contract address:", contractAddresses.LinkEthAddress,
 		"\nBlockhash Store contract address:", contractAddresses.BhsContractAddress,
 		"\nBatch Blockhash Store contract address:", contractAddresses.BatchBHSAddress,
 		"\nVRF Coordinator Address:", contractAddresses.CoordinatorAddress,
@@ -865,10 +865,13 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 func DeployWrapperUniverse(e helpers.Environment) {
 	cmd := flag.NewFlagSet("wrapper-universe-deploy", flag.ExitOnError)
 	linkAddress := cmd.String("link-address", "", "address of link token")
-	linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
+	linkNativeFeedAddress := cmd.String("link-native-feed", "", "address of link-native-feed")
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
+	subscriptionID := cmd.String("subscription-id", "", "subscription ID for the wrapper")
 	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
+	coordinatorGasOverheadNative := cmd.Uint("coordinator-gas-overhead-native", 52_000, "amount of gas overhead in coordinator fulfillment for native payment")
+	coordinatorGasOverheadLink := cmd.Uint("coordinator-gas-overhead-link", 74_000, "amount of gas overhead in coordinator fulfillment for link payment")
+	coordinatorGasOverheadPerWord := cmd.Uint("coordinator-gas-overhead-per-word", 0, "amount of gas overhead per word in coordinator fulfillment")
 	wrapperNativePremiumPercentage := cmd.Uint("wrapper-native-premium-percentage", 25, "gas premium charged by wrapper for native payment")
 	wrapperLinkPremiumPercentage := cmd.Uint("wrapper-link-premium-percentage", 25, "gas premium charged by wrapper for link payment")
 	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
@@ -879,22 +882,27 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
 	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment denominated in native")
 	fulfillmentFlatFeeLinkDiscountPPM := cmd.Uint("fulfillment-flat-fee-link-discount-ppm", 500, "the link flat fee discount in ppm to charge for fulfillment denominated in native")
-	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
+	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-native-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
 	amount, s := big.NewInt(0).SetString(*subFunding, 10)
 	if !s {
 		panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
 	}
 
-	wrapper, subID := WrapperDeploy(e,
+	subId := parseSubID(*subscriptionID)
+	wrapper := WrapperDeploy(e,
 		common.HexToAddress(*linkAddress),
-		common.HexToAddress(*linkETHFeedAddress),
-		common.HexToAddress(*coordinatorAddress))
+		common.HexToAddress(*linkNativeFeedAddress),
+		common.HexToAddress(*coordinatorAddress),
+		subId,
+	)
 
 	WrapperConfigure(e,
 		wrapper,
 		*wrapperGasOverhead,
-		*coordinatorGasOverhead,
+		*coordinatorGasOverheadNative,
+		*coordinatorGasOverheadLink,
+		*coordinatorGasOverheadPerWord,
 		*wrapperNativePremiumPercentage,
 		*wrapperLinkPremiumPercentage,
 		*keyHash,
@@ -912,7 +920,7 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
-	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subID)
+	EoaFundSubWithLink(e, *coordinator, *linkAddress, amount, subId)
 
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)
@@ -928,4 +936,12 @@ func DeployWrapperUniverse(e helpers.Environment) {
 	fmt.Println("wrapper universe deployment complete")
 	fmt.Println("wrapper address:", wrapper.String())
 	fmt.Println("wrapper consumer address:", consumer.String())
+}
+
+func parseSubID(subID string) *big.Int {
+	parsedSubID, ok := new(big.Int).SetString(subID, 10)
+	if !ok {
+		helpers.PanicErr(fmt.Errorf("sub ID %s cannot be parsed", subID))
+	}
+	return parsedSubID
 }

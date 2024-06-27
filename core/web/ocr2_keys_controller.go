@@ -34,8 +34,9 @@ func (ocr2kc *OCR2KeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/ocr"
 func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
+	ctx := c.Request.Context()
 	chainType := chaintype.ChainType(c.Param("chainType"))
-	key, err := ocr2kc.App.GetKeyStore().OCR2().Create(chainType)
+	key, err := ocr2kc.App.GetKeyStore().OCR2().Create(ctx, chainType)
 	if errors.Is(errors.Cause(err), chaintype.ErrInvalidChainType) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -60,13 +61,14 @@ func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/keys/ocr/:keyID"
 func (ocr2kc *OCR2KeysController) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
 	id := c.Param("keyID")
 	key, err := ocr2kc.App.GetKeyStore().OCR2().Get(id)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	err = ocr2kc.App.GetKeyStore().OCR2().Delete(id)
+	err = ocr2kc.App.GetKeyStore().OCR2().Delete(ctx, id)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -81,6 +83,7 @@ func (ocr2kc *OCR2KeysController) Delete(c *gin.Context) {
 // "Post <application>/keys/ocr/import"
 func (ocr2kc *OCR2KeysController) Import(c *gin.Context) {
 	defer ocr2kc.App.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
+	ctx := c.Request.Context()
 
 	bytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -88,7 +91,7 @@ func (ocr2kc *OCR2KeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	keyBundle, err := ocr2kc.App.GetKeyStore().OCR2().Import(bytes, oldPassword)
+	keyBundle, err := ocr2kc.App.GetKeyStore().OCR2().Import(ctx, bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

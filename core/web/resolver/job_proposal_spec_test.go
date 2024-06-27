@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 	"time"
@@ -50,10 +51,10 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(&feeds.JobProposalSpec{
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
 			},
@@ -64,7 +65,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on approval",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(sql.ErrNoRows)
 			},
@@ -81,10 +82,10 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on fetch",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -99,7 +100,7 @@ func TestResolver_ApproveJobProposalSpec(t *testing.T) {
 		{
 			name:          "unprocessable error on approval if job already exists",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("ApproveSpec", mock.Anything, specID, false).Return(feeds.ErrJobAlreadyExists)
 			},
@@ -154,13 +155,12 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CancelSpec", mock.Anything, specID).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(&feeds.JobProposalSpec{
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
-
 			},
 			query:     mutation,
 			variables: variables,
@@ -169,7 +169,7 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on cancel",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CancelSpec", mock.Anything, specID).Return(sql.ErrNoRows)
 			},
@@ -186,10 +186,10 @@ func TestResolver_CancelJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on fetch",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("CancelSpec", mock.Anything, specID).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -242,10 +242,10 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RejectSpec", mock.Anything, specID).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(&feeds.JobProposalSpec{
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
 			},
@@ -256,7 +256,7 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on reject",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RejectSpec", mock.Anything, specID).Return(sql.ErrNoRows)
 			},
@@ -273,10 +273,10 @@ func TestResolver_RejectJobProposalSpec(t *testing.T) {
 		{
 			name:          "not found error on fetch",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("RejectSpec", mock.Anything, specID).Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -332,10 +332,10 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateSpecDefinition", mock.Anything, specID, "").Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(&feeds.JobProposalSpec{
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(&feeds.JobProposalSpec{
 					ID: specID,
 				}, nil)
 			},
@@ -346,10 +346,9 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 		{
 			name:          "not found error on update",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateSpecDefinition", mock.Anything, specID, "").Return(sql.ErrNoRows)
-
 			},
 			query:     mutation,
 			variables: variables,
@@ -364,10 +363,10 @@ func TestResolver_UpdateJobProposalSpecDefinition(t *testing.T) {
 		{
 			name:          "not found error on fetch",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
+			before: func(ctx context.Context, f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateSpecDefinition", mock.Anything, specID, "").Return(nil)
-				f.Mocks.feedsSvc.On("GetSpec", specID).Return(nil, sql.ErrNoRows)
+				f.Mocks.feedsSvc.On("GetSpec", mock.Anything, specID).Return(nil, sql.ErrNoRows)
 			},
 			query:     mutation,
 			variables: variables,
@@ -445,8 +444,8 @@ func TestResolver_GetJobProposal_Spec(t *testing.T) {
 		{
 			name:          "success",
 			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
+			before: func(ctx context.Context, f *gqlTestFramework) {
+				f.Mocks.feedsSvc.On("GetJobProposal", mock.Anything, jpID).Return(&feeds.JobProposal{
 					ID:             jpID,
 					Status:         feeds.JobProposalStatusApproved,
 					FeedsManagerID: 1,
@@ -454,7 +453,7 @@ func TestResolver_GetJobProposal_Spec(t *testing.T) {
 					PendingUpdate:  false,
 				}, nil)
 				f.Mocks.feedsSvc.
-					On("ListSpecsByJobProposalIDs", []int64{jpID}).
+					On("ListSpecsByJobProposalIDs", mock.Anything, []int64{jpID}).
 					Return(specs, nil)
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 			},

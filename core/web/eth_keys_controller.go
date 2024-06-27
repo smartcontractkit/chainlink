@@ -115,7 +115,6 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	})
 
 	jsonAPIResponseWithStatus(c, resources, "keys", http.StatusOK)
-
 }
 
 // Create adds a new account
@@ -362,7 +361,6 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	}
 
 	return bal
-
 }
 
 func (ekc *ETHKeysController) setLinkBalance(bal *commonassets.Link) presenters.NewETHKeyOption {

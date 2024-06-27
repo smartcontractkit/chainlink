@@ -1,6 +1,7 @@
 package feeds
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -9,104 +10,110 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
-	"github.com/jmoiron/sqlx"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
 
 //go:generate mockery --with-expecter=true --quiet --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	CountManagers() (int64, error)
-	CreateManager(ms *FeedsManager, qopts ...pg.QOpt) (int64, error)
-	GetManager(id int64) (*FeedsManager, error)
-	ListManagers() (mgrs []FeedsManager, err error)
-	ListManagersByIDs(ids []int64) ([]FeedsManager, error)
-	UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) error
+	CountManagers(ctx context.Context) (int64, error)
+	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)
+	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
+	ListManagers(ctx context.Context) (mgrs []FeedsManager, err error)
+	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
+	UpdateManager(ctx context.Context, mgr FeedsManager) error
 
-	CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) ([]int64, error)
-	CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (int64, error)
-	DeleteChainConfig(id int64) (int64, error)
-	GetChainConfig(id int64) (*ChainConfig, error)
-	ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error)
-	UpdateChainConfig(cfg ChainConfig) (int64, error)
+	CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) ([]int64, error)
+	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
+	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
+	GetChainConfig(ctx context.Context, id int64) (*ChainConfig, error)
+	ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]ChainConfig, error)
+	UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 
-	CountJobProposals() (int64, error)
-	CountJobProposalsByStatus() (counts *JobProposalCounts, err error)
-	CreateJobProposal(jp *JobProposal) (int64, error)
-	DeleteProposal(id int64, qopts ...pg.QOpt) error
-	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
-	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
-	ListJobProposals() (jps []JobProposal, err error)
-	ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
-	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error // NEEDED?
-	UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (int64, error)
+	CountJobProposals(ctx context.Context) (int64, error)
+	CountJobProposalsByStatus(ctx context.Context) (counts *JobProposalCounts, err error)
+	CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
+	DeleteProposal(ctx context.Context, id int64) error
+	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
+	GetJobProposalByRemoteUUID(ctx context.Context, uuid uuid.UUID) (*JobProposal, error)
+	ListJobProposals(ctx context.Context) (jps []JobProposal, err error)
+	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
+	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error // NEEDED?
+	UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
 
-	ApproveSpec(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt) error
-	CancelSpec(id int64, qopts ...pg.QOpt) error
-	CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error)
-	ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error)
-	GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
-	GetLatestSpec(jpID int64) (*JobProposalSpec, error)
-	GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error)
-	ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error)
-	RejectSpec(id int64, qopts ...pg.QOpt) error
-	RevokeSpec(id int64, qopts ...pg.QOpt) error
-	UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error
+	ApproveSpec(ctx context.Context, id int64, externalJobID uuid.UUID) error
+	CancelSpec(ctx context.Context, id int64) error
+	CreateSpec(ctx context.Context, spec JobProposalSpec) (int64, error)
+	ExistsSpecByJobProposalIDAndVersion(ctx context.Context, jpID int64, version int32) (exists bool, err error)
+	GetApprovedSpec(ctx context.Context, jpID int64) (*JobProposalSpec, error)
+	GetLatestSpec(ctx context.Context, jpID int64) (*JobProposalSpec, error)
+	GetSpec(ctx context.Context, id int64) (*JobProposalSpec, error)
+	ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error)
+	RejectSpec(ctx context.Context, id int64) error
+	RevokeSpec(ctx context.Context, id int64) error
+	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
-	IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error)
+	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
+
+	Transact(context.Context, func(ORM) error) error
+	WithDataSource(sqlutil.DataSource) ORM
 }
 
 var _ ORM = &orm{}
 
 type orm struct {
-	q pg.Q
+	ds sqlutil.DataSource
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
-	return &orm{
-		q: pg.NewQ(db, lggr, cfg),
-	}
+func NewORM(ds sqlutil.DataSource) *orm {
+	return &orm{ds: ds}
 }
+
+func (o *orm) Transact(ctx context.Context, fn func(ORM) error) error {
+	return sqlutil.Transact(ctx, o.WithDataSource, o.ds, nil, fn)
+}
+
+func (o *orm) WithDataSource(ds sqlutil.DataSource) ORM { return &orm{ds} }
 
 // Count counts the number of feeds manager records.
-func (o *orm) CountManagers() (count int64, err error) {
+func (o *orm) CountManagers(ctx context.Context) (count int64, err error) {
 	stmt := `
 SELECT COUNT(*)
 FROM feeds_managers
 	`
 
-	err = o.q.Get(&count, stmt)
+	err = o.ds.GetContext(ctx, &count, stmt)
 	return count, errors.Wrap(err, "CountManagers failed")
 }
 
 // CreateManager creates a feeds manager.
-func (o *orm) CreateManager(ms *FeedsManager, qopts ...pg.QOpt) (id int64, err error) {
+func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (id int64, err error) {
 	stmt := `
 INSERT INTO feeds_managers (name, uri, public_key, created_at, updated_at)
 VALUES ($1,$2,$3,NOW(),NOW())
 RETURNING id;
 `
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, ms.Name, ms.URI, ms.PublicKey)
+	err = o.ds.GetContext(ctx, &id, stmt, ms.Name, ms.URI, ms.PublicKey)
 
 	return id, errors.Wrap(err, "CreateManager failed")
 }
 
 // CreateChainConfig creates a new chain config.
-func (o *orm) CreateChainConfig(cfg ChainConfig, qopts ...pg.QOpt) (id int64, err error) {
+func (o *orm) CreateChainConfig(ctx context.Context, cfg ChainConfig) (id int64, err error) {
 	stmt := `
-INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),NOW())
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id,
+	err = o.ds.GetContext(ctx,
+		&id,
 		stmt,
 		cfg.FeedsManagerID,
 		cfg.ChainID,
 		cfg.ChainType,
 		cfg.AccountAddress,
+		cfg.AccountAddressPublicKey,
 		cfg.AdminAddress,
 		cfg.FluxMonitorConfig,
 		cfg.OCR1Config,
@@ -117,13 +124,13 @@ RETURNING id;
 }
 
 // CreateBatchChainConfig creates multiple chain configs.
-func (o *orm) CreateBatchChainConfig(cfgs []ChainConfig, qopts ...pg.QOpt) (ids []int64, err error) {
+func (o *orm) CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) (ids []int64, err error) {
 	if len(cfgs) == 0 {
 		return
 	}
 
 	stmt := `
-INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
+INSERT INTO feeds_manager_chain_configs (feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at)
 VALUES %s
 RETURNING id;
 	`
@@ -135,16 +142,16 @@ RETURNING id;
 
 	for i, cfg := range cfgs {
 		// Generate the placeholders
-		pnumidx := i * 8
+		pnumidx := i * 9
 
-		lo, hi := pnumidx+1, pnumidx+8
+		lo, hi := pnumidx+1, pnumidx+9
 		pnums := make([]any, hi-lo+1)
 		for i := range pnums {
 			pnums[i] = i + lo
 		}
 
 		vStrs = append(vStrs, fmt.Sprintf(
-			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, NOW(), NOW())", pnums...,
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, NOW(), NOW())", pnums...,
 		))
 
 		// Append the values
@@ -153,6 +160,7 @@ RETURNING id;
 			cfg.ChainID,
 			cfg.ChainType,
 			cfg.AccountAddress,
+			cfg.AccountAddressPublicKey,
 			cfg.AdminAddress,
 			cfg.FluxMonitorConfig,
 			cfg.OCR1Config,
@@ -160,7 +168,8 @@ RETURNING id;
 		)
 	}
 
-	err = o.q.WithOpts(qopts...).Select(&ids,
+	err = o.ds.SelectContext(ctx,
+		&ids,
 		fmt.Sprintf(stmt, strings.Join(vStrs, ",")),
 		vArgs...,
 	)
@@ -169,7 +178,7 @@ RETURNING id;
 }
 
 // DeleteChainConfig deletes a chain config.
-func (o *orm) DeleteChainConfig(id int64) (int64, error) {
+func (o *orm) DeleteChainConfig(ctx context.Context, id int64) (int64, error) {
 	stmt := `
 DELETE FROM feeds_manager_chain_configs
 WHERE id = $1
@@ -177,42 +186,42 @@ RETURNING id;
 `
 
 	var ccid int64
-	err := o.q.Get(&ccid, stmt, id)
+	err := o.ds.GetContext(ctx, &ccid, stmt, id)
 
 	return ccid, errors.Wrap(err, "DeleteChainConfig failed")
 }
 
 // GetChainConfig fetches a chain config.
-func (o *orm) GetChainConfig(id int64) (*ChainConfig, error) {
+func (o *orm) GetChainConfig(ctx context.Context, id int64) (*ChainConfig, error) {
 	stmt := `
-SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
 FROM feeds_manager_chain_configs
 WHERE id = $1;
 `
 
 	var cfg ChainConfig
-	err := o.q.Get(&cfg, stmt, id)
+	err := o.ds.GetContext(ctx, &cfg, stmt, id)
 
 	return &cfg, errors.Wrap(err, "GetChainConfig failed")
 }
 
 // ListChainConfigsByManagerIDs fetches the chain configs matching all manager
 // ids.
-func (o *orm) ListChainConfigsByManagerIDs(mgrIDs []int64) ([]ChainConfig, error) {
+func (o *orm) ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]ChainConfig, error) {
 	stmt := `
-SELECT id, feeds_manager_id, chain_id, chain_type, account_address, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
+SELECT id, feeds_manager_id, chain_id, chain_type, account_address, account_address_public_key, admin_address, flux_monitor_config, ocr1_config, ocr2_config, created_at, updated_at
 FROM feeds_manager_chain_configs
 WHERE feeds_manager_id = ANY($1)
 	`
 
 	var cfgs []ChainConfig
-	err := o.q.Select(&cfgs, stmt, mgrIDs)
+	err := o.ds.SelectContext(ctx, &cfgs, stmt, mgrIDs)
 
 	return cfgs, errors.Wrap(err, "ListJobProposalsByManagersIDs failed")
 }
 
 // UpdateChainConfig updates a chain config.
-func (o *orm) UpdateChainConfig(cfg ChainConfig) (int64, error) {
+func (o *orm) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	stmt := `
 UPDATE feeds_manager_chain_configs
 SET account_address = $1,
@@ -220,18 +229,20 @@ SET account_address = $1,
 	flux_monitor_config = $3,
 	ocr1_config = $4,
 	ocr2_config = $5,
+	account_address_public_key = $6,
 	updated_at = NOW()
-WHERE id = $6
+WHERE id = $7
 RETURNING id;
 `
 
 	var cfgID int64
-	err := o.q.Get(&cfgID, stmt,
+	err := o.ds.GetContext(ctx, &cfgID, stmt,
 		cfg.AccountAddress,
 		cfg.AdminAddress,
 		cfg.FluxMonitorConfig,
 		cfg.OCR1Config,
 		cfg.OCR2Config,
+		cfg.AccountAddressPublicKey,
 		cfg.ID,
 	)
 
@@ -239,7 +250,7 @@ RETURNING id;
 }
 
 // GetManager gets a feeds manager by id.
-func (o *orm) GetManager(id int64) (mgr *FeedsManager, err error) {
+func (o *orm) GetManager(ctx context.Context, id int64) (mgr *FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers
@@ -247,23 +258,23 @@ WHERE id = $1
 `
 
 	mgr = new(FeedsManager)
-	err = o.q.Get(mgr, stmt, id)
+	err = o.ds.GetContext(ctx, mgr, stmt, id)
 	return mgr, errors.Wrap(err, "GetManager failed")
 }
 
 // ListManager lists all feeds managers.
-func (o *orm) ListManagers() (mgrs []FeedsManager, err error) {
+func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers;
 `
 
-	err = o.q.Select(&mgrs, stmt)
+	err = o.ds.SelectContext(ctx, &mgrs, stmt)
 	return mgrs, errors.Wrap(err, "ListManagers failed")
 }
 
 // ListManagersByIDs gets feeds managers by ids.
-func (o *orm) ListManagersByIDs(ids []int64) (managers []FeedsManager, err error) {
+func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at
 FROM feeds_managers
@@ -271,20 +282,20 @@ WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
 	mgrIds := pq.Array(ids)
-	err = o.q.Select(&managers, stmt, mgrIds)
+	err = o.ds.SelectContext(ctx, &managers, stmt, mgrIds)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }
 
 // UpdateManager updates the manager details.
-func (o *orm) UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) (err error) {
+func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) (err error) {
 	stmt := `
 UPDATE feeds_managers
 SET name = $1, uri = $2, public_key = $3, updated_at = NOW()
 WHERE id = $4;
 `
 
-	res, err := o.q.WithOpts(qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.ID)
+	res, err := o.ds.ExecContext(ctx, stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.ID)
 	if err != nil {
 		return errors.Wrap(err, "UpdateManager failed to update feeds_managers")
 	}
@@ -299,27 +310,27 @@ WHERE id = $4;
 }
 
 // CreateJobProposal creates a job proposal.
-func (o *orm) CreateJobProposal(jp *JobProposal) (id int64, err error) {
+func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (id int64, err error) {
 	stmt := `
 INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 RETURNING id;
 `
 
-	err = o.q.Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.ds.GetContext(ctx, &id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
 // CountJobProposals counts the number of job proposal records.
-func (o *orm) CountJobProposals() (count int64, err error) {
+func (o *orm) CountJobProposals(ctx context.Context) (count int64, err error) {
 	stmt := `SELECT COUNT(*) FROM job_proposals`
 
-	err = o.q.Get(&count, stmt)
+	err = o.ds.GetContext(ctx, &count, stmt)
 	return count, errors.Wrap(err, "CountJobProposals failed")
 }
 
 // CountJobProposals counts the number of job proposal records.
-func (o *orm) CountJobProposalsByStatus() (counts *JobProposalCounts, err error) {
+func (o *orm) CountJobProposalsByStatus(ctx context.Context) (counts *JobProposalCounts, err error) {
 	stmt := `
 SELECT 
 	COUNT(*) filter (where job_proposals.status = 'pending' OR job_proposals.pending_update = TRUE) as pending,
@@ -332,26 +343,26 @@ FROM job_proposals;
 	`
 
 	counts = new(JobProposalCounts)
-	err = o.q.Get(counts, stmt)
+	err = o.ds.GetContext(ctx, counts, stmt)
 	return counts, errors.Wrap(err, "CountJobProposalsByStatus failed")
 }
 
 // GetJobProposal gets a job proposal by id.
-func (o *orm) GetJobProposal(id int64, qopts ...pg.QOpt) (jp *JobProposal, err error) {
+func (o *orm) GetJobProposal(ctx context.Context, id int64) (jp *JobProposal, err error) {
 	stmt := `
 SELECT *
 FROM job_proposals
 WHERE id = $1
 `
 	jp = new(JobProposal)
-	err = o.q.WithOpts(qopts...).Get(jp, stmt, id)
+	err = o.ds.GetContext(ctx, jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid. This
 // method will filter out the deleted job proposals. To get all job proposals,
 // use the GetJobProposal get by id method.
-func (o *orm) GetJobProposalByRemoteUUID(id uuid.UUID) (jp *JobProposal, err error) {
+func (o *orm) GetJobProposalByRemoteUUID(ctx context.Context, id uuid.UUID) (jp *JobProposal, err error) {
 	stmt := `
 SELECT *
 FROM job_proposals
@@ -360,35 +371,35 @@ AND status <> $2;
 `
 
 	jp = new(JobProposal)
-	err = o.q.Get(jp, stmt, id, JobProposalStatusDeleted)
+	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
 }
 
 // ListJobProposals lists all job proposals.
-func (o *orm) ListJobProposals() (jps []JobProposal, err error) {
+func (o *orm) ListJobProposals(ctx context.Context) (jps []JobProposal, err error) {
 	stmt := `
 SELECT *
 FROM job_proposals;
 `
 
-	err = o.q.Select(&jps, stmt)
+	err = o.ds.SelectContext(ctx, &jps, stmt)
 	return jps, errors.Wrap(err, "ListJobProposals failed")
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.
-func (o *orm) ListJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
+func (o *orm) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error) {
 	stmt := `
 SELECT *
 FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
-	err := o.q.WithOpts(qopts...).Select(&jps, stmt, ids)
+	err := o.ds.SelectContext(ctx, &jps, stmt, ids)
 	return jps, errors.Wrap(err, "ListJobProposalsByManagersIDs failed")
 }
 
 // UpdateJobProposalStatus updates the status of a job proposal by id.
-func (o *orm) UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error {
+func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
@@ -396,7 +407,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, status, id)
+	result, err := o.ds.ExecContext(ctx, stmt, status, id)
 	if err != nil {
 		return err
 	}
@@ -415,7 +426,7 @@ WHERE id = $2;
 // UpsertJobProposal creates a job proposal if it does not exist. If it does exist,
 // then we update the details of the existing job proposal only if the provided
 // feeds manager id exists.
-func (o *orm) UpsertJobProposal(jp *JobProposal, qopts ...pg.QOpt) (id int64, err error) {
+func (o *orm) UpsertJobProposal(ctx context.Context, jp *JobProposal) (id int64, err error) {
 	stmt := `
 INSERT INTO job_proposals (name, remote_uuid, status, feeds_manager_id, multiaddrs, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
@@ -436,13 +447,13 @@ DO
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.ds.GetContext(ctx, &id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
 // ApproveSpec approves the spec and sets the external job ID on the associated
 // job proposal.
-func (o *orm) ApproveSpec(id int64, externalJobID uuid.UUID, qopts ...pg.QOpt) error {
+func (o *orm) ApproveSpec(ctx context.Context, id int64, externalJobID uuid.UUID) error {
 	// Update the status of the approval
 	stmt := `
 UPDATE job_proposal_specs
@@ -454,7 +465,7 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, JobProposalStatusApproved, id); err != nil {
+	if err := o.ds.GetContext(ctx, &jpID, stmt, JobProposalStatusApproved, id); err != nil {
 		return err
 	}
 
@@ -468,7 +479,7 @@ SET status = $1,
 WHERE id = $3;
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusApproved, externalJobID, jpID)
+	result, err := o.ds.ExecContext(ctx, stmt, JobProposalStatusApproved, externalJobID, jpID)
 	if err != nil {
 		return err
 	}
@@ -487,7 +498,7 @@ WHERE id = $3;
 // CancelSpec cancels the spec and removes the external job id from the associated job proposal. It
 // sets the status of the spec and the proposal to cancelled, except in the case of deleted
 // proposals.
-func (o *orm) CancelSpec(id int64, qopts ...pg.QOpt) error {
+func (o *orm) CancelSpec(ctx context.Context, id int64) error {
 	// Update the status of the approval
 	stmt := `
 UPDATE job_proposal_specs
@@ -499,7 +510,7 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusCancelled, id); err != nil {
+	if err := o.ds.GetContext(ctx, &jpID, stmt, SpecStatusCancelled, id); err != nil {
 		return err
 	}
 
@@ -516,7 +527,7 @@ SET status = (
 	updated_at = NOW()
 WHERE id = $1;
 `
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil)
+	result, err := o.ds.ExecContext(ctx, stmt, jpID, nil)
 	if err != nil {
 		return err
 	}
@@ -533,7 +544,7 @@ WHERE id = $1;
 }
 
 // CreateSpec creates a new job proposal spec
-func (o *orm) CreateSpec(spec JobProposalSpec, qopts ...pg.QOpt) (int64, error) {
+func (o *orm) CreateSpec(ctx context.Context, spec JobProposalSpec) (int64, error) {
 	stmt := `
 INSERT INTO job_proposal_specs (definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at)
 VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
@@ -541,14 +552,14 @@ RETURNING id;
 `
 
 	var id int64
-	err := o.q.WithOpts(qopts...).Get(&id, stmt, spec.Definition, spec.Version, spec.Status, spec.JobProposalID)
+	err := o.ds.GetContext(ctx, &id, stmt, spec.Definition, spec.Version, spec.Status, spec.JobProposalID)
 
 	return id, errors.Wrap(err, "CreateJobProposalSpec failed")
 }
 
 // ExistsSpecByJobProposalIDAndVersion checks if a job proposal spec exists for a specific job
 // proposal and version.
-func (o *orm) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error) {
+func (o *orm) ExistsSpecByJobProposalIDAndVersion(ctx context.Context, jpID int64, version int32) (exists bool, err error) {
 	stmt := `
 SELECT exists (
 	SELECT 1
@@ -557,12 +568,12 @@ SELECT exists (
 );
 `
 
-	err = o.q.WithOpts(qopts...).Get(&exists, stmt, jpID, version)
+	err = o.ds.GetContext(ctx, &exists, stmt, jpID, version)
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
 }
 
 // DeleteProposal performs a soft delete of the job proposal by setting the status to deleted
-func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
+func (o *orm) DeleteProposal(ctx context.Context, id int64) error {
 	// Get the latest spec for the proposal.
 	stmt := `
 	SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
@@ -577,7 +588,7 @@ AND job_proposal_id = $1
 `
 
 	var spec JobProposalSpec
-	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
+	err := o.ds.GetContext(ctx, &spec, stmt, id)
 	if err != nil {
 		return err
 	}
@@ -593,7 +604,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusDeleted, id, pendingUpdate)
+	result, err := o.ds.ExecContext(ctx, stmt, JobProposalStatusDeleted, id, pendingUpdate)
 	if err != nil {
 		return err
 	}
@@ -610,20 +621,20 @@ WHERE id = $2;
 }
 
 // GetSpec fetches the job proposal spec by id
-func (o *orm) GetSpec(id int64, qopts ...pg.QOpt) (*JobProposalSpec, error) {
+func (o *orm) GetSpec(ctx context.Context, id int64) (*JobProposalSpec, error) {
 	stmt := `
 SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
 FROM job_proposal_specs
 WHERE id = $1;
 `
 	var spec JobProposalSpec
-	err := o.q.WithOpts(qopts...).Get(&spec, stmt, id)
+	err := o.ds.GetContext(ctx, &spec, stmt, id)
 
 	return &spec, errors.Wrap(err, "CreateJobProposalSpec failed")
 }
 
 // GetApprovedSpec gets the approved spec for a job proposal
-func (o *orm) GetApprovedSpec(jpID int64, qopts ...pg.QOpt) (*JobProposalSpec, error) {
+func (o *orm) GetApprovedSpec(ctx context.Context, jpID int64) (*JobProposalSpec, error) {
 	stmt := `
 SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
 FROM job_proposal_specs
@@ -632,13 +643,13 @@ AND job_proposal_id = $2
 `
 
 	var spec JobProposalSpec
-	err := o.q.WithOpts(qopts...).Get(&spec, stmt, SpecStatusApproved, jpID)
+	err := o.ds.GetContext(ctx, &spec, stmt, SpecStatusApproved, jpID)
 
 	return &spec, errors.Wrap(err, "GetApprovedSpec failed")
 }
 
 // GetLatestSpec gets the latest spec for a job proposal.
-func (o *orm) GetLatestSpec(jpID int64) (*JobProposalSpec, error) {
+func (o *orm) GetLatestSpec(ctx context.Context, jpID int64) (*JobProposalSpec, error) {
 	stmt := `
 	SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
 FROM job_proposal_specs
@@ -652,26 +663,26 @@ AND job_proposal_id = $1
 `
 
 	var spec JobProposalSpec
-	err := o.q.Get(&spec, stmt, jpID)
+	err := o.ds.GetContext(ctx, &spec, stmt, jpID)
 
 	return &spec, errors.Wrap(err, "GetLatestSpec failed")
 }
 
 // ListSpecsByJobProposalIDs lists the specs which belong to any of job proposal
 // ids.
-func (o *orm) ListSpecsByJobProposalIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposalSpec, error) {
+func (o *orm) ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error) {
 	stmt := `
 SELECT id, definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at
 FROM job_proposal_specs
 WHERE job_proposal_id = ANY($1)
 `
 	var specs []JobProposalSpec
-	err := o.q.WithOpts(qopts...).Select(&specs, stmt, ids)
+	err := o.ds.SelectContext(ctx, &specs, stmt, ids)
 	return specs, errors.Wrap(err, "GetJobProposalsByManagersIDs failed")
 }
 
 // RejectSpec rejects the spec and updates the job proposal
-func (o *orm) RejectSpec(id int64, qopts ...pg.QOpt) error {
+func (o *orm) RejectSpec(ctx context.Context, id int64) error {
 	stmt := `
 UPDATE job_proposal_specs
 SET status = $1,
@@ -682,7 +693,7 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, SpecStatusRejected, id); err != nil {
+	if err := o.ds.GetContext(ctx, &jpID, stmt, SpecStatusRejected, id); err != nil {
 		return err
 	}
 
@@ -700,7 +711,7 @@ SET status = (
 WHERE id = $1
 `
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID)
+	result, err := o.ds.ExecContext(ctx, stmt, jpID)
 	if err != nil {
 		return err
 	}
@@ -719,7 +730,7 @@ WHERE id = $1
 // RevokeSpec revokes a job proposal with a pending job spec. An approved
 // proposal cannot be revoked. A revoked proposal's job spec cannot be approved
 // or edited, but the job can be reproposed by FMS.
-func (o *orm) RevokeSpec(id int64, qopts ...pg.QOpt) error {
+func (o *orm) RevokeSpec(ctx context.Context, id int64) error {
 	// Update the status of the spec
 	stmt := `
 UPDATE job_proposal_specs
@@ -736,7 +747,7 @@ RETURNING job_proposal_id;
 `
 
 	var jpID int64
-	if err := o.q.WithOpts(qopts...).Get(&jpID, stmt, id, SpecStatusRevoked); err != nil {
+	if err := o.ds.GetContext(ctx, &jpID, stmt, id, SpecStatusRevoked); err != nil {
 		return err
 	}
 
@@ -760,7 +771,7 @@ SET status = (
 WHERE id = $1
 	`
 
-	result, err := o.q.WithOpts(qopts...).Exec(stmt, jpID, nil, JobProposalStatusRevoked)
+	result, err := o.ds.ExecContext(ctx, stmt, jpID, nil, JobProposalStatusRevoked)
 	if err != nil {
 		return err
 	}
@@ -777,7 +788,7 @@ WHERE id = $1
 }
 
 // UpdateSpecDefinition updates the definition of a job proposal spec by id.
-func (o *orm) UpdateSpecDefinition(id int64, spec string, qopts ...pg.QOpt) error {
+func (o *orm) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	stmt := `
 UPDATE job_proposal_specs
 SET definition = $1,
@@ -785,7 +796,7 @@ SET definition = $1,
 WHERE id = $2;
 `
 
-	res, err := o.q.WithOpts(qopts...).Exec(stmt, spec, id)
+	res, err := o.ds.ExecContext(ctx, stmt, spec, id)
 	if err != nil {
 		return errors.Wrap(err, "UpdateSpecDefinition failed to update definition")
 	}
@@ -803,7 +814,7 @@ WHERE id = $2;
 }
 
 // IsJobManaged determines if a job is managed by the feeds manager.
-func (o *orm) IsJobManaged(jobID int64, qopts ...pg.QOpt) (exists bool, err error) {
+func (o *orm) IsJobManaged(ctx context.Context, jobID int64) (exists bool, err error) {
 	stmt := `
 SELECT exists (
 	SELECT 1
@@ -813,6 +824,6 @@ SELECT exists (
 );
 `
 
-	err = o.q.WithOpts(qopts...).Get(&exists, stmt, jobID)
+	err = o.ds.GetContext(ctx, &exists, stmt, jobID)
 	return exists, errors.Wrap(err, "IsJobManaged failed")
 }

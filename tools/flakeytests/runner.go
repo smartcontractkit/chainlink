@@ -219,8 +219,8 @@ func (r *Runner) runTests(rep *Report) (*Report, error) {
 			ts = append(ts, test)
 		}
 
-		log.Printf("[FLAKEY_TEST] Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d\n", pkg, ts, r.numReruns)
 		for i := 0; i < r.numReruns; i++ {
+			log.Printf("[FLAKEY_TEST] Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d currentRun=%d\n", pkg, ts, r.numReruns, i)
 			pr, err := r.runTest(pkg, ts)
 			if err != nil {
 				return report, err
@@ -232,13 +232,12 @@ func (r *Runner) runTests(rep *Report) (*Report, error) {
 					report.SetTest(pkg, t, 1)
 				}
 			}
-
 		}
 	}
 
 	for pkg := range rep.packagePanics {
-		log.Printf("[PACKAGE_PANIC]: Executing test command with parameters: pkg=%s, numReruns=%d\n", pkg, r.numReruns)
 		for i := 0; i < r.numReruns; i++ {
+			log.Printf("[PACKAGE_PANIC]: Executing test command with parameters: pkg=%s, numReruns=%d currentRun=%d\n", pkg, r.numReruns, i)
 			pr, err := r.runTest(pkg, []string{})
 			if err != nil {
 				return report, err
@@ -292,7 +291,6 @@ func dedupeEntries(report *Report) (*Report, error) {
 
 			out.SetTest(pkg, tn, report.tests[pkg][tn])
 		}
-
 	}
 
 	return out, nil

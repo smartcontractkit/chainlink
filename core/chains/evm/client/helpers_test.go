@@ -12,19 +12,81 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
+	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
+type TestClientErrors struct {
+	nonceTooLow                       string
+	nonceTooHigh                      string
+	replacementTransactionUnderpriced string
+	limitReached                      string
+	transactionAlreadyInMempool       string
+	terminallyUnderpriced             string
+	insufficientEth                   string
+	txFeeExceedsCap                   string
+	l2FeeTooLow                       string
+	l2FeeTooHigh                      string
+	l2Full                            string
+	transactionAlreadyMined           string
+	fatal                             string
+	serviceUnavailable                string
+}
+
+func NewTestClientErrors() TestClientErrors {
+	return TestClientErrors{
+		nonceTooLow:                       "client error nonce too low",
+		nonceTooHigh:                      "client error nonce too high",
+		replacementTransactionUnderpriced: "client error replacement underpriced",
+		limitReached:                      "client error limit reached",
+		transactionAlreadyInMempool:       "client error transaction already in mempool",
+		terminallyUnderpriced:             "client error terminally underpriced",
+		insufficientEth:                   "client error insufficient eth",
+		txFeeExceedsCap:                   "client error tx fee exceeds cap",
+		l2FeeTooLow:                       "client error l2 fee too low",
+		l2FeeTooHigh:                      "client error l2 fee too high",
+		l2Full:                            "client error l2 full",
+		transactionAlreadyMined:           "client error transaction already mined",
+		fatal:                             "client error fatal",
+		serviceUnavailable:                "client error service unavailable",
+	}
+}
+
+func (c *TestClientErrors) NonceTooLow() string  { return c.nonceTooLow }
+func (c *TestClientErrors) NonceTooHigh() string { return c.nonceTooHigh }
+
+func (c *TestClientErrors) ReplacementTransactionUnderpriced() string {
+	return c.replacementTransactionUnderpriced
+}
+
+func (c *TestClientErrors) LimitReached() string { return c.limitReached }
+
+func (c *TestClientErrors) TransactionAlreadyInMempool() string {
+	return c.transactionAlreadyInMempool
+}
+
+func (c *TestClientErrors) TerminallyUnderpriced() string   { return c.terminallyUnderpriced }
+func (c *TestClientErrors) InsufficientEth() string         { return c.insufficientEth }
+func (c *TestClientErrors) TxFeeExceedsCap() string         { return c.txFeeExceedsCap }
+func (c *TestClientErrors) L2FeeTooLow() string             { return c.l2FeeTooLow }
+func (c *TestClientErrors) L2FeeTooHigh() string            { return c.l2FeeTooHigh }
+func (c *TestClientErrors) L2Full() string                  { return c.l2Full }
+func (c *TestClientErrors) TransactionAlreadyMined() string { return c.transactionAlreadyMined }
+func (c *TestClientErrors) Fatal() string                   { return c.fatal }
+func (c *TestClientErrors) ServiceUnavailable() string      { return c.serviceUnavailable }
+
 type TestNodePoolConfig struct {
-	NodePollFailureThreshold uint32
-	NodePollInterval         time.Duration
-	NodeSelectionMode        string
-	NodeSyncThreshold        uint32
-	NodeLeaseDuration        time.Duration
-	NodeIsSyncingEnabledVal  bool
+	NodePollFailureThreshold       uint32
+	NodePollInterval               time.Duration
+	NodeSelectionMode              string
+	NodeSyncThreshold              uint32
+	NodeLeaseDuration              time.Duration
+	NodeIsSyncingEnabledVal        bool
+	NodeFinalizedBlockPollInterval time.Duration
+	NodeErrors                     config.ClientErrors
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -39,38 +101,12 @@ func (tc TestNodePoolConfig) NodeIsSyncingEnabled() bool {
 	return tc.NodeIsSyncingEnabledVal
 }
 
-func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
-	parsed, err := url.ParseRequestURI(rpcUrl)
-	if err != nil {
-		return nil, err
-	}
-
-	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
-		return nil, pkgerrors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
-	}
-
-	lggr := logger.Sugared(logger.Test(t))
-	n := NewNode(nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-0", id, chainID, 1)
-	n.(*node).setLatestReceived(0, big.NewInt(0))
-	primaries := []Node{n}
-
-	var sendonlys []SendOnlyNode
-	for i, url := range sendonlyRPCURLs {
-		if url.Scheme != "http" && url.Scheme != "https" {
-			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
-		}
-		s := NewSendOnlyNode(lggr, url, fmt.Sprintf("eth-sendonly-%d", i), chainID)
-		sendonlys = append(sendonlys, s)
-	}
-
-	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), nodePoolCfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
-	c := &client{logger: lggr, pool: pool}
-	t.Cleanup(c.Close)
-	return c, nil
+func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
+	return tc.NodeFinalizedBlockPollInterval
 }
 
-func Wrap(err error, s string) error {
-	return wrap(err, s)
+func (tc TestNodePoolConfig) Errors() config.ClientErrors {
+	return tc.NodeErrors
 }
 
 func NewChainClientWithTestNode(
@@ -97,7 +133,7 @@ func NewChainClientWithTestNode(
 	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
-		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
+		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 
 	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
@@ -112,8 +148,9 @@ func NewChainClientWithTestNode(
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	var chainType chaintype.ChainType
+	clientErrors := NewTestClientErrors()
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -125,11 +162,10 @@ func NewChainClientWithEmptyNode(
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
 ) Client {
-
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType)
+	var chainType chaintype.ChainType
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -142,34 +178,25 @@ func NewChainClientWithMockedRpc(
 	chainID *big.Int,
 	rpc RPCClient,
 ) Client {
-
 	lggr := logger.Test(t)
 
-	var chainType commonconfig.ChainType
+	var chainType chaintype.ChainType
 
 	cfg := TestNodePoolConfig{
-		NodeSelectionMode: NodeSelectionMode_RoundRobin,
+		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
 	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
-		cfg, noNewHeadsThreshold, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
+		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType)
+	clientErrors := NewTestClientErrors()
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
 	t.Cleanup(c.Close)
 	return c
 }
 
-type TestableSendOnlyNode interface {
-	SendOnlyNode
-	SetEthClient(newBatchSender BatchSender, newSender TxSender)
-}
-
 const HeadResult = `{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x1","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`
-
-func IsDialed(s SendOnlyNode) bool {
-	return s.(*sendOnlyNode).dialed
-}
 
 type mockSubscription struct {
 	unsubscribed bool
@@ -187,8 +214,6 @@ func (mes *mockSubscription) Unsubscribe() {
 	close(mes.Errors)
 }
 
-type TestNodeConfig = nodeConfig
-
-func ParseTestNodeConfigs(nodes []TestNodeConfig) ([]*toml.Node, error) {
+func ParseTestNodeConfigs(nodes []NodeConfig) ([]*toml.Node, error) {
 	return parseNodeConfigs(nodes)
 }

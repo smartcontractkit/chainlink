@@ -124,10 +124,12 @@ func TestJob(t *testing.T) {
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -200,10 +202,12 @@ func TestJob(t *testing.T) {
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -286,10 +290,12 @@ func TestJob(t *testing.T) {
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -345,6 +351,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
                         "cronSpec": null,
@@ -353,6 +360,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -366,6 +374,7 @@ func TestJob(t *testing.T) {
 					CronSchedule: cronSchedule,
 					CreatedAt:    timestamp,
 					UpdatedAt:    timestamp,
+					EVMChainID:   evmChainID,
 				},
 				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -396,7 +405,8 @@ func TestJob(t *testing.T) {
                         "cronSpec": {
                             "schedule": "%s",
                             "createdAt":"2000-01-01T00:00:00Z",
-                            "updatedAt":"2000-01-01T00:00:00Z"
+                            "updatedAt":"2000-01-01T00:00:00Z",
+                            "evmChainID":"42"
                         },
                         "fluxMonitorSpec": null,
 						"gasLimit": null,
@@ -407,10 +417,12 @@ func TestJob(t *testing.T) {
 						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
                         "webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
                         "errors": []
                     }
                 }
@@ -454,6 +466,7 @@ func TestJob(t *testing.T) {
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"
 						},
+						"workflowSpec": null,
 						"fluxMonitorSpec": null,
 						"gasLimit": null,
 						"forwardingAllowed": false,
@@ -467,6 +480,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -542,6 +556,7 @@ func TestJob(t *testing.T) {
 							"gasLanePrice":                  "200 gwei"
 						},
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
@@ -551,6 +566,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,	
 						"errors": []
 					}
 				}
@@ -606,6 +622,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": {
 							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
@@ -631,6 +648,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -686,6 +704,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": {
 							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
@@ -711,6 +730,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -756,6 +776,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": {
@@ -775,6 +796,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": []
 					}
 				}
@@ -820,6 +842,7 @@ func TestJob(t *testing.T) {
 						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"blockhashStoreSpec": null,
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
@@ -828,6 +851,131 @@ func TestJob(t *testing.T) {
 								"NodeServerConfig": {
 								}
 							},
+							"createdAt":"0001-01-01T00:00:00Z",
+							"updatedAt":"0001-01-01T00:00:00Z"
+						},
+						"standardCapabilitiesSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "workflow spec",
+			job: job.Job{
+				ID: 1,
+				WorkflowSpec: &job.WorkflowSpec{
+					ID:            3,
+					WorkflowID:    "<test-workflow-id>",
+					Workflow:      `<test-workflow-spec>`,
+					WorkflowOwner: "<test-workflow-owner>",
+					WorkflowName:  "<test-workflow-name>",
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				Type:          job.Workflow,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("workflow test"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "workflow test",
+						"type": "workflow",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": {
+							"workflow": "<test-workflow-spec>",
+							"workflowId": "<test-workflow-id>",
+							"workflowOwner": "<test-workflow-owner>",
+							"workflowName": "<test-workflow-name>",
+							"createdAt":"0001-01-01T00:00:00Z",
+							"updatedAt":"0001-01-01T00:00:00Z"
+						},
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
+						"pipelineSpec": {
+							"id": 1,
+							"jobID": 0,
+							"dotDagSource": ""
+						},
+						"errors": []
+					}
+				}
+			}`,
+		},
+		{
+			name: "standardcapabilities spec",
+			job: job.Job{
+				ID: 1,
+				StandardCapabilitiesSpec: &job.StandardCapabilitiesSpec{
+					ID:      3,
+					Command: "testcommand",
+					Config:  "testconfig",
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				ExternalJobID: uuid.MustParse("0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"),
+				Type:          job.StandardCapabilities,
+				SchemaVersion: 1,
+				Name:          null.StringFrom("standardcapabilities test"),
+			},
+			want: `
+			{
+				"data": {
+					"type": "jobs",
+					"id": "1",
+					"attributes": {
+						"name": "standardcapabilities test",
+						"type": "standardcapabilities",
+						"schemaVersion": 1,
+						"maxTaskDuration": "0s",
+						"externalJobID": "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+						"directRequestSpec": null,
+						"fluxMonitorSpec": null,
+						"gasLimit": null,
+						"forwardingAllowed": false,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"offChainReporting2OracleSpec": null,
+						"keeperSpec": null,
+						"vrfSpec": null,
+						"webhookSpec": null,
+						"workflowSpec": null,
+						"blockhashStoreSpec": null,
+						"blockHeaderFeederSpec": null,
+						"bootstrapSpec": null,
+						"gatewaySpec": null,
+						"standardCapabilitiesSpec": {
+							"command":"testcommand",
+							"config":"testconfig",
 							"createdAt":"0001-01-01T00:00:00Z",
 							"updatedAt":"0001-01-01T00:00:00Z"
 						},
@@ -901,6 +1049,7 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": null,
 						"cronSpec": null,
 						"webhookSpec": null,
+						"workflowSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
@@ -908,6 +1057,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"standardCapabilitiesSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

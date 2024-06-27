@@ -34,7 +34,17 @@ var (
 // HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
 const HeadsBufferSize = 10
 
-type HeadTracker[
+// HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
+//
+//go:generate mockery --quiet --name HeadTracker --output ./mocks/ --case=underscore
+type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	services.Service
+	// Backfill given a head will fill in any missing heads up to latestFinalized
+	Backfill(ctx context.Context, headWithChain, latestFinalized H) (err error)
+	LatestChain() H
+}
+
+type headTracker[
 	HTH htrktypes.Head[BLOCK_HASH, ID],
 	S types.Subscription,
 	ID types.ID,
@@ -42,17 +52,17 @@ type HeadTracker[
 ] struct {
 	services.StateMachine
 	log             logger.SugaredLogger
-	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH]
-	headSaver       types.HeadSaver[HTH, BLOCK_HASH]
+	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH]
+	headSaver       HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *mailbox.Monitor
 	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
-	chainID         ID
+	chainID         types.ID
 	config          htrktypes.Config
 	htConfig        htrktypes.HeadTrackerConfig
 
 	backfillMB   *mailbox.Mailbox[HTH]
 	broadcastMB  *mailbox.Mailbox[HTH]
-	headListener types.HeadListener[HTH, BLOCK_HASH]
+	headListener HeadListener[HTH, BLOCK_HASH]
 	chStop       services.StopChan
 	wgDone       sync.WaitGroup
 	getNilHead   func() HTH
@@ -69,14 +79,14 @@ func NewHeadTracker[
 	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
 	config htrktypes.Config,
 	htConfig htrktypes.HeadTrackerConfig,
-	headBroadcaster types.HeadBroadcaster[HTH, BLOCK_HASH],
-	headSaver types.HeadSaver[HTH, BLOCK_HASH],
+	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH],
+	headSaver HeadSaver[HTH, BLOCK_HASH],
 	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
-) types.HeadTracker[HTH, BLOCK_HASH] {
+) HeadTracker[HTH, BLOCK_HASH] {
 	chStop := make(chan struct{})
 	lggr = logger.Named(lggr, "HeadTracker")
-	return &HeadTracker[HTH, S, ID, BLOCK_HASH]{
+	return &headTracker[HTH, S, ID, BLOCK_HASH]{
 		headBroadcaster: headBroadcaster,
 		client:          client,
 		chainID:         client.ConfiguredChainID(),
@@ -94,7 +104,7 @@ func NewHeadTracker[
 }
 
 // Start starts HeadTracker service.
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugw("Starting HeadTracker", "chainID", ht.chainID)
 		// NOTE: Always try to start the head tracker off with whatever the
@@ -109,7 +119,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			ht.log.Errorw("Error handling initial head", "err", err)
+			ht.log.Errorw("Error handling initial head", "err", err.Error())
 		}
 
 		ht.wgDone.Add(3)
@@ -123,7 +133,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 	})
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context) error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context) error {
 	initialHead, err := ht.client.HeadByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch initial head: %w", err)
@@ -167,7 +177,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 }
 
 // Close stops HeadTracker service.
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Close() error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Close() error {
 	return ht.StopOnce("HeadTracker", func() error {
 		close(ht.chStop)
 		ht.wgDone.Wait()
@@ -175,17 +185,17 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Close() error {
 	})
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
 	return ht.log.Name()
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 	report := map[string]error{ht.Name(): ht.Healthy()}
 	services.CopyHealth(report, ht.headListener.HealthReport())
 	return report
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain, latestFinalized HTH) (err error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain, latestFinalized HTH) (err error) {
 	if !latestFinalized.IsValid() {
 		return errors.New("can not perform backfill without a valid latestFinalized head")
 	}
@@ -201,11 +211,11 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 	return ht.backfill(ctx, headWithChain, latestFinalized)
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
 	return ht.headSaver.LatestChain()
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
 	prevHead := ht.headSaver.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", head.BlockNumber()),
@@ -240,8 +250,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 		}
 	} else {
 		ht.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
-		prevUnFinalizedHead := prevHead.BlockNumber() - int64(ht.config.FinalityDepth())
-		if head.BlockNumber() < prevUnFinalizedHead {
+		prevLatestFinalized := prevHead.LatestFinalizedHead()
+
+		if prevLatestFinalized != nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.log.Criticalf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", head.BlockNumber(), prevHead.BlockNumber())
 			ht.SvcErrBuffer.Append(errors.New("got very old block"))
@@ -250,7 +261,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context
 	return nil
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	defer ht.wgDone.Done()
 
 	samplingInterval := ht.htConfig.SamplingInterval()
@@ -289,7 +300,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop() {
 	}
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	defer ht.wgDone.Done()
 
 	ctx, cancel := ht.chStop.NewCtx()
@@ -327,9 +338,23 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (h HTH, err error) {
-	if ht.config.FinalityTagEnabled() {
-		return ht.client.LatestFinalizedBlock(ctx)
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (latestFinalized HTH, err error) {
+	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagBypass() {
+		latestFinalized, err = ht.client.LatestFinalizedBlock(ctx)
+		if err != nil {
+			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)
+		}
+
+		if !latestFinalized.IsValid() {
+			return latestFinalized, fmt.Errorf("failed to get valid latest finalized block")
+		}
+
+		if currentHead.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
+			return latestFinalized, fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
+				latestFinalized.BlockNumber(), currentHead.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
+		}
+
+		return latestFinalized, nil
 	}
 	// no need to make an additional RPC call on chains with instant finality
 	if ht.config.FinalityDepth() == 0 {
@@ -343,7 +368,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 }
 
 // backfill fetches all missing heads up until the latestFinalizedHead
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
 	headBlockNumber := head.BlockNumber()
 	mark := time.Now()
 	fetched := 0
@@ -402,7 +427,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	return
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BLOCK_HASH) (HTH, error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BLOCK_HASH) (HTH, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n, "blockHash", hash)
 	head, err := ht.client.HeadByHash(ctx, hash)
 	if err != nil {

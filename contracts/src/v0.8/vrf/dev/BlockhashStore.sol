@@ -22,7 +22,7 @@ contract BlockhashStore {
    */
   function store(uint256 n) public {
     bytes32 h = ChainSpecificUtil._getBlockhash(uint64(n));
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
@@ -41,7 +41,7 @@ contract BlockhashStore {
    *   that it hashes to a stored blockhash, and then extract parentHash to get the n-th blockhash.
    */
   function storeVerifyHeader(uint256 n, bytes memory header) public {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(keccak256(header) == s_blockhashes[n + 1], "header has unknown blockhash");
 
     // At this point, we know that header is the correct blockheader for block n+1.
@@ -74,7 +74,7 @@ contract BlockhashStore {
    */
   function getBlockhash(uint256 n) external view returns (bytes32) {
     bytes32 h = s_blockhashes[n];
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(h != 0x0, "blockhash not found in store");
     return h;
   }

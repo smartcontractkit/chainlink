@@ -170,7 +170,7 @@ func (s *scheduler) Run() {
 		result := <-s.resultCh
 		// TODO: if for some reason the cleanup didn't succeed and we're stuck waiting for reports forever
 		// we should be able to timeout and finish shutting down
-		// See: https://app.shortcut.com/chainlinklabs/story/21225/straighten-out-and-clarify-context-usage-in-the-pipeline
+		// See: https://smartcontract-it.atlassian.net/browse/BCF-994
 
 		s.waiting--
 
@@ -269,7 +269,6 @@ func (s *scheduler) Run() {
 				s.waiting++
 			}
 		}
-
 	}
 
 	close(s.taskCh)

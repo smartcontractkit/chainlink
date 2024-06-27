@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -x
+set -xe
 
 
 # get machine / kernel name
@@ -64,13 +64,13 @@ before_hook() {
   # MOVE PLUGINS HERE
   gobin=$(go env GOPATH)/bin
 
-  install_local_plugins  "linux" "amd64" "$gobin"/linux_amd64
-  install_remote_plugins "linux" "amd64" "$gobin"/linux_amd64
+  install_local_plugins  "linux" "amd64" "$gobin"/linux_amd64/
+  install_remote_plugins "linux" "amd64" "$gobin"/linux_amd64/
   mkdir -p "$lib_path/linux_amd64/plugins"
   cp "$gobin"/linux_amd64/chainlink* "$lib_path/linux_amd64/plugins"
 
-  install_local_plugins  "linux" "arm64" "$gobin"/linux_arm64
-  install_remote_plugins "linux" "arm64" "$gobin"/linux_arm64
+  install_local_plugins  "linux" "arm64" "$gobin"/linux_arm64/
+  install_remote_plugins "linux" "arm64" "$gobin"/linux_arm64/
   mkdir -p "$lib_path/linux_arm64/plugins"
   cp "$gobin"/linux_arm64/chainlink* "$lib_path/linux_arm64/plugins"
 }
@@ -79,9 +79,10 @@ install_local_plugins() {
   local -r goos=$1
   local -r goarch=$2
   local -r gobin=$3
-  
-  GOBIN=$gobin GOARCH=$goarch GOOS=$goos make install-medianpoc 
-  GOBIN=$gobin GOARCH=$goarch GOOS=$goos make install-install-ocr3-capability
+  ldf="$(./tools/bin/ldflags)"
+  ldflags=(-ldflags "$ldf")
+  GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" ./plugins/cmd/chainlink-medianpoc 
+  GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" ./plugins/cmd/chainlink-ocr3-capability
 }
 
 get_remote_plugin_paths() {
@@ -105,9 +106,10 @@ install_remote_plugins() {
   local -r goos=$1
   local -r goarch=$2
   local -r gobin=$(go env GOPATH)/bin
+  ldflags=(-ldflags "$(./tools/bin/ldflags)")
 
   for plugin in $(get_remote_plugin_paths); do
-    GOBIN=$gobin GOARCH=$goarch GOOS=$goos go install "$plugin"
+    GOARCH=$goarch GOOS=$goos go build -o $gobin "${ldflags[@]}" "$plugin" 
   done  
 
 }

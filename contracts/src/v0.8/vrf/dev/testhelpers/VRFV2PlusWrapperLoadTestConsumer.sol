@@ -20,6 +20,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
   event WrapperRequestMade(uint256 indexed requestId, uint256 paid);
 
+  // solhint-disable-next-line gas-struct-packing
   struct RequestStatus {
     uint256 paid;
     bool fulfilled;
@@ -40,7 +41,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
       (uint256 requestId, uint256 paid) = requestRandomness(
@@ -73,7 +74,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestConfirmations,
     uint32 _numWords,
     uint16 _requestCount
-  ) external onlyOwner {
+  ) external {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
       (uint256 requestId, uint256 paid) = requestRandomnessPayInNative(
@@ -103,7 +104,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -143,7 +144,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 fulfilmentBlockNumber
     )
   {
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (
@@ -190,7 +191,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @param amount the amount to withdraw, in wei
   function withdrawNative(uint256 amount) external onlyOwner {
     (bool success, ) = payable(owner()).call{value: amount}("");
-    // solhint-disable-next-line custom-errors
+    // solhint-disable-next-line gas-custom-errors
     require(success, "withdrawNative failed");
   }
 

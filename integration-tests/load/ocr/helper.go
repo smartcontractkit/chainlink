@@ -13,7 +13,6 @@ import (
 
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -23,15 +22,15 @@ func SetupCluster(
 	seth *seth.Client,
 	workerNodes []*client.ChainlinkK8sClient,
 ) (common.Address, error) {
-	err := actions_seth.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
+	err := actions.FundChainlinkNodesFromRootAddress(l, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(3))
 	if err != nil {
 		return common.Address{}, err
 	}
-	linkDeploymentData, err := contracts.DeployLinkTokenContract(seth)
+	linkContract, err := contracts.DeployLinkTokenContract(l, seth)
 	if err != nil {
 		return common.Address{}, err
 	}
-	return linkDeploymentData.Address, nil
+	return common.HexToAddress(linkContract.Address()), nil
 }
 
 func SetupFeed(
@@ -42,7 +41,7 @@ func SetupFeed(
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 ) ([]contracts.OffchainAggregator, error) {
-	ocrInstances, err := actions_seth.DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := actions.DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	if err != nil {
 		return nil, err
 	}

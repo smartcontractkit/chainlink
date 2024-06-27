@@ -2,7 +2,6 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu-latest",
       "nodes": 3,
       "run":[
         {"name":"registry_2_0"},
@@ -12,7 +11,6 @@
     },
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu-latest",
       "nodes": 3,
       "run":[
         {"name":"registry_2_1_with_mercury_v02"},
@@ -22,7 +20,6 @@
     },
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu-latest",
       "nodes": 3,
       "run":[
         {"name":"registry_2_2_conditional"},
@@ -32,7 +29,6 @@
     },
     {
       "name": "TestAutomationBasic",
-      "label": "ubuntu-latest",
       "nodes": 2,
       "run":[
         {"name":"registry_2_2_with_mercury_v03"},
@@ -40,49 +36,51 @@
       ]
     },
     {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_3_conditional"}
+      ]
+    },
+    {
       "name": "TestSetUpkeepTriggerConfig",
-      "label": "ubuntu-latest",
       "nodes": 2
     },
     {
       "name": "TestAutomationAddFunds",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationPauseUnPause",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationRegisterUpkeep",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationPauseRegistry",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationKeeperNodesDown",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationPerformSimulation",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestAutomationCheckPerformGasLimit",
-      "label": "ubuntu-latest",
       "nodes": 3
     },
     {
       "name": "TestUpdateCheckData",
-      "label": "ubuntu-latest",
       "nodes": 3
+    },
+    {
+      "name": "TestSetOffchainConfigWithMaxGasPrice",
+      "nodes": 2
     }
   ]
 }

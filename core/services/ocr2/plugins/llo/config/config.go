@@ -26,7 +26,7 @@ type PluginConfig struct {
 	ChannelDefinitionsContractFromBlock int64          `json:"channelDefinitionsContractFromBlock" toml:"channelDefinitionsContractFromBlock"`
 
 	// NOTE: ChannelDefinitions is an override.
-	// If Channe}lDefinitions is specified, values for
+	// If ChannelDefinitions is specified, values for
 	// ChannelDefinitionsContractAddress and
 	// ChannelDefinitionsContractFromBlock will be ignored
 	ChannelDefinitions string `json:"channelDefinitions" toml:"channelDefinitions"`
@@ -39,6 +39,10 @@ type PluginConfig struct {
 	// KeyBundleIDs maps supported keys to their respective bundle IDs
 	// Key must match llo's ReportFormat
 	KeyBundleIDs map[string]string `json:"keyBundleIDs" toml:"keyBundleIDs"`
+}
+
+func (p *PluginConfig) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, p)
 }
 
 func (p PluginConfig) Validate() (merr error) {
@@ -99,7 +103,6 @@ func validateKeyBundleIDs(keyBundleIDs map[string]string) error {
 		if !chaintype.IsSupportedChainType(chaintype.ChainType(k)) {
 			return fmt.Errorf("llo: KeyBundleIDs: key must be a supported chain type, got: %s", k)
 		}
-
 	}
 	return nil
 }

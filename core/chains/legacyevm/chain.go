@@ -9,8 +9,6 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
 
-	"github.com/jmoiron/sqlx"
-
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -162,8 +160,7 @@ type ChainOpts struct {
 	MailMon      *mailbox.Monitor
 	GasEstimator gas.EvmFeeEstimator
 
-	SqlxDB *sqlx.DB // Deprecated: use DB instead
-	DB     sqlutil.DataSource
+	DS sqlutil.DataSource
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
@@ -184,11 +181,8 @@ func (o ChainOpts) Validate() error {
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))
 	}
-	if o.SqlxDB == nil {
-		err = errors.Join(err, errors.New("nil SqlxDB"))
-	}
-	if o.DB == nil {
-		err = errors.Join(err, errors.New("nil DB"))
+	if o.DS == nil {
+		err = errors.Join(err, errors.New("nil DS"))
 	}
 	if err != nil {
 		err = fmt.Errorf("invalid ChainOpts: %w", err)
@@ -206,19 +200,19 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := evmconfig.NewTOMLChainScopedConfig(opts.AppConfig, chain, l)
+	cfg := evmconfig.NewTOMLChainScopedConfig(chain, l)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
 func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
-	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
+	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var client evmclient.Client
-	if !cfg.EVMRPCEnabled() {
+	if !opts.AppConfig.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
-		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
+		client = evmclient.NewEvmClient(cfg.EVM().NodePool(), cfg.EVM(), cfg.EVM().NodePool().Errors(), l, chainID, nodes, cfg.EVM().ChainType())
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
@@ -226,10 +220,10 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
-	if !cfg.EVMRPCEnabled() {
+	if !opts.AppConfig.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
-		orm := headtracker.NewORM(*chainID, opts.DB)
+		orm := headtracker.NewORM(*chainID, opts.DS)
 		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
 		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
@@ -237,7 +231,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	logPoller := logpoller.LogPollerDisabled
-	if cfg.Feature().LogPoller() {
+	if opts.AppConfig.Feature().LogPoller() {
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
@@ -251,12 +245,12 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
 			}
-			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DB, l), client, l, lpOpts)
+			logPoller = logpoller.NewLogPoller(logpoller.NewObservedORM(chainID, opts.DS, l), client, l, lpOpts)
 		}
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(opts.SqlxDB, opts.DB, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(opts.DS, cfg.EVM(), opts.AppConfig.EVMRPCEnabled(), opts.AppConfig.Database(), opts.AppConfig.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}
@@ -270,16 +264,16 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	}
 
 	var balanceMonitor monitor.BalanceMonitor
-	if cfg.EVMRPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
+	if opts.AppConfig.EVMRPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
 		balanceMonitor = monitor.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
 	var logBroadcaster log.Broadcaster
-	if !cfg.EVMRPCEnabled() {
+	if !opts.AppConfig.EVMRPCEnabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logORM := log.NewORM(opts.SqlxDB, *chainID)
+		logORM := log.NewORM(opts.DS, *chainID)
 		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)

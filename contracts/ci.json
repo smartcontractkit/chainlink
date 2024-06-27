@@ -3,22 +3,12 @@
   "basePath": "./contracts/test/",
   "splits": [
     {
-      "dir": "cross-version",
-      "numOfSplits": 1
-    },
-    {
       "dir": "v0.8",
-      "numOfSplits": 6,
+      "numOfSplits": 5,
       "slowTests": [
-        "Cron",
-        "CronUpkeep",
-        "VRFSubscriptionBalanceMonitor",
-        "EthBalanceMonitor",
-        "KeeperRegistrar",
-        "KeeperRegistry1_2",
-        "KeeperRegistry1_3",
-        "KeeperRegistry2_0",
-        "KeeperRegistry2_1"
+        "CronUpkeepFactory",
+        "AutomationRegistry2_2",
+        "AutomationRegistry2_3"
       ]
     }
   ]

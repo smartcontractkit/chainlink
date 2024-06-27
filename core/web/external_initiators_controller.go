@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -24,6 +25,7 @@ var (
 // ValidateExternalInitiator checks whether External Initiator parameters are
 // safe for processing.
 func ValidateExternalInitiator(
+	ctx context.Context,
 	exi *bridges.ExternalInitiatorRequest,
 	orm bridges.ORM,
 ) error {
@@ -32,7 +34,7 @@ func ValidateExternalInitiator(
 		fe.Add("No name specified")
 	} else if !externalInitiatorNameRegexp.MatchString(exi.Name) {
 		fe.Add("Name must be alphanumeric and may contain '_' or '-'")
-	} else if _, err := orm.FindExternalInitiatorByName(exi.Name); err == nil {
+	} else if _, err := orm.FindExternalInitiatorByName(ctx, exi.Name); err == nil {
 		fe.Add(fmt.Sprintf("Name %v already exists", exi.Name))
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return errors.Wrap(err, "validating external initiator")
@@ -46,7 +48,8 @@ type ExternalInitiatorsController struct {
 }
 
 func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offset int) {
-	eis, count, err := eic.App.BridgeORM().ExternalInitiators(offset, size)
+	ctx := c.Request.Context()
+	eis, count, err := eic.App.BridgeORM().ExternalInitiators(ctx, offset, size)
 	var resources []presenters.ExternalInitiatorResource
 	for _, ei := range eis {
 		resources = append(resources, presenters.NewExternalInitiatorResource(ei))
@@ -57,6 +60,7 @@ func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offse
 
 // Create builds and saves a new external initiator
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
+	ctx := c.Request.Context()
 	eir := &bridges.ExternalInitiatorRequest{}
 	if !eic.App.GetConfig().JobPipeline().ExternalInitiatorsEnabled() {
 		err := errors.New("The External Initiator feature is disabled by configuration")
@@ -76,11 +80,11 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 		return
 	}
 
-	if err := ValidateExternalInitiator(eir, eic.App.BridgeORM()); err != nil {
+	if err := ValidateExternalInitiator(ctx, eir, eic.App.BridgeORM()); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-	if err := eic.App.BridgeORM().CreateExternalInitiator(ei); err != nil {
+	if err := eic.App.BridgeORM().CreateExternalInitiator(ctx, ei); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -97,13 +101,14 @@ func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 
 // Destroy deletes an ExternalInitiator
 func (eic *ExternalInitiatorsController) Destroy(c *gin.Context) {
+	ctx := c.Request.Context()
 	name := c.Param("Name")
-	exi, err := eic.App.BridgeORM().FindExternalInitiatorByName(name)
+	exi, err := eic.App.BridgeORM().FindExternalInitiatorByName(ctx, name)
 	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("external initiator not found"))
 		return
 	}
-	if err := eic.App.BridgeORM().DeleteExternalInitiator(exi.Name); err != nil {
+	if err := eic.App.BridgeORM().DeleteExternalInitiator(ctx, exi.Name); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

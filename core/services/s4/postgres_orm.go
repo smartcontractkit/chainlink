@@ -1,16 +1,15 @@
 package s4
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
 const (
@@ -19,28 +18,27 @@ const (
 )
 
 type orm struct {
-	q         pg.Q
+	ds        sqlutil.DataSource
 	tableName string
 	namespace string
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewPostgresORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, tableName, namespace string) ORM {
+func NewPostgresORM(ds sqlutil.DataSource, tableName, namespace string) ORM {
 	return &orm{
-		q:         pg.NewQ(db, lggr, cfg),
+		ds:        ds,
 		tableName: fmt.Sprintf(`"%s".%s`, s4PostgresSchema, tableName),
 		namespace: namespace,
 	}
 }
 
-func (o orm) Get(address *big.Big, slotId uint, qopts ...pg.QOpt) (*Row, error) {
+func (o *orm) Get(ctx context.Context, address *big.Big, slotId uint) (*Row, error) {
 	row := &Row{}
-	q := o.q.WithOpts(qopts...)
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s 
 WHERE namespace=$1 AND address=$2 AND slot_id=$3;`, o.tableName)
-	if err := q.Get(row, stmt, o.namespace, address, slotId); err != nil {
+	if err := o.ds.GetContext(ctx, row, stmt, o.namespace, address, slotId); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			err = ErrNotFound
 		}
@@ -49,9 +47,7 @@ WHERE namespace=$1 AND address=$2 AND slot_id=$3;`, o.tableName)
 	return row, nil
 }
 
-func (o orm) Update(row *Row, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-
+func (o *orm) Update(ctx context.Context, row *Row) error {
 	// This query inserts or updates a row, depending on whether the version is higher than the existing one.
 	// We only allow the same version when the row is confirmed.
 	// We never transition back from unconfirmed to confirmed state.
@@ -67,31 +63,28 @@ updated_at = NOW()
 WHERE (t.version < EXCLUDED.version) OR (t.version <= EXCLUDED.version AND EXCLUDED.confirmed IS TRUE)
 RETURNING id;`, o.tableName)
 	var id uint64
-	err := q.Get(&id, stmt, o.namespace, row.Address, row.SlotId, row.Version, row.Expiration, row.Confirmed, row.Payload, row.Signature)
+	err := o.ds.GetContext(ctx, &id, stmt, o.namespace, row.Address, row.SlotId, row.Version, row.Expiration, row.Confirmed, row.Payload, row.Signature)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrVersionTooLow
 	}
 	return err
 }
 
-func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error) {
-	q := o.q.WithOpts(qopts...)
-
+func (o *orm) DeleteExpired(ctx context.Context, limit uint, utcNow time.Time) (int64, error) {
 	with := fmt.Sprintf(`WITH rows AS (SELECT id FROM %s WHERE namespace = $1 AND expiration < $2 LIMIT $3)`, o.tableName)
 	stmt := fmt.Sprintf(`%s DELETE FROM %s WHERE id IN (SELECT id FROM rows);`, with, o.tableName)
-	result, err := q.Exec(stmt, o.namespace, utcNow.UnixMilli(), limit)
+	result, err := o.ds.ExecContext(ctx, stmt, o.namespace, utcNow.UnixMilli(), limit)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*SnapshotRow, error) {
-	q := o.q.WithOpts(qopts...)
+func (o *orm) GetSnapshot(ctx context.Context, addressRange *AddressRange) ([]*SnapshotRow, error) {
 	rows := make([]*SnapshotRow, 0)
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, octet_length(payload) AS payload_size FROM %s WHERE namespace = $1 AND address >= $2 AND address <= $3;`, o.tableName)
-	if err := q.Select(&rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
+	if err := o.ds.SelectContext(ctx, &rows, stmt, o.namespace, addressRange.MinAddress, addressRange.MaxAddress); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
@@ -99,13 +92,12 @@ func (o orm) GetSnapshot(addressRange *AddressRange, qopts ...pg.QOpt) ([]*Snaps
 	return rows, nil
 }
 
-func (o orm) GetUnconfirmedRows(limit uint, qopts ...pg.QOpt) ([]*Row, error) {
-	q := o.q.WithOpts(qopts...)
+func (o *orm) GetUnconfirmedRows(ctx context.Context, limit uint) ([]*Row, error) {
 	rows := make([]*Row, 0)
 
 	stmt := fmt.Sprintf(`SELECT address, slot_id, version, expiration, confirmed, payload, signature FROM %s
 WHERE namespace = $1 AND confirmed IS FALSE ORDER BY updated_at LIMIT $2;`, o.tableName)
-	if err := q.Select(&rows, stmt, o.namespace, limit); err != nil {
+	if err := o.ds.SelectContext(ctx, &rows, stmt, o.namespace, limit); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}

@@ -24,8 +24,8 @@ builds:
       post: ./tools/bin/goreleaser_utils build_post_hook {{ dir .Path }} {{ .Os }} {{ .Arch }}
     env:
       - CGO_ENABLED=1
-      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu
-      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu
+      - CC=$ZIG_EXEC cc -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
+      - CCX=$ZIG_EXEC c++ -target x86_64-linux-gnu -Wno-error=unused-command-line-argument
     flags:
       - -trimpath
       - -buildmode=pie

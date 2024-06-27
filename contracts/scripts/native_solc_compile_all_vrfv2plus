@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+\#!/usr/bin/env bash
 
 set -e
 
@@ -40,7 +40,7 @@ compileContractAltOpts () {
 # VRF V2Plus
 compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
 compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 50
+compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 500
 compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
 compileContract vrf/dev/VRFV2PlusWrapper.sol
 compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol

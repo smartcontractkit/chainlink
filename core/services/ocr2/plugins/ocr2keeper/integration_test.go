@@ -112,6 +112,7 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
+	ctx := testutils.Context(t)
 	p2pKey := keystest.NewP2PKeyV2(t)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -143,10 +144,10 @@ func setupNode(
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, backend, nodeKey, p2pKey)
-	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+	kb, err := app.GetKeyStore().OCR2().Create(ctx, chaintype.EVM)
 	require.NoError(t, err)
 
-	err = app.Start(testutils.Context(t))
+	err = app.Start(ctx)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -164,7 +165,7 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	jb, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
@@ -200,6 +201,11 @@ func getUpkeepIdFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.Keeper
 }
 
 func TestIntegration_KeeperPluginBasic(t *testing.T) {
+	testutils.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/AUTO-11072")
+	runKeeperPluginBasic(t)
+}
+
+func runKeeperPluginBasic(t *testing.T) {
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
@@ -426,7 +432,7 @@ func setupForwarderForNode(
 	backend *backends.SimulatedBackend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-
+	ctx := testutils.Context(t)
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend, linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 
@@ -438,12 +444,12 @@ func setupForwarderForNode(
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*backend.Blockchain().Config().ChainID)
-	_, err = forwarderORM.CreateForwarder(testutils.Context(t), faddr, chainID)
+	_, err = forwarderORM.CreateForwarder(ctx, faddr, chainID)
 	require.NoError(t, err)
 
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
 	require.NoError(t, err)
-	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
+	fwdr, err := chain.TxManager().GetForwarderForEOA(ctx, recipient)
 	require.NoError(t, err)
 	require.Equal(t, faddr, fwdr)
 
