@@ -41,6 +41,8 @@ type addressState[
 }
 
 // newAddressState returns a new addressState instance with initialized transaction state
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func newAddressState[
 	CHAIN_ID types.ID,
 	ADDR, TX_HASH, BLOCK_HASH types.Hashable,
@@ -128,11 +130,15 @@ func newAddressState[
 }
 
 // countTransactionsByState returns the number of transactions that are in the given state
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) countTransactionsByState(txState txmgrtypes.TxState) int {
 	return 0
 }
 
 // findTxWithIdempotencyKey returns the transaction with the given idempotency key. If no transaction is found, nil is returned.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxWithIdempotencyKey(key string) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	return nil
 }
@@ -141,6 +147,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions in the given states are considered.
 // If no txStates are provided, all transactions are considered.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyToTxsByState(
 	txStates []txmgrtypes.TxState,
 	fn func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]),
@@ -153,6 +161,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) applyT
 // If no txIDs are provided, all transactions are considered.
 // If no txStates are provided, all transactions are considered.
 // The txFilter is applied to the transactions and the txAttemptFilter is applied to the attempts.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxAttempts(
 	txStates []txmgrtypes.TxState,
 	txFilter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
@@ -166,6 +176,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 // If txIDs are provided, only the transactions with those IDs are considered.
 // If no txIDs are provided, all transactions are considered.
 // If no txStates are provided, all transactions are considered.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTxs(
 	txStates []txmgrtypes.TxState,
 	filter func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) bool,
@@ -175,29 +187,41 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) findTx
 }
 
 // pruneUnstartedTxQueue removes the transactions with the given IDs from the unstarted transaction queue.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pruneUnstartedTxQueue(ids []int64) {
 }
 
 // deleteTxs removes the transactions with the given IDs from the address state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) deleteTxs(txs ...txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 }
 
 // peekNextUnstartedTx returns the next unstarted transaction in the queue without removing it from the unstarted queue.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekNextUnstartedTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return nil, nil
 }
 
 // peekInProgressTx returns the in-progress transaction without removing it from the in-progress state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) peekInProgressTx() (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	return nil, nil
 }
 
 // addTxToUnstarted adds the given transaction to the unstarted queue.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) addTxToUnstarted(tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
 }
 
 // moveUnstartedToInProgress moves the next unstarted transaction to the in-progress state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnstartedToInProgress(
 	etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txAttempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -206,6 +230,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 }
 
 // moveConfirmedMissingReceiptToUnconfirmed moves the confirmed missing receipt transaction to the unconfirmed state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveConfirmedMissingReceiptToUnconfirmed(
 	txID int64,
 ) error {
@@ -213,6 +239,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveCo
 }
 
 // moveInProgressToUnconfirmed moves the in-progress transaction to the unconfirmed state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToUnconfirmed(
 	etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -221,6 +249,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveIn
 }
 
 // moveUnconfirmedToConfirmed moves the unconfirmed transaction to the confirmed state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmed(
 	receipt txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
 ) error {
@@ -228,6 +258,8 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUn
 }
 
 // moveTxToFatalError moves a transaction to the fatal error state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTxToFatalError(
 	txID int64, txError null.String,
 ) error {
@@ -235,16 +267,22 @@ func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveTx
 }
 
 // moveUnconfirmedToConfirmedMissingReceipt moves the unconfirmed transaction to the confirmed missing receipt state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveUnconfirmedToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	return nil
 }
 
 // moveInProgressToConfirmedMissingReceipt moves the in-progress transaction to the confirmed missing receipt state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveInProgressToConfirmedMissingReceipt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error {
 	return nil
 }
 
 // moveConfirmedToUnconfirmed moves the confirmed transaction to the unconfirmed state.
+//
+//lint:ignore U1000 Ignore unused function temporarily while adding the framework
 func (as *addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) moveConfirmedToUnconfirmed(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	return nil
 }
