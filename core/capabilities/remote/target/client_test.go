@@ -33,9 +33,9 @@ func Test_Client_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -64,9 +64,9 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
