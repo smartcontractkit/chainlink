@@ -340,6 +340,8 @@ ObservationGracePeriod = '1s'
 [EVM.OCR2]
 [EVM.OCR2.Automation]
 GasLimit = 10500000
+BlockRate = 1
+LogLimit = 2
 
 [[EVM.Nodes]]
 Name = 'primary'
