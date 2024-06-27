@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -108,7 +110,29 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Creat
 	txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	error,
 ) {
-	return txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}, nil
+	tx := txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{}
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	ms.addressStatesLock.Lock()
+	as, ok := ms.addressStates[txRequest.FromAddress]
+	if !ok {
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](ms.lggr, chainID, txRequest.FromAddress, ms.maxUnstarted, nil)
+		ms.addressStates[txRequest.FromAddress] = as
+	}
+	ms.addressStatesLock.Unlock()
+
+	// Persist Transaction to persistent storage
+	tx, err := ms.persistentTxStore.CreateTransaction(ctx, txRequest, chainID)
+	if err != nil {
+		return tx, fmt.Errorf("create_transaction: %w", err)
+	}
+
+	// Update in memory store
+	// Add the request to the Unstarted channel to be processed by the Broadcaster
+	as.addTxToUnstartedQueue(&tx)
+	return *ms.deepCopyTx(tx), nil
 }
 
 // FindTxWithIdempotencyKey returns a transaction with the given idempotency key
@@ -153,7 +177,24 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // GetTxInProgress returns the in_progress transaction for a given address.
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTxInProgress(ctx context.Context, fromAddress ADDR) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	return nil, nil
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[fromAddress]
+	if !ok {
+		return nil, nil
+	}
+
+	tx := as.peekInProgressTx()
+	if tx == nil {
+		return nil, nil
+	}
+
+	if len(tx.TxAttempts) != 1 || tx.TxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
+		return nil, fmt.Errorf("get_tx_in_progress: invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
+			"Your database is in an inconsistent state and this node will not function correctly until the problem is resolved", tx.ID)
+	}
+
+	return ms.deepCopyTx(*tx), nil
 }
 
 // UpdateTxAttemptInProgressToBroadcast updates a transaction attempt from in_progress to broadcast.
@@ -168,8 +209,27 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 // FindNextUnstartedTransactionFromAddress returns the next unstarted transaction for a given address.
-func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR, chainID CHAIN_ID) error {
-	return nil
+func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindNextUnstartedTransactionFromAddress(_ context.Context, fromAddress ADDR, chainID CHAIN_ID) (
+	*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	error,
+) {
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[fromAddress]
+	if !ok {
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w: %q", ErrAddressNotFound, fromAddress)
+	}
+
+	etx := as.peekNextUnstartedTx()
+	if etx == nil {
+		return nil, fmt.Errorf("find_next_unstarted_transaction_from_address: %w", ErrTxnNotFound)
+	}
+	tx := ms.deepCopyTx(*etx)
+
+	return tx, nil
 }
 
 // SaveReplacementInProgressAttempt saves a replacement attempt for a transaction that is in_progress.
@@ -260,7 +320,20 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindT
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) ([]int64, error) {
-	return nil, nil
+	// Persist to persistent storage
+	ids, err := ms.persistentTxStore.PruneUnstartedTxQueue(ctx, queueSize, subject)
+	if err != nil {
+		return ids, err
+	}
+
+	// Update in memory store
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, as := range ms.addressStates {
+		as.pruneUnstartedTxQueue(ids)
+	}
+
+	return ids, nil
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
