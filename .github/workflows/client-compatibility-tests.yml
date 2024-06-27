@@ -38,6 +38,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-telemetry-action:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Workflow Telemetry
+        uses: catchpoint/workflow-telemetry-action@v2
+        with:
+          comment_on_pr: false
+          theme: 'dark'
   # Build Test Dependencies
 
   check-dependency-bump:
