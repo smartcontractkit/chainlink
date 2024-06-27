@@ -233,7 +233,7 @@ func TestPriceService_generatePriceUpdates(t *testing.T) {
 			name: "base",
 			tokenDecimals: map[cciptypes.Address]uint8{
 				tokens[0]: 18,
-				tokens[1]: 18,
+				tokens[1]: 12,
 			},
 			sourceNativeToken: tokens[0],
 			priceGetterRespData: map[cciptypes.Address]*big.Int{
@@ -248,7 +248,7 @@ func TestPriceService_generatePriceUpdates(t *testing.T) {
 			expSourceGasPriceUSD: big.NewInt(1000),
 			expTokenPricesUSD: map[cciptypes.Address]*big.Int{
 				tokens[0]: val1e18(100),
-				tokens[1]: val1e18(200),
+				tokens[1]: val1e18(200 * 1e6),
 			},
 			expErr: false,
 		},
@@ -289,29 +289,6 @@ func TestPriceService_generatePriceUpdates(t *testing.T) {
 			},
 			priceGetterRespErr: nil,
 			expErr:             true,
-		},
-		{
-			name: "base",
-			tokenDecimals: map[cciptypes.Address]uint8{
-				tokens[0]: 18,
-				tokens[1]: 18,
-			},
-			sourceNativeToken: tokens[0],
-			priceGetterRespData: map[cciptypes.Address]*big.Int{
-				tokens[0]: val1e18(100),
-				tokens[1]: val1e18(200),
-				tokens[2]: val1e18(300), // price getter returned a price for this token even though we didn't request it
-			},
-			priceGetterRespErr:   nil,
-			feeEstimatorRespFee:  big.NewInt(10),
-			feeEstimatorRespErr:  nil,
-			maxGasPrice:          1e18,
-			expSourceGasPriceUSD: big.NewInt(1000),
-			expTokenPricesUSD: map[cciptypes.Address]*big.Int{
-				tokens[0]: val1e18(100),
-				tokens[1]: val1e18(200),
-			},
-			expErr: false,
 		},
 		{
 			name: "dynamic fee cap overrides legacy",

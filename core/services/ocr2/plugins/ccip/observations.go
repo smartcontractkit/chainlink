@@ -20,9 +20,10 @@ import (
 // will not be able to unmarshal each other's observations. Do not modify unless you
 // know what you are doing.
 type CommitObservation struct {
-	Interval          cciptypes.CommitStoreInterval  `json:"interval"`
-	TokenPricesUSD    map[cciptypes.Address]*big.Int `json:"tokensPerFeeCoin"`
-	SourceGasPriceUSD *big.Int                       `json:"sourceGasPrice"`
+	Interval                  cciptypes.CommitStoreInterval  `json:"interval"`
+	TokenPricesUSD            map[cciptypes.Address]*big.Int `json:"tokensPerFeeCoin"`
+	SourceGasPriceUSD         *big.Int                       `json:"sourceGasPrice"` // Deprecated
+	SourceGasPriceUSDPerChain map[uint64]*big.Int            `json:"sourceGasPriceUSDPerChain"`
 }
 
 // Marshal MUST be used instead of raw json.Marshal(o) since it contains backwards compatibility related changes.
