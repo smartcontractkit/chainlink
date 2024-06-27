@@ -2,7 +2,7 @@ package txmgr
 
 import (
 	"context"
-	"fmt"
+	"sort"
 	"time"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -54,7 +54,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestAba
 func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestInsertTx(fromAddr ADDR, tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	as, ok := b.addressStates[fromAddr]
 	if !ok {
-		return fmt.Errorf("address not found: %s", fromAddr)
+		as = newAddressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE](b.lggr, b.chainID, fromAddr, 10, nil)
+		b.addressStates[fromAddr] = as
 	}
 
 	as.allTxs[tx.ID] = tx
@@ -93,6 +94,14 @@ func (b *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTes
 	for _, as := range b.addressStates {
 		txs = append(txs, as.findTxs(txStates, filter, txIDs...)...)
 	}
+	// sort by created_at asc and then by id asc
+	sort.Slice(txs, func(i, j int) bool {
+		if txs[i].CreatedAt.Equal(txs[j].CreatedAt) {
+			return txs[i].ID < txs[j].ID
+		}
+
+		return txs[i].CreatedAt.Before(txs[j].CreatedAt)
+	})
 
 	return txs
 }
