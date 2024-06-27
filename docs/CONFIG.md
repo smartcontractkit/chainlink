@@ -8136,6 +8136,8 @@ Order of the node in the pool, will takes effect if `SelectionMode` is `Priority
 ```toml
 [EVM.OCR2.Automation]
 GasLimit = 5400000 # Default
+BlockRate = 1 # Default
+LogLimit = 2 # Default
 ```
 
 
@@ -8144,6 +8146,18 @@ GasLimit = 5400000 # Default
 GasLimit = 5400000 # Default
 ```
 GasLimit controls the gas limit for transmit transactions from ocr2automation job.
+
+### BlockRate
+```toml
+BlockRate = 1 # Default
+```
+BlockRate is the number of blocks that make up a block window.
+
+### LogLimit
+```toml
+LogLimit = 2 # Default
+```
+LogLimit is the number of logs per upkeep per block window we guarantee will be processed.
 
 ## EVM.Workflow
 ```toml
