@@ -285,6 +285,10 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	r.lggr.Debugf("returning 0 recoverable payloads in no op recoverer")
+
+	return nil, nil
+
 	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
