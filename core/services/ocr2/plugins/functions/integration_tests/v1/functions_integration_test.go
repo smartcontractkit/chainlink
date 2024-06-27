@@ -22,8 +22,8 @@ var (
 
 func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 	// simulated chain with all contracts
-	owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
-	defer ticker.Stop()
+	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
+	defer stop()
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
@@ -43,14 +43,14 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	b.Commit()
+	commit()
 	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, nil, subscriptionId, 1*time.Minute)
 }
 
 func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
 	// simulated chain with all contracts
-	owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
-	defer ticker.Stop()
+	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
+	defer stop()
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
@@ -80,14 +80,14 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	b.Commit()
+	commit()
 	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 }
 
 func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	// simulated chain with all contracts
-	owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
-	defer ticker.Stop()
+	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
+	defer stop()
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
@@ -123,6 +123,6 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	// upgrade and send requests again
 	_, err := routerContract.UpdateContracts(owner)
 	require.NoError(t, err)
-	b.Commit()
+	commit()
 	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 }

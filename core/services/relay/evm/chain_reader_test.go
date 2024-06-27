@@ -11,26 +11,24 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
-	"github.com/ethereum/go-ethereum/core"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
+	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 const commonGasLimitOnEvms = uint64(4712388)
@@ -150,7 +148,7 @@ func TestChainReader(t *testing.T) {
 }
 
 type helper struct {
-	sim  *backends.SimulatedBackend
+	sim  *simulated.Backend
 	auth *bind.TransactOpts
 }
 
@@ -172,11 +170,10 @@ func (h *helper) SetupAuth(t *testing.T) *bind.TransactOpts {
 
 func (h *helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
-		h.sim = backends.NewSimulatedBackend(
-			core.GenesisAlloc{h.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
+		h.sim = simulated.NewBackend(evmtypes.GenesisAlloc{h.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, simulated.WithBlockGasLimit(commonGasLimitOnEvms*5000))
 	}
 
-	return h.sim
+	return h.sim.Client()
 }
 
 func (h *helper) Commit() {

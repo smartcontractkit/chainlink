@@ -6,10 +6,12 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jackc/pgtype"
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -399,4 +401,16 @@ func (h *HashArray) Scan(src interface{}) error {
 		*h = append(*h, hash)
 	}
 	return err
+}
+
+// Interface which is satisfied by simulated.Backend. Defined here so that default geth behavior can be
+// overridden in tests, and injected into our SimulatedBackend wrapper. This can be used to simulate rpc
+// servers with quirky behavior that differs from geth
+type Backend interface {
+	Close() error
+	Commit() common.Hash
+	Rollback()
+	Fork(parentHash common.Hash) error
+	AdjustTime(adjustment time.Duration) error
+	Client() simulated.Client
 }
