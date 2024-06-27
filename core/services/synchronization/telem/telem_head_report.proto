@@ -5,7 +5,7 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 package telem;
 
 message HeadReportRequest  {
-  uint64 chain_id = 1;
+  string chain = 1;
   Block latest = 2;
   optional Block finalized = 3;
 }
