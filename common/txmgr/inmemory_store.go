@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,7 +48,8 @@ type inMemoryStore[
 	keyStore          txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	persistentTxStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 
-	addressStates map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	addressStatesLock sync.RWMutex
+	addressStates     map[ADDR]*addressState[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 }
 
 // NewInMemoryStore returns a new inMemoryStore
@@ -148,6 +150,36 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	attempt *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) error {
+	if tx.Sequence == nil {
+		return fmt.Errorf("in_progress transaction must have nonce")
+	}
+	if tx.State != TxUnstarted {
+		return fmt.Errorf("update_tx_unstarted_to_in_progress: can only transition to in_progress from unstarted, transaction is currently %s", tx.State)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("attempt state must be in_progress")
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return nil
+	}
+	if !as.hasTx(tx.ID) {
+		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w: %q", ErrTxnNotFound, tx.ID)
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxUnstartedToInProgress(ctx, tx, attempt); err != nil {
+		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
+	}
+
+	// Update in address state in memory
+	if err := as.moveUnstartedToInProgress(tx.ID, tx.Sequence, tx.BroadcastAt, tx.InitialBroadcastAt, *attempt); err != nil {
+		return fmt.Errorf("update_tx_unstarted_to_in_progress: %w", err)
+	}
+
 	return nil
 }
 
@@ -164,6 +196,42 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 	attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	newAttemptState txmgrtypes.TxAttemptState,
 ) error {
+	if tx.BroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have broadcast_at time")
+	}
+	if tx.InitialBroadcastAt == nil {
+		return fmt.Errorf("unconfirmed transaction must have initial_broadcast_at time")
+	}
+	if tx.State != TxInProgress {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: can only transition to unconfirmed from in_progress, transaction is currently %s", tx.State)
+	}
+	if attempt.State != txmgrtypes.TxAttemptInProgress {
+		return fmt.Errorf("attempt must be in in_progress state")
+	}
+	if newAttemptState != txmgrtypes.TxAttemptBroadcast {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: new attempt state must be broadcast, got: %s", newAttemptState)
+	}
+
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	as, ok := ms.addressStates[tx.FromAddress]
+	if !ok {
+		return nil
+	}
+
+	originalError := tx.Error
+	originalBroadcastAt := tx.BroadcastAt
+	originalInitialBroadcastAt := tx.InitialBroadcastAt
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxAttemptInProgressToBroadcast(ctx, tx, attempt, newAttemptState); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
+	// Update in memory store
+	if err := as.moveInProgressToUnconfirmed(originalError, *originalBroadcastAt, *originalInitialBroadcastAt, attempt.ID); err != nil {
+		return fmt.Errorf("update_tx_attempt_in_progress_to_broadcast: %w", err)
+	}
+
 	return nil
 }
 
@@ -215,6 +283,23 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 
 // UpdateTxsUnconfirmed updates the unconfirmed transactions for a given set of ids
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxsUnconfirmed(ctx context.Context, txIDs []int64) error {
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.UpdateTxsUnconfirmed(ctx, txIDs); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+
+	for _, as := range ms.addressStates {
+		for _, txID := range txIDs {
+			if err := as.moveConfirmedMissingReceiptToUnconfirmed(txID); err != nil {
+				continue
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -238,7 +323,37 @@ func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Updat
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SaveFetchedReceipts(ctx context.Context, receipts []R, chainID CHAIN_ID) error {
-	return nil
+	if ms.chainID.String() != chainID.String() {
+		panic("invalid chain ID")
+	}
+
+	// Persist to persistent storage
+	if err := ms.persistentTxStore.SaveFetchedReceipts(ctx, receipts, chainID); err != nil {
+		return err
+	}
+
+	// Update in memory store
+	var errs error
+	ms.addressStatesLock.RLock()
+	defer ms.addressStatesLock.RUnlock()
+	for _, receipt := range receipts {
+		var found bool
+		var receiptErrs error
+		for _, as := range ms.addressStates {
+			err := as.moveUnconfirmedToConfirmed(receipt)
+			if err == nil {
+				found = true
+				break
+			}
+			receiptErrs = errors.Join(receiptErrs, err)
+		}
+		if !found {
+			receiptErrs = fmt.Errorf("save_fetched_receipts: errors occured while moving tx to confirmed: %w", receiptErrs)
+			errs = errors.Join(errs, receiptErrs)
+		}
+	}
+
+	return errs
 }
 
 func (ms *inMemoryStore[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) (
