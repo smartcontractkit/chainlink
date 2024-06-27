@@ -75,8 +75,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		Config: transmissionSchedule,
 	}
 
+	m, err := values.NewMap(map[string]any{"response": "response1"})
+	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
-		Value: values.NewString("response1"),
+		Value: m,
 		Err:   nil,
 	}
 
@@ -106,8 +108,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		require.NoError(t, err)
 
+		nm, err := values.NewMap(map[string]any{"response": "response2"})
+		require.NoError(t, err)
 		capabilityResponse2 := commoncap.CapabilityResponse{
-			Value: values.NewString("response2"),
+			Value: nm,
 			Err:   nil,
 		}
 
@@ -297,8 +301,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()
+		resp := response.Value.Underlying["response"]
 
-		assert.Equal(t, response.Value, values.NewString("response1"))
+		assert.Equal(t, resp, values.NewString("response1"))
 	})
 }
 
