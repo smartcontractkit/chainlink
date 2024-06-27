@@ -109,6 +109,10 @@ func (ckr *cosmosKeyring) Unmarshal(in []byte) error {
 	}
 	privKey := ed25519.NewKeyFromSeed(in)
 	ckr.privKey = privKey
-	ckr.pubKey = privKey.Public().(ed25519.PublicKey)
+	pubKey, ok := privKey.Public().(ed25519.PublicKey)
+	if !ok {
+		return errors.New("failed to cast public key to ed25519.PublicKey")
+	}
+	ckr.pubKey = pubKey
 	return nil
 }
