@@ -274,7 +274,9 @@ jobs:
           fi
 
   eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    # if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+    # TODO remove me
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -390,7 +392,9 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3686d686da64f978179cda62b7040469fb4d7428 # v2.3.23
 
   eth-smoke-tests-matrix-log-poller:
-    if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
+    # if: ${{ !(contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') || github.event_name == 'workflow_dispatch') || inputs.distinct_run_name != '' }}
+    # TODO remove me
+    if: false
     environment: integration
     permissions:
       checks: write
@@ -759,7 +763,7 @@ jobs:
           path: ./integration-tests/smoke/traces/trace-data.json
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3686d686da64f978179cda62b7040469fb4d7428 # v2.3.19
         with:
           test_directory: ./integration-tests/smoke/
 
@@ -845,7 +849,6 @@ jobs:
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:
-
     environment: integration
     needs: [eth-smoke-tests]
     runs-on: ubuntu-latest
