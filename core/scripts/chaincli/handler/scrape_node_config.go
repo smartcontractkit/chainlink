@@ -27,18 +27,18 @@ type CSAKeyInfo struct {
 }
 
 func (ci *CSAKeyInfo) Equals(ci2 *CSAKeyInfo) bool {
-	return ci.PublicKey == ci2.PublicKey && ci.NodeAddress == ci2.NodeAddress
+	return ci.PublicKey == ci2.PublicKey && ci.NodeAddress == ci.NodeAddress
 }
 
 type NodeInfo struct {
 	AdminAddress          common.Address `json:"adminAddress"`
 	CSAKeys               []*CSAKeyInfo  `json:"csaKeys"`
 	DisplayName           string         `json:"displayName"`
+	NodeAddress           []string       `json:"nodeAddress"`
 	Ocr2ConfigPublicKey   []string       `json:"ocr2ConfigPublicKey"`
 	Ocr2Id                []string       `json:"ocr2Id"`
 	Ocr2OffchainPublicKey []string       `json:"ocr2OffchainPublicKey"`
 	Ocr2OnchainPublicKey  []string       `json:"ocr2OnchainPublicKey"`
-	NodeAddress           []string       `json:"ocrNodeAddress"`
 	OcrSigningAddress     []string       `json:"ocrSigningAddress"`
 	PayeeAddress          common.Address `json:"payeeAddress"`
 	PeerId                []string       `json:"peerId"`
@@ -243,7 +243,7 @@ func (h *baseHandler) scrapeNodeInfo(wg *sync.WaitGroup, i int, cl cmd.HTTPClien
 	// CSA key for each chain. but this is still pending so assume only 1 CSA key on a node for now.
 	csaKey := &CSAKeyInfo{
 		NodeAddress: nodeAddresses[0],
-		PublicKey:   strings.TrimPrefix((*csaKeys)[0].PubKey, "csa_"),
+		PublicKey:   (*csaKeys)[0].PubKey,
 	}
 	ni := &NodeInfo{
 		CSAKeys:               []*CSAKeyInfo{csaKey},

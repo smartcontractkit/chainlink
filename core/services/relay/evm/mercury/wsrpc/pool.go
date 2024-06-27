@@ -127,7 +127,7 @@ type pool struct {
 }
 
 func NewPool(lggr logger.Logger) Pool {
-	p := newPool(lggr.Named("Mercury.WSRPCPool"))
+	p := newPool(lggr)
 	p.newClient = NewClient
 	return p
 }

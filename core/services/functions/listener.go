@@ -142,12 +142,6 @@ type FunctionsListener struct {
 	logPollerWrapper   evmrelayTypes.LogPollerWrapper
 }
 
-func (l *FunctionsListener) HealthReport() map[string]error {
-	return map[string]error{l.Name(): l.Healthy()}
-}
-
-func (l *FunctionsListener) Name() string { return l.logger.Name() }
-
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
@@ -490,6 +484,15 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
+	if l.pluginConfig.ContractVersion == 1 && l.pluginConfig.EnableRequestSignatureCheck {
+		err := VerifyRequestSignature(subscriptionOwner, requestData)
+		if err != nil {
+			l.logger.Errorw("invalid request signature", "requestID", requestIDStr, "err", err)
+			l.setError(ctx, requestID, USER_ERROR, []byte(err.Error()))
+			return
+		}
+	}
+
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
@@ -497,7 +500,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 		return
 	}
 
-	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestID, subscriptionOwner, requestData)
+	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
 	if internalErr != nil {
 		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(internalErr.Error()))
@@ -675,30 +678,25 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 	}
 }
 
-func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
+func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
 		l.logger.Warn("Decryptor not configured")
 		return "", nil, nil
 	}
 
 	var secrets []byte
-	requestIDStr := formatRequestId(requestID)
 
 	switch requestData.SecretsLocation {
 	case LocationInline:
-		if len(requestData.Secrets) > 0 {
-			l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
-		} else {
-			l.logger.Debugw("request does not use any secrets", "requestID", requestIDStr)
-		}
+		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestID)
 		return "", nil, nil
 	case LocationRemote:
-		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestID, l.job.Name.ValueOrZero())
 		if err != nil {
 			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
 		if len(userError) != 0 {
-			return "", errors.New(string(userError)), nil
+			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestID, "err", string(userError))
 		}
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:
@@ -715,7 +713,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
+			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
 		}
 		secrets = record.Payload
 	}
@@ -727,9 +725,8 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 	decryptCtx, cancel := context.WithTimeout(ctx, time.Duration(l.pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second)
 	defer cancel()
 
-	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, requestID[:], secrets)
+	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, []byte(requestID), secrets)
 	if err != nil {
-		l.logger.Debugw("threshold decryption of secrets failed", "requestID", requestIDStr, "err", err)
 		return "", errors.New("threshold decryption of secrets failed"), nil
 	}
 	return string(decryptedSecretsBytes), nil, nil

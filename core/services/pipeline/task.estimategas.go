@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 
@@ -30,7 +29,7 @@ type EstimateGasLimitTask struct {
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	legacyChains evm.LegacyChainContainer
+	chainSet     evm.ChainSet
 	jobType      string
 }
 
@@ -47,20 +46,12 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) getEvmChainID() string {
-	if t.EVMChainID == "" {
-		t.EVMChainID = "$(jobSpec.evmChainID)"
-	}
-	return t.EVMChainID
-}
-
 func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
 		data       BytesParam
 		multiplier DecimalParam
-		chainID    StringParam
 	)
 	err := multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
@@ -68,19 +59,16 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		// Default to 1, i.e. exactly what estimateGas suggests
 		errors.Wrap(ResolveParam(&multiplier, From(VarExpr(t.Multiplier, vars), NonemptyString(t.Multiplier), decimal.New(1, 0))), "multiplier"),
-		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
 
-	chain, err := t.legacyChains.Get(string(chainID))
+	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
-		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, retryableRunInfo()
 	}
-
-	maximumGasLimit := SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
+	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
 	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: common.Address(fromAddr),

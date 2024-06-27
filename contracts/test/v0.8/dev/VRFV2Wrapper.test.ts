@@ -1,7 +1,7 @@
-import { assert, expect } from 'chai'
+import { expect, assert } from 'chai'
 import { BigNumber, BigNumberish, Signer } from 'ethers'
 import { ethers } from 'hardhat'
-import { reset, toBytes32String } from '../../test-helpers/helpers'
+import { toBytes32String, reset } from '../../test-helpers/helpers'
 import { bigNumEquals } from '../../test-helpers/matchers'
 import { describe } from 'mocha'
 import {
@@ -11,8 +11,8 @@ import {
   VRFCoordinatorV2Mock,
   VRFV2Wrapper,
   VRFV2WrapperConsumerExample,
-  VRFV2WrapperOutOfGasConsumerExample,
   VRFV2WrapperRevertingConsumerExample,
+  VRFV2WrapperOutOfGasConsumerExample,
 } from '../../../typechain'
 
 describe('VRFV2Wrapper', () => {
@@ -100,10 +100,7 @@ describe('VRFV2Wrapper', () => {
     )) as unknown as MockV3Aggregator__factory
     linkEthFeed = await linkEthFeedFactory.deploy(18, weiPerUnitLink) // 1 LINK = 0.003 ETH
 
-    const linkFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
-      owner,
-    )
+    const linkFactory = await ethers.getContractFactory('LinkToken', owner)
     link = await linkFactory.deploy()
     wrongLink = await linkFactory.deploy()
 

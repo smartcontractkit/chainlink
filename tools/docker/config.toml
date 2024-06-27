@@ -1,3 +1,5 @@
+ExplorerURL = 'ws://explorer:3001'
+
 [Log]
 Level = 'info'
 

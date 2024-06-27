@@ -166,7 +166,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
-		expectedData := `{"source":"abcd","language":7,"codeLocation":42,"secretsLocation":88,"args":["arg1","arg2"]}`
+		expectedData := `{"source":"abcd","language":7,"codeLocation":42,"secrets":"qrvM","secretsLocation":88,"args":["arg1","arg2"]}`
 		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"flags":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
 		assert.Equal(t, expectedBody, string(body))
 

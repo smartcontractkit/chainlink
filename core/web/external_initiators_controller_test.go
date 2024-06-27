@@ -74,7 +74,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	db := app.GetSqlxDB()
 	borm := bridges.NewORM(db, logger.TestLogger(t), app.GetConfig().Database())
@@ -140,7 +140,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
@@ -168,7 +168,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"no-url"}`),
@@ -196,7 +196,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
@@ -220,7 +220,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	err := app.BridgeORM().CreateExternalInitiator(&exi)
 	require.NoError(t, err)
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
 	t.Cleanup(cleanup)
@@ -236,7 +236,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	tests := []struct {
 		Name string

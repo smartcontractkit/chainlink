@@ -91,16 +91,10 @@ type Config struct {
 	FeedDecimals  uint8  `mapstructure:"FEED_DECIMALS"`
 
 	// Mercury Config
-	MercuryURL       string `mapstructure:"MERCURY_URL"`
-	MercuryLegacyURL string `mapstructure:"MERCURY_LEGACY_URL"`
-	MercuryID        string `mapstructure:"MERCURY_ID"`
-	MercuryKey       string `mapstructure:"MERCURY_KEY"`
-	MercuryCredName  string `mapstructure:"MERCURY_CRED_NAME"`
-
-	// Tenderly
-	TenderlyKey         string `mapstructure:"TENDERLY_KEY"`
-	TenderlyAccountName string `mapstructure:"TENDERLY_ACCOUNT_NAME"`
-	TenderlyProjectName string `mapstructure:"TENDERLY_PROJECT_NAME"`
+	MercuryURL      string `mapstructure:"MERCURY_URL"`
+	MercuryID       string `mapstructure:"MERCURY_ID"`
+	MercuryKey      string `mapstructure:"MERCURY_KEY"`
+	MercuryCredName string `mapstructure:"MERCURY_CRED_NAME"`
 }
 
 // New creates a new config

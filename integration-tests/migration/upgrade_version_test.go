@@ -6,15 +6,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
-	"os"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"os"
 )
 
 func TestVersionUpgrade(t *testing.T) {
 	t.Parallel()
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		Build()
@@ -34,6 +32,6 @@ func TestVersionUpgrade(t *testing.T) {
 	// MigrateOnStartup = true
 	//
 	// by default
-	err = env.ClCluster.Nodes[0].Restart(env.ClCluster.Nodes[0].NodeConfig)
+	err = env.CLNodes[0].Restart(env.CLNodes[0].NodeConfig)
 	require.NoError(t, err)
 }

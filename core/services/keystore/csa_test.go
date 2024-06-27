@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_CSAKeyStore_E2E(t *testing.T) {
@@ -50,11 +51,11 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key, retrievedKey)
 
 		t.Run("prevents creating more than one key", func(t *testing.T) {
-			k, err2 := ks.Create()
+			k, err := ks.Create()
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
-			assert.True(t, errors.Is(err2, keystore.ErrCSAKeyExists))
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, keystore.ErrCSAKeyExists))
 		})
 	})
 
@@ -76,18 +77,18 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, importedKey, retrievedKey)
 
 		t.Run("prevents importing more than one key", func(t *testing.T) {
-			k, err2 := ks.Import(exportJSON, cltest.Password)
+			k, err := ks.Import(exportJSON, cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
-			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
+			assert.Error(t, err)
+			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err.Error())
 		})
 
 		t.Run("fails to import malformed key", func(t *testing.T) {
-			k, err2 := ks.Import([]byte(""), cltest.Password)
+			k, err := ks.Import([]byte(""), cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			assert.Error(t, err)
 		})
 
 		t.Run("fails to export non-existent key", func(t *testing.T) {
@@ -126,10 +127,10 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		})
 
 		t.Run("fails to delete non-existent key", func(t *testing.T) {
-			k, err2 := ks.Delete("non-existent")
+			k, err := ks.Delete("non-existent")
 
 			assert.Zero(t, k)
-			assert.Error(t, err2)
+			assert.Error(t, err)
 		})
 	})
 
@@ -167,5 +168,22 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
+	})
+
+	t.Run("returns V1 keys as V2", func(t *testing.T) {
+		defer reset()
+		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM csa_keys")))
+
+		k, err := csakey.New(cltest.Password, utils.FastScryptParams)
+		require.NoError(t, err)
+
+		err = utils.JustError(db.Exec(`INSERT INTO csa_keys (public_key, encrypted_private_key, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())`, k.PublicKey, k.EncryptedPrivateKey))
+		require.NoError(t, err)
+
+		keys, err := ks.GetV1KeysAsV2()
+		require.NoError(t, err)
+
+		assert.Len(t, keys, 1)
+		assert.Equal(t, fmt.Sprintf("CSAKeyV2{PrivateKey: <redacted>, PublicKey: %s}", keys[0].PublicKey), keys[0].GoString())
 	})
 }

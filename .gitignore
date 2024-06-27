@@ -45,7 +45,6 @@ core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 output.txt
 race.*
 golangci-lint-output.txt
-/golangci-lint/
 
 # DB state
 ./db/

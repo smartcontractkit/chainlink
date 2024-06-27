@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -24,7 +22,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	resp, cleanup := client.Get("/v2/ping")
 	defer cleanup()
@@ -45,7 +43,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	}
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: uuid.New().String(),
+		Name: "bitcoin",
 		URL:  &eir_url,
 	}
 

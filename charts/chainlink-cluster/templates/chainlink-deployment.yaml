@@ -47,7 +47,7 @@ spec:
             name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
       containers:
         - name: chainlink-db
-          image: {{ default "postgres:11.15" $.Values.db.image }}
+          image: {{ default "postgres" $.Values.db.image }}:{{ default "11.15" $.Values.db.version }}
           command:
             - docker-entrypoint.sh
           args:
@@ -164,15 +164,15 @@ spec:
             limits:
               memory: {{ default "1024Mi" $.Values.chainlink.resources.limits.memory }}
               cpu: {{ default "500m" $.Values.chainlink.resources.limits.cpu }}
+              {{- with $.Values.nodeSelector }}
           {{ else }}
           {{ end }}
-{{- with $.Values.nodeSelector }}
       nodeSelector:
-        {{ toYaml . | indent 8 }}
+{{ toYaml . | indent 8 }}
 {{- end }}
 {{- with $.Values.affinity }}
       affinity:
-        {{ toYaml . | indent 8 }}
+{{ toYaml . | indent 8 }}
 {{- end }}
 {{- with $.Values.tolerations }}
       tolerations:

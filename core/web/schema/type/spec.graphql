@@ -128,7 +128,6 @@ type BlockhashStoreSpec {
     blockhashStoreAddress: String!
     trustedBlockhashStoreAddress: String
     trustedBlockhashStoreBatchSize: Int!
-    heartbeatPeriod: String!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String

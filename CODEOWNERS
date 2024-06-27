@@ -1,5 +1,5 @@
 # CODEOWNERS Best Practices
-# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence." 
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Misc
@@ -37,10 +37,6 @@
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
 /core/services/blockhashstore @smartcontractkit/vrf-team
-/core/services/blockheaderfeeder @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
-/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
 
@@ -50,16 +46,8 @@
 
 /core/services/webhook @samsondav
 
-# Chainlink Functions
-core/services/functions @smartcontractkit/functions
-core/services/ocr2/plugins/functions @smartcontractkit/functions
-core/services/s4 @pinebit @bolekk
-core/service/ocr2/plugins/s4 @pinebit @bolekk
-core/services/ocr2/plugins/threshold @KuphJr @bolekk
-core/services/relay/evm/functions.go @bolekk @justinkaseman @KuphJr
-core/services/relay/evm/functions @bolekk @justinkaseman @KuphJr
-core/scripts/functions @smartcontractkit/functions
-core/scripts/gateway @bolekk @pinebit
+# Chainlink Functions related services
+core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 
 # API
 /core/web @jkongie
@@ -71,30 +59,18 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein @RensR
-
-/contracts/srv/v0.8/automation @smartcontractkit/keepers
-/contracts/**/*keeper* @smartcontractkit/keepers
-/contracts/**/*upkeep* @smartcontractkit/keepers
-/contracts/**/*automation* @smartcontractkit/keepers
-/contracts/gas-snapshots/automation.gas-snapshot @smartcontractkit/keepers
-
-/contracts/src/v0.8/functions @smartcontractkit/functions
-/contracts/**/*functions* @smartcontractkit/functions
-/contracts/gas-snapshots/functions.gas-snapshot @smartcontractkit/functions
-
+/contracts/ @se3000 @connorwstein
+/contracts/**/*Keeper* @smartcontractkit/keepers
+/contracts/**/*Upkeep* @smartcontractkit/keepers
+/contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
-/contracts/gas-snapshots/llo-feeds.gas-snapshot @austinborn @Fletch153
-
-/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
-/contracts/**/*vrf* @smartcontractkit/vrf-team
-
-/contracts/src/v0.8/l2ep @simsonraj
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
+
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
@@ -102,8 +78,6 @@ core/scripts/gateway @bolekk @pinebit
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
-/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 

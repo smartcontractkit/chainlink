@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
@@ -12,14 +12,14 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
 
   event ReportVerified(bytes32 indexed feedId, address requester);
 
-  V1Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public virtual override {
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     s_reportContext[0] = configDigest;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createV1Report(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -32,7 +32,7 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
     );
   }
 
-  function assertReportsEqual(bytes memory response, V1Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V0Report memory testReport) public {
     (
       bytes32 feedId,
       uint32 timestamp,
@@ -57,23 +57,23 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
 contract VerifierProxyVerifyTest is VerifierVerifyTest {
   function test_revertsIfNoVerifierConfigured() public {
     s_reportContext[0] = bytes32("corrupt-digest");
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
     );
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.VerifierNotFound.selector, bytes32("corrupt-digest")));
-    s_verifierProxy.verify(signedReport, bytes(""));
+    s_verifierProxy.verify(signedReport);
   }
 
   function test_proxiesToTheCorrectVerifier() public {
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
     );
 
-    bytes memory response = s_verifierProxy.verify(signedReport, abi.encode(native));
+    bytes memory response = s_verifierProxy.verify(signedReport);
     assertReportsEqual(response, s_testReportOne);
   }
 }
@@ -92,7 +92,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
       abi.encodeWithSelector(AccessControllerInterface.hasAccess.selector, USER),
       abi.encode(false)
     );
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -100,7 +100,7 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.AccessForbidden.selector));
 
     changePrank(USER);
-    s_verifierProxy.verify(signedReport, abi.encode(native));
+    s_verifierProxy.verify(signedReport);
   }
 
   function test_proxiesToTheVerifierIfHasAccess() public {
@@ -110,21 +110,21 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
       abi.encode(true)
     );
 
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
     );
 
     changePrank(USER);
-    bytes memory response = s_verifierProxy.verify(signedReport, bytes(""));
+    bytes memory response = s_verifierProxy.verify(signedReport);
     assertReportsEqual(response, s_testReportOne);
   }
 }
 
 contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfVerifiedByNonProxy() public {
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -136,7 +136,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfVerifiedWithIncorrectAddresses() public {
     Signer[] memory signers = _getSigners(FAULT_TOLERANCE + 1);
     signers[10].mockPrivateKey = 1234;
-    bytes memory signedReport = _generateV1EncodedBlob(s_testReportOne, s_reportContext, signers);
+    bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
     changePrank(address(s_verifierProxy));
     vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     s_verifier.verify(signedReport, msg.sender);
@@ -155,18 +155,14 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfConfigDigestNotSet() public {
     bytes32[3] memory reportContext = s_reportContext;
     reportContext[0] = bytes32("wrong-context-digest");
-    bytes memory signedReport = _generateV1EncodedBlob(
-      s_testReportOne,
-      reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
+    bytes memory signedReport = _generateEncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
     vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID, reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
 
   function test_revertsIfReportHasUnconfiguredFeedID() public {
-    V1Report memory report = _createV1Report(
+    V0Report memory report = _createV0Report(
       FEED_ID_2,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -177,14 +173,14 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       BLOCKNUMBER_LOWER_BOUND,
       uint32(block.timestamp)
     );
-    bytes memory signedReport = _generateV1EncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
+    bytes memory signedReport = _generateEncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
     vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID_2, s_reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
 
   function test_revertsIfWrongNumberOfSigners() public {
-    bytes memory signedReport = _generateV1EncodedBlob(s_testReportOne, s_reportContext, _getSigners(10));
+    bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, _getSigners(10));
     vm.expectRevert(abi.encodeWithSelector(Verifier.IncorrectSignatureCount.selector, 10, FAULT_TOLERANCE + 1));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
@@ -194,14 +190,14 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     Signer[] memory signers = _getSigners(FAULT_TOLERANCE + 1);
     // Duplicate signer at index 1
     signers[0] = signers[1];
-    bytes memory signedReport = _generateV1EncodedBlob(s_testReportOne, s_reportContext, signers);
+    bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
     vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
 
   function test_returnsThePriceAndBlockNumIfReportVerified() public {
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -214,7 +210,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
 
   function test_setsTheCorrectEpoch() public {
     s_reportContext[1] = bytes32(uint256(5 << 8));
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -227,7 +223,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   }
 
   function test_emitsAnEventIfReportVerified() public {
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -264,7 +260,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfVerifyingWithAnUnsetDigest() public {
     s_verifier.deactivateConfig(FEED_ID, (s_oldConfigDigest));
 
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -275,7 +271,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
   }
 
   function test_canVerifyOlderReportsWithOlderConfigs() public {
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -287,7 +283,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
 
   function test_canVerifyNewerReportsWithNewerConfigs() public {
     s_reportContext[0] = s_newConfigDigest;
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)
@@ -300,7 +296,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfAReportIsVerifiedWithAnExistingButIncorrectDigest() public {
     // Try sending the older digest signed with the new set of signers
     s_reportContext[0] = s_oldConfigDigest;
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)

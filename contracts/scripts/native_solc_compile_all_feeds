@@ -30,3 +30,6 @@ compileContract () {
 compileContract interfaces/AggregatorV2V3Interface.sol
 compileContract Chainlink.sol
 compileContract ChainlinkClient.sol
+
+# Feeds
+compileContract dev/DerivedPriceFeed.sol

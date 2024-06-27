@@ -134,26 +134,6 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	require.Equal(t, reqs[1].RequestID[:], queryProto.RequestIDs[1])
 }
 
-func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
-	t.Parallel()
-	const batchSize = 10
-	plugin, orm, _ := preparePlugin(t, batchSize, 1, 1000000)
-	reqs := []functions_srv.Request{newRequest(), newRequest()}
-	reqs[0].CoordinatorContractAddress = &common.Address{1}
-	reqs[1].CoordinatorContractAddress = &common.Address{2}
-	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
-
-	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
-	require.NoError(t, err)
-
-	queryProto := &encoding.Query{}
-	err = proto.Unmarshal(q, queryProto)
-	require.NoError(t, err)
-	require.Equal(t, 1, len(queryProto.RequestIDs))
-	require.Equal(t, reqs[0].RequestID[:], queryProto.RequestIDs[0])
-	// reqs[1] should be excluded from this query because it has a different coordinator address
-}
-
 func TestFunctionsReporting_Observation(t *testing.T) {
 	t.Parallel()
 	plugin, orm, _ := preparePlugin(t, 10, 0, 0)
@@ -259,10 +239,10 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
-	coordinatorContract := common.Address{1}
+	coordinatorContract1, coordinatorContract2 := common.Address{1}, common.Address{2}
 	meta1, meta2 := []byte("meta1"), []byte("meta2")
-	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, gasLimit1, coordinatorContract[:], meta1)
-	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, gasLimit2, coordinatorContract[:], meta2)
+	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, gasLimit1, coordinatorContract1[:], meta1)
+	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, gasLimit2, coordinatorContract2[:], meta2)
 
 	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
 	obs := []types.AttributedObservation{
@@ -282,46 +262,16 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
-	require.Equal(t, coordinatorContract[:], decoded[0].CoordinatorContract)
+	require.Equal(t, coordinatorContract1[:], decoded[0].CoordinatorContract)
 	require.Equal(t, meta1, decoded[0].OnchainMetadata)
 	// CallbackGasLimit is not ABI-encoded
 
 	require.Equal(t, reqId2[:], decoded[1].RequestID)
 	require.Equal(t, compResult, decoded[1].Result)
 	require.Equal(t, []byte{}, decoded[1].Error)
-	require.Equal(t, coordinatorContract[:], decoded[1].CoordinatorContract)
+	require.Equal(t, coordinatorContract2[:], decoded[1].CoordinatorContract)
 	require.Equal(t, meta2, decoded[1].OnchainMetadata)
 	// CallbackGasLimit is not ABI-encoded
-}
-
-func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
-	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 1, 300000)
-	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
-	compResult, meta := []byte("aaa"), []byte("meta")
-	coordinatorContractA, coordinatorContractB := common.Address{1}, common.Address{2}
-	procReq1 := newProcessedRequestWithMeta(reqId1, compResult, []byte{}, 0, coordinatorContractA[:], meta)
-	procReq2 := newProcessedRequestWithMeta(reqId2, compResult, []byte{}, 0, coordinatorContractB[:], meta)
-	procReq3 := newProcessedRequestWithMeta(reqId3, compResult, []byte{}, 0, coordinatorContractA[:], meta)
-
-	query := newMarshalledQuery(t, reqId1, reqId2, reqId3, reqId1, reqId2) // duplicates should be ignored
-	obs := []types.AttributedObservation{
-		newObservation(t, 1, procReq2, procReq3, procReq1),
-		newObservation(t, 2, procReq1, procReq2, procReq3),
-		newObservation(t, 3, procReq3, procReq1, procReq2),
-	}
-
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
-	require.True(t, produced)
-	require.NoError(t, err)
-
-	decoded, err := codec.DecodeReport(reportBytes)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(decoded))
-
-	require.Equal(t, reqId1[:], decoded[0].RequestID)
-	require.Equal(t, reqId3[:], decoded[1].RequestID)
-	// reqId2	should be excluded from this report because it has a different coordinator address
 }
 
 func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
@@ -487,35 +437,4 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
 	require.NoError(t, err)
 	require.True(t, should)
-}
-
-func TestFunctionsReporting_ShouldIncludeCoordinator(t *testing.T) {
-	t.Parallel()
-
-	zeroAddr, coord1, coord2 := &common.Address{}, &common.Address{1}, &common.Address{2}
-
-	// should never pass nil requestCoordinator
-	newCoord, err := functions.ShouldIncludeCoordinator(nil, nil)
-	require.Error(t, err)
-	require.Nil(t, newCoord)
-
-	// should never pass zero requestCoordinator
-	newCoord, err = functions.ShouldIncludeCoordinator(zeroAddr, nil)
-	require.Error(t, err)
-	require.Nil(t, newCoord)
-
-	// overwrite nil reportCoordinator
-	newCoord, err = functions.ShouldIncludeCoordinator(coord1, nil)
-	require.NoError(t, err)
-	require.Equal(t, coord1, newCoord)
-
-	// same address is fine
-	newCoord, err = functions.ShouldIncludeCoordinator(coord1, newCoord)
-	require.NoError(t, err)
-	require.Equal(t, coord1, newCoord)
-
-	// different address is not accepted
-	newCoord, err = functions.ShouldIncludeCoordinator(coord2, newCoord)
-	require.Error(t, err)
-	require.Equal(t, coord1, newCoord)
 }

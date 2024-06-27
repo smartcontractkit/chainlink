@@ -31,6 +31,7 @@ func TestETHKeyResource(t *testing.T) {
 	state := ethkey.State{
 		ID:         1,
 		EVMChainID: *utils.NewBigI(42),
+		NextNonce:  99,
 		Address:    eip55address,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -58,6 +59,7 @@ func TestETHKeyResource(t *testing.T) {
 		   "attributes":{
 			  "address":"%s",
 			  "evmChainID":"42",
+			  "nextNonce": 99,
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "disabled":true,
@@ -87,6 +89,7 @@ func TestETHKeyResource(t *testing.T) {
 			"attributes":{
 				"address":"%s",
 			  	"evmChainID":"42",
+			    "nextNonce": 99,
 				"ethBalance":null,
 				"linkBalance":null,
 				"disabled":true,

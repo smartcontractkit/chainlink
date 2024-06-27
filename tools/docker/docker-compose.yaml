@@ -24,6 +24,8 @@ services:
       - keystore
       - config
       - secrets
+    depends_on:
+      - explorer
 
   node-2:
     container_name: chainlink-node-2
@@ -46,9 +48,20 @@ services:
       - config
       - secrets
 
+  explorer-db:
+    container_name: chainlink-explorer-db
+    image: postgres:11.6
+    volumes:
+      - explorer-db-data:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_DB: $EXPLORER_DB_NAME
+      POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
+
 # TODO
 # - replace clroot with secrets
-# - extract tools into separate docker-compose files
+# - extract explorer and tools into separate docker-compose files
 
 secrets:
   node_password:
@@ -62,3 +75,5 @@ secrets:
   secrets:
     file: dev-secrets.toml
 
+volumes:
+  explorer-db-data:

@@ -3,7 +3,6 @@ package median
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -49,7 +48,7 @@ func NewMedianServices(ctx context.Context,
 	isNewlyCreatedJob bool,
 	relayer loop.Relayer,
 	pipelineRunner pipeline.Runner,
-	runResults chan *pipeline.Run,
+	runResults chan pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr.OCR2OracleArgs,
 	cfg MedianConfig,
@@ -68,13 +67,12 @@ func NewMedianServices(ctx context.Context,
 	}
 	spec := jb.OCR2OracleSpec
 
-	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+	provider, err := relayer.NewMedianProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
-		JobID:         jb.ID,
+		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
-		ProviderType:  string(spec.PluginType),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
 		PluginConfig:  spec.PluginConfig.Bytes(),
@@ -82,12 +80,6 @@ func NewMedianServices(ctx context.Context,
 	if err != nil {
 		return
 	}
-
-	medianProvider, ok := provider.(types.MedianProvider)
-	if !ok {
-		return nil, errors.New("could not coerce PluginProvider to MedianProvider")
-	}
-
 	srvs = append(srvs, provider)
 	argsNoPlugin.ContractTransmitter = provider.ContractTransmitter()
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
@@ -121,11 +113,11 @@ func NewMedianServices(ctx context.Context,
 			abort()
 			return
 		}
-		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, provider, dataSource, juelsPerFeeCoinSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, provider, dataSource, juelsPerFeeCoinSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()

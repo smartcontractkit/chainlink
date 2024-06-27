@@ -12,9 +12,8 @@ import (
 
 // Constraints specifies the global storage constraints.
 type Constraints struct {
-	MaxPayloadSizeBytes    uint   `json:"maxPayloadSizeBytes"`
-	MaxSlotsPerUser        uint   `json:"maxSlotsPerUser"`
-	MaxExpirationLengthSec uint64 `json:"maxExpirationLengthSec"`
+	MaxPayloadSizeBytes uint `json:"maxPayloadSizeBytes"`
+	MaxSlotsPerUser     uint `json:"maxSlotsPerUser"`
 }
 
 // Key identifies a versioned user record.
@@ -76,7 +75,7 @@ var _ Storage = (*storage)(nil)
 
 func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM, clock utils.Clock) Storage {
 	return &storage{
-		lggr:       lggr.Named("S4Storage"),
+		lggr:       lggr.Named("s4_storage"),
 		contraints: contraints,
 		orm:        orm,
 		clock:      clock,
@@ -98,7 +97,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, err
 	}
 
-	if row.Version != key.Version || row.Expiration <= s.clock.Now().UnixMilli() {
+	if row.Expiration <= s.clock.Now().UnixMilli() {
 		return nil, nil, ErrNotFound
 	}
 
@@ -119,11 +118,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 
 func (s *storage) List(ctx context.Context, address common.Address) ([]*SnapshotRow, error) {
 	bigAddress := utils.NewBig(address.Big())
-	sar, err := NewSingleAddressRange(bigAddress)
-	if err != nil {
-		return nil, err
-	}
-	return s.orm.GetSnapshot(sar, pg.WithParentCtx(ctx))
+	return s.orm.GetSnapshot(NewSingleAddressRange(bigAddress), pg.WithParentCtx(ctx))
 }
 
 func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature []byte) error {
@@ -133,12 +128,8 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	if len(record.Payload) > int(s.contraints.MaxPayloadSizeBytes) {
 		return ErrPayloadTooBig
 	}
-	now := s.clock.Now().UnixMilli()
-	if now > record.Expiration {
+	if s.clock.Now().UnixMilli() > record.Expiration {
 		return ErrPastExpiration
-	}
-	if record.Expiration-now > int64(s.contraints.MaxExpirationLengthSec)*1000 {
-		return ErrExpirationTooLong
 	}
 
 	envelope := NewEnvelopeFromRecord(key, record)

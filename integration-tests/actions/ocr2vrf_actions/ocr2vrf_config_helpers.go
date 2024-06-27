@@ -16,7 +16,7 @@ import (
 	"go.dedis.ch/kyber/v3/group/edwards25519"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -39,7 +39,7 @@ func CreateOCR2VRFJobs(
 	chainID int64,
 	keyIndex int,
 ) {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	p2pV2Bootstrapper := createBootstrapJob(t, bootstrapNode, OCR2VRFPluginConfig.DKGConfig.DKGContractAddress, chainID)
 
 	createNonBootstrapJobs(t, nonBootstrapNodes, OCR2VRFPluginConfig, chainID, keyIndex, p2pV2Bootstrapper)
@@ -120,7 +120,7 @@ func BuildOCR2DKGConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRv2Config {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))
@@ -272,7 +272,7 @@ func BuildOCR2VRFConfigVars(
 	t *testing.T,
 	ocr2VRFPluginConfig *OCR2VRFPluginConfig,
 ) contracts.OCRv2Config {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	var onchainPublicKeys []common.Address
 	for _, onchainPublicKey := range ocr2VRFPluginConfig.OCR2Config.OnchainPublicKeys {
 		onchainPublicKeys = append(onchainPublicKeys, common.HexToAddress(onchainPublicKey))

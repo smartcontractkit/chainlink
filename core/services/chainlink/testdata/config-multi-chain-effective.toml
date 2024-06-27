@@ -1,3 +1,4 @@
+ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
@@ -35,13 +36,13 @@ LeaseRefreshInterval = '1s'
 [TelemetryIngress]
 UniConn = true
 Logging = false
+ServerPubKey = ''
+URL = ''
 BufferSize = 100
 MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = true
@@ -207,12 +208,6 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
-[Tracing]
-Enabled = false
-CollectorTarget = ''
-NodeID = ''
-SamplingRatio = 0.0
-
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
@@ -277,7 +272,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -362,7 +356,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -441,7 +434,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -459,12 +451,11 @@ WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
-Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.015'
-GasToken = 'ucosm'
+FCDURL = ''
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 13
 OCR2CachePollPeriod = '4s'
@@ -477,12 +468,11 @@ TendermintURL = 'http://columbus.cosmos.com'
 
 [[Cosmos]]
 ChainID = 'Malaga-420'
-Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 20
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.015'
-GasToken = 'ucosm'
+FCDURL = ''
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'

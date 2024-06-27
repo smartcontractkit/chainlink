@@ -1,0 +1,10 @@
+type            = "cron"
+schemaVersion   = 1
+schedule        = "CRON_TZ=UTC 0 0 1 1 *"
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F40"
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""

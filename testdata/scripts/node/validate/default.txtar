@@ -10,6 +10,7 @@ AllowSimplePasswords = false
 # Input Configuration:
 
 # Effective Configuration, with defaults applied:
+ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
@@ -47,13 +48,13 @@ LeaseRefreshInterval = '1s'
 [TelemetryIngress]
 UniConn = true
 Logging = false
+ServerPubKey = ''
+URL = ''
 BufferSize = 100
 MaxBatchSize = 50
 SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
-URL = ''
-ServerPubKey = ''
 
 [AuditLogger]
 Enabled = false
@@ -218,12 +219,6 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
-
-[Tracing]
-Enabled = false
-CollectorTarget = ''
-NodeID = ''
-SamplingRatio = 0.0
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty

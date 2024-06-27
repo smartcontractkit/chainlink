@@ -19,6 +19,8 @@ type OCR interface {
 	Import(keyJSON []byte, password string) (ocrkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 	EnsureKey() error
+
+	GetV1KeysAsV2() ([]ocrkey.KeyV2, error)
 }
 
 // KeyNotFoundError is returned when we don't find a requested key
@@ -152,6 +154,21 @@ func (ks *ocr) EnsureKey() error {
 	ks.logger.Infof("Created OCR key with ID %s", key.ID())
 
 	return ks.safeAddKey(key)
+}
+
+func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
+	v1Keys, err := ks.orm.GetEncryptedV1OCRKeys()
+	if err != nil {
+		return keys, err
+	}
+	for _, keyV1 := range v1Keys {
+		pk, err := keyV1.Decrypt(ks.password)
+		if err != nil {
+			return keys, err
+		}
+		keys = append(keys, pk.ToV2())
+	}
+	return keys, nil
 }
 
 func (ks *ocr) getByID(id string) (ocrkey.KeyV2, error) {

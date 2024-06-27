@@ -69,17 +69,6 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 			helpers.PanicErr(errors.New("node must have EVM OCR2 bundle"))
 		}
 		ocr2Bundle := ocr2Bundles[ocr2BundleIndex]
-		output.Reset()
-
-		err = client.ListCSAKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var csaKeys []presenters.CSAKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &csaKeys))
-		csaPubKey, err := findFirstCSAPublicKey(csaKeys)
-		helpers.PanicErr(err)
-		output.Reset()
 
 		nc := NodeKeys{
 			EthAddress:            ethAddress,
@@ -88,19 +77,11 @@ func mustFetchNodesKeys(chainID int64, nodes []*node) (nca []NodeKeys) {
 			OCR2ConfigPublicKey:   strings.TrimPrefix(ocr2Bundle.ConfigPublicKey, "ocr2cfg_evm_"),
 			OCR2OnchainPublicKey:  strings.TrimPrefix(ocr2Bundle.OnchainPublicKey, "ocr2on_evm_"),
 			OCR2OffchainPublicKey: strings.TrimPrefix(ocr2Bundle.OffchainPublicKey, "ocr2off_evm_"),
-			CSAPublicKey:          csaPubKey,
 		}
 
 		nca = append(nca, nc)
 	}
 	return
-}
-
-func findFirstCSAPublicKey(csaKeyResources []presenters.CSAKeyResource) (string, error) {
-	for _, r := range csaKeyResources {
-		return r.PubKey, nil
-	}
-	return "", errors.New("did not find any CSA Key Resources")
 }
 
 func findEvmOCR2Bundle(ocr2Bundles []ocr2Bundle) int {

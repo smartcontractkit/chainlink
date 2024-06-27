@@ -11,15 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type Plugin struct {
-	loop.Plugin
+	plugins.Base
 	stop utils.StopChan
 }
 
 func NewPlugin(lggr logger.Logger) *Plugin {
-	return &Plugin{Plugin: loop.Plugin{Logger: lggr}, stop: make(utils.StopChan)}
+	return &Plugin{Base: plugins.Base{Logger: lggr}, stop: make(utils.StopChan)}
 }
 
 func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {

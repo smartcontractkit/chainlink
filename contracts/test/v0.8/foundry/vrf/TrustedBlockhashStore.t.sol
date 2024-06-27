@@ -1,7 +1,7 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {TrustedBlockhashStore} from "../../../../src/v0.8/vrf/dev/TrustedBlockhashStore.sol";
+import {TrustedBlockhashStore} from "../../../../src/v0.8/dev/vrf/TrustedBlockhashStore.sol";
 import {console} from "forge-std/console.sol";
 
 contract TrustedBlockhashStoreTest is BaseTest {
@@ -48,7 +48,6 @@ contract TrustedBlockhashStoreTest is BaseTest {
     assertEq(blockhash(unreachableBlock), 0);
 
     // Store blockhash from whitelisted address;
-    uint256[] memory invalidBlockNums = new uint256[](0);
     uint256[] memory blockNums = new uint256[](1);
     blockNums[0] = unreachableBlock;
     bytes32[] memory blockhashes = new bytes32[](1);
@@ -65,25 +64,9 @@ contract TrustedBlockhashStoreTest is BaseTest {
     vm.expectRevert("Only callable by owner");
     bhs.setWhitelist(new address[](0));
 
-    // Should not store for a mismatched list of block numbers and hashes.
-    changePrank(LINK_WHALE);
-    vm.expectRevert(TrustedBlockhashStore.InvalidTrustedBlockhashes.selector);
-    bhs.storeTrusted(invalidBlockNums, blockhashes, recentBlockNumber, blockhash(recentBlockNumber));
-
     // Should store unreachable blocks via whitelisted address.
+    changePrank(LINK_WHALE);
     bhs.storeTrusted(blockNums, blockhashes, recentBlockNumber, blockhash(recentBlockNumber));
     assertEq(bhs.getBlockhash(unreachableBlock), unreachableBlockhash);
-
-    // Change whitelist. Assert that the old whitelisted address can no longer store,
-    // but the new one can.
-    address[] memory newWhitelist = new address[](1);
-    newWhitelist[0] = LINK_WHALE_2;
-    bhs.setWhitelist(newWhitelist);
-
-    vm.expectRevert(TrustedBlockhashStore.NotInWhitelist.selector);
-    bhs.storeTrusted(blockNums, blockhashes, recentBlockNumber, blockhash(recentBlockNumber));
-
-    changePrank(LINK_WHALE_2);
-    bhs.storeTrusted(blockNums, blockhashes, recentBlockNumber, blockhash(recentBlockNumber));
   }
 }

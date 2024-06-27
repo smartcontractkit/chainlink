@@ -54,7 +54,7 @@ func versionsDBLineReader() (*bufio.Scanner, error) {
 
 }
 
-// ReadVersionsDB populates an IntegratedVersion with all the info in the
+// readVersionsDB populates an IntegratedVersion with all the info in the
 // versions DB
 func ReadVersionsDB() (*IntegratedVersion, error) {
 	rv := IntegratedVersion{}
@@ -87,7 +87,7 @@ func ReadVersionsDB() (*IntegratedVersion, error) {
 			}
 			_, alreadyExists := rv.ContractVersions[topic]
 			if alreadyExists {
-				return nil, errors.Errorf(`topic "%s" already mentioned`, topic)
+				return nil, errors.Errorf(`topic "%s" already mentioned!`, topic)
 			}
 			rv.ContractVersions[topic] = ContractVersion{
 				AbiPath: line[1], BinaryPath: line[2], Hash: line[3],

@@ -5,14 +5,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestForwarderOCRSoak(t *testing.T) {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := `[EVM.Transactions]
 ForwardersEnabled = true`

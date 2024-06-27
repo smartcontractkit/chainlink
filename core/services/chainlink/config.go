@@ -1,8 +1,9 @@
 package chainlink
 
 import (
-	"errors"
 	"fmt"
+
+	"errors"
 
 	"go.uber.org/multierr"
 
@@ -13,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -38,7 +39,7 @@ type Config struct {
 
 	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
 
-	Solana solana.TOMLConfigs `toml:",omitempty"`
+	Solana solana.SolanaConfigs `toml:",omitempty"`
 
 	Starknet starknet.StarknetConfigs `toml:",omitempty"`
 }
@@ -82,7 +83,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.TOMLConfig)
+			c.Solana[i] = new(solana.SolanaConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}
@@ -128,24 +129,28 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
 	}
 
-	if err2 := s.Password.SetFrom(&f.Password); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Password"))
+	if err2 := s.Explorer.SetFrom(&f.Explorer); err2 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Explorer"))
 	}
 
-	if err3 := s.Pyroscope.SetFrom(&f.Pyroscope); err3 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Pyroscope"))
+	if err3 := s.Password.SetFrom(&f.Password); err3 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Password"))
 	}
 
-	if err4 := s.Prometheus.SetFrom(&f.Prometheus); err4 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Prometheus"))
+	if err4 := s.Pyroscope.SetFrom(&f.Pyroscope); err4 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err4, "Pyroscope"))
 	}
 
-	if err5 := s.Mercury.SetFrom(&f.Mercury); err5 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Mercury"))
+	if err5 := s.Prometheus.SetFrom(&f.Prometheus); err5 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err5, "Prometheus"))
 	}
 
-	if err6 := s.Threshold.SetFrom(&f.Threshold); err6 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Threshold"))
+	if err6 := s.Mercury.SetFrom(&f.Mercury); err6 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err6, "Mercury"))
+	}
+
+	if err7 := s.Threshold.SetFrom(&f.Threshold); err7 != nil {
+		err = multierr.Append(err, config.NamedMultiErrorList(err7, "Threshold"))
 	}
 
 	_, err = utils.MultiErrorList(err)
@@ -217,6 +222,12 @@ func (s *Secrets) setEnv() error {
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
 		s.Database.AllowSimplePasswords = new(bool)
 		*s.Database.AllowSimplePasswords = true
+	}
+	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
+		s.Explorer.AccessKey = &explorerKey
+	}
+	if explorerSecret := env.ExplorerSecret.Get(); explorerSecret != "" {
+		s.Explorer.Secret = &explorerSecret
 	}
 	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword

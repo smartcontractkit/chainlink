@@ -16,6 +16,7 @@ func TestWorkID(t *testing.T) {
 		upkeepID string
 		trigger  ocr2keepers.Trigger
 		expected string
+		errored  bool
 	}{
 		{
 			name:     "happy flow no extension",
@@ -35,31 +36,16 @@ func TestWorkID(t *testing.T) {
 		},
 		{
 			name:     "happy flow with extension",
-			upkeepID: GenUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
+			upkeepID: genUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 123,
 				BlockHash:   common.HexToHash("0xabcdef"),
 				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-					Index:     1,
-					TxHash:    common.HexToHash("0x12345"),
-					BlockHash: common.HexToHash("0xabcdef"),
+					Index:  1,
+					TxHash: common.HexToHash("0x12345"),
 				},
 			},
-			expected: "aaa208331dfafff7a681e3358d082a2e78633dd05c8fb2817c391888cadb2912",
-		},
-		{
-			name:     "happy path example from an actual tx",
-			upkeepID: "57755329819103678328139927896464733492677608573736038892412245689671711489918",
-			trigger: ocr2keepers.Trigger{
-				BlockNumber: 39344455,
-				BlockHash:   common.HexToHash("0xb41258d18cd44ebf7a0d70de011f2bc4a67c9b68e8b6dada864045d8543bb020"),
-				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-					Index:     41,
-					TxHash:    common.HexToHash("0x44079b1b33aff337dbf17b9e12c5724ecab979c50c8201a9814a488ff3e22384"),
-					BlockHash: common.HexToHash("0xb41258d18cd44ebf7a0d70de011f2bc4a67c9b68e8b6dada864045d8543bb020"),
-				},
-			},
-			expected: "ef1b6acac8aa3682a8a08f666a13cfa165f7e811a16ea9fa0817f437fc4d110d",
+			expected: "91ace35299de40860e17d31adbc64bee48f437362cedd3b69ccf749a2f38d8e5",
 		},
 		{
 			name:     "empty upkeepID",
@@ -75,18 +61,19 @@ func TestWorkID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Convert the string to a big.Int
-			var id big.Int
-			_, success := id.SetString(tc.upkeepID, 10)
+			var upkeepID big.Int
+			_, success := upkeepID.SetString(tc.upkeepID, 10)
 			if !success {
 				t.Fatal("Invalid big integer value")
 			}
-			uid := &ocr2keepers.UpkeepIdentifier{}
-			ok := uid.FromBigInt(&id)
-			if !ok {
-				t.Fatal("Invalid upkeep identifier")
-			}
 
-			res := UpkeepWorkID(*uid, tc.trigger)
+			res, err := UpkeepWorkID(&upkeepID, tc.trigger)
+			if tc.errored {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
 			assert.Equal(t, tc.expected, res, "UpkeepWorkID mismatch")
 		})
 	}
@@ -126,7 +113,7 @@ func TestNewUpkeepPayload(t *testing.T) {
 				},
 			},
 			check:  []byte("check-data-111"),
-			workID: "d8e7c8907a0b60b637ce71ff4f757edf076e270d52c51f6e4d46a3b0696e0a39",
+			workID: "9fd4d46e09ad25e831fdee664dbaa3b68c37034303234bf70001e3577af43a4f",
 		},
 	}
 

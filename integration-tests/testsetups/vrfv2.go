@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -80,7 +80,7 @@ func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment) {
 
 // Run starts the VRFV2 soak test
 func (v *VRFV2SoakTest) Run(t *testing.T) {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	l.Info().
 		Str("Test Duration", v.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Max number of requests per minute wanted", v.Inputs.RequestsPerMinute).

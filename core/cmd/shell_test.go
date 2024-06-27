@@ -12,11 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -24,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -33,16 +27,13 @@ import (
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
-
 	tests := []struct {
 		name, email, pwd string
 	}{
 		{"bad email", "notreal", cltest.Password},
-		{"bad pwd", u.Email, "mostcommonwrongpwdever"},
+		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever"},
 		{"bad both", "notreal", "mostcommonwrongpwdever"},
-		{"correct", u.Email, cltest.Password},
+		{"correct", cltest.APIEmailAdmin, cltest.Password},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -66,16 +57,14 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	u := cltest.NewUserWithSession(t, app.SessionORM())
-
 	tests := []struct {
 		name, email, pwd string
 		wantError        bool
 	}{
 		{"bad email", "notreal", cltest.Password, true},
-		{"bad pwd", u.Email, "mostcommonwrongpwdever", true},
+		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever", true},
 		{"bad both", "notreal", "mostcommonwrongpwdever", true},
-		{"success", u.Email, cltest.Password, false},
+		{"success", cltest.APIEmailAdmin, cltest.Password, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -345,45 +334,20 @@ func TestNewUserCache(t *testing.T) {
 
 func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr, nil)
+	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
-
-	// config 3 chains but only enable 2 => should only be 2 relayer
-	nEnabledChains := 2
-	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.TOMLConfigs{
-			&solana.TOMLConfig{
-				ChainID: ptr[string]("solana-id-1"),
-				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
-				Nodes:   []*solcfg.Node{},
-			},
-			&solana.TOMLConfig{
-				ChainID: ptr[string]("solana-id-2"),
-				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
-				Nodes:   []*solcfg.Node{},
-			},
-			&solana.TOMLConfig{
-				ChainID: ptr[string]("disabled-solana-id-1"),
-				Enabled: ptr(false),
-				Chain:   solcfg.Chain{},
-				Nodes:   []*solcfg.Node{},
-			},
-		}
-	})
-
-	rf := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: reg,
+	rf := cmd.RelayerFactory{
+		Logger:        lggr,
+		DB:            pgtest.NewSqlxDB(t),
+		GeneralConfig: configtest.NewGeneralConfig(t, nil),
+		LoopRegistry:  reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayer, err := rf.NewSolana(ks)
 		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
+		require.NotNil(t, relayer)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -391,84 +355,31 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayer, err := rf.NewSolana(ks)
 		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
+		require.NotNil(t, relayer)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), nEnabledChains)
+		require.Len(t, reg.List(), 1)
 	})
 
-	// test that duplicate enabled chains is an error when
-	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.TOMLConfigs{
-			&solana.TOMLConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
-				Nodes:   []*solcfg.Node{},
-			},
-			&solana.TOMLConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   solcfg.Chain{},
-				Nodes:   []*solcfg.Node{},
-			},
-		}
-	})
-
-	// not parallel; shared state
-	t.Run("no plugin, duplicate chains", func(t *testing.T) {
-		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
-		require.Error(t, err)
-	})
-
-	t.Run("plugin, duplicate chains", func(t *testing.T) {
-		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
-		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
-		require.Error(t, err)
-	})
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr, nil)
+	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
-	// config 3 chains but only enable 2 => should only be 2 relayer
-	nEnabledChains := 2
-	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
-				ChainID: ptr[string]("starknet-id-1"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
-			},
-			&starknet.StarknetConfig{
-				ChainID: ptr[string]("starknet-id-2"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
-			},
-			&starknet.StarknetConfig{
-				ChainID: ptr[string]("disabled-starknet-id-1"),
-				Enabled: ptr(false),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
-			},
-		}
-	})
-	rf := chainlink.RelayerFactory{
-		Logger:       lggr,
-		LoopRegistry: reg,
+	rf := cmd.RelayerFactory{
+		Logger:        lggr,
+		DB:            pgtest.NewSqlxDB(t),
+		GeneralConfig: configtest.NewGeneralConfig(t, nil),
+		LoopRegistry:  reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		relayer, err := rf.NewStarkNet(ks)
 		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
+		require.NotNil(t, relayer)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -476,41 +387,11 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
-		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		relayer, err := rf.NewStarkNet(ks)
 		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
+		require.NotNil(t, relayer)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), nEnabledChains)
+		require.Len(t, reg.List(), 1)
 	})
 
-	// test that duplicate enabled chains is an error when
-	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
-			},
-			&starknet.StarknetConfig{
-				ChainID: ptr[string]("dupe"),
-				Enabled: ptr(true),
-				Chain:   stkcfg.Chain{},
-				Nodes:   []*config.Node{},
-			},
-		}
-	})
-
-	// not parallel; shared state
-	t.Run("no plugin, duplicate chains", func(t *testing.T) {
-		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
-		require.Error(t, err)
-	})
-
-	t.Run("plugin, duplicate chains", func(t *testing.T) {
-		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
-		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
-		require.Error(t, err)
-	})
 }

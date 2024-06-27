@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.21-bullseye as buildgo
+FROM golang:1.20-buster as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -18,7 +18,7 @@ COPY . .
 RUN make install-chainlink
 
 # Final image: ubuntu with chainlink binary
-FROM golang:1.21-bullseye
+FROM golang:1.20-buster
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive

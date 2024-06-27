@@ -27,8 +27,7 @@ func TestAddressRange_NewSingleAddressRange(t *testing.T) {
 	t.Parallel()
 
 	addr := utils.NewBigI(0x123)
-	sar, err := s4.NewSingleAddressRange(addr)
-	assert.NoError(t, err)
+	sar := s4.NewSingleAddressRange(addr)
 	assert.Equal(t, addr, sar.MinAddress)
 	assert.Equal(t, addr, sar.MaxAddress)
 	assert.True(t, sar.Contains(addr))

@@ -37,7 +37,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	wantUser, wantEffective := app.Config.ConfigTOML()
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	t.Run("effective", func(t *testing.T) {
 		resp, cleanup := client.Get("/v2/config/v2")

@@ -17,7 +17,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint256Max() public {
     //read the first 32 bytes
-    uint256 result = B_512._readUint256(0);
+    uint256 result = B_512.readUint256(0);
 
     //the result should be the max value of a uint256
     assertEq(result, type(uint256).max);
@@ -25,7 +25,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint192Max() public {
     //read the first 24 bytes
-    uint256 result = B_512._readUint192(0);
+    uint256 result = B_512.readUint192(0);
 
     //the result should be the max value of a uint192
     assertEq(result, type(uint192).max);
@@ -33,7 +33,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint32Max() public {
     //read the first 4 bytes
-    uint256 result = B_512._readUint32(0);
+    uint256 result = B_512.readUint32(0);
 
     //the result should be the max value of a uint32
     assertEq(result, type(uint32).max);
@@ -41,7 +41,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint256Min() public {
     //read the second 32 bytes
-    uint256 result = B_512._readUint256(32);
+    uint256 result = B_512.readUint256(32);
 
     //the result should be the min value of a uint256
     assertEq(result, type(uint256).min);
@@ -49,7 +49,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint192Min() public {
     //read the second 24 bytes
-    uint256 result = B_512._readUint192(32);
+    uint256 result = B_512.readUint192(32);
 
     //the result should be the min value of a uint192
     assertEq(result, type(uint192).min);
@@ -57,7 +57,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint32Min() public {
     //read the second 4 bytes
-    uint256 result = B_512._readUint32(32);
+    uint256 result = B_512.readUint32(32);
 
     //the result should be the min value of a uint32
     assertEq(result, type(uint32).min);
@@ -65,7 +65,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint256MultiWord() public {
     //read the first 32 bytes
-    uint256 result = B_512._readUint256(31);
+    uint256 result = B_512.readUint256(31);
 
     //the result should be the last byte from the first word (ff), and 31 bytes from the second word (0000) (0xFF...0000)
     assertEq(result, type(uint256).max << 248);
@@ -73,7 +73,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint192MultiWord() public {
     //read the first 24 bytes
-    uint256 result = B_512._readUint192(31);
+    uint256 result = B_512.readUint192(31);
 
     //the result should be the last byte from the first word (ff), and 23 bytes from the second word (0000) (0xFF...0000)
     assertEq(result, type(uint192).max << 184);
@@ -81,7 +81,7 @@ contract ByteUtilTest is Test {
 
   function test_readUint32MultiWord() public {
     //read the first 4 bytes
-    uint256 result = B_512._readUint32(31);
+    uint256 result = B_512.readUint32(31);
 
     //the result should be the last byte from the first word (ff), and 3 bytes from the second word (0000) (0xFF...0000)
     assertEq(result, type(uint32).max << 24);
@@ -92,7 +92,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //try and read 32 bytes from a 16 byte number
-    B_128._readUint256(0);
+    B_128.readUint256(0);
   }
 
   function test_readUint192WithNotEnoughBytes() public {
@@ -100,7 +100,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //try and read 24 bytes from a 16 byte number
-    B_128._readUint192(0);
+    B_128.readUint192(0);
   }
 
   function test_readUint32WithNotEnoughBytes() public {
@@ -108,7 +108,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //try and read 4 bytes from a 2 byte number
-    B_16._readUint32(0);
+    B_16.readUint32(0);
   }
 
   function test_readUint256WithEmptyArray() public {
@@ -116,7 +116,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //read 20 bytes from an empty array
-    B_EMPTY._readUint256(0);
+    B_EMPTY.readUint256(0);
   }
 
   function test_readUint192WithEmptyArray() public {
@@ -124,7 +124,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //read 20 bytes from an empty array
-    B_EMPTY._readUint192(0);
+    B_EMPTY.readUint192(0);
   }
 
   function test_readUint32WithEmptyArray() public {
@@ -132,12 +132,12 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //read 20 bytes from an empty array
-    B_EMPTY._readUint32(0);
+    B_EMPTY.readUint32(0);
   }
 
   function test_readAddress() public {
     //read the first 20 bytes
-    address result = B_512._readAddress(0);
+    address result = B_512.readAddress(0);
 
     //the result should be the max value of a uint256
     assertEq(result, address(type(uint160).max));
@@ -145,7 +145,7 @@ contract ByteUtilTest is Test {
 
   function test_readZeroAddress() public {
     //read the first 32 bytes after the first word
-    address result = B_512._readAddress(32);
+    address result = B_512.readAddress(32);
 
     //the result should be 0x00...0
     assertEq(result, address(type(uint160).min));
@@ -153,7 +153,7 @@ contract ByteUtilTest is Test {
 
   function test_readAddressMultiWord() public {
     //read the first 20 bytes after byte 13
-    address result = B_512._readAddress(13);
+    address result = B_512.readAddress(13);
 
     //the result should be the value last 19 bytes of the first word (ffff..) and the first byte of the second word (00) (0xFFFF..00)
     assertEq(result, address(type(uint160).max << 8));
@@ -164,7 +164,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //read 20 bytes from a 16 byte array
-    B_128._readAddress(0);
+    B_128.readAddress(0);
   }
 
   function test_readAddressWithEmptyArray() public {
@@ -172,6 +172,6 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //read the first 20 bytes of an empty array
-    B_EMPTY._readAddress(0);
+    B_EMPTY.readAddress(0);
   }
 }

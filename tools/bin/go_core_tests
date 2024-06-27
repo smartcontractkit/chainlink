@@ -16,7 +16,7 @@ use_tee() {
     cat > "$@"
   fi
 }
-go test -json -ldflags "$GO_LDFLAGS" -tags integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | use_tee $OUTPUT_FILE
+go test -json -ldflags "$GO_LDFLAGS" -tags test,integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

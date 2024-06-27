@@ -1,16 +1,23 @@
 package chains
 
 import (
-	"errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-var (
-	// ErrChainIDEmpty is returned when chain is required but was empty.
-	ErrChainIDEmpty = errors.New("chain id empty")
-	ErrNotFound     = errors.New("not found")
-)
+type ChainConfigs interface {
+	Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error)
+}
 
-// ChainOpts holds options for configuring a Chain
-type ChainOpts interface {
-	Validate() error
+type NodeConfigs[I ID, N Node] interface {
+	Node(name string) (N, error)
+	Nodes(chainID I) (nodes []N, err error)
+
+	NodeStatus(name string) (types.NodeStatus, error)
+	NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
+}
+
+// Configs holds chain and node configurations.
+type Configs[I ID, N Node] interface {
+	ChainConfigs
+	NodeConfigs[I, N]
 }

@@ -5,7 +5,7 @@ import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 import {Common} from "../libraries/Common.sol";
@@ -65,10 +65,6 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// not conform to the verifier interface
   error VerifierInvalid();
 
-  /// @notice This error is thrown when the fee manager at an address does
-  /// not conform to the fee manager interface
-  error FeeManagerInvalid();
-
   /// @notice This error is thrown whenever a verifier is not found
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
@@ -117,50 +113,24 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 2.0.0";
+    return "VerifierProxy 1.1.0";
   }
 
   /// @inheritdoc IVerifierProxy
   function verify(
-    bytes calldata payload,
-    bytes calldata parameterPayload
-  ) external payable checkAccess returns (bytes memory) {
-    IVerifierFeeManager feeManager = s_feeManager;
-
-    // Bill the verifier
-    if (address(feeManager) != address(0)) {
-      feeManager.processFee{value: msg.value}(payload, parameterPayload, msg.sender);
-    }
-
-    return _verify(payload);
-  }
-
-  /// @inheritdoc IVerifierProxy
-  function verifyBulk(
-    bytes[] calldata payloads,
-    bytes calldata parameterPayload
-  ) external payable checkAccess returns (bytes[] memory verifiedReports) {
-    IVerifierFeeManager feeManager = s_feeManager;
-
-    // Bill the verifier
-    if (address(feeManager) != address(0)) {
-      feeManager.processFeeBulk{value: msg.value}(payloads, parameterPayload, msg.sender);
-    }
-
-    //verify the reports
-    verifiedReports = new bytes[](payloads.length);
-    for (uint256 i; i < payloads.length; ++i) {
-      verifiedReports[i] = _verify(payloads[i]);
-    }
-
-    return verifiedReports;
-  }
-
-  function _verify(bytes calldata payload) internal returns (bytes memory verifiedReport) {
+    bytes calldata payload
+  ) external payable override checkAccess returns (bytes memory verifierResponse) {
     // First 32 bytes of the signed report is the config digest
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
+
+    IVerifierFeeManager feeManager = s_feeManager;
+
+    // Bill the verifier
+    if (address(feeManager) != address(0)) {
+      feeManager.processFee{value: msg.value}(payload, msg.sender);
+    }
 
     return IVerifier(verifierAddress).verify(payload, msg.sender);
   }
@@ -202,7 +172,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function getVerifier(bytes32 configDigest) external view override returns (address) {
+  function getVerifier(bytes32 configDigest) external view override returns (address verifierAddress) {
     return s_verifiersByConfig[configDigest];
   }
 
@@ -216,11 +186,6 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   function setFeeManager(IVerifierFeeManager feeManager) external onlyOwner {
     if (address(feeManager) == address(0)) revert ZeroAddress();
-
-    if (
-      !IERC165(feeManager).supportsInterface(IVerifierFeeManager.processFee.selector) ||
-      !IERC165(feeManager).supportsInterface(IVerifierFeeManager.processFeeBulk.selector)
-    ) revert FeeManagerInvalid();
 
     address oldFeeManager = address(s_feeManager);
     s_feeManager = IVerifierFeeManager(feeManager);

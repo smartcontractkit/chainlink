@@ -66,10 +66,7 @@ describe('ERC20BalanceMonitor', () => {
       'ERC20BalanceMonitorExposed',
       owner,
     )
-    const ltFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
-      owner,
-    )
+    const ltFactory = await ethers.getContractFactory('LinkToken', owner)
     const reFactory = await ethers.getContractFactory('ReceiveEmitter', owner)
     const rfeFactory = await ethers.getContractFactory(
       'ReceiveFallbackEmitter',

@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type roundRobinKeystore interface {
@@ -16,7 +17,7 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
+	CreateTransaction(txRequest txmgr.TxRequest, qopts ...pg.QOpt) (tx txmgr.Tx, err error)
 }
 
 type Transmitter interface {
@@ -71,7 +72,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
+	_, err = t.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -80,7 +81,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Strategy:         t.strategy,
 		Checker:          t.checker,
 		Meta:             txMeta,
-	})
+	}, pg.WithParentCtx(ctx))
 	return errors.Wrap(err, "skipped OCR transmission")
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -246,17 +246,17 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 
 // V2PlusCoordinator fetches request and fulfillment logs from a VRF V2Plus coordinator contract.
 type V2PlusCoordinator struct {
-	c  v2plus.IVRFCoordinatorV2PlusInternalInterface
+	c  v2plus.VRFCoordinatorV2PlusInterface
 	lp logpoller.LogPoller
 }
 
 // NewV2Coordinator creates a new V2Coordinator from the given contract.
-func NewV2PlusCoordinator(c v2plus.IVRFCoordinatorV2PlusInternalInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
+func NewV2PlusCoordinator(c v2plus.VRFCoordinatorV2PlusInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
 	err := lp.RegisterFilter(logpoller.Filter{
 		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),
 		EventSigs: []common.Hash{
-			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
-			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
+			v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
+			v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
 		}, Addresses: []common.Address{c.Address()},
 	})
 
@@ -277,7 +277,7 @@ func (v *V2PlusCoordinator) Requests(
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
+			v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -291,7 +291,7 @@ func (v *V2PlusCoordinator) Requests(
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*v2plus.IVRFCoordinatorV2PlusInternalRandomWordsRequested)
+		request, ok := requestLog.(*v2plus.VRFCoordinatorV2PlusRandomWordsRequested)
 		if !ok {
 			continue // malformed log should not break flow
 		}
@@ -312,7 +312,7 @@ func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) 
 		int64(fromBlock),
 		int64(toBlock),
 		[]common.Hash{
-			v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
+			v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
 		},
 		v.c.Address(),
 		pg.WithParentCtx(ctx))
@@ -326,7 +326,7 @@ func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) 
 		if err != nil {
 			continue // malformed log should not break flow
 		}
-		request, ok := requestLog.(*v2plus.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled)
+		request, ok := requestLog.(*v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled)
 		if !ok {
 			continue // malformed log should not break flow
 		}

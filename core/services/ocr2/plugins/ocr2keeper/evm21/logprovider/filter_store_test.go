@@ -2,7 +2,6 @@ package logprovider
 
 import (
 	"math/big"
-	"sort"
 	"sync"
 	"testing"
 
@@ -51,16 +50,7 @@ func TestFilterStore_CRUD(t *testing.T) {
 			require.Equal(t, len(tc.initial), len(s.GetIDs(nil)))
 			s.AddActiveUpkeeps(tc.toAdd...)
 			require.Equal(t, len(tc.expectedPostAdd), s.Size())
-			filters := s.GetFilters(func(f upkeepFilter) bool { return true })
-			require.Equal(t, len(tc.expectedPostAdd), len(filters))
-			if len(filters) > 0 {
-				sort.Slice(filters, func(i, j int) bool {
-					return filters[i].upkeepID.Cmp(filters[j].upkeepID) < 0
-				})
-				for i, f := range filters {
-					require.Equal(t, tc.expectedPostAdd[i].upkeepID, f.upkeepID)
-				}
-			}
+			require.Equal(t, len(tc.expectedPostAdd), len(s.GetFilters(func(f upkeepFilter) bool { return true })))
 			s.RemoveActiveUpkeeps(tc.toRemove...)
 			require.Equal(t, len(tc.expectedPostRemove), len(s.GetIDs(func(upkeepFilter) bool { return true })))
 		})

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-// solhint-disable-next-line one-contract-per-file
 pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
-import {VRFTypes} from "./VRFTypes.sol";
+import "./VRFTypes.sol";
 
 // Taken from VRFCoordinatorV2.sol
 // Must be abi-compatible with what's there
@@ -110,7 +109,6 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
   event RandomWordsForced(uint256 indexed requestId, uint64 indexed subId, address indexed sender);
 
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
-    // solhint-disable-next-line custom-errors
     require(_vrfCoordinator != address(0), "vrf coordinator address must be non-zero");
     s_vrfCoordinator = IVRFCoordinatorV2(_vrfCoordinator);
   }
@@ -194,7 +192,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @param feeConfig fee tier configuration
    */
-  function _setConfig(
+  function setConfigPrivate(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
@@ -235,7 +233,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @dev when too many local variables are in the same scope.
    * @return Config struct containing all relevant configs from the VRF coordinator.
    */
-  function _getConfigs() private view returns (Config memory) {
+  function getConfigs() private view returns (Config memory) {
     (
       uint16 minimumRequestConfirmations,
       uint32 maxGasLimit,
@@ -284,15 +282,15 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
     VRFTypes.Proof memory proof,
     VRFTypes.RequestCommitment memory rc
   ) external validateAuthorizedSender {
-    uint256 requestId = _requestIdFromProof(proof.pk, proof.seed);
+    uint256 requestId = requestIdFromProof(proof.pk, proof.seed);
 
     // Get current configs to restore them to original values after
-    // calling _setConfig.
-    Config memory cfg = _getConfigs();
+    // calling setConfigPrivate.
+    Config memory cfg = getConfigs();
 
-    // call _setConfig with the appropriate params in order to fulfill
+    // call setConfigPrivate with the appropriate params in order to fulfill
     // an accidentally-underfunded request.
-    _setConfig(
+    setConfigPrivate(
       cfg.minimumRequestConfirmations,
       cfg.maxGasLimit,
       1, // stalenessSeconds
@@ -314,7 +312,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
     s_vrfCoordinator.fulfillRandomWords(proof, rc);
 
     // reset configuration back to old values.
-    _setConfig(
+    setConfigPrivate(
       cfg.minimumRequestConfirmations,
       cfg.maxGasLimit,
       cfg.stalenessSeconds,
@@ -340,7 +338,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param proofSeed the proof seed
    * @dev Refer to VRFCoordinatorV2.getRandomnessFromProof for original implementation.
    */
-  function _requestIdFromProof(uint256[2] memory publicKey, uint256 proofSeed) private view returns (uint256) {
+  function requestIdFromProof(uint256[2] memory publicKey, uint256 proofSeed) private view returns (uint256) {
     bytes32 keyHash = s_vrfCoordinator.hashOfKey(publicKey);
     uint256 requestId = uint256(keccak256(abi.encode(keyHash, proofSeed)));
     return requestId;

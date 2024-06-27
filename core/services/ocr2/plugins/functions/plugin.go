@@ -3,17 +3,16 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
-	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -131,21 +130,17 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	}
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
-	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil && pluginConfig.OnchainSubscriptions != nil {
+	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil {
 		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, conf.Logger)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create OnchainAllowlist")
+			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
 		}
 		rateLimiter, err2 := hc.NewRateLimiter(*pluginConfig.RateLimiter)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
 		}
-		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, conf.Logger)
-		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
-		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, pluginConfig.MinimumSubscriptionBalance, connectorLogger)
+		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, connectorLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
@@ -172,7 +167,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	return allServices, nil
 }
 
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwFunctions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, lggr logger.Logger) (connector.GatewayConnector, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
 	if err != nil {
 		return nil, err
@@ -185,7 +180,7 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 	nodeAddress := enabledKeys[idx].ID()
 
-	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, minimumBalance, lggr)
+	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, lggr)
 	if err != nil {
 		return nil, err
 	}

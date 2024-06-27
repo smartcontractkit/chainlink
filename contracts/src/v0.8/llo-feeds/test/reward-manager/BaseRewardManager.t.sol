@@ -3,9 +3,8 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
-import {RewardManager} from "../../RewardManager.sol";
+import {RewardManager} from "../../dev/RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 /**
  * @title BaseRewardManagerTest
@@ -56,10 +55,10 @@ contract BaseRewardManagerTest is Test {
   uint256 internal constant DEFAULT_MINT_QUANTITY = 100 ether;
 
   //reward scalar (this should match the const in the contract)
-  uint64 internal constant POOL_SCALAR = 1e18;
-  uint64 internal constant ONE_PERCENT = POOL_SCALAR / 100;
-  uint64 internal constant FIFTY_PERCENT = POOL_SCALAR / 2;
-  uint64 internal constant TEN_PERCENT = POOL_SCALAR / 10;
+  uint256 internal constant POOL_SCALAR = 1e18;
+  uint256 internal constant ONE_PERCENT = POOL_SCALAR / 100;
+  uint256 internal constant FIFTY_PERCENT = POOL_SCALAR / 2;
+  uint256 internal constant TEN_PERCENT = POOL_SCALAR / 10;
 
   //the selector for each error
   bytes4 internal immutable UNAUTHORIZED_ERROR_SELECTOR = RewardManager.Unauthorized.selector;
@@ -67,13 +66,12 @@ contract BaseRewardManagerTest is Test {
   bytes4 internal immutable INVALID_WEIGHT_ERROR_SELECTOR = RewardManager.InvalidWeights.selector;
   bytes4 internal immutable INVALID_POOL_ID_ERROR_SELECTOR = RewardManager.InvalidPoolId.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
-  bytes4 internal immutable INVALID_POOL_LENGTH_SELECTOR = RewardManager.InvalidPoolLength.selector;
 
   // Events emitted within the reward manager
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
-  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint192 quantity);
+  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
   event FeeManagerUpdated(address newProxyAddress);
-  event FeePaid(IRewardManager.FeePayment[] payments, address payee);
+  event FeePaid(bytes32 poolId, address payee, uint256 quantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -166,27 +164,15 @@ contract BaseRewardManagerTest is Test {
   }
 
   function addFundsToPool(bytes32 poolId, Common.Asset memory amount, address sender) public {
-    IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
-    payments[0] = IRewardManager.FeePayment(poolId, uint192(amount.amount));
-
-    addFundsToPool(payments, sender);
-  }
-
-  function addFundsToPool(IRewardManager.FeePayment[] memory payments, address sender) public {
     //record the current address and switch to the sender
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    uint256 totalPayment;
-    for (uint256 i; i < payments.length; ++i) {
-      totalPayment += payments[i].amount;
-    }
-
     //approve the amount being paid into the pool
-    ERC20Mock(address(asset)).approve(address(rewardManager), totalPayment);
+    ERC20Mock(amount.assetAddress).approve(address(rewardManager), amount.amount);
 
     //this represents the verifier adding some funds to the pool
-    rewardManager.onFeePaid(payments, sender);
+    rewardManager.onFeePaid(poolId, sender, amount.amount);
 
     //change back to the original address
     changePrank(originalAddr);

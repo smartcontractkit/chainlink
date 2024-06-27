@@ -43,18 +43,19 @@ spec:
             limits:
               memory: {{ default "1024Mi" $.Values.chainlink.resources.limits.memory }}
               cpu: {{ default "500m" $.Values.chainlink.resources.limits.cpu }}
+              {{- with $.Values.nodeSelector }}
           {{ else }}
           {{ end }}
-  {{- with .Values.nodeSelector }}
+{{- with .Values.nodeSelector }}
       nodeSelector:
-        {{ toYaml . | indent 8 }}
-  {{- end }}
-  {{- with .Values.affinity }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.affinity }}
       affinity:
-        {{ toYaml . | indent 8 }}
-  {{- end }}
-  {{- with .Values.tolerations }}
+{{ toYaml . | indent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
       tolerations:
-  {{ toYaml . | indent 8 }}
-  {{- end }}
----
+{{ toYaml . | indent 8 }}
+{{- end }}
+  {{ end }}

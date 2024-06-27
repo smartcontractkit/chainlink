@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,9 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type NodesController interface {
@@ -19,32 +17,15 @@ type NodesController interface {
 	Index(c *gin.Context, size, page, offset int)
 }
 
-type NetworkScopedNodeStatuser struct {
-	network  relay.Network
-	relayers chainlink.RelayerChainInteroperators
-}
-
-func NewNetworkScopedNodeStatuser(relayers chainlink.RelayerChainInteroperators, network relay.Network) *NetworkScopedNodeStatuser {
-	scoped := relayers.List(chainlink.FilterRelayersByType(network))
-	return &NetworkScopedNodeStatuser{
-		network:  network,
-		relayers: scoped,
-	}
-}
-
-func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
-	return n.relayers.NodeStatuses(ctx, offset, limit, relayIDs...)
-}
-
 type nodesController[R jsonapi.EntityNamer] struct {
-	nodeSet       *NetworkScopedNodeStatuser
+	nodeSet       chains.Nodes
 	errNotEnabled error
 	newResource   func(status types.NodeStatus) R
 	auditLogger   audit.AuditLogger
 }
 
 func newNodesController[R jsonapi.EntityNamer](
-	nodeSet *NetworkScopedNodeStatuser,
+	nodeSet chains.Nodes,
 	errNotEnabled error,
 	newResource func(status types.NodeStatus) R,
 	auditLogger audit.AuditLogger,
@@ -74,14 +55,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size)
 	} else {
 		// fetch nodes for chain ID
-		// backward compatibility
-		var rid relay.ID
-		err = rid.UnmarshalString(id)
-		if err != nil {
-			rid.ChainID = id
-			rid.Network = n.nodeSet.network
-		}
-		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, rid)
+		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, id)
 	}
 
 	var resources []R

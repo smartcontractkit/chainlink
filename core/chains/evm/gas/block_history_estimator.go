@@ -243,7 +243,7 @@ func (b *BlockHistoryEstimator) Name() string {
 	return b.logger.Name()
 }
 func (b *BlockHistoryEstimator) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.Healthy()}
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
 func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {

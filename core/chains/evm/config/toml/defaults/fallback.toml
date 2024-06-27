@@ -58,7 +58,6 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4

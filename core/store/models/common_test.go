@@ -203,7 +203,7 @@ func TestDuration_MarshalJSON(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			b, err := json.Marshal(test.input)
+			b, err := json.Marshal(&test.input)
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, string(b))
 		})

@@ -26,7 +26,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	chainID := "12345"
 	gasLimit := uint32(1000)

@@ -32,7 +32,6 @@ type ThresholdOffchainConfig struct {
 	RequestCountLimit         uint32
 	RequestTotalBytesLimit    uint32
 	RequireLocalRequestCheck  bool
-	K                         uint32
 }
 
 type S4ReportingPluginConfig struct {
@@ -80,7 +79,6 @@ type NodeKeys struct {
 	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
 	OCR2OffchainPublicKey string // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
-	CSAPublicKey          string
 }
 
 type orc2drOracleConfig struct {
@@ -104,14 +102,23 @@ func (g *generateOCR2Config) Name() string {
 }
 
 func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
-	return mustParseJSON[TopLevelConfigSource](fileName)
+	jsonFile, err := os.Open(fileName)
+	if err != nil {
+		panic(err)
+	}
+	defer jsonFile.Close()
+	bytes, err := io.ReadAll(jsonFile)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(bytes, &output)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
 func mustParseKeysFile(fileName string) (output []NodeKeys) {
-	return mustParseJSON[[]NodeKeys](fileName)
-}
-
-func mustParseJSON[T any](fileName string) (output T) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
@@ -224,7 +231,6 @@ func (g *generateOCR2Config) Run(args []string) {
 				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
 				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
 				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
-				K:                         cfg.ThresholdOffchainConfig.K,
 			},
 			S4PluginConfig: &config.S4ReportingPluginConfig{
 				MaxQueryLengthBytes:       cfg.S4ReportingPluginConfig.MaxQueryLengthBytes,

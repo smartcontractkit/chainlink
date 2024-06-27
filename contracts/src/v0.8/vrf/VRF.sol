@@ -17,7 +17,7 @@ pragma solidity ^0.8.0;
   * ****************************************************************************
   * @dev USAGE
 
-  * @dev The main entry point is _randomValueFromVRFProof. See its docstring.
+  * @dev The main entry point is randomValueFromVRFProof. See its docstring.
   * ****************************************************************************
   * @dev PURPOSE
 
@@ -57,18 +57,18 @@ pragma solidity ^0.8.0;
   * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5
   * @dev   For curve-point multiplication, it's much cheaper to abuse ECRECOVER
 
-  * @dev - _hashToCurve recursively hashes until it finds a curve x-ordinate. On
+  * @dev - hashToCurve recursively hashes until it finds a curve x-ordinate. On
   * @dev   the EVM, this is slightly more efficient than the recommendation in
   * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.1.1
   * @dev   step 5, to concatenate with a nonce then hash, and rehash with the
   * @dev   nonce updated until a valid x-ordinate is found.
 
-  * @dev - _hashToCurve does not include a cipher version string or the byte 0x1
+  * @dev - hashToCurve does not include a cipher version string or the byte 0x1
   * @dev   in the hash message, as recommended in step 5.B of the draft
   * @dev   standard. They are unnecessary here because no variation in the
   * @dev   cipher suite is allowed.
 
-  * @dev - Similarly, the hash input in _scalarFromCurvePoints does not include a
+  * @dev - Similarly, the hash input in scalarFromCurvePoints does not include a
   * @dev   commitment to the cipher suite, either, which differs from step 2 of
   * @dev   https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
   * @dev   . Also, the hash input is the concatenation of the uncompressed
@@ -88,7 +88,7 @@ pragma solidity ^0.8.0;
 
   * @dev Full uniqueness: For any seed and valid VRF public key, there is
   * @dev   exactly one VRF output which can be proved to come from that seed, in
-  * @dev   the sense that the proof will pass _verifyVRFProof.
+  * @dev   the sense that the proof will pass verifyVRFProof.
 
   * @dev Full collision resistance: It's cryptographically infeasible to find
   * @dev   two seeds with same VRF output from a fixed, valid VRF key
@@ -110,13 +110,13 @@ pragma solidity ^0.8.0;
   * @dev OTHER SECURITY CONSIDERATIONS
   *
   * @dev The seed input to the VRF could in principle force an arbitrary amount
-  * @dev of work in _hashToCurve, by requiring extra rounds of hashing and
+  * @dev of work in hashToCurve, by requiring extra rounds of hashing and
   * @dev checking whether that's yielded the x ordinate of a secp256k1 point.
   * @dev However, under the Random Oracle Model the probability of choosing a
-  * @dev point which forces n extra rounds in _hashToCurve is 2⁻ⁿ. The base cost
-  * @dev for calling _hashToCurve is about 25,000 gas, and each round of checking
+  * @dev point which forces n extra rounds in hashToCurve is 2⁻ⁿ. The base cost
+  * @dev for calling hashToCurve is about 25,000 gas, and each round of checking
   * @dev for a valid x ordinate costs about 15,555 gas, so to find a seed for
-  * @dev which _hashToCurve would cost more than 2,017,000 gas, one would have to
+  * @dev which hashToCurve would cost more than 2,017,000 gas, one would have to
   * @dev try, in expectation, about 2¹²⁸ seeds, which is infeasible for any
   * @dev foreseeable computational resources. (25,000 + 128 * 15,555 < 2,017,000.)
 
@@ -125,10 +125,10 @@ pragma solidity ^0.8.0;
   * @dev operation of this contract by choosing an adverse seed.
 
   * @dev (See TestMeasureHashToCurveGasCost for verification of the gas cost for
-  * @dev _hashToCurve.)
+  * @dev hashToCurve.)
 
-  * @dev It may be possible to make a secure constant-time _hashToCurve function.
-  * @dev See notes in _hashToCurve docstring.
+  * @dev It may be possible to make a secure constant-time hashToCurve function.
+  * @dev See notes in hashToCurve docstring.
 */
 contract VRF {
   // See https://www.secg.org/sec2-v2.pdf, section 2.4.1, for these constants.
@@ -142,7 +142,7 @@ contract VRF {
 
   // (base^exponent) % FIELD_SIZE
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
-  function _bigModExp(uint256 base, uint256 exponent) internal view returns (uint256 exponentiation) {
+  function bigModExp(uint256 base, uint256 exponent) internal view returns (uint256 exponentiation) {
     uint256 callResult;
     uint256[6] memory bigModExpContractInputs;
     bigModExpContractInputs[0] = WORD_LENGTH_BYTES; // Length of base
@@ -153,6 +153,7 @@ contract VRF {
     bigModExpContractInputs[5] = FIELD_SIZE;
     uint256[1] memory output;
     assembly {
+      // solhint-disable-line no-inline-assembly
       callResult := staticcall(
         not(0), // Gas cost: no limit
         0x05, // Bigmodexp contract address
@@ -163,7 +164,6 @@ contract VRF {
       )
     }
     if (callResult == 0) {
-      // solhint-disable-next-line custom-errors
       revert("bigModExp failure!");
     }
     return output[0];
@@ -174,30 +174,28 @@ contract VRF {
   uint256 private constant SQRT_POWER = (FIELD_SIZE + 1) >> 2;
 
   // Computes a s.t. a^2 = x in the field. Assumes a exists
-  function _squareRoot(uint256 x) internal view returns (uint256) {
-    return _bigModExp(x, SQRT_POWER);
+  function squareRoot(uint256 x) internal view returns (uint256) {
+    return bigModExp(x, SQRT_POWER);
   }
 
   // The value of y^2 given that (x,y) is on secp256k1.
-  function _ySquared(uint256 x) internal pure returns (uint256) {
+  function ySquared(uint256 x) internal pure returns (uint256) {
     // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
     uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
     return addmod(xCubed, 7, FIELD_SIZE);
   }
 
   // True iff p is on secp256k1
-  function _isOnCurve(uint256[2] memory p) internal pure returns (bool) {
+  function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
     // Section 2.3.6. in https://www.secg.org/sec1-v2.pdf
     // requires each ordinate to be in [0, ..., FIELD_SIZE-1]
-    // solhint-disable-next-line custom-errors
     require(p[0] < FIELD_SIZE, "invalid x-ordinate");
-    // solhint-disable-next-line custom-errors
     require(p[1] < FIELD_SIZE, "invalid y-ordinate");
-    return _ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
+    return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
 
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
-  function _fieldHash(bytes memory b) internal pure returns (uint256 x_) {
+  function fieldHash(bytes memory b) internal pure returns (uint256 x_) {
     x_ = uint256(keccak256(b));
     // Rejecting if x >= FIELD_SIZE corresponds to step 2.1 in section 2.3.4 of
     // http://www.secg.org/sec1-v2.pdf , which is part of the definition of
@@ -213,10 +211,10 @@ contract VRF {
   // step 5.C, which references arbitrary_string_to_point, defined in
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5 as
   // returning the point with given x ordinate, and even y ordinate.
-  function _newCandidateSecp256k1Point(bytes memory b) internal view returns (uint256[2] memory p) {
+  function newCandidateSecp256k1Point(bytes memory b) internal view returns (uint256[2] memory p) {
     unchecked {
-      p[0] = _fieldHash(b);
-      p[1] = _squareRoot(_ySquared(p[0]));
+      p[0] = fieldHash(b);
+      p[1] = squareRoot(ySquared(p[0]));
       if (p[1] % 2 == 1) {
         // Note that 0 <= p[1] < FIELD_SIZE
         // so this cannot wrap, we use unchecked to save gas.
@@ -225,7 +223,7 @@ contract VRF {
     }
   }
 
-  // Domain-separation tag for initial hash in _hashToCurve. Corresponds to
+  // Domain-separation tag for initial hash in hashToCurve. Corresponds to
   // vrf.go/hashToCurveHashPrefix
   uint256 internal constant HASH_TO_CURVE_HASH_PREFIX = 1;
 
@@ -243,10 +241,10 @@ contract VRF {
   //
   // This would greatly simplify the analysis in "OTHER SECURITY CONSIDERATIONS"
   // https://www.pivotaltracker.com/story/show/171120900
-  function _hashToCurve(uint256[2] memory pk, uint256 input) internal view returns (uint256[2] memory rv) {
-    rv = _newCandidateSecp256k1Point(abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX, pk, input));
-    while (!_isOnCurve(rv)) {
-      rv = _newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
+  function hashToCurve(uint256[2] memory pk, uint256 input) internal view returns (uint256[2] memory rv) {
+    rv = newCandidateSecp256k1Point(abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX, pk, input));
+    while (!isOnCurve(rv)) {
+      rv = newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
     }
   }
 
@@ -260,12 +258,11 @@ contract VRF {
    * @param product: secp256k1 expected to be multiplier * multiplicand
    * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
    */
-  function _ecmulVerify(
+  function ecmulVerify(
     uint256[2] memory multiplicand,
     uint256 scalar,
     uint256[2] memory product
   ) internal pure returns (bool verifies) {
-    // solhint-disable-next-line custom-errors
     require(scalar != 0, "zero scalar"); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
     uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
@@ -281,7 +278,7 @@ contract VRF {
   }
 
   // Returns x1/z1-x2/z2=(x1z2-x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
-  function _projectiveSub(
+  function projectiveSub(
     uint256 x1,
     uint256 z1,
     uint256 x2,
@@ -297,7 +294,7 @@ contract VRF {
   }
 
   // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
-  function _projectiveMul(
+  function projectiveMul(
     uint256 x1,
     uint256 z1,
     uint256 x2,
@@ -312,7 +309,7 @@ contract VRF {
         @dev Using projective coordinates avoids costly divisions
 
         @dev To use this with p and q in affine coordinates, call
-        @dev _projectiveECAdd(px, py, qx, qy). This will return
+        @dev projectiveECAdd(px, py, qx, qy). This will return
         @dev the addition of (px, py, 1) and (qx, qy, 1), in the
         @dev secp256k1 group.
 
@@ -322,7 +319,7 @@ contract VRF {
 
         @dev This function assumes [px,py,1],[qx,qy,1] are valid projective
              coordinates of secp256k1 points. That is safe in this contract,
-             because this method is only used by _linearCombination, which checks
+             because this method is only used by linearCombination, which checks
              points are on the curve via ecrecover.
         **************************************************************************
         @param px The first affine coordinate of the first summand
@@ -338,7 +335,7 @@ contract VRF {
         @return sy
         @return sz
     */
-  function _projectiveECAdd(
+  function projectiveECAdd(
     uint256 px,
     uint256 py,
     uint256 qx,
@@ -349,11 +346,11 @@ contract VRF {
       // "Guide to Elliptic Curve Cryptography" by Hankerson, Menezes and Vanstone
       // We take the equations there for (sx,sy), and homogenize them to
       // projective coordinates. That way, no inverses are required, here, and we
-      // only need the one inverse in _affineECAdd.
+      // only need the one inverse in affineECAdd.
 
       // We only need the "point addition" equations from Hankerson et al. Can
       // skip the "point doubling" equations because p1 == p2 is cryptographically
-      // impossible, and required not to be the case in _linearCombination.
+      // impossible, and required not to be the case in linearCombination.
 
       // Add extra "projective coordinate" to the two points
       (uint256 z1, uint256 z2) = (1, 1);
@@ -365,15 +362,15 @@ contract VRF {
 
       uint256 dx; // Accumulates denominator from sx calculation
       // sx=((qy-py)/(qx-px))^2-px-qx
-      (sx, dx) = _projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
-      (sx, dx) = _projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
-      (sx, dx) = _projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
+      (sx, dx) = projectiveMul(lx, lz, lx, lz); // ((qy-py)/(qx-px))^2
+      (sx, dx) = projectiveSub(sx, dx, px, z1); // ((qy-py)/(qx-px))^2-px
+      (sx, dx) = projectiveSub(sx, dx, qx, z2); // ((qy-py)/(qx-px))^2-px-qx
 
       uint256 dy; // Accumulates denominator from sy calculation
       // sy=((qy-py)/(qx-px))(px-sx)-py
-      (sy, dy) = _projectiveSub(px, z1, sx, dx); // px-sx
-      (sy, dy) = _projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
-      (sy, dy) = _projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
+      (sy, dy) = projectiveSub(px, z1, sx, dx); // px-sx
+      (sy, dy) = projectiveMul(sy, dy, lx, lz); // ((qy-py)/(qx-px))(px-sx)
+      (sy, dy) = projectiveSub(sy, dy, py, z1); // ((qy-py)/(qx-px))(px-sx)-py
 
       if (dx != dy) {
         // Cross-multiply to put everything over a common denominator
@@ -389,12 +386,12 @@ contract VRF {
 
   // p1+p2, as affine points on secp256k1.
   //
-  // invZ must be the inverse of the z returned by _projectiveECAdd(p1, p2).
+  // invZ must be the inverse of the z returned by projectiveECAdd(p1, p2).
   // It is computed off-chain to save gas.
   //
-  // p1 and p2 must be distinct, because _projectiveECAdd doesn't handle
+  // p1 and p2 must be distinct, because projectiveECAdd doesn't handle
   // point doubling.
-  function _affineECAdd(
+  function affineECAdd(
     uint256[2] memory p1,
     uint256[2] memory p2,
     uint256 invZ
@@ -402,8 +399,7 @@ contract VRF {
     uint256 x;
     uint256 y;
     uint256 z;
-    (x, y, z) = _projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
-    // solhint-disable-next-line custom-errors
+    (x, y, z) = projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
     require(mulmod(z, invZ, FIELD_SIZE) == 1, "invZ must be inverse of z");
     // Clear the z ordinate of the projective representation by dividing through
     // by it, to obtain the affine representation
@@ -412,7 +408,7 @@ contract VRF {
 
   // True iff address(c*p+s*g) == lcWitness, where g is generator. (With
   // cryptographically high probability.)
-  function _verifyLinearCombinationWithGenerator(
+  function verifyLinearCombinationWithGenerator(
     uint256 c,
     uint256[2] memory p,
     uint256 s,
@@ -420,7 +416,6 @@ contract VRF {
   ) internal pure returns (bool) {
     // Rule out ecrecover failure modes which return address 0.
     unchecked {
-      // solhint-disable-next-line custom-errors
       require(lcWitness != address(0), "bad witness");
       uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
       // Note this cannot wrap (X - Y % X), but we use unchecked to save
@@ -444,8 +439,8 @@ contract VRF {
   // (cryptographically impossible) case that a prover accidentally derives
   // a proof with equal c*p1 and s*p2, they should retry with a different
   // proof nonce.) Assumes that all points are on secp256k1
-  // (which is checked in _verifyVRFProof below.)
-  function _linearCombination(
+  // (which is checked in verifyVRFProof below.)
+  function linearCombination(
     uint256 c,
     uint256[2] memory p1,
     uint256[2] memory cp1Witness,
@@ -456,21 +451,18 @@ contract VRF {
   ) internal pure returns (uint256[2] memory) {
     unchecked {
       // Note we are relying on the wrap around here
-      // solhint-disable-next-line custom-errors
       require((cp1Witness[0] % FIELD_SIZE) != (sp2Witness[0] % FIELD_SIZE), "points in sum must be distinct");
-      // solhint-disable-next-line custom-errors
-      require(_ecmulVerify(p1, c, cp1Witness), "First mul check failed");
-      // solhint-disable-next-line custom-errors
-      require(_ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
-      return _affineECAdd(cp1Witness, sp2Witness, zInv);
+      require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
+      require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
+      return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
   }
 
-  // Domain-separation tag for the hash taken in _scalarFromCurvePoints.
+  // Domain-separation tag for the hash taken in scalarFromCurvePoints.
   // Corresponds to scalarFromCurveHashPrefix in vrf.go
   uint256 internal constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
 
-  // Pseudo-random number from inputs. Matches vrf.go/_scalarFromCurvePoints, and
+  // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
   // The draft calls (in step 7, via the definition of string_to_int, in
   // https://datatracker.ietf.org/doc/html/rfc8017#section-4.2 ) for taking the
@@ -481,7 +473,7 @@ contract VRF {
   // using the compressed representation of the points, if we collated the y
   // parities into a single bytes32.
   // https://www.pivotaltracker.com/story/show/171120588
-  function _scalarFromCurvePoints(
+  function scalarFromCurvePoints(
     uint256[2] memory hash,
     uint256[2] memory pk,
     uint256[2] memory gamma,
@@ -493,14 +485,14 @@ contract VRF {
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from pk
   // and seed. zInv must be the inverse of the third ordinate from
-  // _projectiveECAdd applied to cGammaWitness and sHashWitness. Corresponds to
+  // projectiveECAdd applied to cGammaWitness and sHashWitness. Corresponds to
   // section 5.3 of the IETF draft.
   //
   // TODO(alx): Since I'm only using pk in the ecrecover call, I could only pass
   // the x ordinate, and the parity of the y ordinate in the top bit of uWitness
   // (which I could make a uint256 without using any extra space.) Would save
   // about 2000 gas. https://www.pivotaltracker.com/story/show/170828567
-  function _verifyVRFProof(
+  function verifyVRFProof(
     uint256[2] memory pk,
     uint256[2] memory gamma,
     uint256 c,
@@ -512,28 +504,22 @@ contract VRF {
     uint256 zInv
   ) internal view {
     unchecked {
-      // solhint-disable-next-line custom-errors
-      require(_isOnCurve(pk), "public key is not on curve");
-      // solhint-disable-next-line custom-errors
-      require(_isOnCurve(gamma), "gamma is not on curve");
-      // solhint-disable-next-line custom-errors
-      require(_isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
-      // solhint-disable-next-line custom-errors
-      require(_isOnCurve(sHashWitness), "sHashWitness is not on curve");
+      require(isOnCurve(pk), "public key is not on curve");
+      require(isOnCurve(gamma), "gamma is not on curve");
+      require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
+      require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
       // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
       // we use the address of u instead of u itself. Also, here we add the
       // terms instead of taking the difference, and in the proof construction in
       // vrf.GenerateProof, we correspondingly take the difference instead of
       // taking the sum as they do in step 7 of section 5.1.)
-      // solhint-disable-next-line custom-errors
-      require(_verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
+      require(verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
       // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
-      uint256[2] memory hash = _hashToCurve(pk, seed);
+      uint256[2] memory hash = hashToCurve(pk, seed);
       // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
-      uint256[2] memory v = _linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
+      uint256[2] memory v = linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
-      uint256 derivedC = _scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
-      // solhint-disable-next-line custom-errors
+      uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
       require(c == derivedC, "invalid proof");
     }
   }
@@ -564,8 +550,8 @@ contract VRF {
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
      */
-  function _randomValueFromVRFProof(Proof memory proof, uint256 seed) internal view returns (uint256 output) {
-    _verifyVRFProof(
+  function randomValueFromVRFProof(Proof memory proof, uint256 seed) internal view returns (uint256 output) {
+    verifyVRFProof(
       proof.pk,
       proof.gamma,
       proof.c,

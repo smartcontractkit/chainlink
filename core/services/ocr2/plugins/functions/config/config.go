@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
@@ -20,29 +19,27 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
-	EnableRequestSignatureCheck        bool                                  `json:"enableRequestSignatureCheck"`
-	DONID                              string                                `json:"donID"`
-	ContractVersion                    uint32                                `json:"contractVersion"`
-	MinIncomingConfirmations           uint32                                `json:"minIncomingConfirmations"`
-	RequestTimeoutSec                  uint32                                `json:"requestTimeoutSec"`
-	RequestTimeoutCheckFrequencySec    uint32                                `json:"requestTimeoutCheckFrequencySec"`
-	RequestTimeoutBatchLookupSize      uint32                                `json:"requestTimeoutBatchLookupSize"`
-	PruneMaxStoredRequests             uint32                                `json:"pruneMaxStoredRequests"`
-	PruneCheckFrequencySec             uint32                                `json:"pruneCheckFrequencySec"`
-	PruneBatchSize                     uint32                                `json:"pruneBatchSize"`
-	ListenerEventHandlerTimeoutSec     uint32                                `json:"listenerEventHandlerTimeoutSec"`
-	ListenerEventsCheckFrequencyMillis uint32                                `json:"listenerEventsCheckFrequencyMillis"`
-	ContractUpdateCheckFrequencySec    uint32                                `json:"contractUpdateCheckFrequencySec"`
-	MaxRequestSizeBytes                uint32                                `json:"maxRequestSizeBytes"`
-	MaxRequestSizesList                []uint32                              `json:"maxRequestSizesList"`
-	MaxSecretsSizesList                []uint32                              `json:"maxSecretsSizesList"`
-	MinimumSubscriptionBalance         assets.Link                           `json:"minimumSubscriptionBalance"`
-	GatewayConnectorConfig             *connector.ConnectorConfig            `json:"gatewayConnectorConfig"`
-	OnchainAllowlist                   *functions.OnchainAllowlistConfig     `json:"onchainAllowlist"`
-	OnchainSubscriptions               *functions.OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
-	RateLimiter                        *common.RateLimiterConfig             `json:"rateLimiter"`
-	S4Constraints                      *s4.Constraints                       `json:"s4Constraints"`
-	DecryptionQueueConfig              *DecryptionQueueConfig                `json:"decryptionQueueConfig"`
+	EnableRequestSignatureCheck        bool                              `json:"enableRequestSignatureCheck"`
+	DONID                              string                            `json:"donID"`
+	ContractVersion                    uint32                            `json:"contractVersion"`
+	MinIncomingConfirmations           uint32                            `json:"minIncomingConfirmations"`
+	RequestTimeoutSec                  uint32                            `json:"requestTimeoutSec"`
+	RequestTimeoutCheckFrequencySec    uint32                            `json:"requestTimeoutCheckFrequencySec"`
+	RequestTimeoutBatchLookupSize      uint32                            `json:"requestTimeoutBatchLookupSize"`
+	PruneMaxStoredRequests             uint32                            `json:"pruneMaxStoredRequests"`
+	PruneCheckFrequencySec             uint32                            `json:"pruneCheckFrequencySec"`
+	PruneBatchSize                     uint32                            `json:"pruneBatchSize"`
+	ListenerEventHandlerTimeoutSec     uint32                            `json:"listenerEventHandlerTimeoutSec"`
+	ListenerEventsCheckFrequencyMillis uint32                            `json:"listenerEventsCheckFrequencyMillis"`
+	ContractUpdateCheckFrequencySec    uint32                            `json:"contractUpdateCheckFrequencySec"`
+	MaxRequestSizeBytes                uint32                            `json:"maxRequestSizeBytes"`
+	MaxRequestSizesList                []uint32                          `json:"maxRequestSizesList"`
+	MaxSecretsSizesList                []uint32                          `json:"maxSecretsSizesList"`
+	GatewayConnectorConfig             *connector.ConnectorConfig        `json:"gatewayConnectorConfig"`
+	OnchainAllowlist                   *functions.OnchainAllowlistConfig `json:"onchainAllowlist"`
+	RateLimiter                        *common.RateLimiterConfig         `json:"rateLimiter"`
+	S4Constraints                      *s4.Constraints                   `json:"s4Constraints"`
+	DecryptionQueueConfig              *DecryptionQueueConfig            `json:"decryptionQueueConfig"`
 }
 
 type DecryptionQueueConfig struct {
@@ -116,7 +113,6 @@ func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig
 			RequestCountLimit:         thresholdPluginConfig.RequestCountLimit,
 			RequestTotalBytesLimit:    thresholdPluginConfig.RequestTotalBytesLimit,
 			RequireLocalRequestCheck:  thresholdPluginConfig.RequireLocalRequestCheck,
-			K:                         thresholdPluginConfig.K,
 		},
 	}, nil
 }

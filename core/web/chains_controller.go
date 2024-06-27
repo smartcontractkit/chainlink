@@ -9,10 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type ChainsController interface {
@@ -23,9 +22,8 @@ type ChainsController interface {
 }
 
 type chainsController[R jsonapi.EntityNamer] struct {
-	network       relay.Network
 	resourceName  string
-	chainStats    chainlink.ChainStatuser
+	chainSet      chains.Chains
 	errNotEnabled error
 	newResource   func(types.ChainStatus) R
 	lggr          logger.Logger
@@ -41,12 +39,11 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.tomlKey)
 }
 
-func newChainsController[R jsonapi.EntityNamer](network relay.Network, chainStats chainlink.ChainsNodesStatuser, errNotEnabled error,
+func newChainsController[R jsonapi.EntityNamer](prefix string, chainSet chains.Chains, errNotEnabled error,
 	newResource func(types.ChainStatus) R, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController[R] {
 	return &chainsController[R]{
-		network:       network,
-		resourceName:  string(network) + "_chain",
-		chainStats:    chainStats,
+		resourceName:  prefix + "_chain",
+		chainSet:      chainSet,
 		errNotEnabled: errNotEnabled,
 		newResource:   newResource,
 		lggr:          lggr,
@@ -55,11 +52,11 @@ func newChainsController[R jsonapi.EntityNamer](network relay.Network, chainStat
 }
 
 func (cc *chainsController[R]) Index(c *gin.Context, size, page, offset int) {
-	if cc.chainStats == nil {
+	if cc.chainSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	chains, count, err := cc.chainStats.ChainStatuses(c, offset, size)
+	chains, count, err := cc.chainSet.ChainStatuses(c, offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -75,12 +72,11 @@ func (cc *chainsController[R]) Index(c *gin.Context, size, page, offset int) {
 }
 
 func (cc *chainsController[R]) Show(c *gin.Context) {
-	if cc.chainStats == nil {
+	if cc.chainSet == nil {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	relayID := relay.ID{Network: cc.network, ChainID: relay.ChainID(c.Param("ID"))}
-	chain, err := cc.chainStats.ChainStatus(c, relayID)
+	chain, err := cc.chainSet.ChainStatus(c, c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

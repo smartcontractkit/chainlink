@@ -12,7 +12,6 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -99,21 +98,21 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 	}
 
 	switch spec.OCR2OracleSpec.PluginType {
-	case types.Median:
+	case job.Median:
 		if spec.Pipeline.Source == "" {
 			return errors.New("no pipeline specified")
 		}
-	case types.DKG:
+	case job.DKG:
 		return validateDKGSpec(spec.OCR2OracleSpec.PluginConfig)
-	case types.OCR2VRF:
+	case job.OCR2VRF:
 		return validateOCR2VRFSpec(spec.OCR2OracleSpec.PluginConfig)
-	case types.OCR2Keeper:
+	case job.OCR2Keeper:
 		return validateOCR2KeeperSpec(spec.OCR2OracleSpec.PluginConfig)
-	case types.Functions:
+	case job.OCR2Functions:
 		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
 		return nil
-	case types.Mercury:
-		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case job.Mercury:
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -189,11 +188,11 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
+func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
 }

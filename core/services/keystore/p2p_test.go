@@ -177,4 +177,21 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "12D3KooWSq2UZgSXvhGLG5uuAAmz1JNjxHMJViJB39aorvbbYo8p", importedKey.ID())
 	})
+
+	t.Run("returns V1 keys as V2", func(t *testing.T) {
+		defer reset()
+		defer require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_p2p_keys")))
+
+		p1 := cltest.MustRandomP2PPeerID(t)
+		err := utils.JustError(db.Exec(`INSERT INTO encrypted_p2p_keys (peer_id, pub_key, encrypted_priv_key, created_at, updated_at, deleted_at) VALUES ($1, $2, '{"cipher":"aes-128-ctr","ciphertext":"adb2dff72148a8cd467f6f06a03869e7cedf180cf2a4decdb86875b2e1cf3e58c4bd2b721ecdaa88a0825fa9abfc309bf32dbb35a5c0b6cb01ac89a956d78e0550eff351","cipherparams":{"iv":"6cc4381766a4efc39f762b2b8d09dfba"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ff5055ae4cdcdc2d0404307d578262e2caeb0210f82db3a0ecbdba727c6f5259"},"mac":"d37e4f1dea98d85960ef3205099fc71741715ae56a3b1a8f9215a78de9b95595"}', NOW(), NOW(), NULL)`, p1.Pretty(), utils.NewHash()))
+		require.NoError(t, err)
+
+		keyStore.SetPassword("p4SsW0rD1!@#_")
+
+		keys, err := ks.GetV1KeysAsV2()
+		require.NoError(t, err)
+
+		assert.Len(t, keys, 1)
+		assert.Equal(t, fmt.Sprintf("P2PKeyV2{PrivateKey: <redacted>, PeerID: %s}", keys[0].PeerID().Raw()), keys[0].GoString())
+	})
 }

@@ -19,25 +19,25 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
 func TestFluxPerformance(t *testing.T) {
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -99,7 +99,6 @@ func TestFluxPerformance(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
-			EVMChainID:        chainClient.GetChainID().String(),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -116,7 +115,7 @@ func TestFluxPerformance(t *testing.T) {
 			return
 		}
 		fluxRoundTimeout := 2 * time.Minute
-		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
+		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
@@ -134,7 +133,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 			"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
+		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = mockServer.SetValuePath(adapterPath, 1e10)
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")
@@ -187,21 +186,19 @@ HTTPWriteTimout = '300s'
 
 [OCR]
 Enabled = true`
-	cd := chainlink.New(0, map[string]interface{}{
-		"replicas": 3,
-		"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
+	cd, err := chainlink.NewDeployment(3, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
 	})
-
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix:    fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:               t,
-		PreventPodEviction: true,
+		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
-		AddHelm(cd)
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

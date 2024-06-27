@@ -7,19 +7,24 @@ import (
 )
 
 type TestEnvConfig struct {
-	Networks    []string          `json:"networks"`
-	Geth        GethConfig        `json:"geth"`
-	MockAdapter MockAdapterConfig `json:"mock_adapter"`
-	ClCluster   *ClCluster        `json:"clCluster"`
+	Networks   []string         `json:"networks"`
+	Geth       GethConfig       `json:"geth"`
+	MockServer MockServerConfig `json:"mockserver"`
+	Nodes      []ClNodeConfig   `json:"nodes"`
 }
 
-type MockAdapterConfig struct {
-	ContainerName string `json:"container_name"`
-	ImpostersPath string `json:"imposters_path"`
+type MockServerConfig struct {
+	ContainerName string   `json:"container_name"`
+	EAMockUrls    []string `json:"external_adapters_mock_urls"`
 }
 
 type GethConfig struct {
 	ContainerName string `json:"container_name"`
+}
+
+type ClNodeConfig struct {
+	NodeContainerName string `json:"container_name"`
+	DbContainerName   string `json:"db_container_name"`
 }
 
 func NewTestEnvConfigFromFile(path string) (*TestEnvConfig, error) {

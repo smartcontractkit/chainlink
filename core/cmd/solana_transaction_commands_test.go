@@ -19,7 +19,7 @@ import (
 	solanaClient "github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
@@ -31,10 +31,9 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		Name: ptr(t.Name()),
 		URL:  utils.MustParseURL(url),
 	}
-	cfg := solana.TOMLConfig{
+	cfg := solana.SolanaConfig{
 		ChainID: &chainID,
 		Nodes:   solana.SolanaNodes{&node},
-		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create()

@@ -14,14 +14,13 @@ import (
 
 func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 	var (
-		mgrID         = int64(100)
-		cfgID         = int64(1)
-		chainID       = "42"
-		accountAddr   = "0x0000001"
-		adminAddr     = "0x0000002"
-		forwarderAddr = "0x0000003"
-		peerID        = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
-		keyBundleID   = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
+		mgrID       = int64(100)
+		cfgID       = int64(1)
+		chainID     = "42"
+		accountAddr = "0x0000001"
+		adminAddr   = "0x0000002"
+		peerID      = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
+		keyBundleID = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
 
 		mutation = `
 			mutation CreateFeedsManagerChainConfig($input: CreateFeedsManagerChainConfigInput!) {
@@ -46,22 +45,21 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 			}`
 		variables = map[string]interface{}{
 			"input": map[string]interface{}{
-				"feedsManagerID":       stringutils.FromInt64(mgrID),
-				"chainID":              chainID,
-				"chainType":            "EVM",
-				"accountAddr":          accountAddr,
-				"adminAddr":            adminAddr,
-				"fluxMonitorEnabled":   false,
-				"ocr1Enabled":          true,
-				"ocr1IsBootstrap":      false,
-				"ocr1P2PPeerID":        peerID.String,
-				"ocr1KeyBundleID":      keyBundleID.String,
-				"ocr2Enabled":          true,
-				"ocr2IsBootstrap":      false,
-				"ocr2P2PPeerID":        peerID.String,
-				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
-				"ocr2ForwarderAddress": forwarderAddr,
+				"feedsManagerID":     stringutils.FromInt64(mgrID),
+				"chainID":            chainID,
+				"chainType":          "EVM",
+				"accountAddr":        accountAddr,
+				"adminAddr":          adminAddr,
+				"fluxMonitorEnabled": false,
+				"ocr1Enabled":        true,
+				"ocr1IsBootstrap":    false,
+				"ocr1P2PPeerID":      peerID.String,
+				"ocr1KeyBundleID":    keyBundleID.String,
+				"ocr2Enabled":        true,
+				"ocr2IsBootstrap":    false,
+				"ocr2P2PPeerID":      peerID.String,
+				"ocr2KeyBundleID":    keyBundleID.String,
+				"ocr2Plugins":        `{"commit":true,"execute":true,"median":false,"mercury":true}`,
 			},
 		}
 	)
@@ -88,10 +86,9 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: keyBundleID,
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
-						Enabled:          true,
-						P2PPeerID:        peerID,
-						KeyBundleID:      keyBundleID,
-						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
 							Commit:  true,
 							Execute: true,
@@ -115,10 +112,9 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: keyBundleID,
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
-						Enabled:          true,
-						P2PPeerID:        peerID,
-						KeyBundleID:      keyBundleID,
-						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
 							Commit:  true,
 							Execute: true,
@@ -269,12 +265,9 @@ func Test_DeleteFeedsManagerChainConfig(t *testing.T) {
 
 func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 	var (
-		cfgID         = int64(1)
-		peerID        = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
-		keyBundleID   = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
-		accountAddr   = "0x0000001"
-		adminAddr     = "0x0000002"
-		forwarderAddr = "0x0000003"
+		cfgID       = int64(1)
+		peerID      = null.StringFrom("p2p_12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")
+		keyBundleID = null.StringFrom("6fdb8235e16e099de91df7ef8a8088e9deea0ed6ae106b133e5d985a8a9e1562")
 
 		mutation = `
 			mutation UpdateFeedsManagerChainConfig($id: ID!, $input: UpdateFeedsManagerChainConfigInput!) {
@@ -300,19 +293,18 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 		variables = map[string]interface{}{
 			"id": "1",
 			"input": map[string]interface{}{
-				"accountAddr":          accountAddr,
-				"adminAddr":            adminAddr,
-				"fluxMonitorEnabled":   false,
-				"ocr1Enabled":          true,
-				"ocr1IsBootstrap":      false,
-				"ocr1P2PPeerID":        peerID.String,
-				"ocr1KeyBundleID":      keyBundleID.String,
-				"ocr2Enabled":          true,
-				"ocr2IsBootstrap":      false,
-				"ocr2P2PPeerID":        peerID.String,
-				"ocr2KeyBundleID":      keyBundleID.String,
-				"ocr2Plugins":          `{"commit":true,"execute":true,"median":false,"mercury":true}`,
-				"ocr2ForwarderAddress": forwarderAddr,
+				"accountAddr":        "0x0000001",
+				"adminAddr":          "0x0000001",
+				"fluxMonitorEnabled": false,
+				"ocr1Enabled":        true,
+				"ocr1IsBootstrap":    false,
+				"ocr1P2PPeerID":      peerID.String,
+				"ocr1KeyBundleID":    keyBundleID.String,
+				"ocr2Enabled":        true,
+				"ocr2IsBootstrap":    false,
+				"ocr2P2PPeerID":      peerID.String,
+				"ocr2KeyBundleID":    keyBundleID.String,
+				"ocr2Plugins":        `{"commit":true,"execute":true,"median":false,"mercury":true}`,
 			},
 		}
 	)
@@ -326,8 +318,8 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("UpdateChainConfig", mock.Anything, feeds.ChainConfig{
 					ID:             cfgID,
-					AccountAddress: accountAddr,
-					AdminAddress:   adminAddr,
+					AccountAddress: "0x0000001",
+					AdminAddress:   "0x0000001",
 					FluxMonitorConfig: feeds.FluxMonitorConfig{
 						Enabled: false,
 					},
@@ -337,10 +329,9 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
-						Enabled:          true,
-						P2PPeerID:        peerID,
-						KeyBundleID:      keyBundleID,
-						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
 							Commit:  true,
 							Execute: true,
@@ -351,8 +342,8 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 				}).Return(cfgID, nil)
 				f.Mocks.feedsSvc.On("GetChainConfig", cfgID).Return(&feeds.ChainConfig{
 					ID:             cfgID,
-					AccountAddress: accountAddr,
-					AdminAddress:   adminAddr,
+					AccountAddress: "0x0000001",
+					AdminAddress:   "0x0000001",
 					FluxMonitorConfig: feeds.FluxMonitorConfig{
 						Enabled: false,
 					},
@@ -362,10 +353,9 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
 					OCR2Config: feeds.OCR2ConfigModel{
-						Enabled:          true,
-						P2PPeerID:        peerID,
-						KeyBundleID:      keyBundleID,
-						ForwarderAddress: null.StringFrom(forwarderAddr),
+						Enabled:     true,
+						P2PPeerID:   peerID,
+						KeyBundleID: keyBundleID,
 						Plugins: feeds.Plugins{
 							Commit:  true,
 							Execute: true,

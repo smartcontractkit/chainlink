@@ -228,10 +228,8 @@ func Test_AddressArrayScan(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addr1, 20)
 	addr2, err := hex.DecodeString("56b9a2dc53736b361b72d900cdf9f78f9406fbbb")
-	require.NoError(t, err)
 	require.Len(t, addr2, 20)
 	toolong, err := hex.DecodeString("6b361b72d900cdf9f78f9406fbbb6b361b72d900cdf9f78f9406fbbb")
-	require.NoError(t, err)
 	require.Len(t, toolong, 28)
 
 	a := types.AddressArray{}
@@ -246,10 +244,8 @@ func Test_HashArrayScan(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, h1, 32)
 	h2, err := hex.DecodeString("56b9a2dc53736b361b72d900cdf9f78f9406fbbb06fbbb6b361b7206fbbb6b36")
-	require.NoError(t, err)
 	require.Len(t, h2, 32)
 	tooshort, err := hex.DecodeString("6b361b72d900cdf9f78f9406fbbb6b361b72d900cdf9f78f9406fbbb")
-	require.NoError(t, err)
 	require.Len(t, tooshort, 28)
 
 	h := types.HashArray{}

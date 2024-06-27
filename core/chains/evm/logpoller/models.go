@@ -16,10 +16,9 @@ type LogPollerBlock struct {
 	EvmChainId *utils.Big
 	BlockHash  common.Hash
 	// Note geth uses int64 internally https://github.com/ethereum/go-ethereum/blob/f66f1a16b3c480d3a43ac7e8a09ab3e362e96ae4/eth/filters/api.go#L340
-	BlockNumber          int64
-	BlockTimestamp       time.Time
-	FinalizedBlockNumber int64
-	CreatedAt            time.Time
+	BlockNumber    int64
+	BlockTimestamp time.Time
+	CreatedAt      time.Time
 }
 
 // Log represents an EVM log.

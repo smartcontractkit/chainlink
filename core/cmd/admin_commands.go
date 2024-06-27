@@ -204,7 +204,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 	}()
 	var links jsonapi.Links
 	var users AdminUsersPresenters
-	if err = s.deserializeAPIResponse(resp, &users, &links); err != nil {
+	if err := s.deserializeAPIResponse(resp, &users, &links); err != nil {
 		return s.errorOut(err)
 	}
 	for _, user := range users {
@@ -316,7 +316,8 @@ func (s *Shell) Profile(c *cli.Context) error {
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
-	if err := os.Mkdir(genDir, 0o755); err != nil {
+	err := os.Mkdir(genDir, 0o755)
+	if err != nil {
 		return s.errorOut(err)
 	}
 	var wgPprof sync.WaitGroup
@@ -358,9 +359,9 @@ func (s *Shell) Profile(c *cli.Context) error {
 				// best effort to interpret the underlying problem
 				pprofVersion := resp.Header.Get("X-Go-Pprof")
 				if pprofVersion == "1" {
-					b, err2 := io.ReadAll(resp.Body)
-					if err2 != nil {
-						errs <- fmt.Errorf("error collecting %s: %w", vt, err2)
+					b, err := io.ReadAll(resp.Body)
+					if err != nil {
+						errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
 						return
 					}
 					respContent := string(b)

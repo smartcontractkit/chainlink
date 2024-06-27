@@ -29,7 +29,7 @@ type (
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
-		legacyChains   evm.LegacyChainContainer
+		chainSet       evm.ChainSet
 		mailMon        *utils.MailboxMonitor
 	}
 
@@ -45,16 +45,16 @@ func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	legacyChains evm.LegacyChainContainer,
+	chainSet evm.ChainSet,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		logger:         logger.Named("DirectRequest"),
-		pipelineRunner: pipelineRunner,
-		pipelineORM:    pipelineORM,
-		chHeads:        make(chan *evmtypes.Head, 1),
-		legacyChains:   legacyChains,
-		mailMon:        mailMon,
+		logger.Named("DirectRequest"),
+		pipelineRunner,
+		pipelineORM,
+		make(chan *evmtypes.Head, 1),
+		chainSet,
+		mailMon,
 	}
 }
 
@@ -68,11 +68,11 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
-	chain, err := d.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
+	chain, err := d.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
 	}
 
-	svcLogger := d.logger.Named(jb.ExternalJobID.String()).
+	svcLogger := d.logger.
 		With(
 			"contract", concreteSpec.ContractAddress.Address().String(),
 			"jobName", jb.PipelineSpec.JobName,
@@ -92,7 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 
 	logListener := &listener{
-		logger:                   svcLogger.Named("Listener"),
+		logger:                   svcLogger.Named("DirectRequest"),
 		config:                   chain.Config().EVM(),
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
@@ -137,12 +137,6 @@ type listener struct {
 	chStop                   chan struct{}
 	utils.StartStopOnce
 }
-
-func (l *listener) HealthReport() map[string]error {
-	return map[string]error{l.Name(): l.Healthy()}
-}
-
-func (l *listener) Name() string { return l.logger.Name() }
 
 // Start complies with job.Service
 func (l *listener) Start(context.Context) error {
@@ -345,7 +339,6 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
 
-	evmChainID := lb.EVMChainID()
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    l.job.ID,
@@ -354,7 +347,6 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: l.job.ForwardingAllowed,
 			},
-			"evmChainID": evmChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta":                  meta,
@@ -370,7 +362,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, run, l.logger, true, func(tx pg.Queryer) error {
+	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
 		l.markLogConsumed(lb, pg.WithQueryer(tx))
 		return nil
 	})

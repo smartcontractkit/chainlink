@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2Upgradeable} from "../dev/VRFConsumerBaseV2Upgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../../dev/VRFConsumerBaseV2Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
 contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
   uint256[] public s_randomWords;

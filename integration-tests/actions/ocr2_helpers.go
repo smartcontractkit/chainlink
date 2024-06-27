@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
@@ -35,13 +34,12 @@ func DeployOCRv2Contracts(
 	contractDeployer contracts.ContractDeployer,
 	transmitters []string,
 	client blockchain.EVMClient,
-	ocrOptions contracts.OffchainOptions,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		ocrInstance, err := contractDeployer.DeployOffchainAggregatorV2(
 			linkTokenContract.Address(),
-			ocrOptions,
+			contracts.DefaultOffChainAggregatorOptions(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
@@ -362,14 +360,13 @@ func StartNewOCR2Round(
 	ocrInstances []contracts.OffchainAggregatorV2,
 	client blockchain.EVMClient,
 	timeout time.Duration,
-	logger zerolog.Logger,
 ) error {
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
 		}
-		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
+		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
 		err = client.WaitForEvents()
 		if err != nil {

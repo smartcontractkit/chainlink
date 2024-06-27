@@ -1,0 +1,41 @@
+name: Operator UI
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */1 * * *' # Run every hour
+
+jobs:
+  update-version:
+    name: Update Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+
+      - name: Update version
+        id: update
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./operator_ui/check.sh
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
+        with:
+          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          branch: chore/update-operator-ui
+          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+          body: ${{ steps.update.outputs.body }}
+
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Update Version
+        continue-on-error: true

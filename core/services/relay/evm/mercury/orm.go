@@ -9,46 +9,44 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
-	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
 type ORM interface {
-	InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
+	InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
 	DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
 	GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error)
 	PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
-func FeedIDFromReport(report ocrtypes.Report) (feedID utils.FeedID, err error) {
-	if n := copy(feedID[:], report); n != 32 {
-		return feedID, pkgerrors.Errorf("invalid length for report: %d", len(report))
-	}
-	return feedID, nil
+type ORMCodec interface {
+	FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error)
 }
 
 type orm struct {
-	q pg.Q
+	q     pg.Q
+	codec ORMCodec
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("MercuryORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
-		q: q,
+		q:     q,
+		codec: (&reportcodec.EVMReportCodec{}),
 	}
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -57,25 +55,25 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, report
 	go func() {
 		defer wg.Done()
 		err1 = q.ExecQ(`
-		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (payload_hash) DO NOTHING
-	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID)
+	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
 	}()
 
-	feedID, err := FeedIDFromReport(req.Payload)
+	feedID, err := o.codec.FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
 	}
 	go func() {
 		defer wg.Done()
 		err2 = q.ExecQ(`
-		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at, job_id)
-		VALUES ($1, $2, $3, $4, NOW(), $5)
+		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
 		ON CONFLICT (feed_id) DO UPDATE
 		SET feed_id=$1, report=$2, epoch=$3, round=$4, updated_at=NOW()
 		WHERE excluded.epoch > feed_latest_reports.epoch OR (excluded.epoch = feed_latest_reports.epoch AND excluded.round > feed_latest_reports.round)
-		`, feedID[:], req.Payload, reportCtx.Epoch, reportCtx.Round, jobID)
+		`, feedID[:], req.Payload, reportCtx.Epoch, reportCtx.Round)
 	}()
 	wg.Wait()
 	return errors.Join(err1, err2)

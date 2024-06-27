@@ -29,7 +29,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 		t.Run(test.origin, func(t *testing.T) {
 			app := cltest.NewApplicationWithConfig(t, config)
 
-			client := app.NewHTTPClient(nil)
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)
@@ -61,7 +61,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			})
 			app := cltest.NewApplicationWithConfig(t, config)
 
-			client := app.NewHTTPClient(nil)
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/chains/evm", headers)

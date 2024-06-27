@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -37,8 +36,8 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	defID := cfg.DefaultChainID()
+	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
@@ -62,8 +61,8 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	if bid := backend.Blockchain().Config().ChainID; bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
-
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	defID := cfg.DefaultChainID()
+	require.Zero(t, defID.Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
@@ -74,7 +73,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
-// Mine forces the simulated backend to produce a new block every X seconds
+// Mine forces the simulated backend to produce a new block every 2 seconds
 func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})

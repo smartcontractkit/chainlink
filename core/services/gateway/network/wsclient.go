@@ -57,11 +57,6 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 	}
 
 	challengeStr := resp.Header.Get(WsServerHandshakeChallengeHeaderName)
-	if challengeStr == "" {
-		c.lggr.Error("WebSocketClient: empty challenge")
-		c.tryCloseConn(conn)
-		return nil, err
-	}
 	challenge, err := base64.StdEncoding.DecodeString(challengeStr)
 	if err != nil {
 		c.lggr.Errorf("WebSocketClient: couldn't decode challenge: %s: %v", challengeStr, err)

@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
-// solhint-disable-next-line one-contract-per-file
 pragma solidity ^0.8.6;
 
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
-import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
-import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
-import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
-import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
+import "../shared/access/ConfirmedOwner.sol";
+import "../interfaces/TypeAndVersionInterface.sol";
+import "./VRFConsumerBaseV2.sol";
+import "../shared/interfaces/LinkTokenInterface.sol";
+import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/VRFCoordinatorV2Interface.sol";
+import "../interfaces/VRFV2WrapperInterface.sol";
+import "./VRFV2WrapperConsumerBase.sol";
+import "../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -19,13 +18,9 @@ import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2, VRFV2WrapperInterface {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface public immutable LINK;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   AggregatorV3Interface public immutable LINK_ETH_FEED;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   ExtendedVRFCoordinatorV2Interface public immutable COORDINATOR;
-  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint64 public immutable SUBSCRIPTION_ID;
   /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
   /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
@@ -83,10 +78,10 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
 
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
   // fees, so this should be set to the highest gas lane on the network.
-  bytes32 internal s_keyHash;
+  bytes32 s_keyHash;
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
-  uint8 internal s_maxNumWords;
+  uint8 s_maxNumWords;
 
   struct Callback {
     address callbackAddress;
@@ -221,8 +216,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   function calculateRequestPrice(
     uint32 _callbackGasLimit
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
-    return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    int256 weiPerUnitLink = getFeedData();
+    return calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
   /**
@@ -238,11 +233,11 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = _getFeedData();
-    return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
+    int256 weiPerUnitLink = getFeedData();
+    return calculateRequestPriceInternal(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
 
-  function _calculateRequestPrice(
+  function calculateRequestPriceInternal(
     uint256 _gas,
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
@@ -252,7 +247,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     // transaction, if we are on an L2.
     uint256 costWei = (_requestGasPrice *
       (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
+      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
     // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
     // baseFee is the base fee denominated in juels (link)
     uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
@@ -278,19 +273,16 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    *        uint16 requestConfirmations, and uint32 numWords.
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
-    // solhint-disable-next-line custom-errors
     require(msg.sender == address(LINK), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
       _data,
       (uint32, uint16, uint32)
     );
-    uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
-    int256 weiPerUnitLink = _getFeedData();
-    uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
-    // solhint-disable-next-line custom-errors
+    uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
+    int256 weiPerUnitLink = getFeedData();
+    uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     require(_amount >= price, "fee too low");
-    // solhint-disable-next-line custom-errors
     require(numWords <= s_maxNumWords, "numWords too high");
 
     uint256 requestId = COORDINATOR.requestRandomWords(
@@ -336,23 +328,21 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     s_disabled = true;
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     Callback memory callback = s_callbacks[_requestId];
     delete s_callbacks[_requestId];
-    // solhint-disable-next-line custom-errors
     require(callback.callbackAddress != address(0), "request not found"); // This should never happen
 
     VRFV2WrapperConsumerBase c;
     bytes memory resp = abi.encodeWithSelector(c.rawFulfillRandomWords.selector, _requestId, _randomWords);
 
-    bool success = _callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
+    bool success = callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
     if (!success) {
       emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
     }
   }
 
-  function _getFeedData() private view returns (int256) {
+  function getFeedData() private view returns (int256) {
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
@@ -361,7 +351,6 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
-    // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
     return weiPerUnitLink;
   }
@@ -369,7 +358,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   /**
    * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
    */
-  function _getEIP150Overhead(uint32 gas) private pure returns (uint32) {
+  function getEIP150Overhead(uint32 gas) private pure returns (uint32) {
     return gas / 63 + 1;
   }
 
@@ -377,7 +366,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -411,9 +401,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 
   modifier onlyConfiguredNotDisabled() {
-    // solhint-disable-next-line custom-errors
     require(s_configured, "wrapper is not configured");
-    // solhint-disable-next-line custom-errors
     require(!s_disabled, "wrapper is disabled");
     _;
   }

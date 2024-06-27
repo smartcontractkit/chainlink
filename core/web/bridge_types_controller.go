@@ -83,28 +83,29 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, e)
 		return
 	}
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
+	switch e := err.(type) {
+	case *pgconn.PgError:
 		var apiErr error
-		if pgErr.ConstraintName == "external_initiators_name_key" {
+		if e.ConstraintName == "external_initiators_name_key" {
 			apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
 		} else {
 			apiErr = err
 		}
 		jsonAPIError(c, http.StatusConflict, apiErr)
 		return
+	default:
+		resource := presenters.NewBridgeResource(*bt)
+		resource.IncomingToken = bta.IncomingToken
+
+		btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
+			"bridgeName":                   bta.Name,
+			"bridgeConfirmations":          bta.Confirmations,
+			"bridgeMinimumContractPayment": bta.MinimumContractPayment,
+			"bridgeURL":                    bta.URL,
+		})
+
+		jsonAPIResponse(c, resource, "bridge")
 	}
-	resource := presenters.NewBridgeResource(*bt)
-	resource.IncomingToken = bta.IncomingToken
-
-	btc.App.GetAuditLogger().Audit(audit.BridgeCreated, map[string]interface{}{
-		"bridgeName":                   bta.Name,
-		"bridgeConfirmations":          bta.Confirmations,
-		"bridgeMinimumContractPayment": bta.MinimumContractPayment,
-		"bridgeURL":                    bta.URL,
-	})
-
-	jsonAPIResponse(c, resource, "bridge")
 }
 
 // Index lists Bridges, one page at a time.

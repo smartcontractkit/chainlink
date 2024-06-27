@@ -6,11 +6,10 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -61,7 +60,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 	//Render table and check the fields order
 	b := new(bytes.Buffer)
 	rt := cmd.RendererTable{b}
-	require.NoError(t, nodes.RenderTable(rt))
+	nodes.RenderTable(rt)
 	renderLines := strings.Split(b.String(), "\n")
 	assert.Equal(t, 10, len(renderLines))
 	assert.Contains(t, renderLines[2], "Name")

@@ -19,7 +19,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -39,7 +39,7 @@ jobs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Generate splits
         id: split
         uses: ./.github/actions/split-tests
@@ -47,7 +47,7 @@ jobs:
           config: ./contracts/ci.json
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
@@ -89,7 +89,7 @@ jobs:
           path: ./contracts/coverage-${{ matrix.split.idx }}.json
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -103,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Make coverage directory
@@ -130,7 +130,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
       - name: Setup Hardhat
@@ -144,7 +144,7 @@ jobs:
         run: pnpm test -- $SPLIT
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -169,7 +169,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

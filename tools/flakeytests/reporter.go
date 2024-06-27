@@ -45,12 +45,12 @@ type LokiReporter struct {
 	ctx     Context
 }
 
-func (l *LokiReporter) createRequest(flakeyTests map[string]map[string]struct{}) (pushRequest, error) {
+func (l *LokiReporter) createRequest(flakeyTests map[string][]string) (pushRequest, error) {
 	vs := [][]string{}
 	now := l.now()
 	nows := fmt.Sprintf("%d", now.UnixNano())
 	for pkg, tests := range flakeyTests {
-		for t := range tests {
+		for _, t := range tests {
 			d, err := json.Marshal(flakeyTest{
 				Package:    pkg,
 				TestName:   t,
@@ -117,7 +117,7 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 	return err
 }
 
-func (l *LokiReporter) Report(flakeyTests map[string]map[string]struct{}) error {
+func (l *LokiReporter) Report(flakeyTests map[string][]string) error {
 	pushReq, err := l.createRequest(flakeyTests)
 	if err != nil {
 		return err

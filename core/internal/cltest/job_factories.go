@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 const (
@@ -24,7 +23,6 @@ const (
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			contractAddress    = "%s"
-			evmChainID		   = "0"
 			p2pPeerID          = "%s"
 			p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 			isBootstrapPeer    = false
@@ -65,9 +63,8 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	lggr := logger.TestLogger(t)
 	pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	jobORM = job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	jobORM = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

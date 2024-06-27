@@ -370,9 +370,6 @@ describe('Functions Router - Subscriptions', () => {
         ).to.be.revertedWith(`MustBeSubscriptionOwner()`)
       })
       it('can cancel', async function () {
-        const strangerBalanceBefore = await contracts.linkToken.balanceOf(
-          roles.strangerAddress,
-        )
         await contracts.linkToken
           .connect(roles.subOwner)
           .transferAndCall(
@@ -386,13 +383,11 @@ describe('Functions Router - Subscriptions', () => {
             .cancelSubscription(subId, roles.strangerAddress),
         )
           .to.emit(contracts.router, 'SubscriptionCanceled')
-          .withArgs(subId, roles.strangerAddress, BigNumber.from('0'))
+          .withArgs(subId, roles.strangerAddress, BigNumber.from('1000'))
         const strangerBalance = await contracts.linkToken.balanceOf(
           roles.strangerAddress,
         )
-        expect(strangerBalance.toString()).to.equal(
-          strangerBalanceBefore.toString(),
-        )
+        expect(strangerBalance.toString()).to.equal('1000000000000001000')
         await expect(
           contracts.router.connect(roles.subOwner).getSubscription(subId),
         ).to.be.revertedWith('InvalidSubscription')
@@ -498,7 +493,7 @@ describe('Functions Router - Subscriptions', () => {
                 .connect(roles.subOwner)
                 .cancelSubscription(subId, roles.strangerAddress)
             },
-            BigNumber.from('0'),
+            BigNumber.from('-1000'),
           ],
         ]
         for (const [fn, expectedBalanceChange] of balanceChangingFns) {
@@ -660,7 +655,6 @@ describe('Functions Router - Subscriptions', () => {
           0, // Result code for callback failing
           () => true,
           () => true,
-          () => true,
         )
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
@@ -745,7 +739,6 @@ describe('Functions Router - Subscriptions', () => {
           () => true,
           () => true,
           1, // Result code for callback failing
-          () => true,
           () => true,
           () => true,
         )
@@ -853,7 +846,6 @@ describe('Functions Router - Subscriptions', () => {
           () => true,
           () => true,
           1, // Result code for callback failing
-          () => true,
           () => true,
           () => true,
         )

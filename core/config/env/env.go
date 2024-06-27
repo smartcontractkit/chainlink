@@ -31,13 +31,13 @@ var (
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	DatabaseURL                  = Secret("CL_DATABASE_URL")
 	DatabaseBackupURL            = Secret("CL_DATABASE_BACKUP_URL")
+	ExplorerAccessKey            = Secret("CL_EXPLORER_ACCESS_KEY")
+	ExplorerSecret               = Secret("CL_EXPLORER_SECRET")
 	PasswordKeystore             = Secret("CL_PASSWORD_KEYSTORE")
 	PasswordVRF                  = Secret("CL_PASSWORD_VRF")
 	PyroscopeAuthToken           = Secret("CL_PYROSCOPE_AUTH_TOKEN")
 	PrometheusAuthToken          = Secret("CL_PROMETHEUS_AUTH_TOKEN")
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
-	// Migrations env vars
-	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
 )
 
 type Var string

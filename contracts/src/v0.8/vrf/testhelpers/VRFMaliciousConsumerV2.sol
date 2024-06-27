@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../interfaces/VRFCoordinatorV2Interface.sol";
+import "../VRFConsumerBaseV2.sol";
 
 contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface internal COORDINATOR;
-  LinkTokenInterface internal LINKTOKEN;
+  VRFCoordinatorV2Interface COORDINATOR;
+  LinkTokenInterface LINKTOKEN;
   uint64 public s_subId;
   uint256 public s_gasAvailable;
-  bytes32 internal s_keyHash;
+  bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);

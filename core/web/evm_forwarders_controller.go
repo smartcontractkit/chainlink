@@ -80,7 +80,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	}
 
 	filterCleanup := func(tx pg.Queryer, evmChainID int64, addr common.Address) error {
-		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
+		chain, err2 := cc.App.GetChains().EVM.Get(big.NewInt(evmChainID))
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id

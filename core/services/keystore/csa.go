@@ -23,6 +23,8 @@ type CSA interface {
 	Import(keyJSON []byte, password string) (csakey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 	EnsureKey() error
+
+	GetV1KeysAsV2() ([]csakey.KeyV2, error)
 }
 
 type csa struct {
@@ -154,6 +156,21 @@ func (ks *csa) EnsureKey() error {
 	ks.logger.Infof("Created CSA key with ID %s", key.ID())
 
 	return ks.safeAddKey(key)
+}
+
+func (ks *csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
+	v1Keys, err := ks.orm.GetEncryptedV1CSAKeys()
+	if err != nil {
+		return keys, err
+	}
+	for _, keyV1 := range v1Keys {
+		err := keyV1.Unlock(ks.password)
+		if err != nil {
+			return keys, err
+		}
+		keys = append(keys, keyV1.ToV2())
+	}
+	return keys, nil
 }
 
 func (ks *csa) getByID(id string) (csakey.KeyV2, error) {

@@ -71,8 +71,9 @@ func (v *vrfRouter) ParseLog(log types.Log) (generated.AbigenLog, error) {
 		return v.beacon.ParseLog(log)
 	} else if log.Address == v.coordinator.Address() {
 		return v.coordinator.ParseLog(log)
+	} else {
+		return nil, errors.Errorf("failed to parse log. contractAddress: %x logs: %x", log.Address, log.Topics)
 	}
-	return nil, errors.Errorf("failed to parse log. contractAddress: %x logs: %x", log.Address, log.Topics)
 }
 
 // GetConfirmationDelays retrieves confirmation delays from the on-chain contract.

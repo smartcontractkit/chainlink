@@ -31,7 +31,7 @@ func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistory
 		config,
 		txConfig,
 		chainID,
-		lggr.Named("Reaper"),
+		lggr.Named("txm_reaper"),
 		atomic.Int64{},
 		make(chan struct{}, 1),
 		make(chan struct{}),
@@ -43,13 +43,13 @@ func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistory
 
 // Start the reaper. Should only be called once.
 func (r *Reaper[CHAIN_ID]) Start() {
-	r.log.Debugf("started with age threshold %v and interval %v", r.txConfig.ReaperThreshold(), r.txConfig.ReaperInterval())
+	r.log.Debugf("TxmReaper: started with age threshold %v and interval %v", r.txConfig.ReaperThreshold(), r.txConfig.ReaperInterval())
 	go r.runLoop()
 }
 
 // Stop the reaper. Should only be called once.
 func (r *Reaper[CHAIN_ID]) Stop() {
-	r.log.Debug("stopping")
+	r.log.Debug("TxmReaper: stopping")
 	close(r.chStop)
 	<-r.chDone
 }
@@ -79,7 +79,7 @@ func (r *Reaper[CHAIN_ID]) work() {
 	}
 	err := r.ReapTxes(latestBlockNum)
 	if err != nil {
-		r.log.Error("unable to reap old txes: ", err)
+		r.log.Error("TxmReaper: unable to reap old txes: ", err)
 	}
 }
 
@@ -97,24 +97,22 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 
 // ReapTxes deletes old txes
 func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
-	ctx, cancel := utils.StopChan(r.chStop).NewCtx()
-	defer cancel()
 	threshold := r.txConfig.ReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
+		r.log.Debug("TxmReaper: Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 
-	r.log.Debugw(fmt.Sprintf("reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
+	r.log.Debugw(fmt.Sprintf("TxmReaper: reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
-	if err := r.store.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
+	if err := r.store.ReapTxHistory(minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
 		return err
 	}
 
-	r.log.Debugf("ReapTxes completed in %v", time.Since(mark))
+	r.log.Debugf("TxmReaper: ReapTxes completed in %v", time.Since(mark))
 
 	return nil
 }

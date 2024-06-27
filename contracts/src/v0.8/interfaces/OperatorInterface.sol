@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {OracleInterface} from "./OracleInterface.sol";
-import {ChainlinkRequestInterface} from "./ChainlinkRequestInterface.sol";
+import "./OracleInterface.sol";
+import "./ChainlinkRequestInterface.sol";
 
 interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
   function operatorRequest(
@@ -27,4 +27,10 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
   function ownerTransferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success);
 
   function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable;
+
+  function getAuthorizedSenders() external returns (address[] memory);
+
+  function setAuthorizedSenders(address[] calldata senders) external;
+
+  function getForwarder() external returns (address);
 }

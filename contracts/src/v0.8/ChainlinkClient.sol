@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Chainlink} from "./Chainlink.sol";
-import {ENSInterface} from "./interfaces/ENSInterface.sol";
-import {LinkTokenInterface} from "./shared/interfaces/LinkTokenInterface.sol";
-import {ChainlinkRequestInterface} from "./interfaces/ChainlinkRequestInterface.sol";
-import {OperatorInterface} from "./interfaces/OperatorInterface.sol";
-import {PointerInterface} from "./interfaces/PointerInterface.sol";
+import "./Chainlink.sol";
+import "./interfaces/ENSInterface.sol";
+import "./shared/interfaces/LinkTokenInterface.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
+import "./interfaces/OperatorInterface.sol";
+import "./interfaces/PointerInterface.sol";
 import {ENSResolver as ENSResolver_Chainlink} from "./vendor/ENSResolver.sol";
 
 /**
@@ -14,7 +14,6 @@ import {ENSResolver as ENSResolver_Chainlink} from "./vendor/ENSResolver.sol";
  * @notice Contract writers can inherit this contract in order to create requests for the
  * Chainlink network
  */
-// solhint-disable custom-errors
 abstract contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
@@ -45,13 +44,13 @@ abstract contract ChainlinkClient {
    * @param callbackFunctionSignature function signature to use for the callback
    * @return A Chainlink Request struct in memory
    */
-  function _buildChainlinkRequest(
+  function buildChainlinkRequest(
     bytes32 specId,
     address callbackAddr,
     bytes4 callbackFunctionSignature
   ) internal pure returns (Chainlink.Request memory) {
     Chainlink.Request memory req;
-    return req._initialize(specId, callbackAddr, callbackFunctionSignature);
+    return req.initialize(specId, callbackAddr, callbackFunctionSignature);
   }
 
   /**
@@ -60,12 +59,12 @@ abstract contract ChainlinkClient {
    * @param callbackFunctionSignature function signature to use for the callback
    * @return A Chainlink Request struct in memory
    */
-  function _buildOperatorRequest(
+  function buildOperatorRequest(
     bytes32 specId,
     bytes4 callbackFunctionSignature
   ) internal view returns (Chainlink.Request memory) {
     Chainlink.Request memory req;
-    return req._initialize(specId, address(this), callbackFunctionSignature);
+    return req.initialize(specId, address(this), callbackFunctionSignature);
   }
 
   /**
@@ -75,8 +74,8 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function _sendChainlinkRequest(Chainlink.Request memory req, uint256 payment) internal returns (bytes32) {
-    return _sendChainlinkRequestTo(address(s_oracle), req, payment);
+  function sendChainlinkRequest(Chainlink.Request memory req, uint256 payment) internal returns (bytes32) {
+    return sendChainlinkRequestTo(address(s_oracle), req, payment);
   }
 
   /**
@@ -89,7 +88,7 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function _sendChainlinkRequestTo(
+  function sendChainlinkRequestTo(
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment
@@ -118,8 +117,8 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function _sendOperatorRequest(Chainlink.Request memory req, uint256 payment) internal returns (bytes32) {
-    return _sendOperatorRequestTo(address(s_oracle), req, payment);
+  function sendOperatorRequest(Chainlink.Request memory req, uint256 payment) internal returns (bytes32) {
+    return sendOperatorRequestTo(address(s_oracle), req, payment);
   }
 
   /**
@@ -133,7 +132,7 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function _sendOperatorRequestTo(
+  function sendOperatorRequestTo(
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment
@@ -183,7 +182,7 @@ abstract contract ChainlinkClient {
    * @param callbackFunc The callback function specified for the request
    * @param expiration The time of the expiration for the request
    */
-  function _cancelChainlinkRequest(
+  function cancelChainlinkRequest(
     bytes32 requestId,
     uint256 payment,
     bytes4 callbackFunc,
@@ -200,7 +199,7 @@ abstract contract ChainlinkClient {
    * @dev starts at 1 in order to ensure consistent gas cost
    * @return returns the next request count to be used in a nonce
    */
-  function _getNextRequestCount() internal view returns (uint256) {
+  function getNextRequestCount() internal view returns (uint256) {
     return s_requestCount;
   }
 
@@ -208,7 +207,7 @@ abstract contract ChainlinkClient {
    * @notice Sets the stored oracle address
    * @param oracleAddress The address of the oracle contract
    */
-  function _setChainlinkOracle(address oracleAddress) internal {
+  function setChainlinkOracle(address oracleAddress) internal {
     s_oracle = OperatorInterface(oracleAddress);
   }
 
@@ -216,7 +215,7 @@ abstract contract ChainlinkClient {
    * @notice Sets the LINK token address
    * @param linkAddress The address of the LINK token contract
    */
-  function _setChainlinkToken(address linkAddress) internal {
+  function setChainlinkToken(address linkAddress) internal {
     s_link = LinkTokenInterface(linkAddress);
   }
 
@@ -224,15 +223,15 @@ abstract contract ChainlinkClient {
    * @notice Sets the Chainlink token address for the public
    * network as given by the Pointer contract
    */
-  function _setPublicChainlinkToken() internal {
-    _setChainlinkToken(PointerInterface(LINK_TOKEN_POINTER).getAddress());
+  function setPublicChainlinkToken() internal {
+    setChainlinkToken(PointerInterface(LINK_TOKEN_POINTER).getAddress());
   }
 
   /**
    * @notice Retrieves the stored address of the LINK token
    * @return The address of the LINK token
    */
-  function _chainlinkTokenAddress() internal view returns (address) {
+  function chainlinkTokenAddress() internal view returns (address) {
     return address(s_link);
   }
 
@@ -240,7 +239,7 @@ abstract contract ChainlinkClient {
    * @notice Retrieves the stored address of the oracle contract
    * @return The address of the oracle contract
    */
-  function _chainlinkOracleAddress() internal view returns (address) {
+  function chainlinkOracleAddress() internal view returns (address) {
     return address(s_oracle);
   }
 
@@ -250,10 +249,7 @@ abstract contract ChainlinkClient {
    * @param oracleAddress The address of the oracle contract that will fulfill the request
    * @param requestId The request ID used for the response
    */
-  function _addChainlinkExternalRequest(
-    address oracleAddress,
-    bytes32 requestId
-  ) internal notPendingRequest(requestId) {
+  function addChainlinkExternalRequest(address oracleAddress, bytes32 requestId) internal notPendingRequest(requestId) {
     s_pendingRequests[requestId] = oracleAddress;
   }
 
@@ -263,23 +259,23 @@ abstract contract ChainlinkClient {
    * @param ensAddress The address of the ENS contract
    * @param node The ENS node hash
    */
-  function _useChainlinkWithENS(address ensAddress, bytes32 node) internal {
+  function useChainlinkWithENS(address ensAddress, bytes32 node) internal {
     s_ens = ENSInterface(ensAddress);
     s_ensNode = node;
     bytes32 linkSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_TOKEN_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(linkSubnode));
-    _setChainlinkToken(resolver.addr(linkSubnode));
-    _updateChainlinkOracleWithENS();
+    setChainlinkToken(resolver.addr(linkSubnode));
+    updateChainlinkOracleWithENS();
   }
 
   /**
    * @notice Sets the stored oracle contract with the address resolved by ENS
    * @dev This may be called on its own as long as `useChainlinkWithENS` has been called previously
    */
-  function _updateChainlinkOracleWithENS() internal {
+  function updateChainlinkOracleWithENS() internal {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(oracleSubnode));
-    _setChainlinkOracle(resolver.addr(oracleSubnode));
+    setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
   /**
@@ -287,7 +283,7 @@ abstract contract ChainlinkClient {
    * @dev Use if the contract developer prefers methods instead of modifiers for validation
    * @param requestId The request ID for fulfillment
    */
-  function _validateChainlinkCallback(
+  function validateChainlinkCallback(
     bytes32 requestId
   )
     internal

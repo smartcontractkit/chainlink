@@ -2,7 +2,6 @@ package upkeepstate
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,15 +22,13 @@ func TestPerformedEventsScanner(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		workIDs        []string
 		pollerResults  []logpoller.Log
 		scannerResults []string
 		pollerErr      error
 		errored        bool
 	}{
 		{
-			"empty",
-			[]string{},
+			"no logs",
 			[]logpoller.Log{},
 			[]string{},
 			nil,
@@ -39,7 +36,6 @@ func TestPerformedEventsScanner(t *testing.T) {
 		},
 		{
 			"log poller error",
-			[]string{"111"},
 			[]logpoller.Log{},
 			[]string{},
 			fmt.Errorf("test-error"),
@@ -47,24 +43,22 @@ func TestPerformedEventsScanner(t *testing.T) {
 		},
 		{
 			"one result",
-			[]string{"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"},
 			[]logpoller.Log{
 				{
 					BlockNumber: 1,
 					Address:     registryAddr,
 					Topics: convertTopics([]common.Hash{
 						iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
-						common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"),
+						common.HexToHash("0x1111"),
 					}),
 				},
 			},
-			[]string{"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"},
+			[]string{common.HexToHash("0x1111").Hex()},
 			nil,
 			false,
 		},
 		{
 			"missing workID",
-			[]string{"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"},
 			[]logpoller.Log{
 				{
 					BlockNumber: 1,
@@ -85,7 +79,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 			mp := new(mocks.LogPoller)
 			mp.On("RegisterFilter", mock.Anything).Return(nil)
 			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr, 100)
+			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
 
 			go func() {
 				_ = scanner.Start(ctx)
@@ -94,9 +88,9 @@ func TestPerformedEventsScanner(t *testing.T) {
 				_ = scanner.Close()
 			}()
 
-			mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
+			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
 
-			results, err := scanner.ScanWorkIDs(ctx, tc.workIDs...)
+			results, err := scanner.WorkIDsInRange(ctx, 0, 100)
 			if tc.errored {
 				require.Error(t, err)
 				return
@@ -111,55 +105,19 @@ func TestPerformedEventsScanner(t *testing.T) {
 	}
 }
 
-func TestPerformedEventsScanner_Batch(t *testing.T) {
+func TestPerformedEventsScanner_LogPollerErrors(t *testing.T) {
 	ctx := testutils.Context(t)
 	registryAddr := common.HexToAddress("0x12345")
 	lggr := logger.TestLogger(t)
-	lp := new(mocks.LogPoller)
-	scanner := NewPerformedEventsScanner(lggr, lp, registryAddr, 100)
 
-	lp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
-		{
-			BlockNumber: 1,
-			Address:     registryAddr,
-			Topics: convertTopics([]common.Hash{
-				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
-				common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"),
-			}),
-		},
-	}, nil).Times(1)
-	lp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
-		{
-			BlockNumber: 3,
-			Address:     registryAddr,
-			Topics: convertTopics([]common.Hash{
-				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
-				common.HexToHash("0x331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663"),
-			}),
-		},
-	}, nil).Times(1)
+	mp := new(mocks.LogPoller)
+	scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
 
-	origWorkIDsBatchSize := workIDsBatchSize
-	workIDsBatchSize = 8
-	defer func() {
-		workIDsBatchSize = origWorkIDsBatchSize
-	}()
+	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("test error"))
 
-	ids, err := scanner.ScanWorkIDs(ctx,
-		"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
-		"1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999",
-		"331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663",
-	)
-
-	require.NoError(t, err)
-	require.Equal(t, 2, len(ids))
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] < ids[j]
-	})
-	require.Equal(t, "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563", ids[0])
-	require.Equal(t, "331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663", ids[1])
-
-	lp.AssertExpectations(t)
+	workIDs, err := scanner.WorkIDsInRange(ctx, 0, 100)
+	require.Error(t, err)
+	require.Nil(t, workIDs)
 }
 
 func convertTopics(topics []common.Hash) [][]byte {

@@ -2,12 +2,11 @@ package threshold
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -200,8 +199,8 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	_, err := dq.GetCiphertext([]byte{0xa5})
-	assert.True(t, errors.Is(err, decryptionPlugin.ErrNotFound))
+	_, err := dq.GetCiphertext([]byte("8"))
+	assert.Equal(t, err.Error(), "ciphertext not found")
 }
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
@@ -254,38 +253,20 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	assert.Equal(t, err2.Error(), "context provided by caller was cancelled")
 }
 
-func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
-	ciphertextId := []byte{0x12, 0x0f}
-
-	go func() {
-		waitForPendingRequestToBeAdded(t, dq, ciphertextId)
-		dq.SetResult(ciphertextId, nil, decryptionPlugin.ErrAggregation)
-	}()
-
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
-
-	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
-	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x120f was closed without a response")
-}
-
 func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
-	ciphertextId := []byte{0x00, 0xff}
 
 	go func() {
-		waitForPendingRequestToBeAdded(t, dq, ciphertextId)
-		close(dq.pendingRequests[string(ciphertextId)].chPlaintext)
+		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
+		close(dq.pendingRequests[string([]byte("1"))].chPlaintext)
 	}()
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
-	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
-	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x00ff was closed without a response")
+	_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
+	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 1 was closed without a response")
 }
 
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {
@@ -445,28 +426,28 @@ func Test_decryptionQueue_Close(t *testing.T) {
 }
 
 func waitForPendingRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeTrue(), "pending request should be added")
+	}, testutils.WaitTimeout(t), "10ms").Should(BeTrue(), "pending request should be added")
 }
 
 func waitForPendingRequestToBeRemoved(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.pendingRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeFalse(), "pending request should be removed")
+	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "pending request should be removed")
 }
 
 func waitForCompletedRequestToBeAdded(t *testing.T, dq *decryptionQueue, ciphertextId decryptionPlugin.CiphertextId) {
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	NewGomegaWithT(t).Eventually(func() bool {
 		dq.mu.RLock()
 		_, exists := dq.completedRequests[string(ciphertextId)]
 		dq.mu.RUnlock()
 		return exists
-	}, testutils.WaitTimeout(t), "10ms").Should(gomega.BeFalse(), "completed request should be removed")
+	}, testutils.WaitTimeout(t), "10ms").Should(BeFalse(), "completed request should be removed")
 }

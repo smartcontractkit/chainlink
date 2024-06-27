@@ -367,8 +367,6 @@ type SendEtherRequest struct {
 	Amount             assets.Eth     `json:"amount"`
 	EVMChainID         *utils.Big     `json:"evmChainID"`
 	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
-	SkipWaitTxAttempt  bool           `json:"skipWaitTxAttempt"`
-	WaitAttemptTimeout *time.Duration `json:"waitAttemptTimeout"`
 }
 
 // AddressCollection is an array of common.Address

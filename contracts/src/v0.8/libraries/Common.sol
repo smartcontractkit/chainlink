@@ -16,7 +16,7 @@ library Common {
   // @notice Struct to hold the address and its associated weight
   struct AddressAndWeight {
     address addr;
-    uint64 weight;
+    uint256 weight;
   }
 
   /**
@@ -24,7 +24,7 @@ library Common {
    * @param recipients The array of AddressAndWeight to check
    * @return bool True if there are duplicates, false otherwise
    */
-  function _hasDuplicateAddresses(Common.AddressAndWeight[] memory recipients) internal pure returns (bool) {
+  function hasDuplicateAddresses(Common.AddressAndWeight[] memory recipients) internal pure returns (bool) {
     for (uint256 i = 0; i < recipients.length; ) {
       for (uint256 j = i + 1; j < recipients.length; ) {
         if (recipients[i].addr == recipients[j].addr) {

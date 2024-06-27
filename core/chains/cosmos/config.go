@@ -3,20 +3,20 @@ package cosmos
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -77,9 +77,119 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) (err error) {
 	return
 }
 
-func nodeStatus(n *coscfg.Node, id relay.ChainID) (relaytypes.NodeStatus, error) {
+func (cs CosmosConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
+	for _, ch := range cs {
+		if ch == nil {
+			continue
+		}
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+		ch2 := relaytypes.ChainStatus{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Config, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
+	}
+	return
+}
+
+func (cs CosmosConfigs) Node(name string) (n db.Node, err error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return legacyNode(n, *cs[i].ChainID), nil
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs CosmosConfigs) nodes(chainID string) (ns CosmosNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
+		}
+	}
+	return nil
+}
+
+func (cs CosmosConfigs) Nodes(chainID string) (ns []db.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		ns = append(ns, legacyNode(n, chainID))
+	}
+	return
+
+}
+
+func (cs CosmosConfigs) NodeStatus(name string) (n relaytypes.NodeStatus, err error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
+			if n == nil {
+				continue
+			}
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
+		}
+	}
+	return
+}
+
+func nodeStatus(n *coscfg.Node, chainID string) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = id
+	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -124,7 +234,6 @@ func legacyNode(n *coscfg.Node, id string) db.Node {
 
 type CosmosConfig struct {
 	ChainID *string
-	// Do not access directly. Use [IsEnabled]
 	Enabled *bool
 	coscfg.Chain
 	Nodes CosmosNodes
@@ -146,9 +255,6 @@ func (c *CosmosConfig) SetFrom(f *CosmosConfig) {
 }
 
 func setFromChain(c, f *coscfg.Chain) {
-	if f.Bech32Prefix != nil {
-		c.Bech32Prefix = f.Bech32Prefix
-	}
 	if f.BlockRate != nil {
 		c.BlockRate = f.BlockRate
 	}
@@ -161,8 +267,8 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.FallbackGasPrice != nil {
 		c.FallbackGasPrice = f.FallbackGasPrice
 	}
-	if f.GasToken != nil {
-		c.GasToken = f.GasToken
+	if f.FCDURL != nil {
+		c.FCDURL = f.FCDURL
 	}
 	if f.GasLimitMultiplier != nil {
 		c.GasLimitMultiplier = f.GasLimitMultiplier
@@ -173,11 +279,11 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.OCR2CachePollPeriod != nil {
 		c.OCR2CachePollPeriod = f.OCR2CachePollPeriod
 	}
-	if f.OCR2CacheTTL != nil {
-		c.OCR2CacheTTL = f.OCR2CacheTTL
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
 	}
-	if f.TxMsgTimeout != nil {
-		c.TxMsgTimeout = f.TxMsgTimeout
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
 	}
 }
 
@@ -205,10 +311,6 @@ func (c *CosmosConfig) TOMLString() (string, error) {
 
 var _ coscfg.Config = &CosmosConfig{}
 
-func (c *CosmosConfig) Bech32Prefix() string {
-	return *c.Chain.Bech32Prefix
-}
-
 func (c *CosmosConfig) BlockRate() time.Duration {
 	return c.Chain.BlockRate.Duration()
 }
@@ -225,8 +327,8 @@ func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
 	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
 }
 
-func (c *CosmosConfig) GasToken() string {
-	return *c.Chain.GasToken
+func (c *CosmosConfig) FCDURL() url.URL {
+	return (url.URL)(*c.Chain.FCDURL)
 }
 
 func (c *CosmosConfig) GasLimitMultiplier() float64 {
@@ -254,19 +356,6 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
 }
 
-func (c *CosmosConfig) GetNode(name string) (db.Node, error) {
-	for _, n := range c.Nodes {
-		if *n.Name == name {
-			return legacyNode(n, *c.ChainID), nil
-		}
-	}
-	return db.Node{}, fmt.Errorf("%w: node %q", chains.ErrNotFound, name)
-}
-
-func (c *CosmosConfig) ListNodes() ([]db.Node, error) {
-	var allNodes []db.Node
-	for _, n := range c.Nodes {
-		allNodes = append(allNodes, legacyNode(n, *c.ChainID))
-	}
-	return allNodes, nil
+func NewConfigs(cfgs chains.ConfigsV2[string, db.Node]) types.Configs {
+	return chains.NewConfigs(cfgs)
 }

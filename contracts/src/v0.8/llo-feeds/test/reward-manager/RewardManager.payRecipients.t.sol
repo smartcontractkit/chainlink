@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
-import {IRewardManager} from "../../interfaces/IRewardManager.sol";
+import {Common} from "../../../libraries/Common.sol";
 
 /**
  * @title BaseRewardManagerTest
@@ -185,10 +185,7 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
     //should revert if the caller isn't an admin or recipient within the pool
     vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
 
-    IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
-    payments[0] = IRewardManager.FeePayment(PRIMARY_POOL_ID, uint192(POOL_DEPOSIT_AMOUNT));
-
     //add funds to the pool
-    rewardManager.onFeePaid(payments, USER);
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, USER, POOL_DEPOSIT_AMOUNT);
   }
 }

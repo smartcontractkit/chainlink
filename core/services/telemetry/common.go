@@ -7,5 +7,5 @@ import (
 )
 
 type MonitoringEndpointGenerator interface {
-	GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType, network string, chainID string) ocrtypes.MonitoringEndpoint
+	GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint
 }

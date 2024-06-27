@@ -60,7 +60,6 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 		for rows.Next() {
 			require.NoError(tt, rows.Scan(&count))
 		}
-		require.NoError(tt, rows.Err())
 
 		require.Equal(tt, 3, count)
 	})
@@ -89,7 +88,6 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 		for rows.Next() {
 			require.NoError(tt, rows.Scan(&count))
 		}
-		require.NoError(tt, rows.Err())
 
 		require.Equal(tt, 0, count)
 	})
@@ -127,7 +125,6 @@ func TestShareDB_WriteShareRecords(t *testing.T) {
 		for rows.Next() {
 			require.NoError(tt, rows.Scan(&count))
 		}
-		require.NoError(tt, rows.Err())
 
 		require.Equal(tt, 0, count)
 	})

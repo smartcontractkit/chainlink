@@ -10,39 +10,19 @@ import { getUsers, Personas } from '../../test-helpers/setup'
 import { KeeperRegistryLogic2_0__factory as KeeperRegistryLogic20Factory } from '../../../typechain/factories/KeeperRegistryLogic2_0__factory'
 import { KeeperRegistry1_3__factory as KeeperRegistry1_3Factory } from '../../../typechain/factories/KeeperRegistry1_3__factory'
 import { KeeperRegistryLogic1_3__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic1_3__factory'
-import { UpkeepTranscoder4_0__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder4_0__factory'
 import { toWei } from '../../test-helpers/helpers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import {
-  IKeeperRegistryMaster,
+  LinkToken,
+  MockV3Aggregator,
   KeeperRegistry1_2,
   KeeperRegistry1_3,
   KeeperRegistry2_0,
-  LinkToken,
-  MockV3Aggregator,
+  IKeeperRegistryMaster,
   UpkeepMock,
 } from '../../../typechain'
+import {} from '../../../typechain'
 import { deployRegistry21 } from './helpers'
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*********************************** TRANSCODER v4.0 IS FROZEN ************************************/
-
-// We are leaving the original tests enabled, however as automation v2.1 is still actively being deployed
-
-describe('UpkeepTranscoder v4.0 - Frozen [ @skip-coverage ]', () => {
-  it('has not changed', () => {
-    assert.equal(
-      ethers.utils.id(UpkeepTranscoderFactory.bytecode),
-      '0xf22c4701b0088e6e69c389a34a22041a69f00890a89246e3c2a6d38172222dae',
-      'UpkeepTranscoder bytecode has changed',
-    )
-  })
-})
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
 
 let transcoder: UpkeepTranscoder
 let linkTokenFactory: LinkTokenFactory
@@ -140,8 +120,9 @@ const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
 }
 
 async function deployRegistry1_2(): Promise<[BigNumber, KeeperRegistry1_2]> {
-  const keeperRegistryFactory =
-    await ethers.getContractFactory('KeeperRegistry1_2')
+  const keeperRegistryFactory = await ethers.getContractFactory(
+    'KeeperRegistry1_2',
+  )
   const registry12 = await keeperRegistryFactory
     .connect(owner)
     .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
@@ -329,9 +310,7 @@ const setup = async () => {
   )
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
 
-  linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
-  )
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
   linkToken = await linkTokenFactory.connect(owner).deploy()
   // need full path because there are two contracts with name MockV3Aggregator
   const mockV3AggregatorFactory = (await ethers.getContractFactory(

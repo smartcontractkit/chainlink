@@ -49,9 +49,9 @@ spec:
             limits:
               memory: {{ default "1024Mi" $.Values.runner.resources.limits.memory }}
               cpu: {{ default "500m" $.Values.runner.resources.limits.cpu }}
+              {{- with $.Values.nodeSelector }}
           {{ else }}
           {{ end }}
-{{- with $.Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
 {{- end }}

@@ -16,7 +16,7 @@ type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 var ErrABINotParsable = fmt.Errorf("error parsing abi")
 
-// PackTrigger packs the trigger data according to the upkeep type of the given id. it will remove the first 4 bytes of function selector.
+// according to the upkeep type of the given id.
 func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	var trigger []byte
 	var err error
@@ -41,11 +41,10 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 		trigger, err = utilsABI.Pack("_conditionalTrigger", &trig)
 	case ocr2keepers.LogTrigger:
 		logTrig := automation_utils_2_1.KeeperRegistryBase21LogTrigger{
-			BlockNum:     trig.BlockNum,
-			BlockHash:    trig.BlockHash,
-			LogBlockHash: trig.LogBlockHash,
-			LogIndex:     trig.LogIndex,
-			TxHash:       trig.TxHash,
+			BlockNum:  trig.BlockNum,
+			BlockHash: trig.BlockHash,
+			LogIndex:  trig.LogIndex,
+			TxHash:    trig.TxHash,
 		}
 		trigger, err = utilsABI.Pack("_logTrigger", &logTrig)
 	default:
@@ -99,7 +98,6 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		}
 		copy(triggerW.BlockHash[:], converted.BlockHash[:])
 		copy(triggerW.TxHash[:], converted.TxHash[:])
-		copy(triggerW.LogBlockHash[:], converted.LogBlockHash[:])
 		return triggerW, nil
 	default:
 		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)

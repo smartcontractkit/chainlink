@@ -7,7 +7,7 @@ echo " │    Compiling Low Latency Oracle contracts... │"
 echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.8.16"
-OPTIMIZE_RUNS=1000000
+OPTIMIZE_RUNS=15000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -27,8 +27,8 @@ compileContract () {
 
 compileContract llo-feeds/Verifier.sol
 compileContract llo-feeds/VerifierProxy.sol
-compileContract llo-feeds/FeeManager.sol
-compileContract llo-feeds/RewardManager.sol
+compileContract llo-feeds/dev/FeeManager.sol
+compileContract llo-feeds/dev/RewardManager.sol
 
 #Test | Mocks
 compileContract llo-feeds/test/mocks/ErroredVerifier.sol

@@ -1,0 +1,26 @@
+type = "vrf"
+externalJobID = "123e4567-e89b-12d3-a456-426655440001"
+schemaVersion = 1
+name = "vrf-primary"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+confirmations = 6
+publicKey = "0x49cf5e2bf04a57620ac3833c998b37e78c0c7ad89b6a9cbc4ce6dba31729930000"
+observationSource="""
+decode_log   [type=ethabidecodelog
+              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrf
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+encode_tx    [type=ethabiencode
+              abi="fulfillRandomnessRequest(bytes proof)"
+              data="{\\"proof\\": $(vrf)}"]
+submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+            data="$(encode_tx)"
+            minConfirmations="0"
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+decode_log->vrf->encode_tx->submit_tx
+"""

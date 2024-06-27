@@ -36,11 +36,10 @@ compileContract vrf/VRFRequestIDBase.sol
 compileContract vrf/VRFConsumerBase.sol
 compileContract vrf/testhelpers/VRFConsumer.sol
 compileContract vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
-compileContract vrf/mocks/VRFCoordinatorMock.sol
+compileContract mocks/VRFCoordinatorMock.sol
 
 # VRF V2
 compileContract vrf/VRFConsumerBaseV2.sol
-compileContract vrf/testhelpers/ChainSpecificUtilHelper.sol
 compileContract vrf/testhelpers/VRFConsumerV2.sol
 compileContract vrf/testhelpers/VRFMaliciousConsumerV2.sol
 compileContract vrf/testhelpers/VRFTestHelper.sol
@@ -52,35 +51,27 @@ compileContract vrf/BatchBlockhashStore.sol
 compileContract vrf/BatchVRFCoordinatorV2.sol
 compileContract vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 compileContractAltOpts vrf/VRFCoordinatorV2.sol 10000
-compileContract vrf/mocks/VRFCoordinatorV2Mock.sol
 compileContract vrf/VRFOwner.sol
-compileContract vrf/dev/VRFSubscriptionBalanceMonitor.sol
-compileContract vrf/KeepersVRFConsumer.sol
 
 # VRF V2Plus
-compileContract vrf/dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts vrf/dev/VRFCoordinatorV2_5.sol 50
-compileContract vrf/dev/BatchVRFCoordinatorV2Plus.sol
-compileContract vrf/dev/VRFV2PlusWrapper.sol
-compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
-compileContract vrf/dev/testhelpers/VRFMaliciousConsumerV2Plus.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusSingleConsumerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusRevertingExample.sol
-compileContract vrf/dev/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusMaliciousMigrator.sol
-compileContract vrf/dev/libraries/VRFV2PlusClient.sol
-compileContract vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
-compileContract vrf/dev/TrustedBlockhashStore.sol
-compileContract vrf/dev/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
-compileContractAltOpts vrf/dev/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
-compileContract vrf/dev/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol
+compileContractAltOpts dev/vrf/VRFCoordinatorV2Plus.sol 1000
+compileContract dev/vrf/BatchVRFCoordinatorV2Plus.sol
+compileContract dev/vrf/VRFV2PlusWrapper.sol
+compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
+compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/libraries/VRFV2PlusClient.sol
+compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
+compileContract dev/vrf/TrustedBlockhashStore.sol
 
 # VRF V2 Wrapper
 compileContract vrf/VRFV2Wrapper.sol
-compileContract vrf/interfaces/VRFV2WrapperInterface.sol
+compileContract interfaces/VRFV2WrapperInterface.sol
 compileContract vrf/VRFV2WrapperConsumerBase.sol
 compileContract vrf/testhelpers/VRFV2WrapperConsumerExample.sol
 
@@ -92,8 +83,3 @@ compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
 compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol
-
-# Helper contracts
-compileContract vrf/interfaces/IAuthorizedReceiver.sol
-compileContract vrf/interfaces/VRFCoordinatorV2Interface.sol
-compileContract vrf/interfaces/VRFV2WrapperInterface.sol

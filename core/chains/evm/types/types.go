@@ -12,16 +12,13 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Configs interface {
-	Chains(ids ...relay.ChainID) ([]types.ChainStatus, int, error)
-	Node(name string) (Node, error)
-	Nodes(chainID relay.ChainID) (nodes []Node, err error)
-	NodeStatus(name string) (types.NodeStatus, error)
+	chains.ChainConfigs
+	chains.NodeConfigs[utils.Big, Node]
 }
 
 type Node struct {

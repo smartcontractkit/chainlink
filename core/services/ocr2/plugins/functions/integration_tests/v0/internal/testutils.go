@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,13 +21,12 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -41,8 +41,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -228,7 +228,7 @@ type Node struct {
 func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port int,
+	port uint16,
 	dbName string,
 	b *backends.SimulatedBackend,
 	maxGas uint32,
@@ -236,7 +236,8 @@ func StartNewNode(
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
 ) *Node {
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey, err := p2pkey.NewV2()
+	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 
@@ -414,6 +415,9 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
 	require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+	if data["secrets"] != DefaultSecretsBase64 && request["nodeProvidedSecrets"] != fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64) {
+		assert.Fail(t, "expected secrets or nodeProvidedSecrets to be '%s'", DefaultSecretsBase64)
+	}
 	args := data["args"].([]interface{})
 	require.Equal(t, 2, len(args))
 	require.Equal(t, DefaultArg1, args[0].(string))
@@ -465,12 +469,11 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapPort := freeport.GetOne(t)
+	bootstrapPort := getFreePort(t)
 	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
-	ports := freeport.GetN(t, nOracleNodes)
 	for i := 0; i < nOracleNodes; i++ {
 		var thresholdKeyShare string
 		if len(thresholdKeyShares) == 0 {
@@ -484,7 +487,8 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, ports[i], fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		nodePort := getFreePort(t)
+		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
@@ -497,6 +501,18 @@ func CreateFunctionsNodes(
 	}
 
 	return bootstrapNode, oracleNodes, oracleIdentites
+}
+
+// NOTE: This approach is technically incorrect because the returned port
+// can still be taken by the time the caller attempts to bind to it.
+// Unfortunately, we can't specify zero port in P2P.V2.ListenAddresses at the moment.
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	listener, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
 func ClientTestRequests(

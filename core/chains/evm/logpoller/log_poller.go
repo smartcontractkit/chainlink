@@ -36,36 +36,27 @@ type LogPoller interface {
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
-	HasFilter(name string) bool
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
-	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs Confirmations, qopts ...pg.QOpt) (*Log, error)
-	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error)
+	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
+	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error)
 
 	// Content based querying
-	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
-	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 }
-
-type Confirmations int
-
-const (
-	Finalized   = Confirmations(-1)
-	Unconfirmed = Confirmations(0)
-)
 
 type LogPollerTest interface {
 	LogPoller
@@ -73,7 +64,6 @@ type LogPollerTest interface {
 	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
-	PruneOldBlocks(ctx context.Context) error
 }
 
 type Client interface {
@@ -93,16 +83,15 @@ var (
 
 type logPoller struct {
 	utils.StartStopOnce
-	ec                       Client
-	orm                      ORM
-	lggr                     logger.Logger
-	pollPeriod               time.Duration // poll period set by block production rate
-	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
-	finalityDepth            int64         // finality depth is taken to mean that block (head - finality) is finalized. If `useFinalityTag` is set to true, this value is ignored, because finalityDepth is fetched from chain
-	keepFinalizedBlocksDepth int64         // the number of blocks behind the last finalized block we keep in database
-	backfillBatchSize        int64         // batch size to use when backfilling finalized logs
-	rpcBatchSize             int64         // batch size to use for fallback RPC calls made in GetBlocks
-	backupPollerNextBlock    int64
+	ec                    Client
+	orm                   *ORM
+	lggr                  logger.Logger
+	pollPeriod            time.Duration // poll period set by block production rate
+	finalityDepth         int64         // finality depth is taken to mean that block (head - finality) is finalized
+	keepBlocksDepth       int64         // the number of blocks behind the head for which we keep the blocks. Must be greater than finality depth + 1.
+	backfillBatchSize     int64         // batch size to use when backfilling finalized logs
+	rpcBatchSize          int64         // batch size to use for fallback RPC calls made in GetBlocks
+	backupPollerNextBlock int64
 
 	filterMu        sync.RWMutex
 	filters         map[string]Filter
@@ -127,23 +116,22 @@ type logPoller struct {
 //
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
-	useFinalityTag bool, finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepFinalizedBlocksDepth int64) *logPoller {
+func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Duration,
+	finalityDepth int64, backfillBatchSize int64, rpcBatchSize int64, keepBlocksDepth int64) *logPoller {
 
 	return &logPoller{
-		ec:                       ec,
-		orm:                      orm,
-		lggr:                     lggr.Named("LogPoller"),
-		replayStart:              make(chan int64),
-		replayComplete:           make(chan error),
-		pollPeriod:               pollPeriod,
-		finalityDepth:            finalityDepth,
-		useFinalityTag:           useFinalityTag,
-		backfillBatchSize:        backfillBatchSize,
-		rpcBatchSize:             rpcBatchSize,
-		keepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
-		filters:                  make(map[string]Filter),
-		filterDirty:              true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
+		ec:                ec,
+		orm:               orm,
+		lggr:              lggr.Named("LogPoller"),
+		replayStart:       make(chan int64),
+		replayComplete:    make(chan error),
+		pollPeriod:        pollPeriod,
+		finalityDepth:     finalityDepth,
+		backfillBatchSize: backfillBatchSize,
+		rpcBatchSize:      rpcBatchSize,
+		keepBlocksDepth:   keepBlocksDepth,
+		filters:           make(map[string]Filter),
+		filterDirty:       true, // Always build Filter on first call to cache an empty filter if nothing registered yet.
 	}
 }
 
@@ -270,15 +258,6 @@ func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	return nil
 }
 
-// HasFilter returns true if the log poller has an active filter with the given name.
-func (lp *logPoller) HasFilter(name string) bool {
-	lp.filterMu.RLock()
-	defer lp.filterMu.RUnlock()
-
-	_, ok := lp.filters[name]
-	return ok
-}
-
 func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
@@ -378,6 +357,11 @@ func (lp *logPoller) ReplayAsync(fromBlock int64) {
 }
 
 func (lp *logPoller) Start(parentCtx context.Context) error {
+	if lp.keepBlocksDepth < (lp.finalityDepth + 1) {
+		// We add 1 since for reorg detection on the first unfinalized block
+		// we need to keep 1 finalized block.
+		return errors.Errorf("keepBlocksDepth %d must be greater than finality %d + 1", lp.keepBlocksDepth, lp.finalityDepth)
+	}
 	return lp.StartOnce("LogPoller", func() error {
 		ctx, cancel := context.WithCancel(parentCtx)
 		lp.ctx = ctx
@@ -405,7 +389,7 @@ func (lp *logPoller) Name() string {
 }
 
 func (lp *logPoller) HealthReport() map[string]error {
-	return map[string]error{lp.Name(): lp.Healthy()}
+	return map[string]error{lp.Name(): lp.StartStopOnce.Healthy()}
 }
 
 func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (int64, error) {
@@ -499,20 +483,21 @@ func (lp *logPoller) run() {
 				}
 				// Otherwise this is the first poll _ever_ on a new chain.
 				// Only safe thing to do is to start at the first finalized block.
-				latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(lp.ctx)
+				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
 					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
 				}
+				latestNum := latest.Number
 				// Do not support polling chains which don't even have finality depth worth of blocks.
 				// Could conceivably support this but not worth the effort.
-				// Need last finalized block number to be higher than 0
-				if latestFinalizedBlockNumber <= 0 {
-					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestBlock.Number)
+				// Need finality depth + 1, no block 0.
+				if latestNum <= lp.finalityDepth {
+					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
-				start = latestFinalizedBlockNumber
+				start = latestNum - lp.finalityDepth
 			} else {
 				start = lastProcessed.BlockNumber + 1
 			}
@@ -536,7 +521,7 @@ func (lp *logPoller) run() {
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
-			if err := lp.PruneOldBlocks(lp.ctx); err != nil {
+			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
@@ -559,19 +544,22 @@ func (lp *logPoller) BackupPollAndSaveLogs(ctx context.Context, backupPollerBloc
 			}
 			return
 		}
-		// If this is our first run, start from block min(lastProcessed.FinalizedBlockNumber-1, lastProcessed.BlockNumber-backupPollerBlockDelay)
-		backupStartBlock := mathutil.Min(lastProcessed.FinalizedBlockNumber-1, lastProcessed.BlockNumber-backupPollerBlockDelay)
+
+		// If this is our first run, start max(finalityDepth+1, backupPollerBlockDelay) blocks behind the last processed
 		// (or at block 0 if whole blockchain is too short)
-		lp.backupPollerNextBlock = mathutil.Max(backupStartBlock, 0)
+		lp.backupPollerNextBlock = lastProcessed.BlockNumber - mathutil.Max(lp.finalityDepth+1, backupPollerBlockDelay)
+		if lp.backupPollerNextBlock < 0 {
+			lp.backupPollerNextBlock = 0
+		}
 	}
 
-	_, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		lp.lggr.Warnw("Backup logpoller failed to get latest block", "err", err)
 		return
 	}
 
-	lastSafeBackfillBlock := latestFinalizedBlockNumber - 1
+	lastSafeBackfillBlock := latestBlock.Number - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= lp.backupPollerNextBlock {
 		lp.lggr.Infow("Backup poller backfilling logs", "start", lp.backupPollerNextBlock, "end", lastSafeBackfillBlock)
 		if err = lp.backfill(ctx, lp.backupPollerNextBlock, lastSafeBackfillBlock); err != nil {
@@ -659,7 +647,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				}
 			}
 			if batchSize == 1 {
-				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
@@ -676,7 +664,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		}
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
-		err = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), pg.WithQueryer(tx))
 		})
 		if err != nil {
@@ -733,7 +721,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// There can be another reorg while we're finding the LCA.
 		// That is ok, since we'll detect it on the next iteration.
 		// Since we go currentBlock by currentBlock for unfinalized logs, the mismatch starts at currentBlockNumber - 1.
-		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock, expectedParent.FinalizedBlockNumber)
+		blockAfterLCA, err2 := lp.findBlockAfterLCA(ctx, currentBlock)
 		if err2 != nil {
 			lp.lggr.Warnw("Unable to find LCA after reorg, retrying", "err", err2)
 			return nil, errors.New("Unable to find LCA after reorg, retrying")
@@ -745,9 +733,9 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// that applications see them and take action upon it, however that
 		// results in significantly slower reads since we must then compute
 		// the canonical set per read. Typically, if an application took action on a log
-		// it would be saved elsewhere e.g. evm.txes, so it seems better to just support the fast reads.
+		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
-		err2 = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are
 			// fast and should not slow down the log readers.
 			err3 := lp.orm.DeleteBlocksAfter(blockAfterLCA.Number, pg.WithQueryer(tx))
@@ -778,9 +766,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 // conditions this would be equal to lastProcessed.BlockNumber + 1.
 func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int64) {
 	lp.lggr.Debugw("Polling for logs", "currentBlockNumber", currentBlockNumber)
-	// Intentionally not using logPoller.finalityDepth directly but the latestFinalizedBlockNumber returned from lp.latestBlocks()
-	// latestBlocks knows how to pick a proper latestFinalizedBlockNumber based on the logPoller's configuration
-	latestBlock, latestFinalizedBlockNumber, err := lp.latestBlocks(ctx)
+	latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		lp.lggr.Warnw("Unable to get latestBlockNumber block", "err", err, "currentBlockNumber", currentBlockNumber)
 		return
@@ -813,7 +799,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	// E.g. 1<-2<-3(currentBlockNumber)<-4<-5<-6<-7(latestBlockNumber), finality is 2. So 3,4 can be batched.
 	// Although 5 is finalized, we still need to save it to the db for reorg detection if 6 is a reorg.
 	// start = currentBlockNumber = 3, end = latestBlockNumber - finality - 1 = 7-2-1 = 4 (inclusive range).
-	lastSafeBackfillBlock := latestFinalizedBlockNumber - 1
+	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
 		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
@@ -846,8 +832,8 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 			return
 		}
 		lp.lggr.Debugw("Unfinalized log query", "logs", len(logs), "currentBlockNumber", currentBlockNumber, "blockHash", currentBlock.Hash, "timestamp", currentBlock.Timestamp.Unix())
-		err = lp.orm.Q().WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
-			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, latestFinalizedBlockNumber, pg.WithQueryer(tx)); err2 != nil {
+		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+			if err2 := lp.orm.InsertBlock(h, currentBlockNumber, currentBlock.Timestamp, pg.WithQueryer(tx)); err2 != nil {
 				return err2
 			}
 			if len(logs) == 0 {
@@ -881,37 +867,9 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 }
 
-// Returns information about latestBlock, latestFinalizedBlockNumber
-// If finality tag is not enabled, latestFinalizedBlockNumber is calculated as latestBlockNumber - lp.finalityDepth (configured param)
-// Otherwise, we return last finalized block number returned from chain
-func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, error) {
-	// If finality is not enabled, we can only fetch the latest block
-	if !lp.useFinalityTag {
-		// Example:
-		// finalityDepth = 2
-		// Blocks: 1->2->3->4->5(latestBlock)
-		// latestFinalizedBlockNumber would be 3
-		latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, 0, err
-		}
-		// If chain has fewer blocks than finalityDepth, return 0
-		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
-	}
-
-	// If finality is enabled, we need to get the latest and finalized blocks.
-	blocks, err := lp.batchFetchBlocks(ctx, []string{rpc.LatestBlockNumber.String(), rpc.FinalizedBlockNumber.String()}, 2)
-	if err != nil {
-		return nil, 0, err
-	}
-	latest := blocks[0]
-	finalized := blocks[1]
-	return latest, finalized.Number, nil
-}
-
 // Find the first place where our chain and their chain have the same block,
 // that block number is the LCA. Return the block after that, where we want to resume polling.
-func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.Head, latestFinalizedBlockNumber int64) (*evmtypes.Head, error) {
+func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.Head) (*evmtypes.Head, error) {
 	// Current is where the mismatch starts.
 	// Check its parent to see if its the same as ours saved.
 	parent, err := lp.ec.HeadByHash(ctx, current.ParentHash)
@@ -919,11 +877,12 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 		return nil, err
 	}
 	blockAfterLCA := *current
-	// We expect reorgs up to the block after latestFinalizedBlock
+	reorgStart := parent.Number
+	// We expect reorgs up to the block after (current - finalityDepth),
+	// since the block at (current - finalityDepth) is finalized.
 	// We loop via parent instead of current so current always holds the LCA+1.
 	// If the parent block number becomes < the first finalized block our reorg is too deep.
-	// This can happen only if finalityTag is not enabled and fixed finalityDepth is provided via config.
-	for parent.Number >= latestFinalizedBlockNumber {
+	for parent.Number >= (reorgStart - lp.finalityDepth) {
 		ourParentBlockHash, err := lp.orm.SelectBlockByNumber(parent.Number, pg.WithParentCtx(ctx))
 		if err != nil {
 			return nil, err
@@ -939,81 +898,76 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 			return nil, err
 		}
 	}
-	lp.lggr.Criticalw("Reorg greater than finality depth detected", "finalityTag", lp.useFinalityTag, "current", current.Number, "latestFinalized", latestFinalizedBlockNumber)
+	lp.lggr.Criticalw("Reorg greater than finality depth detected", "max reorg depth", lp.finalityDepth-1)
 	rerr := errors.New("Reorg greater than finality depth")
 	lp.SvcErrBuffer.Append(rerr)
 	return nil, rerr
 }
 
-// PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
-func (lp *logPoller) PruneOldBlocks(ctx context.Context) error {
-	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
+// pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the head.
+func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
+	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if latestBlock == nil {
-		// No blocks saved yet.
-		return nil
+	if latest == nil {
+		return errors.Errorf("received nil block from RPC")
 	}
-	if latestBlock.FinalizedBlockNumber <= lp.keepFinalizedBlocksDepth {
+	if latest.Number <= lp.keepBlocksDepth {
 		// No-op, keep all blocks
 		return nil
 	}
-	// 1-2-3-4-5(finalized)-6-7(latest), keepFinalizedBlocksDepth=3
+	// 1-2-3-4-5(latest), keepBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
+	return lp.orm.DeleteBlocksBefore(latest.Number-lp.keepBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,
 // which are canonical at time of query.
 func (lp *logPoller) Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogs(start, end, address, eventSig, qopts...)
+	return lp.orm.SelectLogsByBlockRangeFilter(start, end, address, eventSig, qopts...)
 }
 
 func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogsWithSigs(start, end, address, eventSigs, qopts...)
+	return lp.orm.SelectLogsWithSigsByBlockRangeFilter(start, end, address, eventSigs, qopts...)
 }
 
-func (lp *logPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogsCreatedAfter(address, eventSig, after, confs, qopts...)
+func (lp *logPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsCreatedAfter(eventSig[:], address, after, confs, qopts...)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
-func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
 }
 
 // IndexedLogsByBlockRange finds all the logs that have a topic value in topicValues at index topicIndex within the block range
 func (lp *logPoller) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectIndexedLogsByBlockRange(start, end, address, eventSig, topicIndex, topicValues, qopts...)
+	return lp.orm.SelectIndexedLogsByBlockRangeFilter(start, end, address, eventSig, topicIndex, topicValues, qopts...)
 }
 
-func (lp *logPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *logPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsCreatedAfter(address, eventSig, topicIndex, topicValues, after, confs, qopts...)
 }
 
-func (lp *logPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectIndexedLogsByTxHash(eventSig, txHash, qopts...)
-}
-
 // LogsDataWordGreaterThan note index is 0 based.
-func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogsDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
+func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
 }
 
 // LogsDataWordRange note index is 0 based.
-func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogsDataWordRange(address, eventSig, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
+func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectDataWordRange(address, eventSig, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
 }
 
 // IndexedLogsTopicGreaterThan finds all the logs that have a topic value greater than topicValueMin at index topicIndex.
 // Only works for integer topics.
-func (lp *logPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectIndexedLogsTopicGreaterThan(address, eventSig, topicIndex, topicValueMin, confs, qopts...)
+func (lp *logPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexLogsTopicGreaterThan(address, eventSig, topicIndex, topicValueMin, confs, qopts...)
 }
 
-func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectIndexedLogsTopicRange(address, eventSig, topicIndex, topicValueMin, topicValueMax, confs, qopts...)
+func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexLogsTopicRange(address, eventSig, topicIndex, topicValueMin, topicValueMax, confs, qopts...)
 }
 
 // LatestBlock returns the latest block the log poller is on. It tracks blocks to be able
@@ -1032,16 +986,16 @@ func (lp *logPoller) BlockByNumber(n int64, qopts ...pg.QOpt) (*LogPollerBlock, 
 }
 
 // LatestLogByEventSigWithConfs finds the latest log that has confs number of blocks on top of the log.
-func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs Confirmations, qopts ...pg.QOpt) (*Log, error) {
-	return lp.orm.SelectLatestLogByEventSigWithConfs(eventSig, address, confs, qopts...)
+func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error) {
+	return lp.orm.SelectLatestLogEventSigWithConfs(eventSig, address, confs, qopts...)
 }
 
-func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
-func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs Confirmations, qopts ...pg.QOpt) (int64, error) {
-	return lp.orm.SelectLatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
+func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return lp.orm.SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
 }
 
 // GetBlocksRange tries to get the specified block numbers from the log pollers
@@ -1063,9 +1017,9 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	// Retrieve all blocks within this range from the log poller.
 	blocksFound := make(map[uint64]LogPollerBlock)
 	qopts = append(qopts, pg.WithParentCtx(ctx))
-	minRequestedBlock := int64(mathutil.Min(numbers[0], numbers[1:]...))
-	maxRequestedBlock := int64(mathutil.Max(numbers[0], numbers[1:]...))
-	lpBlocks, err := lp.orm.GetBlocksRange(int64(minRequestedBlock), int64(maxRequestedBlock), qopts...)
+	minRequestedBlock := mathutil.Min(numbers[0], numbers[1:]...)
+	maxRequestedBlock := mathutil.Max(numbers[0], numbers[1:]...)
+	lpBlocks, err := lp.orm.GetBlocksRange(minRequestedBlock, maxRequestedBlock, qopts...)
 	if err != nil {
 		lp.lggr.Warnw("Error while retrieving blocks from log pollers blocks table. Falling back to RPC...", "requestedBlocks", numbers, "err", err)
 	} else {
@@ -1079,7 +1033,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	}
 
 	// Fill any remaining blocks from the client.
-	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, blocksRequested, blocksFound)
+	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, numbers, blocksFound)
 	if err != nil {
 		return nil, err
 	}
@@ -1105,13 +1059,20 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 
 func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
-	blocksRequested map[uint64]struct{},
+	blocksRequested []uint64,
 	blocksFound map[uint64]LogPollerBlock,
 ) (map[uint64]LogPollerBlock, error) {
-	var remainingBlocks []string
-	for num := range blocksRequested {
+	var reqs []rpc.BatchElem
+	var remainingBlocks []uint64
+	for _, num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
-			remainingBlocks = append(remainingBlocks, hexutil.EncodeBig(new(big.Int).SetUint64(num)))
+			req := rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{hexutil.EncodeBig(big.NewInt(0).SetUint64(num)), false},
+				Result: &evmtypes.Head{},
+			}
+			reqs = append(reqs, req)
+			remainingBlocks = append(remainingBlocks, num)
 		}
 	}
 
@@ -1120,37 +1081,8 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 			"remainingBlocks", remainingBlocks)
 	}
 
-	evmBlocks, err := lp.batchFetchBlocks(ctx, remainingBlocks, lp.rpcBatchSize)
-	if err != nil {
-		return nil, err
-	}
-
-	logPollerBlocks := make(map[uint64]LogPollerBlock)
-	for _, head := range evmBlocks {
-		logPollerBlocks[uint64(head.Number)] = LogPollerBlock{
-			EvmChainId:     head.EVMChainID,
-			BlockHash:      head.Hash,
-			BlockNumber:    head.Number,
-			BlockTimestamp: head.Timestamp,
-			CreatedAt:      head.Timestamp,
-		}
-	}
-	return logPollerBlocks, nil
-}
-
-func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []string, batchSize int64) ([]*evmtypes.Head, error) {
-	reqs := make([]rpc.BatchElem, 0, len(blocksRequested))
-	for _, num := range blocksRequested {
-		req := rpc.BatchElem{
-			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{num, false},
-			Result: &evmtypes.Head{},
-		}
-		reqs = append(reqs, req)
-	}
-
-	for i := 0; i < len(reqs); i += int(batchSize) {
-		j := i + int(batchSize)
+	for i := 0; i < len(reqs); i += int(lp.rpcBatchSize) {
+		j := i + int(lp.rpcBatchSize)
 		if j > len(reqs) {
 			j = len(reqs)
 		}
@@ -1161,7 +1093,7 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		}
 	}
 
-	var blocks = make([]*evmtypes.Head, 0, len(reqs))
+	var blocksFoundFromRPC = make(map[uint64]LogPollerBlock)
 	for _, r := range reqs {
 		if r.Error != nil {
 			return nil, r.Error
@@ -1180,17 +1112,23 @@ func (lp *logPoller) batchFetchBlocks(ctx context.Context, blocksRequested []str
 		if block.Number < 0 {
 			return nil, errors.Errorf("expected block number to be >= to 0, got %d", block.Number)
 		}
-		blocks = append(blocks, block)
+		blocksFoundFromRPC[uint64(block.Number)] = LogPollerBlock{
+			EvmChainId:     block.EVMChainID,
+			BlockHash:      block.Hash,
+			BlockNumber:    block.Number,
+			BlockTimestamp: block.Timestamp,
+			CreatedAt:      block.Timestamp,
+		}
 	}
 
-	return blocks, nil
+	return blocksFoundFromRPC, nil
 }
 
 // IndexedLogsWithSigsExcluding returns the set difference(A-B) of logs with signature sigA and sigB, matching is done on the topics index
 //
 // For example, query to retrieve unfulfilled requests by querying request log events without matching fulfillment log events.
 // The order of events is not significant. Both logs must be inside the block range and have the minimum number of confirmations
-func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
+func (lp *logPoller) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsWithSigsExcluding(eventSigA, eventSigB, topicIndex, address, fromBlock, toBlock, confs, qopts...)
 }
 

@@ -3,7 +3,6 @@ package resolver
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -173,32 +171,6 @@ func TestResolver_Job(t *testing.T) {
 				}
 			}
 		`
-		exampleJobResult = `
-				{
-					"job": {
-						"id": "1",
-						"createdAt": "2021-01-01T00:00:00Z",
-						"externalJobID": "00000000-0000-0000-0000-000000000001",
-						"gasLimit": 123,
-						"maxTaskDuration": "1s",
-						"name": "job1",
-						"schemaVersion": 1,
-						"spec": {
-							"__typename": "OCRSpec"
-						},
-						"runs": {
-							"__typename": "JobRunsPayload",
-							"results": [{
-								"id": "200"
-							}],
-							"metadata": {
-								"total": 1
-							}
-						},
-						"observationSource": "ds1 [type=bridge name=voter_turnout];"
-					}
-				}
-			`
 	)
 
 	testCases := []GQLTestCase{
@@ -232,8 +204,33 @@ func TestResolver_Job(t *testing.T) {
 					On("CountPipelineRunsByJobID", int32(1)).
 					Return(int32(1), nil)
 			},
-			query:  query,
-			result: exampleJobResult,
+			query: query,
+			result: `
+				{
+					"job": {
+						"id": "1",
+						"createdAt": "2021-01-01T00:00:00Z",
+						"externalJobID": "00000000-0000-0000-0000-000000000001",
+						"gasLimit": 123,
+						"maxTaskDuration": "1s",
+						"name": "job1",
+						"schemaVersion": 1,
+						"spec": {
+							"__typename": "OCRSpec"
+						},
+						"runs": {
+							"__typename": "JobRunsPayload",
+							"results": [{
+								"id": "200"
+							}],
+							"metadata": {
+								"total": 1
+							}
+						},
+						"observationSource": "ds1 [type=bridge name=voter_turnout];"
+					}
+				}
+			`,
 		},
 		{
 			name:          "not found",
@@ -251,38 +248,6 @@ func TestResolver_Job(t *testing.T) {
 					}
 				}
 			`,
-		},
-		{
-			name:          "show job when chainID is disabled",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
-					ID:              1,
-					Name:            null.StringFrom("job1"),
-					SchemaVersion:   1,
-					GasLimit:        clnull.Uint32From(123),
-					MaxTaskDuration: models.Interval(1 * time.Second),
-					ExternalJobID:   externalJobID,
-					CreatedAt:       f.Timestamp(),
-					Type:            job.OffchainReporting,
-					OCROracleSpec:   &job.OCROracleSpec{},
-					PipelineSpec: &pipeline.Spec{
-						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
-					},
-				}, chains.ErrNoSuchChainID)
-				f.Mocks.jobORM.
-					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
-					Return([]int64{200}, nil)
-				f.Mocks.jobORM.
-					On("FindPipelineRunsByIDs", []int64{200}).
-					Return([]pipeline.Run{{ID: 200}}, nil)
-				f.Mocks.jobORM.
-					On("CountPipelineRunsByJobID", int32(1)).
-					Return(int32(1), nil)
-			},
-			query:  query,
-			result: exampleJobResult,
 		},
 	}
 
@@ -314,11 +279,9 @@ func TestResolver_CreateJob(t *testing.T) {
 				}
 			}
 		}`
-	uuid := uuid.New()
-	spec := fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid)
 	variables := map[string]interface{}{
 		"input": map[string]interface{}{
-			"TOML": spec,
+			"TOML": testspecs.DirectRequestSpec,
 		},
 	}
 	invalid := map[string]interface{}{
@@ -326,7 +289,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			"TOML": "some wrong value",
 		},
 	}
-	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	assert.NoError(t, err)
 
 	d, err := json.Marshal(map[string]interface{}{

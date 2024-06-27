@@ -162,9 +162,6 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	if len(lgs) == 0 {
-		return ocrtypes.ContractConfig{}, errors.New("no logs found")
-	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data, cp.pluginType)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err

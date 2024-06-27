@@ -34,16 +34,16 @@ before(async () => {
   roles = (await getUsers()).roles
 
   concreteFunctionsClientFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.defaultAccount,
   )
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 

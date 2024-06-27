@@ -19,7 +19,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
@@ -84,7 +84,7 @@ func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker
 		if spec.VRFCoordinatorAddress == nil {
 			return nil, errors.Errorf("malformed checker, expected non-nil VRFCoordinatorAddress, got: %v", spec)
 		}
-		coord, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(*spec.VRFCoordinatorAddress, c.Client)
+		coord, err := v2plus.NewVRFCoordinatorV2Plus(*spec.VRFCoordinatorAddress, c.Client)
 		if err != nil {
 			return nil, errors.Wrapf(err,
 				"failed to create VRF V2 coordinator plus at address %v", spec.VRFCoordinatorAddress)
@@ -259,9 +259,10 @@ func (v *VRFV1Checker) Check(
 			"meta", tx.Meta,
 			"reqID", reqID)
 		return errors.New("request already fulfilled")
+	} else {
+		// Request not fulfilled
+		return nil
 	}
-	// Request not fulfilled
-	return nil
 }
 
 // VRFV2Checker is an implementation of TransmitChecker that checks whether a VRF V2 fulfillment
@@ -350,11 +351,11 @@ func (v *VRFV2Checker) Check(
 			"meta", tx.Meta,
 			"vrfRequestId", vrfRequestID)
 		return errors.New("request already fulfilled")
+	} else {
+		l.Debugw("Request not yet fulfilled",
+			"ethTxID", tx.ID,
+			"meta", tx.Meta,
+			"vrfRequestId", vrfRequestID)
+		return nil
 	}
-	l.Debugw("Request not yet fulfilled",
-		"ethTxID", tx.ID,
-		"meta", tx.Meta,
-		"vrfRequestId", vrfRequestID)
-	return nil
-
 }

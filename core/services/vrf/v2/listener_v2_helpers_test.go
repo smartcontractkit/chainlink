@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 )
 
 func TestListener_EstimateFeeJuels(t *testing.T) {

@@ -3,8 +3,6 @@ package flakeytests
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -12,118 +10,72 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var (
-	panicRe = regexp.MustCompile(`^panic:`)
+	failedTestRe = regexp.MustCompile(`^--- FAIL: (Test\w+)`)
+	logPanicRe   = regexp.MustCompile(`^panic: Log in goroutine after (Test\w+)`)
+
+	failedPkgRe = regexp.MustCompile(`^FAIL\s+github\.com\/smartcontractkit\/chainlink\/v2\/(\S+)`)
 )
 
 type Runner struct {
-	readers     []io.Reader
-	testCommand tester
-	numReruns   int
-	parse       parseFn
-	reporter    reporter
-}
-
-type tester interface {
-	test(pkg string, tests []string, w io.Writer) error
+	readers   []io.Reader
+	numReruns int
+	runTestFn runTestCmd
+	parse     parseFn
+	reporter  reporter
 }
 
 type reporter interface {
-	Report(map[string]map[string]struct{}) error
+	Report(map[string][]string) error
 }
 
+type runTestCmd func(pkg string, testNames []string, numReruns int, w io.Writer) error
 type parseFn func(readers ...io.Reader) (map[string]map[string]int, error)
 
 func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
-	tc := &testCommand{
-		repo:      "github.com/smartcontractkit/chainlink/v2",
-		command:   "./tools/bin/go_core_tests",
-		overrides: func(*exec.Cmd) {},
-	}
 	return &Runner{
-		readers:     readers,
-		numReruns:   numReruns,
-		testCommand: tc,
-		parse:       parseOutput,
-		reporter:    reporter,
+		readers:   readers,
+		numReruns: numReruns,
+		runTestFn: runGoTest,
+		parse:     parseOutput,
+		reporter:  reporter,
 	}
 }
 
-type testCommand struct {
-	command   string
-	repo      string
-	overrides func(*exec.Cmd)
-}
-
-func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
-	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
+func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command(t.command, fmt.Sprintf(".%s", replacedPkg)) //#nosec
-	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
+	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf("./%s", pkg)) //#nosec
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
-	t.overrides(cmd)
 	return cmd.Run()
 }
 
-type TestEvent struct {
-	Time    time.Time
-	Action  string
-	Package string
-	Test    string
-	Elapsed float64 // seconds
-	Output  string
-}
-
-func newEvent(b []byte) (*TestEvent, error) {
-	e := &TestEvent{}
-	err := json.Unmarshal(b, e)
-	return e, err
-}
-
 func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
+	testsWithoutPackage := []string{}
 	tests := map[string]map[string]int{}
 	for _, r := range readers {
 		s := bufio.NewScanner(r)
 		for s.Scan() {
-			t := s.Bytes()
-			if len(t) == 0 {
-				continue
-			}
-
-			// Skip the line if doesn't start with a "{" --
-			// this mean it isn't JSON output.
-			if !strings.HasPrefix(string(t), "{") {
-				continue
-			}
-
-			e, err := newEvent(t)
-			if err != nil {
-				return nil, err
-			}
-
-			// We're only interested in test failures, for which
-			// both Package and Test would be present.
-			if e.Package == "" || e.Test == "" {
-				continue
-			}
-
-			switch e.Action {
-			case "fail":
-				if tests[e.Package] == nil {
-					tests[e.Package] = map[string]int{}
-				}
-				tests[e.Package][e.Test]++
-			case "output":
-				if panicRe.MatchString(e.Output) {
-					if tests[e.Package] == nil {
-						tests[e.Package] = map[string]int{}
+			t := s.Text()
+			switch {
+			case failedTestRe.MatchString(t):
+				m := failedTestRe.FindStringSubmatch(t)
+				testsWithoutPackage = append(testsWithoutPackage, m[1])
+			case logPanicRe.MatchString(t):
+				m := logPanicRe.FindStringSubmatch(t)
+				testsWithoutPackage = append(testsWithoutPackage, m[1])
+			case failedPkgRe.MatchString(t):
+				p := failedPkgRe.FindStringSubmatch(t)
+				for _, t := range testsWithoutPackage {
+					if tests[p[1]] == nil {
+						tests[p[1]] = map[string]int{}
 					}
-					tests[e.Package][e.Test]++
+					tests[p[1]][t]++
 				}
+				testsWithoutPackage = []string{}
 			}
 		}
 
@@ -134,13 +86,8 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 	return tests, nil
 }
 
-type exitCoder interface {
-	ExitCode() int
-}
-
-func (r *Runner) runTests(failedTests map[string]map[string]int) (map[string]map[string]struct{}, error) {
-	suspectedFlakes := map[string]map[string]struct{}{}
-
+func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, error) {
+	var out bytes.Buffer
 	for pkg, tests := range failedTests {
 		ts := []string{}
 		for test := range tests {
@@ -148,40 +95,14 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (map[string]map
 		}
 
 		log.Printf("Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d\n", pkg, ts, r.numReruns)
-		for i := 0; i < r.numReruns; i++ {
-			var out bytes.Buffer
-
-			err := r.testCommand.test(pkg, ts, &out)
-			if err != nil {
-				log.Printf("Test command errored: %s\n", err)
-				// There was an error because the command failed with a non-zero
-				// exit code. This could just mean that the test failed again, so let's
-				// keep going.
-				var exErr exitCoder
-				if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
-					continue
-				}
-				return suspectedFlakes, err
-			}
-
-			fr, err := r.parse(&out)
-			if err != nil {
-				return nil, err
-			}
-
-			for t := range tests {
-				failures := fr[pkg][t]
-				if failures == 0 {
-					if suspectedFlakes[pkg] == nil {
-						suspectedFlakes[pkg] = map[string]struct{}{}
-					}
-					suspectedFlakes[pkg][t] = struct{}{}
-				}
-			}
+		err := r.runTestFn(pkg, ts, r.numReruns, &out)
+		if err != nil {
+			log.Printf("Test command errored: %s\n", err)
+			return &out, err
 		}
 	}
 
-	return suspectedFlakes, nil
+	return &out, nil
 }
 
 func (r *Runner) Run() error {
@@ -190,9 +111,26 @@ func (r *Runner) Run() error {
 		return err
 	}
 
-	suspectedFlakes, err := r.runTests(failedTests)
+	output, err := r.runTests(failedTests)
 	if err != nil {
 		return err
+	}
+
+	failedReruns, err := r.parse(output)
+	if err != nil {
+		return err
+	}
+
+	suspectedFlakes := map[string][]string{}
+	// A test is flakey if it appeared in the list of original flakey tests
+	// and doesn't appear in the reruns, or if it hasn't failed each additional
+	// run, i.e. if it hasn't twice after being re-run.
+	for pkg, t := range failedTests {
+		for test := range t {
+			if failedReruns[pkg][test] != r.numReruns {
+				suspectedFlakes[pkg] = append(suspectedFlakes[pkg], test)
+			}
+		}
 	}
 
 	if len(suspectedFlakes) > 0 {

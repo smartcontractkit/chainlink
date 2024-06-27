@@ -23,7 +23,7 @@ describe('VRFCoordinatorV2Mock', () => {
     random = accounts[2]
 
     const vrfCoordinatorV2MockFactory = await ethers.getContractFactory(
-      'src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol:VRFCoordinatorV2Mock',
+      'src/v0.8/mocks/VRFCoordinatorV2Mock.sol:VRFCoordinatorV2Mock',
       accounts[0],
     )
     vrfCoordinatorV2Mock = await vrfCoordinatorV2MockFactory.deploy(
@@ -262,7 +262,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(receipt.events[0].args['success']).to.equal(true)
       assert(
         receipt.events[0].args['payment']
-          .sub(BigNumber.from('100119403000000000'))
+          .sub(BigNumber.from('100119017000000000'))
           .lt(BigNumber.from('10000000000')),
       )
 
@@ -315,7 +315,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(receipt.events[0].args['success']).to.equal(true)
       assert(
         receipt.events[0].args['payment']
-          .sub(BigNumber.from('100120516000000000'))
+          .sub(BigNumber.from('100119017000000000'))
           .lt(BigNumber.from('10000000000')),
       )
 

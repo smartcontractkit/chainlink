@@ -1,18 +1,13 @@
-// Package build utilizes build tags and package testing API to determine the environment that this binary was built to target.
-//   - Prod is the default
-//   - Test is automatically set in test binaries, e.g. when using `go test`
-//   - Dev can be set with the 'dev' build tag, for standard builds or test binaries
 package build
+
+// The build module utilizes build tags to determine the environment that this binary was built to target
+// the currently supported build modes are dev, test. Setting both tags is not allowed and will result to compilation errors.
 
 const (
 	Prod = "prod"
 	Dev  = "dev"
 	Test = "test"
 )
-
-var mode string
-
-func Mode() string { return mode }
 
 func IsDev() bool {
 	return mode == Dev

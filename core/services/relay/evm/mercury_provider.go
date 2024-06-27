@@ -4,13 +4,10 @@ import (
 	"context"
 	"errors"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -22,9 +19,7 @@ var _ relaytypes.MercuryProvider = (*mercuryProvider)(nil)
 type mercuryProvider struct {
 	configWatcher *configWatcher
 	transmitter   mercury.Transmitter
-	reportCodecV1 relaymercuryv1.ReportCodec
-	reportCodecV2 relaymercuryv2.ReportCodec
-	reportCodecV3 relaymercuryv3.ReportCodec
+	reportCodec   relaymercury.ReportCodec
 	logger        logger.Logger
 
 	ms services.MultiStart
@@ -33,17 +28,13 @@ type mercuryProvider struct {
 func NewMercuryProvider(
 	configWatcher *configWatcher,
 	transmitter mercury.Transmitter,
-	reportCodecV1 relaymercuryv1.ReportCodec,
-	reportCodecV2 relaymercuryv2.ReportCodec,
-	reportCodecV3 relaymercuryv3.ReportCodec,
+	reportCodec relaymercury.ReportCodec,
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
 		configWatcher,
 		transmitter,
-		reportCodecV1,
-		reportCodecV2,
-		reportCodecV3,
+		reportCodec,
 		lggr,
 		services.MultiStart{},
 	}
@@ -67,8 +58,8 @@ func (p *mercuryProvider) Name() string {
 
 func (p *mercuryProvider) HealthReport() map[string]error {
 	report := map[string]error{}
-	services.CopyHealth(report, p.configWatcher.HealthReport())
-	services.CopyHealth(report, p.transmitter.HealthReport())
+	maps.Copy(report, p.configWatcher.HealthReport())
+	maps.Copy(report, p.transmitter.HealthReport())
 	return report
 }
 
@@ -84,22 +75,10 @@ func (p *mercuryProvider) OnchainConfigCodec() relaymercury.OnchainConfigCodec {
 	return relaymercury.StandardOnchainConfigCodec{}
 }
 
-func (p *mercuryProvider) ReportCodecV1() relaymercuryv1.ReportCodec {
-	return p.reportCodecV1
+func (p *mercuryProvider) ReportCodec() relaymercury.ReportCodec {
+	return p.reportCodec
 }
 
-func (p *mercuryProvider) ReportCodecV2() relaymercuryv2.ReportCodec {
-	return p.reportCodecV2
-}
-
-func (p *mercuryProvider) ReportCodecV3() relaymercuryv3.ReportCodec {
-	return p.reportCodecV3
-}
-
-func (p *mercuryProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
-	return p.transmitter
-}
-
-func (p *mercuryProvider) MercuryServerFetcher() relaymercury.MercuryServerFetcher {
+func (p *mercuryProvider) ContractTransmitter() relaymercury.Transmitter {
 	return p.transmitter
 }

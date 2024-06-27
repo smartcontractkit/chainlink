@@ -66,7 +66,7 @@ func ToLocalConfig(ocr2Config OCR2Config, insConf InsecureConfig, spec job.OCR2O
 }
 
 var (
-	minOCR2MaxDurationQuery     = 100 * time.Millisecond
+	minOCR2MaxDurationQuery     = 20 * time.Millisecond
 	minOCR2MaxDurationQueryErr  error
 	minOCR2MaxDurationQueryOnce sync.Once
 )

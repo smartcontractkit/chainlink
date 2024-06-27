@@ -33,14 +33,11 @@ func NewFullAddressRange() *AddressRange {
 }
 
 // NewSingleAddressRange creates AddressRange for a single address.
-func NewSingleAddressRange(address *utils.Big) (*AddressRange, error) {
-	if address == nil || address.Cmp(MinAddress) < 0 || address.Cmp(MaxAddress) > 0 {
-		return nil, errors.New("invalid address")
-	}
+func NewSingleAddressRange(address *utils.Big) *AddressRange {
 	return &AddressRange{
 		MinAddress: address,
 		MaxAddress: address,
-	}, nil
+	}
 }
 
 // NewInitialAddressRangeForIntervals splits the full address space with intervals,
@@ -78,13 +75,13 @@ func (r *AddressRange) Advance() {
 	r.MinAddress = r.MinAddress.Add(interval)
 	r.MaxAddress = r.MaxAddress.Add(interval)
 
+	if r.MaxAddress.Cmp(MaxAddress) > 0 {
+		r.MaxAddress = MaxAddress
+	}
+
 	if r.MinAddress.Cmp(MaxAddress) >= 0 {
 		r.MinAddress = MinAddress
 		r.MaxAddress = MinAddress.Add(interval).Sub(utils.NewBigI(1))
-	}
-
-	if r.MaxAddress.Cmp(MaxAddress) > 0 {
-		r.MaxAddress = MaxAddress
 	}
 }
 

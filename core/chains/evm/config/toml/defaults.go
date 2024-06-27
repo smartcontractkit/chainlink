@@ -5,8 +5,9 @@ import (
 	"embed"
 	"log"
 	"path/filepath"
-	"slices"
 	"strings"
+
+	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -61,8 +62,8 @@ func init() {
 		defaults[id] = config.Chain
 		defaultNames[id] = strings.ReplaceAll(strings.TrimSuffix(fe.Name(), ".toml"), "_", " ")
 	}
-	slices.SortFunc(DefaultIDs, func(a, b *utils.Big) int {
-		return a.Cmp(b)
+	slices.SortFunc(DefaultIDs, func(a, b *utils.Big) bool {
+		return a.Cmp(b) < 0
 	})
 }
 
@@ -163,8 +164,7 @@ func (c *Chain) SetFrom(f *Chain) {
 	c.GasEstimator.setFrom(&f.GasEstimator)
 
 	if ks := f.KeySpecific; ks != nil {
-		for i := range ks {
-			v := ks[i]
+		for _, v := range ks {
 			if i := slices.IndexFunc(c.KeySpecific, func(k KeySpecific) bool { return k.Key == v.Key }); i == -1 {
 				c.KeySpecific = append(c.KeySpecific, v)
 			} else {

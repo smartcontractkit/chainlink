@@ -19,11 +19,10 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker     Worker
-	chQueue    chan struct{}
-	chStop     chan struct{}
-	chDone     chan struct{}
-	chWorkDone chan struct{}
+	worker  Worker
+	chQueue chan struct{}
+	chStop  chan struct{}
+	chDone  chan struct{}
 	StartStopOnce
 }
 
@@ -37,11 +36,10 @@ type sleeperTask struct {
 // WakeUp does not block.
 func NewSleeperTask(worker Worker) SleeperTask {
 	s := &sleeperTask{
-		worker:     worker,
-		chQueue:    make(chan struct{}, 1),
-		chStop:     make(chan struct{}),
-		chDone:     make(chan struct{}),
-		chWorkDone: make(chan struct{}, 10),
+		worker:  worker,
+		chQueue: make(chan struct{}, 1),
+		chStop:  make(chan struct{}),
+		chDone:  make(chan struct{}),
 	}
 
 	_ = s.StartOnce("SleeperTask-"+worker.Name(), func() error {
@@ -85,19 +83,6 @@ func (s *sleeperTask) WakeUp() {
 	}
 }
 
-func (s *sleeperTask) workDone() {
-	select {
-	case s.chWorkDone <- struct{}{}:
-	default:
-	}
-}
-
-// WorkDone isn't part of the SleeperTask interface, but can be
-// useful in tests to assert that the work has been done.
-func (s *sleeperTask) WorkDone() <-chan struct{} {
-	return s.chWorkDone
-}
-
 func (s *sleeperTask) workerLoop() {
 	defer close(s.chDone)
 
@@ -105,7 +90,6 @@ func (s *sleeperTask) workerLoop() {
 		select {
 		case <-s.chQueue:
 			s.worker.Work()
-			s.workDone()
 		case <-s.chStop:
 			return
 		}

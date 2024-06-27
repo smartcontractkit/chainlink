@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -41,7 +39,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 	resp, cleanup := client.Post("/v2/bridge_types/", nil)
 	defer cleanup()
 
@@ -59,7 +57,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: uuid.New().String(),
+		Name: "bitcoin",
 		URL:  &url,
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)
@@ -91,7 +89,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: uuid.New().String(),
+		Name: "bitcoin",
 		URL:  &url,
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)

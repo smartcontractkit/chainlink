@@ -3,18 +3,18 @@ package starknet
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -74,9 +74,118 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
 	return
 }
 
-func nodeStatus(n *stkcfg.Node, id relay.ChainID) (types.NodeStatus, error) {
+func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
+	for _, ch := range cs {
+		if ch == nil {
+			continue
+		}
+		if len(ids) > 0 {
+			var match bool
+			for _, id := range ids {
+				if id == *ch.ChainID {
+					match = true
+					break
+				}
+			}
+			if !match {
+				continue
+			}
+		}
+		ch2 := types.ChainStatus{
+			ID:      *ch.ChainID,
+			Enabled: ch.IsEnabled(),
+		}
+		ch2.Config, err = ch.TOMLString()
+		if err != nil {
+			return
+		}
+		r = append(r, ch2)
+	}
+	return
+}
+
+func (cs StarknetConfigs) Node(name string) (n db.Node, err error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return legacyNode(n, *cs[i].ChainID), nil
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs StarknetConfigs) nodes(chainID string) (ns StarknetNodes) {
+	for _, c := range cs {
+		if *c.ChainID == chainID {
+			return c.Nodes
+		}
+	}
+	return nil
+}
+
+func (cs StarknetConfigs) Nodes(chainID string) (ns []db.Node, err error) {
+	nodes := cs.nodes(chainID)
+	if nodes == nil {
+		err = chains.ErrNotFound
+		return
+	}
+	for _, n := range nodes {
+		if n == nil {
+			continue
+		}
+		ns = append(ns, legacyNode(n, chainID))
+	}
+	return
+}
+
+func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error) {
+	for i := range cs {
+		for _, n := range cs[i].Nodes {
+			if n.Name != nil && *n.Name == name {
+				return nodeStatus(n, *cs[i].ChainID)
+			}
+		}
+	}
+	err = chains.ErrNotFound
+	return
+}
+
+func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
+	if len(chainIDs) == 0 {
+		for i := range cs {
+			for _, n := range cs[i].Nodes {
+				if n == nil {
+					continue
+				}
+				n2, err := nodeStatus(n, *cs[i].ChainID)
+				if err != nil {
+					return nil, err
+				}
+				ns = append(ns, n2)
+			}
+		}
+		return
+	}
+	for _, id := range chainIDs {
+		for _, n := range cs.nodes(id) {
+			if n == nil {
+				continue
+			}
+			n2, err := nodeStatus(n, id)
+			if err != nil {
+				return nil, err
+			}
+			ns = append(ns, n2)
+		}
+	}
+	return
+}
+
+func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
 	var s types.NodeStatus
-	s.ChainID = id
+	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -88,7 +197,6 @@ func nodeStatus(n *stkcfg.Node, id relay.ChainID) (types.NodeStatus, error) {
 
 type StarknetConfig struct {
 	ChainID *string
-	// Do not access directly. Use [IsEnabled]
 	Enabled *bool
 	stkcfg.Chain
 	Nodes StarknetNodes
@@ -174,7 +282,7 @@ func setFromNode(n, f *stkcfg.Node) {
 	}
 }
 
-func legacyNode(n *stkcfg.Node, id relay.ChainID) db.Node {
+func legacyNode(n *stkcfg.Node, id string) db.Node {
 	return db.Node{
 		Name:    *n.Name,
 		ChainID: id,
@@ -202,12 +310,4 @@ func (c *StarknetConfig) OCR2CacheTTL() time.Duration {
 
 func (c *StarknetConfig) RequestTimeout() time.Duration {
 	return c.Chain.RequestTimeout.Duration()
-}
-
-func (c *StarknetConfig) ListNodes() ([]db.Node, error) {
-	var allNodes []db.Node
-	for _, n := range c.Nodes {
-		allNodes = append(allNodes, legacyNode(n, *c.ChainID))
-	}
-	return allNodes, nil
 }

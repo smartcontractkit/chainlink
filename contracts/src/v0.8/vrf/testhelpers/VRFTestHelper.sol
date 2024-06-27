@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {VRF} from "../VRF.sol";
+import "../VRF.sol";
 
 /** ***********************************************************************
     @notice Testing harness for VRF.sol, exposing its internal methods. Not to
@@ -9,27 +9,27 @@ import {VRF} from "../VRF.sol";
 */
 contract VRFTestHelper is VRF {
   function bigModExp_(uint256 base, uint256 exponent) public view returns (uint256) {
-    return super._bigModExp(base, exponent);
+    return super.bigModExp(base, exponent);
   }
 
   function squareRoot_(uint256 x) public view returns (uint256) {
-    return super._squareRoot(x);
+    return super.squareRoot(x);
   }
 
   function ySquared_(uint256 x) public pure returns (uint256) {
-    return super._ySquared(x);
+    return super.ySquared(x);
   }
 
   function fieldHash_(bytes memory b) public pure returns (uint256) {
-    return super._fieldHash(b);
+    return super.fieldHash(b);
   }
 
   function hashToCurve_(uint256[2] memory pk, uint256 x) public view returns (uint256[2] memory) {
-    return super._hashToCurve(pk, x);
+    return super.hashToCurve(pk, x);
   }
 
   function ecmulVerify_(uint256[2] memory x, uint256 scalar, uint256[2] memory q) public pure returns (bool) {
-    return super._ecmulVerify(x, scalar, q);
+    return super.ecmulVerify(x, scalar, q);
   }
 
   function projectiveECAdd_(
@@ -38,7 +38,7 @@ contract VRFTestHelper is VRF {
     uint256 qx,
     uint256 qy
   ) public pure returns (uint256, uint256, uint256) {
-    return super._projectiveECAdd(px, py, qx, qy);
+    return super.projectiveECAdd(px, py, qx, qy);
   }
 
   function affineECAdd_(
@@ -46,7 +46,7 @@ contract VRFTestHelper is VRF {
     uint256[2] memory p2,
     uint256 invZ
   ) public pure returns (uint256[2] memory) {
-    return super._affineECAdd(p1, p2, invZ);
+    return super.affineECAdd(p1, p2, invZ);
   }
 
   function verifyLinearCombinationWithGenerator_(
@@ -55,7 +55,7 @@ contract VRFTestHelper is VRF {
     uint256 s,
     address lcWitness
   ) public pure returns (bool) {
-    return super._verifyLinearCombinationWithGenerator(c, p, s, lcWitness);
+    return super.verifyLinearCombinationWithGenerator(c, p, s, lcWitness);
   }
 
   function linearCombination_(
@@ -67,7 +67,7 @@ contract VRFTestHelper is VRF {
     uint256[2] memory sp2Witness,
     uint256 zInv
   ) public pure returns (uint256[2] memory) {
-    return super._linearCombination(c, p1, cp1Witness, s, p2, sp2Witness, zInv);
+    return super.linearCombination(c, p1, cp1Witness, s, p2, sp2Witness, zInv);
   }
 
   function scalarFromCurvePoints_(
@@ -77,11 +77,11 @@ contract VRFTestHelper is VRF {
     address uWitness,
     uint256[2] memory v
   ) public pure returns (uint256) {
-    return super._scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
+    return super.scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
   }
 
   function isOnCurve_(uint256[2] memory p) public pure returns (bool) {
-    return super._isOnCurve(p);
+    return super.isOnCurve(p);
   }
 
   function verifyVRFProof_(
@@ -95,10 +95,10 @@ contract VRFTestHelper is VRF {
     uint256[2] memory sHashWitness,
     uint256 zInv
   ) public view {
-    super._verifyVRFProof(pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv);
+    super.verifyVRFProof(pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv);
   }
 
   function randomValueFromVRFProof_(Proof memory proof, uint256 seed) public view returns (uint256 output) {
-    return super._randomValueFromVRFProof(proof, seed);
+    return super.randomValueFromVRFProof(proof, seed);
   }
 }

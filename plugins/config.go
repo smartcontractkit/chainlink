@@ -1,7 +1,10 @@
 package plugins
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 )
@@ -36,4 +39,49 @@ func (pc *registarConfig) RegisterLOOP(loopID string, cmdName string) (func() *e
 		return nil, loop.GRPCOpts{}, err
 	}
 	return cmdFn, pc.grpcOpts, nil
+}
+
+// EnvConfig is the configuration interface between the application and the LOOP executable. The values
+// are fully resolved and static and passed via the environment.
+type EnvConfig interface {
+	PrometheusPort() int
+}
+
+// SetCmdEnvFromConfig sets LOOP-specific vars in the env of the given cmd.
+func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
+	forward := func(name string) {
+		if v, ok := os.LookupEnv(name); ok {
+			cmd.Env = append(cmd.Env, name+"="+v)
+		}
+	}
+	forward("CL_LOG_SQL_MIGRATIONS")
+	cmd.Env = append(cmd.Env,
+		"CL_PROMETHEUS_PORT="+strconv.FormatInt(int64(cfg.PrometheusPort()), 10),
+	)
+}
+
+// GetEnvConfig deserializes LOOP-specific environment variables to an EnvConfig
+func GetEnvConfig() (EnvConfig, error) {
+	promPortStr := os.Getenv("CL_PROMETHEUS_PORT")
+	promPort, err := strconv.Atoi(promPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT = %q: %w", promPortStr, err)
+	}
+
+	return NewEnvConfig(promPort), nil
+}
+
+// envConfig is an implementation of EnvConfig.
+type envConfig struct {
+	prometheusPort int
+}
+
+func NewEnvConfig(prometheusPort int) EnvConfig {
+	return &envConfig{
+		prometheusPort: prometheusPort,
+	}
+}
+
+func (e *envConfig) PrometheusPort() int {
+	return e.prometheusPort
 }

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -160,9 +159,8 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
-	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: name,
+		Name: "externalinitiator",
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
@@ -177,9 +175,8 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
-	name := uuid.New().String()
 	req := bridges.ExternalInitiatorRequest{
-		Name: name,
+		Name: "externalinitiator",
 	}
 	exi, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)

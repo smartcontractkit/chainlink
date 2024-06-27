@@ -2,7 +2,6 @@ package s4_test
 
 import (
 	"errors"
-	"math"
 	"testing"
 	"time"
 
@@ -257,23 +256,4 @@ func TestPostgresORM_Namespace(t *testing.T) {
 	snapshotA, err := ormA.GetSnapshot(s4.NewFullAddressRange())
 	assert.NoError(t, err)
 	assert.Len(t, snapshotA, n)
-}
-
-func TestPostgresORM_BigIntVersion(t *testing.T) {
-	t.Parallel()
-
-	orm := setupORM(t, "test")
-	row := generateTestRows(t, 1)[0]
-	row.Version = math.MaxUint64 - 10
-
-	err := orm.Update(row)
-	assert.NoError(t, err)
-
-	row.Version++
-	err = orm.Update(row)
-	assert.NoError(t, err)
-
-	gotRow, err := orm.Get(row.Address, row.SlotId)
-	assert.NoError(t, err)
-	assert.Equal(t, row, gotRow)
 }

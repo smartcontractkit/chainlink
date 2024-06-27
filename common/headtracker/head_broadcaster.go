@@ -80,7 +80,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) Name() string {
 }
 
 func (hb *HeadBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
-	return map[string]error{hb.Name(): hb.Healthy()}
+	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
 }
 
 func (hb *HeadBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {

@@ -3,13 +3,11 @@ package contracts
 import (
 	"encoding/hex"
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 // SetConfigLocal sets the payees and the offchain reporting protocol configuration

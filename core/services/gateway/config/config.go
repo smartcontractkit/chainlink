@@ -17,7 +17,6 @@ type ConnectionManagerConfig struct {
 	AuthGatewayId             string
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
-	HeartbeatIntervalSec      uint32
 }
 
 type DONConfig struct {

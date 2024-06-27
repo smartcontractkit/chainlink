@@ -46,12 +46,14 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(bdc.App.GetRelayers().LegacyEVMChains(), c.Query("evmChainID"))
-	if err != nil {
-		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
-			jsonAPIError(c, http.StatusUnprocessableEntity, err)
-			return
-		}
+	chain, err := getChain(bdc.App.GetChains().EVM, c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

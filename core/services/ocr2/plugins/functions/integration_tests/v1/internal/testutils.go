@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,13 +22,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -43,8 +43,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -113,19 +113,17 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
-		message, err2 := allowListContract.GetMessage(nilOpts, owner.From, owner.From)
-		require.NoError(t, err2)
-		privateKey, err2 := crypto.HexToECDSA(allowListPrivateKey[2:])
-		require.NoError(t, err2)
-		flatSignature, err2 := crypto.Sign(message[:], privateKey)
-		require.NoError(t, err2)
+		message, err := allowListContract.GetMessage(nilOpts, owner.From, owner.From)
+		require.NoError(t, err)
+		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
+		require.NoError(t, err)
+		flatSignature, err := crypto.Sign(message[:], privateKey)
 		var r [32]byte
 		copy(r[:], flatSignature[:32])
 		var s [32]byte
 		copy(s[:], flatSignature[32:64])
-		v := flatSignature[65]
-		_, err2 = allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
-		require.NoError(t, err2)
+		v := uint8(flatSignature[65])
+		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)
@@ -192,13 +190,11 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	functionsRouterConfig := functions_router.FunctionsRouterConfig{
-		MaxConsumersPerSubscription:        uint16(100),
-		AdminFee:                           big.NewInt(0),
-		HandleOracleFulfillmentSelector:    handleOracleFulfillmentSelector,
-		MaxCallbackGasLimits:               []uint32{300_000, 500_000, 1_000_000},
-		GasForCallExactCheck:               5000,
-		SubscriptionDepositMinimumRequests: 10,
-		SubscriptionDepositJuels:           big.NewInt(9 * 1e18), // 9 LINK
+		MaxConsumersPerSubscription:     uint16(100),
+		AdminFee:                        big.NewInt(0),
+		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
+		MaxCallbackGasLimits:            []uint32{300_000, 500_000, 1_000_000},
+		GasForCallExactCheck:            5000,
 	}
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
@@ -216,6 +212,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
 	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
+		MaxCallbackGasLimit:                 uint32(450_000),
 		FeedStalenessSeconds:                uint32(86_400),
 		GasOverheadBeforeCallback:           uint32(325_000),
 		GasOverheadAfterCallback:            uint32(50_000),
@@ -224,7 +221,6 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		MaxSupportedRequestDataVersion:      uint16(1),
 		FulfillmentGasPriceOverEstimationBP: uint32(1_000),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
-		MinimumEstimateGasPriceWei:          big.NewInt(1_000_000_000),
 	}
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
@@ -301,7 +297,7 @@ type Node struct {
 func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port int,
+	port uint16,
 	dbName string,
 	b *backends.SimulatedBackend,
 	maxGas uint32,
@@ -309,7 +305,8 @@ func StartNewNode(
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
 ) *Node {
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey, err := p2pkey.NewV2()
+	require.NoError(t, err)
 	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 
@@ -494,9 +491,9 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	data := request["data"].(map[string]any)
 	require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
-	if len(request["nodeProvidedSecrets"].(string)) > 0 {
-		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-		require.Equal(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
+	require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+	if data["secrets"] != DefaultSecretsBase64 && request["nodeProvidedSecrets"] != fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64) {
+		assert.Fail(t, "expected secrets or nodeProvidedSecrets to be '%s'", DefaultSecretsBase64)
 	}
 	args := data["args"].([]interface{})
 	require.Equal(t, 2, len(args))
@@ -549,12 +546,11 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapPort := freeport.GetOne(t)
+	bootstrapPort := getFreePort(t)
 	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
-	ports := freeport.GetN(t, nOracleNodes)
 	for i := 0; i < nOracleNodes; i++ {
 		var thresholdKeyShare string
 		if len(thresholdKeyShares) == 0 {
@@ -568,7 +564,8 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, ports[i], fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		nodePort := getFreePort(t)
+		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
@@ -581,6 +578,18 @@ func CreateFunctionsNodes(
 	}
 
 	return bootstrapNode, oracleNodes, oracleIdentites
+}
+
+// NOTE: This approach is technically incorrect because the returned port
+// can still be taken by the time the caller attempts to bind to it.
+// Unfortunately, we can't specify zero port in P2P.V2.ListenAddresses at the moment.
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	listener, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
 func ClientTestRequests(

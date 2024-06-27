@@ -49,10 +49,6 @@ HandlerName = "dummy"
 [[dons]]
 DonId = "my_don_2"
 HandlerName = "dummy"
-
-[[dons.Members]]
-Name = "node one"
-Address = "0x0001020304050607080900010203040506070809"
 `)
 
 	lggr := logger.TestLogger(t)
@@ -99,24 +95,6 @@ func TestGateway_NewGatewayFromConfig_MissingID(t *testing.T) {
 [[dons]]
 HandlerName = "dummy"
 SomeOtherField = "abcd"
-`)
-
-	lggr := logger.TestLogger(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
-	require.Error(t, err)
-}
-
-func TestGateway_NewGatewayFromConfig_InvalidNodeAddress(t *testing.T) {
-	t.Parallel()
-
-	tomlConfig := buildConfig(`
-[[dons]]
-HandlerName = "dummy"
-DonId = "my_don"
-
-[[dons.Members]]
-Name = "node one"
-Address = "0xnot_an_address"
 `)
 
 	lggr := logger.TestLogger(t)
@@ -242,6 +220,6 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 
 	req := newSignedRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req)
-	requireJsonRPCError(t, response, "abcd", -32600, "failure")
-	require.Equal(t, 400, statusCode)
+	requireJsonRPCError(t, response, "abcd", -32000, "failure")
+	require.Equal(t, 500, statusCode)
 }

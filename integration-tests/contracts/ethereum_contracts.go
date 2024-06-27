@@ -5,32 +5,27 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -39,18 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -65,9 +48,7 @@ func (e *EthereumOracle) Address() string {
 }
 
 func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
-		To: e.address,
-	})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -107,9 +88,7 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 }
 
 func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
-		To: e.address,
-	})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -161,9 +140,7 @@ func (f *EthereumStaking) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
-		To: f.address,
-	})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -502,398 +479,6 @@ func (f *EthereumOffchainAggregatorEventsMock) NewTransmission(aggregatorRoundId
 	return f.client.ProcessTransaction(tx)
 }
 
-// EthereumKeeperRegistry11Mock represents the basic keeper registry 1.1 mock contract
-type EthereumKeeperRegistry11Mock struct {
-	client       blockchain.EVMClient
-	registryMock *keeper_registry_wrapper1_1_mock.KeeperRegistryMock
-	address      *common.Address
-}
-
-func (f *EthereumKeeperRegistry11Mock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitUpkeepPerformed(id *big.Int, success bool, from common.Address, payment *big.Int, performData []byte) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitUpkeepPerformed(opts, id, success, from, payment, performData)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitUpkeepCanceled(id *big.Int, atBlockHeight uint64) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitUpkeepCanceled(opts, id, atBlockHeight)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitFundsWithdrawn(id *big.Int, amount *big.Int, to common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitFundsWithdrawn(opts, id, amount, to)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitKeepersUpdated(keepers []common.Address, payees []common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitKeepersUpdated(opts, keepers, payees)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitUpkeepRegistered(id *big.Int, executeGas uint32, admin common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitUpkeepRegistered(opts, id, executeGas, admin)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) EmitFundsAdded(id *big.Int, from common.Address, amount *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.EmitFundsAdded(opts, id, from, amount)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetUpkeepCount(_upkeepCount *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetUpkeepCount(opts, _upkeepCount)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetCanceledUpkeepList(_canceledUpkeepList []*big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetCanceledUpkeepList(opts, _canceledUpkeepList)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetKeeperList(_keepers []common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetKeeperList(opts, _keepers)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetConfig(_paymentPremiumPPB uint32, _flatFeeMicroLink uint32, _blockCountPerTurn *big.Int, _checkGasLimit uint32, _stalenessSeconds *big.Int, _gasCeilingMultiplier uint16, _fallbackGasPrice *big.Int, _fallbackLinkPrice *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetConfig(opts, _paymentPremiumPPB, _flatFeeMicroLink, _blockCountPerTurn, _checkGasLimit, _stalenessSeconds, _gasCeilingMultiplier, _fallbackGasPrice, _fallbackLinkPrice)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetUpkeep(id *big.Int, _target common.Address, _executeGas uint32, _balance *big.Int, _admin common.Address, _maxValidBlocknumber uint64, _lastKeeper common.Address, _checkData []byte) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetUpkeep(opts, id, _target, _executeGas, _balance, _admin, _maxValidBlocknumber, _lastKeeper, _checkData)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetMinBalance(id *big.Int, minBalance *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetMinBalance(opts, id, minBalance)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetCheckUpkeepData(id *big.Int, performData []byte, maxLinkPayment *big.Int, gasLimit *big.Int, adjustedGasWei *big.Int, linkEth *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetCheckUpkeepData(opts, id, performData, maxLinkPayment, gasLimit, adjustedGasWei, linkEth)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistry11Mock) SetPerformUpkeepSuccess(id *big.Int, success bool) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registryMock.SetPerformUpkeepSuccess(opts, id, success)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-// EthereumKeeperRegistrar12Mock represents the basic keeper registrar 1.2 mock contract
-type EthereumKeeperRegistrar12Mock struct {
-	client        blockchain.EVMClient
-	registrarMock *keeper_registrar_wrapper1_2_mock.KeeperRegistrarMock
-	address       *common.Address
-}
-
-func (f *EthereumKeeperRegistrar12Mock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registrarMock.EmitRegistrationRequested(opts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registrarMock.EmitRegistrationApproved(opts, hash, displayName, upkeepId)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumKeeperRegistrar12Mock) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.registrarMock.SetRegistrationConfig(opts, _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-// EthereumKeeperGasWrapperMock represents the basic keeper gas wrapper mock contract
-type EthereumKeeperGasWrapperMock struct {
-	client         blockchain.EVMClient
-	gasWrapperMock *gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMock
-	address        *common.Address
-}
-
-func (f *EthereumKeeperGasWrapperMock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumKeeperGasWrapperMock) SetMeasureCheckGasResult(result bool, payload []byte, gas *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.gasWrapperMock.SetMeasureCheckGasResult(opts, result, payload, gas)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-// EthereumFunctionsV1EventsMock represents the basic functions v1 events mock contract
-type EthereumFunctionsV1EventsMock struct {
-	client     blockchain.EVMClient
-	eventsMock *functions_v1_events_mock.FunctionsV1EventsMock
-	address    *common.Address
-}
-
-func (f *EthereumFunctionsV1EventsMock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitRequestProcessed(opts, requestId, subscriptionId, totalCostJuels, transmitter, resultCode, response, errByte, callbackReturnData)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitRequestStart(opts, requestId, donId, subscriptionId, subscriptionOwner, requestingContract, requestInitiator, data, dataVersion, callbackGasLimit, estimatedTotalCostJuels)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionCanceled(opts, subscriptionId, fundsRecipient, fundsAmount)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionConsumerAdded(opts, subscriptionId, consumer)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionConsumerRemoved(opts, subscriptionId, consumer)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionCreated(opts, subscriptionId, owner)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionFunded(opts, subscriptionId, oldBalance, newBalance)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionOwnerTransferred(opts, subscriptionId, from, to)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitSubscriptionOwnerTransferRequested(opts, subscriptionId, from, to)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitRequestNotProcessed(opts, requestId, coordinator, transmitter, resultCode)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
-func (f *EthereumFunctionsV1EventsMock) EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error {
-	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := f.eventsMock.EmitContractUpdated(opts, id, from, to)
-	if err != nil {
-		return err
-	}
-	return f.client.ProcessTransaction(tx)
-}
-
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
@@ -907,9 +492,7 @@ func (f *EthereumFluxAggregator) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
-		To: f.address,
-	})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -1126,7 +709,6 @@ type FluxAggregatorRoundConfirmer struct {
 	context      context.Context
 	cancel       context.CancelFunc
 	complete     bool
-	l            zerolog.Logger
 }
 
 // NewFluxAggregatorRoundConfirmer provides a new instance of a FluxAggregatorRoundConfirmer
@@ -1134,7 +716,6 @@ func NewFluxAggregatorRoundConfirmer(
 	contract FluxAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
-	logger zerolog.Logger,
 ) *FluxAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &FluxAggregatorRoundConfirmer{
@@ -1143,7 +724,6 @@ func NewFluxAggregatorRoundConfirmer(
 		doneChan:     make(chan struct{}),
 		context:      ctx,
 		cancel:       ctxCancel,
-		l:            logger,
 	}
 }
 
@@ -1163,11 +743,11 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeade
 		"Header Number":     header.Number.Uint64(),
 	}
 	if lr.Cmp(f.roundID) >= 0 {
-		f.l.Info().Fields(logFields).Msg("FluxAggregator round completed")
+		log.Info().Fields(logFields).Msg("FluxAggregator round completed")
 		f.complete = true
 		f.doneChan <- struct{}{}
 	} else {
-		f.l.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
+		log.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
 	}
 	return nil
 }
@@ -1195,14 +775,11 @@ type EthereumLinkToken struct {
 	client   blockchain.EVMClient
 	instance *link_token_interface.LinkToken
 	address  common.Address
-	l        zerolog.Logger
 }
 
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{
-		To: &l.address,
-	})
+	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -1239,7 +816,7 @@ func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	l.l.Info().
+	log.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1257,7 +834,7 @@ func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	l.l.Info().
+	log.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1279,7 +856,7 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	if err != nil {
 		return nil, err
 	}
-	l.l.Info().
+	log.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1294,14 +871,11 @@ type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
 	ocr     *offchainaggregator.OffchainAggregator
 	address *common.Address
-	l       zerolog.Logger
 }
 
 // Fund sends specified currencies to the contract
 func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{
-		To: o.address,
-	})
+	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -1342,7 +916,7 @@ func (o *EthereumOffchainAggregator) SetPayees(
 		payeesAddr = append(payeesAddr, common.HexToAddress(p))
 	}
 
-	o.l.Info().
+	log.Info().
 		Str("Transmitters", fmt.Sprintf("%v", transmitters)).
 		Str("Payees", fmt.Sprintf("%v", payees)).
 		Str("OCR Address", o.Address()).
@@ -1450,7 +1024,7 @@ func (o *EthereumOffchainAggregator) RequestNewRound() error {
 	if err != nil {
 		return err
 	}
-	o.l.Info().Str("Contract Address", o.address.Hex()).Msg("New OCR round requested")
+	log.Info().Str("Contract Address", o.address.Hex()).Msg("New OCR round requested")
 
 	return o.client.ProcessTransaction(tx)
 }
@@ -1532,7 +1106,6 @@ type RunlogRoundConfirmer struct {
 	doneChan chan struct{}
 	context  context.Context
 	cancel   context.CancelFunc
-	l        zerolog.Logger
 }
 
 // NewRunlogRoundConfirmer provides a new instance of a RunlogRoundConfirmer
@@ -1540,7 +1113,6 @@ func NewRunlogRoundConfirmer(
 	contract APIConsumer,
 	roundID *big.Int,
 	timeout time.Duration,
-	logger zerolog.Logger,
 ) *RunlogRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &RunlogRoundConfirmer{
@@ -1549,7 +1121,6 @@ func NewRunlogRoundConfirmer(
 		doneChan: make(chan struct{}),
 		context:  ctx,
 		cancel:   ctxCancel,
-		l:        logger,
 	}
 }
 
@@ -1565,10 +1136,10 @@ func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currentRoundID.Cmp(o.roundID) >= 0 {
-		o.l.Info().Fields(logFields).Msg("Runlog round completed")
+		log.Info().Fields(logFields).Msg("Runlog round completed")
 		o.doneChan <- struct{}{}
 	} else {
-		o.l.Debug().Fields(logFields).Msg("Waiting for Runlog round")
+		log.Debug().Fields(logFields).Msg("Waiting for Runlog round")
 	}
 	return nil
 }
@@ -1595,7 +1166,6 @@ type OffchainAggregatorRoundConfirmer struct {
 	cancel            context.CancelFunc
 	blocksSinceAnswer uint
 	complete          bool
-	l                 zerolog.Logger
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1603,7 +1173,6 @@ func NewOffchainAggregatorRoundConfirmer(
 	contract OffchainAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
-	logger zerolog.Logger,
 ) *OffchainAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorRoundConfirmer{
@@ -1613,7 +1182,6 @@ func NewOffchainAggregatorRoundConfirmer(
 		context:     ctx,
 		cancel:      ctxCancel,
 		complete:    false,
-		l:           logger,
 	}
 }
 
@@ -1635,11 +1203,11 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currRound.Cmp(o.roundID) >= 0 {
-		o.l.Info().Fields(logFields).Msg("OCR round completed")
+		log.Info().Fields(logFields).Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		o.l.Debug().Fields(logFields).Msg("Waiting on OCR Round")
+		log.Debug().Fields(logFields).Msg("Waiting on OCR Round")
 	}
 	return nil
 }
@@ -1672,7 +1240,6 @@ type OffchainAggregatorV2RoundConfirmer struct {
 	cancel            context.CancelFunc
 	blocksSinceAnswer uint
 	complete          bool
-	l                 zerolog.Logger
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1680,7 +1247,6 @@ func NewOffchainAggregatorV2RoundConfirmer(
 	contract OffchainAggregatorV2,
 	roundID *big.Int,
 	timeout time.Duration,
-	logger zerolog.Logger,
 ) *OffchainAggregatorV2RoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorV2RoundConfirmer{
@@ -1690,7 +1256,6 @@ func NewOffchainAggregatorV2RoundConfirmer(
 		context:     ctx,
 		cancel:      ctxCancel,
 		complete:    false,
-		l:           logger,
 	}
 }
 
@@ -1712,11 +1277,11 @@ func (o *OffchainAggregatorV2RoundConfirmer) ReceiveHeader(_ blockchain.NodeHead
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currRound.Cmp(o.roundID) >= 0 {
-		o.l.Info().Fields(logFields).Msg("OCR round completed")
+		log.Info().Fields(logFields).Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		o.l.Debug().Fields(logFields).Msg("Waiting on OCR Round")
+		log.Debug().Fields(logFields).Msg("Waiting on OCR Round")
 	}
 	return nil
 }
@@ -1844,7 +1409,6 @@ type EthereumOperator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	operator *operator_wrapper.Operator
-	l        zerolog.Logger
 }
 
 func (e *EthereumOperator) Address() string {
@@ -1856,7 +1420,7 @@ func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address
 	if err != nil {
 		return err
 	}
-	e.l.Info().
+	log.Info().
 		Str("ForwardersAddresses", fmt.Sprint(forwarders)).
 		Str("EoaAddresses", fmt.Sprint(eoa)).
 		Msg("Accepting Authorized Receivers")
@@ -1953,7 +1517,6 @@ type EthereumOffchainAggregatorV2 struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	contract *ocr2aggregator.OCR2Aggregator
-	l        zerolog.Logger
 }
 
 // OCRv2Config represents the config for the OCRv2 contract
@@ -1971,9 +1534,7 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
-		To: e.address,
-	})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
@@ -2041,7 +1602,7 @@ func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) 
 	if err != nil {
 		return err
 	}
-	e.l.Info().
+	log.Info().
 		Str("Transmitters", fmt.Sprintf("%v", transmitters)).
 		Str("Payees", fmt.Sprintf("%v", payees)).
 		Str("OCRv2 Address", e.Address()).
@@ -2067,7 +1628,7 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 	if err != nil {
 		return err
 	}
-	e.l.Info().
+	log.Info().
 		Str("Address", e.Address()).
 		Interface("Signers", ocrConfig.Signers).
 		Interface("Transmitters", ocrConfig.Transmitters).
@@ -2116,393 +1677,4 @@ type EthereumKeeperRegistryCheckUpkeepGasUsageWrapper struct {
 
 func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
 	return e.address.Hex()
-}
-
-/* Functions 1_0_0 */
-
-type EthereumFunctionsRouter struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *functions_router.FunctionsRouter
-	l        zerolog.Logger
-}
-
-func (e *EthereumFunctionsRouter) Address() string {
-	return e.address.Hex()
-}
-
-func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return 0, err
-	}
-	tx, err := e.instance.CreateSubscriptionWithConsumer(opts, common.HexToAddress(consumer))
-	if err != nil {
-		return 0, err
-	}
-	if err := e.client.ProcessTransaction(tx); err != nil {
-		return 0, err
-	}
-	r, err := e.client.GetTxReceipt(tx.Hash())
-	if err != nil {
-		return 0, err
-	}
-	for _, l := range r.Logs {
-		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
-	}
-	topicsMap := map[string]interface{}{}
-
-	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
-	if err != nil {
-		return 0, err
-	}
-	for _, ev := range fabi.Events {
-		e.l.Info().Str("EventName", ev.Name).Send()
-	}
-	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
-	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
-	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
-		return 0, errors.Wrap(err, "failed to decode topic value")
-	}
-	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
-	if topicsMap["subscriptionId"] == 0 {
-		return 0, errors.New("failed to decode subscription ID after creation")
-	}
-	return topicsMap["subscriptionId"].(uint64), nil
-}
-
-type EthereumFunctionsCoordinator struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *functions_coordinator.FunctionsCoordinator
-}
-
-func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	}
-	return e.instance.GetThresholdPublicKey(opts)
-}
-
-func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	}
-	return e.instance.GetDONPublicKey(opts)
-}
-
-func (e *EthereumFunctionsCoordinator) Address() string {
-	return e.address.Hex()
-}
-
-type EthereumFunctionsLoadTestClient struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *functions_load_test_client.FunctionsLoadTestClient
-}
-
-func (e *EthereumFunctionsLoadTestClient) Address() string {
-	return e.address.Hex()
-}
-
-type EthereumFunctionsLoadStats struct {
-	LastRequestID string
-	LastResponse  string
-	LastError     string
-	Total         uint32
-	Succeeded     uint32
-	Errored       uint32
-	Empty         uint32
-}
-
-func Bytes32ToSlice(a [32]byte) (r []byte) {
-	r = append(r, a[:]...)
-	return
-}
-
-func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: context.Background(),
-	}
-	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(opts)
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumFunctionsLoadStats{
-		LastRequestID: string(Bytes32ToSlice(lr)),
-		LastResponse:  string(lbody),
-		LastError:     string(lerr),
-		Total:         total,
-		Succeeded:     succeeded,
-		Errored:       errored,
-		Empty:         empty,
-	}, nil
-}
-
-func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := e.instance.ResetStats(opts)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := e.instance.SendRequestWithDONHostedSecrets(opts, times, source, slotID, slotVersion, args, subscriptionId, donID)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-type EthereumMercuryVerifier struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *verifier.Verifier
-	l        zerolog.Logger
-}
-
-func (e *EthereumMercuryVerifier) Address() common.Address {
-	return e.address
-}
-
-func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	tx, err := e.instance.Verify(opts, signedReport, sender)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumMercuryVerifier) SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.SetConfig(opts, feedId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, recipientAddressesAndWeights)
-	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).Msg("Called EthereumMercuryVerifier.SetConfig()")
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumMercuryVerifier) LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	d, err := e.instance.LatestConfigDetails(opts, feedId)
-	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).
-		Interface("details", d).
-		Msg("Called EthereumMercuryVerifier.LatestConfigDetails()")
-	if err != nil {
-		return verifier.LatestConfigDetails{}, err
-	}
-	return d, nil
-}
-
-type EthereumMercuryVerifierProxy struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *verifier_proxy.VerifierProxy
-	l        zerolog.Logger
-}
-
-func (e *EthereumMercuryVerifierProxy) Address() common.Address {
-	return e.address
-}
-
-func (e *EthereumMercuryVerifierProxy) InitializeVerifier(verifierAddress common.Address) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.InitializeVerifier(opts, verifierAddress)
-	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Str("verifierAddress", verifierAddress.Hex()).
-		Msg("Called EthereumMercuryVerifierProxy.InitializeVerifier()")
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if value != nil {
-		opts.Value = value
-	}
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.Verify(opts, signedReport, parameterPayload)
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if value != nil {
-		opts.Value = value
-	}
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.VerifyBulk(opts, signedReports, parameterPayload)
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumMercuryVerifierProxy) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.SetFeeManager(opts, feeManager)
-	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called MercuryVerifierProxy.SetFeeManager()")
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-type EthereumMercuryFeeManager struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *fee_manager.FeeManager
-	l        zerolog.Logger
-}
-
-func (e *EthereumMercuryFeeManager) Address() common.Address {
-	return e.address
-}
-
-type EthereumMercuryRewardManager struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *reward_manager.RewardManager
-	l        zerolog.Logger
-}
-
-func (e *EthereumMercuryRewardManager) Address() common.Address {
-	return e.address
-}
-
-func (e *EthereumMercuryRewardManager) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	tx, err := e.instance.SetFeeManager(opts, feeManager)
-	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called EthereumMercuryRewardManager.SetFeeManager()")
-	if err != nil {
-		return nil, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
-}
-
-type EthereumWERC20Mock struct {
-	address  common.Address
-	client   blockchain.EVMClient
-	instance *werc20_mock.WERC20Mock
-	l        zerolog.Logger
-}
-
-func (e *EthereumWERC20Mock) Address() common.Address {
-	return e.address
-}
-
-func (e *EthereumWERC20Mock) Approve(to string, amount *big.Int) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	e.l.Info().
-		Str("From", e.client.GetDefaultWallet().Address()).
-		Str("To", to).
-		Str("Amount", amount.String()).
-		Uint64("Nonce", opts.Nonce.Uint64()).
-		Msg("Approving LINK Transfer")
-	tx, err := e.instance.Approve(opts, common.HexToAddress(to), amount)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
-	opts := &bind.CallOpts{
-		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
-		Context: ctx,
-	}
-	balance, err := e.instance.BalanceOf(opts, common.HexToAddress(addr))
-	if err != nil {
-		return nil, err
-	}
-	return balance, nil
-}
-
-func (e *EthereumWERC20Mock) Transfer(to string, amount *big.Int) error {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return err
-	}
-	e.l.Info().
-		Str("From", e.client.GetDefaultWallet().Address()).
-		Str("To", to).
-		Str("Amount", amount.String()).
-		Uint64("Nonce", opts.Nonce.Uint64()).
-		Msg("EthereumWERC20Mock.Transfer()")
-	tx, err := e.instance.Transfer(opts, common.HexToAddress(to), amount)
-	if err != nil {
-		return err
-	}
-	return e.client.ProcessTransaction(tx)
-}
-
-func (e *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*types.Transaction, error) {
-	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
-	if err != nil {
-		return nil, err
-	}
-	e.l.Info().
-		Str("account", account.Hex()).
-		Str("amount", amount.String()).
-		Msg("EthereumWERC20Mock.Mint()")
-	tx, err := e.instance.Mint(opts, account, amount)
-	if err != nil {
-		return tx, err
-	}
-	return tx, e.client.ProcessTransaction(tx)
 }

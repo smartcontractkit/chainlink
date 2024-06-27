@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
@@ -60,11 +58,6 @@ var (
 	promReportingPluginsReport = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_reporting_plugin_report",
 		Help: "Metric to track number of reporting plugin Report calls",
-	}, []string{"jobID"})
-
-	promReportingPluginsReportNumObservations = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "functions_reporting_plugin_report_num_observations",
-		Help: "Metric to track number of observations available in the report phase",
 	}, []string{"jobID"})
 
 	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -124,21 +117,6 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 	return &plugin, info, nil
 }
 
-// Check if requestCoordinator can be included together with reportCoordinator.
-// Return new reportCoordinator (if previous was nil) and error.
-func ShouldIncludeCoordinator(requestCoordinator *common.Address, reportCoordinator *common.Address) (*common.Address, error) {
-	if requestCoordinator == nil || *requestCoordinator == (common.Address{}) {
-		return reportCoordinator, errors.New("missing/zero request coordinator address")
-	}
-	if reportCoordinator == nil {
-		return requestCoordinator, nil
-	}
-	if *reportCoordinator != *requestCoordinator {
-		return reportCoordinator, errors.New("coordinator contract address mismatch")
-	}
-	return reportCoordinator, nil
-}
-
 // Query() complies with ReportingPlugin
 func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
 	r.logger.Debug("FunctionsReporting Query start", commontypes.LogFields{
@@ -154,21 +132,8 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 
 	queryProto := encoding.Query{}
 	var idStrs []string
-	var reportCoordinator *common.Address
 	for _, result := range results {
 		result := result
-		if r.contractVersion == 1 {
-			reportCoordinator, err = ShouldIncludeCoordinator(result.CoordinatorContractAddress, reportCoordinator)
-			if err != nil {
-				r.logger.Debug("FunctionsReporting Query: skipping request with mismatched coordinator contract address", commontypes.LogFields{
-					"requestID":          formatRequestId(result.RequestID[:]),
-					"requestCoordinator": result.CoordinatorContractAddress,
-					"reportCoordinator":  reportCoordinator,
-					"error":              err,
-				})
-				continue
-			}
-		}
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
 	}
@@ -270,7 +235,6 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"oracleID":      r.genericConfig.OracleID,
 		"nObservations": len(obs),
 	})
-	promReportingPluginsReportNumObservations.WithLabelValues(r.jobID.String()).Set(float64(len(obs)))
 
 	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
@@ -324,7 +288,6 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	var allAggregated []*encoding.ProcessedRequest
 	var allIdStrs []string
 	var totalCallbackGas uint32
-	var reportCoordinator *common.Address
 	for _, reqId := range uniqueQueryIds {
 		observations := reqIdToObservationList[reqId]
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
@@ -367,20 +330,6 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			"requestID":     reqId,
 			"nObservations": len(observations),
 		})
-		if r.contractVersion == 1 {
-			var requestCoordinator common.Address
-			requestCoordinator.SetBytes(aggregated.CoordinatorContract)
-			reportCoordinator, err = ShouldIncludeCoordinator(&requestCoordinator, reportCoordinator)
-			if err != nil {
-				r.logger.Error("FunctionsReporting Report: skipping request with mismatched coordinator contract address", commontypes.LogFields{
-					"requestID":          reqId,
-					"requestCoordinator": requestCoordinator,
-					"reportCoordinator":  reportCoordinator,
-					"error":              err,
-				})
-				continue
-			}
-		}
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)
 	}

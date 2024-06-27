@@ -11,12 +11,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -69,7 +69,7 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 		return nil, err
 	}
 
-	cs, _, err := r.App.EVMORM().Chains(relay.ChainID(args.ID))
+	cs, _, err := r.App.EVMORM().Chains(0, -1, string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -95,20 +95,12 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	chains, count, err := r.App.EVMORM().Chains()
+	page, count, err := r.App.EVMORM().Chains(offset, limit)
 	if err != nil {
 		return nil, err
 	}
-	// bound the chain results
-	if offset >= len(chains) {
-		return nil, fmt.Errorf("offset %d out of range", offset)
-	}
-	end := len(chains)
-	if limit > 0 && offset+limit < end {
-		end = offset + limit
-	}
 
-	return NewChainsPayload(chains[offset:end], int32(count)), nil
+	return NewChainsPayload(page, int32(count)), nil
 }
 
 // FeedsManager retrieves a feeds manager by id.
@@ -162,11 +154,7 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobPayload(r.App, nil, err), nil
-		}
 
-		//We still need to show the job in UI/CLI even if the chain id is disabled
-		if errors.Is(err, chains.ErrNoSuchChainID) {
-			return NewJobPayload(r.App, &j, err), nil
 		}
 
 		return nil, err
@@ -235,13 +223,10 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
-	r.App.GetLogger().Debug("resolver Node args %v", args)
+
 	name := string(args.ID)
-	r.App.GetLogger().Debug("resolver Node name %s", name)
 	node, err := r.App.EVMORM().NodeStatus(name)
 	if err != nil {
-		r.App.GetLogger().Errorw("resolver getting node status", "err", err)
-
 		if errors.Is(err, chains.ErrNotFound) {
 			npr, warn := NewNodePayloadResolver(nil, err)
 			if warn != nil {
@@ -341,15 +326,13 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-	r.App.GetLogger().Debugw("resolver Nodes query", "offset", offset, "limit", limit)
-	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
-	r.App.GetLogger().Debugw("resolver Nodes query result", "nodes", allNodes, "total", total, "err", err)
 
+	nodes, count, err := r.App.GetChains().EVM.NodeStatuses(ctx, offset, limit)
 	if err != nil {
-		r.App.GetLogger().Errorw("Error creating get nodes status from app", "err", err)
 		return nil, err
 	}
-	npr, warn := NewNodesPayload(allNodes, int32(total))
+
+	npr, warn := NewNodesPayload(nodes, int32(count))
 	if warn != nil {
 		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "err", warn)
 	}
@@ -424,8 +407,8 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chain, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
-		if errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
+		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
+		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.EIP55Address,
 				state: state,

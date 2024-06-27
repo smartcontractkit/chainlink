@@ -67,10 +67,10 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
-	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
-		for _, elem := range elems {
-			resentHex[elem.Args[0].(string)] = struct{}{}
+		resentHex := make([]string, len(elems))
+		for i, elem := range elems {
+			resentHex[i] = elem.Args[0].(string)
 		}
 		assert.Len(t, elems, len(addr1TxesRawHex)+len(addr2TxesRawHex)+int(txConfig.MaxInFlight()))
 		// All addr1TxesRawHex should be included
@@ -78,12 +78,12 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 			assert.Contains(t, resentHex, addr)
 		}
 		// All addr2TxesRawHex should be included
-		for _, addr := range addr2TxesRawHex {
+		for _, addr := range addr1TxesRawHex {
 			assert.Contains(t, resentHex, addr)
 		}
 		// Up to limit EvmMaxInFlightTransactions addr3TxesRawHex should be included
-		for i, addr := range addr3TxesRawHex {
-			if i >= int(txConfig.MaxInFlight()) {
+		for i, addr := range addr1TxesRawHex {
+			if i > int(txConfig.MaxInFlight()) {
 				// Above limit EvmMaxInFlightTransactions addr3TxesRawHex should NOT be included
 				assert.NotContains(t, resentHex, addr)
 			} else {
@@ -187,10 +187,10 @@ func Test_EthResender_Start(t *testing.T) {
 		}()
 
 		var dbEtx txmgr.DbEthTx
-		err := db.Get(&dbEtx, `SELECT * FROM evm.txes WHERE id = $1`, etx.ID)
+		err := db.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
 		require.NoError(t, err)
 		var dbEtx2 txmgr.DbEthTx
-		err = db.Get(&dbEtx2, `SELECT * FROM evm.txes WHERE id = $1`, etx2.ID)
+		err = db.Get(&dbEtx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
 		require.NoError(t, err)
 
 		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())

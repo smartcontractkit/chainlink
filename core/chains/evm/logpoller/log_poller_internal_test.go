@@ -2,9 +2,7 @@ package logpoller
 
 import (
 	"context"
-	"fmt"
 	"math/big"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -13,12 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+	"golang.org/x/exp/slices"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -35,7 +34,7 @@ var (
 )
 
 // Validate that filters stored in log_filters_table match the filters stored in memory
-func validateFiltersTable(t *testing.T, lp *logPoller, orm *DbORM) {
+func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
 	filters, err := orm.LoadFilters()
 	require.NoError(t, err)
 	require.Equal(t, len(filters), len(lp.filters))
@@ -59,9 +58,14 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
+
+	db.Close()
+	db = pgtest.NewSqlxDB(t)
+	orm = NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	// Set up a test chain with a log emitting contract deployed.
-	lp := NewLogPoller(orm, nil, lggr, time.Hour, false, 1, 1, 2, 1000)
+	lp = NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -132,6 +136,26 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	assert.Equal(t, lp.Filter(nil, nil, nil).Addresses[0], common.HexToAddress("0x0000000000000000000000000000000000000000"))
 	assert.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
 	assert.Len(t, lp.Filter(nil, nil, nil).Topics[0], 0)
+}
+
+func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry,
+	table string, constraint string) {
+
+	assert.Equal(t, "SQL ERROR", observedLog.Entry.Message)
+
+	i := slices.IndexFunc(observedLog.Context, func(f zapcore.Field) bool {
+		return f.Key == "err"
+	})
+	require.GreaterOrEqual(t, i, 0)
+	field := observedLog.Context[i]
+	require.Equal(t, zapcore.ErrorType, field.Type)
+	err, ok := field.Interface.(error)
+	var pgErr *pgconn.PgError
+	require.True(t, errors.As(err, &pgErr))
+	require.True(t, ok)
+	assert.Equal(t, "23503", pgErr.SQLState()) // foreign key constraint violation code
+	assert.Equal(t, table, pgErr.TableName)
+	assert.Equal(t, constraint, pgErr.ConstraintName)
 }
 
 func TestLogPoller_ConvertLogs(t *testing.T) {
@@ -215,7 +239,7 @@ func TestLogPoller_BackupPollerStartup(t *testing.T) {
 
 	ctx := testutils.Context(t)
 
-	lp := NewLogPoller(orm, ec, lggr, 1*time.Hour, false, 2, 3, 2, 1000)
+	lp := NewLogPoller(orm, ec, lggr, 1*time.Hour, 2, 3, 2, 1000)
 	lp.BackupPollAndSaveLogs(ctx, 100)
 	assert.Equal(t, int64(0), lp.backupPollerNextBlock)
 	assert.Equal(t, 1, observedLogs.FilterMessageSnippet("ran before first successful log poller run").Len())
@@ -256,7 +280,7 @@ func TestLogPoller_Replay(t *testing.T) {
 	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
 	ec.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{log1}, nil).Once()
 	ec.On("ConfiguredChainID").Return(chainID, nil)
-	lp := NewLogPoller(orm, ec, lggr, time.Hour, false, 3, 3, 3, 20)
+	lp := NewLogPoller(orm, ec, lggr, time.Hour, 3, 3, 3, 20)
 
 	// process 1 log in block 3
 	lp.PollAndSaveLogs(tctx, 4)
@@ -460,80 +484,9 @@ func TestLogPoller_Replay(t *testing.T) {
 	})
 }
 
-func Test_latestBlockAndFinalityDepth(t *testing.T) {
-	tctx := testutils.Context(t)
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
-	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-
-	t.Run("pick latest block from chain and use finality from config with finality disabled", func(t *testing.T) {
-		head := evmtypes.Head{Number: 4}
-		finalityDepth := int64(3)
-		ec := evmclimocks.NewClient(t)
-		ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&head, nil)
-
-		lp := NewLogPoller(orm, ec, lggr, time.Hour, false, finalityDepth, 3, 3, 20)
-		latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(tctx)
-		require.NoError(t, err)
-		require.Equal(t, latestBlock.Number, head.Number)
-		require.Equal(t, finalityDepth, latestBlock.Number-lastFinalizedBlockNumber)
-	})
-
-	t.Run("finality tags in use", func(t *testing.T) {
-		t.Run("client returns data properly", func(t *testing.T) {
-			expectedLatestBlockNumber := int64(20)
-			expectedLastFinalizedBlockNumber := int64(12)
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-				return len(b) == 2 &&
-					reflect.DeepEqual(b[0].Args, []interface{}{"latest", false}) &&
-					reflect.DeepEqual(b[1].Args, []interface{}{"finalized", false})
-			})).Return(nil).Run(func(args mock.Arguments) {
-				elems := args.Get(1).([]rpc.BatchElem)
-				// Latest block details
-				*(elems[0].Result.(*evmtypes.Head)) = evmtypes.Head{Number: expectedLatestBlockNumber, Hash: utils.RandomBytes32()}
-				// Finalized block details
-				*(elems[1].Result.(*evmtypes.Head)) = evmtypes.Head{Number: expectedLastFinalizedBlockNumber, Hash: utils.RandomBytes32()}
-			})
-
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
-
-			latestBlock, lastFinalizedBlockNumber, err := lp.latestBlocks(tctx)
-			require.NoError(t, err)
-			require.Equal(t, expectedLatestBlockNumber, latestBlock.Number)
-			require.Equal(t, expectedLastFinalizedBlockNumber, lastFinalizedBlockNumber)
-		})
-
-		t.Run("client returns error for at least one of the calls", func(t *testing.T) {
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-				elems := args.Get(1).([]rpc.BatchElem)
-				// Latest block details
-				*(elems[0].Result.(*evmtypes.Head)) = evmtypes.Head{Number: 10}
-				// Finalized block details
-				elems[1].Error = fmt.Errorf("some error")
-			})
-
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
-			_, _, err := lp.latestBlocks(tctx)
-			require.Error(t, err)
-		})
-
-		t.Run("BatchCall returns an error", func(t *testing.T) {
-			ec := evmclimocks.NewClient(t)
-			ec.On("BatchCallContext", mock.Anything, mock.Anything).Return(fmt.Errorf("some error"))
-
-			lp := NewLogPoller(orm, ec, lggr, time.Hour, true, 3, 3, 3, 20)
-			_, _, err := lp.latestBlocks(tctx)
-			require.Error(t, err)
-		})
-	})
-}
-
 func benchmarkFilter(b *testing.B, nFilters, nAddresses, nEvents int) {
 	lggr := logger.TestLogger(b)
-	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, false, 2, 3, 2, 1000)
+	lp := NewLogPoller(nil, nil, lggr, 1*time.Hour, 2, 3, 2, 1000)
 	for i := 0; i < nFilters; i++ {
 		var addresses []common.Address
 		var events []common.Hash

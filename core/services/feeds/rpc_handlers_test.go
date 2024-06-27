@@ -1,7 +1,6 @@
 package feeds_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -35,11 +34,10 @@ func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 
 func Test_RPCHandlers_ProposeJob(t *testing.T) {
 	var (
-		ctx                  = testutils.Context(t)
-		jobID                = uuid.New()
-		nameAndExternalJobID = uuid.New()
-		spec                 = fmt.Sprintf(FluxMonitorTestSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
-		version              = int64(1)
+		ctx     = testutils.Context(t)
+		jobID   = uuid.New()
+		spec    = FluxMonitorTestSpec
+		version = int64(1)
 	)
 	h := setupTestHandlers(t)
 

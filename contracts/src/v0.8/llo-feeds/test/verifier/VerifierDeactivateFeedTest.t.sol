@@ -3,6 +3,7 @@ pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
 
 contract VerifierActivateFeedTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwnerActivateFeed() public {
@@ -33,13 +34,13 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
 
   event ConfigActivated(bytes32 configDigest);
 
-  V1Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public override {
     BaseTestWithMultipleConfiguredDigests.setUp();
     s_reportContext[0] = s_configDigestOne;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createV1Report(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       uint32(block.timestamp),
       MEDIAN,
@@ -58,7 +59,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     s_verifier.activateFeed(FEED_ID);
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -71,7 +72,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     changePrank(address(s_verifierProxy));
 
     s_reportContext[0] = s_configDigestTwo;
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)
@@ -82,7 +83,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
   function test_currentReportFailsVerification() public {
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE + 1)
@@ -96,7 +97,7 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
     changePrank(address(s_verifierProxy));
 
     s_reportContext[0] = s_configDigestTwo;
-    bytes memory signedReport = _generateV1EncodedBlob(
+    bytes memory signedReport = _generateEncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)

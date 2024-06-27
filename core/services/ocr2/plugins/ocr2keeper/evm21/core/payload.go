@@ -13,13 +13,27 @@ var (
 	ErrInvalidUpkeepID = fmt.Errorf("invalid upkeepID")
 )
 
-func UpkeepWorkID(uid ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) string {
+// UpkeepWorkID returns the identifier using the given upkeepID and trigger extension(tx hash and log index).
+func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 	var triggerExtBytes []byte
 	if trigger.LogTriggerExtension != nil {
 		triggerExtBytes = trigger.LogTriggerExtension.LogIdentifier()
 	}
+	uid := &ocr2keepers.UpkeepIdentifier{}
+	ok := uid.FromBigInt(id)
+	if !ok {
+		return "", ErrInvalidUpkeepID
+	}
+	// TODO (auto-4314): Ensure it works with conditionals and add unit tests
 	hash := crypto.Keccak256(append(uid[:], triggerExtBytes...))
-	return hex.EncodeToString(hash[:])
+	return hex.EncodeToString(hash[:]), nil
+}
+
+func WorkIDGenerator(u ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) string {
+	// Error should not happen here since we pass in a valid upkeepID
+	// TODO: Clean this up
+	id, _ := UpkeepWorkID(u.BigInt(), trigger)
+	return id
 }
 
 func NewUpkeepPayload(id *big.Int, trigger ocr2keepers.Trigger, checkData []byte) (ocr2keepers.UpkeepPayload, error) {
@@ -34,6 +48,11 @@ func NewUpkeepPayload(id *big.Int, trigger ocr2keepers.Trigger, checkData []byte
 		CheckData: checkData,
 	}
 	// set work id based on upkeep id and trigger
-	p.WorkID = UpkeepWorkID(*uid, trigger)
+	wid, err := UpkeepWorkID(id, trigger)
+	if err != nil {
+		return ocr2keepers.UpkeepPayload{}, fmt.Errorf("error while generating workID: %w", err)
+	}
+	p.WorkID = wid
+
 	return p, nil
 }

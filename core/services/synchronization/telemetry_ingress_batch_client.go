@@ -13,10 +13,20 @@ import (
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+//go:generate mockery --quiet --name TelemetryIngressBatchClient --output ./mocks --case=underscore
+
+// TelemetryIngressBatchClient encapsulates all the functionality needed to
+// send telemetry to the ingress server using wsrpc
+type TelemetryIngressBatchClient interface {
+	services.ServiceCtx
+	Send(TelemPayload)
+}
 
 // NoopTelemetryIngressBatchClient is a no-op interface for TelemetryIngressBatchClient
 type NoopTelemetryIngressBatchClient struct{}
@@ -30,6 +40,7 @@ func (NoopTelemetryIngressBatchClient) Close() error { return nil }
 // Send is a no-op
 func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 
+// Healthy is a no-op
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
 func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
@@ -66,7 +77,7 @@ type telemetryIngressBatchClient struct {
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryIngressBatchClient {
 	return &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
@@ -152,7 +163,7 @@ func (tc *telemetryIngressBatchClient) Name() string {
 }
 
 func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
-	return map[string]error{tc.Name(): tc.Healthy()}
+	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
 }
 
 // getCSAPrivateKey gets the client's CSA private key
@@ -171,22 +182,16 @@ func (tc *telemetryIngressBatchClient) getCSAPrivateKey() (privkey []byte, err e
 // Send directs incoming telmetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
-func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {
+func (tc *telemetryIngressBatchClient) Send(payload TelemPayload) {
 	if tc.useUniConn && !tc.connected.Load() {
 		tc.lggr.Warnw("not connected to telemetry endpoint", "endpoint", tc.url.String())
 		return
 	}
-	payload := TelemPayload{
-		Telemetry:  telemData,
-		TelemType:  telemType,
-		ContractID: contractID,
-	}
 	worker := tc.findOrCreateWorker(payload)
-
 	select {
 	case worker.chTelemetry <- payload:
 		worker.dropMessageCount.Store(0)
-	case <-ctx.Done():
+	case <-payload.Ctx.Done():
 		return
 	default:
 		worker.logBufferFullWithExpBackoff(payload)

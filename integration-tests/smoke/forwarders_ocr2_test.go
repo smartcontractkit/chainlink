@@ -4,43 +4,33 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/stretchr/testify/require"
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
-	l := logging.GetTestLogger(t)
-
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
 		WithGeth().
-		WithMockAdapter().
-		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
+		WithMockServer(1).
+		WithCLNodeConfig(node.NewConfig(node.BaseConf,
 			node.WithOCR2(),
 			node.WithP2Pv2(),
 		)).
 		WithForwarders().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
-		WithStandardCleanup().
+		WithFunding(big.NewFloat(10)).
 		Build()
 	require.NoError(t, err)
-
 	env.ParallelTransactions(true)
 
-	nodeClients := env.ClCluster.NodeAPIs()
+	nodeClients := env.GetAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
@@ -59,7 +49,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader)
 		require.NoError(t, err, "Accepting Authorized Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
+		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i])
 		require.NoError(t, err, "failed to track forwarders")
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, "Error waiting for events")
@@ -71,25 +61,24 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		transmitters = append(transmitters, forwarderCommonAddress.Hex())
 	}
 
-	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, env.EVMClient)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), true)
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), true)
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 	ocrv2Config.Transmitters = authorizedForwarders
 
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, ocrInstances)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10, l)
+	err = actions.StartNewOCR2Round(1, ocrInstances, env.EVMClient, time.Minute*10)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
@@ -98,9 +87,9 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	for i := 2; i <= 3; i++ {
 		ocrRoundVal := (5 + i) % 10
-		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
+		err = env.MockServer.Client.SetValuePath("ocr2", ocrRoundVal)
 		require.NoError(t, err)
-		err = actions.StartNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
+		err = actions.StartNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10)
 		require.NoError(t, err)
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())

@@ -43,12 +43,11 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
 Enabled = true
-Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '9.999'
-GasToken = 'ucosm'
+FCDURL = ''
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'
@@ -107,15 +106,14 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &cosmos.CosmosConfig{
-		ChainID: ptr("a" + cosmostest.RandomChainID()),
+		ChainID: ptr(cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			FallbackGasPrice: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
-
 	chainB := &cosmos.CosmosConfig{
-		ChainID: ptr("b" + cosmostest.RandomChainID()),
+		ChainID: ptr(cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
@@ -166,7 +164,6 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlB, err := chainB.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlB, chains[0].Config)
-
 }
 
 type TestCosmosChainsController struct {
@@ -185,7 +182,7 @@ func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*cosmos.CosmosConfi
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(nil)
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	return &TestCosmosChainsController{
 		app:    app,

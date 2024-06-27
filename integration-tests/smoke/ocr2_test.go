@@ -4,12 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net/http"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -17,39 +13,32 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/stretchr/testify/require"
+	"strings"
 )
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	l := logging.GetTestLogger(t)
-
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
 		WithGeth().
-		WithMockAdapter().
-		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
+		WithMockServer(1).
+		WithCLNodeConfig(node.NewConfig(node.BaseConf,
 			node.WithOCR2(),
 			node.WithP2Pv2(),
-			node.WithTracing(),
 		)).
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(.1)).
-		WithStandardCleanup().
+		WithFunding(big.NewFloat(10)).
 		Build()
 	require.NoError(t, err)
-
 	env.ParallelTransactions(true)
 
-	nodeClients := env.ClCluster.NodeAPIs()
+	nodeClients := env.GetAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
@@ -68,20 +57,19 @@ func TestOCRv2Basic(t *testing.T) {
 		transmitters = append(transmitters, addr)
 	}
 
-	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5)
 	require.NoError(t, err, "Error starting new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -90,9 +78,9 @@ func TestOCRv2Basic(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
+	err = env.MockServer.Client.SetValuePath("ocr2", 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5)
 	require.NoError(t, err)
 
 	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))
@@ -124,10 +112,10 @@ func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
 	}
 
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"replicas": 6,
-		"toml":     toml,
+	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": toml,
 	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
@@ -136,8 +124,8 @@ func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

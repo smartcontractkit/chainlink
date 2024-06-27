@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type nodeBatcher struct {
@@ -19,22 +18,20 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	// note backward compatibility -- this only ever supported evm chains
-	evmrelayIDs := make([]relay.ID, 0, len(keys))
-
+	var ids []string
 	for ix, key := range keys {
-		rid := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
-		evmrelayIDs = append(evmrelayIDs, rid)
+		ids = append(ids, key.String())
 		keyOrder[key.String()] = ix
 	}
 
-	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIDs...)
+	nodes, _, err := b.app.GetChains().EVM.NodeStatuses(ctx, 0, -1, ids...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
+
 	// Generate a map of nodes to chainIDs
 	nodesForChain := map[string][]types.NodeStatus{}
-	for _, n := range allNodes {
+	for _, n := range nodes {
 		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n)
 	}
 

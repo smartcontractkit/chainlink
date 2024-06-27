@@ -52,7 +52,7 @@ export const encodeReport = async (
   offchainMetadata: string,
 ) => {
   const functionsResponse = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/v1_X/FunctionsCoordinator.sol:FunctionsCoordinator',
+    'src/v0.8/functions/dev/1_0_0/FunctionsCoordinator.sol:FunctionsCoordinator',
   )
   const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
     [
@@ -77,8 +77,6 @@ export type FunctionsRouterConfig = {
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
   gasForCallExactCheck: number
-  subscriptionDepositMinimumRequests: number
-  subscriptionDepositJuels: BigNumber
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
   maxConsumersPerSubscription: 100,
@@ -86,10 +84,9 @@ export const functionsRouterConfig: FunctionsRouterConfig = {
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
   gasForCallExactCheck: 5000,
-  subscriptionDepositMinimumRequests: 10,
-  subscriptionDepositJuels: BigNumber.from('1000000000000000000'),
 }
 export type CoordinatorConfig = {
+  maxCallbackGasLimit: number
   feedStalenessSeconds: number
   gasOverheadBeforeCallback: number
   gasOverheadAfterCallback: number
@@ -98,10 +95,10 @@ export type CoordinatorConfig = {
   maxSupportedRequestDataVersion: number
   fulfillmentGasPriceOverEstimationBP: number
   fallbackNativePerUnitLink: BigNumber
-  minimumEstimateGasPriceWei: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
+  maxCallbackGasLimit: 1_000_000,
   feedStalenessSeconds: 86_400,
   gasOverheadBeforeCallback: 44_615,
   gasOverheadAfterCallback: 44_615,
@@ -110,7 +107,6 @@ export const coordinatorConfig: CoordinatorConfig = {
   maxSupportedRequestDataVersion: 1,
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
-  minimumEstimateGasPriceWei: 1000000000,
 }
 export const accessControlMockPublicKey = ethers.utils.getAddress(
   '0x32237412cC0321f56422d206e505dB4B3871AF5c',
@@ -132,19 +128,19 @@ export async function setupRolesAndFactories(): Promise<{
 }> {
   const roles = (await getUsers()).roles
   const functionsRouterFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/v1_X/FunctionsRouter.sol:FunctionsRouter',
+    'src/v0.8/functions/dev/1_0_0/FunctionsRouter.sol:FunctionsRouter',
     roles.defaultAccount,
   )
   const functionsCoordinatorFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v1_X/testhelpers/FunctionsCoordinatorTestHelper.sol:FunctionsCoordinatorTestHelper',
+    'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol:FunctionsCoordinatorTestHelper',
     roles.defaultAccount,
   )
   const accessControlFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/v1_X/accessControl/TermsOfServiceAllowList.sol:TermsOfServiceAllowList',
+    'src/v0.8/functions/dev/1_0_0/accessControl/TermsOfServiceAllowList.sol:TermsOfServiceAllowList',
     roles.defaultAccount,
   )
   const clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v1_X/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(

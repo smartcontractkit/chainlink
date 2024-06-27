@@ -2,7 +2,6 @@ package web
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -10,9 +9,7 @@ import (
 var ErrCosmosNotEnabled = errChainDisabled{name: "Cosmos", tomlKey: "Cosmos.Enabled"}
 
 func NewCosmosNodesController(app chainlink.Application) NodesController {
-	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.Cosmos)
-
 	return newNodesController[presenters.CosmosNodeResource](
-		scopedNodeStatuser, ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
+		app.GetChains().Cosmos, ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
 	)
 }

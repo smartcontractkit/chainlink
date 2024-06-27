@@ -50,7 +50,6 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
-	c.Database.DefaultLockTimeout = models.MustNewDuration(1 * time.Minute)
 
 	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
 
@@ -67,15 +66,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
-		Nodes: evmcfg.EVMNodes{
-			&evmcfg.Node{
-				Name:     ptr("test"),
-				WSURL:    &models.URL{},
-				HTTPURL:  &models.URL{},
-				SendOnly: new(bool),
-				Order:    ptr[int32](100),
-			},
-		},
+		Nodes:   evmcfg.EVMNodes{{Name: ptr("test")}},
 	})
 }
 
@@ -100,21 +91,13 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{&validTestNode},
+		Nodes:   evmcfg.EVMNodes{{}},
 	}
 	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)
 	}
-}
-
-var validTestNode = evmcfg.Node{
-	Name:     ptr("simulated-node"),
-	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
-	HTTPURL:  models.MustParseURL("http://simulated.com"),
-	SendOnly: nil,
-	Order:    ptr(int32(1)),
 }
 
 func ptr[T any](v T) *T { return &v }

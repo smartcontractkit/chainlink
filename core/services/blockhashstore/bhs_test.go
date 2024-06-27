@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -29,9 +28,8 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
+	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	chain, err := chainSet.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
@@ -58,13 +56,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	})).Once().Return(txmgr.Tx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
-	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	})).Once().Return(txmgr.Tx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
 	// store 2 blocks
 	err = bhs.Store(context.Background(), 1)

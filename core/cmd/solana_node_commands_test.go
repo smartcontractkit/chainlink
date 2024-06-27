@@ -12,14 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func solanaStartNewApplication(t *testing.T, cfgs ...*solana.TOMLConfig) *cltest.TestApplication {
+func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *cltest.TestApplication {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}
@@ -29,6 +29,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.TOMLConfig) *cltest
 	})
 }
 
+// TODO fix https://smartcontract-it.atlassian.net/browse/BCF-2114
 func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
@@ -41,7 +42,7 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 		Name: ptr("second"),
 		URL:  utils.MustParseURL("https://solana2.example"),
 	}
-	chain := solana.TOMLConfig{
+	chain := solana.SolanaConfig{
 		ChainID: &id,
 		Nodes:   solana.SolanaNodes{&node1, &node2},
 	}
@@ -71,7 +72,7 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	//Render table and check the fields order
 	b := new(bytes.Buffer)
 	rt := cmd.RendererTable{b}
-	require.NoError(t, nodes.RenderTable(rt))
+	nodes.RenderTable(rt)
 	renderLines := strings.Split(b.String(), "\n")
 	assert.Equal(t, 17, len(renderLines))
 	assert.Contains(t, renderLines[2], "Name")

@@ -8,11 +8,10 @@ import (
 	"github.com/K-Phoen/grabana/timeseries"
 	"github.com/K-Phoen/grabana/timeseries/axis"
 	"github.com/smartcontractkit/wasp"
-	"os"
 )
 
 func main() {
-	lokiDS := os.Getenv("DATA_SOURCE_NAME")
+	lokiDS := "grafanacloud-logs"
 	d, err := wasp.NewDashboard(nil,
 		[]dashboard.Option{
 			dashboard.Row("LoadContractMetrics",

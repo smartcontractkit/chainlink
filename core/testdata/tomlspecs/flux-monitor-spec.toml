@@ -1,0 +1,28 @@
+type              = "fluxmonitor"
+schemaVersion     = 1
+name              = "example flux monitor spec"
+contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+externalJobID     = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
+threshold = 0.5
+absoluteThreshold = 0.0 # optional
+
+idleTimerPeriod = "1s"
+idleTimerDisabled = false
+
+pollTimerPeriod = "1m"
+pollTimerDisabled = false
+
+observationSource = """
+// data source 1
+ds1  [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
+jp1  [type=jsonparse path="bpi,USD,rate_float"];
+
+// data source 2
+ds2  [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
+jp2  [type=jsonparse path="bpi,USD,rate_float"];
+
+ds1 -> jp1 -> answer1;
+ds2 -> jp2 -> answer1;
+
+answer1 [type=median index=0];
+"""

@@ -53,17 +53,17 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/v0_0_0/testhelpers/mocks/FunctionsBillingRegistryOriginal.sol:FunctionsBillingRegistryOriginal',
+    'src/v0.8/functions/tests/0_0_0/testhelpers/mocks/FunctionsBillingRegistryOriginal.sol:FunctionsBillingRegistryOriginal',
     roles.consumer,
   )
 
@@ -223,7 +223,7 @@ describe('FunctionsRegistryUpgradeable', () => {
 
     it('can be upgraded to a new implementation', async () => {
       const upgradedRegistry = await migrateAndCheck(
-        'src/v0.8/functions/tests/v0_0_0/testhelpers/mocks/FunctionsBillingRegistryMigration.sol:FunctionsBillingRegistryMigration',
+        'src/v0.8/functions/tests/0_0_0/testhelpers/mocks/FunctionsBillingRegistryMigration.sol:FunctionsBillingRegistryMigration',
       )
 
       // Check that upgrade was successful
@@ -242,7 +242,7 @@ describe('FunctionsRegistryUpgradeable', () => {
 
     it('can be upgraded to the latest implementation', async () => {
       await migrateAndCheck(
-        'src/v0.8/functions/dev/v0_0_0/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
+        'src/v0.8/functions/dev/0_0_0/FunctionsBillingRegistry.sol:FunctionsBillingRegistry',
       )
     })
   })

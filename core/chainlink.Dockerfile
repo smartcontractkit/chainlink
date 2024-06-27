@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.21-bullseye as buildgo
+FROM golang:1.20-buster as buildgo
 RUN go version
 WORKDIR /chainlink
 

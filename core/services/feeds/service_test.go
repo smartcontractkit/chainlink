@@ -27,11 +27,10 @@ import (
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -45,12 +44,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-const FluxMonitorTestSpecTemplate = `
+const FluxMonitorTestSpec = `
 type              = "fluxmonitor"
 schemaVersion     = 1
-name              = "%s"
+name              = "example flux monitor spec"
 contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-externalJobID     = "%s"
+externalJobID     = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
 threshold = 0.5
 absoluteThreshold = 0.0 # optional
 
@@ -68,12 +67,11 @@ answer1 [type=median index=0];
 """
 `
 
-const OCR1TestSpecTemplate = `
+const OCR1TestSpec = `
 type               = "offchainreporting"
 schemaVersion      = 1
-name              = "%s"
-externalJobID       = "%s"
-evmChainID 		   = 0
+name              = "example OCR1 spec"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pBootstrapPeers  = [
 	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
@@ -102,14 +100,14 @@ observationSource = """
 """
 `
 
-const OCR2TestSpecTemplate = `
+const OCR2TestSpec = `
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
-name              = "%s"
+name              = "example OCR2 spec"
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID      = "%s"
+externalJobID      = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
 observationSource  = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];
@@ -128,10 +126,10 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `
-const BootstrapTestSpecTemplate = `
+const BootstrapTestSpec = `
 type				= "bootstrap"
 schemaVersion		= 1
-name              = "%s"
+name              = "example Bootstrap spec"
 contractID			= "0x613a38AC1659769640aaE063C651F48E0250454C"
 relay				= "evm"
 [relayConfig]
@@ -149,7 +147,7 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	legacyChains evm.LegacyChainContainer
+	cc           evm.ChainSet
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -180,15 +178,14 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore := new(ksmocks.Master)
 	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), cc, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -202,7 +199,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		legacyChains: legacyChains,
+		cc:           cc,
 	}
 }
 
@@ -539,68 +536,62 @@ func Test_Service_ProposeJob(t *testing.T) {
 	var (
 		idFluxMonitor         = int64(1)
 		remoteUUIDFluxMonitor = uuid.New()
-		nameAndExternalJobID  = uuid.New()
-		spec                  = fmt.Sprintf(FluxMonitorTestSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
 		argsFluxMonitor       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDFluxMonitor,
-			Spec:           spec,
+			Spec:           FluxMonitorTestSpec,
 			Version:        1,
 		}
 		jpFluxMonitor = feeds.JobProposal{
 			FeedsManagerID: 1,
-			Name:           null.StringFrom(nameAndExternalJobID.String()),
+			Name:           null.StringFrom("example flux monitor spec"),
 			RemoteUUID:     remoteUUIDFluxMonitor,
 			Status:         feeds.JobProposalStatusPending,
 		}
 		specFluxMonitor = feeds.JobProposalSpec{
-			Definition:    spec,
+			Definition:    FluxMonitorTestSpec,
 			Status:        feeds.SpecStatusPending,
 			Version:       argsFluxMonitor.Version,
 			JobProposalID: idFluxMonitor,
 		}
 
-		idOCR1                   = int64(2)
-		remoteUUIDOCR1           = uuid.New()
-		ocr1NameAndExternalJobID = uuid.New()
-		ocr1Spec                 = fmt.Sprintf(OCR1TestSpecTemplate, ocr1NameAndExternalJobID, ocr1NameAndExternalJobID)
-		argsOCR1                 = &feeds.ProposeJobArgs{
+		idOCR1         = int64(2)
+		remoteUUIDOCR1 = uuid.New()
+		argsOCR1       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR1,
-			Spec:           ocr1Spec,
+			Spec:           OCR1TestSpec,
 			Version:        1,
 		}
 		jpOCR1 = feeds.JobProposal{
 			FeedsManagerID: 1,
-			Name:           null.StringFrom(ocr1NameAndExternalJobID.String()),
+			Name:           null.StringFrom("example OCR1 spec"),
 			RemoteUUID:     remoteUUIDOCR1,
 			Status:         feeds.JobProposalStatusPending,
 		}
 		specOCR1 = feeds.JobProposalSpec{
-			Definition:    ocr1Spec,
+			Definition:    OCR1TestSpec,
 			Status:        feeds.SpecStatusPending,
 			Version:       argsOCR1.Version,
 			JobProposalID: idOCR1,
 		}
 
-		idOCR2                   = int64(3)
-		remoteUUIDOCR2           = uuid.New()
-		ocr2NameAndExternalJobID = uuid.New()
-		ocr2Spec                 = fmt.Sprintf(OCR2TestSpecTemplate, ocr2NameAndExternalJobID, ocr2NameAndExternalJobID)
-		argsOCR2                 = &feeds.ProposeJobArgs{
+		idOCR2         = int64(3)
+		remoteUUIDOCR2 = uuid.New()
+		argsOCR2       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDOCR2,
-			Spec:           ocr2Spec,
+			Spec:           OCR2TestSpec,
 			Version:        1,
 		}
 		jpOCR2 = feeds.JobProposal{
 			FeedsManagerID: 1,
-			Name:           null.StringFrom(ocr2NameAndExternalJobID.String()),
+			Name:           null.StringFrom("example OCR2 spec"),
 			RemoteUUID:     remoteUUIDOCR2,
 			Status:         feeds.JobProposalStatusPending,
 		}
 		specOCR2 = feeds.JobProposalSpec{
-			Definition:    ocr2Spec,
+			Definition:    OCR2TestSpec,
 			Status:        feeds.SpecStatusPending,
 			Version:       argsOCR2.Version,
 			JobProposalID: idOCR2,
@@ -608,22 +599,20 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 		idBootstrap         = int64(4)
 		remoteUUIDBootstrap = uuid.New()
-		bootstrapName       = uuid.New()
-		bootstrapSpec       = fmt.Sprintf(BootstrapTestSpecTemplate, bootstrapName)
 		argsBootstrap       = &feeds.ProposeJobArgs{
 			FeedsManagerID: 1,
 			RemoteUUID:     remoteUUIDBootstrap,
-			Spec:           bootstrapSpec,
+			Spec:           BootstrapTestSpec,
 			Version:        1,
 		}
 		jpBootstrap = feeds.JobProposal{
 			FeedsManagerID: 1,
-			Name:           null.StringFrom(bootstrapName.String()),
+			Name:           null.StringFrom("example Bootstrap spec"),
 			RemoteUUID:     remoteUUIDBootstrap,
 			Status:         feeds.JobProposalStatusPending,
 		}
 		specBootstrap = feeds.JobProposalSpec{
-			Definition:    bootstrapSpec,
+			Definition:    BootstrapTestSpec,
 			Status:        feeds.SpecStatusPending,
 			Version:       argsBootstrap.Version,
 			JobProposalID: idBootstrap,
@@ -710,7 +699,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name:   "must be an ocr job to include bootstraps",
 			before: func(svc *TestService) {},
 			args: &feeds.ProposeJobArgs{
-				Spec:       spec,
+				Spec:       FluxMonitorTestSpec,
 				Multiaddrs: pq.StringArray{"/dns4/example.com"},
 			},
 			wantErr: "only OCR job type supports multiaddr",
@@ -824,7 +813,6 @@ func Test_Service_DeleteJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
 				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: approved.ID,
@@ -965,7 +953,6 @@ answer1      [type=median index=0];
 				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
 				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -982,7 +969,6 @@ answer1      [type=median index=0];
 					Definition:    defn,
 				}, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
-				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -1124,16 +1110,16 @@ answer1      [type=median index=0];
 }
 
 func Test_Service_SyncNodeInfo(t *testing.T) {
-	p2pKey := keystest.NewP2PKeyV2(t)
+	p2pKey, err := p2pkey.NewV2()
+	require.NoError(t, err)
 
 	ocrKey, err := ocrkey.NewV2()
 	require.NoError(t, err)
 
 	var (
-		multiaddr     = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
-		mgr           = &feeds.FeedsManager{ID: 1}
-		forwarderAddr = "0x0002"
-		ccfg          = feeds.ChainConfig{
+		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
+		mgr       = &feeds.FeedsManager{ID: 1}
+		ccfg      = feeds.ChainConfig{
 			ID:             100,
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
@@ -1150,10 +1136,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				KeyBundleID: null.StringFrom(ocrKey.GetID()),
 			},
 			OCR2Config: feeds.OCR2ConfigModel{
-				Enabled:          true,
-				IsBootstrap:      true,
-				Multiaddr:        null.StringFrom(multiaddr),
-				ForwarderAddress: null.StringFrom(forwarderAddr),
+				Enabled:     true,
+				IsBootstrap: true,
+				Multiaddr:   null.StringFrom(multiaddr),
 				Plugins: feeds.Plugins{
 					Commit:  true,
 					Execute: true,
@@ -1201,10 +1186,9 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					},
 				},
 				Ocr2Config: &proto.OCR2Config{
-					Enabled:          true,
-					IsBootstrap:      ccfg.OCR2Config.IsBootstrap,
-					Multiaddr:        multiaddr,
-					ForwarderAddress: &forwarderAddr,
+					Enabled:     true,
+					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
+					Multiaddr:   multiaddr,
 					Plugins: &proto.OCR2Config_Plugins{
 						Commit:  ccfg.OCR2Config.Plugins.Commit,
 						Execute: ccfg.OCR2Config.Plugins.Execute,

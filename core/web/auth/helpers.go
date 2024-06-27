@@ -2,7 +2,6 @@ package auth
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -14,12 +13,12 @@ import (
 // so this is ok for now
 func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	_ = c.Error(err).SetType(gin.ErrorTypePublic)
-	var jsonErr *models.JSONAPIErrors
-	if errors.As(err, &jsonErr) {
-		c.JSON(statusCode, jsonErr)
-		return
+	switch v := err.(type) {
+	case *models.JSONAPIErrors:
+		c.JSON(statusCode, v)
+	default:
+		c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
 	}
-	c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
 }
 
 // addForbiddenErrorHeaders adds custom headers to the 403 (Forbidden) response

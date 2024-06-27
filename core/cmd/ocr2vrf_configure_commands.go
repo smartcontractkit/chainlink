@@ -14,8 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -204,12 +202,47 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}
 
 	if useForwarder {
+		// Replace the transmitter ID with the forwarder address.
+		forwarderAddress := c.String("forwarder-address")
+
+		ks := app.GetKeyStore().Eth()
+
 		// Add extra sending keys if using a forwarder.
-		sendingKeys, sendingKeysAddresses, err = s.appendForwarders(chainID, app.GetKeyStore().Eth(), sendingKeys, sendingKeysAddresses)
+		for i := 0; i < forwarderAdditionalEOACount; i++ {
+
+			// Create the sending key in the keystore.
+			k, err := ks.Create()
+			if err != nil {
+				return nil, err
+			}
+
+			// Enable the sending key for the current chain.
+			err = ks.Enable(k.Address, big.NewInt(chainID))
+			if err != nil {
+				return nil, err
+			}
+
+			sendingKeys = append(sendingKeys, k.Address.String())
+			sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
+		}
+
+		// We have to set the authorized senders on-chain here, otherwise the job spawner will fail as the
+		// forwarder will not be recognized.
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
+		f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
+		tx, err := f.SetAuthorizedSenders(owner, sendingKeysAddresses)
 		if err != nil {
 			return nil, err
 		}
-		err = s.authorizeForwarder(c, ldb.DB(), lggr, chainID, ec, owner, sendingKeysAddresses)
+		_, err = bind.WaitMined(ctx, ec, tx)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create forwarder for management in forwarder_manager.go.
+		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
+		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err
 		}
@@ -298,69 +331,14 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 	}, nil
 }
 
-func (s *Shell) appendForwarders(chainID int64, ks keystore.Eth, sendingKeys []string, sendingKeysAddresses []common.Address) ([]string, []common.Address, error) {
-	for i := 0; i < forwarderAdditionalEOACount; i++ {
-		// Create the sending key in the keystore.
-		k, err := ks.Create()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		// Enable the sending key for the current chain.
-		err = ks.Enable(k.Address, big.NewInt(chainID))
-		if err != nil {
-			return nil, nil, err
-		}
-
-		sendingKeys = append(sendingKeys, k.Address.String())
-		sendingKeysAddresses = append(sendingKeysAddresses, k.Address)
-	}
-
-	return sendingKeys, sendingKeysAddresses, nil
-}
-
-func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logger, chainID int64, ec *ethclient.Client, owner *bind.TransactOpts, sendingKeysAddresses []common.Address) error {
-	// Replace the transmitter ID with the forwarder address.
-	forwarderAddress := c.String("forwarder-address")
-
-	// We have to set the authorized senders on-chain here, otherwise the job spawner will fail as the
-	// forwarder will not be recognized.
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-	defer cancel()
-	f, err := authorized_forwarder.NewAuthorizedForwarder(common.HexToAddress(forwarderAddress), ec)
-	if err != nil {
-		return err
-	}
-	tx, err := f.SetAuthorizedSenders(owner, sendingKeysAddresses)
-	if err != nil {
-		return err
-	}
-	_, err = bind.WaitMined(ctx, ec, tx)
-	if err != nil {
-		return err
-	}
-
-	// Create forwarder for management in forwarder_manager.go.
-	orm := forwarders.NewORM(db, lggr, s.Config.Database())
-	_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
-	if err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password()); err != nil {
+	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password())
+	if err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
 	if cli.Config.EVMEnabled() {
-		chains, err := app.GetRelayers().LegacyEVMChains().List()
-		if err != nil {
-			return fmt.Errorf("failed to get legacy evm chains")
-		}
-		for _, ch := range chains {
+		for _, ch := range app.GetChains().EVM.Chains() {
 			if err = keyStore.Eth().EnsureKeys(ch.ID()); err != nil {
 				return errors.Wrap(err, "failed to ensure keystore keys")
 			}
@@ -381,19 +359,19 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 		enabledChains = append(enabledChains, chaintype.StarkNet)
 	}
 
-	if err := keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
+	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 
-	if err := keyStore.DKGSign().EnsureKey(); err != nil {
+	if err = keyStore.DKGSign().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgsign key")
 	}
 
-	if err := keyStore.DKGEncrypt().EnsureKey(); err != nil {
+	if err = keyStore.DKGEncrypt().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgencrypt key")
 	}
 
-	if err := keyStore.P2P().EnsureKey(); err != nil {
+	if err = keyStore.P2P().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 

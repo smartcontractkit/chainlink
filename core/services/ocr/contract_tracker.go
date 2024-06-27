@@ -13,7 +13,6 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -94,12 +93,6 @@ type (
 		LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
 	}
 )
-
-func (t *OCRContractTracker) HealthReport() map[string]error {
-	return map[string]error{t.Name(): t.Healthy()}
-}
-
-func (t *OCRContractTracker) Name() string { return t.logger.Name() }
 
 // NewOCRContractTracker makes a new OCRContractTracker
 func NewOCRContractTracker(
@@ -400,7 +393,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai:
+	case "", config.ChainArbitrum, config.ChainXDai:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

@@ -32,7 +32,7 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Build Chainlink
 
-1. [Install Go 1.21.1](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+1. [Install Go 1.20](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
    - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
@@ -183,7 +183,7 @@ If you do end up modifying the migrations for the database, you will need to rer
 7. Run tests:
 
 ```bash
-go test ./...
+go test -tags test ./...
 ```
 
 #### Notes
@@ -297,8 +297,12 @@ For more tips on how to build and test Chainlink, see our [development tips page
 
 ### Contributing
 
-Contributions are welcome to Chainlink's source code.
+Chainlink's source code is [licensed under the MIT License](./LICENSE), and contributions are welcome.
 
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)

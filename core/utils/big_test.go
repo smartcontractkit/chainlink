@@ -19,7 +19,7 @@ func TestBigFloatMarshal(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		buf, err := json.Marshal(tc.obj)
+		buf, err := json.Marshal(&tc.obj)
 		require.NoError(t, err)
 		assert.Equal(t, tc.exp, string(buf))
 	}

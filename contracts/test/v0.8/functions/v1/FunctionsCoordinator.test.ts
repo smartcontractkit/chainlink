@@ -51,7 +51,7 @@ describe('Functions Coordinator', () => {
 
     it('#fulfillmentGasPriceOverEstimationBP overestimates gas cost', async () => {
       const estimateWithNoOverestimaton =
-        await contracts.coordinator.estimateCost(1, 0x0, 100_000, 2000000000)
+        await contracts.coordinator.estimateCost(1, 0x0, 100_000, 20)
 
       await contracts.coordinator.updateConfig({
         ...coordinatorConfig,
@@ -60,7 +60,7 @@ describe('Functions Coordinator', () => {
 
       // Halve the gas price, which should be the same estimate because of fulfillmentGasPriceOverEstimationBP doubling the gas price
       const estimateWithOverestimaton =
-        await contracts.coordinator.estimateCost(1, 0x0, 100_000, 1000000000)
+        await contracts.coordinator.estimateCost(1, 0x0, 100_000, 10)
 
       expect(estimateWithNoOverestimaton).to.equal(estimateWithOverestimaton)
     })

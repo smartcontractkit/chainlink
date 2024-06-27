@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/feed"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/command/keeper"
 )
 
@@ -33,6 +34,7 @@ func init() {
 	_ = viper.BindPFlag("config", RootCmd.PersistentFlags().Lookup("config"))
 
 	RootCmd.AddCommand(keeper.RootCmd)
+	RootCmd.AddCommand(feed.RootCmd)
 	RootCmd.AddCommand(BootstrapNodeCmd)
 	RootCmd.AddCommand(RevertReasonCmd)
 }

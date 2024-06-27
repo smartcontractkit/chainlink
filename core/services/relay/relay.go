@@ -2,15 +2,18 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"regexp"
+	"math/big"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-type Network = string
-type ChainID = string
+type Network string
 
 var (
 	EVM             Network = "evm"
@@ -25,73 +28,67 @@ var (
 	}
 )
 
-// ID uniquely identifies a relayer by network and chain id
-type ID struct {
-	Network Network
-	ChainID ChainID
+// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
+type RelayerExt interface {
+	services.ServiceCtx
+
+	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+
+	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
+
+	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-func (i *ID) Name() string {
-	return fmt.Sprintf("%s.%s", i.Network, i.ChainID)
+var _ loop.Relayer = (*relayerAdapter)(nil)
+
+// relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
+type relayerAdapter struct {
+	types.Relayer
+	RelayerExt
 }
 
-func (i *ID) String() string {
-	return i.Name()
-}
-func NewID(n Network, c ChainID) ID {
-	return ID{Network: n, ChainID: c}
+// NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }
 
-var idRegex = regexp.MustCompile(
-	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
-)
-
-func (i *ID) UnmarshalString(s string) error {
-	idxs := idRegex.FindStringIndex(s)
-	if idxs == nil {
-		return fmt.Errorf("error unmarshaling Identifier. %q does not match expected pattern", s)
-	}
-	// ignore the `.` in the match by dropping last rune
-	network := s[idxs[0] : idxs[1]-1]
-	chainID := s[idxs[1]:]
-	newID := &ID{ChainID: ChainID(chainID)}
-	for n := range SupportedRelays {
-		if Network(network) == n {
-			newID.Network = n
-			break
-		}
-	}
-	if newID.Network == "" {
-		return fmt.Errorf("error unmarshaling identifier: did not find network in supported list %q", network)
-	}
-	i.ChainID = newID.ChainID
-	i.Network = newID.Network
-	return nil
+func (r *relayerAdapter) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
+	return r.Relayer.NewConfigProvider(rargs)
 }
 
-// ServerAdapter extends [loop.RelayerAdapter] by overriding NewPluginProvider to dispatches calls according to `RelayArgs.ProviderType`.
-// This should only be used to adapt relayers not running via GRPC in a LOOPP.
-type ServerAdapter struct {
-	loop.RelayerAdapter
+func (r *relayerAdapter) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
+	return r.Relayer.NewMedianProvider(rargs, pargs)
 }
 
-// NewServerAdapter returns a new ServerAdapter.
-func NewServerAdapter(r types.Relayer, e loop.RelayerExt) *ServerAdapter {
-	return &ServerAdapter{RelayerAdapter: loop.RelayerAdapter{Relayer: r, RelayerExt: e}}
+func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
+	return r.Relayer.NewMercuryProvider(rargs, pargs)
 }
 
-func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
-	switch types.OCR2PluginType(rargs.ProviderType) {
-	case types.Median:
-		return r.NewMedianProvider(ctx, rargs, pargs)
-	case types.Functions:
-		return r.NewFunctionsProvider(ctx, rargs, pargs)
-	case types.Mercury:
-		return r.NewMercuryProvider(ctx, rargs, pargs)
-	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
-		return r.RelayerAdapter.NewPluginProvider(ctx, rargs, pargs)
-	case types.CCIPCommit, types.CCIPExecution:
-		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
-	}
-	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
+func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
+	return r.Relayer.NewFunctionsProvider(rargs, pargs)
+}
+
+func (r *relayerAdapter) Start(ctx context.Context) error {
+	var ms services.MultiStart
+	return ms.Start(ctx, r.RelayerExt, r.Relayer)
+}
+
+func (r *relayerAdapter) Close() error {
+	return services.CloseAll(r.Relayer, r.RelayerExt)
+}
+
+func (r *relayerAdapter) Name() string {
+	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.RelayerExt.Name())
+}
+
+func (r *relayerAdapter) Ready() (err error) {
+	return errors.Join(r.Relayer.Ready(), r.RelayerExt.Ready())
+}
+
+func (r *relayerAdapter) HealthReport() map[string]error {
+	hr := make(map[string]error)
+	maps.Copy(r.Relayer.HealthReport(), hr)
+	maps.Copy(r.RelayerExt.HealthReport(), hr)
+	return hr
 }

@@ -253,7 +253,7 @@ func (f *FwdMgr) runLoop() {
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				evmlogpoller.Confirmations(f.cfg.FinalityDepth()),
+				int(f.cfg.FinalityDepth()),
 				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {
@@ -322,5 +322,5 @@ func (f *FwdMgr) Close() error {
 }
 
 func (f *FwdMgr) HealthReport() map[string]error {
-	return map[string]error{f.Name(): f.Healthy()}
+	return map[string]error{f.Name(): f.StartStopOnce.Healthy()}
 }

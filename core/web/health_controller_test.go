@@ -40,7 +40,7 @@ func TestHealthController_Readyz(t *testing.T) {
 			app.HealthChecker = healthChecker
 			require.NoError(t, app.Start(testutils.Context(t)))
 
-			client := app.NewHTTPClient(nil)
+			client := app.NewHTTPClient(cltest.APIEmailAdmin)
 			resp, cleanup := client.Get("/readyz")
 			t.Cleanup(cleanup)
 			assert.Equal(t, tc.status, resp.StatusCode)

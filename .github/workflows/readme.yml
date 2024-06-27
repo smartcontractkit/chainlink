@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check for changed files
         id: changedfiles
-        uses: umani/changed-files@d7f842d11479940a6036e3aacc6d35523e6ba978 # Version 4.1.0
+        uses: umani/changed-files@0239328a3a6268aad16af7c3e4efc78e32d6c0f0 # Version 4.0.1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '^(?!.*node_modules).*README\.md$'
@@ -31,7 +31,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

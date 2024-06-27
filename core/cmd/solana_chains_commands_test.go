@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/solanatest"
@@ -16,11 +16,8 @@ func TestShell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
-	cfg := solana.TOMLConfig{
-		ChainID: &id,
-		Enabled: ptr(true),
-	}
-	app := solanaStartNewApplication(t, &cfg)
+	chain := solana.SolanaConfig{ChainID: &id}
+	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.SolanaChainClient(client).IndexChains(cltest.EmptyCLIContext()))

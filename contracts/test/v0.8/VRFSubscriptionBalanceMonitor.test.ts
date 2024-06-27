@@ -2,8 +2,8 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import {
-  LinkToken,
   VRFSubscriptionBalanceMonitorExposed,
+  LinkToken,
 } from '../../typechain'
 import * as h from '../test-helpers/helpers'
 import { BigNumber, Contract } from 'ethers'
@@ -65,10 +65,7 @@ describe('VRFSubscriptionBalanceMonitor', () => {
       'VRFSubscriptionBalanceMonitorExposed',
       owner,
     )
-    const ltFactory = await ethers.getContractFactory(
-      'src/v0.4/LinkToken.sol:LinkToken',
-      owner,
-    )
+    const ltFactory = await ethers.getContractFactory('LinkToken', owner)
 
     const coordinatorFactory = await ethers.getContractFactory(
       'src/v0.8/vrf/VRFCoordinatorV2.sol:VRFCoordinatorV2',

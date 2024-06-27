@@ -36,7 +36,7 @@ func main() {
 
 			_, err := test_env.NewCLTestEnvBuilder().
 				WithGeth().
-				WithMockAdapter().
+				WithMockServer(1).
 				WithCLNodes(6).
 				Build()
 			if err != nil {

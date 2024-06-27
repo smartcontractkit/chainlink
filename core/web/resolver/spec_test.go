@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -516,7 +515,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						Relay:                             relay.EVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
-						PluginType:                        types.Median,
+						PluginType:                        job.Median,
 						PluginConfig:                      pluginConfig,
 					},
 				}, nil)
@@ -779,7 +778,6 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						RunTimeout:                     37 * time.Second,
 						WaitBlocks:                     100,
 						LookbackBlocks:                 200,
-						HeartbeatPeriod:                450 * time.Second,
 						BlockhashStoreAddress:          blockhashStoreAddress,
 						TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
 						TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
@@ -806,7 +804,6 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 									blockhashStoreAddress
 									trustedBlockhashStoreAddress
 									trustedBlockhashStoreBatchSize
-									heartbeatPeriod
 								}
 							}
 						}
@@ -830,8 +827,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"lookbackBlocks": 200,
 							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
 							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
-							"trustedBlockhashStoreBatchSize": 20,
-							"heartbeatPeriod": "7m30s"
+							"trustedBlockhashStoreBatchSize": 20
 						}
 					}
 				}

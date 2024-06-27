@@ -41,16 +41,19 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 	// Create telemetry payloads for different contracts
 	telemPayload1 := synchronization.TelemPayload{
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 1"),
 		ContractID: "0x1",
 		TelemType:  synchronization.OCR,
 	}
 	telemPayload2 := synchronization.TelemPayload{
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 2"),
 		ContractID: "0x2",
 		TelemType:  synchronization.OCR2VRF,
 	}
 	telemPayload3 := synchronization.TelemPayload{
+		Ctx:        testutils.Context(t),
 		Telemetry:  []byte("Mock telem 3"),
 		ContractID: "0x3",
 		TelemType:  synchronization.OCR2Functions,
@@ -87,14 +90,13 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	testCtx := testutils.Context(t)
-	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
-	telemIngressClient.Send(testCtx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
-	telemIngressClient.Send(testCtx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType)
+	telemIngressClient.Send(telemPayload1)
+	telemIngressClient.Send(telemPayload2)
+	telemIngressClient.Send(telemPayload3)
 	time.Sleep(sendInterval * 2)
-	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
-	telemIngressClient.Send(testCtx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
-	telemIngressClient.Send(testCtx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
+	telemIngressClient.Send(telemPayload1)
+	telemIngressClient.Send(telemPayload1)
+	telemIngressClient.Send(telemPayload2)
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {

@@ -1,0 +1,16 @@
+version: '3.5'
+
+services:
+  explorer:
+    container_name: chainlink-explorer
+    image: smartcontract/explorer:${EXPLORER_DOCKER_TAG}
+    entrypoint: yarn workspace @chainlink/explorer dev:compose
+    restart: always
+    ports:
+      - 3001
+    depends_on:
+      - explorer-db
+    environment:
+      - EXPLORER_COOKIE_SECRET
+      - EXPLORER_SERVER_PORT
+      - PGPASSWORD=$EXPLORER_PGPASSWORD

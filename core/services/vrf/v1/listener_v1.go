@@ -416,7 +416,6 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 			"name":          lsn.Job.Name.ValueOrZero(),
 			"publicKey":     lsn.Job.VRFSpec.PublicKey[:],
 			"from":          lsn.fromAddresses(),
-			"evmChainID":    lsn.Job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw.BlockHash[:],
@@ -429,7 +428,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 
 	run := pipeline.NewRun(*lsn.Job.PipelineSpec, vars)
 	// The VRF pipeline has no async tasks, so we don't need to check for `incomplete`
-	if _, err = lsn.PipelineRunner.Run(ctx, run, lggr, true, func(tx pg.Queryer) error {
+	if _, err = lsn.PipelineRunner.Run(ctx, &run, lggr, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.LogBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 			lggr.Errorw("Failed mark consumed", "err", err)

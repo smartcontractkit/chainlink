@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
@@ -48,7 +47,6 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
-				c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 			})
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
@@ -98,7 +96,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-				uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key1.Address, testutils.SimulatedChainID)
+				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -106,8 +104,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Assert the request was fulfilled on-chain.
 			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 			gomega.NewWithT(t).Eventually(func() bool {
-				rfIterator, err2 := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
-				require.NoError(t, err2, "failed to subscribe to RandomnessRequest logs")
+				rfIterator, err := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
+				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 				rf = nil
 				for rfIterator.Next() {
 					rf = append(rf, rfIterator.Event)
@@ -135,7 +133,6 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
-		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
@@ -150,11 +147,11 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Create BHS Job and start it
 	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
-		cu.RootContractAddress.String(), "", "", "", 0, 200, 0, 100)
+		cu.RootContractAddress.String(), "", "", "", 0, 200)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
-	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	// Create a VRF request
 	_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,
@@ -172,19 +169,20 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Wait for the blockhash to be stored
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		cu.Backend.Commit()
-		_, err2 := cu.BHSContract.GetBlockhash(&bind.CallOpts{
+		_, err := cu.BHSContract.GetBlockhash(&bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
 			Context:     nil,
 		}, requestBlock)
-		if err2 == nil {
+		if err == nil {
 			return true
-		} else if strings.Contains(err2.Error(), "execution reverted") {
+		} else if strings.Contains(err.Error(), "execution reverted") {
+			return false
+		} else {
+			t.Fatal(err)
 			return false
 		}
-		t.Fatal(err2)
-		return false
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Wait another 160 blocks so that the request is outside the 256 block window
@@ -214,7 +212,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-		uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key.Address, testutils.SimulatedChainID)
+		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
@@ -243,9 +241,7 @@ func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse,
 		Name:                     "vrf-primary",
 		CoordinatorAddress:       u.RootContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
-		PublicKey:                vrfKey.PublicKey.String(),
-		EVMChainID:               testutils.SimulatedChainID.String(),
-	}).Toml()
+		PublicKey:                vrfKey.PublicKey.String()}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())

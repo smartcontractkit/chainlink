@@ -10,8 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 // NonceSyncer manages the delicate task of syncing the local nonce with the
@@ -21,7 +22,7 @@ import (
 // it to our local value.
 //
 // Usually the on-chain nonce will be the same as (or lower than) the
-// highest sequence in the DB, in which case we do nothing.
+// next_nonce in the DB, in which case we do nothing.
 //
 // If we are restoring from a backup however, or another wallet has used the
 // account, the chain nonce might be higher than our local one. In this
@@ -46,13 +47,14 @@ import (
 //
 // This gives us re-org protection up to EVM.FinalityDepth deep in the
 // worst case, which is in line with our other guarantees.
-var _ txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash, types.Nonce] = &nonceSyncerImpl{}
+var _ txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
 	txStore EvmTxStore
 	client  TxmClient
 	chainID *big.Int
 	logger  logger.Logger
+	kst     KeyStore
 }
 
 // NewNonceSyncer returns a new syncer
@@ -60,6 +62,7 @@ func NewNonceSyncer(
 	txStore EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
+	kst KeyStore,
 ) NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
@@ -67,6 +70,7 @@ func NewNonceSyncer(
 		client:  NewEvmTxmClient(ethClient),
 		chainID: ethClient.ConfiguredChainID(),
 		logger:  lggr,
+		kst:     kst,
 	}
 }
 
@@ -74,33 +78,64 @@ func NewNonceSyncer(
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s nonceSyncerImpl) Sync(ctx context.Context, addr common.Address, localNonce types.Nonce) (nonce types.Nonce, err error) {
-	nonce, err = s.fastForwardNonceIfNecessary(ctx, addr, localNonce)
-	return nonce, errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
+func (s nonceSyncerImpl) Sync(ctx context.Context, addr common.Address) (err error) {
+	err = s.fastForwardNonceIfNecessary(ctx, addr)
+	return errors.Wrap(err, "NonceSyncer#fastForwardNoncesIfNecessary failed")
 }
 
-func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address common.Address, localNonce types.Nonce) (types.Nonce, error) {
+func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, address common.Address) error {
 	chainNonce, err := s.pendingNonceFromEthClient(ctx, address)
 	if err != nil {
-		return localNonce, errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
+		return errors.Wrap(err, "GetNextNonce failed to loadInitialNonceFromEthClient")
 	}
 	if chainNonce == 0 {
-		return localNonce, nil
+		return nil
 	}
-	if chainNonce <= localNonce {
-		return localNonce, nil
+
+	keyNextNonce, err := s.kst.NextSequence(address, s.chainID, pg.WithParentCtx(ctx))
+	if err != nil {
+		return err
+	}
+
+	localNonce := keyNextNonce
+	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(address, s.chainID, pg.WithParentCtx(ctx))
+
+	if err != nil {
+		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())
+	} else if hasInProgressTransaction {
+		// If we have an 'in_progress' transaction, our keys.next_nonce will be
+		// one lower than it should because we must have crashed mid-execution.
+		// The EthBroadcaster will automatically take care of this and
+		// increment it by one later, for now we just increment by one here.
+		localNonce++
+	}
+	if chainNonce <= uint64(localNonce) {
+		return nil
 	}
 	s.logger.Warnw(fmt.Sprintf("address %s has been used before, either by an external wallet or a different Chainlink node. "+
 		"Local nonce is %v but the on-chain nonce for this account was %v. "+
 		"It's possible that this node was restored from a backup. If so, transactions sent by the previous node will NOT be re-org protected and in rare cases may need to be manually bumped/resubmitted. "+
 		"Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and can lead to missed or stuck transactions. ",
 		address, localNonce, chainNonce),
-		"address", address.String(), "localNonce", localNonce, "chainNonce", chainNonce)
+		"address", address.String(), "keyNextNonce", keyNextNonce, "localNonce", localNonce, "chainNonce", chainNonce)
 
-	return chainNonce, nil
+	// Need to remember to decrement the chain nonce by one to account for in_progress transaction
+	newNextNonce := int64(chainNonce)
+	if hasInProgressTransaction {
+		newNextNonce--
+	}
+
+	err = s.txStore.UpdateKeyNextSequence(evmtypes.Nonce(newNextNonce), keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
+
+	if errors.Is(err, ErrKeyNotUpdated) {
+		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())
+	} else if err == nil {
+		s.logger.Infow("Fast-forwarded nonce", "address", address, "newNextNonce", newNextNonce, "oldNextNonce", keyNextNonce)
+	}
+	return err
 }
 
-func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (types.Nonce, error) {
+func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (uint64, error) {
 	nextNonce, err := s.client.PendingSequenceAt(ctx, account)
-	return nextNonce, errors.WithStack(err)
+	return uint64(nextNonce), errors.WithStack(err)
 }

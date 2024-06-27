@@ -5,11 +5,8 @@ import {ITypeAndVersion} from "../interfaces/ITypeAndVersion.sol";
 
 abstract contract OCR2Abstract is ITypeAndVersion {
   // Maximum number of oracles the offchain reporting protocol is designed for
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 internal constant maxNumOracles = 31;
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 private constant prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 private constant prefix = 0x0001 << (256 - 16); // 0x000100..00
 
   /**

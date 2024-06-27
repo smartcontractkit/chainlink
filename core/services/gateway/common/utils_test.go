@@ -26,10 +26,6 @@ func TestUtils_StringAlignedBytesConversions(t *testing.T) {
 	data := common.StringToAlignedBytes(val, 40)
 	require.Equal(t, val, common.AlignedBytesToString(data))
 
-	val = "0123456789"
-	data = common.StringToAlignedBytes(val, 10)
-	require.Equal(t, val, common.AlignedBytesToString(data))
-
 	val = "世界"
 	data = common.StringToAlignedBytes(val, 40)
 	require.Equal(t, val, common.AlignedBytesToString(data))

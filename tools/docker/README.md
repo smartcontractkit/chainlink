@@ -25,6 +25,7 @@ Acceptance can be accomplished by using the `acceptance` command.
 ./compose acceptance
 ```
 
+- The explorer can be reached at `http://localhost:8080`
 - The chainlink node can be reached at `http://localhost:6688`
 
 Credentials for logging into the operator-ui can be found [here](../../tools/secrets/apicredentials)
@@ -34,7 +35,7 @@ Credentials for logging into the operator-ui can be found [here](../../tools/sec
 ### Doing local development on the core node
 
 Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
-The `cld` command will bring up the services that a chainlink node needs to connect to (parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repository bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
+The `cld` command will bring up the services that a chainlink node needs to connect to (explorer, parity/geth, postgres), and then attach the users terminal to a docker container containing the host's chainlink repository bind-mounted inside the container at `/usr/local/src/chainlink`. What this means is that any changes made within the host's repository will be synchronized to the container, and vice versa for changes made within the container at `/usr/local/src/chainlink`.
 
 This enables a user to make quick changes on either the container or the host, run `cldev` within the attached container, check the new behaviour of the re-built node, and repeat this process until the desired results are achieved.
 
@@ -150,7 +151,7 @@ echo "ALLOW_ORIGINS=http://localhost:1337" > chainlink-variables.env
 The `logs` command will allow you to follow the logs of any running service. For example:
 
 ```bash
-./compose up node # starts the node service and all it's dependencies, including devnet, the DB...
+./compose up node # starts the node service and all it's dependencies, including devnet, explorer, the DB...
 ./compose logs devnet # shows the blockchain logs
 # ^C to exit
 ./compose logs # shows the combined logs of all running services
@@ -216,7 +217,7 @@ The docker env contains direnv, so whatever changes you make locally to your (bi
 docker build ./tools/docker/ -t chainlink-develop:latest -f ./tools/docker/develop.Dockerfile
 # create the image
 docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev chainlink-develop:latest
-# if you want to access the db, chain, node, or from the host... expose the relevant ports
+# if you want to access the db, chain, node, or explorer from the host... expose the relevant ports
 # This could also be used in case you want to run some services in the container, and others directly
 # on the host
 docker container create -v /home/ryan/chainlink/chainlink:/root/chainlink --name chainlink-dev -p 5432:5432 -p 6688:6688 -p 6689:6689 -p 3000:3000 -p 3001:3001 -p 8545:8545 -p 8546:8546 chainlink-develop:latest

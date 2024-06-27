@@ -2,11 +2,11 @@ package blockhashstore
 
 import (
 	"context"
-	"crypto/rand"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/rand"
 )
 
 type TestCoordinator struct {

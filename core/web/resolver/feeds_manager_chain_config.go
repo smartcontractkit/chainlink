@@ -111,10 +111,6 @@ func (r *OCR2JobConfigResolver) Multiaddr() *string {
 	return r.cfg.Multiaddr.Ptr()
 }
 
-func (r *OCR2JobConfigResolver) ForwarderAddress() *string {
-	return r.cfg.ForwarderAddress.Ptr()
-}
-
 func (r *OCR2JobConfigResolver) P2PPeerID() *string {
 	return r.cfg.P2PPeerID.Ptr()
 }

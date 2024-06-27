@@ -14,10 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -147,8 +145,6 @@ type Job struct {
 	BootstrapSpecID               *int32
 	GatewaySpec                   *GatewaySpec
 	GatewaySpecID                 *int32
-	EALSpec                       *EALSpec
-	EALSpecID                     *int32
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError
@@ -302,6 +298,18 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
+func (r JSONConfig) EVMChainID() (int64, error) {
+	i, ok := r["chainID"]
+	if !ok {
+		return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+	}
+	f, ok := i.(float64)
+	if !ok {
+		return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
+	}
+	return int64(f), nil
+}
+
 func (r JSONConfig) MercuryCredentialName() (string, error) {
 	url, ok := r["mercuryCredentialName"]
 	if !ok {
@@ -314,84 +322,50 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
+var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
+
+// OCR2PluginType defines supported OCR2 plugin types.
+type OCR2PluginType string
+
+const (
+	// Median refers to the median.Median type
+	Median OCR2PluginType = "median"
+
+	DKG OCR2PluginType = "dkg"
+
+	OCR2VRF OCR2PluginType = "ocr2vrf"
+
+	// Keeper was rebranded to automation. For now the plugin type required in job spec points
+	// to the new name (automation) but in code we refer it to keepers
+	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
+	OCR2Keeper OCR2PluginType = "ocr2automation"
+
+	OCR2Functions OCR2PluginType = "functions"
+
+	Mercury OCR2PluginType = "mercury"
+)
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID         int32         `toml:"-"`
-	ContractID string        `toml:"contractID"`
-	FeedID     *common.Hash  `toml:"feedID"`
-	Relay      relay.Network `toml:"relay"`
-	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
-	ChainID                           string               `toml:"chainID"`
-	RelayConfig                       JSONConfig           `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray       `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String          `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
-	PluginType                        types.OCR2PluginType `toml:"pluginType"`
-	CreatedAt                         time.Time            `toml:"-"`
-	UpdatedAt                         time.Time            `toml:"-"`
-	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
-}
-
-func validateRelayID(id relay.ID) error {
-	// only the EVM has specific requirements
-	if id.Network == relay.EVM {
-		_, err := toml.ChainIDInt64(id.ChainID)
-		if err != nil {
-			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
-		}
-	}
-	return nil
-}
-
-func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
-	cid, err := s.getChainID()
-	if err != nil {
-		return relay.ID{}, err
-	}
-	rid := relay.NewID(s.Relay, cid)
-	err = validateRelayID(rid)
-	if err != nil {
-		return relay.ID{}, err
-	}
-	return rid, nil
-}
-
-func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
-	if s.ChainID != "" {
-		return relay.ChainID(s.ChainID), nil
-	}
-	// backward compatible job spec
-	return s.getChainIdFromRelayConfig()
-}
-
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
-
-	v, exists := s.RelayConfig["chainID"]
-	if !exists {
-		return "", fmt.Errorf("chainID does not exist")
-	}
-	switch t := v.(type) {
-	case string:
-		return relay.ChainID(t), nil
-	case int, int64, int32:
-		return relay.ChainID(fmt.Sprintf("%d", v)), nil
-	case float64:
-		// backward compatibility with JSONConfig.EVMChainID
-		i := int64(t)
-		return relay.ChainID(strconv.FormatInt(i, 10)), nil
-
-	default:
-		return "", fmt.Errorf("unable to parse chainID: unexpected type %T", t)
-	}
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	FeedID                            *common.Hash    `toml:"feedID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String     `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
+	PluginType                        OCR2PluginType  `toml:"pluginType"`
+	CreatedAt                         time.Time       `toml:"-"`
+	UpdatedAt                         time.Time       `toml:"-"`
+	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -574,12 +548,6 @@ type BlockhashStoreSpec struct {
 
 	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
-
-	// HeartbeatPeriodTime defines the number of seconds by which we "heartbeat store"
-	// a blockhash into the blockhash store contract.
-	// This is so that we always have a blockhash to anchor to in the event we need to do a
-	// backwards mode on the contract.
-	HeartbeatPeriod time.Duration `toml:"heartbeatPeriod"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
@@ -773,34 +741,4 @@ func (s *GatewaySpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
-}
-
-// EALSpec defines the job spec for the gas station.
-type EALSpec struct {
-	ID int32
-
-	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
-	// and forwards requests to target contracts
-	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
-
-	// EVMChainID defines the chain ID from which the meta-transaction request originates.
-	EVMChainID *utils.Big `toml:"evmChainID"`
-
-	// FromAddress is the sender address that should be used to send meta-transactions
-	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
-
-	// LookbackBlocks defines the maximum age of blocks to lookback in status tracker
-	LookbackBlocks int32 `toml:"lookbackBlocks"`
-
-	// PollPeriod defines how frequently EAL status tracker runs
-	PollPeriod time.Duration `toml:"pollPeriod"`
-
-	// RunTimeout defines the timeout for a single run of EAL status tracker
-	RunTimeout time.Duration `toml:"runTimeout"`
-
-	// CreatedAt is the time this job was created.
-	CreatedAt time.Time `toml:"-"`
-
-	// UpdatedAt is the time this job was last updated.
-	UpdatedAt time.Time `toml:"-"`
 }

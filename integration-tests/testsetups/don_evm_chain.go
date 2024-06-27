@@ -3,7 +3,6 @@ package testsetups
 import (
 	"testing"
 
-	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	e "github.com/smartcontractkit/chainlink-env/environment"
@@ -26,7 +25,6 @@ type DonChain struct {
 	LinkTokenContract contracts.LinkToken
 	ChainlinkNodes    []*client.ChainlinkK8sClient
 	Mockserver        *ctfClient.MockserverClient
-	l                 zerolog.Logger
 }
 
 type DonChainConfig struct {
@@ -37,11 +35,10 @@ type DonChainConfig struct {
 	ChainlinkValues map[string]interface{}
 }
 
-func NewDonChain(conf *DonChainConfig, logger zerolog.Logger) *DonChain {
+func NewDonChain(conf *DonChainConfig) *DonChain {
 	return &DonChain{
 		conf:       conf,
 		EVMNetwork: conf.EVMNetwork,
-		l:          logger,
 	}
 }
 
@@ -62,10 +59,10 @@ func (s *DonChain) Deploy() {
 func (s *DonChain) initializeClients() {
 	var err error
 	network := *s.conf.EVMNetwork
-	s.EVMClient, err = blockchain.NewEVMClient(network, s.conf.Env, s.l)
+	s.EVMClient, err = blockchain.NewEVMClient(network, s.conf.Env)
 	require.NoError(s.conf.T, err, "Connecting to blockchain nodes shouldn't fail")
 
-	s.ContractDeployer, err = contracts.NewContractDeployer(s.EVMClient, s.l)
+	s.ContractDeployer, err = contracts.NewContractDeployer(s.EVMClient)
 	require.NoError(s.conf.T, err)
 
 	s.ChainlinkNodes, err = client.ConnectChainlinkNodes(s.conf.Env)

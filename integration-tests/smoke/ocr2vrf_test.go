@@ -13,8 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -23,20 +21,21 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -90,15 +89,15 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
-	l := logging.GetTestLogger(t)
+	l := utils.GetTestLogger(t)
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -159,22 +158,21 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		})
 	}
 
-	cd := chainlink.New(0, map[string]interface{}{
-		"replicas": 6,
+	cd, err := chainlink.NewDeployment(6, map[string]interface{}{
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
 			testNetwork,
 		),
 	})
-
+	require.NoError(t, err, "Error creating Chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(cd)
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 
 	require.NoError(t, err, "Error running test environment")
 

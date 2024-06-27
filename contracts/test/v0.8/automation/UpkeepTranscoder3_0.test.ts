@@ -127,9 +127,7 @@ before(async () => {
   )
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
-  )
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
@@ -164,8 +162,9 @@ async function deployLegacyRegistry1_2(
 ) {
   const mock = await upkeepMockFactory.deploy()
   // @ts-ignore bug in autogen file
-  const keeperRegistryFactory =
-    await ethers.getContractFactory('KeeperRegistry1_2')
+  const keeperRegistryFactory = await ethers.getContractFactory(
+    'KeeperRegistry1_2',
+  )
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   const legacyRegistry = await keeperRegistryFactory
     .connect(owner)

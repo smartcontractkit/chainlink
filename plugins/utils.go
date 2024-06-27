@@ -19,7 +19,7 @@ func NewCmdFactory(register func(id string) (*RegisteredLoop, error), lcfg CmdCo
 	}
 	return func() *exec.Cmd {
 		cmd := exec.Command(lcfg.Cmd) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-		cmd.Env = append(cmd.Env, registeredLoop.EnvCfg.AsCmdEnv()...)
+		SetCmdEnvFromConfig(cmd, registeredLoop.EnvCfg)
 		return cmd
 	}, nil
 }

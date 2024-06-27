@@ -28,7 +28,7 @@ import { toWei } from '../../test-helpers/helpers'
 
 const BYTECODE = KeeperRegistryFactory.bytecode
 const BYTECODE_CHECKSUM =
-  '0x8e465b93eae52724b7edbef5bc133c96520dad33f959373e5d026549ca40158c'
+  '0x35bd8b5535ae41d43d47b0a9a9e11e9942bdd51daa4ec6a9e563276f4f75ea32'
 
 describe('KeeperRegistry1_2 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
@@ -67,9 +67,7 @@ let personas: Personas
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
-  )
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',

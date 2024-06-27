@@ -1,6 +1,7 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined and use the Foundry snapshots. 
-ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared
+# profile defined. Adding a product to this list will make it available for
+# snapshotting.
+ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -12,11 +13,9 @@ ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared
 #		make snapshot
 # make call example
 # 		make FOUNDRY_PROFILE=llo-feeds snapshot
-# note make snapshot skips fuzz tests named according to best practices, although forge uses
-# a static fuzz seed by default, flaky gas results per platform are still observed.
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 .PHONY: snapshot-all
 snapshot-all: ## Make a snapshot for all products.
@@ -32,18 +31,6 @@ pnpmdep: ## Install solidity contract dependencies through pnpm
 abigen: ## Build & install abigen.
 	../tools/bin/build_abigen
 
-.PHONY: mockery
-mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
-
-.PHONY: foundry
-foundry: ## Install foundry.
-	foundryup --version nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
-
-.PHONY: foundry-refresh
-foundry-refresh: foundry
-	git submodule deinit -f .
-	git submodule update --init --recursive
 
 # To generate gethwrappers for a specific product, either set the `FOUNDRY_PROFILE`
 # env var or call the target with `FOUNDRY_PROFILE=product`
@@ -56,7 +43,7 @@ foundry-refresh: foundry
 # make call example
 # 		make FOUNDRY_PROFILE=llo-feeds wrappers
 .PHONY: wrappers
-wrappers: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
+wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
 	go generate ../core/gethwrappers/$(FOUNDRY_PROFILE)
 
@@ -64,7 +51,7 @@ wrappers: pnpmdep mockery abigen ## Recompiles solidity contracts and their go w
 # assumption that native_solc_compile_all contains sub-calls to each product, and
 # go_generate does the same.
 .PHONY: wrappers-all
-wrappers-all: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
+wrappers-all: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	# go_generate contains a call to  compile all contracts before generating wrappers
 	go generate ../core/gethwrappers/go_generate.go
 

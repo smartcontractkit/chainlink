@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -23,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
@@ -96,18 +93,18 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
 	orm := newORM(t, db, cfg.Database(), nil)
 
 	address := testutils.NewAddress()
 	var roundID uint32 = 1
 
 	jb := makeJob(t)
-	require.NoError(t, jobORM.CreateJob(jb))
+	err := jobORM.CreateJob(jb)
+	require.NoError(t, err)
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
@@ -163,7 +160,6 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
-			EVMChainID:        (*utils.Big)(testutils.FixtureChainID),
 		},
 	}
 }
@@ -181,14 +177,13 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		txm = txmmocks.NewMockEvmTxManager(t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
-		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint32(21000)
 	)
-	idempotencyKey := uuid.New().String()
-	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
-		IdempotencyKey: &idempotencyKey,
+
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
@@ -197,5 +192,5 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 
-	require.NoError(t, orm.CreateEthTransaction(testutils.Context(t), from, to, payload, gasLimit, &idempotencyKey))
+	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

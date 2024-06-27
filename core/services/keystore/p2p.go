@@ -22,6 +22,8 @@ type P2P interface {
 	Export(id p2pkey.PeerID, password string) ([]byte, error)
 	EnsureKey() error
 
+	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
+
 	GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error)
 }
 
@@ -148,6 +150,21 @@ func (ks *p2p) EnsureKey() error {
 	ks.logger.Infof("Created P2P key with ID %s", key.ID())
 
 	return ks.safeAddKey(key)
+}
+
+func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
+	v1Keys, err := ks.orm.GetEncryptedV1P2PKeys()
+	if err != nil {
+		return keys, err
+	}
+	for _, keyV1 := range v1Keys {
+		pk, err := keyV1.Decrypt(ks.password)
+		if err != nil {
+			return keys, err
+		}
+		keys = append(keys, pk.ToV2())
+	}
+	return keys, nil
 }
 
 var (

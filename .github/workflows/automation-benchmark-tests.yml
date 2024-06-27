@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 2.5.0
+        default: 2.0.0
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
@@ -97,7 +97,7 @@ jobs:
             done
           done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ env.REF_NAME }}
       - name: Build Test Image
@@ -107,7 +107,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
@@ -128,7 +128,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

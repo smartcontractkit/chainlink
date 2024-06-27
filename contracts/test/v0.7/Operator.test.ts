@@ -1024,8 +1024,9 @@ describe('Operator', () => {
           .deploy(link.address, operator.address, specId)
         const paymentAmount = toWei('1')
         await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-        const tx =
-          await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount)
+        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+          paymentAmount,
+        )
         const receipt = await tx.wait()
         request = decodeRunRequest(receipt.logs?.[3])
       })
@@ -1479,8 +1480,9 @@ describe('Operator', () => {
             .deploy(link.address, operator.address, specId)
           const paymentAmount = toWei('1')
           await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-          const tx =
-            await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount)
+          const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+            paymentAmount,
+          )
           const receipt = await tx.wait()
           request = decodeRunRequest(receipt.logs?.[3])
         })
@@ -2085,8 +2087,9 @@ describe('Operator', () => {
               .deploy(link.address, operator.address, specId)
             const paymentAmount = toWei('1')
             await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-            const tx =
-              await gasGuzzlingConsumer.gassyMultiWordRequest(paymentAmount)
+            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(
+              paymentAmount,
+            )
             const receipt = await tx.wait()
             request = decodeRunRequest(receipt.logs?.[3])
           })
@@ -2601,8 +2604,9 @@ describe('Operator', () => {
               .deploy(link.address, operator.address, specId)
             const paymentAmount = toWei('1')
             await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-            const tx =
-              await gasGuzzlingConsumer.gassyMultiWordRequest(paymentAmount)
+            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(
+              paymentAmount,
+            )
             const receipt = await tx.wait()
             request = decodeRunRequest(receipt.logs?.[3])
           })

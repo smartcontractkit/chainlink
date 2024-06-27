@@ -12,7 +12,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -21,18 +21,13 @@ jobs:
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
-              - 'contracts/test/v0.8/foundry/**/*'
               - '.github/workflows/solidity-foundry.yml'
-              - 'contracts/foundry.toml'
-              - 'contracts/gas-snapshots/*.gas-snapshot'
-              - '.gitmodules'
-              - 'contracts/foundry-lib'
+              - 'contacts/foundry.toml'
 
   tests:
     strategy:
-      fail-fast: false
       matrix:
-        product: [vrf, automation, llo-feeds, functions, shared]
+        product: [ vrf, automation, llo-feeds, functions, automation-dev, shared ]
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
     name: Tests
@@ -41,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           submodules: recursive
 
@@ -54,8 +49,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          # Has to match the `make foundry` version.
-          version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
+          version: nightly
 
       - name: Run Forge build
         run: |
@@ -75,9 +69,8 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) }}
         run: |
-          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+          forge snapshot --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
         working-directory: contracts
         env:
@@ -86,7 +79,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

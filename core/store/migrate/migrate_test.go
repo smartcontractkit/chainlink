@@ -1,8 +1,6 @@
 package migrate_test
 
 import (
-	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -12,24 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var migrationDir = "migrations"
@@ -363,7 +350,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	require.NoError(t, err)
 
 	type PluginValues struct {
-		PluginType   types.OCR2PluginType
+		PluginType   job.OCR2PluginType
 		PluginConfig job.JSONConfig
 	}
 
@@ -373,7 +360,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	err = db.Get(&pluginValues, sql)
 	require.NoError(t, err)
 
-	require.Equal(t, types.Median, pluginValues.PluginType)
+	require.Equal(t, job.Median, pluginValues.PluginType)
 	require.Equal(t, job.JSONConfig{"juelsPerFeeCoinSource": spec.JuelsPerFeeCoinPipeline}, pluginValues.PluginConfig)
 
 	err = goose.Down(db.DB, migrationDir)
@@ -412,170 +399,4 @@ func TestMigrate(t *testing.T) {
 	ver, err = migrate.Current(db.DB, lggr)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
-}
-
-func TestSetMigrationENVVars(t *testing.T) {
-	t.Run("ValidEVMConfig", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
-		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			evmEnabled := true
-			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
-				ChainID: chainID,
-				Enabled: &evmEnabled,
-			}}
-		})
-
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
-
-		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
-		require.Equal(t, actualChainID, chainID.String())
-	})
-
-	t.Run("EVMConfigMissing", func(t *testing.T) {
-		chainID := utils.NewBig(big.NewInt(1337))
-		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
-
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
-
-		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
-		require.Equal(t, actualChainID, chainID.String())
-	})
-}
-
-func TestDatabaseBackFillWithMigration202(t *testing.T) {
-	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
-
-	err := goose.UpTo(db.DB, migrationDir, 201)
-	require.NoError(t, err)
-
-	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 10, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 51, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 90, time.Now(), 0), err)
-	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 120, time.Now(), 23), err)
-
-	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, baseOrm.InsertBlock(testutils.Random32Byte(), 400, time.Now(), 0), err)
-
-	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
-	require.NoError(t, klaytnOrm.InsertBlock(testutils.Random32Byte(), 100, time.Now(), 0), err)
-
-	err = goose.UpTo(db.DB, migrationDir, 202)
-	require.NoError(t, err)
-
-	tests := []struct {
-		name                   string
-		blockNumber            int64
-		expectedFinalizedBlock int64
-		orm                    *logpoller.DbORM
-	}{
-		{
-			name:                   "last finalized block not changed if finality is too deep",
-			blockNumber:            10,
-			expectedFinalizedBlock: 0,
-			orm:                    simulatedOrm,
-		},
-		{
-			name:                   "last finalized block is updated for first block",
-			blockNumber:            51,
-			expectedFinalizedBlock: 1,
-			orm:                    simulatedOrm,
-		},
-		{
-			name:                   "last finalized block is updated",
-			blockNumber:            90,
-			expectedFinalizedBlock: 40,
-			orm:                    simulatedOrm,
-		},
-		{
-			name:                   "last finalized block is not changed when finality is set",
-			blockNumber:            120,
-			expectedFinalizedBlock: 23,
-			orm:                    simulatedOrm,
-		},
-		{
-			name:                   "use non default finality depth for chain 84531",
-			blockNumber:            400,
-			expectedFinalizedBlock: 200,
-			orm:                    baseOrm,
-		},
-		{
-			name:                   "use default finality depth for chain 1001",
-			blockNumber:            100,
-			expectedFinalizedBlock: 99,
-			orm:                    klaytnOrm,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			block, err := tt.orm.SelectBlockByNumber(tt.blockNumber)
-			require.NoError(t, err)
-			require.Equal(t, tt.expectedFinalizedBlock, block.FinalizedBlockNumber)
-		})
-	}
-}
-
-func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
-	previousMigration := int64(201)
-	backfillMigration := int64(202)
-	chainCount := 2
-	// By default, log poller keeps up to 100_000 blocks in the database, this is the pessimistic case
-	maxLogsSize := 100_000
-	// Disable Goose logging for benchmarking
-	goose.SetLogger(goose.NopLogger())
-	_, db := heavyweight.FullTestDBEmptyV2(b, migrationDir, nil)
-
-	err := goose.UpTo(db.DB, migrationDir, previousMigration)
-	require.NoError(b, err)
-
-	q := pg.NewQ(db, logger.NullLogger, pgtest.NewQConfig(true))
-	for j := 0; j < chainCount; j++ {
-		// Insert 100_000 block to database, can't do all at once, so batching by 10k
-		var blocks []logpoller.LogPollerBlock
-		for i := 0; i < maxLogsSize; i++ {
-			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           utils.NewBigI(int64(j + 1)),
-				BlockHash:            testutils.Random32Byte(),
-				BlockNumber:          int64(i + 1000),
-				FinalizedBlockNumber: 0,
-			})
-		}
-		batchInsertSize := 10_000
-		for i := 0; i < maxLogsSize; i += batchInsertSize {
-			start, end := i, i+batchInsertSize
-			if end > maxLogsSize {
-				end = maxLogsSize
-			}
-
-			err = q.ExecQNamed(`
-			INSERT INTO evm.log_poller_blocks
-				(evm_chain_id, block_hash, block_number, finalized_block_number, block_timestamp, created_at)
-			VALUES 
-				(:evm_chain_id, :block_hash, :block_number, :finalized_block_number, NOW(), NOW())
-			ON CONFLICT DO NOTHING`, blocks[start:end])
-			require.NoError(b, err)
-		}
-	}
-
-	b.ResetTimer()
-
-	// 1. Measure time of migration 200
-	// 2. Goose down to 199
-	// 3. Reset last_finalized_block_number to 0
-	// Repeat 1-3
-	for i := 0; i < b.N; i++ {
-		b.StartTimer()
-		err = goose.UpTo(db.DB, migrationDir, backfillMigration)
-		require.NoError(b, err)
-		b.StopTimer()
-
-		// Cleanup
-		err = goose.DownTo(db.DB, migrationDir, previousMigration)
-		require.NoError(b, err)
-
-		err = q.ExecQ(`
-			UPDATE evm.log_poller_blocks
-			SET finalized_block_number = 0`)
-		require.NoError(b, err)
-	}
 }

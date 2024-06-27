@@ -1,11 +1,5 @@
 package synchronization
 
-import (
-	"context"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-)
-
 // TelemetryType defines supported telemetry types
 type TelemetryType string
 
@@ -23,18 +17,3 @@ const (
 	OCR2VRF           TelemetryType = "ocr2-vrf"
 	AutomationCustom  TelemetryType = "automation-custom"
 )
-
-type TelemPayload struct {
-	Telemetry  []byte
-	TelemType  TelemetryType
-	ContractID string
-}
-
-// TelemetryService encapsulates all the functionality needed to
-// send telemetry to the ingress server using wsrpc
-//
-//go:generate mockery --quiet --name TelemetryService --output ./mocks --case=underscore
-type TelemetryService interface {
-	services.ServiceCtx
-	Send(ctx context.Context, telemetry []byte, contractID string, telemType TelemetryType)
-}

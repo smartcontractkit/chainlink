@@ -19,16 +19,12 @@ type TestNodePoolConfig struct {
 	NodePollInterval         time.Duration
 	NodeSelectionMode        string
 	NodeSyncThreshold        uint32
-	NodeLeaseDuration        time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
 func (tc TestNodePoolConfig) PollInterval() time.Duration  { return tc.NodePollInterval }
 func (tc TestNodePoolConfig) SelectionMode() string        { return tc.NodeSelectionMode }
 func (tc TestNodePoolConfig) SyncThreshold() uint32        { return tc.NodeSyncThreshold }
-func (tc TestNodePoolConfig) LeaseDuration() time.Duration {
-	return tc.NodeLeaseDuration
-}
 
 func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -54,7 +50,7 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 		sendonlys = append(sendonlys, s)
 	}
 
-	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), nodePoolCfg.LeaseDuration(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
+	pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
 	c := &client{logger: lggr, pool: pool}
 	t.Cleanup(c.Close)
 	return c, nil

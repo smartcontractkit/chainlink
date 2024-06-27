@@ -347,7 +347,6 @@ name = "ocr2-automation"
 forwardingAllowed = false
 schemaVersion = 1
 contractID = "%s"
-contractConfigTrackerPollInterval = "15s"
 ocrKeyBundleID = "%s"
 transmitterID = "%s"
 p2pv2Bootstrappers = [
@@ -359,8 +358,6 @@ chainID = %d
 
 [pluginConfig]
 maxServiceWorkers = 100
-cacheEvictionInterval = "1s"
-contractVersion = "%s"
 mercuryCredentialName = "%s"`
 
 // createOCR2KeeperJob creates an ocr2keeper job in the chainlink node by the given address
@@ -370,12 +367,6 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
 	}
 
-	// Correctly assign contract version in OCR job spec.
-	var contractVersion string = "v2.0"
-	if k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
-		contractVersion = "v2.1"
-	}
-
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: fmt.Sprintf(ocr2keeperJobTemplate,
 			contractAddr,            // contractID
@@ -383,7 +374,6 @@ func (k *Keeper) createOCR2KeeperJob(client cmd.HTTPClient, contractAddr, nodeAd
 			nodeAddr,                // transmitterID - node wallet address
 			k.cfg.BootstrapNodeAddr, // bootstrap node key and address
 			k.cfg.ChainID,           // chainID
-			contractVersion,         // contractVersion
 			k.cfg.MercuryCredName,   // mercury credential name
 		),
 	})

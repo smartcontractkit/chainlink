@@ -2,13 +2,10 @@ package cmd_test
 
 import (
 	"bytes"
-	_ "embed"
 	"flag"
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -296,13 +293,6 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-//go:embed direct-request-spec-template.yml
-var directRequestSpecTemplate string
-
-func getDirectRequestSpec() string {
-	return fmt.Sprintf(directRequestSpecTemplate, uuid.New(), uuid.New())
-}
-
 func TestShell_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
@@ -315,7 +305,7 @@ func TestShell_ListFindJobs(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
@@ -341,7 +331,7 @@ func TestShell_ShowJob(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
@@ -358,9 +348,6 @@ func TestShell_ShowJob(t *testing.T) {
 	job := *r.Renders[0].(*cmd.JobPresenter)
 	assert.Equal(t, createOutput.ID, job.ID)
 }
-
-//go:embed ocr-bootstrap-spec.yml
-var ocrBootstrapSpec string
 
 func TestShell_CreateJobV2(t *testing.T) {
 	t.Parallel()
@@ -384,9 +371,7 @@ func TestShell_CreateJobV2(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	nameAndExternalJobID := uuid.New()
-	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
-	require.NoError(t, fs.Parse([]string{spec}))
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
@@ -415,7 +400,7 @@ func TestShell_DeleteJob(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	require.NoError(t, fs.Parse([]string{getDirectRequestSpec()}))
+	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)

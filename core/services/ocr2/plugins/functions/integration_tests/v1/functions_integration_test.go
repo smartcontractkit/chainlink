@@ -44,7 +44,7 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	b.Commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, nil, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, subscriptionId, 1*time.Minute)
 }
 
 func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
@@ -72,7 +72,6 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 			RequestCountLimit:         50,
 			RequestTotalBytesLimit:    50_000,
 			RequireLocalRequestCheck:  true,
-			K:                         2,
 		},
 	}
 
@@ -91,7 +90,7 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, utils.ExportedOcr2Keystores, utils.MockThresholdKeyShares)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, nil, nil)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
@@ -101,16 +100,6 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
-		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
-			// approximately 750 bytes per test ciphertext + overhead
-			MaxQueryLengthBytes:       70_000,
-			MaxObservationLengthBytes: 70_000,
-			MaxReportLengthBytes:      70_000,
-			RequestCountLimit:         50,
-			RequestTotalBytesLimit:    50_000,
-			RequireLocalRequestCheck:  true,
-			K:                         2,
-		},
 	}
 
 	// set config for both coordinators
@@ -118,11 +107,11 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	utils.SetOracleConfig(t, b, owner, proposed.Contract, oracleIdentities, batchSize, &pluginConfig)
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, subscriptionId, 1*time.Minute)
 
 	// upgrade and send requests again
 	_, err := routerContract.UpdateContracts(owner)
 	require.NoError(t, err)
 	b.Commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, subscriptionId, 1*time.Minute)
 }

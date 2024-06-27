@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IOwnable} from "../interfaces/IOwnable.sol";
+import "../interfaces/IOwnable.sol";
 
 /**
  * @title The ConfirmedOwner contract
@@ -15,7 +15,6 @@ contract ConfirmedOwnerWithProposal is IOwnable {
   event OwnershipTransferred(address indexed from, address indexed to);
 
   constructor(address newOwner, address pendingOwner) {
-    // solhint-disable-next-line custom-errors
     require(newOwner != address(0), "Cannot set owner to zero");
 
     s_owner = newOwner;
@@ -36,7 +35,6 @@ contract ConfirmedOwnerWithProposal is IOwnable {
    * @notice Allows an ownership transfer to be completed by the recipient.
    */
   function acceptOwnership() external override {
-    // solhint-disable-next-line custom-errors
     require(msg.sender == s_pendingOwner, "Must be proposed owner");
 
     address oldOwner = s_owner;
@@ -57,7 +55,6 @@ contract ConfirmedOwnerWithProposal is IOwnable {
    * @notice validate, transfer ownership, and emit relevant events
    */
   function _transferOwnership(address to) private {
-    // solhint-disable-next-line custom-errors
     require(to != msg.sender, "Cannot transfer to self");
 
     s_pendingOwner = to;
@@ -69,7 +66,6 @@ contract ConfirmedOwnerWithProposal is IOwnable {
    * @notice validate access
    */
   function _validateOwnership() internal view {
-    // solhint-disable-next-line custom-errors
     require(msg.sender == s_owner, "Only callable by owner");
   }
 

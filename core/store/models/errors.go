@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -50,13 +49,12 @@ func (jae *JSONAPIErrors) Add(detail string) {
 // Merge combines the arrays of the passed error if it is of type JSONAPIErrors,
 // otherwise simply adds a single error with the error string as detail.
 func (jae *JSONAPIErrors) Merge(e error) {
-	var jsonErr *JSONAPIErrors
-	if errors.As(e, &jsonErr) {
-		jae.Errors = append(jae.Errors, jsonErr.Errors...)
-		return
+	switch typed := e.(type) {
+	case *JSONAPIErrors:
+		jae.Errors = append(jae.Errors, typed.Errors...)
+	default:
+		jae.Add(e.Error())
 	}
-	jae.Add(e.Error())
-
 }
 
 // CoerceEmptyToNil will return nil if JSONAPIErrors has no errors.

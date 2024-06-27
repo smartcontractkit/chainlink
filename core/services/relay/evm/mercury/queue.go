@@ -1,13 +1,13 @@
 package mercury
 
 import (
+	"container/heap"
 	"context"
 	"errors"
 	"fmt"
 	"sync"
 	"time"
 
-	heap "github.com/esote/minmaxheap"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -59,6 +59,11 @@ type TransmitQueue struct {
 type Transmission struct {
 	Req       *pb.TransmitRequest    // the payload to transmit
 	ReportCtx ocrtypes.ReportContext // contains priority information (latest epoch/round wins)
+
+	// The index is needed by update and is maintained by the heap.Interface
+	// methods
+	// It should NOT be set manually
+	index int // the index of the item in the heap
 }
 
 // maxlen controls how many items will be stored in the queue
@@ -92,13 +97,13 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
 		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
-		removed := heap.PopMax(tq.pq)
+		removed := heap.Remove(tq.pq, tq.pq.Len()-1)
 		if transmission, ok := removed.(*Transmission); ok {
 			tq.asyncDeleter.AsyncDelete(transmission.Req)
 		}
 	}
 
-	heap.Push(tq.pq, &Transmission{req, reportCtx})
+	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})
 	tq.cond.Signal()
 
 	return true
@@ -226,10 +231,6 @@ func (pq priorityQueue) Less(i, j int) bool {
 		pq[i].ReportCtx.ReportTimestamp.Round > pq[j].ReportCtx.ReportTimestamp.Round
 }
 
-func (pq priorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-}
-
 func (pq *priorityQueue) Pop() any {
 	n := len(*pq)
 	if n == 0 {
@@ -237,11 +238,21 @@ func (pq *priorityQueue) Pop() any {
 	}
 	old := *pq
 	item := old[n-1]
-	old[n-1] = nil // avoid memory leak
+	old[n-1] = nil  // avoid memory leak
+	item.index = -1 // for safety
 	*pq = old[0 : n-1]
 	return item
 }
 
 func (pq *priorityQueue) Push(x any) {
-	*pq = append(*pq, x.(*Transmission))
+	n := len(*pq)
+	item := x.(*Transmission)
+	item.index = n
+	*pq = append(*pq, item)
+}
+
+func (pq priorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+	pq[i].index = i
+	pq[j].index = j
 }

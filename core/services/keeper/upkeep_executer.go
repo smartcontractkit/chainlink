@@ -223,7 +223,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, head *evmtypes.Head
 	ex.job.PipelineSpec.DotDagSource = pipeline.KeepersObservationSource
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
 
-	if _, err := ex.pr.Run(ctxService, run, svcLogger, true, nil); err != nil {
+	if _, err := ex.pr.Run(ctxService, &run, svcLogger, true, nil); err != nil {
 		svcLogger.Error(errors.Wrap(err, "failed executing run"))
 		return
 	}

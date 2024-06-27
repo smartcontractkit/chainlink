@@ -6,13 +6,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 	"log"
 	"math/big"
 	"os"
 	"strings"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -350,7 +349,7 @@ func main() {
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
 		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
-		v2scripts.DeployBatchBHS(e, common.HexToAddress(*bhsAddr))
+		scripts.DeployBatchBHS(e, common.HexToAddress(*bhsAddr))
 	case "batch-bhs-store":
 		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
@@ -387,7 +386,7 @@ func main() {
 		helpers.PanicErr(err)
 		blockRange, err := blockhashstore.DecreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
-		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange, true)
+		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange)
 		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(e.Owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
@@ -418,19 +417,12 @@ func main() {
 		}
 
 		if *startBlock == -1 {
-			closestBlock, err2 := v2scripts.ClosestBlock(e, common.HexToAddress(*batchAddr), uint64(*endBlock), uint64(*batchSize))
-			// found a block with blockhash stored that's more recent that end block
-			if err2 == nil {
-				*startBlock = int64(closestBlock)
-			} else {
-				fmt.Println("encountered error while looking for closest block:", err2)
-				tx, err2 := bhs.StoreEarliest(e.Owner)
-				helpers.PanicErr(err2)
-				receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
-				// storeEarliest will store receipt block number minus 256 which is the earliest block
-				// the blockhash() instruction will work on.
-				*startBlock = receipt.BlockNumber.Int64() - 256
-			}
+			tx, err2 := bhs.StoreEarliest(e.Owner)
+			helpers.PanicErr(err2)
+			receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
+			// storeEarliest will store receipt block number minus 256 which is the earliest block
+			// the blockhash() instruction will work on.
+			*startBlock = receipt.BlockNumber.Int64() - 256
 		}
 
 		// Check if the provided start block is in the BHS. If it's not, print out an appropriate
@@ -469,7 +461,7 @@ func main() {
 			fmt.Println("using gas price", e.Owner.GasPrice, "wei")
 
 			blockNumbers := blockRange[i:j]
-			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers, true)
+			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 
@@ -483,7 +475,6 @@ func main() {
 			helpers.PanicErr(err)
 
 			fmt.Println("received receipt, continuing")
-			fmt.Println("there are", len(blockRange)-j, "blocks left to store")
 		}
 		fmt.Println("done")
 	case "latest-head":
@@ -491,14 +482,14 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
-		v2scripts.DeployBHS(e)
+		scripts.DeployBHS(e)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
 		coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
 		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
 		helpers.ParseArgs(coordinatorDeployCmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		v2scripts.DeployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
+		scripts.DeployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -507,7 +498,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2scripts.PrintCoordinatorConfig(coordinator)
+		scripts.PrintCoordinatorConfig(coordinator)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -530,7 +521,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2scripts.SetCoordinatorConfig(
+		scripts.SetCoordinatorConfig(
 			e,
 			*coordinator,
 			uint16(*minConfs),
@@ -564,7 +555,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		v2scripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+		scripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -692,14 +683,14 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
 	case "deploy-universe":
-		v2scripts.DeployUniverseViaCLI(e)
+		scripts.DeployUniverseViaCLI(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		helpers.ParseArgs(consumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
 
-		v2scripts.EoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
+		scripts.EoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
 	case "eoa-load-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -716,7 +707,7 @@ func main() {
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
-		v2scripts.EoaLoadTestConsumerWithMetricsDeploy(e, *consumerCoordinator)
+		scripts.EoaLoadTestConsumerWithMetricsDeploy(e, *consumerCoordinator)
 	case "eoa-vrf-owner-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-vrf-owner-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -734,7 +725,7 @@ func main() {
 		helpers.ParseArgs(createSubCmd, os.Args[2:], "coordinator-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		v2scripts.EoaCreateSub(e, *coordinator)
+		scripts.EoaCreateSub(e, *coordinator)
 	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
@@ -743,7 +734,7 @@ func main() {
 		helpers.ParseArgs(addSubConsCmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		v2scripts.EoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
+		scripts.EoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -1029,7 +1020,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2scripts.EoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
+		scripts.EoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -1197,7 +1188,7 @@ func main() {
 		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address")
-		v2scripts.WrapperDeploy(e,
+		scripts.WrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
@@ -1235,7 +1226,7 @@ func main() {
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
 
-		v2scripts.WrapperConfigure(e,
+		scripts.WrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
 			*coordinatorGasOverhead,
@@ -1267,7 +1258,7 @@ func main() {
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "wrapper-address")
 
-		v2scripts.WrapperConsumerDeploy(e,
+		scripts.WrapperConsumerDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*wrapperAddress))
 	case "wrapper-consumer-request":
@@ -1338,16 +1329,8 @@ func main() {
 		blockNumber := cmd.Int("block-number", -1, "block number")
 		helpers.ParseArgs(cmd, os.Args[2:])
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
-	case "closest-block":
-		cmd := flag.NewFlagSet("closest-block", flag.ExitOnError)
-		blockNumber := cmd.Uint64("block-number", 0, "block number")
-		batchBHSAddress := cmd.String("batch-bhs-address", "", "address of the batch blockhash store")
-		batchSize := cmd.Uint64("batch-size", 100, "batch size")
-		helpers.ParseArgs(cmd, os.Args[2:], "block-number", "batch-bhs-address")
-		_, err := v2scripts.ClosestBlock(e, common.HexToAddress(*batchBHSAddress), *blockNumber, *batchSize)
-		helpers.PanicErr(err)
 	case "wrapper-universe-deploy":
-		v2scripts.DeployWrapperUniverse(e)
+		scripts.DeployWrapperUniverse(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

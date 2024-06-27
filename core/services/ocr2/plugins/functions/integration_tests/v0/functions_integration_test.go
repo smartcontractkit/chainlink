@@ -69,7 +69,6 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 			RequestCountLimit:         50,
 			RequestTotalBytesLimit:    50_000,
 			RequireLocalRequestCheck:  true,
-			K:                         2,
 		},
 	}
 

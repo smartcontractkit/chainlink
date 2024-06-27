@@ -54,11 +54,6 @@ type httpServer struct {
 	lggr              logger.Logger
 }
 
-const (
-	HealthCheckPath     = "/health"
-	HealthCheckResponse = "OK"
-)
-
 func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	server := &httpServer{
@@ -69,7 +64,6 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 	}
 	mux := http.NewServeMux()
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
-	mux.Handle(HealthCheckPath, http.HandlerFunc(server.handleHealthCheck))
 	server.server = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", config.Host, config.Port),
 		Handler:           mux,
@@ -79,14 +73,6 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 		WriteTimeout:      time.Duration(config.WriteTimeoutMillis) * time.Millisecond,
 	}
 	return server
-}
-
-func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(HealthCheckResponse))
-	if err != nil {
-		s.lggr.Debug("error when writing response for healthcheck", err)
-	}
 }
 
 func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {

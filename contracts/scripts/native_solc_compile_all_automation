@@ -27,20 +27,21 @@ compileContract () {
 }
 
 compileContract automation/upkeeps/CronUpkeepFactory.sol
-compileContract automation/v1_2/KeeperRegistrar1_2.sol
-compileContract automation/v1_2/KeeperRegistry1_2.sol
-compileContract automation/v1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
-compileContract automation/v1_3/KeeperRegistry1_3.sol
-compileContract automation/v1_3/KeeperRegistryLogic1_3.sol
-compileContract automation/v2_0/KeeperRegistrar2_0.sol
-compileContract automation/v2_0/KeeperRegistry2_0.sol
-compileContract automation/v2_0/KeeperRegistryLogic2_0.sol
+compileContract automation/1_2/KeeperRegistrar1_2.sol
+compileContract automation/1_2/KeeperRegistry1_2.sol
+compileContract automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+compileContract automation/1_3/KeeperRegistry1_3.sol
+compileContract automation/1_3/KeeperRegistryLogic1_3.sol
+compileContract automation/2_0/KeeperRegistrar2_0.sol
+compileContract automation/2_0/KeeperRegistry2_0.sol
+compileContract automation/2_0/KeeperRegistryLogic2_0.sol
 compileContract automation/UpkeepTranscoder.sol
 compileContract automation/mocks/MockAggregatorProxy.sol
-compileContract automation/testhelpers/LogUpkeepCounter.sol
+compileContract dev/automation/tests/LogUpkeepCounter.sol
 
-compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
-compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
+# Keepers x VRF v2
+compileContract KeepersVRFConsumer.sol
+
 
 SOLC_VERSION="0.8.16"
 
@@ -49,20 +50,19 @@ solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
 # v0.8.16
-compileContract automation/v2_1/AutomationRegistrar2_1.sol
-compileContract automation/v2_1/KeeperRegistry2_1.sol
-compileContract automation/v2_1/KeeperRegistryLogicA2_1.sol
-compileContract automation/v2_1/KeeperRegistryLogicB2_1.sol
-compileContract automation/interfaces/v2_1/IKeeperRegistryMaster.sol
-compileContract automation/interfaces/ILogAutomation.sol
-compileContract automation/v2_1/AutomationUtils2_1.sol
-compileContract automation/v2_1/AutomationForwarderLogic.sol
-compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
-compileContract automation/testhelpers/DummyProtocol.sol
-compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
+compileContract dev/automation/2_1/AutomationRegistrar2_1.sol
+compileContract dev/automation/2_1/KeeperRegistry2_1.sol
+compileContract dev/automation/2_1/KeeperRegistryLogicA2_1.sol
+compileContract dev/automation/2_1/KeeperRegistryLogicB2_1.sol
+compileContract dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
+compileContract dev/automation/2_1/interfaces/ILogAutomation.sol
+compileContract dev/automation/2_1/AutomationUtils2_1.sol
+compileContract dev/automation/2_1/AutomationForwarderLogic.sol
+compileContract dev/automation/tests/LogTriggeredFeedLookup.sol
+compileContract dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
 
 compileContract tests/VerifiableLoadUpkeep.sol
-compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol
+compileContract tests/VerifiableLoadMercuryUpkeep.sol
 compileContract tests/VerifiableLoadLogTriggerUpkeep.sol
 compileContract tests/AutomationConsumerBenchmark.sol
-compileContract tests/StreamsLookupUpkeep.sol
+compileContract tests/MercuryUpkeep.sol

@@ -12,6 +12,8 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -19,13 +21,13 @@ const (
 )
 
 func main() {
-	s := loop.MustNewStartedServer(loggerName)
+	s := plugins.StartServer(loggerName)
 	defer s.Stop()
 
-	p := &pluginRelayer{Plugin: loop.Plugin{Logger: s.Logger}}
+	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p)
+	s.MustRegister(p.Name(), p)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -47,7 +49,7 @@ func main() {
 }
 
 type pluginRelayer struct {
-	loop.Plugin
+	plugins.Base
 }
 
 // NewRelayer implements the Loopp factory method used by the Loopp server to instantiate a starknet relayer
@@ -58,22 +60,21 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Starknet starknet.StarknetConfig
+		Starknet starknet.StarknetConfigs
 	}
 	if err := d.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
+		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
-	opts := starknet.ChainOpts{
+	chainSet, err := starknet.NewChainSet(starknet.ChainSetOpts{
 		Logger:   c.Logger,
 		KeyStore: loopKs,
-	}
-
-	chain, err := starknet.NewChain(&cfg.Starknet, opts)
+		Configs:  starknet.NewConfigs(cfg.Starknet),
+	}, cfg.Starknet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := &loop.RelayerAdapter{Relayer: pkgstarknet.NewRelayer(c.Logger, chain), RelayerExt: chain}
+	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chainSet), chainSet)
 
 	c.SubService(ra)
 

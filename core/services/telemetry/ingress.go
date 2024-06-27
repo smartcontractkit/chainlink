@@ -11,36 +11,38 @@ import (
 var _ MonitoringEndpointGenerator = &IngressAgentWrapper{}
 
 type IngressAgentWrapper struct {
-	telemetryIngressClient synchronization.TelemetryService
+	telemetryIngressClient synchronization.TelemetryIngressClient
 }
 
-func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryService) *IngressAgentWrapper {
+func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryIngressClient) *IngressAgentWrapper {
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType, network string, chainID string) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgent(t.telemetryIngressClient, contractID, telemType, network, chainID)
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
+	return NewIngressAgent(t.telemetryIngressClient, contractID, telemType)
 }
 
 type IngressAgent struct {
-	telemetryIngressClient synchronization.TelemetryService
+	telemetryIngressClient synchronization.TelemetryIngressClient
 	contractID             string
 	telemType              synchronization.TelemetryType
-	network                string
-	chainID                string
 }
 
-func NewIngressAgent(telemetryIngressClient synchronization.TelemetryService, contractID string, telemType synchronization.TelemetryType, network string, chainID string) *IngressAgent {
+func NewIngressAgent(telemetryIngressClient synchronization.TelemetryIngressClient, contractID string, telemType synchronization.TelemetryType) *IngressAgent {
 	return &IngressAgent{
 		telemetryIngressClient,
 		contractID,
 		telemType,
-		network,
-		chainID,
 	}
 }
 
 // SendLog sends a telemetry log to the ingress server
 func (t *IngressAgent) SendLog(telemetry []byte) {
-	t.telemetryIngressClient.Send(context.Background(), telemetry, t.contractID, t.telemType)
+	payload := synchronization.TelemPayload{
+		Ctx:        context.Background(),
+		Telemetry:  telemetry,
+		ContractID: t.contractID,
+		TelemType:  t.telemType,
+	}
+	t.telemetryIngressClient.Send(payload)
 }

@@ -13,14 +13,14 @@ import (
 	"go.uber.org/multierr"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
 var (
-	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
+	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
 )
 
 // VRFTaskV2Plus is identical to VRFTaskV2 except that it uses the V2Plus VRF

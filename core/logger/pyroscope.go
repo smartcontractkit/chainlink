@@ -3,7 +3,7 @@ package logger
 import (
 	"runtime"
 
-	"github.com/grafana/pyroscope-go"
+	"github.com/pyroscope-io/client/pyroscope"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/static"

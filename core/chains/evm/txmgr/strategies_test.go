@@ -10,8 +10,9 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func Test_SendEveryStrategy(t *testing.T) {
@@ -21,7 +22,7 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	n, err := s.PruneQueue(testutils.Context(t), nil)
+	n, err := s.PruneQueue(nil, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), n)
 }
@@ -39,6 +40,7 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 
 func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	subject := uuid.New()
 	queueSize := uint32(2)
@@ -47,8 +49,8 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 
 	t.Run("calls PrineUnstartedTxQueue for the given subject and queueSize, ignoring fromAddress", func(t *testing.T) {
 		strategy1 := txmgrcommon.NewDropOldestStrategy(subject, queueSize, queryTimeout)
-		mockTxStore.On("PruneUnstartedTxQueue", mock.Anything, queueSize, subject, mock.Anything, mock.Anything).Once().Return(int64(2), nil)
-		n, err := strategy1.PruneQueue(testutils.Context(t), mockTxStore)
+		mockTxStore.On("PruneUnstartedTxQueue", queueSize, subject, mock.Anything, mock.Anything).Once().Return(int64(2), nil)
+		n, err := strategy1.PruneQueue(mockTxStore, pg.WithQueryer(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 	})

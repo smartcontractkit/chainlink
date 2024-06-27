@@ -1,16 +1,24 @@
-import { $, cd, glob, fs } from "zx";
+import {$, cd, glob, fs} from "zx";
 import path from "node:path";
-import { setOutput } from "@actions/core";
-import { SolidityConfig, SoliditySplit } from "./types.mjs";
-import { sieveSlowTests } from "./sieve.mjs";
-import { simpleSplit } from "./splitter.mjs";
+import {summary, setOutput} from "@actions/core";
+import {
+  GolangConfig,
+  SolidityConfig,
+  GoSplits,
+  Tests,
+  SoliditySplit,
+  TestsBySplit,
+} from "./types.mjs";
+import {sieveSlowTests} from "./sieve.mjs";
+import {simpleSplit} from "./splitter.mjs";
+import { getPackageList, GetGoPackagesReturn } from "../src/handlers/golang.mjs";
 
 /**
  * Get a JSON formatted config file
  *
  * @param path The path to the config relative to the git root
  */
-function getConfigFrom(path?: string): SolidityConfig {
+function getConfigFrom(path?: string): GolangConfig | SolidityConfig {
   if (!path) {
     throw Error("No config path given, specify a path via $CONFIG");
   }
@@ -29,7 +37,9 @@ async function main() {
   await runAtGitRoot();
   const configPath = process.env.CONFIG;
   const config = getConfigFrom(configPath);
-  if (config.type === "solidity") {
+  if (config.type === "golang") {
+    await handleGolang(config);
+  } else if (config.type === "solidity") {
     await handleSolidity(config);
   } else {
     throw Error(`Invalid config given`);
@@ -37,17 +47,23 @@ async function main() {
 }
 main();
 
+async function handleGolang(config: GolangConfig) {
+  const p: GetGoPackagesReturn = getPackageList(config)
+  setOutput("splits", p.serializedSplits);
+  createSummary(p.packages, p.testsBySplit, p.splits);
+}
+
 async function handleSolidity(config: SolidityConfig) {
-  const { basePath, splits: configBySplit } = config;
+  const {basePath, splits: configBySplit} = config;
   const splits = await Promise.all(
     configBySplit.map(
-      async ({ dir, numOfSplits, slowTests: slowTestMatchers }) => {
+      async ({dir, numOfSplits, slowTests: slowTestMatchers}) => {
         const globPath = path.join(basePath, dir, "/**/*.test.ts");
         const rawTests = await glob(globPath);
         const pathMappedTests = rawTests.map((r) =>
           r.replace("contracts/", "")
         );
-        const { filteredTests, slowTests } = sieveSlowTests(
+        const {filteredTests, slowTests} = sieveSlowTests(
           pathMappedTests,
           slowTestMatchers
         );
@@ -66,6 +82,53 @@ async function handleSolidity(config: SolidityConfig) {
 
   const serializedSplits = JSON.stringify(splits.flat());
   setOutput("splits", serializedSplits);
+}
+
+function createSummary(
+  packages: Tests,
+  packagesBySplit: TestsBySplit,
+  splits: GoSplits
+) {
+  if (!process.env.CI) {
+    return;
+  }
+  const numberOfPackages = packages.length;
+  const numberOfSplits = packagesBySplit.length;
+  const postProcessedNumberOfPackages = packagesBySplit.flat().length;
+
+  summary
+    .addHeading("Spliting Summary")
+    .addHeading(
+      `Number of packages from "go list ./...": ${numberOfPackages}`,
+      3
+    )
+    .addHeading(
+      `Number of packages placed into splits: ${postProcessedNumberOfPackages}`,
+      3
+    )
+    .addHeading(`Number of splits created: ${numberOfSplits}`, 3)
+    .addBreak()
+    .addTable([
+      [
+        {data: "Split Number", header: true},
+        {data: "Packages Tested", header: true},
+      ],
+      ...splits.map((p) => {
+        const mappedPackages = p.pkgs
+          .split(" ")
+          .map(
+            (packageName) =>
+              `<li> ${packageName.replace(
+                "github.com/smartcontractkit/",
+                ""
+              )} </li>`
+          )
+          .join("\n");
+
+        return [p.id, mappedPackages];
+      }),
+    ])
+    .write();
 }
 
 async function runAtGitRoot() {

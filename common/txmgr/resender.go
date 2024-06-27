@@ -139,7 +139,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfi
 	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	for _, k := range enabledAddresses {
 		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		attempts, err = er.txStore.FindTxAttemptsRequiringResend(er.ctx, olderThan, maxInFlightTransactions, er.chainID, k)
+		attempts, err = er.txStore.FindTxAttemptsRequiringResend(olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return fmt.Errorf("failed to FindTxAttemptsRequiringResend: %w", err)
 		}
@@ -163,7 +163,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfi
 
 	// update broadcast times before checking additional errors
 	if len(txIDs) > 0 {
-		if updateErr := er.txStore.UpdateBroadcastAts(er.ctx, broadcastTime, txIDs); updateErr != nil {
+		if updateErr := er.txStore.UpdateBroadcastAts(broadcastTime, txIDs); updateErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to update broadcast time: %w", updateErr))
 		}
 	}

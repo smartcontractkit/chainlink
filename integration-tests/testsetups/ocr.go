@@ -4,7 +4,7 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"math"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -22,9 +22,8 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -33,21 +32,19 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
-const (
-	saveFileLocation    = "/persistence/ocr-soak-test-state.toml"
-	interruptedExitCode = 3
-)
+const saveFileLocation = "/persistence/ocr-soak-test-state.toml"
 
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
@@ -117,11 +114,12 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		t:              t,
 		startTime:      time.Now(),
 		timeLeft:       testInputs.TestDuration,
-		log:            logging.GetTestLogger(t),
+		log:            utils.GetTestLogger(t),
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
-	return test, test.ensureInputValues()
+	test.ensureInputValues()
+	return test, nil
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
@@ -133,20 +131,18 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 	baseEnvironmentConfig := &environment.Config{
-		TTL:                time.Hour * 720, // 30 days,
-		NamespacePrefix:    nsPre,
-		Test:               o.t,
-		PreventPodEviction: true,
+		TTL:             time.Hour * 720, // 30 days,
+		NamespacePrefix: nsPre,
+		Test:            o.t,
 	}
 
-	cd := chainlink.New(0, map[string]any{
-		"replicas": 6,
-		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customChainlinkNetworkTOML, network),
+	cd, err := chainlink.NewDeployment(6, map[string]any{
+		"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customChainlinkNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
 	})
-
+	require.NoError(o.t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.New(baseEnvironmentConfig).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
@@ -155,8 +151,8 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
 		})).
-		AddHelm(cd)
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(o.t, err, "Error launching test environment")
 	o.testEnvironment = testEnvironment
 	o.namespace = testEnvironment.Cfg.Namespace
@@ -168,7 +164,7 @@ func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServ
 		network = networks.SelectedNetwork
 		err     error
 	)
-	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
+	o.chainClient, err = blockchain.ConnectEVMClient(network)
 	require.NoError(o.t, err, "Error connecting to EVM client")
 	chainlinkNodes, err := client.ConnectChainlinkNodeURLs(chainlinkURLs)
 	require.NoError(o.t, err, "Error connecting to chainlink nodes")
@@ -187,12 +183,11 @@ func (o *OCRSoakTest) Setup() {
 		err     error
 		network = networks.SelectedNetwork
 	)
-
 	// Environment currently being used to soak test on
 	// Make connections to soak test resources
-	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment, o.log)
+	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
 	require.NoError(o.t, err, "Error creating EVM client")
-	contractDeployer, err := contracts.NewContractDeployer(o.chainClient, o.log)
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
 	require.NoError(o.t, err, "Unable to create contract deployer")
 	require.NotNil(o.t, contractDeployer, "Contract deployer shouldn't be nil")
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
@@ -210,7 +205,7 @@ func (o *OCRSoakTest) Setup() {
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	if o.OperatorForwarderFlow {
-		contractLoader, err := contracts.NewContractLoader(o.chainClient, o.log)
+		contractLoader, err := contracts.NewContractLoader(o.chainClient)
 		require.NoError(o.t, err, "Loading contracts shouldn't fail")
 
 		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
@@ -266,9 +261,9 @@ func (o *OCRSoakTest) Run() {
 
 	startingValue := 5
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.chainClient.GetChainID().String())
+		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
 	} else {
-		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.chainClient.GetChainID().String())
+		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
@@ -278,7 +273,6 @@ func (o *OCRSoakTest) Run() {
 		Msg("Starting OCR Soak Test")
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
-	o.complete()
 }
 
 // Networks returns the networks that the test is running on
@@ -362,7 +356,7 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 
 	testState := &OCRSoakTestState{}
-	saveData, err := os.ReadFile(saveFileLocation)
+	saveData, err := ioutil.ReadFile(saveFileLocation)
 	if err != nil {
 		return err
 	}
@@ -388,11 +382,11 @@ func (o *OCRSoakTest) LoadState() error {
 	o.startingBlockNum = testState.StartingBlockNum
 
 	network := networks.SelectedNetwork
-	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
+	o.chainClient, err = blockchain.ConnectEVMClient(network)
 	if err != nil {
 		return err
 	}
-	contractDeployer, err := contracts.NewContractDeployer(o.chainClient, o.log)
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
 	if err != nil {
 		return err
 	}
@@ -427,10 +421,7 @@ func (o *OCRSoakTest) Resume() {
 		StartTime: time.Now(),
 		Message:   "Test Resumed",
 	})
-	o.log.Info().
-		Str("Total Duration", o.Inputs.TestDuration.String()).
-		Str("Time Left", o.timeLeft.String()).
-		Msg("Resuming OCR Soak Test")
+	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
 
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -450,7 +441,7 @@ func (o *OCRSoakTest) Resume() {
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 
 	err = o.collectEvents()
-	o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
@@ -472,7 +463,6 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
-	o.setFilterQuery()
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
@@ -488,8 +478,8 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			if err := o.SaveState(); err != nil {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
-			o.log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
-			os.Exit(interruptedExitCode) // Exit with interrupted code to indicate test was interrupted, not just a normal failure
+			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			os.Exit(1)
 		case <-endTest:
 			return
 		case <-newRoundTrigger.C:
@@ -523,19 +513,10 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	}
 }
 
-// completes the test
-func (o *OCRSoakTest) complete() {
-	o.log.Info().Msg("Test Complete, collecting on-chain events")
-
-	err := o.collectEvents()
-	if err != nil {
-		o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
-	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
-}
-
-// setFilterQuery to look for all events that happened
-func (o *OCRSoakTest) setFilterQuery() {
+// observeOCREvents subscribes to OCR events and logs them to the test logger
+// WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
+func (o *OCRSoakTest) observeOCREvents() error {
+	// set the filter query to listen for AnswerUpdated events on all OCR contracts
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
 		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
@@ -547,31 +528,23 @@ func (o *OCRSoakTest) setFilterQuery() {
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
-	o.log.Debug().
-		Interface("Addresses", ocrAddresses).
-		Str("Topic", contractABI.Events["AnswerUpdated"].ID.Hex()).
-		Uint64("Starting Block", o.startingBlockNum).
-		Msg("Filter Query Set")
-}
 
-// observeOCREvents subscribes to OCR events and logs them to the test logger
-// WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
-func (o *OCRSoakTest) observeOCREvents() error {
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
-	cancel()
 	if err != nil {
 		return err
 	}
 
 	go func() {
+		defer cancel()
 		for {
 			select {
 			case event := <-eventLogs:
 				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
 				if err != nil {
-					o.log.Warn().
+					log.Warn().
 						Err(err).
 						Str("Address", event.Address.Hex()).
 						Uint64("Block Number", event.BlockNumber).
@@ -585,20 +558,13 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Int64("Answer", answerUpdated.Current.Int64()).
 					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
-				backoff := time.Second
 				for err != nil {
-					o.log.Info().
+					o.log.Trace().
 						Err(err).
-						Str("Backoff", backoff.String()).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
-					ctx, cancel = context.WithTimeout(context.Background(), backoff)
+					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
-					cancel()
-					if err != nil {
-						time.Sleep(backoff)
-						backoff = time.Duration(math.Min(float64(backoff)*2, float64(30*time.Second)))
-					}
 				}
 			}
 		}
@@ -642,19 +608,18 @@ func (o *OCRSoakTest) collectEvents() error {
 	o.log.Info().Msg("Collecting on-chain events")
 
 	// We must retrieve the events, use exponential backoff for timeout to retry
-	timeout := time.Second * 15
-	o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
-	cancel()
+	var (
+		contractEvents []types.Log
+		err            error
+		timeout        = time.Second * 15
+	)
 	for err != nil {
-		o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 		cancel()
 		if err != nil {
-			o.log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
+			log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
 			timeout *= 2
 		}
 	}

@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -50,18 +49,18 @@ import (
 )
 
 type vrfUniverse struct {
-	jrm          job.ORM
-	pr           pipeline.Runner
-	prm          pipeline.ORM
-	lb           *log_mocks.Broadcaster
-	ec           *evmclimocks.Client
-	ks           keystore.Master
-	vrfkey       vrfkey.KeyV2
-	submitter    common.Address
-	txm          *txmmocks.MockEvmTxManager
-	hb           httypes.HeadBroadcaster
-	legacyChains evm.LegacyChainContainer
-	cid          big.Int
+	jrm       job.ORM
+	pr        pipeline.Runner
+	prm       pipeline.ORM
+	lb        *log_mocks.Broadcaster
+	ec        *evmclimocks.Client
+	ks        keystore.Master
+	vrfkey    vrfkey.KeyV2
+	submitter common.Address
+	txm       *txmmocks.MockEvmTxManager
+	hb        httypes.HeadBroadcaster
+	cc        evm.ChainSet
+	cid       big.Int
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
@@ -77,12 +76,11 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	jrm := job.NewORM(db, legacyChains, prm, btORM, ks, lggr, cfg.Database())
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -92,18 +90,18 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	require.NoError(t, err)
 
 	return vrfUniverse{
-		jrm:          jrm,
-		pr:           pr,
-		prm:          prm,
-		lb:           lb,
-		ec:           ec,
-		ks:           ks,
-		vrfkey:       vrfkey,
-		submitter:    submitter,
-		txm:          txm,
-		hb:           hb,
-		legacyChains: legacyChains,
-		cid:          *ec.ConfiguredChainID(),
+		jrm:       jrm,
+		pr:        pr,
+		prm:       prm,
+		lb:        lb,
+		ec:        ec,
+		ks:        ks,
+		vrfkey:    vrfkey,
+		submitter: submitter,
+		txm:       txm,
+		hb:        hb,
+		cc:        cc,
+		cid:       *ec.ConfiguredChainID(),
 	}
 }
 
@@ -116,11 +114,11 @@ func generateCallbackReturnValues(t *testing.T, fulfilled bool) []byte {
 	var args abi.Arguments = []abi.Argument{{Type: callback}}
 	if fulfilled {
 		// Empty callback
-		b, err2 := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
+		b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
 			RandomnessFee:   big.NewInt(10),
 			SeedAndBlockNum: utils.EmptyHash,
 		})
-		require.NoError(t, err2)
+		require.NoError(t, err)
 		return b
 	}
 	b, err := args.Pack(solidity_vrf_coordinator_interface.Callbacks{
@@ -151,11 +149,11 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.legacyChains,
+		vuni.cc,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
@@ -305,7 +303,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.Anything,
 			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
 				meta := txRequest.Meta
 				return txRequest.FromAddress == vuni.submitter &&
@@ -414,7 +411,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM evm.txes;`)
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
@@ -565,7 +562,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -593,7 +590,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -689,11 +686,11 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.legacyChains,
+		vuni.cc,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
+	chain, err := vuni.cc.Get(testutils.FixtureChainID)
 	require.NoError(t, err)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		VRFVersion:    vrfcommon.V2Plus,

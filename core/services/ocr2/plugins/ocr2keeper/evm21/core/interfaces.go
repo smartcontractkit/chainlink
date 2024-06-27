@@ -7,8 +7,6 @@ import (
 )
 
 // UpkeepStateReader is the interface for reading the current state of upkeeps.
-//
-//go:generate mockery --quiet --name UpkeepStateReader --output ./mocks/ --case=underscore
 type UpkeepStateReader interface {
-	SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
+	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
 }

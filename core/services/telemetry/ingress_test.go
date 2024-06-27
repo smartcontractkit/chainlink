@@ -12,18 +12,14 @@ import (
 )
 
 func TestIngressAgent(t *testing.T) {
-	telemetryClient := mocks.NewTelemetryService(t)
+	telemetryClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(telemetryClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.OCR, "test-network", "test-chainID")
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.OCR)
 
 	// Handle the Send call and store the telem
 	var telemPayload synchronization.TelemPayload
-	telemetryClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
-		telemPayload = synchronization.TelemPayload{
-			Telemetry:  args[1].([]byte),
-			ContractID: args[2].(string),
-			TelemType:  args[3].(synchronization.TelemetryType),
-		}
+	telemetryClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
+		telemPayload = args[0].(synchronization.TelemPayload)
 	})
 
 	// Send the log to the monitoring endpoint

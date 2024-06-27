@@ -9,11 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 func TestP2PKeyResource(t *testing.T) {
-	key := keystest.NewP2PKeyV2(t)
+	key, err := p2pkey.NewV2()
+	require.NoError(t, err)
 	peerID := key.PeerID()
 	peerIDStr := peerID.String()
 	pubKey := key.GetPublic()

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -90,7 +89,6 @@ func TestShell_ListETHKeys(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(13), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -115,7 +113,6 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -158,7 +155,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 	assert.Nil(t, balances[0].MaxGasPriceWei)
 	assert.Equal(t, []string{
-		k.Address.String(), "0", "<nil>", "0", "false",
+		k.Address.String(), "0", "0", "<nil>", "0", "false",
 		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "<nil>",
 	}, balances[0].ToRow())
 }
@@ -169,8 +166,6 @@ func TestShell_CreateETHKey(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
-
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -182,26 +177,33 @@ func TestShell_CreateETHKey(t *testing.T) {
 	db := app.GetSqlxDB()
 	client, _ := app.NewShellAndRenderer()
 
-	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
+	cltest.AssertCount(t, db, "evm_key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
-	id := big.NewInt(0)
-
+	// create a key on the default chain
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
-
-	require.NoError(t, set.Set("evm-chain-id", testutils.FixtureChainID.String()))
-
 	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, set.Parse([]string{"-evm-chain-id", id.String()}))
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, "evm.key_states", 2)
+	// create the key on a specific chainID
+	id := big.NewInt(0)
+
+	set = flag.NewFlagSet("test", 0)
+	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
+
+	require.NoError(t, set.Set("evmChainID", ""))
+
+	c = cli.NewContext(nil, set, nil)
+	require.NoError(t, set.Parse([]string{"-evmChainID", id.String()}))
+	assert.NoError(t, client.CreateETHKey(c))
+
+	cltest.AssertCount(t, db, "evm_key_states", 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(keys))
+	require.Equal(t, 3, len(keys))
 }
 
 func TestShell_DeleteETHKey(t *testing.T) {
@@ -244,7 +246,6 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -303,16 +304,13 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm_key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
-
-	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
-	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
-	require.NoError(t, set.Parse([]string{keyfilepath}))
-
+	set.String("old-password", "../internal/fixtures/incorrect_password.txt", "")
+	err = set.Parse([]string{keyfilepath})
+	require.NoError(t, err)
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	require.NoError(t, err)
@@ -348,7 +346,6 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	ethClient := newEthMock(t)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -415,8 +412,6 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
 
-	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
-	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Parse([]string{keyfilepath}))
 

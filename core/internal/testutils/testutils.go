@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"math"
@@ -24,10 +23,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
-
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -428,7 +426,7 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 func AssertCountPerSubject(t *testing.T, db *sqlx.DB, expected int64, subject uuid.UUID) {
 	t.Helper()
 	var count int64
-	err := db.Get(&count, `SELECT COUNT(*) FROM evm.txes
+	err := db.Get(&count, `SELECT COUNT(*) FROM eth_txes
 		WHERE state = 'unstarted' AND subject = $1;`, subject)
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
@@ -441,13 +439,4 @@ func NewTestFlagSet() *flag.FlagSet {
 // Ptr takes pointer of anything
 func Ptr[T any](v T) *T {
 	return &v
-}
-
-func MustDecodeBase64(s string) (b []byte) {
-	var err error
-	b, err = base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		panic(err)
-	}
-	return
 }

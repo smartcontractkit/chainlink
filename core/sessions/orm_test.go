@@ -34,8 +34,8 @@ func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
 	db, orm := setupORM(t)
-	user1 := cltest.MustRandomUser(t)
-	user2 := cltest.MustRandomUser(t)
+	user1 := cltest.MustNewUser(t, "test1@email1.net", cltest.Password)
+	user2 := cltest.MustNewUser(t, "test2@email2.net", cltest.Password)
 
 	require.NoError(t, orm.CreateUser(&user1))
 	require.NoError(t, orm.CreateUser(&user2))
@@ -56,11 +56,12 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		sessionID       string
 		sessionDuration time.Duration
 		wantError       string
+		wantEmail       string
 	}{
-		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), ""},
-		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), sessions.ErrUserSessionExpired.Error()},
-		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), sessions.ErrUserSessionExpired.Error()},
-		{"empty", "", cltest.MustParseDuration(t, "3m"), sessions.ErrEmptySessionID.Error()},
+		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), "", "have@email"},
+		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), "session missing or expired, please login again", ""},
+		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), "no matching user for provided session token: sql: no rows in result set", ""},
+		{"empty", "", cltest.MustParseDuration(t, "3m"), "Session ID cannot be empty", ""},
 	}
 
 	for _, test := range tests {
@@ -68,7 +69,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
-			user := cltest.MustRandomUser(t)
+			user := cltest.MustNewUser(t, "have@email", cltest.Password)
 			require.NoError(t, orm.CreateUser(&user))
 
 			prevSession := cltest.NewSession("correctID")
@@ -82,7 +83,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 				require.EqualError(t, err, test.wantError)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, user.Email, actual.Email)
+				assert.Equal(t, test.wantEmail, actual.Email)
 				var bumpedSession sessions.Session
 				err = db.Get(&bumpedSession, "SELECT * FROM sessions WHERE ID = $1", prevSession.ID)
 				require.NoError(t, err)
@@ -96,13 +97,13 @@ func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 	_, orm := setupORM(t)
 
-	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
-
-	err := orm.DeleteUser(u.Email)
+	_, err := orm.FindUser(cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	err = orm.DeleteUser(cltest.APIEmailAdmin)
+	require.NoError(t, err)
+
+	_, err = orm.FindUser(cltest.APIEmailAdmin)
 	require.Error(t, err)
 }
 
@@ -111,17 +112,14 @@ func TestORM_DeleteUserSession(t *testing.T) {
 
 	db, orm := setupORM(t)
 
-	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
-
 	session := sessions.NewSession()
-	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
 	err = orm.DeleteUserSession(session.ID)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	_, err = orm.FindUser(cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
 	sessions, err := orm.Sessions(0, 10)
@@ -132,17 +130,14 @@ func TestORM_DeleteUserSession(t *testing.T) {
 func TestORM_DeleteUserCascade(t *testing.T) {
 	db, orm := setupORM(t)
 
-	u := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(&u))
-
 	session := sessions.NewSession()
-	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
-	err = orm.DeleteUser(u.Email)
+	err = orm.DeleteUser(cltest.APIEmailAdmin)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(u.Email)
+	_, err = orm.FindUser(cltest.APIEmailAdmin)
 	require.Error(t, err)
 
 	sessions, err := orm.Sessions(0, 10)
