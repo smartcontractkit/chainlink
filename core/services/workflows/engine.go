@@ -363,7 +363,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			select {
 			case <-e.stopCh:
 				return
-			case event := <-eventsCh:
+			case event, isOpen := <-eventsCh:
+				if !isOpen {
+					return
+				}
+
 				e.triggerEvents <- event
 			}
 		}
