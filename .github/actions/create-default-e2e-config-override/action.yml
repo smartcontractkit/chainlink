@@ -14,7 +14,7 @@ inputs:
     description: 'Chainlink upgrade version to use for the tests'
   selected_networks:
     required: false
-    description: 'Selected networks for the tests'
+    description: 'Selected networks for the tests (comma separated)'
   pyroscope_server:
     required: false
     description: 'Pyroscope server for the tests'
@@ -77,9 +77,6 @@ runs:
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
           cmd_args+="--chainlink-upgrade-version=\"${{ inputs.chainlink_upgrade_version }}\" "
         fi
-        if [ -n "${{ inputs.selected_networks }}" ]; then
-          cmd_args+="--selected-networks=\"${{ inputs.selected_networks }}\" "
-        fi
         if [ -n "${{ inputs.pyroscope_server }}" ]; then
           cmd_args+="--pyroscope-server-url=\"${{ inputs.pyroscope_server }}\" "
         fi
@@ -110,11 +107,19 @@ runs:
         if [ -n "${{ inputs.private_ethereum_network_custom_docker_image }}" ]; then
           cmd_args+="--private-ethereum-network-custom-docker-image=\"${{ inputs.private_ethereum_network_custom_docker_image }}\" "
         fi
-        # Split the log targets input by comma and add them to the command line arguments
+        
+        # Split the log targets input by comma and add to the command line arguments
         IFS=',' read -ra ADDR <<< "${{ inputs.logstream_log_targets }}"
         for i in "${ADDR[@]}"; do
           cmd_args+="--logging-log-targets=\"$i\" "
-        done        
+        done
+
+        # Split selected_networks input by comma and add to the command line arguments
+        IFS=',' read -ra ADDR <<< "${{ inputs.selected_networks }}"
+        for i in "${ADDR[@]}"; do
+          cmd_args+="--selected-networks=\"$i\" "
+        done
+
         echo "Command line arguments: $cmd_args" 
         echo "CMD_ARGS=$cmd_args" >> $GITHUB_ENV
 

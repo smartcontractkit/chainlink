@@ -335,7 +335,7 @@ jobs:
         with:
           chainlink_version: ${{ inputs.evm-ref || github.sha }}
           chainlink_image: ${{ env.CHAINLINK_IMAGE }}
-          selected_networks: ${{ env.SELECTED_NETWORKS}}
+          selected_networks: ${{ env.SELECTED_NETWORKS }}
           pyroscope_server: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           pyroscope_environment: ${{ matrix.product.pyroscope_env }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
