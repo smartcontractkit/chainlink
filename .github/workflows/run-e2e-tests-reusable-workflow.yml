@@ -73,6 +73,10 @@ jobs:
             echo "Error: Both 'test-ids' and 'test-workflow' are provided. Please specify only one."
             exit 1
           fi
+          if [[ ${{ inputs.test_config_base64_override }} != "" ]]; then
+            echo "Error: 'test_config_base64_override' is not supported until we are sure that it does not contain any secrets. Find more info in https://smartcontract-it.atlassian.net/browse/TT-1283"
+            exit 1
+          fi
 
   check-test-configurations:
     name: Check test configurations
@@ -357,7 +361,7 @@ jobs:
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
 
       - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
-        if: ${{ inputs.test_config_base64_override == '' }}
+        # if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
