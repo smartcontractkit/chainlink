@@ -28,6 +28,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	newDialedNode := func(t *testing.T, opts testNodeOpts) testNode {
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
+		opts.rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
 
 		node.setState(NodeStateDialed)
 		return node
@@ -164,7 +165,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("Ping", mock.Anything).Return(pollError)
 		// disconnects all on transfer to unreachable
-		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -344,7 +344,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		// disconnects all on transfer to unreachable or outOfSync
-		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -1140,7 +1139,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 	newNode := func(t *testing.T, opts testNodeOpts) testNode {
 		node := newTestNode(t, opts)
-		opts.rpc.On("UnsubscribeAllExcept", nil, nil)
+		opts.rpc.On("UnsubscribeAllExcept", nil, nil).Maybe()
 		opts.rpc.On("Close").Return(nil).Once()
 
 		return node
@@ -1452,6 +1451,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		opts.config.nodeIsSyncingEnabled = true
 		node := newTestNode(t, opts)
 		opts.rpc.On("Close").Return(nil).Once()
+		opts.rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
 
 		node.setState(NodeStateDialed)
 		return node

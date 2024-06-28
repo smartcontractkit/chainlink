@@ -101,7 +101,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 type chainClient struct {
 	multiNode *commonclient.MultiNode[
 		*big.Int,
-		ChainClientRPC,
+		*RpcClient,
 	]
 	logger       logger.SugaredLogger
 	chainType    chaintype.ChainType
@@ -112,8 +112,8 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, ChainClientRPC],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, ChainClientRPC],
+	nodes []commonclient.Node[*big.Int, *RpcClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
 ) Client {
@@ -163,13 +163,13 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 		return selectionErr
 	}
 
-	doFunc := func(ctx context.Context, rpc ChainClientRPC, isSendOnly bool) bool {
+	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) {
 		if rpc == main {
-			return true
+			return
 		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
-		go func(rpc ChainClientRPC) {
+		go func(rpc *RpcClient) {
 			defer wg.Done()
 			err := rpc.BatchCallContext(ctx, b)
 			if err != nil {
@@ -178,7 +178,6 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 				c.logger.Debug("Secondary node BatchCallContext success")
 			}
 		}(rpc)
-		return true
 	}
 
 	if err := c.multiNode.DoAll(ctx, doFunc); err != nil {

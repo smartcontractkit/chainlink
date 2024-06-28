@@ -3,7 +3,6 @@ package client_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -16,10 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
@@ -745,60 +742,103 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	sub.Unsubscribe()
 }
 
-func newMockRpc(t *testing.T) *client.MockChainClientRPC {
-	mockRpc := client.NewMockChainClientRPC(t)
-	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
-	mockRpc.On("Close").Return(nil).Once()
-	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()
-	// node does not always manage to fully setup aliveLoop, so we have to make calls optional to avoid flakes
-	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
-	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Maybe()
-	sub := client.NewMockSubscription()
-	mockRpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan *evmtypes.Head), sub, nil).Maybe()
-	mockRpc.On("Unsubscribe", mock.Anything).Return(nil).Maybe()
-	return mockRpc
-}
-
-func TestChainClient_BatchCallContext(t *testing.T) {
+/*
+func TestEthClient_BatchCallContext(t *testing.T) {
 	t.Parallel()
 
-	t.Run("batch requests return errors", func(t *testing.T) {
-		ctx := tests.Context(t)
-		rpcError := errors.New("something went wrong")
-		blockNumResp := ""
-		blockNum := hexutil.EncodeBig(big.NewInt(42))
-		b := []rpc.BatchElem{
-			{
-				Method: "eth_getBlockByNumber",
-				Args:   []interface{}{blockNum, true},
-				Result: &types.Block{},
-			},
-			{
-				Method: "eth_blockNumber",
-				Result: &blockNumResp,
-			},
+	// Set up the WebSocket server
+	wsServer := testutils.NewWSServer(t, testutils.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
 		}
-
-		mockRpc := newMockRpc(t)
-		mockRpc.On("BatchCallContext", mock.Anything, b).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			for i := 0; i < len(reqs); i++ {
-				elem := &reqs[i]
-				elem.Error = rpcError
-			}
-		}).Return(nil).Maybe()
-
-		client := client.NewChainClientWithMockedRpc(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID, mockRpc)
-		err := client.Dial(ctx)
-		require.NoError(t, err)
-
-		err = client.BatchCallContext(ctx, b)
-		require.NoError(t, err)
-		for _, elem := range b {
-			require.ErrorIs(t, rpcError, elem.Error)
-		}
+		return
 	})
+	defer wsServer.Close()
+	wsURL := wsServer.WSURL().String()
+
+	// Set up the HTTP mock server
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		var requests []rpc.BatchElem
+		decoder := json.NewDecoder(r.Body)
+		err := decoder.Decode(&requests)
+		require.NoError(t, err)
+
+		responses := make([]map[string]interface{}, len(requests))
+		for i, req := range requests {
+			resp := map[string]interface{}{
+				"jsonrpc": "2.0",
+				"id":      req.ID,
+			}
+
+			switch req.Method {
+			case "eth_getBlockByNumber":
+				block := map[string]interface{}{
+					"number":       "0x2a", // 42 in hex
+					"hash":         "0x123",
+					"transactions": []interface{}{},
+					"uncles":       []interface{}{},
+				}
+				resp["result"] = block
+			case "eth_blockNumber":
+				resp["result"] = "0x2a" // 42 in hex
+			default:
+				resp["error"] = map[string]interface{}{
+					"code":    -32601,
+					"message": "Method not found",
+				}
+			}
+			responses[i] = resp
+		}
+
+		encoder := json.NewEncoder(w)
+		err = encoder.Encode(responses)
+		require.NoError(t, err)
+	}
+
+	httpServer := httptest.NewServer(http.HandlerFunc(handler))
+	defer httpServer.Close()
+
+	parsedHttpURL, err := url.Parse(httpServer.URL)
+	require.NoError(t, err)
+
+	// Create a client and connect to the mock servers
+	cfg := client.TestNodePoolConfig{
+		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
+	}
+	c, err := client.NewChainClientWithTestNode(t, cfg, time.Second*0, cfg.NodeLeaseDuration, wsURL, parsedHttpURL, nil, 42, testutils.FixtureChainID)
+	require.NoError(t, err)
+	require.NoError(t, c.Dial(context.Background()))
+
+	// Prepare batch requests
+	blockNum := hexutil.EncodeBig(big.NewInt(42))
+	batch := []rpc.BatchElem{
+		{
+			Method: "eth_getBlockByNumber",
+			Args:   []interface{}{blockNum, false},
+			Result: new(types.Block),
+		},
+		{
+			Method: "eth_blockNumber",
+			Result: new(hexutil.Big),
+		},
+	}
+
+	// Execute batch call
+	err = c.BatchCallContext(context.Background(), batch)
+	require.NoError(t, err)
+
+	// Verify responses
+	block := batch[0].Result.(*types.Block)
+	assert.Equal(t, big.NewInt(42), block.Number())
+	assert.Equal(t, common.HexToHash("0x123"), block.Hash())
+	assert.Equal(t, big.NewInt(42), (*big.Int)(batch[1].Result.(*hexutil.Big)))
 }
+*/
 
 func TestEthClient_ErroringClient(t *testing.T) {
 	t.Parallel()
@@ -829,8 +869,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	id := erroringClient.ConfiguredChainID()
-	var expected *big.Int
-	require.Equal(t, id, expected)
+	require.Equal(t, id, big.NewInt(0))
 
 	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)

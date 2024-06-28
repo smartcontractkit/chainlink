@@ -14,8 +14,8 @@ import (
 
 func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) Client {
 	var empty url.URL
-	var primaries []commonclient.Node[*big.Int, ChainClientRPC]
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, ChainClientRPC]
+	var primaries []commonclient.Node[*big.Int, *RpcClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
