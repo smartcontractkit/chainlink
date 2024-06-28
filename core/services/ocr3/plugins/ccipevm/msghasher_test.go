@@ -156,7 +156,7 @@ func testSetup(t *testing.T) *testSetupData {
 func TestMessageHasher_Hash(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	largeNumber, ok := big.NewInt(0).SetString("1000000000000000000", 10) //1e18
+	largeNumber, ok := big.NewInt(0).SetString("1000000000000000000", 10) // 1e18
 	require.True(t, ok)
 
 	msgData, err := hex.DecodeString("64617461")
@@ -292,5 +292,38 @@ func TestMessageHasher_Hash(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tc.exp, hash.String())
 		})
+	}
+}
+
+func BenchmarkMessageHasher_Hash(b *testing.B) {
+	ctx := testutils.Context(b)
+	msg := cciptypes.CCIPMsg{
+		CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
+			SourceChain: 1,
+			SeqNum:      1,
+		},
+		ChainFeeLimit:  cciptypes.NewBigIntFromInt64(400000),
+		Nonce:          1,
+		Sender:         types.Account(utils.RandomAddress().String()),
+		Receiver:       types.Account(utils.RandomAddress().String()),
+		Strict:         false,
+		FeeToken:       types.Account(utils.RandomAddress().String()),
+		FeeTokenAmount: cciptypes.NewBigIntFromInt64(1234567890),
+		Data:           make([]byte, 2048),
+		TokenAmounts: []cciptypes.TokenAmount{
+			{
+				Token:  types.Account(utils.RandomAddress().String()),
+				Amount: utils.RandUint256(),
+			},
+		},
+		SourceTokenData: [][]byte{make([]byte, 2048)},
+	}
+	metadataHash := utils.RandomBytes32()
+
+	m := NewMessageHasherV1(metadataHash)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := m.Hash(ctx, msg)
+		require.NoError(b, err)
 	}
 }
