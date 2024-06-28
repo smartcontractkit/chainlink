@@ -24,6 +24,9 @@ inputs:
   pyroscope_key:
     required: false
     description: 'Pyroscope key for the tests'
+  test_log_collect:
+    required: false
+    description: 'Whether to always collect test logs'
   loki_run_id:
     required: false
     description: 'Loki run ID for the tests'
@@ -48,6 +51,12 @@ inputs:
   grafana_bearer_token:
     required: false
     description: 'Grafana bearer token for the tests'
+  private_ethereum_network_execution_layer:
+    required: false
+    description: 'Private Ethereum network execution layer for the tests'    
+  private_ethereum_network_custom_docker_image:
+    required: false
+    description: 'Private Ethereum network custom Docker image for the tests'
 
 runs:
   using: 'composite'
@@ -91,6 +100,15 @@ runs:
         fi
         if [ -n "${{ inputs.loki_run_id }}" ]; then
           cmd_args+="--logging-run-id=\"${{ inputs.loki_run_id }}\" "
+        fi
+        if [ -n "${{ inputs.test_log_collect }}" ]; then
+          cmd_args+="--logging-test-log-collect=\"${{ inputs.test_log_collect }}\" "
+        fi
+        if [ -n "${{ inputs.private_ethereum_network_execution_layer }}" ]; then
+          cmd_args+="--private-ethereum-network-execution-layer=\"${{ inputs.private_ethereum_network_execution_layer }}\" "
+        fi
+        if [ -n "${{ inputs.private_ethereum_network_custom_docker_image }}" ]; then
+          cmd_args+="--private-ethereum-network-custom-docker-image=\"${{ inputs.private_ethereum_network_custom_docker_image }}\" "
         fi
         # Split the log targets input by comma and add them to the command line arguments
         IFS=',' read -ra ADDR <<< "${{ inputs.logstream_log_targets }}"
