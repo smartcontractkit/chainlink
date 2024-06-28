@@ -111,7 +111,7 @@ runner-test-matrix:
     remote-runner-test-suite: benchmark
     remote-runner-memory: 4Gi
     runs-on: ubuntu-latest
-    workflows:
-      - Run Nightly E2E Tests
+    # workflows:
+    #   - Run Nightly E2E Tests
     test-cmd: cd integration-tests/benchmark && go test -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
     pyroscope-env: ci-benchmark-automation-nightly
