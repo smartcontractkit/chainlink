@@ -228,6 +228,10 @@ func (g *generalConfig) ValidateDB() error {
 	return g.validate(g.secrets.ValidateDB)
 }
 
+func (g *generalConfig) ValidateConfig() error {
+	return g.validate(g.ValidateConfig)
+}
+
 //go:embed legacy.env
 var emptyStringsEnv string
 
@@ -349,20 +353,8 @@ func (g *generalConfig) StarkNetEnabled() bool {
 // BCI-3511: https://smartcontract-it.atlassian.net/browse/BCI-3511
 func (g *generalConfig) AptosEnabled() bool {
 	for _, c := range g.c.Aptos {
-		if c == nil {
-			continue
-		}
-		if v, ok := (*c)["Enabled"]; ok {
-			switch typedV := v.(type) {
-			case nil:
-				return true
-			case bool:
-				return typedV
-			case *bool:
-				return *typedV
-			default:
-				panic(fmt.Sprintf("AptosEnabled: 'Enabled' has unexpected type %T", v))
-			}
+		if c.IsEnabled() {
+			return true
 		}
 	}
 	return false

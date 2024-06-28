@@ -52,6 +52,28 @@ type RawConfig map[string]any
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
 
+// Validate returns an error if the Config is not valid for use, as-is.
+func (c *RawConfig) ValidateConfig() error {
+	if v, ok := (*c)["Enabled"]; ok {
+		switch v.(type) {
+		case nil, *bool: // Enabled should be *bool type
+			return nil
+		default:
+			return fmt.Errorf("invalid type for 'Enabled': expected nil, bool, or *bool, got %T", v)
+		}
+	}
+
+	return nil
+}
+
+func (c *RawConfig) IsEnabled() bool {
+	if c == nil {
+		return false
+	}
+
+	return (*c)["Enabled"] == nil || *(*c)["Enabled"].(*bool)
+}
+
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
 	b, err := gotoml.Marshal(c)
