@@ -38,8 +38,6 @@ flowchart LR
   click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
   chainlink/v2 --> chainlink-solana
   click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
-  chainlink/v2 --> chainlink-starknet
-  click chainlink-starknet href "https://github.com/smartcontractkit/chainlink-starknet"
   chainlink/v2 --> chainlink-starknet/relayer
   click chainlink-starknet/relayer href "https://github.com/smartcontractkit/chainlink-starknet"
   chainlink/v2 --> chainlink-vrf
