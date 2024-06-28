@@ -5,7 +5,6 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
-	"github.com/pressly/goose/v3"
 )
 
 const up54 = `
@@ -27,10 +26,6 @@ DROP TABLE sync_events;
 ALTER TABLE log_broadcasts RENAME COLUMN job_id_v2 TO job_id;
 ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
-
-func init() {
-	goose.AddMigrationContext(Up54, Down54)
-}
 
 type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row

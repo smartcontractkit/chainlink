@@ -62,7 +62,7 @@ func init() {
 		panic(msg)
 	}
 	name := string(dialects.TransactionWrappedPostgres)
-	sql.Register(name, &txDriver{
+	sql.Register(name, &TxDriver{
 		dbURL: dbURL,
 		conns: make(map[string]*conn),
 	})
@@ -74,9 +74,9 @@ var _ driver.Conn = &conn{}
 var _ driver.Validator = &conn{}
 var _ driver.SessionResetter = &conn{}
 
-// txDriver is an sql driver which runs on a single transaction.
+// TxDriver is an sql driver which runs on a single transaction.
 // When `Close` is called, transaction is rolled back.
-type txDriver struct {
+type TxDriver struct {
 	sync.Mutex
 	db    *sql.DB
 	conns map[string]*conn
@@ -84,7 +84,14 @@ type txDriver struct {
 	dbURL string
 }
 
-func (d *txDriver) Open(dsn string) (driver.Conn, error) {
+func NewTxDriver(dbURL string) *TxDriver {
+	return &TxDriver{
+		dbURL: dbURL,
+		conns: make(map[string]*conn),
+	}
+}
+
+func (d *TxDriver) Open(dsn string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()
 	// Open real db connection if its the first call
@@ -95,11 +102,15 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		}
 		d.db = db
 	}
+
 	c, exists := d.conns[dsn]
 	if !exists || !c.tryOpen() {
 		tx, err := d.db.Begin()
 		if err != nil {
 			return nil, err
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to handle conn: %w", err)
 		}
 		c = &conn{tx: tx, opened: 1, dsn: dsn}
 		c.removeSelf = func() error {
@@ -112,7 +123,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 
 // deleteConn is called by a connection when it is closed via the `close` method.
 // It also auto-closes the DB when the last checked out connection is closed.
-func (d *txDriver) deleteConn(c *conn) error {
+func (d *TxDriver) deleteConn(c *conn) error {
 	// must lock here to avoid racing with Open
 	d.Lock()
 	defer d.Unlock()

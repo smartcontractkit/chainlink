@@ -8,13 +8,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
-
-	"github.com/pressly/goose/v3"
 )
-
-func init() {
-	goose.AddMigrationContext(Up56, Down56)
-}
 
 const up56 = `
 CREATE TABLE evm_chains (

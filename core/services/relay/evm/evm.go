@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
@@ -30,7 +32,9 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -46,6 +50,8 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
 )
 
 var (
@@ -99,13 +105,15 @@ type CSAETHKeystore interface {
 
 type RelayerOpts struct {
 	DS sqlutil.DataSource
+	// we need the db url to run migrations
+	DBURL *url.URL
 	CSAETHKeystore
 	MercuryPool          wsrpc.Pool
 	TransmitterConfig    mercury.TransmitterConfig
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
-func (c RelayerOpts) Validate() error {
+func (c *RelayerOpts) Validate() error {
 	var err error
 	if c.DS == nil {
 		err = errors.Join(err, errors.New("nil DataSource"))
@@ -115,6 +123,19 @@ func (c RelayerOpts) Validate() error {
 	}
 	if c.CapabilitiesRegistry == nil {
 		err = errors.Join(err, errors.New("nil CapabilitiesRegistry"))
+	}
+	// compatibility check with existing code
+	if c.DBURL == nil {
+		dburl := string(env.DatabaseURL.Get())
+		if dburl == "" {
+			err = errors.Join(err, fmt.Errorf("no DBURL provided and CL_DATABASE_URL unset"))
+		} else {
+			var perr error
+			c.DBURL, perr = url.Parse(dburl)
+			if perr != nil {
+				err = errors.Join(err, fmt.Errorf("failed to parse CL_DATABASE_URL %s: %w", dburl, perr))
+			}
+		}
 	}
 	if err != nil {
 		err = fmt.Errorf("invalid RelayerOpts: %w", err)
@@ -128,12 +149,27 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	lggr = lggr.Named("Relayer")
+	// run the migrations for the relayer
+	db, err := sqlx.Open(string(dialects.Postgres), opts.DBURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to open db: %w", err)
+	}
 
+	err = evmdb.Migrate(context.Background(), db, evmdb.Cfg{
+		Schema:  "evm_" + chain.ID().String(),
+		ChainID: ubig.New(chain.ID()),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to migrate evm relayer for chain %s: %w", chain.ID().String(), err)
+	}
+
+	ds := sqlutil.WrapDataSource(db, lggr)
 	mercuryORM := mercury.NewORM(opts.DS)
 	lloORM := llo.NewORM(opts.DS, chain.ID())
 	cdcFactory := llo.NewChannelDefinitionCacheFactory(lggr, lloORM, chain.LogPoller())
 	relayer := &Relayer{
-		ds:                   opts.DS,
+		ds:                   ds,
 		chain:                chain,
 		lggr:                 lggr,
 		ks:                   opts.CSAETHKeystore,

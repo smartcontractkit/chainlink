@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/keystore"
@@ -47,6 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/store/migrate/plugins/relayer/evm/testutils"
 )
 
 func makeTestEvmTxm(
@@ -312,19 +313,15 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
 		evmConfig.MaxQueued = uint64(1)
 
-		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db)
 		fwdrAddr := testutils.NewAddress()
-		fwdr, err := form.CreateForwarder(tests.Context(t), fwdrAddr, ubig.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
-		require.Equal(t, fwdr.Address, fwdrAddr)
 
 		etx, err := txm.CreateTransaction(tests.Context(t), txmgr.TxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
 			FeeLimit:         gasLimit,
-			ForwarderAddress: fwdr.Address,
+			ForwarderAddress: fwdrAddr,
 			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
@@ -479,12 +476,16 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 }
 
 func TestTxm_Lifecycle(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
+	//db := pgtest.NewSqlxDB(t)
 
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	kst := ksmocks.NewEth(t)
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
+	testChainId := ubig.New(&cltest.FixtureChainID)
+	// db := pgtest.NewSqlxDB(t)
+	db := evmtestdb.NewDB(t, evmdb.Cfg{Schema: "evm_" + testChainId.String(), ChainID: testChainId})
+
 	config.SetFinalityDepth(uint32(42))
 	config.RpcDefaultBatchSize = uint32(4)
 

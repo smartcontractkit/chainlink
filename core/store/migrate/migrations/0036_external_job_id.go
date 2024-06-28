@@ -7,12 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/pressly/goose/v3"
 )
-
-func init() {
-	goose.AddMigrationContext(Up36, Down36)
-}
 
 const (
 	up36_1 = `

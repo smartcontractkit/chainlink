@@ -425,7 +425,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		efc := EVMForwardersController{app}
 		authv2.GET("/nodes/evm/forwarders", paginatedRequest(efc.Index))
 		authv2.POST("/nodes/evm/forwarders/track", auth.RequiresEditRole(efc.Track))
-		authv2.DELETE("/nodes/evm/forwarders/:fwdID", auth.RequiresEditRole(efc.Delete))
+		//		authv2.DELETE("/nodes/evm/forwarders/:fwdID", auth.RequiresEditRole(efc.Delete))
+		authv2.DELETE("/nodes/evm/forwarders/chain/:chainID/:fwdID", auth.RequiresEditRole(efc.Delete))
 
 		buildInfo := BuildInfoController{app}
 		authv2.GET("/build_info", buildInfo.Show)

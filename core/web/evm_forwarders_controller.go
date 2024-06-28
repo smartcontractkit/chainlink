@@ -26,20 +26,33 @@ type EVMForwardersController struct {
 
 // Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
-	orm := forwarders.NewORM(cc.App.GetDB())
-	fwds, count, err := orm.FindForwarders(c.Request.Context(), 0, size)
-
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
+	fwds := make([]forwarders.Forwarder, 0)
+	chains := cc.App.GetRelayers().LegacyEVMChains().Slice()
+	for _, chain := range chains {
+		id := ubig.New(chain.ID())
+		orm := forwarders.NewScopedORM(cc.App.GetDB(), id)
+		got, err := orm.FindForwardersByChain(c.Request.Context(), *id)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+		fwds = append(fwds, got...)
 	}
+	/*
+		orm := forwarders.NewORM(cc.App.GetDB())
+		fwds, count, err := orm.FindForwarders(c.Request.Context(), 0, size)
 
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+	*/
 	var resources []presenters.EVMForwarderResource
 	for _, fwd := range fwds {
 		resources = append(resources, presenters.NewEVMForwarderResource(fwd))
 	}
 
-	paginatedResponse(c, "forwarder", size, page, resources, count, err)
+	paginatedResponse(c, "forwarder", size, page, resources, len(fwds), nil)
 }
 
 // TrackEVMForwarderRequest is a JSONAPI request for creating an EVM forwarder.
@@ -56,7 +69,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	orm := forwarders.NewORM(cc.App.GetDB())
+	orm := forwarders.NewScopedORM(cc.App.GetDB(), request.EVMChainID)
 	fwd, err := orm.CreateForwarder(c.Request.Context(), request.Address, *request.EVMChainID)
 
 	if err != nil {
@@ -79,6 +92,13 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	// this is a breaking change, but it's necessary to support multiple chains
+	chainId, err := stringutils.ToInt64(c.Param("chainID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	cid := ubig.New(big.NewInt(chainId))
 
 	filterCleanup := func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error {
 		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
@@ -95,7 +115,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return chain.LogPoller().UnregisterFilter(c.Request.Context(), forwarders.FilterName(addr))
 	}
 
-	orm := forwarders.NewORM(cc.App.GetDB())
+	orm := forwarders.NewScopedORM(cc.App.GetDB(), cid)
 	err = orm.DeleteForwarder(c.Request.Context(), id, filterCleanup)
 
 	if err != nil {

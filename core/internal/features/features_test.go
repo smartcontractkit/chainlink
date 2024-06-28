@@ -778,8 +778,9 @@ func setupForwarderEnabledNode(t *testing.T, owner *bind.TransactOpts, portV2 in
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetDB())
 	chainID := ubig.Big(*b.Blockchain().Config().ChainID)
+
+	forwarderORM := forwarders.NewScopedORM(app.GetDB(), &chainID)
 	_, err = forwarderORM.CreateForwarder(testutils.Context(t), forwarder, chainID)
 	require.NoError(t, err)
 

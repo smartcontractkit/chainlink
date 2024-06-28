@@ -41,7 +41,7 @@ func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, 
 
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
 	if err != nil {
-		return "", fmt.Errorf("unable to drop postgres migrations test database: %v", err)
+		return "", fmt.Errorf("unable to drop postgres migrations test database %s url %s: %v", (&parsed).String(), dbname, err)
 	}
 	if withTemplate {
 		_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH TEMPLATE %s", dbname, PristineDBName))

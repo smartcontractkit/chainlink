@@ -26,12 +26,17 @@ var embedMigrations embed.FS
 const MIGRATIONS_DIR string = "migrations"
 
 func init() {
-	goose.SetBaseFS(embedMigrations)
-	goose.SetSequential(true)
-	goose.SetTableName("goose_migrations")
+	setupCoreMigrations()
 	logMigrations := os.Getenv("CL_LOG_SQL_MIGRATIONS")
 	verbose, _ := strconv.ParseBool(logMigrations)
 	goose.SetVerbose(verbose)
+}
+
+func setupCoreMigrations() {
+	goose.SetBaseFS(embedMigrations)
+	goose.SetSequential(true)
+	goose.SetTableName("goose_migrations")
+	migrations.RegisterCustomMigrations()
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
@@ -105,13 +110,19 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 	}
 	// WithAllowMissing is necessary when upgrading from 0.10.14 since it
 	// includes out-of-order migrations
-	return goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
+	setupCoreMigrations()
+	err := goose.Up(db, MIGRATIONS_DIR, goose.WithAllowMissing())
+	if err != nil {
+		return fmt.Errorf("failed to do core database migration: %w", err)
+	}
+	return nil
 }
 
 func Rollback(ctx context.Context, db *sql.DB, version null.Int) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
+	setupCoreMigrations()
 	if version.Valid {
 		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
 	}
@@ -122,6 +133,7 @@ func Current(ctx context.Context, db *sql.DB) (int64, error) {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return -1, err
 	}
+	setupCoreMigrations()
 	return goose.EnsureDBVersion(db)
 }
 
@@ -129,6 +141,7 @@ func Status(ctx context.Context, db *sql.DB) error {
 	if err := ensureMigrated(ctx, db); err != nil {
 		return err
 	}
+	setupCoreMigrations()
 	return goose.Status(db, MIGRATIONS_DIR)
 }
 

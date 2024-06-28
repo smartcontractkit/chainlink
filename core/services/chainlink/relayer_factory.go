@@ -73,6 +73,8 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		return nil, err
 	}
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
+	dburl := config.AppConfig.Database().URL()
+
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := types.RelayID{Network: corerelay.NetworkEVM, ChainID: ext.Chain().ID().String()}
 		chain, err2 := legacyChains.Get(relayID.ChainID)
@@ -82,6 +84,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 		relayerOpts := evmrelay.RelayerOpts{
 			DS:                   ccOpts.DS,
+			DBURL:                &dburl,
 			CSAETHKeystore:       config.CSAETHKeystore,
 			MercuryPool:          r.MercuryPool,
 			TransmitterConfig:    config.MercuryTransmitter,
