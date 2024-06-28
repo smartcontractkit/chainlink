@@ -84,7 +84,7 @@ var (
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
-	c, err := tc.GetConfig("Reorg", tc.Automation)
+	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 	require.NoError(t, err, "Error getting config")
 
 	findIntValue := func(text string, substring string) (int, error) {
@@ -126,7 +126,7 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Reorg", tc.Automation)
+			config, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
