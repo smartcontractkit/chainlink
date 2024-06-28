@@ -139,7 +139,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 }
 
 func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger, firstRoundResult int) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregatorV2, *seth.Client) {
-	config, err := tc.GetConfig("Smoke", tc.OCR2)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.OCR2)
 	if err != nil {
 		t.Fatal(err)
 	}

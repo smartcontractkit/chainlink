@@ -91,7 +91,7 @@ func TestLogPollerReplayFinalityTag(t *testing.T) {
 
 // HELPER FUNCTIONS
 func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.ChainlinkNodeLogScannerSettings) {
-	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	testConfig, err := tc.GetConfig([]string{t.Name()}, tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 	overrideEphemeralAddressesCount(&testConfig)
 
@@ -174,7 +174,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 }
 
 func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
-	testConfig, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	testConfig, err := tc.GetConfig([]string{t.Name()}, tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 	overrideEphemeralAddressesCount(&testConfig)
 
