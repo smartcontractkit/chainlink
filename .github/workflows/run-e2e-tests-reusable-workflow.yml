@@ -197,7 +197,7 @@ jobs:
         if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
           chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
           chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
           chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
