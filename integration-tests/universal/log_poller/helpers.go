@@ -250,27 +250,34 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logE
 		current := atomicCounter.Add(1)
 
 		for _, event := range cfg.General.EventsToEmit {
-			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
-			var err error
-			switch event.Name {
-			case "Log1":
-				_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				err = errors.New("on-demand")
-			case "Log2":
-				_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-			case "Log3":
-				_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-			case "Log4":
-				_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
-			default:
-				err = fmt.Errorf("unknown event name: %s", event.Name)
-			}
-
-			if err != nil {
-				errorCh <- err
+			select {
+			case <-ctx.Done():
+				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
+				errorCh <- errors.New("context cancelled")
 				return
+			default:
+				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+				var err error
+				switch event.Name {
+				case "Log1":
+					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+					err = errors.New("on-demand")
+				case "Log2":
+					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				case "Log3":
+					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				case "Log4":
+					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
+				default:
+					err = fmt.Errorf("unknown event name: %s", event.Name)
+				}
+
+				if err != nil {
+					errorCh <- err
+					return
+				}
+				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
 			}
-			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
 		}
 
 		if (current)%10 == 0 {
@@ -296,7 +303,7 @@ func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logE
 
 	results <- LogEmitterChannel{
 		logsEmitted: localCounter,
-		err:         nil,
+		err:         err,
 	}
 
 	//var executionGroup sync.WaitGroup
