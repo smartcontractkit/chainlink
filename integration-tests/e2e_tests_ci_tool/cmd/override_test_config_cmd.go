@@ -18,7 +18,7 @@ var fromBase64TOML string
 
 var overrideTestConfigCmd = &cobra.Command{
 	Use:   "override",
-	Short: "Override base64 encoded TOML config with provided flags",
+	Short: "Override base64 encoded TOML config with provided flags. Overrides only existing fields in the base config.",
 	Run: func(cmd *cobra.Command, args []string) {
 		dryRun, _ := cmd.Flags().GetBool(DryRunFlag)
 
@@ -176,108 +176,7 @@ var overrideTestConfigCmd = &cobra.Command{
 				fmt.Printf("Override not supported for flag: %s\n", flag.Name)
 				os.Exit(1)
 			}
-
 		})
-
-		// // Override base config with flags
-		// if cmd.Flags().Changed(ChainlinkImageFlag) {
-		// 	if baseConfig.ChainlinkImage != nil {
-		// 		baseConfig.ChainlinkImage.Image = &oc.ChainlinkImage
-		// 	}
-		// }
-		// if cmd.Flags().Changed(ChainlinkVersionFlag) {
-		// 	if baseConfig.ChainlinkImage != nil {
-		// 		baseConfig.ChainlinkImage.Version = &oc.ChainlinkVersion
-		// 	}
-		// }
-		// if cmd.Flags().Changed(ChainlinkPostgresVersionFlag) {
-		// 	if baseConfig.ChainlinkImage != nil {
-		// 		baseConfig.ChainlinkImage.PostgresVersion = &oc.ChainlinkPostgresVersion
-		// 	}
-		// }
-		// if cmd.Flags().Changed(SelectedNetworksFlag) {
-		// 	if baseConfig.Network != nil {
-		// 		baseConfig.Network.SelectedNetworks = oc.SelectedNetworks
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingLokiBasicAuthFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Loki != nil {
-		// 		baseConfig.Logging.Loki.BasicAuth = &oc.LoggingLokiBasicAuth
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingLokiEndpointFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Loki != nil {
-		// 		baseConfig.Logging.Loki.Endpoint = &oc.LoggingLokiEndpoint
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingLokiTenantIDFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Loki != nil {
-		// 		baseConfig.Logging.Loki.TenantId = &oc.LoggingLokiTenantID
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingRunIDFlag) {
-		// 	if baseConfig.Logging != nil {
-		// 		baseConfig.Logging.RunId = &oc.LoggingRunID
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingGrafanaBaseURLFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Grafana != nil {
-		// 		baseConfig.Logging.Grafana.BaseUrl = &oc.LoggingGrafanaBaseURL
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingGrafanaDashboardURLFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Grafana != nil {
-		// 		baseConfig.Logging.Grafana.DashboardUrl = &oc.LoggingGrafanaDashboardURL
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingGrafanaTokenFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.Grafana != nil {
-		// 		baseConfig.Logging.Grafana.BearerToken = &oc.LoggingGrafanaToken
-		// 	}
-		// }
-		// if cmd.Flags().Changed(LoggingLogTargetsFlag) {
-		// 	if baseConfig.Logging != nil && baseConfig.Logging.LogStream != nil {
-		// 		baseConfig.Logging.LogStream.LogTargets = oc.LoggingLogTargets
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PyroscopeEnabledFlag) {
-		// 	if baseConfig.Pyroscope != nil {
-		// 		baseConfig.Pyroscope.Enabled = &oc.PyroscopeEnabled
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PyroscopeServerURLFlag) {
-		// 	if baseConfig.Pyroscope != nil {
-		// 		baseConfig.Pyroscope.ServerUrl = &oc.PyroscopeServerURL
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PyroscopeEnvironmentFlag) {
-		// 	if baseConfig.Pyroscope != nil {
-		// 		baseConfig.Pyroscope.Environment = &oc.PyroscopeEnvironment
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PyroscopeKeyFlag) {
-		// 	if baseConfig.Pyroscope != nil {
-		// 		baseConfig.Pyroscope.Key = &oc.PyroscopeKey
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PrivateEthereumNetworkExecutionLayerFlag) {
-		// 	if baseConfig.PrivateEthereumNetwork != nil {
-		// 		el := ctf_config.ExecutionLayer(oc.PrivateEthereumNetworkExecutionLayer)
-		// 		baseConfig.PrivateEthereumNetwork.ExecutionLayer = &el
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PrivateEthereumNetworkEthereumVersionFlag) {
-		// 	if baseConfig.PrivateEthereumNetwork != nil {
-		// 		ev := ctf_config.EthereumVersion(oc.PrivateEthereumNetworkEthereumVersion)
-		// 		baseConfig.PrivateEthereumNetwork.EthereumVersion = &ev
-		// 	}
-		// }
-		// if cmd.Flags().Changed(PrivateEthereumNetworkCustomDockerImageFlag) {
-		// 	if baseConfig.PrivateEthereumNetwork != nil {
-		// 		customImages := map[ctf_config.ContainerType]string{"execution_layer": oc.PrivateEthereumNetworkCustomDockerImages}
-		// 		baseConfig.PrivateEthereumNetwork.CustomDockerImages = customImages
-		// 	}
-		// }
 
 		if !dryRun {
 			configToml, err := toml.Marshal(baseConfig)
