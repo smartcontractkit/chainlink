@@ -20,10 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 )
 
+const testWorkflowId = "<workflow-id>"
 const hardcodedWorkflow = `
 triggers:
   - id: "mercury-trigger@1.0.0"
@@ -78,6 +80,25 @@ type testHooks struct {
 	executionFinished chan string
 }
 
+func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
+	// Taken from https://github.com/smartcontractkit/chainlink/blob/d736d9e0838983a021677bc608556b3994f46690/core/services/job/orm.go#L412
+	// We need to insert this row so that we dont get foreign key constraint errors
+	// based on the workflow_id
+	db := pgtest.NewSqlxDB(t)
+	sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at)
+	VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW())
+	RETURNING id;`
+	var wfSpec job.WorkflowSpec
+	wfSpec.Workflow = simpleWorkflow
+	wfSpec.WorkflowID = testWorkflowId
+	wfSpec.WorkflowOwner = "testowner"
+	wfSpec.WorkflowName = "testworkflow"
+	_, err := db.NamedExec(sql, wfSpec)
+	require.NoError(t, err)
+
+	return store.NewDBStore(db, logger.TestLogger(t), clock)
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
 	peerID := p2ptypes.PeerID{}
@@ -86,9 +107,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
 	cfg := Config{
-		Lggr:     logger.TestLogger(t),
-		Registry: reg,
-		Spec:     spec,
+		WorkflowID: testWorkflowId,
+		Lggr:       logger.TestLogger(t),
+		Registry:   reg,
+		Spec:       spec,
 		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
 			return capabilities.Node{
 				WorkflowDON: capabilities.DON{
@@ -110,10 +132,13 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 			executionFinished <- weid
 		},
 		clock: clock,
-		Store: store.NewDBStore(pgtest.NewSqlxDB(t), clock),
 	}
 	for _, o := range opts {
 		o(&cfg)
+	}
+	// We use the cfg clock incase they override it
+	if cfg.Store == nil {
+		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
 	eng, err := NewEngine(cfg)
 	require.NoError(t, err)
@@ -193,7 +218,6 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 }
 
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
@@ -223,7 +247,6 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 		t,
 		reg,
 		hardcodedWorkflow,
-		func(c *Config) { c.Store = dbstore },
 	)
 
 	servicetest.Run(t, eng)
@@ -483,8 +506,9 @@ targets:
 `
 )
 
-func mockAction() (*mockCapability, values.Value) {
-	outputs := values.NewString("output")
+func mockAction(t *testing.T) (*mockCapability, values.Value) {
+	outputs, err := values.NewMap(map[string]any{"output": "foo"})
+	require.NoError(t, err)
 	return newMockCapability(
 		capabilities.MustNewCapabilityInfo(
 			"read_chain_action@1.0.0",
@@ -510,7 +534,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, out := mockAction()
+	action, out := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 
 	eng, hooks := newTestEngine(t, reg, multiStepWorkflow)
@@ -557,10 +581,9 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, _ := mockAction()
+	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
-
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clockwork.NewFakeClock())
+	dbstore := newTestDBStore(t, clockwork.NewFakeClock())
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -572,7 +595,7 @@ func TestEngine_ResumesPendingExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  "",
+		WorkflowID:  testWorkflowId,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -610,11 +633,11 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockConsensus()))
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
-	action, _ := mockAction()
+	action, _ := mockAction(t)
 	require.NoError(t, reg.Add(ctx, action))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 	ec := &store.WorkflowExecution{
 		Steps: map[string]*store.WorkflowExecutionStep{
 			workflows.KeywordTrigger: {
@@ -626,7 +649,7 @@ func TestEngine_TimesOutOldExecutions(t *testing.T) {
 				Ref:         workflows.KeywordTrigger,
 			},
 		},
-		WorkflowID:  "",
+		WorkflowID:  testWorkflowId,
 		ExecutionID: "<execution-ID>",
 		Status:      store.StatusStarted,
 	}
@@ -708,7 +731,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 
 	eng, hooks := newTestEngine(
 		t,
@@ -754,7 +777,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget()))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := store.NewDBStore(pgtest.NewSqlxDB(t), clock)
+	dbstore := newTestDBStore(t, clock)
 
 	var peerID p2ptypes.PeerID
 	node := capabilities.Node{
@@ -790,4 +813,159 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	<-hooks.initSuccessful
 
 	assert.Equal(t, node, eng.localNode)
+}
+
+const passthroughInterpolationWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
+    inputs: "$(evm_median.outputs)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+`
+
+func TestEngine_PassthroughInterpolation(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+	require.NoError(t, reg.Add(ctx, mockConsensus()))
+	writeID := "write_ethereum-testnet-sepolia@1.0.0"
+	target := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			writeID,
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target))
+
+	eng, testHooks := newTestEngine(
+		t,
+		reg,
+		passthroughInterpolationWorkflow,
+	)
+
+	servicetest.Run(t, eng)
+
+	eid := getExecutionId(t, eng, testHooks)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	assert.Equal(t, state.Status, store.StatusCompleted)
+
+	// There is passthrough interpolation between the consensus and target steps,
+	// so the input of one should be the output of the other, exactly.
+	gotInputs, err := values.Unwrap(state.Steps[writeID].Inputs)
+	require.NoError(t, err)
+
+	gotOutputs, err := values.Unwrap(state.Steps["evm_median"].Outputs.Value)
+	require.NoError(t, err)
+	assert.Equal(t, gotInputs, gotOutputs)
+}
+
+func TestEngine_Error(t *testing.T) {
+	err := errors.New("some error")
+	tests := []struct {
+		name   string
+		labels map[string]string
+		err    error
+		reason string
+		want   string
+	}{
+		{
+			name:   "Error with error and reason",
+			labels: map[string]string{wIDKey: "my-workflow-id"},
+			err:    err,
+			reason: "some reason",
+			want:   "workflowID my-workflow-id: some reason: some error",
+		},
+		{
+			name:   "Error with error and no reason",
+			labels: map[string]string{eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751"},
+			err:    err,
+			want:   "executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: some error",
+		},
+		{
+			name:   "Error with no error and reason",
+			labels: map[string]string{cIDKey: "streams-trigger:network_eth@1.0.0"},
+			reason: "some reason",
+			want:   "capabilityID streams-trigger:network_eth@1.0.0: some reason",
+		},
+		{
+			name:   "Error with no error and no reason",
+			labels: map[string]string{tIDKey: "wf_123_trigger_456"},
+			want:   "triggerID wf_123_trigger_456: ",
+		},
+		{
+			name:   "Error with no labels",
+			labels: map[string]string{},
+			err:    err,
+			reason: "some reason",
+			want:   "some reason: some error",
+		},
+		{
+			name: "Multiple labels",
+			labels: map[string]string{
+				wIDKey: "my-workflow-id",
+				eIDKey: "dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				cIDKey: "streams-trigger:network_eth@1.0.0",
+			},
+			err:    err,
+			reason: "some reason",
+			want:   "workflowID my-workflow-id: executionID dd3708ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751: capabilityID streams-trigger:network_eth@1.0.0: some reason: some error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &workflowError{
+				labels: tt.labels,
+				err:    tt.err,
+				reason: tt.reason,
+			}
+			if got := e.Error(); got != tt.want {
+				t.Errorf("err string mismatch\ngot = %v\nwant = %v", got, tt.want)
+			}
+		})
+	}
 }

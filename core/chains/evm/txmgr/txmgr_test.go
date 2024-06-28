@@ -608,11 +608,11 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
 	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
+	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
 	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
 	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
 	require.NoError(t, err)
-	err = txm.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, txm)
 
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),

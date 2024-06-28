@@ -225,8 +225,12 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 
 	value := request.Inputs.Underlying["executeValue1"]
 
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return nil, err
+	}
 	ch <- commoncap.CapabilityResponse{
-		Value: value,
+		Value: response,
 	}
 
 	return ch, nil
