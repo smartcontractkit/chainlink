@@ -23,5 +23,3 @@ BlockHistorySize = 12
 [HeadTracker]
 HistoryDepth = 2000
 
-[OCR2.Automation]
-LogLimit = 5

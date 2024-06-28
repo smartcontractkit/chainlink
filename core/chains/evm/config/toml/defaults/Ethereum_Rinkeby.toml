@@ -11,5 +11,3 @@ EIP1559DynamicFees = false
 BlockHistorySize = 4
 TransactionPercentile = 50
 
-[OCR2.Automation]
-LogLimit = 20

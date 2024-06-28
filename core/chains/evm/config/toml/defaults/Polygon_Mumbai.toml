@@ -25,5 +25,3 @@ HistoryDepth = 2000
 [NodePool]
 SyncThreshold = 10
 
-[OCR2.Automation]
-LogLimit = 5

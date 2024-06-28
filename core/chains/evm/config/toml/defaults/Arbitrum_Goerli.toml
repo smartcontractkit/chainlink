@@ -24,4 +24,4 @@ SyncThreshold = 10
 
 [OCR2.Automation]
 GasLimit = 14500000
-BlockRate = 4
+
