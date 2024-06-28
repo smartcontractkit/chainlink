@@ -10,7 +10,7 @@ NoNewHeadsThreshold = '0'
 [GasEstimator]
 EIP1559DynamicFees = true
 PriceMin = '1 wei'
-BumpMin = '100 wei'
+BumpMin = '1 gwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 50
