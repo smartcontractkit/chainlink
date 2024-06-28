@@ -80,7 +80,7 @@ events_per_tx = 4
 use_finality_tag = true
 
 [LogPoller.Looped]
-execution_count = 2
+execution_count = 100
 min_emit_wait_time_ms = 200
 max_emit_wait_time_ms = 500
 
