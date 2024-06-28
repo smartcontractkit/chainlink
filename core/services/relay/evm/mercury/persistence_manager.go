@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -90,11 +89,11 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 	ctx, cancel := pm.stopCh.Ctx(context.Background())
 	defer cancel()
 
-	ticker := time.NewTicker(utils.WithJitter(pm.flushDeletesFrequency))
+	ticker := services.NewTicker(pm.flushDeletesFrequency)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			queuedReqs := pm.resetDeleteQueue()
@@ -114,11 +113,11 @@ func (pm *PersistenceManager) runPruneLoop() {
 	ctx, cancel := pm.stopCh.NewCtx()
 	defer cancel()
 
-	ticker := time.NewTicker(utils.WithJitter(pm.pruneFrequency))
+	ticker := services.NewTicker(pm.pruneFrequency)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
-			ticker.Stop()
 			return
 		case <-ticker.C:
 			func(ctx context.Context) {

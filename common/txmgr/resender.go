@@ -9,8 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -120,7 +118,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
-	ticker := time.NewTicker(utils.WithJitter(er.interval))
+	ticker := services.NewTicker(er.interval)
 	defer ticker.Stop()
 	for {
 		select {

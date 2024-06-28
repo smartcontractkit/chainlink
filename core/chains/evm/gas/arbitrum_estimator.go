@@ -11,8 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
@@ -168,27 +166,31 @@ func (a *arbitrumEstimator) getPricesInArbGas() (perL2Tx uint32, perL1CalldataUn
 func (a *arbitrumEstimator) run() {
 	defer close(a.chDone)
 
-	t := a.refreshPricesInArbGas()
+	a.refreshPricesInArbGas()
 	close(a.chInitialised)
+
+	t := services.TickerConfig{
+		Initial:   a.pollPeriod,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(a.pollPeriod)
+	defer t.Stop()
 
 	for {
 		select {
 		case <-a.chStop:
 			return
 		case ch := <-a.chForceRefetch:
-			t.Stop()
-			t = a.refreshPricesInArbGas()
+			a.refreshPricesInArbGas()
+			t.Reset()
 			close(ch)
 		case <-t.C:
-			t = a.refreshPricesInArbGas()
+			a.refreshPricesInArbGas()
 		}
 	}
 }
 
 // refreshPricesInArbGas calls getPricesInArbGas() and caches the refreshed prices.
-func (a *arbitrumEstimator) refreshPricesInArbGas() (t *time.Timer) {
-	t = time.NewTimer(utils.WithJitter(a.pollPeriod))
-
+func (a *arbitrumEstimator) refreshPricesInArbGas() {
 	perL2Tx, perL1CalldataUnit, err := a.l1Oracle.GetPricesInArbGas()
 	if err != nil {
 		a.logger.Warnw("Failed to refresh prices", "err", err)
@@ -201,5 +203,4 @@ func (a *arbitrumEstimator) refreshPricesInArbGas() (t *time.Timer) {
 	a.perL2Tx = perL2Tx
 	a.perL1CalldataUnit = perL1CalldataUnit
 	a.getPricesInArbGasMu.Unlock()
-	return
 }

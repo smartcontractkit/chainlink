@@ -552,9 +552,14 @@ func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	ctx, cancel := lp.stopCh.NewCtx()
 	defer cancel()
-	logPollTick := time.After(0)
+	logPollTicker := services.NewTicker(lp.pollPeriod)
+	defer logPollTicker.Stop()
 	// stagger these somewhat, so they don't all run back-to-back
-	backupLogPollTick := time.After(100 * time.Millisecond)
+	backupLogPollTicker := services.TickerConfig{
+		Initial:   100 * time.Millisecond,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod)
+	defer backupLogPollTicker.Stop()
 	filtersLoaded := false
 
 	for {
@@ -563,8 +568,7 @@ func (lp *logPoller) run() {
 			return
 		case fromBlockReq := <-lp.replayStart:
 			lp.handleReplayRequest(ctx, fromBlockReq, filtersLoaded)
-		case <-logPollTick:
-			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTicker.C:
 			if !filtersLoaded {
 				if err := lp.loadFilters(ctx); err != nil {
 					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
@@ -602,7 +606,7 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.PollAndSaveLogs(ctx, start)
-		case <-backupLogPollTick:
+		case <-backupLogPollTicker.C:
 			if lp.backupPollerBlockDelay == 0 {
 				continue // backup poller is disabled
 			}
@@ -614,7 +618,6 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller (instead of roughly once per block it runs once roughly once every
 			// lp.backupPollerDelay blocks--with default settings about 100x less frequently).
 
-			backupLogPollTick = time.After(utils.WithJitter(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod))
 			if !filtersLoaded {
 				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue

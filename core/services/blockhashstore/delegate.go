@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ job.ServiceCtx = &service{}
@@ -234,7 +233,7 @@ func (s *service) Start(context.Context) error {
 			defer s.wg.Done()
 			ctx, cancel := s.stopCh.NewCtx()
 			defer cancel()
-			ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
+			ticker := services.NewTicker(s.pollPeriod)
 			defer ticker.Stop()
 			for {
 				select {
