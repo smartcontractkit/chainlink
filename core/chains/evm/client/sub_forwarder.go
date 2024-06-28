@@ -1,42 +1,40 @@
 package client
 
 import (
-	"math/big"
-
 	"github.com/ethereum/go-ethereum"
-
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
 
-var _ ethereum.Subscription = &chainIDSubForwarder{}
+var _ ethereum.Subscription = &subForwarder[any]{}
 
-// chainIDSubForwarder wraps a head subscription in order to intercept and augment each head with chainID before forwarding.
-type chainIDSubForwarder struct {
-	chainID *big.Int
-	destCh  chan<- *evmtypes.Head
+// subForwarder wraps a subscription in order to intercept and augment each result before forwarding.
+type subForwarder[T any] struct {
+	destCh chan<- T
 
-	srcCh  chan *evmtypes.Head
+	srcCh  chan T
 	srcSub ethereum.Subscription
+
+	interceptResult func(T) T
+	interceptError  func(error) error
 
 	done  chan struct{}
 	err   chan error
 	unSub chan struct{}
 }
 
-func newChainIDSubForwarder(chainID *big.Int, ch chan<- *evmtypes.Head) *chainIDSubForwarder {
-	return &chainIDSubForwarder{
-		chainID: chainID,
-		destCh:  ch,
-		srcCh:   make(chan *evmtypes.Head),
-		done:    make(chan struct{}),
-		err:     make(chan error),
-		unSub:   make(chan struct{}, 1),
+func newSubForwarder[T any](destCh chan<- T, interceptResult func(T) T, interceptError func(error) error) *subForwarder[T] {
+	return &subForwarder[T]{
+		interceptResult: interceptResult,
+		interceptError:  interceptError,
+		destCh:          destCh,
+		srcCh:           make(chan T),
+		done:            make(chan struct{}),
+		err:             make(chan error),
+		unSub:           make(chan struct{}, 1),
 	}
 }
 
 // start spawns the forwarding loop for sub.
-func (c *chainIDSubForwarder) start(sub ethereum.Subscription, err error) error {
+func (c *subForwarder[T]) start(sub ethereum.Subscription, err error) error {
 	if err != nil {
 		close(c.srcCh)
 		return err
@@ -48,7 +46,7 @@ func (c *chainIDSubForwarder) start(sub ethereum.Subscription, err error) error 
 
 // forwardLoop receives from src, adds the chainID, and then sends to dest.
 // It also handles Unsubscribing, which may interrupt either forwarding operation.
-func (c *chainIDSubForwarder) forwardLoop() {
+func (c *subForwarder[T]) forwardLoop() {
 	// the error channel must be closed when unsubscribing
 	defer close(c.err)
 	defer close(c.done)
@@ -56,6 +54,9 @@ func (c *chainIDSubForwarder) forwardLoop() {
 	for {
 		select {
 		case err := <-c.srcSub.Err():
+			if c.interceptError != nil {
+				err = c.interceptError(err)
+			}
 			select {
 			case c.err <- err:
 			case <-c.unSub:
@@ -64,7 +65,9 @@ func (c *chainIDSubForwarder) forwardLoop() {
 			return
 
 		case h := <-c.srcCh:
-			h.EVMChainID = ubig.New(c.chainID)
+			if c.interceptResult != nil {
+				h = c.interceptResult(h)
+			}
 			select {
 			case c.destCh <- h:
 			case <-c.unSub:
@@ -79,7 +82,7 @@ func (c *chainIDSubForwarder) forwardLoop() {
 	}
 }
 
-func (c *chainIDSubForwarder) Unsubscribe() {
+func (c *subForwarder[T]) Unsubscribe() {
 	// tell forwardLoop to unsubscribe
 	select {
 	case c.unSub <- struct{}{}:
@@ -90,6 +93,6 @@ func (c *chainIDSubForwarder) Unsubscribe() {
 	<-c.done
 }
 
-func (c *chainIDSubForwarder) Err() <-chan error {
+func (c *subForwarder[T]) Err() <-chan error {
 	return c.err
 }
