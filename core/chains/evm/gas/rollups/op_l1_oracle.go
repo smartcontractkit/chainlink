@@ -52,7 +52,9 @@ type optimismL1Oracle struct {
 	blobBaseFeeScalarCalldata []byte
 	decimalsCalldata          []byte
 	isEcotoneCalldata         []byte
+	isEcotoneMethodAbi        abi.ABI
 	isFjordCalldata           []byte
+	isFjordMethodAbi          abi.ABI
 }
 
 const (
@@ -208,7 +210,9 @@ func newOpStackL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainTy
 		blobBaseFeeScalarCalldata: blobBaseFeeScalarCalldata,
 		decimalsCalldata:          decimalsCalldata,
 		isEcotoneCalldata:         isEcotoneCalldata,
+		isEcotoneMethodAbi:        isEcotoneMethodAbi,
 		isFjordCalldata:           isFjordCalldata,
+		isFjordMethodAbi:          isFjordMethodAbi,
 	}, nil
 }
 
@@ -373,7 +377,7 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 				},
 				"latest",
 			},
-			Result: new(bool),
+			Result: new(string),
 		},
 		{
 			Method: "eth_call",
@@ -385,7 +389,7 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 				},
 				"latest",
 			},
-			Result: new(bool),
+			Result: new(string),
 		},
 	}
 	err := o.client.BatchCallContext(ctx, rpcBatchCalls)
@@ -394,10 +398,30 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 	}
 	// These calls are expected to revert if chain has not upgraded. Ignore non-nil Error field.
 	if rpcBatchCalls[0].Error == nil {
-		o.isFjord = *(rpcBatchCalls[0].Result.(*bool))
+		result := *(rpcBatchCalls[0].Result.(*string))
+		if b, err := hexutil.Decode(result); err == nil {
+			if res, err := o.isFjordMethodAbi.Unpack(isFjordMethod, b); err == nil {
+				o.isFjord = res[0].(bool)
+			} else {
+				o.logger.Errorw("failed to unpack results", "method", isFjordMethod, "hex", result, "error", err)
+			}
+		} else {
+			o.logger.Errorw("failed to decode bytes", "method", isFjordMethod, "hex", result, "error", err)
+		}
+
 	}
 	if rpcBatchCalls[1].Error == nil {
-		o.isEcotone = *(rpcBatchCalls[1].Result.(*bool))
+		result := *(rpcBatchCalls[1].Result.(*string))
+		if b, err := hexutil.Decode(result); err == nil {
+			if res, err := o.isEcotoneMethodAbi.Unpack(isEcotoneMethod, b); err == nil {
+				o.isEcotone = res[0].(bool)
+			} else {
+				o.logger.Errorw("failed to unpack results", "method", isEcotoneMethod, "hex", result, "error", err)
+			}
+		} else {
+			o.logger.Errorw("failed to decode bytes", "method", isEcotoneMethod, "hex", result, "error", err)
+		}
+
 	}
 	return nil
 }

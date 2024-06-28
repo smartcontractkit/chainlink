@@ -80,7 +80,7 @@ func TestOPL1Oracle_ReadV1GasPrice(t *testing.T) {
 				}
 				require.Equal(t, hexutil.Bytes(isFjordCalldata), rpcElements[0].Args[0].(map[string]interface{})["data"])
 				require.Equal(t, hexutil.Bytes(isEcotoneCalldata), rpcElements[1].Args[0].(map[string]interface{})["data"])
-				isUpgraded := false
+				isUpgraded := "0x0000000000000000000000000000000000000000000000000000000000000000"
 				if tc.isFjordError {
 					rpcElements[0].Error = fmt.Errorf("test error")
 				} else {
@@ -112,6 +112,12 @@ func TestOPL1Oracle_ReadV1GasPrice(t *testing.T) {
 }
 
 func setupUpgradeCheck(t *testing.T, oracleAddress string, isFjord, isEcotone bool) *mocks.L1OracleClient {
+	trueHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	falseHex := "0x0000000000000000000000000000000000000000000000000000000000000000"
+	boolToHexMap := map[bool]*string{
+		true:  &trueHex,
+		false: &falseHex,
+	}
 	// IsFjord calldata
 	isFjordMethodAbi, err := abi.JSON(strings.NewReader(OPIsFjordAbiString))
 	require.NoError(t, err)
@@ -135,8 +141,9 @@ func setupUpgradeCheck(t *testing.T, oracleAddress string, isFjord, isEcotone bo
 		}
 		require.Equal(t, hexutil.Bytes(isFjordCalldata), rpcElements[0].Args[0].(map[string]interface{})["data"])
 		require.Equal(t, hexutil.Bytes(isEcotoneCalldata), rpcElements[1].Args[0].(map[string]interface{})["data"])
-		rpcElements[0].Result = &isFjord
-		rpcElements[1].Result = &isEcotone
+
+		rpcElements[0].Result = boolToHexMap[isFjord]
+		rpcElements[1].Result = boolToHexMap[isEcotone]
 	}).Return(nil).Once()
 
 	return ethClient
