@@ -535,25 +535,25 @@ jobs:
           # other inputs
           duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
+        uses: ./.github/actions/create-default-e2e-config-override
         with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ needs.select-versions.outputs.chainlink_version }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary"
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          ethExecutionClient: ${{ matrix.evm_node.eth_implementation }}
-          customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
-          pyroscopeServer: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          pyroscopeEnvironment: ci-client-compatability-${{ matrix.eth_client }}-testnet
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
+          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ needs.select-versions.outputs.chainlink_version }}
+          selected_networks: ${{ env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscope_environment: ci-client-compatability-${{ matrix.eth_client }}-testnet
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}    
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
+          private_ethereum_network_custom_docker_image: ${{ matrix.evm_node.docker_image }}
+          private_ethereum_network_execution_layer: ${{ matrix.evm_node.eth_implementation || 'geth' }}
       - name: Prepare test log name
         run: |
           replace_special_chars() {
