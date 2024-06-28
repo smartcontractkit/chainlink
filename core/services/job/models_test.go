@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,23 +41,23 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 		{
 			name: "evm explicitly configured",
 			fields: fields{
-				Relay:   types.NetworkEVM,
+				Relay:   relay.NetworkEVM,
 				ChainID: "1",
 			},
-			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
+			want: types.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured",
 			fields: fields{
-				Relay:       types.NetworkEVM,
+				Relay:       relay.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": 1},
 			},
-			want: types.RelayID{Network: types.NetworkEVM, ChainID: "1"},
+			want: types.RelayID{Network: relay.NetworkEVM, ChainID: "1"},
 		},
 		{
 			name: "evm implicitly configured with bad value",
 			fields: fields{
-				Relay:       types.NetworkEVM,
+				Relay:       relay.NetworkEVM,
 				RelayConfig: map[string]any{"chainID": float32(1)},
 			},
 			want:    types.RelayID{},
@@ -94,7 +95,7 @@ var (
 
 func TestOCR2OracleSpec(t *testing.T) {
 	val := OCR2OracleSpec{
-		Relay:                             types.NetworkEVM,
+		Relay:                             relay.NetworkEVM,
 		PluginType:                        types.Median,
 		ContractID:                        "foo",
 		OCRKeyBundleID:                    null.StringFrom("bar"),

@@ -5,11 +5,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -33,7 +35,6 @@ func TestChainWriter(t *testing.T) {
 
 	chainWriterConfig := newBaseChainWriterConfig()
 	cw, err := NewChainWriterService(lggr, client, txm, ge, chainWriterConfig)
-
 	require.NoError(t, err)
 
 	t.Run("Initialization", func(t *testing.T) {
@@ -60,6 +61,30 @@ func TestChainWriter(t *testing.T) {
 		// TODO: implement
 	})
 
+	t.Run("GetTransactionStatus", func(t *testing.T) {
+		txs := []struct {
+			txid   string
+			status commontypes.TransactionStatus
+		}{
+			{uuid.NewString(), commontypes.Unknown},
+			{uuid.NewString(), commontypes.Unconfirmed},
+			{uuid.NewString(), commontypes.Finalized},
+			{uuid.NewString(), commontypes.Failed},
+			{uuid.NewString(), commontypes.Fatal},
+		}
+
+		for _, tx := range txs {
+			txm.On("GetTransactionStatus", mock.Anything, tx.txid).Return(tx.status, nil).Once()
+		}
+
+		for _, tx := range txs {
+			var status commontypes.TransactionStatus
+			status, err = cw.GetTransactionStatus(ctx, tx.txid)
+			require.NoError(t, err)
+			require.Equal(t, tx.status, status)
+		}
+	})
+
 	t.Run("GetFeeComponents", func(t *testing.T) {
 		ge.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.EvmFee{
 			Legacy:        assets.NewWei(big.NewInt(1000000001)),
@@ -73,8 +98,8 @@ func TestChainWriter(t *testing.T) {
 		t.Run("Returns valid FeeComponents", func(t *testing.T) {
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000002), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(1000000004), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000002), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(1000000004), feeComponents.DataAvailabilityFee)
 		})
 
 		ge.On("L1Oracle", mock.Anything).Return(nil).Twice()
@@ -82,8 +107,8 @@ func TestChainWriter(t *testing.T) {
 		t.Run("Returns valid FeeComponents with no L1Oracle", func(t *testing.T) {
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000002), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000002), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(0), feeComponents.DataAvailabilityFee)
 		})
 
 		t.Run("Returns Legacy Fee in absence of Dynamic Fee", func(t *testing.T) {
@@ -94,8 +119,8 @@ func TestChainWriter(t *testing.T) {
 			}, uint64(0), nil).Once()
 			feeComponents, err = cw.GetFeeComponents(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, big.NewInt(1000000001), &feeComponents.ExecutionFee)
-			assert.Equal(t, big.NewInt(0), &feeComponents.DataAvailabilityFee)
+			assert.Equal(t, big.NewInt(1000000001), feeComponents.ExecutionFee)
+			assert.Equal(t, big.NewInt(0), feeComponents.DataAvailabilityFee)
 		})
 
 		t.Run("Fails when neither legacy or dynamic fee is available", func(t *testing.T) {

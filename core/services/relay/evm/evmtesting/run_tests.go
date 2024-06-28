@@ -1,16 +1,20 @@
 package evmtesting
 
 import (
+	"math/big"
 	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTester[T]) {
@@ -39,7 +43,7 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 
 		require.Eventually(t, func() bool {
 			return cr.GetLatestValue(ctx, AnyContractName, triggerWithDynamicTopic, input, output) == nil
-		}, it.MaxWaitTimeForEvents(), time.Millisecond*10)
+		}, it.MaxWaitTimeForEvents(), 100*time.Millisecond)
 
 		assert.Equal(t, &anyString, rOutput.FieldByName("Field").Interface())
 		topic, err := abi.MakeTopics([]any{anyString})
@@ -67,6 +71,18 @@ func RunChainReaderEvmTests[T TestingT[T]](t T, it *EVMChainReaderInterfaceTeste
 		assert.Equal(t, int32(1), latest.Field1)
 		assert.Equal(t, int32(2), latest.Field2)
 		assert.Equal(t, int32(3), latest.Field3)
+	})
+
+	t.Run("Bind returns error on missing contract at address", func(t T) {
+		it.Setup(t)
+
+		addr := common.BigToAddress(big.NewInt(42))
+		reader := it.GetChainReader(t)
+
+		ctx := it.Helper.Context(t)
+		err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex(), Pending: true}})
+
+		require.ErrorIs(t, err, evm.NoContractExistsError{Address: addr})
 	})
 }
 
