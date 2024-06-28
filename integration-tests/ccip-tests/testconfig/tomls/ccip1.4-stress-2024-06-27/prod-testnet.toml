@@ -919,7 +919,8 @@ selected_networks = [
 
 [CCIP.Groups.load]
 NetworkPairs = [
-  'AVALANCHE_FUJI,SEPOLIA'
+  'AVALANCHE_FUJI,SEPOLIA',
+  'OPTIMISM_SEPOLIA,BASE_SEPOLIA'
 ]
 
 BiDirectionalLane = true
@@ -930,8 +931,8 @@ NoOfTokensPerChain = 1
 
 [CCIP.Groups.load.LoadProfile]
 RequestPerUnitTime = [1]
-TimeUnit = '30s'
-TestDuration = '5m'
+TimeUnit = '5s'
+TestDuration = '1h'
 TestRunName = 'v2.12.0-ccip1.4.16-load'
 
 # to represent 20%, 60%, 15%, 5% of the total messages
