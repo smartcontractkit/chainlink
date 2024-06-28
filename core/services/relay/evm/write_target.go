@@ -16,15 +16,22 @@ import (
 )
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
+	// EVM-specific init
+	config := chain.Config().EVM().Workflow()
+	fromAddress := config.FromAddress()
+	forwarderAddress := config.ForwarderAddress().String()
+	l := lggr.Named("NewEVMWriteTarget").With("fromAddress", fromAddress.String(), "forwarderAddress", forwarderAddress)
+
 	// generate ID based on chain selector
 	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
 		id = fmt.Sprintf("write_%v@1.0.0", chainName)
+		l = l.With("capabilityID", id)
+	} else {
+		l.Warnw("failed to get chain name from chain ID", "chainID", chain.ID().Uint64())
+		l = l.With("capabilityID", id)
 	}
-
-	// EVM-specific init
-	config := chain.Config().EVM().Workflow()
 
 	// Initialize a reader to check whether a value was already transmitted on chain
 	contractReaderConfigEncoded, err := json.Marshal(relayevmtypes.ChainReaderConfig{
@@ -47,7 +54,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 	err = cr.Bind(ctx, []commontypes.BoundContract{{
-		Address: config.ForwarderAddress().String(),
+		Address: forwarderAddress,
 		Name:    "forwarder",
 	}})
 	if err != nil {
@@ -62,7 +69,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 					"report": {
 						ChainSpecificName: "report",
 						Checker:           "simulate",
-						FromAddress:       config.FromAddress().Address(),
+						FromAddress:       fromAddress.Address(),
 						GasLimit:          200_000,
 					},
 				},
@@ -71,10 +78,10 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 
 	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chain.GasEstimator(), chainWriterConfig)
+	cw, err := NewChainWriterService(l.Named("ChainWriter"), chain.Client(), chain.TxManager(), chain.GasEstimator(), chainWriterConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(lggr, id, cr, cw, config.ForwarderAddress().String()), nil
+	return targets.NewWriteTarget(l, id, cr, cw, forwarderAddress), nil
 }

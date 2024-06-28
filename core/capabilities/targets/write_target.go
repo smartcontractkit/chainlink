@@ -73,7 +73,8 @@ func success() <-chan capabilities.CapabilityResponse {
 }
 
 func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	cap.lggr.Debugw("Execute", "request", request)
+	l := cap.lggr.With("workflowID", request.Metadata.WorkflowID, "executionID", request.Metadata.WorkflowExecutionID, "workflowDonID", request.Metadata.WorkflowDonID)
+	l.Debugw("Execute", "request", request)
 
 	reqConfig, err := parseConfig(request.Config)
 	if err != nil {
@@ -92,7 +93,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	if len(inputs.Report) == 0 {
 		// We received any empty report -- this means we should skip transmission.
-		cap.lggr.Debugw("Skipping empty report", "request", request)
+		l.Debugw("Skipping empty report")
 		return success(), nil
 	}
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
@@ -111,16 +112,17 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		WorkflowExecutionID: rawExecutionID,
 		ReportId:            inputs.ID,
 	}
+	l = l.With("receiver", queryInputs.Receiver, "reportID", queryInputs.ReportId)
 	var transmitter common.Address
 	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
-		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
+		l.Infow("WriteTarget report already onchain - returning without a tranmission attempt")
 		return success(), nil
 	}
 
-	cap.lggr.Infow("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	l.Infow("WriteTarget non-empty report - attempting to push to txmgr", "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
 	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
 		return nil, err
@@ -147,14 +149,14 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	if req.Signatures == nil {
 		req.Signatures = make([][]byte, 0)
 	}
-	cap.lggr.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
+	l.Debugw("Transaction raw report", "report", hex.EncodeToString(req.RawReport))
 
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
 	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 		return nil, err
 	}
-	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)
+	l.Debugw("Transaction submitted", "transactionID", txID)
 	return success(), nil
 }
 

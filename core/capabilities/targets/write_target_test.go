@@ -57,7 +57,9 @@ func TestWriteTarget(t *testing.T) {
 	t.Run("succeeds with valid report", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       "test-don-id",
 			},
 			Config: config,
 			Inputs: validInputs,
@@ -80,7 +82,9 @@ func TestWriteTarget(t *testing.T) {
 		require.NoError(t, err2)
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowExecutionID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       "test-don-id",
 			},
 			Config: config,
 			Inputs: emptyInputs,
@@ -95,7 +99,9 @@ func TestWriteTarget(t *testing.T) {
 	t.Run("fails when ChainReader's GetLatestValue returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       "test-don-id",
 			},
 			Config: config,
 			Inputs: validInputs,
@@ -109,7 +115,9 @@ func TestWriteTarget(t *testing.T) {
 	t.Run("fails when ChainWriter's SubmitTransaction returns error", func(t *testing.T) {
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       "test-don-id",
 			},
 			Config: config,
 			Inputs: validInputs,
@@ -128,7 +136,9 @@ func TestWriteTarget(t *testing.T) {
 
 		req := capabilities.CapabilityRequest{
 			Metadata: capabilities.RequestMetadata{
-				WorkflowID: "test-id",
+				WorkflowID:          "test-id",
+				WorkflowExecutionID: "dd3709ac7d8dd6fa4fae0fb87b73f318a4da2526c123e159b72435e3b2fe8751",
+				WorkflowDonID:       "test-don-id",
 			},
 			Config: invalidConfig,
 			Inputs: validInputs,

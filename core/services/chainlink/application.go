@@ -233,6 +233,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, fmt.Errorf("could not configure syncer: %w", err)
 		}
 
+		// CEDRIC: At this point we have local node access, but we need the relayer to make calls to the CR contract
 		wfLauncher := capabilities.NewLauncher(
 			globalLogger,
 			externalPeerWrapper,
