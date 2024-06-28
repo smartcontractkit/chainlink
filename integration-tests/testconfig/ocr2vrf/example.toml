@@ -1,0 +1,167 @@
+# Example of full config with all fields
+# General part
+[ChainlinkImage]
+image="public.ecr.aws/chainlink/chainlink"
+version="2.7.0"
+
+[Logging]
+# if set to true will save logs even if test did not fail
+test_log_collect=false
+
+[Logging.LogStream]
+# supported targets: file, loki, in-memory. if empty no logs will be persistet
+log_targets=["file"]
+# context timeout for starting log producer and also time-frame for requesting logs
+log_producer_timeout="10s"
+# number of retries before log producer gives up and stops listening to logs
+log_producer_retry_limit=10
+
+[Logging.Loki]
+tenant_id="tenant_id"
+# full URL of Loki ingest endpoint
+endpoint="https://loki.url/api/v3/push"
+# currently only needed when using public instance
+basic_auth_secret="loki-basic-auth"
+# only needed for cloud grafana
+bearer_token_secret="bearer_token"
+
+# LogStream will try to shorten Grafana URLs by default (if all 3 variables are set)
+[Logging.Grafana]
+# grafana url (trailing "/" will be stripped)
+base_url="http://grafana.url"
+# url of your grafana dashboard (prefix and suffix "/" are stirpped), example: /d/ad61652-2712-1722/my-dashboard
+dashboard_url="/d/your-dashboard"
+bearer_token_secret="my-awesome-token"
+
+# if you want to use polygon_mumbial
+[Network]
+selected_networks=["polygon_mumbai"]
+
+[Network.RpcHttpUrls]
+polygon_mumbai = ["https://my-rpc-endpoint.io"]
+
+[Network.RpcWsUrls]
+polygon_mumbai = ["https://my-rpc-endpoint.io"]
+
+[Network.WalletKeys]
+polygon_mumbai = ["change-me-to-your-PK"]
+
+[PrivateEthereumNetwork]
+# pos or pow
+consensus_type="pos"
+# only prysm supported currently
+consensus_layer="prysm"
+# geth, besu, nethermind or erigon
+execution_layer="geth"
+# if true after env started it will wait for at least 1 epoch to be finalised before continuing
+wait_for_finalization=false
+
+[PrivateEthereumNetwork.EthereumChainConfig]
+# duration of single slot, lower => faster block production, must be >= 4
+seconds_per_slot=12
+# numer of slots in epoch, lower => faster epoch finalisation, must be >= 4
+slots_per_epoch=6
+# extra genesis gelay, no need to modify, but it should be after all validators/beacon chain starts
+genesis_delay=15
+# number of validators in the network
+validator_count=8
+chain_id=1337
+# list of addresses to be prefunded in genesis
+addresses_to_fund=["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"]
+
+[PrivateEthereumNetwork.EthereumChainConfig.HardForkEpochs]
+# hardforks to be applied (fork_name = epoch)
+Deneb=500
+
+# Chainlink node TOML config
+[NodeConfig]
+BaseConfigTOML = """
+[Feature]
+FeedsManager = true
+LogPoller = true
+UICSAKeys = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '3m'
+SessionTimeout = '999h0m0s'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+ListenAddresses = ['0.0.0.0:6690']
+"""
+
+# override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
+CommonChainConfigTOML = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+# chainlink override config toml for EVMNode config specific to EVM chains with chain id as mentioned in the key
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for arbitrum-goerli chain
+421613 = """
+[GasEstimator]
+PriceMax = '400 gwei'
+LimitDefault = 100000000
+FeeCapDefault = '200 gwei'
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 gwei'
+"""
+
+# load test specific configuration
+[Load.OCR]
+[Load.OCR.Common]
+eth_funds = 3
+
+[Load.OCR.Load]
+test_duration = "3m"
+rate_limit_unit_duration = "1m"
+rate = 3
+verification_interval = "5s"
+verification_timeout = "3m"
+ea_change_interval = "5s"
+
+# soak test specific configuration
+[Soak.Common]
+chainlink_node_funding = 100
+
+[Soak.OCR]
+[Soak.OCR.Common]
+test_duration="15m"
+
+[Soak.OCR.Soak]
+ocr_version="1"
+number_of_contracts=2
+time_between_rounds="1m"

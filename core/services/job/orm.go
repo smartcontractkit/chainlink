@@ -502,8 +502,8 @@ func (o *orm) insertKeeperSpec(ctx context.Context, spec *KeeperSpec) (specID in
 }
 
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, created_at, updated_at)
-			VALUES (:cron_schedule, NOW(), NOW())
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
+			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
 			RETURNING id;`, spec)
 }
 

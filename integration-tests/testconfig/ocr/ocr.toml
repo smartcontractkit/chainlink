@@ -72,14 +72,13 @@ ea_change_interval = "5s"
 
 # soak test specific configuration
 [Soak.Common]
-chainlink_node_funding = 100
+chainlink_node_funding = 0.5
 
 [Soak.OCR]
 [Soak.OCR.Common]
 test_duration="15m"
 
 [Soak.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
@@ -105,7 +104,6 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 
@@ -133,9 +131,9 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
+
 
 # OCR soak test configuration with gas spike on Anvil network
 [TestOCRSoak_GasSpike.Common]
@@ -143,7 +141,6 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_GasSpike.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_GasSpike.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 [TestOCRSoak_GasSpike.Network]
@@ -162,7 +159,6 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_ChangeBlockGasLimit.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_ChangeBlockGasLimit.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 [TestOCRSoak_ChangeBlockGasLimit.Network]
@@ -178,7 +174,6 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_RPCDownForAllCLNodes.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_RPCDownForAllCLNodes.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 [TestOCRSoak_RPCDownForAllCLNodes.Network]
@@ -189,7 +184,6 @@ chainlink_node_funding = 0.5
 [TestOCRSoak_RPCDownForHalfCLNodes.OCR.Common]
 test_duration="15m"
 [TestOCRSoak_RPCDownForHalfCLNodes.OCR.Soak]
-ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"
 [TestOCRSoak_RPCDownForHalfCLNodes.Network]

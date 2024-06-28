@@ -59,17 +59,6 @@ const (
 )
 
 var (
-	baseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
 	secretsTOML = `[Mercury.Credentials.%s]
 LegacyURL = '%s'
 URL = '%s'
@@ -164,7 +153,7 @@ func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
-	loadedTestConfig, err := tc.GetConfig("Load", tc.Automation)
+	loadedTestConfig, err := tc.GetConfig([]string{"Load"}, tc.Automation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,21 +281,16 @@ Load Config:
 	numberOfUpkeeps := *loadedTestConfig.Automation.General.NumberOfNodes
 
 	for i := 0; i < numberOfUpkeeps+1; i++ { // +1 for the OCR boot node
-		var nodeTOML string
-		if i == 1 || i == 3 {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"%s\"", baseTOML, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel)
-		} else {
-			nodeTOML = fmt.Sprintf("%s\n\n[Log]\nLevel = \"info\"", baseTOML)
-		}
-		nodeTOML = networks.AddNetworksConfig(nodeTOML, loadedTestConfig.Pyroscope, testNetwork)
-
 		var overrideFn = func(_ interface{}, target interface{}) {
 			ctfconfig.MustConfigOverrideChainlinkVersion(loadedTestConfig.GetChainlinkImageConfig(), target)
 			ctfconfig.MightConfigOverridePyroscopeKey(loadedTestConfig.GetPyroscopeConfig(), target)
 		}
 
+		tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&loadedTestConfig, testNetwork)
+		require.NoError(t, err, "Error building TOML config")
+
 		cd := chainlink.NewWithOverride(i, map[string]any{
-			"toml":        nodeTOML,
+			"toml":        tomlConfig,
 			"chainlink":   nodeSpec,
 			"db":          dbSpec,
 			"prometheus":  *loadedTestConfig.Automation.General.UsePrometheus,
