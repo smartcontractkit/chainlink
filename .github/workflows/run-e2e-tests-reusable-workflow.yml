@@ -15,7 +15,8 @@ on:
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
-        type: string        
+        type: string
+      # TODO: Enable once Test Config does not have secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1283
       # test_config_base64_override:
       #   description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
       #   required: false

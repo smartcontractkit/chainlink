@@ -11,10 +11,6 @@ on:
         options:
           - TestAutomationBenchmark
           - TestAutomationBenchmark_1000Upkeeps_2_1
-      # test_config_base64_override:
-      #   description: Custom base64 test config
-      #   required: false
-      #   type: string
 
 # TODO:
 # 1. list of tests to select 
@@ -37,7 +33,6 @@ jobs:
       test_ids: ${{ github.event.inputs.test-id }}
       # Select tests to run from .github/e2e_tests.yml based on workflow name 
       test_workflow: Run Automation Product Nightly E2E Tests
-      # test_config_base64_override: ${{ github.event.inputs.test_config_base64_override }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
