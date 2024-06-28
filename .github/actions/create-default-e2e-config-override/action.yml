@@ -38,7 +38,7 @@ inputs:
     description: 'Loki basic authentication for the tests'
   logstream_log_targets:
     required: false
-    description: 'Logstream log targets for the tests'
+    description: 'Logstream log targets for the tests (comma separated)'
   grafana_url:
     required: false
     description: 'Grafana URL for the tests'
@@ -92,9 +92,11 @@ runs:
         if [ -n "${{ inputs.loki_run_id }}" ]; then
           cmd_args+="--logging-run-id=\"${{ inputs.loki_run_id }}\" "
         fi
-        if [ -n "${{ inputs.logstream_log_targets }}" ]; then
-          cmd_args+="--logging-log-targets=\"${{ inputs.logstream_log_targets }}\" "
-        fi
+        # Split the log targets input by comma and add them to the command line arguments
+        IFS=',' read -ra ADDR <<< "${{ inputs.logstream_log_targets }}"
+        for i in "${ADDR[@]}"; do
+          cmd_args+="--logging-log-targets=\"$i\" "
+        done        
         echo "Command line arguments: $cmd_args" 
         echo "CMD_ARGS=$cmd_args" >> $GITHUB_ENV
 

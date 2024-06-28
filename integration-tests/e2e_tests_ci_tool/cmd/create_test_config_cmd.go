@@ -170,6 +170,6 @@ var createTestConfigCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		fmt.Println(string(configToml))
+		fmt.Fprintln(cmd.OutOrStdout(), string(configToml))
 	},
 }
