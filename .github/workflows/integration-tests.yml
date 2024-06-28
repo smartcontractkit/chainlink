@@ -331,23 +331,23 @@ jobs:
           # other inputs
           duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
+        uses: ./.github/actions/create-default-e2e-config-override
         with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          chainlink_version: ${{ inputs.evm-ref || github.sha }}
+          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
+          selected_networks: ${{ env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscope_environment: ${{ matrix.product.pyroscope_env }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}   
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
 
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
@@ -446,23 +446,24 @@ jobs:
           # other inputs
           duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
+        uses: ./.github/actions/create-default-e2e-config-override
         with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary" # This is GAP's address
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          loki_run_id: ${{ github.run_id }}
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}    
+          chainlink_version: ${{ inputs.evm-ref || github.sha }}
+          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
+          selected_networks: ${{ env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscope_environment: ${{ matrix.product.pyroscope_env }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}   
+
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -675,24 +676,23 @@ jobs:
           # other inputs
           duplicate-authorization-header: "true"
       - name: Prepare Base64 TOML override
-        uses: ./.github/actions/setup-create-base64-config
+        uses: ./.github/actions/create-default-e2e-config-override
         with:
-          runId: ${{ github.run_id }}
-          testLogCollect: ${{ vars.TEST_LOG_COLLECT }}
-          selectedNetworks: ${{ env.SELECTED_NETWORKS }}
-          chainlinkImage: ${{ env.CHAINLINK_IMAGE }}
-          chainlinkVersion: ${{ inputs.evm-ref || github.sha }}
-          pyroscopeServer: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          pyroscopeEnvironment: ${{ matrix.product.pyroscope_env }}
-          pyroscopeKey: ${{ secrets.QA_PYROSCOPE_KEY }}
-          lokiEndpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          lokiTenantId: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          lokiBasicAuth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstreamLogTargets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafanaUrl: "http://localhost:8080/primary"
-          grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafanaBearerToken: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      ## Run this step when changes that require tests to be run are made
+          loki_run_id: ${{ github.run_id }}
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}    
+          chainlink_version: ${{ inputs.evm-ref || github.sha }}
+          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
+          selected_networks: ${{ env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          pyroscope_environment: ${{ matrix.product.pyroscope_env }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}  
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21

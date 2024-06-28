@@ -376,6 +376,7 @@ jobs:
           grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
           grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
           grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}          
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
 
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
