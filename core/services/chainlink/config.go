@@ -70,6 +70,15 @@ func (c *RawConfig) IsEnabled() bool {
 	return (*c)["Enabled"] == nil || *(*c)["Enabled"].(*bool)
 }
 
+func (c *RawConfig) ChainID() string {
+	if c == nil {
+		return ""
+	}
+
+	chainID, _ := (*c)["ChainID"].(*string)
+	return *chainID
+}
+
 // TOMLString returns a TOML encoded string.
 func (c *Config) TOMLString() (string, error) {
 	b, err := gotoml.Marshal(c)
