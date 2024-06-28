@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 func TestCreateTestConfigCmd(t *testing.T) {

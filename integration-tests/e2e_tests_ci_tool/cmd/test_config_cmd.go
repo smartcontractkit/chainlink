@@ -88,7 +88,7 @@ func init() {
 		c.Flags().StringVar(&oc.PrivateEthereumNetworkEthereumVersion, PrivateEthereumNetworkEthereumVersionFlag, "", "")
 		c.Flags().StringVar(&oc.PrivateEthereumNetworkCustomDockerImages, PrivateEthereumNetworkCustomDockerImageFlag, "", "")
 
-		c.PreRun = func(cmd *cobra.Command, args []string) {
+		c.PreRun = func(_ *cobra.Command, _ []string) {
 			// Resolve selected networks environment variable if set
 			if len(oc.SelectedNetworks) > 0 {
 				_, hasEnvVar := lookupEnvVarName(oc.SelectedNetworks[0])

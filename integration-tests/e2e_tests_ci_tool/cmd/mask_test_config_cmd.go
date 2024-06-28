@@ -8,16 +8,17 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/seth"
 	"github.com/spf13/cobra"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 var maskTestConfigCmd = &cobra.Command{
 	Use:   "mask-secrets",
 	Short: "Run 'echo ::add-mask::${secret}' for all secrets in the test config",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		decoded, err := base64.StdEncoding.DecodeString(fromBase64TOML)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error decoding base64 TOML: %v\n", err)
@@ -33,41 +34,41 @@ var maskTestConfigCmd = &cobra.Command{
 		showCmdInfo()
 
 		if config.ChainlinkImage != nil {
-			mustMaskSecret("chainlink image", config.ChainlinkImage.Image)
-			mustMaskSecret("chainlink version", config.ChainlinkImage.Version)
+			mustMaskSecret("chainlink image", safeDeref(config.ChainlinkImage.Image))
+			mustMaskSecret("chainlink version", safeDeref(config.ChainlinkImage.Version))
 		}
 		if config.Pyroscope != nil {
-			mustMaskSecret("pyroscope server url", config.Pyroscope.ServerUrl)
-			mustMaskSecret("pyroscope key", config.Pyroscope.Key)
+			mustMaskSecret("pyroscope server url", safeDeref(config.Pyroscope.ServerUrl))
+			mustMaskSecret("pyroscope key", safeDeref(config.Pyroscope.Key))
 		}
 		if config.Logging != nil && config.Logging.Loki != nil {
 			// mustMaskSecret("loki tenant id", config.Logging.RunId)
-			mustMaskSecret("loki endpoint", config.Logging.Loki.Endpoint)
-			mustMaskSecret("loki tenant id", config.Logging.Loki.TenantId)
-			mustMaskSecret("loki basic auth", config.Logging.Loki.BasicAuth)
-			mustMaskSecret("loki bearer token", config.Logging.Loki.BearerToken)
+			mustMaskSecret("loki endpoint", safeDeref(config.Logging.Loki.Endpoint))
+			mustMaskSecret("loki tenant id", safeDeref(config.Logging.Loki.TenantId))
+			mustMaskSecret("loki basic auth", safeDeref(config.Logging.Loki.BasicAuth))
+			mustMaskSecret("loki bearer token", safeDeref(config.Logging.Loki.BearerToken))
 		}
 		if config.Logging != nil && config.Logging.Grafana != nil {
-			mustMaskSecret("loki grafana token", config.Logging.Grafana.BearerToken)
+			mustMaskSecret("loki grafana token", safeDeref(config.Logging.Grafana.BearerToken))
 		}
 		if config.Network != nil && config.Network.RpcHttpUrls != nil {
 			for _, urls := range config.Network.RpcHttpUrls {
 				for _, url := range urls {
-					mustMaskSecret("rpc http url", &url)
+					mustMaskSecret("rpc http url", url)
 				}
 			}
 		}
 		if config.Network != nil && config.Network.RpcWsUrls != nil {
 			for _, urls := range config.Network.RpcWsUrls {
 				for _, url := range urls {
-					mustMaskSecret("rpc ws url", &url)
+					mustMaskSecret("rpc ws url", url)
 				}
 			}
 		}
 		if config.Network != nil && config.Network.WalletKeys != nil {
 			for _, keys := range config.Network.WalletKeys {
 				for _, key := range keys {
-					mustMaskSecret("wallet key", &key)
+					mustMaskSecret("wallet key", key)
 				}
 			}
 		}
@@ -78,7 +79,7 @@ var maskTestConfigCmd = &cobra.Command{
 			}
 		}
 		if config.WaspConfig != nil {
-			mustMaskSecret("wasp repo image version uri", config.WaspConfig.RepoImageVersionURI)
+			mustMaskSecret("wasp repo image version uri", safeDeref(config.WaspConfig.RepoImageVersionURI))
 		}
 		// Mask Seth config
 		if config.Seth != nil {
@@ -93,40 +94,47 @@ var maskTestConfigCmd = &cobra.Command{
 func mustMaskEVMNetworkConfig(network *blockchain.EVMNetwork) {
 	if network != nil {
 		for _, url := range network.HTTPURLs {
-			mustMaskSecret("network rpc url", &url)
+			mustMaskSecret("network rpc url", url)
 		}
 		for _, url := range network.URLs {
-			mustMaskSecret("network ws url", &url)
+			mustMaskSecret("network ws url", url)
 		}
 		for _, key := range network.PrivateKeys {
-			mustMaskSecret("network private key", &key)
+			mustMaskSecret("network private key", key)
 		}
-		mustMaskSecret("network url", &network.URL)
+		mustMaskSecret("network url", network.URL)
 	}
 }
 
 func mustMaskSethNetworkConfig(network *seth.Network) {
 	if network != nil {
 		for _, url := range network.URLs {
-			mustMaskSecret("network url", &url)
+			mustMaskSecret("network url", url)
 		}
 		for _, key := range network.PrivateKeys {
-			mustMaskSecret("network private key", &key)
+			mustMaskSecret("network private key", key)
 		}
 	}
 }
 
-func mustMaskSecret(description string, secret *string) {
-	if secret != nil && *secret != "" {
+func mustMaskSecret(description string, secret string) {
+	if secret != "" {
 		fmt.Printf("Mask '%s'\n", description)
-		fmt.Printf("::add-mask::%s\n", *secret)
-		cmd := exec.Command("bash", "-c", fmt.Sprintf("echo ::add-mask::%s", *secret))
+		fmt.Printf("::add-mask::%s\n", secret)
+		cmd := exec.Command("bash", "-c", "echo ::add-mask::'$0'", "_", secret)
 		err := cmd.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to mask secret '%s'", description)
 			os.Exit(1)
 		}
 	}
+}
+
+func safeDeref(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
 }
 
 func showCmdInfo() {
@@ -156,5 +164,9 @@ func showCmdInfo() {
 
 func init() {
 	maskTestConfigCmd.Flags().StringVar(&fromBase64TOML, FromBase64ConfigFlag, "", "Base64 encoded TOML config to override")
-	maskTestConfigCmd.MarkFlagRequired(FromBase64ConfigFlag)
+	err := maskTestConfigCmd.MarkFlagRequired(FromBase64ConfigFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marking flag as required: %v\n", err)
+		os.Exit(1)
+	}
 }

@@ -6,9 +6,10 @@ import (
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 const DryRunFlag = "dry-run"
@@ -19,7 +20,7 @@ var fromBase64TOML string
 var overrideTestConfigCmd = &cobra.Command{
 	Use:   "override",
 	Short: "Override base64 encoded TOML config with provided flags. Overrides only existing fields in the base config.",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		dryRun, _ := cmd.Flags().GetBool(DryRunFlag)
 
 		decoded, err := base64.StdEncoding.DecodeString(fromBase64TOML)
@@ -191,8 +192,11 @@ var overrideTestConfigCmd = &cobra.Command{
 
 func init() {
 	overrideTestConfigCmd.Flags().StringVar(&fromBase64TOML, FromBase64ConfigFlag, "", "Base64 encoded TOML config to override")
-	overrideTestConfigCmd.MarkFlagRequired(FromBase64ConfigFlag)
-
+	err := overrideTestConfigCmd.MarkFlagRequired(FromBase64ConfigFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marking flag as required: %v\n", err)
+		os.Exit(1)
+	}
 	overrideTestConfigCmd.Flags().Bool(DryRunFlag, false, "Dry run mode")
 }
 

@@ -16,7 +16,7 @@ var envreplaceCmd = &cobra.Command{
 	Long: `Replaces placeholders of the form ${{ env.VAR_NAME }} with the actual environment variable values.
 Example usage:
 ./e2e_tests_tool envreplace --input 'Example with ${{ env.PATH }} and ${{ env.HOME }}.'`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		input, _ := cmd.Flags().GetString("input")
 
 		output, err := replaceEnvPlaceholders(input)
@@ -55,5 +55,9 @@ func replaceEnvPlaceholders(input string) (string, error) {
 
 func init() {
 	envreplaceCmd.Flags().StringP("input", "i", "", "Input string with placeholders")
-	envreplaceCmd.MarkFlagRequired("input")
+	err := envreplaceCmd.MarkFlagRequired("input")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marking flag as required: %v\n", err)
+		os.Exit(1)
+	}
 }

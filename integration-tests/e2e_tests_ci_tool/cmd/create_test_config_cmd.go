@@ -5,14 +5,15 @@ import (
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
-	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/spf13/cobra"
+
+	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 )
 
 var createTestConfigCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create a test config from the provided flags",
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(cmd *cobra.Command, _ []string) {
 		var tc ctf_config.TestConfig
 
 		var image, version, postgresVersion *string

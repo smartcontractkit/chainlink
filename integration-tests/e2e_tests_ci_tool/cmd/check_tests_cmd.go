@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -29,7 +28,7 @@ var checkTestsCmd = &cobra.Command{
 	Use:   "check-tests [directory] [yaml file]",
 	Short: "Check if all tests in a directory are included in the test configurations YAML file",
 	Args:  cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		directory := args[0]
 		yamlFile := args[1]
 		tests, err := extractTests(directory)
@@ -49,7 +48,7 @@ func extractTests(dir string) ([]Test, error) {
 			return err
 		}
 		if !info.IsDir() && strings.HasSuffix(info.Name(), "_test.go") {
-			content, err := ioutil.ReadFile(path)
+			content, err := os.ReadFile(path)
 			if err != nil {
 				return err
 			}
@@ -68,7 +67,7 @@ func extractTests(dir string) ([]Test, error) {
 }
 
 func checkTestsInPipeline(yamlFile string, tests []Test) {
-	data, err := ioutil.ReadFile(yamlFile)
+	data, err := os.ReadFile(yamlFile)
 	if err != nil {
 		fmt.Printf("Error reading YAML file: %s\n", err)
 		return
