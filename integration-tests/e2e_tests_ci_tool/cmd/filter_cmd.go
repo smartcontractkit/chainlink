@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -25,11 +26,19 @@ func filterTests(tests []CITestConf, workflow, testType, ids string) []CITestCon
 		idMatch := ids == "*" || ids == "" || contains(idFilter, test.ID)
 
 		if workflowMatch && typeMatch && idMatch {
+			test.IDSanitized = sanitizeTestID(test.ID)
 			filteredTests = append(filteredTests, test)
 		}
 	}
 
 	return filteredTests
+}
+
+func sanitizeTestID(id string) string {
+	// Define a regular expression that matches any character not a letter, digit, hyphen
+	re := regexp.MustCompile(`[^a-zA-Z0-9-_]+`)
+	// Replace all occurrences of disallowed characters with "_"
+	return re.ReplaceAllString(id, "_")
 }
 
 // Utility function to check if a slice contains a string.

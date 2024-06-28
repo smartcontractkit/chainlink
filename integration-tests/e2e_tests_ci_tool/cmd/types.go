@@ -8,6 +8,7 @@ type Test struct {
 // CITestConf defines the configuration for running a test in a CI environment, specifying details like test ID, path, type, runner settings, command, and associated workflows.
 type CITestConf struct {
 	ID                    string             `yaml:"id" json:"id"`
+	IDSanitized           string             `json:"idSanitized"`
 	Path                  string             `yaml:"path" json:"path"`
 	TestType              string             `yaml:"test-type" json:"testType"`
 	RunsOn                string             `yaml:"runs-on" json:"runsOn"`

@@ -271,11 +271,11 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ inputs.chainlink-version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.tests.id }}-test-logs
+          artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
             /tmp/gotest.log
-          publish_check_name: ${{ matrix.tests.id }}
+          publish_check_name: ${{ matrix.tests.idSanitized }}
           token: ${{ secrets.GH_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
