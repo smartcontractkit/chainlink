@@ -111,7 +111,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx
 		}
 	}
 	if callsCompleted == 0 {
-		return fmt.Errorf("no calls were completed")
+		return ErroringNodeError
 	}
 
 	for _, n := range c.sendOnlyNodes {

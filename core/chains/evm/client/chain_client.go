@@ -132,7 +132,7 @@ func NewChainClient(
 	)
 
 	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
-		return ClassifySendErrorEVM(err, clientErrors, logger.Sugared(lggr), tx, false)
+		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, false)
 	}
 
 	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, ChainClientRPC](

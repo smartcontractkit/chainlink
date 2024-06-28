@@ -64,6 +64,12 @@ type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struc
 	txErrorClassifier TxErrorClassifier[TX]
 	sendTxSoftTimeout time.Duration // defines max waiting time from first response til responses evaluation
 
+	reportingWg sync.WaitGroup // waits for all reporting goroutines to finish
+
+	// Metrics
+	TxCount     int
+	RpcErrCount int
+
 	// TODO: add start/ stop methods. Start doesn't need to do much.
 	// TODO: Stop should stop sending transactions, and close chStop to stop collecting results, reporting/ etc.
 	chStop services.StopChan
@@ -96,11 +102,7 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	ok := txSender.multiNode.IfNotStopped(func() {
 		err = txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) bool {
 			if isSendOnly {
-				// Use multiNode wg to ensure transactions are done sending before multinode shuts down
-				txSender.multiNode.wg.Add(1)
-				fmt.Println("Calling send only rpc SendTransaction()")
 				go func() {
-					defer txSender.multiNode.wg.Done()
 					// Send-only nodes' results are ignored as they tend to return false-positive responses.
 					// Broadcast to them is necessary to speed up the propagation of TX in the network.
 					_ = txSender.broadcastTxAsync(ctx, rpc, tx)
@@ -126,15 +128,15 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 		}
 
 		// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
-		txSender.multiNode.wg.Add(1)
+		txSender.reportingWg.Add(1)
 		go func() {
-			defer txSender.multiNode.wg.Done()
+			defer txSender.reportingWg.Done()
 			primaryWg.Wait()
 			close(txResultsToReport)
 			close(txResults)
 		}()
 
-		txSender.multiNode.wg.Add(1)
+		txSender.reportingWg.Add(1)
 		go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 	})
 	if !ok {
@@ -149,16 +151,18 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) broadcastTxAsync(ctx context.Context, rpc RPC, tx TX) sendTxResult {
 	txErr := rpc.SendTransaction(ctx, tx)
+	txSender.TxCount++
 	txSender.lggr.Debugw("Node sent transaction", "tx", tx, "err", txErr)
 	resultCode := txSender.txErrorClassifier(tx, txErr)
 	if !slices.Contains(sendTxSuccessfulCodes, resultCode) {
+		txSender.RpcErrCount++
 		txSender.lggr.Warnw("RPC returned error", "tx", tx, "err", txErr)
 	}
 	return sendTxResult{Err: txErr, ResultCode: resultCode}
 }
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult) {
-	defer txSender.multiNode.wg.Done()
+	defer txSender.reportingWg.Done()
 	resultsByCode := sendTxErrors{}
 	// txResults eventually will be closed
 	for txResult := range txResults {
