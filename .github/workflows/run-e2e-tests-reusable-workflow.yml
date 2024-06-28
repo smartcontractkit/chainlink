@@ -16,7 +16,7 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
-      test-config-base64-override-unsafe:
+      test_config_base64_override:
         description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
         required: false
         type: string        
@@ -190,7 +190,7 @@ jobs:
           go-version: '1.21.7'
 
       - name: Set default test config override
-        if: ${{ inputs.test-config-base64-override-unsafe == '' }}
+        if: ${{ inputs.test_config_base64_override == '' }}
         run: |      
           # Mask secret args before using them
           # For more, see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
@@ -239,8 +239,8 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
       - name: Mask secrets in test config base64 override
-        id: mask-secrets-in-test-config-base64-override
-        if: ${{ inputs.test-config-base64-override-unsafe != '' }}
+        id: mask-secrets-in-test_config_base64_override
+        if: ${{ inputs.test_config_base64_override != '' }}
         run: "to do"
           # - name: Remove secrets from test config base64 override
           #   id: mask-in
@@ -251,12 +251,12 @@ jobs:
 
       # TODO: Remove this step since we allow custom secrets in the test config but we mask them    
       # - name: Override secrets in custom test config
-      #   if: ${{ inputs.test-config-base64-override-unsafe != '' }}          
+      #   if: ${{ inputs.test_config_base64_override != '' }}          
       #   run: |
       #     # Show what parts of the test config are being overridden
       #     go run main.go test-config override \
       #       --dry-run \
-      #       --from-base64-config ${{ inputs.test-config-base64-override-unsafe }} \
+      #       --from-base64-config ${{ inputs.test_config_base64_override }} \
       #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
       #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
       #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
@@ -268,7 +268,7 @@ jobs:
 
       #     # Override custom test config with CI secrets
       #     config_override=$(go run main.go test-config override \
-      #       --from-base64-config ${{ inputs.test-config-base64-override-unsafe }} \
+      #       --from-base64-config ${{ inputs.test_config_base64_override }} \
       #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
       #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
       #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \

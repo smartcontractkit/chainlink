@@ -3,7 +3,7 @@ inputs:
   test:
     required: true
     description: 'Test to run'
-  test_config_base64_override_unsafe:
+  test_config_base64_override:
     description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
     required: false
     type: string        
@@ -21,7 +21,7 @@ runs:
         go-version: '1.21.7'
 
     - name: Set default test config override
-      if: ${{ inputs.test_config_base64_override_unsafe == '' }}
+      if: ${{ inputs.test_config_base64_override == '' }}
       run: |      
         # Mask secret args before using them
         # For more, see https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#masking-a-value-in-a-log
@@ -70,12 +70,12 @@ runs:
         echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
     - name: Mask secrets in test config base64 override
-      id: mask-secrets-in-test-config-base64-override
-      if: ${{ inputs.test_config_base64_override_unsafe != '' }}
+      id: mask-secrets-in-test_config_base64_override
+      if: ${{ inputs.test_config_base64_override != '' }}
       run: |
         # Mask secrets inside the test config override
         cd integration-tests/e2e_tests_ci_tool/
-        go run main.go test-config mask-secrets --from-base64-config ${{ inputs.test_config_base64_override_unsafe }}
+        go run main.go test-config mask-secrets --from-base64-config ${{ inputs.test_config_base64_override }}
 
         exit 1 # Fail the job
 
