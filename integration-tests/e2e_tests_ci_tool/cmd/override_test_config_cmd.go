@@ -106,12 +106,12 @@ var overrideTestConfigCmd = &cobra.Command{
 				} else {
 					logIfDryRun(dryRun, "No 'Logging.Grafana' found in config. Will NOT OVERRIDE with %s\n", LoggingGrafanaDashboardURLFlag)
 				}
-			case LoggingGrafanaTokenFlag:
+			case LoggingGrafanaBearerTokenFlag:
 				if baseConfig.Logging != nil && baseConfig.Logging.Grafana != nil && baseConfig.Logging.Grafana.BearerToken != nil {
-					logIfDryRun(dryRun, "Found 'Logging.Grafana.BearerToken' in config. Will override it with %s", LoggingGrafanaTokenFlag)
-					baseConfig.Logging.Grafana.BearerToken = &oc.LoggingGrafanaToken
+					logIfDryRun(dryRun, "Found 'Logging.Grafana.BearerToken' in config. Will override it with %s", LoggingGrafanaBearerTokenFlag)
+					baseConfig.Logging.Grafana.BearerToken = &oc.LoggingGrafanaBearerToken
 				} else {
-					logIfDryRun(dryRun, "No 'Logging.Grafana' found in config. Will NOT OVERRIDE with %s\n", LoggingGrafanaTokenFlag)
+					logIfDryRun(dryRun, "No 'Logging.Grafana' found in config. Will NOT OVERRIDE with %s\n", LoggingGrafanaBearerTokenFlag)
 				}
 			case LoggingLogTargetsFlag:
 				if baseConfig.Logging != nil && baseConfig.Logging.LogStream != nil && baseConfig.Logging.LogStream.LogTargets != nil {

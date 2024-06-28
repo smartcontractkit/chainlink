@@ -32,7 +32,7 @@ type OverrideConfig struct {
 	LoggingLokiBasicAuth                     string
 	LoggingGrafanaBaseURL                    string
 	LoggingGrafanaDashboardURL               string
-	LoggingGrafanaToken                      string
+	LoggingGrafanaBearerToken                string
 	PrivateEthereumNetworkExecutionLayer     string
 	PrivateEthereumNetworkEthereumVersion    string
 	PrivateEthereumNetworkCustomDockerImages string
@@ -50,7 +50,7 @@ const (
 	LoggingLokiTenantIDFlag                     = "logging-loki-tenant-id"
 	LoggingGrafanaBaseURLFlag                   = "logging-grafana-base-url"
 	LoggingGrafanaDashboardURLFlag              = "logging-grafana-dashboard-url"
-	LoggingGrafanaTokenFlag                     = "logging-grafana-token"
+	LoggingGrafanaBearerTokenFlag               = "logging-grafana-bearer-token"
 	LoggingLogTargetsFlag                       = "logging-log-targets"
 	LoggingTestLogCollectFlag                   = "logging-test-log-collect"
 	PyroscopeEnabledFlag                        = "pyroscope-enabled"
@@ -83,7 +83,7 @@ func init() {
 		c.Flags().StringVar(&oc.LoggingLokiBasicAuth, LoggingLokiBasicAuthFlag, "", "")
 		c.Flags().StringVar(&oc.LoggingGrafanaBaseURL, LoggingGrafanaBaseURLFlag, "", "")
 		c.Flags().StringVar(&oc.LoggingGrafanaDashboardURL, LoggingGrafanaDashboardURLFlag, "", "")
-		c.Flags().StringVar(&oc.LoggingGrafanaToken, LoggingGrafanaTokenFlag, "", "")
+		c.Flags().StringVar(&oc.LoggingGrafanaBearerToken, LoggingGrafanaBearerTokenFlag, "", "")
 		c.Flags().StringVar(&oc.PrivateEthereumNetworkExecutionLayer, PrivateEthereumNetworkExecutionLayerFlag, "", "")
 		c.Flags().StringVar(&oc.PrivateEthereumNetworkEthereumVersion, PrivateEthereumNetworkEthereumVersionFlag, "", "")
 		c.Flags().StringVar(&oc.PrivateEthereumNetworkCustomDockerImages, PrivateEthereumNetworkCustomDockerImageFlag, "", "")
@@ -111,7 +111,7 @@ func init() {
 			oc.LoggingLokiBasicAuth = mustResolveEnvPlaceholder(oc.LoggingLokiBasicAuth)
 			oc.LoggingGrafanaBaseURL = mustResolveEnvPlaceholder(oc.LoggingGrafanaBaseURL)
 			oc.LoggingGrafanaDashboardURL = mustResolveEnvPlaceholder(oc.LoggingGrafanaDashboardURL)
-			oc.LoggingGrafanaToken = mustResolveEnvPlaceholder(oc.LoggingGrafanaToken)
+			oc.LoggingGrafanaBearerToken = mustResolveEnvPlaceholder(oc.LoggingGrafanaBearerToken)
 			oc.PrivateEthereumNetworkExecutionLayer = mustResolveEnvPlaceholder(oc.PrivateEthereumNetworkExecutionLayer)
 			oc.PrivateEthereumNetworkEthereumVersion = mustResolveEnvPlaceholder(oc.PrivateEthereumNetworkEthereumVersion)
 			oc.PrivateEthereumNetworkCustomDockerImages = mustResolveEnvPlaceholder(oc.PrivateEthereumNetworkCustomDockerImages)

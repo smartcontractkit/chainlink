@@ -102,12 +102,12 @@ var createTestConfigCmd = &cobra.Command{
 		if cmd.Flags().Changed(LoggingGrafanaDashboardURLFlag) {
 			loggingGrafanaDashboardURL = &oc.LoggingGrafanaDashboardURL
 		}
-		var loggingGrafanaToken *string
-		if cmd.Flags().Changed(LoggingGrafanaTokenFlag) {
-			loggingGrafanaToken = &oc.LoggingGrafanaToken
+		var loggingGrafanaBearerToken *string
+		if cmd.Flags().Changed(LoggingGrafanaBearerTokenFlag) {
+			loggingGrafanaBearerToken = &oc.LoggingGrafanaBearerToken
 		}
 
-		if testLogCollect != nil || loggingRunID != nil || loggingLogTargets != nil || loggingLokiEndpoint != nil || loggingLokiTenantID != nil || loggingLokiBasicAuth != nil || loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaToken != nil {
+		if testLogCollect != nil || loggingRunID != nil || loggingLogTargets != nil || loggingLokiEndpoint != nil || loggingLokiTenantID != nil || loggingLokiBasicAuth != nil || loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaBearerToken != nil {
 			tc.Logging = &ctf_config.LoggingConfig{}
 			tc.Logging.TestLogCollect = testLogCollect
 			tc.Logging.RunId = loggingRunID
@@ -123,11 +123,11 @@ var createTestConfigCmd = &cobra.Command{
 					Endpoint:  loggingLokiEndpoint,
 				}
 			}
-			if loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaToken != nil {
+			if loggingGrafanaBaseURL != nil || loggingGrafanaDashboardURL != nil || loggingGrafanaBearerToken != nil {
 				tc.Logging.Grafana = &ctf_config.GrafanaConfig{
 					BaseUrl:      loggingGrafanaBaseURL,
 					DashboardUrl: loggingGrafanaDashboardURL,
-					BearerToken:  loggingGrafanaToken,
+					BearerToken:  loggingGrafanaBearerToken,
 				}
 			}
 		}
