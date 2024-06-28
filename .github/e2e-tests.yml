@@ -21,8 +21,6 @@ runner-test-matrix:
     path: integration-tests/smoke/ocr_test.go
     test-type: docker
     runs-on: ubuntu-latest
-    test-config-override:
-      chainlink-version: mycustomversion    
     workflows:
       - Run PR E2E Tests
       - Run Nightly E2E Tests
