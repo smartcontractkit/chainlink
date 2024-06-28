@@ -13,7 +13,7 @@ PriceMin = '1 wei'
 BumpMin = '1 gwei'
 
 [GasEstimator.BlockHistory]
-BlockHistorySize = 50
+BlockHistorySize = 200
 
 [HeadTracker]
 HistoryDepth = 50
