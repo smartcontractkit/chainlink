@@ -355,9 +355,25 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			}}
 	}
 
+	e.wg.Add(1)
 	go func() {
-		for event := range eventsCh {
-			e.triggerEvents <- event
+		defer e.wg.Done()
+
+		for {
+			select {
+			case <-e.stopCh:
+				return
+			case event, isOpen := <-eventsCh:
+				if !isOpen {
+					return
+				}
+
+				select {
+				case <-e.stopCh:
+					return
+				case e.triggerEvents <- event:
+				}
+			}
 		}
 	}()
 
@@ -668,18 +684,25 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	i, err := findAndInterpolateAllKeys(step.Inputs, msg.state)
+	var inputs any
+	if step.Inputs.OutputRef != "" {
+		inputs = step.Inputs.OutputRef
+	} else {
+		inputs = step.Inputs.Mapping
+	}
+
+	i, err := findAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	inputs, err := values.NewMap(i.(map[string]any))
+	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	tr := capabilities.CapabilityRequest{
-		Inputs: inputs,
+		Inputs: inputsMap,
 		Config: step.config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          msg.state.WorkflowID,
@@ -692,10 +715,10 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 
 	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
 	if err != nil {
-		return inputs, nil, err
+		return inputsMap, nil, err
 	}
 
-	return inputs, output, err
+	return inputsMap, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
