@@ -16,6 +16,36 @@ type ChainReader struct {
 	mock.Mock
 }
 
+// BatchGetLatestValue provides a mock function with given fields: ctx, request
+func (_m *ChainReader) BatchGetLatestValue(ctx context.Context, request types.BatchGetLatestValueRequest) (types.BatchGetLatestValueResult, error) {
+	ret := _m.Called(ctx, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for BatchGetLatestValue")
+	}
+
+	var r0 types.BatchGetLatestValueResult
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValueRequest) (types.BatchGetLatestValueResult, error)); ok {
+		return rf(ctx, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValueRequest) types.BatchGetLatestValueResult); ok {
+		r0 = rf(ctx, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.BatchGetLatestValueResult)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.BatchGetLatestValueRequest) error); ok {
+		r1 = rf(ctx, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Bind provides a mock function with given fields: ctx, bindings
 func (_m *ChainReader) Bind(ctx context.Context, bindings []types.BoundContract) error {
 	ret := _m.Called(ctx, bindings)

@@ -46,15 +46,15 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
-	Helper         EVMChainReaderInterfaceTesterHelper[T]
-	client         client.Client
-	address        string
-	address2       string
-	chainConfig    types.ChainReaderConfig
-	auth           *bind.TransactOpts
-	evmTest        *chain_reader_tester.ChainReaderTester
-	cr             evm.ChainReaderService
-	dirtyContracts bool
+	Helper          EVMChainReaderInterfaceTesterHelper[T]
+	client          client.Client
+	address         string
+	address2        string
+	contractTesters map[string]*chain_reader_tester.ChainReaderTester
+	chainConfig     types.ChainReaderConfig
+	auth            *bind.TransactOpts
+	cr              evm.ChainReaderService
+	dirtyContracts  bool
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
@@ -66,7 +66,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		it.cr = nil
 
 		if it.dirtyContracts {
-			it.evmTest = nil
+			it.contractTesters = nil
 		}
 	})
 
@@ -80,6 +80,13 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 
 	testStruct := CreateTestStruct[T](0, it)
 
+	methodTakingLatestParamsReturningTestStructConfig := types.ChainReaderDefinition{
+		ChainSpecificName: "getElementAtIndex",
+		OutputModifications: codec.ModifiersConfig{
+			&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+		},
+	}
+
 	it.chainConfig = types.ChainReaderConfig{
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
@@ -88,12 +95,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					GenericEventNames: []string{EventName, EventWithFilterName},
 				},
 				Configs: map[string]*types.ChainReaderDefinition{
-					MethodTakingLatestParamsReturningTestStruct: {
-						ChainSpecificName: "getElementAtIndex",
-						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
-						},
-					},
+					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
 					MethodReturningUint64: {
 						ChainSpecificName: "getPrimitiveValue",
 					},
@@ -161,6 +163,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 			AnySecondContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
 				Configs: map[string]*types.ChainReaderDefinition{
+					MethodTakingLatestParamsReturningTestStruct: &methodTakingLatestParamsReturningTestStructConfig,
 					MethodReturningUint64: {
 						ChainSpecificName: "getDifferentPrimitiveValue",
 					},
@@ -217,11 +220,30 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+}
+
+func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallEntry BatchCallEntry) {
+	nameToAddress := make(map[string]string)
+	boundContracts := it.GetBindings(t)
+	for _, bc := range boundContracts {
+		nameToAddress[bc.Name] = bc.Address
+	}
+
+	for contractName, contractBatch := range batchCallEntry {
+		require.Contains(t, nameToAddress, contractName)
+		for _, readEntry := range contractBatch {
+			val, isOk := readEntry.ReturnValue.(*TestStruct)
+			if !isOk {
+				require.Fail(t, "expected *TestStruct for contract: %s read: %s, but received %T", contractName, readEntry.Name, readEntry.ReturnValue)
+			}
+			it.sendTxWithTestStruct(t, nameToAddress[contractName], val, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+		}
+	}
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
+	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
@@ -233,9 +255,9 @@ func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.Bou
 
 type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*evmtypes.Transaction, error)
 
-func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, testStruct *TestStruct, fn testStructFn) {
+func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAddress string, testStruct *TestStruct, fn testStructFn) {
 	tx, err := fn(
-		&it.evmTest.ChainReaderTesterTransactor,
+		&it.contractTesters[contractAddress].ChainReaderTesterTransactor,
 		it.GetAuthWithGasSet(t),
 		*testStruct.Field,
 		testStruct.DifferentField,
@@ -279,16 +301,17 @@ func (it *EVMChainReaderInterfaceTester[T]) AwaitTx(t T, tx *evmtypes.Transactio
 
 func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
 	// First test deploy both contracts, otherwise only deploy contracts if cleanup decides that we need to.
-	if it.address == "" {
-		it.address = it.deployNewContract(t)
-		it.address2 = it.deployNewContract(t)
-	} else if it.evmTest == nil {
-		it.address = it.deployNewContract(t)
-		it.dirtyContracts = false
+	if it.address == "" || it.contractTesters == nil {
+		it.contractTesters = make(map[string]*chain_reader_tester.ChainReaderTester, 2)
+		address, ts1 := it.deployNewContract(t)
+		address2, ts2 := it.deployNewContract(t)
+		it.address, it.address2 = address, address2
+		it.contractTesters[it.address] = ts1
+		it.contractTesters[it.address2] = ts2
 	}
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) string {
+func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) (string, *chain_reader_tester.ChainReaderTester) {
 	// 105528 was in the error: gas too low: have 0, want 105528
 	// Not sure if there's a better way to get it.
 	it.auth.GasLimit = 10552800
@@ -296,13 +319,10 @@ func (it *EVMChainReaderInterfaceTester[T]) deployNewContract(t T) string {
 	address, tx, ts, err := chain_reader_tester.DeployChainReaderTester(it.GetAuthWithGasSet(t), it.Helper.Backend())
 	require.NoError(t, err)
 	it.Helper.Commit()
-	if it.evmTest == nil {
-		it.evmTest = ts
-	}
 
 	it.IncNonce()
 	it.AwaitTx(t, tx)
-	return address.String()
+	return address.String(), ts
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) MaxWaitTimeForEvents() time.Duration {

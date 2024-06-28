@@ -33,12 +33,12 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr             logger.Logger
-	lp               logpoller.LogPoller
-	client           evmclient.Client
-	contractBindings bindings
-	parsed           *parsedTypes
-	codec            commontypes.RemoteCodec
+	lggr   logger.Logger
+	lp     logpoller.LogPoller
+	client evmclient.Client
+	bindings
+	parsed *parsedTypes
+	codec  commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -49,11 +49,11 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:             lggr.Named("ChainReader"),
-		lp:               lp,
-		client:           client,
-		contractBindings: bindings{},
-		parsed:           &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		lggr:     lggr.Named("ChainReader"),
+		lp:       lp,
+		client:   client,
+		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
+		parsed:   &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -65,7 +65,16 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+	cr.bindings.BatchCaller = NewDynamicLimitedBatchCaller(
+		cr.lggr,
+		cr.codec,
+		cr.client,
+		DefaultRpcBatchSizeLimit,
+		DefaultRpcBatchBackOffMultiplier,
+		DefaultMaxParallelRpcCalls,
+	)
+
+	err = cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 		for _, rb := range cb.readBindings {
 			rb.SetCodec(cr.codec)
 		}
@@ -118,7 +127,7 @@ func (cr *chainReader) init(chainContractReaders map[string]types.ChainContractR
 				return err
 			}
 		}
-		cr.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
+		cr.bindings.contractBindings[contractName].pollingFilter = chainContractReader.PollingFilter.ToLPFilter(eventSigsForContractFilter)
 	}
 	return nil
 }
@@ -128,7 +137,7 @@ func (cr *chainReader) Name() string { return cr.lggr.Name() }
 // Start registers polling filters if contracts are already bound.
 func (cr *chainReader) Start(ctx context.Context) error {
 	return cr.StartOnce("ChainReader", func() error {
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Register(ctx); err != nil {
 					return err
@@ -144,7 +153,7 @@ func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		return cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		return cr.bindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
 			for _, rb := range cb.readBindings {
 				if err := rb.Unregister(ctx); err != nil {
 					return err
@@ -161,8 +170,8 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
-	b, err := cr.contractBindings.GetReadBinding(contractName, method)
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, readName string, params any, returnVal any) error {
+	b, err := cr.bindings.GetReadBinding(contractName, readName)
 	if err != nil {
 		return err
 	}
@@ -170,12 +179,16 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method 
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
+func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
+	return cr.bindings.BatchGetLatestValue(ctx, request)
+}
+
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.contractBindings.Bind(ctx, cr.lp, bindings)
+	return cr.bindings.Bind(ctx, cr.lp, bindings)
 }
 
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
-	b, err := cr.contractBindings.GetReadBinding(contractName, filter.Key)
+	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -204,17 +217,17 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
+	cr.bindings.AddReadBinding(contractName, methodName, &methodBinding{
 		contractName: contractName,
 		method:       methodName,
 		client:       cr.client,
 	})
 
-	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
-	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, methodName, method.Outputs, chainReaderDefinition.OutputModifications)
 }
 
 func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chainReaderDefinition types.ChainReaderDefinition) error {
@@ -238,7 +251,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 	}
 
 	// Encoder def's codec won't be used to encode, only for its type as input for GetLatestValue
-	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition); err != nil {
+	if err := cr.addEncoderDef(contractName, eventName, filterArgs, nil, chainReaderDefinition.InputModifications); err != nil {
 		return err
 	}
 
@@ -280,9 +293,9 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		cr.addQueryingReadBindings(contractName, eventDefinitions.GenericTopicNames, event.Inputs, eb)
 	}
 
-	cr.contractBindings.AddReadBinding(contractName, eventName, eb)
+	cr.bindings.AddReadBinding(contractName, eventName, eb)
 
-	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition)
+	return cr.addDecoderDef(contractName, eventName, event.Inputs, chainReaderDefinition.OutputModifications)
 }
 
 // addQueryingReadBindings reuses the eventBinding and maps it to topic and dataWord keys used for QueryKey.
@@ -296,12 +309,12 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 				Index:    uint64(topicIndex),
 			}
 		}
-		cr.contractBindings.AddReadBinding(contractName, genericTopicName, eb)
+		cr.bindings.AddReadBinding(contractName, genericTopicName, eb)
 	}
 
 	// add data word readBindings for QueryKey
 	for genericDataWordName := range eb.eventDataWords {
-		cr.contractBindings.AddReadBinding(contractName, genericDataWordName, eb)
+		cr.bindings.AddReadBinding(contractName, genericDataWordName, eb)
 	}
 }
 
@@ -330,9 +343,9 @@ func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexA
 	return nil
 }
 
-func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, chainReaderDefinition types.ChainReaderDefinition) error {
+func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications codec.ModifiersConfig) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	inputMod, err := chainReaderDefinition.InputModifications.ToModifier(evmDecoderHooks...)
+	inputMod, err := inputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
@@ -346,8 +359,8 @@ func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arg
 	return nil
 }
 
-func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, def types.ChainReaderDefinition) error {
-	mod, err := def.OutputModifications.ToModifier(evmDecoderHooks...)
+func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, outputModifications codec.ModifiersConfig) error {
+	mod, err := outputModifications.ToModifier(evmDecoderHooks...)
 	if err != nil {
 		return err
 	}
