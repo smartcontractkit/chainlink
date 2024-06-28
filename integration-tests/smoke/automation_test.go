@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,22 +99,25 @@ func TestAutomationBasic(t *testing.T) {
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 
+	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                      ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_2,
-		"registry_2_3_conditional_native":              ethereum.RegistryVersion_2_3,
-		"registry_2_3_conditional_link":                ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_native":               ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_link":                 ethereum.RegistryVersion_2_3,
+		"registry_2_0":                                      ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
+		"registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
+		"registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
+		"registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
+		"registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
+		"registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
+		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -132,11 +136,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				}
 			}
 
-			// Use the name to determine if this is a log trigger or mercury or billing token is LINK
-			isBillingTokenNative := name == "registry_2_3_conditional_native" || name == "registry_2_3_logtrigger_native"
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_logtrigger" || name == "registry_2_2_with_logtrigger_and_mercury_v02" || name == "registry_2_3_logtrigger_native" || name == "registry_2_3_logtrigger_link"
-			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02" || name == "registry_2_2_with_mercury_v02" || name == "registry_2_2_with_logtrigger_and_mercury_v02"
-			isMercuryV03 := name == "registry_2_1_with_mercury_v03" || name == "registry_2_2_with_mercury_v03"
+			// Use the name to determine if this is a log trigger or mercury or billing token is native
+			isBillingTokenNative := strings.Contains(name, "native")
+			isLogTrigger := strings.Contains(name, "logtrigger")
+			isMercuryV02 := strings.Contains(name, "mercury_v02")
+			isMercuryV03 := strings.Contains(name, "mercury_v03")
 			isMercury := isMercuryV02 || isMercuryV03
 
 			a := setupAutomationTestDocker(
