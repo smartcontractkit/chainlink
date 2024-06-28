@@ -16,10 +16,10 @@ on:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
-      test_config_base64_override:
-        description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
-        required: false
-        type: string        
+      # test_config_base64_override:
+      #   description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
+      #   required: false
+      #   type: string        
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -71,10 +71,6 @@ jobs:
         run: |
           if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
             echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
-            exit 1
-          fi
-          if [[ ${{ inputs.test_config_base64_override }} != "" ]]; then
-            echo "::error::Error: 'test_config_base64_override' is not supported until we are sure that it does not contain any secrets. Find more info in https://smartcontract-it.atlassian.net/browse/TT-1283"
             exit 1
           fi
 
@@ -194,7 +190,7 @@ jobs:
           go-version: '1.21.7'
 
       - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
-        if: ${{ inputs.test_config_base64_override == '' }}
+        # if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
