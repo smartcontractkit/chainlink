@@ -189,89 +189,26 @@ jobs:
         with:
           go-version: '1.21.7'
 
-      - name: Set default test config override
+      - name: Set default test config override (use overrides from e2e-tests.yml or defaults)
         if: ${{ inputs.test_config_base64_override == '' }}
-        run: |      
-          # Use overrides from e2e-tests.yml or defaults 
-          chainlink_version="${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}"
-          chainlink_image="${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}"
-          chainlink_postgres_version="${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}"
-          chainlink_upgrade_version="${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}"
-          selected_networks="${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}"
-          pyroscope_server="${{ secrets.QA_PYROSCOPE_INSTANCE }}"
-          pyroscope_environment="${{ matrix.tests.pyroscopeEnv }}"
-          pyroscope_key="${{ secrets.QA_PYROSCOPE_KEY }}"
-          loki_run_id="${{ github.run_id }}"
-          loki_endpoint="https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push"
-          loki_tenant_id="${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}"
-          loki_basic_auth="${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}"
-          logstream_log_targets="${{ vars.LOGSTREAM_LOG_TARGETS }}"
-          # This is Grafana GAP's address
-          grafana_url="http://localhost:8080/primary"
-          grafana_dashboard_url="/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          grafana_bearer_token="${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}"
-
-          # Build the command line arguments
-          # Need to check if the variable is set before adding it to the command
-          # Otherwise "" will be passed as an argument value and set in the config which is not what we want
-          cmd_args=""
-          if [ -n "$chainlink_image" ]; then
-            cmd_args+="--chainlink-image=$chainlink_image "
-          fi
-          if [ -n "$chainlink_version" ]; then
-            cmd_args+="--chainlink-version=$chainlink_version "
-          fi
-          if [ -n "$chainlink_postgres_version" ]; then
-            cmd_args+="--chainlink-postgres-version=$chainlink_postgres_version "
-          fi
-          if [ -n "$chainlink_upgrade_version" ]; then
-            cmd_args+="--chainlink-upgrade-version=$chainlink_upgrade_version "
-          fi
-          if [ -n "$selected_networks" ]; then
-            cmd_args+="--selected-networks=$selected_networks "
-          fi
-          if [ -n "$pyroscope_server" ]; then
-            cmd_args+="--pyroscope-server-url=$pyroscope_server "
-          fi
-          if [ -n "$pyroscope_environment" ]; then
-            cmd_args+="--pyroscope-environment=$pyroscope_environment "
-          fi
-          if [ -n "$pyroscope_key" ]; then
-            cmd_args+="--pyroscope-key=$pyroscope_key "
-          fi
-          if [ -n "$loki_endpoint" ]; then
-            cmd_args+="--logging-loki-endpoint=$loki_endpoint "
-          fi
-          if [ -n "$loki_tenant_id" ]; then
-            cmd_args+="--logging-loki-tenant-id=$loki_tenant_id "
-          fi
-          if [ -n "$loki_basic_auth" ]; then
-            cmd_args+="--logging-loki-basic-auth=$loki_basic_auth "
-          fi
-          if [ -n "$loki_run_id" ]; then
-            cmd_args+="--logging-run-id=$loki_run_id "
-          fi
-          if [ -n "$logstream_log_targets" ]; then
-            cmd_args+="--logging-log-targets=$logstream_log_targets "
-          fi  
-          if [ -n "$grafana_url" ]; then
-            cmd_args+="--logging-grafana-base-url=$grafana_url "
-          fi
-          if [ -n "$grafana_dashboard_url" ]; then
-            cmd_args+="--logging-grafana-dashboard-url=$grafana_dashboard_url "
-          fi
-          if [ -n "$grafana_bearer_token" ]; then
-            cmd_args+="--logging-grafana-bearer-token=$grafana_bearer_token "
-          fi  
-          
-          cd integration-tests/e2e_tests_ci_tool/
-
-          # Create a base64 encoded string of the test config override
-          config_override=$(go run main.go test-config create $cmd_args)
-
-          BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+        uses: ./.github/actions/create-default-e2e-config-override
+        with:
+          chainlink_version: ${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
+          chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
+          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
       # TODO: Remove this step since we do not have to mask secrets anymore
       # - name: Mask secrets in test config base64 override
