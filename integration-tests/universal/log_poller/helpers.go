@@ -3,6 +3,7 @@ package logpoller
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -12,8 +13,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -28,9 +27,11 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -229,93 +230,157 @@ func getStringSlice(length int) []string {
 	return result
 }
 
+type emittedLogsData struct {
+	count int
+}
+
+func (d emittedLogsData) GetResult() emittedLogsData {
+	return d
+}
+
 // emitEvents emits events from the provided log emitter concurrently according to the provided config
 func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
 	address := (*logEmitter).Address().String()
 	defer wg.Done()
 
-	var executionGroup sync.WaitGroup
-
 	// Atomic counter is used to keep track of the number of logs emitted
 	var atomicCounter = atomic.Int32{}
 
-	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
-		executionGroup.Add(1)
-	}
-
-	var emitAllEvents = func() {
-		defer executionGroup.Done()
+	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, executorNum int) {
 		current := atomicCounter.Add(1)
 
 		for _, event := range cfg.General.EventsToEmit {
-			select {
-			case <-ctx.Done():
-				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
-				return
+			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+			var err error
+			switch event.Name {
+			case "Log1":
+				_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+				err = errors.New("on-demand")
+			case "Log2":
+				_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log3":
+				_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log4":
+				_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
 			default:
-				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
-				var err error
-				switch event.Name {
-				case "Log1":
-					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log2":
-					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log3":
-					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log4":
-					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
-				default:
-					err = fmt.Errorf("unknown event name: %s", event.Name)
-				}
-
-				if err != nil {
-					results <- LogEmitterChannel{
-						err: err,
-					}
-					return
-				}
-				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+				err = fmt.Errorf("unknown event name: %s", event.Name)
 			}
 
-			if (current)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
+			if err != nil {
+				errorCh <- err
+				return
 			}
+			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+		}
+
+		if (current)%10 == 0 {
+			l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
+		}
+
+		resultCh <- emittedLogsData{
+			*cfg.General.EventsPerTx * len(cfg.General.EventsToEmit),
 		}
 	}
 
-	clientNumber := int(*client.Cfg.EphemeralAddrs)
-	emissionsPerClient := *cfg.LoopedConfig.ExecutionCount / clientNumber
-	extraEmissions := *cfg.LoopedConfig.ExecutionCount % clientNumber
+	executor := ctf_concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, ctf_concurrency.NoTaskType](l)
+	r, err := executor.ExecuteSimple(int(*client.Cfg.EphemeralAddrs), *cfg.LoopedConfig.ExecutionCount, emitAllEventsFn)
 
-	l.Debug().Str("Emitter address", address).
-		Int("Total logs to emit", *cfg.LoopedConfig.ExecutionCount*len(cfg.General.EventsToEmit)*(*cfg.General.EventsPerTx)).
-		Int("Total clients", clientNumber).
-		Int("Emissions per client", emissionsPerClient).
-		Int("Extra emissions", extraEmissions).
-		Msg("Starting to emit events")
+	var localCounter int
 
-	for i := 0; i < clientNumber; i++ {
-		go func(key int) {
-			numTasks := emissionsPerClient
-			if key < extraEmissions {
-				numTasks++
-			}
-
-			for idx := 0; idx < numTasks; idx++ {
-				emitAllEvents()
-			}
-		}(i)
+	if err != nil {
+		for _, result := range r {
+			localCounter += result.count
+		}
+		l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
 	}
-
-	executionGroup.Wait()
-
-	localCounter := int(atomicCounter.Load()) * *cfg.General.EventsPerTx * len(cfg.General.EventsToEmit)
-	l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
 
 	results <- LogEmitterChannel{
 		logsEmitted: localCounter,
 		err:         nil,
 	}
+
+	//var executionGroup sync.WaitGroup
+
+	//// Atomic counter is used to keep track of the number of logs emitted
+	//var atomicCounter = atomic.Int32{}
+
+	//for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
+	//	executionGroup.Add(1)
+	//}
+	//
+	//var emitAllEvents = func() {
+	//	defer executionGroup.Done()
+	//	current := atomicCounter.Add(1)
+	//
+	//	for _, event := range cfg.General.EventsToEmit {
+	//		select {
+	//		case <-ctx.Done():
+	//			l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
+	//			return
+	//		default:
+	//			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+	//			var err error
+	//			switch event.Name {
+	//			case "Log1":
+	//				_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+	//			case "Log2":
+	//				_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+	//			case "Log3":
+	//				_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+	//			case "Log4":
+	//				_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
+	//			default:
+	//				err = fmt.Errorf("unknown event name: %s", event.Name)
+	//			}
+	//
+	//			if err != nil {
+	//				results <- LogEmitterChannel{
+	//					err: err,
+	//				}
+	//				return
+	//			}
+	//			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+	//		}
+	//
+	//		if (current)%10 == 0 {
+	//			l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
+	//		}
+	//	}
+	//}
+	//
+	//clientNumber := int(*client.Cfg.EphemeralAddrs)
+	//emissionsPerClient := *cfg.LoopedConfig.ExecutionCount / clientNumber
+	//extraEmissions := *cfg.LoopedConfig.ExecutionCount % clientNumber
+	//
+	//l.Debug().Str("Emitter address", address).
+	//	Int("Total logs to emit", *cfg.LoopedConfig.ExecutionCount*len(cfg.General.EventsToEmit)*(*cfg.General.EventsPerTx)).
+	//	Int("Total clients", clientNumber).
+	//	Int("Emissions per client", emissionsPerClient).
+	//	Int("Extra emissions", extraEmissions).
+	//	Msg("Starting to emit events")
+	//
+	//for i := 0; i < clientNumber; i++ {
+	//	go func(key int) {
+	//		numTasks := emissionsPerClient
+	//		if key < extraEmissions {
+	//			numTasks++
+	//		}
+	//
+	//		for idx := 0; idx < numTasks; idx++ {
+	//			emitAllEvents()
+	//		}
+	//	}(i)
+	//}
+	//
+	//executionGroup.Wait()
+
+	//localCounter := int(atomicCounter.Load()) * *cfg.General.EventsPerTx * len(cfg.General.EventsToEmit)
+	//l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
+	//
+	//results <- LogEmitterChannel{
+	//	logsEmitted: localCounter,
+	//	err:         nil,
+	//}
 }
 
 // LogPollerHasFinalisedEndBlock returns true if all CL nodes have finalised processing the provided end block
