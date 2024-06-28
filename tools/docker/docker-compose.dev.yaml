@@ -1,6 +1,6 @@
 version: '3.8'
 services:
-  node:
+  cldev:
     entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
     build:
       context: ../../
