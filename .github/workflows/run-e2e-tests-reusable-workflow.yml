@@ -226,11 +226,6 @@ jobs:
           
           cd integration-tests/e2e_tests_ci_tool/
 
-          # Mask secrets inside the test config override (like resolved env vars)
-          go run main.go test-config mask-secrets $cmd_args
-
-          echo $chainlink_version
-
           # Create a base64 encoded string of the test config override
           config_override=$(go run main.go test-config create $cmd_args)
 
@@ -238,10 +233,11 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 
-      - name: Mask secrets in test config base64 override
-        id: mask-secrets-in-test_config_base64_override
-        if: ${{ inputs.test_config_base64_override != '' }}
-        run: "to do"
+      # TODO: Remove this step since we do not have to mask secrets anymore
+      # - name: Mask secrets in test config base64 override
+      #   id: mask-secrets-in-test_config_base64_override
+      #   if: ${{ inputs.test_config_base64_override != '' }}
+      #   run: "to do"
           # - name: Remove secrets from test config base64 override
           #   id: mask-in
           # - name: Set outputs
@@ -249,7 +245,7 @@ jobs:
           #   run: |
           #     echo "::set-output name=base64ConfigNoSecrets::$BASE64_CONFIG_OVERRIDE"
 
-      # TODO: Remove this step since we allow custom secrets in the test config but we mask them    
+      # TODO: Remove this step since we do not have to mask or override secrets in custom test config anymore 
       # - name: Override secrets in custom test config
       #   if: ${{ inputs.test_config_base64_override != '' }}          
       #   run: |
