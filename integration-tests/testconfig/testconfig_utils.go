@@ -69,7 +69,7 @@ selected_networks=`
 	return fmt.Errorf(finalErrStr)
 }
 
-func GetChainAndTestTypeSpecificConfig(product Product, testType string) (TestConfig, error) {
+func GetChainAndTestTypeSpecificConfig(testType string, product Product) (TestConfig, error) {
 	config, err := GetConfig([]string{testType}, product)
 	if err != nil {
 		return TestConfig{}, fmt.Errorf("error getting config: %w", err)
