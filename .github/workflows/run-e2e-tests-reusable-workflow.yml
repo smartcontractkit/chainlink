@@ -61,6 +61,7 @@ on:
                
 env: 
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  MOD_CACHE_VERSION: 1
 
 jobs:
   validate-inputs:
@@ -277,8 +278,8 @@ jobs:
             /tmp/gotest.log
           publish_check_name: ${{ matrix.tests.idSanitized }}
           token: ${{ secrets.GH_TOKEN }}
+          cache_key_id: run-docker-e2e-tests-${{ env.MOD_CACHE_VERSION }}
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -399,6 +400,7 @@ jobs:
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
+          cache_key_id: run-k8s-e2e-tests-${{ env.MOD_CACHE_VERSION }}
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
