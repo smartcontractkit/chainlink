@@ -21,13 +21,7 @@ on:
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read    
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml    
     with:
       chainlink_version: develop
       test_ids: ${{ github.event.inputs.test-id }}

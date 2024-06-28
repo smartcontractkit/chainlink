@@ -2,7 +2,7 @@ name: Run Nightly E2E Tests
 
 on:
   schedule:
-    # Run every night at midnight UTC (0:00 AM) TODO: create separate workflow that uses this one 
+    # Run every night at midnight UTC (0:00 AM)
     - cron: '0 0 * * *'
 
 jobs:

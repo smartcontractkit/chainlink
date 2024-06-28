@@ -13,12 +13,6 @@ jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read    
     with:
       chainlink_version: develop
       # Select tests to run from .github/e2e_tests.yml based on workflow name 
