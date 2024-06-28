@@ -355,6 +355,28 @@ jobs:
       - name: Show Remote Runner Version
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
+
+      - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
+        if: ${{ inputs.test_config_base64_override == '' }}
+        uses: ./.github/actions/create-default-e2e-config-override
+        with:
+          chainlink_version: ${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
+          chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
+          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}          
+
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
