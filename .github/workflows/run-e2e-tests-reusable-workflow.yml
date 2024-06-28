@@ -64,7 +64,7 @@ env:
 
 jobs:
   validate-inputs:
-    name: Validate Workflow Inputs
+    name: Validate workflow inputs
     runs-on: ubuntu-latest
     steps:
       - name: Check input conditions
@@ -75,7 +75,7 @@ jobs:
           fi
 
   check-test-configurations:
-    name: Check Test Configurations
+    name: Check test configurations
     if: ${{ inputs.enable-check-test-configurations }}
     needs: validate-inputs
     runs-on: ubuntu-latest
@@ -93,7 +93,7 @@ jobs:
           fi
 
   load-test-configurations:
-    name: Load Test Configurations
+    name: Load test configurations
     runs-on: ubuntu-latest
     needs: validate-inputs
     outputs:
@@ -158,7 +158,7 @@ jobs:
 
   # Run Docker tests
   docker-tests:
-    name: Run Docker Tests (${{ matrix.tests.id }})
+    name: Run docker tests (${{ matrix.tests.id }})
     needs: load-test-configurations
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' }}
     runs-on: ${{ matrix.tests.runsOn }}
@@ -189,7 +189,7 @@ jobs:
         with:
           go-version: '1.21.7'
 
-      - name: Set default test config override (use overrides from e2e-tests.yml or defaults)
+      - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
         if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
@@ -263,7 +263,7 @@ jobs:
           aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           duplicate-authorization-header: "true"
-      - name: Run Tests
+      - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
@@ -292,7 +292,7 @@ jobs:
   prepare-remote-runner-test-image:
     needs: load-test-configurations
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
-    name: Prepare Remote Runner Test Image
+    name: Prepare remote runner test image
     runs-on: ubuntu-latest
     environment: integration
     permissions:
@@ -327,7 +327,7 @@ jobs:
   run-k8s-runner-tests:
     needs: [load-test-configurations, prepare-remote-runner-test-image]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
-    name: Run K8s Tests (${{ matrix.tests.id }})
+    name: Run k8s tests (${{ matrix.tests.id }})
     runs-on: ${{ matrix.tests.runsOn }}
     strategy:
       fail-fast: false
@@ -355,7 +355,7 @@ jobs:
       - name: Show Remote Runner Version
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
-      - name: Run Tests
+      - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
           DETACH_RUNNER: true

@@ -57,43 +57,43 @@ runs:
       run: |
         cmd_args=""
         if [ -n "${{ inputs.chainlink_image }}" ]; then
-          cmd_args+="--chainlink-image=${{ inputs.chainlink_image }} "
+          cmd_args+="--chainlink-image=\"${{ inputs.chainlink_image }}\" "
         fi
         if [ -n "${{ inputs.chainlink_version }}" ]; then
-          cmd_args+="--chainlink-version=${{ inputs.chainlink_version }} "
+          cmd_args+="--chainlink-version=\"${{ inputs.chainlink_version }}\" "
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
-          cmd_args+="--chainlink-postgres-version=${{ inputs.chainlink_postgres_version }} "
+          cmd_args+="--chainlink-postgres-version=\"${{ inputs.chainlink_postgres_version }}\" "
         fi
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
-          cmd_args+="--chainlink-upgrade-version=${{ inputs.chainlink_upgrade_version }} "
+          cmd_args+="--chainlink-upgrade-version=\"${{ inputs.chainlink_upgrade_version }}\" "
         fi
         if [ -n "${{ inputs.selected_networks }}" ]; then
-          cmd_args+="--selected-networks=${{ inputs.selected_networks }} "
+          cmd_args+="--selected-networks=\"${{ inputs.selected_networks }}\" "
         fi
         if [ -n "${{ inputs.pyroscope_server }}" ]; then
-          cmd_args+="--pyroscope-server-url=${{ inputs.pyroscope_server }} "
+          cmd_args+="--pyroscope-server-url=\"${{ inputs.pyroscope_server }}\" "
         fi
         if [ -n "${{ inputs.pyroscope_environment }}" ]; then
-          cmd_args+="--pyroscope-environment=${{ inputs.pyroscope_environment }} "
+          cmd_args+="--pyroscope-environment=\"${{ inputs.pyroscope_environment }}\" "
         fi
         if [ -n "${{ inputs.pyroscope_key }}" ]; then
-          cmd_args+="--pyroscope-key=${{ inputs.pyroscope_key }} "
+          cmd_args+="--pyroscope-key=\"${{ inputs.pyroscope_key }}\" "
         fi
         if [ -n "${{ inputs.loki_endpoint }}" ]; then
-          cmd_args+="--logging-loki-endpoint=${{ inputs.loki_endpoint }} "
+          cmd_args+="--logging-loki-endpoint=\"${{ inputs.loki_endpoint }}\" "
         fi
         if [ -n "${{ inputs.loki_tenant_id }}" ]; then
-          cmd_args+="--logging-loki-tenant-id=${{ inputs.loki_tenant_id }} "
+          cmd_args+="--logging-loki-tenant-id=\"${{ inputs.loki_tenant_id }}\" "
         fi
         if [ -n "${{ inputs.loki_basic_auth }}" ]; then
-          cmd_args+="--logging-loki-basic-auth=${{ inputs.loki_basic_auth }} "
+          cmd_args+="--logging-loki-basic-auth=\"${{ inputs.loki_basic_auth }}\" "
         fi
         if [ -n "${{ inputs.loki_run_id }}" ]; then
-          cmd_args+="--logging-run-id=${{ inputs.loki_run_id }} "
+          cmd_args+="--logging-run-id=\"${{ inputs.loki_run_id }}\" "
         fi
         if [ -n "${{ inputs.logstream_log_targets }}" ]; then
-          cmd_args+="--logging-log-targets=${{ inputs.logstream_log_targets }} "
+          cmd_args+="--logging-log-targets=\"${{ inputs.logstream_log_targets }}\" "
         fi
         echo "Command line arguments: $cmd_args" 
         echo "CMD_ARGS=$cmd_args" >> $GITHUB_ENV
@@ -102,8 +102,6 @@ runs:
       shell: bash
       run: |      
         cd integration-tests/e2e_tests_ci_tool/
-
-        # Create a base64 encoded string of the test config override
         config_override=$(go run main.go test-config create ${{ env.CMD_ARGS }})
 
         BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
