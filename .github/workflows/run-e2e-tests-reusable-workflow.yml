@@ -114,7 +114,7 @@ jobs:
         id: set-docker-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -122,7 +122,7 @@ jobs:
         id: set-k8s-runner-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -360,7 +360,7 @@ jobs:
         # if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
           chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
           chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
           chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
