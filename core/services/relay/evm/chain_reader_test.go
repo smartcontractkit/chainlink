@@ -200,8 +200,8 @@ func (h *helper) Context(t *testing.T) context.Context {
 }
 
 func (h *helper) MaxWaitTimeForEvents() time.Duration {
-	// There are no scheduling guarantees in a busy CI test suite. 30s was failing frequently.
-	maxWaitTime := 10 * time.Minute
+	// From trial and error, when running on CI, sometimes the boxes get slow
+	maxWaitTime := time.Second * 30
 	maxWaitTimeStr, ok := os.LookupEnv("MAX_WAIT_TIME_FOR_EVENTS_S")
 	if ok {
 		waitS, err := strconv.ParseInt(maxWaitTimeStr, 10, 64)
