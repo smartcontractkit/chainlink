@@ -134,7 +134,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Build Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@3380b79a5af6524101cf1bd33188f73a800f7490 # v2.3.22
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-tests@027436f63ad08b6e8eb92a85104ade234fb4ea43 # v2.3.24
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -256,7 +256,7 @@ jobs:
           customEthClientDockerImage: ${{ matrix.evm_node.docker_image }}
 
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@3380b79a5af6524101cf1bd33188f73a800f7490 # v2.3.22
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@027436f63ad08b6e8eb92a85104ade234fb4ea43 # v2.3.24
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 45m -count=1 -json -test.parallel=2 ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -275,7 +275,7 @@ jobs:
           should_tidy: "false"
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@3380b79a5af6524101cf1bd33188f73a800f7490 # v2.3.22
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@027436f63ad08b6e8eb92a85104ade234fb4ea43 # v2.3.24
 
   start-slack-thread:
     name: Start Slack Thread
