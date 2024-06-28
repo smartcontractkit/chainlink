@@ -59,8 +59,8 @@ func (c BatchCall) String() string {
 
 // Implement the String method for the Call struct
 func (c Call) String() string {
-	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v",
-		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params)
+	return fmt.Sprintf("contractAddress: %s, contractName: %s, method: %s, params: %+v returnValType: %T",
+		c.ContractAddress.Hex(), c.ContractName, c.MethodName, c.Params, c.ReturnVal)
 }
 
 //go:generate mockery --quiet --name BatchCaller --output ./rpclibmocks --outpkg rpclibmocks --filename batch_caller.go --case=underscore

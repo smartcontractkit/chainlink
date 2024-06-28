@@ -179,15 +179,6 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, readNam
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
-type GetLatestValueRequest struct {
-	readName  string
-	params    any
-	returnVal any
-}
-
-// BatchGetLatestValueRequests string is contract name.
-type BatchGetLatestValueRequests map[string][]GetLatestValueRequest
-
 func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
 	return cr.bindings.BatchGetLatestValue(ctx, request)
 }

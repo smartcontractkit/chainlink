@@ -85,7 +85,7 @@ func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.B
 			case *eventBinding:
 			// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
 			default:
-				return nil, fmt.Errorf("%w: missing read binding type for contract: %s read: %s", commontypes.ErrInvalidConfig, contractName, req.ReadName)
+				return nil, fmt.Errorf("%w: missing read binding type for contract: %s read: %s", commontypes.ErrInvalidType, contractName, req.ReadName)
 			}
 		}
 	}
