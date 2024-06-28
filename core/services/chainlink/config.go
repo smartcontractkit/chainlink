@@ -53,14 +53,13 @@ type RawConfig map[string]any
 type RawConfigs []RawConfig
 
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
-func (c *RawConfig) ValidateConfig() error {
+func (c *RawConfig) ValidateConfig() (err error) {
 	if v, ok := (*c)["Enabled"]; ok {
 		if _, ok := v.(*bool); !ok {
-			return fmt.Errorf("invalid type for Enabled: got %T, expected *bool", v)
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected *bool"})
 		}
 	}
-
-	return nil
+	return err
 }
 
 func (c *RawConfig) IsEnabled() bool {
