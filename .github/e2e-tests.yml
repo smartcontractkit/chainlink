@@ -7,6 +7,15 @@
 #
 runner-test-matrix:
 
+  # TODO: REMOVE WHEN THE CI WORKFLOWS TESTING IS DONE
+  - id: integration-tests/smoke/quick_ci_check_test.go
+    path: integration-tests/smoke/quick_ci_check_test.go
+    test-type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/quick_ci_check_test.go -timeout 1m -count=1 -json
+
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
   - id: smoke/ocr_test.go:* 
     path: integration-tests/smoke/ocr_test.go
