@@ -52,14 +52,11 @@ type RawConfig map[string]any
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
 
-// Validate returns an error if the Config is not valid for use, as-is.
+// ValidateConfig returns an error if the Config is not valid for use, as-is.
 func (c *RawConfig) ValidateConfig() error {
 	if v, ok := (*c)["Enabled"]; ok {
-		switch v.(type) {
-		case nil, *bool: // Enabled should be *bool type
-			return nil
-		default:
-			return fmt.Errorf("invalid type for 'Enabled': expected nil, bool, or *bool, got %T", v)
+		if _, ok := v.(*bool); !ok {
+			return fmt.Errorf("invalid type for Enabled: got %T, expected *bool", v)
 		}
 	}
 
