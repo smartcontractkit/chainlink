@@ -399,29 +399,27 @@ func (o *optimismL1Oracle) checkForUpgrade(ctx context.Context) error {
 	// These calls are expected to revert if chain has not upgraded. Ignore non-nil Error field.
 	if rpcBatchCalls[0].Error == nil {
 		result := *(rpcBatchCalls[0].Result.(*string))
-		if b, err := hexutil.Decode(result); err == nil {
-			if res, err := o.isFjordMethodAbi.Unpack(isFjordMethod, b); err == nil {
+		if b, decodeErr := hexutil.Decode(result); decodeErr == nil {
+			if res, unpackErr := o.isFjordMethodAbi.Unpack(isFjordMethod, b); unpackErr == nil {
 				o.isFjord = res[0].(bool)
 			} else {
-				o.logger.Errorw("failed to unpack results", "method", isFjordMethod, "hex", result, "error", err)
+				o.logger.Errorw("failed to unpack results", "method", isFjordMethod, "hex", result, "error", unpackErr)
 			}
 		} else {
-			o.logger.Errorw("failed to decode bytes", "method", isFjordMethod, "hex", result, "error", err)
+			o.logger.Errorw("failed to decode bytes", "method", isFjordMethod, "hex", result, "error", decodeErr)
 		}
-
 	}
 	if rpcBatchCalls[1].Error == nil {
 		result := *(rpcBatchCalls[1].Result.(*string))
-		if b, err := hexutil.Decode(result); err == nil {
-			if res, err := o.isEcotoneMethodAbi.Unpack(isEcotoneMethod, b); err == nil {
+		if b, decodeErr := hexutil.Decode(result); decodeErr == nil {
+			if res, unpackErr := o.isEcotoneMethodAbi.Unpack(isEcotoneMethod, b); unpackErr == nil {
 				o.isEcotone = res[0].(bool)
 			} else {
-				o.logger.Errorw("failed to unpack results", "method", isEcotoneMethod, "hex", result, "error", err)
+				o.logger.Errorw("failed to unpack results", "method", isEcotoneMethod, "hex", result, "error", unpackErr)
 			}
 		} else {
-			o.logger.Errorw("failed to decode bytes", "method", isEcotoneMethod, "hex", result, "error", err)
+			o.logger.Errorw("failed to decode bytes", "method", isEcotoneMethod, "hex", result, "error", decodeErr)
 		}
-
 	}
 	return nil
 }
