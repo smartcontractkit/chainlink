@@ -102,6 +102,7 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
     // Care must be taken that the bitmap has at least as many bits as MAX_NUM_VOTERS.
     // uint200 is much larger than we need, but it saves us ~100 gas per voteToBless call to fill the word instead of
     // using a smaller type.
+    // _bitmapGet(voterBitmap, i) = true indicates that the i-th voter has voted to bless
     uint200 voterBitmap;
   }
 
@@ -139,6 +140,8 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
   mapping(bytes16 subject => CurseVoteProgress curseVoteProgress) private
     s_potentiallyOutdatedCurseVoteProgressBySubject;
 
+  // We intentionally use a struct here, even though it contains a single field, to make it obvious to future editors
+  // that there is space for more fields.
   struct CurseHotVars {
     uint64 numSubjectsCursed; // incremented by voteToCurse, ownerCurse; decremented by ownerUnvoteToCurse
   }
@@ -752,6 +755,12 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
     }
   }
 
+  /// @return curseVoteAddrs the curseVoteAddr of each voter with an active vote to curse
+  /// @return cursesHashes the i-th value is the curses hash of curseVoteAddrs[i]
+  /// @return accumulatedWeight the accumulated weight of all voters with an active vote to curse who are part of the
+  /// current config
+  /// @return cursed might be true even if the owner has no active vote and accumulatedWeight < curseWeightThreshold,
+  /// due to a retained curse from a prior config
   /// @dev This is a helper method for offchain code so efficiency is not really a concern.
   function getCurseProgress(bytes16 subject)
     external
@@ -868,6 +877,10 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
     address[] memory allAddrs = new address[](2 * config.voters.length);
     for (uint256 i = 0; i < config.voters.length; ++i) {
       Voter memory voter = config.voters[i];
+      // The owner can always curse using the ownerCurse method, and is not supposed to be included in the voters list.
+      // Even though the intent is for the actual owner address to NOT be included in the voters list, we don't
+      // explicitly disallow curseVoteAddr == owner() here. Even if we did, the owner could transfer ownership of the
+      // contract, and so we couldn't guarantee that the owner is not eventually included in the voters list.
       if (
         voter.blessVoteAddr == address(0) || voter.curseVoteAddr == address(0)
           || voter.curseVoteAddr == LIFT_CURSE_VOTE_ADDR || voter.curseVoteAddr == OWNER_CURSE_VOTE_ADDR
@@ -926,9 +939,13 @@ contract RMN is IRMN, OwnerIsCreator, ITypeAndVersion {
       }
     }
     {
+      // Initialize the owner's CurserRecord
+      // We could in principle perform this initialization once in the constructor instead, and save a small bit of gas.
+      // But configuration changes are relatively infrequent, and keeping the initialization here makes the contract's
+      // correctness easier to reason about.
       CurserRecord storage sptr_ownerCurserRecord = s_curserRecords[OWNER_CURSE_VOTE_ADDR];
-      sptr_ownerCurserRecord.active = true;
-      sptr_ownerCurserRecord.weight = 0; // pseudo voter
+      sptr_ownerCurserRecord.active = true; // Assumed by vote/unvote-to-curse logic
+      sptr_ownerCurserRecord.weight = 0; // Assumed by vote/unvote-to-curse logic
     }
     s_versionedConfig.blockNumber = uint32(block.number);
     emit ConfigSet(configVersion, config);

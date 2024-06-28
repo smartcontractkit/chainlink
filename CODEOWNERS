@@ -148,8 +148,8 @@ flake.lock @smartcontractkit/prodsec-public
 /core/services/relay/evm/liquidity_manager.go @smartcontractkit/liquidity-manager
 /contracts/**/liquiditymanager/ @smartcontractkit/liquidity-manager
 
-# CCIP ARM
+# CCIP RMN
 /contracts/src/v0.8/ccip/RMN.sol @smartcontractkit/rmn
 /contracts/src/v0.8/ccip/ARMProxy.sol @smartcontractkit/rmn
-/contracts/src/v0.8/ccip/interfaces/IARM.sol @smartcontractkit/rmn
+/contracts/src/v0.8/ccip/interfaces/IRMN.sol @smartcontractkit/rmn
 /contracts/src/v0.8/ccip/test/arm @smartcontractkit/rmn
