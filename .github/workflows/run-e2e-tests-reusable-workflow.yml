@@ -70,11 +70,11 @@ jobs:
       - name: Check input conditions
         run: |
           if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
-            echo "Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
+            echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
             exit 1
           fi
           if [[ ${{ inputs.test_config_base64_override }} != "" ]]; then
-            echo "Error: 'test_config_base64_override' is not supported until we are sure that it does not contain any secrets. Find more info in https://smartcontract-it.atlassian.net/browse/TT-1283"
+            echo "::error::Error: 'test_config_base64_override' is not supported until we are sure that it does not contain any secrets. Find more info in https://smartcontract-it.atlassian.net/browse/TT-1283"
             exit 1
           fi
 
