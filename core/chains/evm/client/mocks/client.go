@@ -208,36 +208,6 @@ func (_m *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockN
 	return r0, r1
 }
 
-// ChainID provides a mock function with given fields:
-func (_m *Client) ChainID() (*big.Int, error) {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ChainID")
-	}
-
-	var r0 *big.Int
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (*big.Int, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CheckTxValidity provides a mock function with given fields: ctx, from, to, data
 func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *client.SendError {
 	ret := _m.Called(ctx, from, to, data)
