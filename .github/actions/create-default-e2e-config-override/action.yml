@@ -60,7 +60,7 @@ runs:
           cmd_args+="--chainlink-image=\"${{ inputs.chainlink_image }}\" "
         fi
         if [ -n "${{ inputs.chainlink_version }}" ]; then
-          cmd_args+="--chainlink-version=\"${{ inputs.chainlink_version }}\" "
+          cmd_args+="--chainlink_version=\"${{ inputs.chainlink_version }}\" "
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
           cmd_args+="--chainlink-postgres-version=\"${{ inputs.chainlink_postgres_version }}\" "

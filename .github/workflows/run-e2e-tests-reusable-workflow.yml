@@ -4,15 +4,15 @@ name: Run E2E Tests
 on:
   workflow_call:
     inputs:
-      chainlink-version:
+      chainlink_version:
         description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
         required: true
         type: string
-      test-ids:
+      test_ids:
         description: 'Run tests by test ids separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
         required: false
         type: string
-      test-workflow:
+      test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
         type: string        
@@ -20,12 +20,12 @@ on:
         description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
         required: false
         type: string        
-      enable-check-test-configurations:
+      enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
         type: boolean
         default: false
-      with-existing-remote-runner-version:
+      with_existing_remote_runner_version:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
         type: string
@@ -69,8 +69,8 @@ jobs:
     steps:
       - name: Check input conditions
         run: |
-          if [[ "${{ inputs.test-ids }}" != "" && "${{ inputs.test-workflow }}" != "" ]]; then
-            echo "Error: Both 'test-ids' and 'test-workflow' are provided. Please specify only one."
+          if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
+            echo "Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
             exit 1
           fi
           if [[ ${{ inputs.test_config_base64_override }} != "" ]]; then
@@ -80,7 +80,7 @@ jobs:
 
   check-test-configurations:
     name: Check test configurations
-    if: ${{ inputs.enable-check-test-configurations }}
+    if: ${{ inputs.enable_check_test_configurations }}
     needs: validate-inputs
     runs-on: ubuntu-latest
     steps:
@@ -118,7 +118,7 @@ jobs:
         id: set-docker-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -126,7 +126,7 @@ jobs:
         id: set-k8s-runner-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "::set-output name=matrix::$MATRIX_JSON"
@@ -273,7 +273,7 @@ jobs:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.chainlink-version }}
+          cl_image_tag: ${{ inputs.chainlink_version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -314,7 +314,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2      
       - name: Build Test Runner Image
         uses: ./.github/actions/build-test-image
-        if: ${{ inputs.with-existing-remote-runner-version == '' }}
+        if: ${{ inputs.with_existing_remote_runner_version == '' }}
         with:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
@@ -322,10 +322,10 @@ jobs:
       - name: Set Remote Runner Version
         id: set-remote-runner-version
         run: |
-          if [[ -z "${{ inputs.with-existing-remote-runner-version }}" ]]; then
+          if [[ -z "${{ inputs.with_existing_remote_runner_version }}" ]]; then
             echo "::set-output name=remote-runner-version::${{ github.sha }}"
           else
-            echo "::set-output name=remote-runner-version::${{ inputs.with-existing-remote-runner-version }}"
+            echo "::set-output name=remote-runner-version::${{ inputs.with_existing_remote_runner_version }}"
           fi
 
   run-k8s-runner-tests:

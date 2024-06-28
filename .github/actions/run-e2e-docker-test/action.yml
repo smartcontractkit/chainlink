@@ -43,7 +43,7 @@ runs:
           cmd_args+="--chainlink-image=$chainlink_image "
         fi
         if [ -n "$chainlink_version" ]; then
-          cmd_args+="--chainlink-version=$chainlink_version "
+          cmd_args+="--chainlink_version=$chainlink_version "
         fi
         if [ -n "$chainlink_postgres_version" ]; then
           cmd_args+="--chainlink-postgres-version=$chainlink_postgres_version "
@@ -92,7 +92,7 @@ runs:
         test_command_to_run: ${{ inputs.test.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
         test_download_vendor_packages_command: cd ./integration-tests && go mod download
         cl_repo: ${{ env.CHAINLINK_IMAGE }}
-        cl_image_tag: ${{ inputs.chainlink-version }}
+        cl_image_tag: ${{ inputs.chainlink_version }}
         aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
         artifacts_name: ${{ inputs.test.id }}-test-logs
         artifacts_location: |

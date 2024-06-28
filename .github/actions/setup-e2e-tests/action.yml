@@ -4,13 +4,13 @@ inputs:
   config-file-path:
     required: true
     description: 'Path to the configuration file for E2E tests'
-  enable-check-test-configurations:
+  enable_check_test_configurations:
     required: true
     description: 'Enable checking of test configurations'
-  test-ids:
+  test_ids:
     required: false
     description: 'Test IDs to filter on'
-  test-workflow:
+  test_workflow:
     required: false
     description: 'Workflow name for filtering tests'
 outputs:
@@ -35,7 +35,7 @@ runs:
       shell: bash
 
     - name: Check Test Configurations
-      if: ${{ fromJSON(inputs.enable-check-test-configurations) }}
+      if: ${{ fromJSON(inputs.enable_check_test_configurations) }}
       run: |
         if ! go run integration-tests/e2e_tests_ci_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
           echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml." && exit 1
@@ -51,7 +51,7 @@ runs:
       id: set-docker-matrix
       run: |
         cd integration-tests/e2e_tests_ci_tool/
-        MATRIX_JSON=$(go run main.go filter --file ${{ inputs.config-file-path }} --test-type 'docker' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+        MATRIX_JSON=$(go run main.go filter --file ${{ inputs.config-file-path }} --test-type 'docker' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
         echo "Docker tests:"
         echo "$MATRIX_JSON" | jq
         echo "matrix=$MATRIX_JSON" >> $GITHUB_ENV
@@ -61,7 +61,7 @@ runs:
       id: set-k8s-runner-matrix
       run: |
         cd integration-tests/e2e_tests_ci_tool/
-        MATRIX_JSON=$(go run main.go filter --file ${{ inputs.config-file-path }} --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test-ids }}' --workflow '${{ inputs.test-workflow }}')
+        MATRIX_JSON=$(go run main.go filter --file ${{ inputs.config-file-path }} --test-type 'k8s-remote-runner' --test_ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
         echo "K8s tests:"
         echo "$MATRIX_JSON" | jq
         echo "matrix=$MATRIX_JSON" >> $GITHUB_ENV
