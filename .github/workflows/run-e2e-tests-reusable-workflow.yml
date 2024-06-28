@@ -84,10 +84,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.21.7'
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
       - name: Run Check Tests Command
         run: |
           if ! go run integration-tests/e2e_tests_ci_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
@@ -106,10 +104,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.21.7'
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
       - name: Install jq
         run: sudo apt-get install jq
       - name: Generate Docker Tests Matrix
@@ -186,10 +182,8 @@ jobs:
         run: sudo apt-get install -y jq
       - name: Show test configuration
         run: echo '${{ toJson(matrix.tests) }}' | jq .
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: '1.21.7'
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
 
       - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
         # if: ${{ inputs.test_config_base64_override == '' }}
