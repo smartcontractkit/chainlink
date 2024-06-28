@@ -18,7 +18,7 @@ import (
 
 func TestGasExperiment(t *testing.T) {
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Soak", tc.OCR)
+	config, err := tc.GetConfig([]string{"Soak"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]

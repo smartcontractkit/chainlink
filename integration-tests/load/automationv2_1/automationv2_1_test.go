@@ -153,7 +153,7 @@ func TestLogTrigger(t *testing.T) {
 	ctx := tests.Context(t)
 	l := logging.GetTestLogger(t)
 
-	loadedTestConfig, err := tc.GetConfig("Load", tc.Automation)
+	loadedTestConfig, err := tc.GetConfig([]string{"Load"}, tc.Automation)
 	if err != nil {
 		t.Fatal(err)
 	}
