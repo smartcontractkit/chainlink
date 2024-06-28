@@ -37,6 +37,7 @@ import (
 //go:generate mockery --quiet --name ChainClientRPC --structname MockChainClientRPC --filename "mock_chain_client_rpc_test.go" --inpackage --case=underscore
 type ChainClientRPC interface {
 	commonclient.RPCClient[*big.Int, *evmtypes.Head]
+	commonclient.SendTxRPCClient[*types.Transaction]
 	BalanceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (*big.Int, error)
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error)
@@ -60,7 +61,6 @@ type ChainClientRPC interface {
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error)
 	SendEmptyTransaction(ctx context.Context, newTxAttempt func(evmtypes.Nonce, uint32, *assets.Wei, common.Address) (interface{}, error), seq evmtypes.Nonce, gasLimit uint32, fee *assets.Wei, fromAddress common.Address) (string, error)
-	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	SequenceAt(ctx context.Context, accountAddress common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
 	SetAliveLoopSub(_a0 commontypes.Subscription)
 	SimulateTransaction(ctx context.Context, tx *types.Transaction) error
@@ -180,7 +180,9 @@ type RpcClient struct {
 	chStopInFlight chan struct{}
 }
 
-var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = &RpcClient{}
+var _ commonclient.RPCClient[*big.Int, *evmtypes.Head] = (*RpcClient)(nil)
+var _ commonclient.SendTxRPCClient[*types.Transaction] = (*RpcClient)(nil)
+var _ ChainClientRPC = (*RpcClient)(nil)
 
 func NewRPCClient(
 	cfg config.NodePool,
