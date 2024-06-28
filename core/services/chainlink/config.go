@@ -43,7 +43,7 @@ type Config struct {
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 
-	Aptos []*RawConfig `toml:",omitempty"`
+	Aptos []RawConfig `toml:",omitempty"`
 }
 
 // RawConfig is the config used for chains that are not embedded.
