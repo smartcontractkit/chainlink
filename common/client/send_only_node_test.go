@@ -46,14 +46,14 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
 		expectedError := errors.New("some http error")
-		client.On("DialHTTP").Return(expectedError).Once()
+		client.On("Dial", mock.Anything).Return(expectedError).Once()
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.RandomID(), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateUnusable, s.State())
+		assert.Equal(t, NodeStateUnusable, s.State())
 		tests.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
 	})
 	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
@@ -61,14 +61,14 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.NewIDFromInt(0), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateAlive, s.State())
+		assert.Equal(t, NodeStateAlive, s.State())
 		tests.RequireLogMessage(t, observedLogs, "sendonly rpc ChainID verification skipped")
 	})
 	t.Run("Can recover from chainID verification failure", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil)
+		client.On("Dial", mock.Anything).Return(nil)
 		expectedError := errors.New("failed to get chain ID")
 		chainID := types.RandomID()
 		const failuresCount = 2
@@ -89,10 +89,10 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateUnreachable, s.State())
+		assert.Equal(t, NodeStateUnreachable, s.State())
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
 		tests.AssertEventually(t, func() bool {
-			return s.State() == nodeStateAlive
+			return s.State() == NodeStateAlive
 		})
 	})
 	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
@@ -100,7 +100,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		configuredChainID := types.NewIDFromInt(11)
 		rpcChainID := types.NewIDFromInt(20)
 		const failuresCount = 2
@@ -112,10 +112,10 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateInvalidChainID, s.State())
+		assert.Equal(t, NodeStateInvalidChainID, s.State())
 		tests.AssertLogCountEventually(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
 		tests.AssertEventually(t, func() bool {
-			return s.State() == nodeStateAlive
+			return s.State() == NodeStateAlive
 		})
 	})
 	t.Run("Start with Random ChainID", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[types.ID](t)
 		client.On("Close").Once()
-		client.On("DialHTTP").Return(nil).Once()
+		client.On("Dial", mock.Anything).Return(nil).Once()
 		configuredChainID := types.RandomID()
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
@@ -132,7 +132,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
-			return s.State() == nodeStateAlive
+			return s.State() == NodeStateAlive
 		})
 		assert.Equal(t, 0, observedLogs.Len()) // No warnings expected
 	})

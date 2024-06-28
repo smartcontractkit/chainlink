@@ -18,7 +18,7 @@ type sendOnlyClient[
 ] interface {
 	Close()
 	ChainID(context.Context) (CHAIN_ID, error)
-	DialHTTP() error
+	Dial(ctx context.Context) error
 }
 
 // SendOnlyNode represents one node used as a sendonly
@@ -26,7 +26,7 @@ type sendOnlyClient[
 //go:generate mockery --quiet --name SendOnlyNode --structname mockSendOnlyNode --filename "mock_send_only_node_test.go"  --inpackage --case=underscore
 type SendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC sendOnlyClient[CHAIN_ID],
+	RPC any,
 ] interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
@@ -36,8 +36,8 @@ type SendOnlyNode[
 	RPC() RPC
 
 	String() string
-	// State returns nodeState
-	State() nodeState
+	// State returns NodeState
+	State() NodeState
 	// Name is a unique identifier for this node.
 	Name() string
 }
@@ -51,7 +51,7 @@ type sendOnlyNode[
 	services.StateMachine
 
 	stateMu sync.RWMutex // protects state* fields
-	state   nodeState
+	state   NodeState
 
 	rpc     RPC
 	uri     url.URL
@@ -96,18 +96,18 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) Start(ctx context.Context) error {
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
-	if s.State() != nodeStateUndialed {
+	if s.State() != NodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", s.state))
 	}
 
-	err := s.rpc.DialHTTP()
+	err := s.rpc.Dial(startCtx)
 	if err != nil {
 		promPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
 		s.log.Errorw("Dial failed: SendOnly Node is unusable", "err", err)
-		s.setState(nodeStateUnusable)
+		s.setState(NodeStateUnusable)
 		return
 	}
-	s.setState(nodeStateDialed)
+	s.setState(NodeStateDialed)
 
 	if s.chainID.String() == "0" {
 		// Skip verification if chainID is zero
@@ -119,7 +119,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 			if err != nil {
 				promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 				s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
-				s.setState(nodeStateUnreachable)
+				s.setState(NodeStateUnreachable)
 			} else {
 				promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
 				s.log.Errorf(
@@ -128,7 +128,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 					s.chainID.String(),
 					s.name,
 				)
-				s.setState(nodeStateInvalidChainID)
+				s.setState(NodeStateInvalidChainID)
 			}
 			// Since it has failed, spin up the verifyLoop that will keep
 			// retrying until success
@@ -139,8 +139,8 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 	}
 
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
-	s.setState(nodeStateAlive)
-	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+	s.setState(NodeStateAlive)
+	s.log.Infow("Sendonly RPC Node is online", "NodeState", s.state)
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
@@ -148,7 +148,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
 		s.rpc.Close()
 		close(s.chStop)
 		s.wg.Wait()
-		s.setState(nodeStateClosed)
+		s.setState(NodeStateClosed)
 		return nil
 	})
 }
@@ -165,7 +165,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
 	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state NodeState) (changed bool) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	if s.state == state {
@@ -175,7 +175,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
 	return true
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC]) State() nodeState {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
 	s.stateMu.RLock()
 	defer s.stateMu.RUnlock()
 	return s.state

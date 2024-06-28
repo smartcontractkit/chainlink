@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -74,6 +75,8 @@ var (
 		},
 	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
+
+const rpcSubscriptionMethodNewHeads = "newHeads"
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
 //
@@ -173,12 +176,15 @@ func NewRPCClient(
 
 func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	channel := make(chan *evmtypes.Head)
-	sub, err := r.Subscribe(ctx, channel)
+	sub, err := r.subscribe(ctx, channel, rpcSubscriptionMethodNewHeads)
 	return channel, sub, err
 }
 
 func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
 	interval := r.cfg.FinalizedBlockPollInterval()
+	if interval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
 	timeout := interval
 	poller, channel := commonclient.NewPoller[*evmtypes.Head](interval, r.LatestFinalizedBlock, timeout, r.rpcLog)
 	if err := poller.Start(); err != nil {
@@ -188,14 +194,17 @@ func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtyp
 }
 
 func (r *RpcClient) Ping(ctx context.Context) error {
-	_, err := r.ClientVersion(ctx)
+	version, err := r.ClientVersion(ctx)
 	if err != nil {
 		return fmt.Errorf("ping failed: %v", err)
 	}
+	r.rpcLog.Debugf("ping client version: %s", version)
 	return err
 }
 
 func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	for _, sub := range r.subs {
 		var keep bool
 		for _, s := range subs {
@@ -271,16 +280,13 @@ func (r *RpcClient) Close() {
 			r.ws.rpc.Close()
 		}
 	}()
-
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
 	r.cancelInflightRequests()
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
 func (r *RpcClient) cancelInflightRequests() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	close(r.chStopInFlight)
 	r.chStopInFlight = make(chan struct{})
 }
@@ -351,9 +357,9 @@ func (r *RpcClient) DisconnectAll() {
 }
 
 // unsubscribeAll unsubscribes all subscriptions
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the r.stateMu lock
 func (r *RpcClient) unsubscribeAll() {
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
 	for _, sub := range r.subs {
 		sub.Unsubscribe()
 	}
@@ -362,7 +368,6 @@ func (r *RpcClient) unsubscribeAll() {
 func (r *RpcClient) SetAliveLoopSub(sub commontypes.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
-
 	r.aliveLoopSub = sub
 }
 
@@ -432,7 +437,7 @@ func (r *RpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	return err
 }
 
-func (r *RpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
+func (r *RpcClient) subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
 	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
 	lggr := r.newRqLggr().With("args", args)
@@ -454,7 +459,7 @@ func (r *RpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head
 
 // GethClient wrappers
 
-func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
+func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
 	err = r.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash, false)
 	if err != nil {
 		return nil, err
@@ -558,7 +563,11 @@ func (r *RpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 }
 
 func (r *RpcClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, error) {
-	return r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	head, err := r.blockByNumber(ctx, rpc.FinalizedBlockNumber.String())
+	if err != nil {
+		return nil, err
+	}
+	return head, nil
 }
 
 func (r *RpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
