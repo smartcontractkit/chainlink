@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -246,4 +247,27 @@ func TestLogPollerWrapper_UnregisterOldFiltersOnRouteUpgrade(t *testing.T) {
 	wrapper.handleRouteUpdate(ctx, newActiveCoord, newProposedCoord)
 
 	lp.AssertCalled(t, "UnregisterFilter", ctx, activeCoordFilterName)
+}
+
+func TestLogPollerWrapper_CommitmentPackUnpack(t *testing.T) {
+	big := big.NewInt(1345)
+
+	commitmentBytes, err := CommitmentABI.Pack(
+		[32]byte{},
+		common.Address{},
+		big,
+		common.Address{},
+		uint64(4),
+		uint32(3),
+		big,
+		big,
+		big,
+		big,
+		uint32(8),
+	)
+	require.NoError(t, err)
+
+	unpacked, err := CommitmentABI.Unpack(commitmentBytes)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(3), unpacked[5].(uint32))
 }
