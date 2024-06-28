@@ -63,6 +63,8 @@ func (n nodeState) String() string {
 		return "Closed"
 	case nodeStateSyncing:
 		return "Syncing"
+	case nodeStateFinalizedBlockOutOfSync:
+		return "FinalizedBlockOutOfSync"
 	default:
 		return fmt.Sprintf("nodeState(%d)", n)
 	}
@@ -98,6 +100,8 @@ const (
 	// to other primary nodes configured in the MultiNode. In contrast, `nodeStateSyncing` represents the internal state of
 	// the node (RPC).
 	nodeStateSyncing
+	// nodeStateFinalizedBlockOutOfSync - node is lagging behind on latest finalized block
+	nodeStateFinalizedBlockOutOfSync
 	// nodeStateLen tracks the number of states
 	nodeStateLen
 )
@@ -117,13 +121,57 @@ func init() {
 func (n *node[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
+	return n.recalculateState()
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) getCachedState() nodeState {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return n.state
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, int64, *big.Int) {
+func (n *node[CHAIN_ID, HEAD, RPC]) recalculateState() nodeState {
+	if n.state != nodeStateAlive {
+		return n.state
+	}
+
+	// double check that node is not lagging on finalized block
+	if n.nodePoolCfg.EnforceRepeatableRead() && n.isFinalizedBlockOutOfSync() {
+		return nodeStateFinalizedBlockOutOfSync
+	}
+
+	return nodeStateAlive
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
+	if n.poolInfoProvider == nil {
+		return false
+	}
+
+	highestObservedByCaller := n.poolInfoProvider.HighestUserObservations()
+	latest, _ := n.rpc.GetInterceptedChainInfo()
+	if n.chainCfg.FinalityTagEnabled() {
+		return latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+	}
+
+	return latest.BlockNumber < highestObservedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+}
+
+// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
+func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (nodeState, ChainInfo) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
-	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
+	latest, _ := n.rpc.GetInterceptedChainInfo()
+	return n.recalculateState(), latest
+}
+
+// HighestUserObservations - returns highest ChainInfo ever observed by external user of the Node
+func (n *node[CHAIN_ID, HEAD, RPC]) HighestUserObservations() ChainInfo {
+	_, highestUserObservations := n.rpc.GetInterceptedChainInfo()
+	return highestUserObservations
+}
+func (n *node[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(poolInfoProvider PoolChainInfoProvider) {
+	n.poolInfoProvider = poolInfoProvider
 }
 
 // setState is only used by internal state management methods.
@@ -243,7 +291,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
-	if n.State() == nodeStateClosed {
+	if n.getCachedState() == nodeStateClosed {
 		return
 	}
 	switch state {

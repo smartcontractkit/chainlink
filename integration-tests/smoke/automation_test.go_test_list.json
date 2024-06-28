@@ -36,6 +36,13 @@
       ]
     },
     {
+      "name": "TestAutomationBasic",
+      "nodes": 1,
+      "run":[
+        {"name":"registry_2_3_conditional"}
+      ]
+    },
+    {
       "name": "TestSetUpkeepTriggerConfig",
       "nodes": 2
     },

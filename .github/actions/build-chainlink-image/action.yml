@@ -18,12 +18,16 @@ inputs:
   dep_evm_sha:
     description: The chainlink-evm commit sha to use in go deps
     required: false
+  check_image_exists:
+    description: "Check if the image exists in ECR before building"
+    required: false
+    default: 'false'
 
 runs:
   using: composite
   steps:
     - name: Check if image exists
-      if: ${{ inputs.dep_evm_sha != '' }}
+      if: ${{ inputs.dep_evm_sha != '' || inputs.check_image_exists == 'true'}}
       id: check-image
       uses: smartcontractkit/chainlink-github-actions/docker/image-exists@027436f63ad08b6e8eb92a85104ade234fb4ea43 # v2.3.24
       with:

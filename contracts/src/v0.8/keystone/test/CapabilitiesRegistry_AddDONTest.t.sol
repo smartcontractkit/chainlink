@@ -6,8 +6,6 @@ import {ICapabilityConfiguration} from "../interfaces/ICapabilityConfiguration.s
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_AddDONTest is BaseTest {
-  event ConfigSet(uint32 donId, uint32 configCount);
-
   function setUp() public override {
     BaseTest.setUp();
     CapabilitiesRegistry.Capability[] memory capabilities = new CapabilitiesRegistry.Capability[](2);
@@ -209,7 +207,7 @@ contract CapabilitiesRegistry_AddDONTest is BaseTest {
     });
 
     vm.expectEmit(true, true, true, true, address(s_CapabilitiesRegistry));
-    emit ConfigSet(DON_ID, 1);
+    emit CapabilitiesRegistry.ConfigSet(DON_ID, 1);
     vm.expectCall(
       address(s_capabilityConfigurationContract),
       abi.encodeWithSelector(
