@@ -248,7 +248,7 @@ jobs:
           if [ -n "$loki_basic_auth" ]; then
             cmd_args+="--logging-loki-basic-auth=$loki_basic_auth "
           fi
-          of [ -n "$loki_run_id" ]; then
+          if [ -n "$loki_run_id" ]; then
             cmd_args+="--logging-run-id=$loki_run_id "
           fi
           if [ -n "$logstream_log_targets" ]; then
