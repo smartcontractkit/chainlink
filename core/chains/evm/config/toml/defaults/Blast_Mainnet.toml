@@ -1,0 +1,20 @@
+ChainID = '81457'
+FinalityDepth = 200
+FinalityTagEnabled = true
+ChainType = 'optimismBedrock'
+
+[GasEstimator]
+EIP1559DynamicFees = true
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+PriceMax = '120 gwei'
+LimitDefault = 8000000
+FeeCapDefault = '120 gwei'
+
+[HeadTracker]
+HistoryDepth = 300
+
+[NodePool]
+PollFailureThreshold = 2
+PollInterval = '3s'
