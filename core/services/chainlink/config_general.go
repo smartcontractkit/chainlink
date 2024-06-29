@@ -209,6 +209,10 @@ func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
 	return g.c.Starknet
 }
 
+func (g *generalConfig) AptosConfigs() []*RawConfig {
+	return g.c.Aptos
+}
+
 func (g *generalConfig) Validate() error {
 	return g.validate(g.secrets.Validate)
 }

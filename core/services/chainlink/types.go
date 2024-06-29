@@ -17,6 +17,7 @@ type GeneralConfig interface {
 	CosmosConfigs() coscfg.TOMLConfigs
 	SolanaConfigs() solcfg.TOMLConfigs
 	StarknetConfigs() stkcfg.TOMLConfigs
+	AptosConfigs() []*RawConfig
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
 }
