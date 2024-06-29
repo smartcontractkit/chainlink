@@ -43,14 +43,14 @@ type Config struct {
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
 
-	Aptos []RawConfig `toml:",omitempty"`
+	Aptos RawConfigs `toml:",omitempty"`
 }
-
-// RawConfig is the config used for chains that are not embedded.
-type RawConfig map[string]any
 
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
+
+// RawConfig is the config used for chains that are not embedded.
+type RawConfig map[string]any
 
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
 func (c *RawConfig) ValidateConfig() (err error) {
