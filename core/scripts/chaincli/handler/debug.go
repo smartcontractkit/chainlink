@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -43,7 +44,8 @@ import (
 const (
 	ConditionTrigger uint8 = iota
 	LogTrigger
-	expectedTypeAndVersion = "KeeperRegistry 2.1.0"
+	expectedTypeAndVersion     = "KeeperRegistry 2.1.0"
+	upkeepIDForLogTriggerDelim = "100000000001"
 )
 
 var mercuryPacker = mercury.NewAbiPacker()
@@ -99,6 +101,50 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		}
 	}
 
+	parts := strings.Split(upkeepID.String(), upkeepIDForLogTriggerDelim)
+
+	var txHash gethcommon.Hash
+	var logIndex int64
+
+	if len(args) >= 3 {
+		txHash = gethcommon.HexToHash(args[1])
+		logIndex, err = strconv.ParseInt(args[2], 10, 64)
+		if err != nil {
+			failCheckArgs("unable to parse log index", err)
+		}
+	}
+
+	if len(parts) == 3 {
+		message("long upkeep ID received")
+		_, wasBase10 := upkeepID.SetString(parts[0], 10)
+		if !wasBase10 {
+			_, wasBase16 := upkeepID.SetString(parts[0], 16)
+			if !wasBase16 {
+				failCheckArgs("invalid upkeep ID", nil)
+			}
+		}
+
+		logTxHashStr, _ := new(big.Int).SetString(parts[1], 10)
+		logTxHashHex := fmt.Sprintf("%X", logTxHashStr)
+		txHash = gethcommon.HexToHash(logTxHashHex)
+		logIndex, err = strconv.ParseInt(parts[2], 10, 64)
+		if err != nil {
+			failCheckArgs("unable to parse log index", err)
+		}
+
+		if len(args) >= 2 {
+			message(fmt.Sprintf("overriding log tx hash parameter %s with extracted log tx hash %s", args[1], txHash.String()))
+		}
+
+		if len(args) >= 3 {
+			message(fmt.Sprintf("overriding log index parameter %s with extracted log index %d", args[2], logIndex))
+		}
+
+		message(fmt.Sprintf("extracted upkeep ID: %s", upkeepID))
+		message(fmt.Sprintf("extracted log tx hash: %s", txHash.String()))
+		message(fmt.Sprintf("extracted log index: %d", logIndex))
+	}
+
 	// get trigger type, trigger type is immutable after its first setup
 	triggerType, err := v2common.GetTriggerType(latestCallOpts, upkeepID)
 	if err != nil {
@@ -150,15 +196,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 	} else if triggerType == LogTrigger {
 		// validate inputs
 		message("upkeep identified as log trigger")
-		if len(args) != 3 {
+		if len(args) != 3 && len(parts) != 3 {
 			failCheckArgs("txHash and log index must be supplied to command in order to debug log triggered upkeeps", nil)
-		}
-		txHash := gethcommon.HexToHash(args[1])
-
-		var logIndex int64
-		logIndex, err = strconv.ParseInt(args[2], 10, 64)
-		if err != nil {
-			failCheckArgs("unable to parse log index", err)
 		}
 
 		// check that tx is confirmed
