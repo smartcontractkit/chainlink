@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type stepRequest struct {
@@ -220,7 +221,7 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 func (e *Engine) init(ctx context.Context) {
 	defer e.wg.Done()
 
-	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
+	retryErr := utils.Retryable(ctx, e.logger.Errorf, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
 		node, err := e.registry.GetLocalNode(ctx)
