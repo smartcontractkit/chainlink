@@ -26,7 +26,7 @@ type LogBuffer interface {
 	// It also accepts a function to select upkeeps.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -81,6 +81,7 @@ type logBuffer struct {
 	// map for then number of times we have enqueued logs for a block number
 	enqueuedBlocks    map[int64]map[string]int
 	enqueuedBlockLock sync.RWMutex
+	queueIDs          []string
 }
 
 func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogBuffer {
@@ -89,6 +90,7 @@ func NewLogBuffer(lggr logger.Logger, lookback, blockRate, logLimit uint32) LogB
 		opts:           newLogBufferOptions(lookback, blockRate, logLimit),
 		lastBlockSeen:  new(atomic.Int64),
 		enqueuedBlocks: map[int64]map[string]int{},
+		queueIDs:       []string{},
 		queues:         make(map[string]*upkeepLogQueue),
 	}
 }
@@ -167,11 +169,10 @@ func (b *logBuffer) trackBlockNumbersForUpkeep(uid *big.Int, uniqueBlocks map[in
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	start, end := getBlockWindow(block, blockRate)
 	return b.dequeue(start, end, upkeepLimit, maxResults, upkeepSelector)
 }
 
@@ -183,17 +184,24 @@ func (b *logBuffer) Dequeue(block int64, blockRate, upkeepLimit, maxResults int,
 func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepSelector func(id *big.Int) bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
-	for _, q := range b.queues {
+	var selectedUpkeeps int
+	upkeepNotSelected := 0
+	for _, qid := range b.queueIDs {
+		q := b.queues[qid]
 		if !upkeepSelector(q.id) {
-			// if the upkeep is not selected, skip it
+			b.lggr.Debugw("skipping dequeue", "upkeepID", q.id.String())
+			upkeepNotSelected++
 			continue
 		}
+		selectedUpkeeps++
 		logsInRange := q.sizeOfRange(start, end)
 		if logsInRange == 0 {
+			b.lggr.Debugw("skipping dequeue, no logs in range", "upkeepID", q.id.String())
 			// if there are no logs in the range, skip the upkeep
 			continue
 		}
 		if capacity == 0 {
+			b.lggr.Debugw("skipping dequeue, no capacity", "upkeepID", q.id.String())
 			// if there is no more capacity for results, just count the remaining logs
 			remainingLogs += logsInRange
 			continue
@@ -209,6 +217,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, upkeepS
 		}
 		remainingLogs += remaining
 	}
+	b.lggr.Debugw("dequeued logs for upkeeps", "selectedUpkeeps", selectedUpkeeps, "upkeepNotSelected", upkeepNotSelected, "totalUpkeeps", len(b.queueIDs), "numLogs", len(result))
 	return result, remainingLogs
 }
 
@@ -230,14 +239,19 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for upkeepID := range b.queues {
+	var newQueueIDs []string
+	for _, upkeepID := range b.queueIDs {
 		uid := new(big.Int)
 		_, ok := uid.SetString(upkeepID, 10)
 		if ok && !filterStore.Has(uid) {
 			// remove upkeep that is not in the filter store
 			delete(b.queues, upkeepID)
+		} else {
+			newQueueIDs = append(newQueueIDs, upkeepID)
 		}
 	}
+
+	b.queueIDs = newQueueIDs
 
 	return nil
 }
@@ -254,6 +268,9 @@ func (b *logBuffer) setUpkeepQueue(uid *big.Int, buf *upkeepLogQueue) {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
+	if _, ok := b.queues[uid.String()]; !ok {
+		b.queueIDs = append(b.queueIDs, uid.String())
+	}
 	b.queues[uid.String()] = buf
 }
 

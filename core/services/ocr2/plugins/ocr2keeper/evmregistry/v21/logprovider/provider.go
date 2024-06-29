@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"math"
 	"math/big"
 	"runtime"
 	"sync"
@@ -114,6 +115,9 @@ type logEventProvider struct {
 	currentPartitionIdx uint64
 
 	chainID *big.Int
+
+	currentIteration int
+	iterations       int
 }
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big.Int, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
@@ -151,6 +155,7 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
+		p.lggr.With("where", "setConfig").Infow("setting buffer v1 config")
 		p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
 	default:
 	}
@@ -287,25 +292,75 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
 		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
-		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
+		blockRate, logLimitLow, maxResults, numOfUpkeeps := p.getBufferDequeueArgs()
+
+		p.lggr.With("where", "getLogsFromBuffer").Infow("getBufferDequeueArgs", "blockRate", blockRate, "logLimitLow", logLimitLow, "maxResults", maxResults, "numOfUpkeeps", numOfUpkeeps)
+		// when numOfUpkeeps exceeds maxResults, it isn't possible to dequeue a log for every upkeep in a single round,
+		// even if logLimitLow is set to 1. For this reason, we can spread the dequeue process across multiple iterations,
+		// e.g. if we have 200 upkeeps, and maxResults is 100, a single dequeue could only dequeue logs for half
+		// of the upkeeps, whereas a dequeue process of two iterations (two dequeue calls) can dequeue logs for upkeeps.
+		if p.iterations == p.currentIteration {
+			p.lggr.With("where", "getLogsFromBuffer").Infow("recalculating iterations", "p.iterations", p.iterations, "p.currentIteration", p.currentIteration)
+
+			p.currentIteration = 0
+			p.iterations = int(math.Ceil(float64(numOfUpkeeps*logLimitLow) / float64(maxResults)))
+			if p.iterations == 0 {
+				p.iterations = 1
+			}
+
+			p.lggr.With("where", "getLogsFromBuffer").Infow("recalculated iterations", "p.iterations", p.iterations, "p.currentIteration", p.currentIteration)
+		}
+
+		// upkeepSelectorFn is a function that accepts an upkeep ID, and performs a modulus against the number of
+		// iterations, and compares the result against the current iteration. When this comparison returns true, the
+		// upkeep is selected for the dequeuing. This means that, for a given set of upkeeps, a different subset of
+		// upkeeps will be dequeued for each iteration once only, and, across all iterations, all upkeeps will be
+		// dequeued once.
+		upkeepSelectorFn := func(id *big.Int) bool {
+			willDequeue := id.Int64()%int64(p.iterations) == int64(p.currentIteration)
+			p.lggr.With("where", "getLogsFromBuffer").Infow("upkeepSelectorFn", "p.iterations", p.iterations, "p.currentIteration", p.currentIteration, "upkeepID", id.String(), "willDequeue", willDequeue)
+			return willDequeue
+		}
+
+		p.lggr.With("where", "getLogsFromBuffer").Infow("dequeuing", "payloads", len(payloads), "maxResults", maxResults, "start", start, "latestBlock", latestBlock)
+
 		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
+			startWindow, end := getBlockWindow(start, blockRate)
+
+			p.lggr.With("where", "getLogsFromBuffer").Infow("dequeuing loop", "startWindow", startWindow, "end", end)
+
+			logs, remaining := p.bufferV1.Dequeue(startWindow, end, logLimitLow, maxResults-len(payloads), upkeepSelectorFn)
+
+			p.lggr.With("where", "getLogsFromBuffer").Infow("dequeued loop", "logs", len(logs), "remaining", remaining)
+
 			if len(logs) > 0 {
 				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
 			}
+
+			payloadsBuilt := 0
 			for _, l := range logs {
 				payload, err := p.createPayload(l.ID, l.Log)
 				if err == nil {
 					payloads = append(payloads, payload)
+					payloadsBuilt++
+				} else {
+					p.lggr.With("where", "getLogsFromBuffer").Infow("unable to build payload", "err", err.Error())
 				}
 			}
+
+			p.lggr.With("where", "getLogsFromBuffer").Infow("built payloads", "payloadsBuilt", payloadsBuilt)
+
 			if remaining > 0 {
 				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
 				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
 				continue
 			}
+
 			start += int64(blockRate)
+			p.lggr.With("where", "getLogsFromBuffer").Infow("advancing window", "start", start)
 		}
+		p.currentIteration++
+		p.lggr.With("where", "getLogsFromBuffer").Infow("advanced iteration", "p.currentIteration", p.currentIteration)
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
 		for _, l := range logs {
