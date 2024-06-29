@@ -114,30 +114,10 @@ jobs:
       - name: Setup Go
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
-
-      - name: Setup Github Token
-        id: get-gh-token
-        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          set-git-config: "true"
-      - name: Replace the chainlink-integration deps
+      - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
-        env:
-          MODULE: github.com/smartcontractkit/chainlink-integrations/evm/relayer
-          COMMIT_HASH: ${{ inputs.evm-ref }}
-        run: |
-          # Update to the evm/relayer code we wish to test against
-          go env -w GOPRIVATE=github.com/smartcontractkit/chainlink-integrations
-          go get ${MODULE}@${COMMIT_HASH}
-          # push replace into core go.mod, remove this once the evm migration is complete
-          PSEUDO_VERSION=$(go list -m -mod=mod ${MODULE}@${COMMIT_HASH} | awk '{print $2}')
-          go mod edit -replace=github.com/smartcontractkit/chainlink/v2/core/chains/evm=${MODULE}@${PSEUDO_VERSION}
-          go mod tidy
-
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Run short tests
         if: ${{ needs.filter.outputs.changes == 'true' && matrix.type.cmd == 'go_core_tests' }}
         run: go test -short ./...
@@ -292,30 +272,10 @@ jobs:
       - name: Download Go vendor packages
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go mod download
-
-      - name: Setup Github Token
-        id: get-gh-token
-        uses: smartcontractkit/.github/actions/setup-github-token@ef78fa97bf3c77de6563db1175422703e9e6674f # setup-github-token@0.2.1
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          set-git-config: "true"
-      - name: Replace the chainlink-integration deps
+      - name: Replace chainlink-evm deps
         if: ${{ needs.filter.outputs.changes == 'true' && inputs.evm-ref != ''}}
         shell: bash
-        env:
-          MODULE: github.com/smartcontractkit/chainlink-integrations/evm/relayer
-          COMMIT_HASH: ${{ inputs.evm-ref }}
-        run: |
-          # Update to the evm/relayer code we wish to test against
-          go env -w GOPRIVATE=github.com/smartcontractkit/chainlink-integrations
-          go get ${MODULE}@${COMMIT_HASH}
-          # push replace into core go.mod, remove this once the evm migration is complete
-          PSEUDO_VERSION=$(go list -m -mod=mod ${MODULE}@${COMMIT_HASH} | awk '{print $2}')
-          go mod edit -replace=github.com/smartcontractkit/chainlink/v2/core/chains/evm=${MODULE}@${PSEUDO_VERSION}
-          go mod tidy
-
+        run: go get github.com/smartcontractkit/chainlink-integrations/evm/relayer@${{ inputs.evm-ref }}
       - name: Build binary
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build -o chainlink.test .
