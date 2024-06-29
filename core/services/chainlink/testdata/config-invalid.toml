@@ -53,6 +53,7 @@ SendOnly = true
 ChainID = '1'
 ChainType = 'Foo'
 FinalityDepth = 32
+FinalizedBlockOffset = 64
 
 [EVM.Transactions.AutoPurge]
 Enabled = true
