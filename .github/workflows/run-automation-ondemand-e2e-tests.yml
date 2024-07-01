@@ -120,7 +120,6 @@ jobs:
           EOF
           fi
 
-          echo "chainlink_version=$CHAINLINK_VERSION" >> $GITHUB_OUTPUT
           echo "test_map=$(cat test_map.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
 
   call-run-e2e-tests-workflow:
@@ -128,7 +127,6 @@ jobs:
     needs: set-tests-to-run
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      chainlink_version: ${{ needs.set-tests-to-run.outputs.chainlink_version }}
       test_map: ${{ needs.set-tests-to-run.outputs.test_map }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
     secrets:

@@ -191,7 +191,7 @@ jobs:
         uses: ./.github/actions/setup-go
 
       - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
-        # if: ${{ inputs.test_config_base64_override == '' }}
+        id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
@@ -226,8 +226,8 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.chainlink_version }}
+          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
+          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -318,8 +318,8 @@ jobs:
         id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
           chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
           chainlink_postgres_version: ${{ matrix.tests.testConfigOverrides.chainlinkPostgresVersion }}
           chainlink_upgrade_image: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeImage }}
           chainlink_upgrade_version: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeVersion }}
