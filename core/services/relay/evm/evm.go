@@ -626,6 +626,15 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	)
 }
 
+func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
+	var cfg types.ChainWriterConfig
+	if err := json.Unmarshal(config, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
+	}
+
+	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
+}
+
 func (r *Relayer) NewContractReader(chainReaderConfig []byte) (commontypes.ContractReader, error) {
 	ctx := context.Background()
 	cfg := &types.ChainReaderConfig{}

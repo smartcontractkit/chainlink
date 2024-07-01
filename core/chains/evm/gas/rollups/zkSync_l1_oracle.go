@@ -185,7 +185,7 @@ func (o *zkSyncL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, er
 func (o *zkSyncL1Oracle) GetGasCost(ctx context.Context, tx *gethtypes.Transaction, blockNum *big.Int) (*assets.Wei, error) {
 	//Unused method, so not implemented
 	// And its not possible to know gas consumption of a transaction before its executed, since zkSync only posts the state difference
-	panic("unimplemented")
+	return nil, fmt.Errorf("unimplemented")
 }
 
 // GetL2GasPrice calls SystemContract.gasPrice()  on the zksync system precompile contract.
