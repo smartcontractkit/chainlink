@@ -190,16 +190,16 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
 
-      - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
+      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
         id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
-          chainlink_postgres_version: ${{ matrix.tests.testConfigOverrides.chainlinkPostgresVersion }}
-          chainlink_upgrade_image: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeImage }}
-          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeVersion }}
-          selected_networks: ${{ matrix.tests.testConfigOverrides.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
+          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -314,16 +314,16 @@ jobs:
         run: |
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
 
-      - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
+      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
         id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
-          chainlink_postgres_version: ${{ matrix.tests.testConfigOverrides.chainlinkPostgresVersion }}
-          chainlink_upgrade_image: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeImage }}
-          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeVersion }}
-          selected_networks: ${{ matrix.tests.testConfigOverrides.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
+          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}

@@ -48,11 +48,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    test-config-overrides:
-      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
-      chainlinkUpgradeVersion: latest
-      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkVersion: develop
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
@@ -62,11 +62,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-overrides:
-      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
-      chainlinkUpgradeVersion: latest
-      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkVersion: develop
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
@@ -76,11 +76,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-overrides:
-      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
-      chainlinkUpgradeVersion: latest
-      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
-      chainlinkVersion: develop
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   # END Automation upgrade tests

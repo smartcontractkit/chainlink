@@ -57,12 +57,12 @@ func filterAndMergeTests(allTests []CITestConf, workflow, testType, base64Tests 
 		typeMatch := testType == "" || test.TestType == testType
 
 		if decodedTest, exists := idFilter[test.ID]; exists && workflowMatch && typeMatch {
-			// Apply config overrides
-			for k, v := range decodedTest.TestConfigOverrides {
-				if test.TestConfigOverrides == nil {
-					test.TestConfigOverrides = make(map[string]string)
+			// Override test inputs from the base64 encoded tests
+			for k, v := range decodedTest.TestInputs {
+				if test.TestInputs == nil {
+					test.TestInputs = make(map[string]string)
 				}
-				test.TestConfigOverrides[k] = v
+				test.TestInputs[k] = v
 			}
 			test.IDSanitized = sanitizeTestID(test.ID)
 			filteredTests = append(filteredTests, test)

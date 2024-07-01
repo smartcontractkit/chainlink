@@ -79,7 +79,7 @@ jobs:
           # Always run upgrade tests 
           cat > test_map.yaml <<EOF
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
-            test-config-overrides:
+            test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
