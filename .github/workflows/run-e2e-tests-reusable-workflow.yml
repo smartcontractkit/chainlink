@@ -62,7 +62,7 @@ on:
                
 env: 
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  MOD_CACHE_VERSION: 1
+  MOD_CACHE_VERSION: 2
 
 jobs:
   validate-inputs:
