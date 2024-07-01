@@ -13,6 +13,7 @@ import (
 // AccountAddress is copied from the aptos sdk because:
 //  1. There are still breaking changes in sdk and we don't want the dependency.
 //  2. AccountAddress is just a wrapper and can be easily extracted out.
+//
 // https://github.com/aptos-labs/aptos-go-sdk/blob/main/internal/types/account.go
 type AccountAddress [32]byte
 
