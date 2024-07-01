@@ -30,6 +30,7 @@ import (
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
@@ -218,4 +219,8 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	}
 
 	return maxWaitTime
+}
+
+func (h *helper) TXM(client client.Client) evmtxmgr.TxManager {
+	return nil
 }
