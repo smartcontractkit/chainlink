@@ -214,7 +214,7 @@ jobs:
           aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           duplicate-authorization-header: "true"
-          
+
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
@@ -344,6 +344,8 @@ jobs:
           # We can comment these out when we have a stable soak test and aren't worried about resource consumption
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
+          TEST_LOG_LEVEL: debug
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
