@@ -345,8 +345,6 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
-// TODO: Update this method once Aptos becomes public integration
-// BCI-3511: https://smartcontract-it.atlassian.net/browse/BCI-3511
 func (g *generalConfig) AptosEnabled() bool {
 	for _, c := range g.c.Aptos {
 		if c.IsEnabled() {

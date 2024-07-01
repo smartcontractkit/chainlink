@@ -9,6 +9,10 @@ import (
 
 // AccountAddress is a 32 byte address on the Aptos blockchain
 // It can represent an Object, an Account, and much more.
+// Extracting AccountAddress out from the aptos sdk because:
+// 1. There are still breaking changes in sdk and we don't want the dependency.
+// 2. AccountAddress is just a wrapper and can be easily extracted out.
+// https://github.com/aptos-labs/aptos-go-sdk/blob/main/internal/types/account.go
 type AccountAddress [32]byte
 
 // IsSpecial Returns whether the address is a "special" address. Addresses are considered
@@ -64,8 +68,3 @@ var ErrAddressTooLong = errors.New("AccountAddress too long")
 func BytesToHex(bytes []byte) string {
 	return "0x" + hex.EncodeToString(bytes)
 }
-
-// Extracting AccountAddress out from the aptos sdk as
-// 1. There are still breaking changes in sdk and we don't want the dependency.
-// 2. AccountAddress is just a wrapper and can be easily extracted out.
-// https://github.com/aptos-labs/aptos-go-sdk/blob/main/internal/types/account.go
