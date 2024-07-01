@@ -10,7 +10,9 @@ interface ISystemContext {
     function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
 }
 
-ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
+interface IGasBoundCaller {
+    function gasBoundCall(address _to, uint256 _maxTotalGas, bytes calldata _data) external payable;
+}
 
 /**
  * @title AutomationZKSyncForwarder is a relayer that sits between the registry and the customer's target contract
@@ -19,15 +21,18 @@ ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b)
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationZKSyncForwarder {
+    ISystemContext public constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
+    address public constant GAS_BOUND_CALLER = address(0xc706EC7dfA5D4Dc87f29f859094165E8290530f5);
+
     /// @notice the user's target contract address
-    address private immutable i_target;
+    address public immutable i_target;
 
     /// @notice the shared logic address
-    address private immutable i_logic;
+    address public immutable i_logic;
 
-    IAutomationRegistryConsumer private s_registry;
+    IAutomationRegistryConsumer public s_registry;
 
-    event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 p1, uint256 p2, uint256 gasprice);
+    event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 gasprice);
 
     constructor(address target, address registry, address logic) {
         s_registry = IAutomationRegistryConsumer(registry);
@@ -45,38 +50,18 @@ contract AutomationZKSyncForwarder {
         if (msg.sender != address(s_registry)) revert();
         address target = i_target;
         uint256 g1 = gasleft();
-        uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-        assembly {
-            let g := gas()
-        // Compute g -= PERFORM_GAS_CUSHION and check for underflow
-            if lt(g, PERFORM_GAS_CUSHION) {
-                revert(0, 0)
-            }
-            g := sub(g, PERFORM_GAS_CUSHION)
-        // if g - g//64 <= gasAmount, revert
-        // (we subtract g//64 because of EIP-150)
-            if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
-                revert(0, 0)
-            }
-        // solidity calls check that a contract actually exists at the destination, so we do the same
-            if iszero(extcodesize(target)) {
-                revert(0, 0)
-            }
-        // call with exact gas
-            success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
-        }
-        uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-        // pubdata size can be less than 0
-        uint256 pubdataUsed;
-        if (p2 > p1) {
-            pubdataUsed = p2 - p1;
+        bytes memory returnData;
+
+        (success, returnData) = GAS_BOUND_CALLER.call{gas: gasAmount}(abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data));
+        uint256 pubdataGasSpent;
+        if (success) {
+            (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
         }
 
-        uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
         uint256 g2 = gasleft();
         gasUsed = g1 - g2;
-        emit GasDetails(pubdataUsed, gasPerPubdataByte, gasUsed, p1, p2, tx.gasprice);
-        return (success, gasUsed, pubdataUsed * gasPerPubdataByte);
+        emit GasDetails(pubdataGasSpent, SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte(), gasUsed, tx.gasprice);
+        return (success, gasUsed, pubdataGasSpent);
     }
 
 /*
