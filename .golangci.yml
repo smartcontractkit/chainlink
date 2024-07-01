@@ -71,9 +71,10 @@ linters-settings:
       - name: error-return
       - name: error-strings
       - name: error-naming
+      - name: exported
       - name: if-return
       - name: increment-decrement
-      # - name: var-naming
+      - name: var-naming
       - name: var-declaration
       - name: package-comments
       - name: range
@@ -92,7 +93,7 @@ linters-settings:
       - name: struct-tag
       # - name: string-format
       - name: string-of-int
-      # - name: range-val-address
+      - name: range-val-address
       - name: range-val-in-closure
       - name: modifies-value-receiver
       - name: modifies-parameter
