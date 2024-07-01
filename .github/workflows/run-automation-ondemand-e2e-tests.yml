@@ -4,19 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       chainlinkImage:
-        description: Chainlink image repo to use (Leave empty to build from head/ref)
+        description: Chainlink image repo to use to upgrade Chainlink Nodes from
         options:
           - QA_ECR
           - public.ecr.aws/chainlink/chainlink
         default: QA_ECR
         type: choice
       chainlinkVersion:
-        description: Chainlink image version to use
+        description: Chainlink image version to use to upgrade Chainlink Nodes from
         required: false
         default: develop
         type: string        
       chainlinkImageUpdate:
-        description: Chainlink image repo to use initially for upgrade test
+        description: Chainlink image repo to use to upgrade Chainlink Nodes to
         required: true
         options:
           - QA_ECR
@@ -24,7 +24,7 @@ on:
         default: QA_ECR
         type: choice
       chainlinkVersionUpdate:
-        description: Chainlink image version to use initially for upgrade test
+        description: Chainlink image version to use to upgrade Chainlink Nodes to
         default: develop
         required: true
         type: string
@@ -49,7 +49,7 @@ jobs:
     name: Set tests to run
     runs-on: ubuntu-latest
     outputs:
-      test_map: ${{ steps.set-tests.outputs.test_map }}
+      test_list: ${{ steps.set-tests.outputs.test_list }}
     steps:
       - name: Set tests to run
         id: set-tests
@@ -77,7 +77,7 @@ jobs:
           CHAINLINK_UPGRADE_VERSION="${{ inputs.chainlinkVersionUpdate }}"
 
           # Always run upgrade tests 
-          cat > test_map.yaml <<EOF
+          cat > test_list.yaml <<EOF
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
             test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
@@ -86,14 +86,14 @@ jobs:
               chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
-            test-config-overrides:
+            test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
               chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
 
           - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
-            test-config-overrides:
+            test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
               chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
@@ -102,9 +102,9 @@ jobs:
 
           # Run reorg tests if enabled
           if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
-          cat >> test_map.yaml <<EOF
+          cat >> test_list.yaml <<EOF
           - id: integration-tests/reorg/automation_reorg_test.go
-            test-config-overrides:
+            test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
           EOF
@@ -112,22 +112,22 @@ jobs:
 
           # Run chaos tests if enabled
           if [[ "${{ github.event.inputs.enableChaos }}" == 'true' ]]; then
-          cat >> test_map.yaml <<EOF
+          cat >> test_list.yaml <<EOF
           - id: integration-tests/chaos/automation_chaos_test.go
-            test-config-overrides:
+            test-inputs:
               chainlinkImage: $CHAINLINK_IMAGE
               chainlinkVersion: $CHAINLINK_VERSION
           EOF
           fi
 
-          echo "test_map=$(cat test_map.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
+          echo "test_list=$(cat test_list.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
 
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
-      test_map: ${{ needs.set-tests-to-run.outputs.test_map }}
+      test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
       with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

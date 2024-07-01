@@ -101,7 +101,7 @@ Example usage:
 		workflow, _ := cmd.Flags().GetString("workflow")
 		testType, _ := cmd.Flags().GetString("test-type")
 		testIDs, _ := cmd.Flags().GetString("test-ids")
-		testMap, _ := cmd.Flags().GetString("test-map")
+		testMap, _ := cmd.Flags().GetString("test-list")
 
 		data, err := os.ReadFile(yamlFile)
 		if err != nil {
@@ -135,7 +135,7 @@ Example usage:
 
 func init() {
 	filterCmd.Flags().StringP("file", "f", "", "Path to the YAML file")
-	filterCmd.Flags().String("test-map", "", "Base64 encoded list of tests (YML objects) to filter by. Can include test-config-overrides for each test.")
+	filterCmd.Flags().String("test-list", "", "Base64 encoded list of tests (YML objects) to filter by. Can include test-inputs for each test.")
 	filterCmd.Flags().StringP("test-ids", "i", "*", "Comma-separated list of test IDs to filter by")
 	filterCmd.Flags().StringP("test-type", "y", "", "Type of test to filter by")
 	filterCmd.Flags().StringP("workflow", "t", "", "Workflow filter")
