@@ -425,7 +425,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		case head := <-b.chHeads:
 			b.confirmer.mb.Deliver(head)
 			b.tracker.mb.Deliver(head.BlockNumber())
-			b.finalizer.DeliverHead(head)
+			b.finalizer.DeliverLatestHead(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the

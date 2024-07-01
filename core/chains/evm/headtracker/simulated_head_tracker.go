@@ -2,6 +2,7 @@ package headtracker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -51,3 +52,31 @@ func (ht *simulatedHeadTracker) LatestAndFinalizedBlock(ctx context.Context) (*e
 
 	return latest, finalizedBlock, nil
 }
+
+func (ht *simulatedHeadTracker) LatestChain() *evmtypes.Head {
+	return nil
+}
+
+func (ht *simulatedHeadTracker) HealthReport() map[string]error {
+	return nil
+} 
+
+func (ht *simulatedHeadTracker) Start(_ context.Context) error {
+	return nil
+} 
+
+func (ht *simulatedHeadTracker) Close() error {
+	return nil
+} 
+
+func (ht *simulatedHeadTracker) Backfill(_ context.Context, _ *evmtypes.Head) error {
+	return errors.New("unimplemented")
+}
+
+func (ht *simulatedHeadTracker) Name() string {
+	return "SimulatedHeadTracker"
+}
+
+func (ht *simulatedHeadTracker) Ready() error {
+	return nil
+} 

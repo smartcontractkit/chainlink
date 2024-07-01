@@ -8,5 +8,5 @@ import (
 type Finalizer[BLOCK_HASH types.Hashable, HEAD types.Head[BLOCK_HASH]] interface {
 	// interfaces for running the underlying estimator
 	services.Service
-	DeliverHead(head HEAD) bool
+	DeliverLatestHead(head HEAD) bool
 }

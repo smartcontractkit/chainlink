@@ -85,7 +85,8 @@ func makeTestEvmTxm(
 		lggr,
 		lp,
 		keyStore,
-		estimator)
+		estimator,
+		ht)
 }
 
 func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
@@ -489,13 +490,19 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	config.SetFinalityDepth(uint32(42))
-	config.RpcDefaultBatchSize = uint32(4)
 
+	evmConfig.RpcDefaultBatchSize = uint32(4)
 	evmConfig.ResendAfterThreshold = 1 * time.Hour
 	evmConfig.ReaperThreshold = 1 * time.Hour
 	evmConfig.ReaperInterval = 1 * time.Hour
 
 	kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return([]common.Address{}, nil)
+
+	head := cltest.Head(42)
+	finalizedHead := cltest.Head(0)
+
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -505,7 +512,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst)
 	require.NoError(t, err)
 
-	head := cltest.Head(42)
 	// It should not hang or panic
 	txm.OnNewLongestChain(tests.Context(t), head)
 
@@ -607,16 +613,6 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
-	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
-	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
-	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
-	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
-	require.NoError(t, err)
-	servicetest.Run(t, txm)
-
 	head := &evmtypes.Head{
 		Hash:   utils.NewHash(),
 		Number: 100,
@@ -626,6 +622,19 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 			IsFinalized: true,
 		},
 	}
+
+	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head.Parent, nil).Once()
+	feeEstimator := gasmocks.NewEvmFeeEstimator(t)
+	feeEstimator.On("Start", mock.Anything).Return(nil).Once()
+	feeEstimator.On("Close", mock.Anything).Return(nil).Once()
+	feeEstimator.On("OnNewLongestChain", mock.Anything, mock.Anything).Once()
+	txm, err := makeTestEvmTxm(t, db, ethClient, feeEstimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), gcfg.Database(), gcfg.Database().Listener(), ethKeyStore)
+	require.NoError(t, err)
+	servicetest.Run(t, txm)
+
 	txm.OnNewLongestChain(ctx, head)
 
 	t.Run("returns error if transaction not found", func(t *testing.T) {
