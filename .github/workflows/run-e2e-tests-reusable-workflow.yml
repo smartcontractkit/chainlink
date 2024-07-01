@@ -207,7 +207,7 @@ jobs:
           grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         id: setup-gap
         with:
           aws-region: ${{ secrets.AWS_REGION }}
