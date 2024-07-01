@@ -161,13 +161,13 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, params any, returnVal any) error {
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	b, err := cr.contractBindings.GetReadBinding(contractName, method)
 	if err != nil {
 		return err
 	}
 
-	return b.GetLatestValue(ctx, params, returnVal)
+	return b.GetLatestValue(ctx, confidenceLevel, params, returnVal)
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
@@ -204,10 +204,16 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
+	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	if err != nil {
+		return err
+	}
+
 	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
-		contractName: contractName,
-		method:       methodName,
-		client:       cr.client,
+		contractName:         contractName,
+		method:               methodName,
+		client:               cr.client,
+		confirmationsMapping: confirmations,
 	})
 
 	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition); err != nil {

@@ -29,9 +29,8 @@ type eventBinding struct {
 	// filterRegisterer in eventBinding is to be used as an override for lp filter defined in the contract binding.
 	// If filterRegisterer is nil, this event should be registered with the lp filter defined in the contract binding.
 	*filterRegisterer
-	hash    common.Hash
-	codec   commontypes.RemoteCodec
-	pending bool
+	hash  common.Hash
+	codec commontypes.RemoteCodec
 	// bound determines if address is set to the contract binding.
 	bound          bool
 	bindLock       sync.Mutex
@@ -72,7 +71,6 @@ func (e *eventBinding) Bind(ctx context.Context, binding commontypes.BoundContra
 	}
 
 	e.address = common.HexToAddress(binding.Address)
-	e.pending = binding.Pending
 
 	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
 	if e.filterRegisterer != nil {
@@ -136,22 +134,18 @@ func (e *eventBinding) Unregister(ctx context.Context) error {
 	return nil
 }
 
-func (e *eventBinding) GetLatestValue(ctx context.Context, params, into any) error {
+func (e *eventBinding) GetLatestValue(ctx context.Context, confidenceLevel primitives.ConfidenceLevel, params, into any) error {
 	if err := e.validateBound(); err != nil {
 		return err
 	}
 
-	// TODO BCF-3247 change GetLatestValue to use chain agnostic confidence levels
-	confs := evmtypes.Finalized
-	if e.pending {
-		confs = evmtypes.Unconfirmed
-	}
+	confirmations := e.confirmationsFrom(confidenceLevel)
 
 	if len(e.inputInfo.Args()) == 0 {
-		return e.getLatestValueWithoutFilters(ctx, confs, into)
+		return e.getLatestValueWithoutFilters(ctx, confirmations, into)
 	}
 
-	return e.getLatestValueWithFilters(ctx, confs, params, into)
+	return e.getLatestValueWithFilters(ctx, confirmations, params, into)
 }
 
 func (e *eventBinding) QueryKey(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {

@@ -9,6 +9,8 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
@@ -22,12 +24,13 @@ func (e NoContractExistsError) Error() string {
 }
 
 type methodBinding struct {
-	address      common.Address
-	contractName string
-	method       string
-	client       evmclient.Client
-	codec        commontypes.Codec
-	bound        bool
+	address              common.Address
+	contractName         string
+	method               string
+	client               evmclient.Client
+	codec                commontypes.Codec
+	bound                bool
+	confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations
 }
 
 var _ readBinding = &methodBinding{}
@@ -63,7 +66,7 @@ func (m *methodBinding) Unregister(_ context.Context) error {
 	return nil
 }
 
-func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue any) error {
+func (m *methodBinding) GetLatestValue(ctx context.Context, _ primitives.ConfidenceLevel, params, returnVal any) error {
 	if !m.bound {
 		return fmt.Errorf("%w: method not bound", commontypes.ErrInvalidType)
 	}
@@ -79,14 +82,30 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, params, returnValue 
 		Data: data,
 	}
 
+	// TODO when BCI-2874 use headtracker to get block number to use here
+	//blockNumber := m.blockNumberFromConfidence(confidence.ConfidenceLevel)
+
 	bytes, err := m.client.CallContract(ctx, callMsg, nil)
 	if err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	return m.codec.Decode(ctx, bytes, returnValue, wrapItemType(m.contractName, m.method, false))
+	return m.codec.Decode(ctx, bytes, returnVal, wrapItemType(m.contractName, m.method, false))
 }
 
 func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
 	return nil, nil
 }
+
+// TODO when BCI-2874 use headtracker to get block number to use here
+//func (m *methodBinding) blockNumberFromConfidence(confidenceLevel primitives.ConfidenceLevel) *big.Int {
+//	value, ok := m.confirmationsMapping[confidence]
+//	if ok {
+//		return value
+//	}
+//
+//  ...
+//
+//	// if the mapping doesn't exist, default to finalized for safety
+//	return ...
+//}
