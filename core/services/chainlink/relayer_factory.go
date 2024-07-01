@@ -305,16 +305,16 @@ func (r *RelayerFactory) NewCosmos(config CosmosFactoryConfig) (map[types.RelayI
 
 type AptosFactoryConfig struct {
 	Keystore    keystore.Aptos
-	TOMLConfigs []*RawConfig
+	TOMLConfigs RawConfigs
 }
 
-func (r *RelayerFactory) NewAptos(ks keystore.Aptos, chainCfgs []*RawConfig) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewAptos(ks keystore.Aptos, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	plugin := env.NewPlugin("aptos")
 	loopKs := &keystore.AptosLooppSigner{Aptos: ks}
 	return r.NewLOOPRelayer("Aptos", corerelay.NetworkAptos, plugin, loopKs, chainCfgs)
 }
 
-func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks core.Keystore, chainCfgs []*RawConfig) (map[types.RelayID]loop.Relayer, error) {
+func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks core.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
 	relayers := make(map[types.RelayID]loop.Relayer)
 	lggr := r.Logger.Named(name)
 
