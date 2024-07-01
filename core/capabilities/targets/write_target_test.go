@@ -47,7 +47,7 @@ func TestWriteTarget(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		transmitter := args.Get(4).(*common.Address)
 		*transmitter = common.HexToAddress("0x0")
 	}).Once()
@@ -100,7 +100,7 @@ func TestWriteTarget(t *testing.T) {
 			Config: config,
 			Inputs: validInputs,
 		}
-		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything).Return(errors.New("reader error"))
+		cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("reader error"))
 
 		_, err = writeTarget.Execute(ctx, req)
 		require.Error(t, err)

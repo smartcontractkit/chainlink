@@ -6,6 +6,7 @@ import (
 	context "context"
 
 	query "github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	primitives "github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -52,17 +53,17 @@ func (_m *ChainReader) Close() error {
 	return r0
 }
 
-// GetLatestValue provides a mock function with given fields: ctx, contractName, method, params, returnVal
-func (_m *ChainReader) GetLatestValue(ctx context.Context, contractName string, method string, params interface{}, returnVal interface{}) error {
-	ret := _m.Called(ctx, contractName, method, params, returnVal)
+// GetLatestValue provides a mock function with given fields: ctx, contractName, method, confidenceLevel, params, returnVal
+func (_m *ChainReader) GetLatestValue(ctx context.Context, contractName string, method string, confidenceLevel primitives.ConfidenceLevel, params interface{}, returnVal interface{}) error {
+	ret := _m.Called(ctx, contractName, method, confidenceLevel, params, returnVal)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetLatestValue")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, interface{}, interface{}) error); ok {
-		r0 = rf(ctx, contractName, method, params, returnVal)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, primitives.ConfidenceLevel, interface{}, interface{}) error); ok {
+		r0 = rf(ctx, contractName, method, confidenceLevel, params, returnVal)
 	} else {
 		r0 = ret.Error(0)
 	}

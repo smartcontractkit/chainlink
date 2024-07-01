@@ -228,8 +228,8 @@ func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestSt
 
 func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
 	return []clcommontypes.BoundContract{
-		{Name: AnyContractName, Address: it.address, Pending: true},
-		{Name: AnySecondContractName, Address: it.address2, Pending: true},
+		{Name: AnyContractName, Address: it.address},
+		{Name: AnySecondContractName, Address: it.address2},
 	}
 }
 
