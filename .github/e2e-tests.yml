@@ -86,14 +86,14 @@ runner-test-matrix:
   # END Automation upgrade tests
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
-  - id: soak/ocr_test.go:^TestOCRSoak$
+  - id: soak/ocr_test.go:^TestOCRv1Soak$
     path: integration-tests/soak/ocr_test.go
     test-type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     # workflows:
     #   - Run Nightly E2E Tests
-    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRSoak$ -test.parallel=1 -timeout 30m -count=1
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
