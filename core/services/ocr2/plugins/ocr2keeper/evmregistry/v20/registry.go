@@ -462,7 +462,7 @@ func (r *EvmRegistry) addToActive(ctx context.Context, id *big.Int, force bool) 
 func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
 	opts := bind.CallOpts{
 		Context:     ctx,
-		BlockNumber: nil,
+		BlockNumber: block,
 	}
 
 	if block == nil || block.Int64() == 0 {
@@ -716,7 +716,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	)
 
 	for i, id := range ids {
-		opts, err := r.buildCallOpts(ctx, nil)
+		opts, err := r.buildCallOpts(ctx, big.NewInt(0))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get call opts: %s", err)
 		}
