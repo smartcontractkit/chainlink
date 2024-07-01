@@ -1502,8 +1502,8 @@ github.com/smartcontractkit/chain-selectors v1.0.10 h1:t9kJeE6B6G+hKD0GYR4kGJSCq
 github.com/smartcontractkit/chain-selectors v1.0.10/go.mod h1:d4Hi+E1zqjy9HqMkjBE5q1vcG9VGgxf5VxiRHfzi2kE=
 github.com/smartcontractkit/chainlink-automation v1.0.4 h1:iyW181JjKHLNMnDleI8umfIfVVlwC7+n5izbLSFgjw8=
 github.com/smartcontractkit/chainlink-automation v1.0.4/go.mod h1:u4NbPZKJ5XiayfKHD/v3z3iflQWqvtdhj13jVZXj/cM=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240703234618-dc1fbe45acc0 h1:10Na2NvsD7cjNrcfi3OqXk14NVCAwmTvtIBYu9/IgBs=
-github.com/smartcontractkit/chainlink-common v0.1.7-0.20240703234618-dc1fbe45acc0/go.mod h1:fh9eBbrReCmv31bfz52ENCAMa7nTKQbdhb2B3+S2VGo=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240708115715-7d9cfa131f70 h1:ID1uqLuAXaQE2C/mwTt6YZ90WePdVmIl+YV350rLONw=
+github.com/smartcontractkit/chainlink-common v0.1.7-0.20240708115715-7d9cfa131f70/go.mod h1:fh9eBbrReCmv31bfz52ENCAMa7nTKQbdhb2B3+S2VGo=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141 h1:TMOoYaeSDkkI3jkCH7lKHOZaLkeDuxFTNC+XblD6M0M=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141/go.mod h1:0UNuO3nDt9MFsZPaHJBEUolxVkN0iC69j1ccDp95e8k=
 github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527 h1:Vs6myS+bpPwb8chUY7XxveJyhvejknhOmhDTddgsK5I=
@@ -1771,8 +1771,8 @@ go.opentelemetry.io/otel/trace v1.27.0/go.mod h1:6RiD1hkAprV4/q+yd2ln1HG9GoPx39S
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
 go.opentelemetry.io/proto/otlp v1.2.0 h1:pVeZGk7nXDC9O2hncA6nHldxEjm6LByfA2aN8IOkz94=
 go.opentelemetry.io/proto/otlp v1.2.0/go.mod h1:gGpR8txAl5M03pDhMC79G6SdqNV26naRm/KDsgaHD8A=
-go.starlark.net v0.0.0-20220817180228-f738f5508c12 h1:xOBJXWGEDwU5xSDxH6macxO11Us0AH2fTa9rmsbbF7g=
-go.starlark.net v0.0.0-20220817180228-f738f5508c12/go.mod h1:VZcBMdr3cT3PnBoWunTabuSEXwVAH+ZJ5zxfs3AdASk=
+go.starlark.net v0.0.0-20240520160348-046347dcd104 h1:3qhteRISupnJvaWshOmeqEUs2y9oc/+/ePPvDh3Eygg=
+go.starlark.net v0.0.0-20240520160348-046347dcd104/go.mod h1:YKMCv9b1WrfWmeqdV5MAuEHWsu5iC+fe6kYl2sQjdI8=
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.5.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=

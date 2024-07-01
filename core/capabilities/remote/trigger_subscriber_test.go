@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -61,7 +62,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := &remotetypes.RemoteTriggerConfig{
+	config := capabilities.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100,
 		MinResponsesToAggregate: 1,
