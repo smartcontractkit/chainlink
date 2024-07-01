@@ -43,13 +43,13 @@ type evmFinalizer struct {
 	chainId      *big.Int
 	rpcBatchSize int
 
-	txStore      finalizerTxStore
-	client       finalizerChainClient
+	txStore     finalizerTxStore
+	client      finalizerChainClient
 	headTracker finalizerHeadTracker
 
-	mb           *mailbox.Mailbox[*evmtypes.Head]
-	stopCh       services.StopChan
-	wg           sync.WaitGroup
+	mb     *mailbox.Mailbox[*evmtypes.Head]
+	stopCh services.StopChan
+	wg     sync.WaitGroup
 }
 
 func NewEvmFinalizer(
@@ -67,26 +67,30 @@ func NewEvmFinalizer(
 		rpcBatchSize: int(rpcBatchSize),
 		txStore:      txStore,
 		client:       client,
-		headTracker: headTracker,
+		headTracker:  headTracker,
 		mb:           mailbox.NewSingle[*evmtypes.Head](),
 	}
 }
 
 // Start the finalizer
 func (f *evmFinalizer) Start(ctx context.Context) error {
-	f.lggr.Debugf("started Finalizer with RPC batch size limit: %d", f.rpcBatchSize)
-	f.stopCh = make(chan struct{})
-	f.wg.Add(1)
-	go f.runLoop()
-	return nil
+	return f.StartOnce("Finalizer", func() error {
+		f.lggr.Debugf("started Finalizer with RPC batch size limit: %d", f.rpcBatchSize)
+		f.stopCh = make(chan struct{})
+		f.wg.Add(1)
+		go f.runLoop()
+		return nil
+	})
 }
 
 // Close the finalizer
 func (f *evmFinalizer) Close() error {
-	f.lggr.Debug("closing Finalizer")
-	close(f.stopCh)
-	f.wg.Wait()
-	return nil
+	return f.StopOnce("Finalizer", func() error {
+		f.lggr.Debug("closing Finalizer")
+		close(f.stopCh)
+		f.wg.Wait()
+		return nil
+	})
 }
 
 func (f *evmFinalizer) Name() string {

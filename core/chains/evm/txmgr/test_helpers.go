@@ -66,7 +66,7 @@ func (e *TestEvmConfig) FinalityDepth() uint32 { return 42 }
 
 func (e *TestEvmConfig) ChainType() chaintype.ChainType { return "" }
 
-func (c *TestEvmConfig) RPCDefaultBatchSize() uint32    { return c.RpcDefaultBatchSize }
+func (c *TestEvmConfig) RPCDefaultBatchSize() uint32 { return c.RpcDefaultBatchSize }
 
 type TestGasEstimatorConfig struct {
 	bumpThreshold uint64
@@ -144,9 +144,9 @@ type autoPurgeConfig struct {
 func (a *autoPurgeConfig) Enabled() bool { return false }
 
 type MockConfig struct {
-	EvmConfig           *TestEvmConfig
-	finalityDepth       uint32
-	finalityTagEnabled  bool
+	EvmConfig          *TestEvmConfig
+	finalityDepth      uint32
+	finalityTagEnabled bool
 }
 
 func (c *MockConfig) EVM() evmconfig.EVM {
