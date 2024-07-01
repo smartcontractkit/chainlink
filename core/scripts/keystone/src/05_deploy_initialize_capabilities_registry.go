@@ -13,10 +13,12 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 )
 
@@ -324,11 +326,16 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		panic(err)
 	}
 
-	config := &remotetypes.RemoteTriggerConfig{
-		RegistrationRefreshMs: 20000,
-		RegistrationExpiryMs:  60000,
-		// F + 1
-		MinResponsesToAggregate: uint32(1) + 1,
+	config := &capabilitiespb.CapabilityConfig{
+		ExecuteConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefreshMs: 20000,
+				RegistrationExpiryMs:  60000,
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
 	}
 	configb, err := proto.Marshal(config)
 	if err != nil {

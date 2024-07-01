@@ -33,7 +33,6 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	localNode            capabilities.Node
 	executionStates      store.Store
 	pendingStepRequests  chan stepRequest
@@ -164,6 +163,8 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("failed to get capability info", err)
 	}
 
+	step.info = info
+
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
 	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
@@ -222,7 +223,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.getLocalNode(ctx)
+		node, err := e.registry.GetLocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -680,6 +681,38 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 }
 
+func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
+	m := values.EmptyMap()
+
+	for k, v := range baseConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	for k, v := range overrideConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	return m
+}
+
+func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode capabilities.Node, step *step) (*values.Map, error) {
+	ID := step.info.ID
+
+	// If the capability info is missing a DON, then
+	// the capability is local, and we should use the localNode's DON ID.
+	donID := localNode.WorkflowDON.ID
+	if step.info.DON != nil {
+		donID = step.info.DON.ID
+	}
+
+	capConfig, err := reg.ConfigForCapability(ctx, ID, donID)
+	if err != nil {
+		return nil, err
+	}
+
+	return merge(capConfig.ExecuteConfig, step.config), nil
+}
+
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
@@ -704,9 +737,14 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
+	config, err := configForStep(ctx, e.registry, e.localNode, step)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
-		Config: step.config,
+		Config: config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
@@ -825,7 +863,6 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	Store                store.Store
 
 	// For testing purposes only
@@ -868,12 +905,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.GetLocalNode == nil {
-		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{}, nil
-		}
-	}
-
 	if cfg.retryMs == 0 {
 		cfg.retryMs = 5000
 	}
@@ -911,7 +942,6 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
 		registry:             cfg.Registry,
 		workflow:             workflow,
-		getLocalNode:         cfg.GetLocalNode,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdateCh:         make(chan store.WorkflowExecutionStep),

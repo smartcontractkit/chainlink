@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -40,7 +41,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := &remotetypes.RemoteTriggerConfig{
+	config := capabilities.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100_000,
 		MinResponsesToAggregate: 1,

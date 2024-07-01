@@ -14,16 +14,40 @@ var (
 	ErrCapabilityAlreadyExists = errors.New("capability already exists")
 )
 
+type localRegistry interface {
+	GetLocalNode(ctx context.Context) (capabilities.Node, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
+}
+
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	lggr logger.Logger
-	m    map[string]capabilities.BaseCapability
-	mu   sync.RWMutex
+	localRegistry localRegistry
+	lggr          logger.Logger
+	m             map[string]capabilities.BaseCapability
+	mu            sync.RWMutex
 }
 
-func (r *Registry) GetLocalNode(_ context.Context) (capabilities.Node, error) {
-	return capabilities.Node{}, nil
+func (r *Registry) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
+	if r.localRegistry == nil {
+		return capabilities.Node{}, errors.New("localRegistry information not available")
+	}
+
+	return r.localRegistry.GetLocalNode(ctx)
+}
+
+func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
+	if r.localRegistry == nil {
+		return capabilities.CapabilityConfiguration{}, errors.New("localRegistry information not available")
+	}
+
+	return r.localRegistry.ConfigForCapability(ctx, capabilityID, donID)
+}
+
+func (r *Registry) SetLocalRegistry(lr localRegistry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.localRegistry = lr
 }
 
 // Get gets a capability from the registry.
