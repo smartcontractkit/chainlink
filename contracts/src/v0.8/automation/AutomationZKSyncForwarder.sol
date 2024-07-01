@@ -52,7 +52,7 @@ contract AutomationZKSyncForwarder {
         uint256 g1 = gasleft();
         bytes memory returnData;
 
-        (success, returnData) = GAS_BOUND_CALLER.call{gas: gasAmount}(abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data));
+        (success, returnData) = GAS_BOUND_CALLER.delegatecall{gas: gasAmount}(abi.encodeWithSelector(IGasBoundCaller.gasBoundCall.selector, target, gasAmount, data));
         uint256 pubdataGasSpent;
         if (success) {
             (, pubdataGasSpent) = abi.decode(returnData, (bytes, uint256));
