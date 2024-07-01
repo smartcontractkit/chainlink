@@ -5,7 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+
 	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -34,7 +37,8 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	keyStore := cltest.NewKeyStore(t, db).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -43,7 +47,8 @@ func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainCon
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ethClient, lggr, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 
 	txm, err := txmgr.NewTxm(
 		db,

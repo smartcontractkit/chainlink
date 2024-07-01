@@ -26,11 +26,13 @@ func Test_PrometheusReporter(t *testing.T) {
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
 		head := newHead()
-		reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).Return()
-		reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(testutils.Context(t))
+		require.NoError(t, err)
 	})
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
@@ -54,12 +56,14 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), backend)
 
 		head := newHead()
-		reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).Return()
 
-		reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(testutils.Context(t))
+		require.NoError(t, err)
 	})
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
@@ -78,11 +82,13 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), backend)
 
 		head := newHead()
-		reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).Return()
 
-		reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(testutils.Context(t))
+		require.NoError(t, err)
 	})
 }
