@@ -55,8 +55,13 @@ type RawConfig map[string]any
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
 func (c *RawConfig) ValidateConfig() (err error) {
 	if v, ok := (*c)["Enabled"]; ok {
-		if _, ok := v.(*bool); !ok {
-			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected *bool"})
+		if _, ok := v.(bool); !ok {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
+		}
+	}
+	if v, ok := (*c)["ChainID"]; ok {
+		if _, ok := v.(string); !ok {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainID", Value: v, Msg: "expected string"})
 		}
 	}
 	return err
@@ -67,7 +72,8 @@ func (c *RawConfig) IsEnabled() bool {
 		return false
 	}
 
-	return (*c)["Enabled"] == nil || *(*c)["Enabled"].(*bool)
+	enabled, ok := (*c)["Enabled"].(bool)
+	return ok && enabled
 }
 
 func (c *RawConfig) ChainID() string {
@@ -75,8 +81,8 @@ func (c *RawConfig) ChainID() string {
 		return ""
 	}
 
-	chainID, _ := (*c)["ChainID"].(*string)
-	return *chainID
+	chainID, _ := (*c)["ChainID"].(string)
+	return chainID
 }
 
 // TOMLString returns a TOML encoded string.
@@ -178,6 +184,9 @@ func (c *Config) SetFrom(f *Config) (err error) {
 	if err4 := c.Starknet.SetFrom(&f.Starknet); err4 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err4, "Starknet"))
 	}
+
+	// the plugin should handle it's own defaults and merging
+	c.Aptos = f.Aptos
 
 	_, err = commonconfig.MultiErrorList(err)
 
