@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -15,10 +14,10 @@ import (
 )
 
 type Delegate struct {
-	registry     core.CapabilitiesRegistry
-	logger       logger.Logger
-	getLocalNode func(ctx context.Context) (capabilities.Node, error)
-	store        store.Store
+	registry       core.CapabilitiesRegistry
+	logger         logger.Logger
+	configProvider ConfigProvider
+	store          store.Store
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -38,14 +37,14 @@ func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(_ context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	cfg := Config{
-		Lggr:          d.logger,
-		Spec:          spec.WorkflowSpec.Workflow,
-		WorkflowID:    spec.WorkflowSpec.WorkflowID,
-		WorkflowOwner: spec.WorkflowSpec.WorkflowOwner,
-		WorkflowName:  spec.WorkflowSpec.WorkflowName,
-		Registry:      d.registry,
-		GetLocalNode:  d.getLocalNode,
-		Store:         d.store,
+		Lggr:           d.logger,
+		Spec:           spec.WorkflowSpec.Workflow,
+		WorkflowID:     spec.WorkflowSpec.WorkflowID,
+		WorkflowOwner:  spec.WorkflowSpec.WorkflowOwner,
+		WorkflowName:   spec.WorkflowSpec.WorkflowName,
+		Registry:       d.registry,
+		ConfigProvider: d.configProvider,
+		Store:          d.store,
 	}
 	engine, err := NewEngine(cfg)
 	if err != nil {
@@ -58,9 +57,9 @@ func NewDelegate(
 	logger logger.Logger,
 	registry core.CapabilitiesRegistry,
 	store store.Store,
-	getLocalNode func(ctx context.Context) (capabilities.Node, error),
+	configProvider ConfigProvider,
 ) *Delegate {
-	return &Delegate{logger: logger, registry: registry, store: store, getLocalNode: getLocalNode}
+	return &Delegate{logger: logger, registry: registry, store: store, configProvider: configProvider}
 }
 
 func ValidatedWorkflowJobSpec(tomlString string) (job.Job, error) {

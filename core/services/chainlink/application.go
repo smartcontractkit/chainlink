@@ -17,7 +17,6 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	pkgcapabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -207,7 +206,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
-	var getLocalNode func(ctx context.Context) (pkgcapabilities.Node, error)
+	var configProvider workflows.ConfigProvider
 	if cfg.Capabilities().Peering().Enabled() {
 		externalPeer := externalp2p.NewExternalPeerWrapper(keyStore.P2P(), cfg.Capabilities().Peering(), opts.DS, globalLogger)
 		signer := externalPeer
@@ -241,7 +240,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 		registrySyncer.AddLauncher(wfLauncher)
 
-		getLocalNode = wfLauncher.LocalNode
+		configProvider = wfLauncher
 		srvcs = append(srvcs, dispatcher, wfLauncher, registrySyncer)
 	}
 
@@ -433,7 +432,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger,
 		opts.CapabilitiesRegistry,
 		workflowORM,
-		getLocalNode,
+		configProvider,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate

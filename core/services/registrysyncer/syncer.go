@@ -20,9 +20,10 @@ type HashedCapabilityID [32]byte
 type DonID uint32
 
 type State struct {
-	IDsToDONs         map[DonID]kcr.CapabilitiesRegistryDONInfo
-	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
-	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
+	IDsToDONs                map[DonID]kcr.CapabilitiesRegistryDONInfo
+	IDsToNodes               map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
+	IDsToCapabilities        map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
+	CapabilityIDsToHashedIDs map[string]HashedCapabilityID
 }
 
 type Launcher interface {
@@ -42,6 +43,9 @@ type registrySyncer struct {
 	wg   sync.WaitGroup
 	lggr logger.Logger
 	mu   sync.RWMutex
+
+	latestState       State
+	latestStateExists bool
 }
 
 var _ services.Service = &registrySyncer{}
@@ -184,8 +188,10 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	}
 
 	idsToCapabilities := map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{}
+	capabilityIDsToHashedIDs := map[string]HashedCapabilityID{}
 	for _, c := range caps {
 		idsToCapabilities[c.HashedId] = c
+		capabilityIDsToHashedIDs[fmt.Sprintf("%s@%s", c.LabelledName, c.Version)] = c.HashedId
 	}
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
@@ -199,7 +205,12 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 		idsToNodes[node.P2pId] = node
 	}
 
-	return State{IDsToDONs: idsToDONs, IDsToCapabilities: idsToCapabilities, IDsToNodes: idsToNodes}, nil
+	return State{
+		IDsToDONs:                idsToDONs,
+		IDsToCapabilities:        idsToCapabilities,
+		IDsToNodes:               idsToNodes,
+		CapabilityIDsToHashedIDs: capabilityIDsToHashedIDs,
+	}, nil
 }
 
 func (s *registrySyncer) sync(ctx context.Context) error {
@@ -216,6 +227,9 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		return fmt.Errorf("failed to sync with remote registry: %w", err)
 	}
 
+	s.latestState = state
+	s.latestStateExists = true
+
 	for _, h := range s.launchers {
 		if err := h.Launch(ctx, state); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
@@ -223,6 +237,15 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *registrySyncer) ConfigForDON(donID uint32) (kcr.CapabilitiesRegistryDONInfo, bool) {
+	if !s.latestStateExists {
+		return kcr.CapabilitiesRegistryDONInfo{}, false
+	}
+
+	don, ok := s.latestState.IDsToDONs[DonID(donID)]
+	return don, ok
 }
 
 func (s *registrySyncer) AddLauncher(launchers ...Launcher) {

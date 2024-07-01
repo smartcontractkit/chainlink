@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -47,8 +49,10 @@ type launcher struct {
 	peerWrapper p2ptypes.PeerWrapper
 	dispatcher  remotetypes.Dispatcher
 	registry    core.CapabilitiesRegistry
-	localNode   capabilities.Node
 	subServices []services.Service
+
+	latestState *registrysyncer.State
+	mu          sync.Mutex
 }
 
 func NewLauncher(
@@ -94,22 +98,18 @@ func (w *launcher) Name() string {
 
 func (w *launcher) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	if w.peerWrapper.GetPeer() == nil {
-		return w.localNode, errors.New("unable to get local node: peerWrapper hasn't started yet")
+		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
 
-	if w.localNode.WorkflowDON.ID == 0 {
-		return w.localNode, errors.New("unable to get local node: waiting for initial call from syncer")
+	if w.latestState == nil {
+		return capabilities.Node{}, errors.New("unable to get local node: waiting for initial call from syncer")
 	}
 
-	return w.localNode, nil
-}
-
-func (w *launcher) updateLocalNode(state registrysyncer.State) {
 	pid := w.peerWrapper.GetPeer().ID()
 
 	var workflowDON capabilities.DON
 	capabilityDONs := []capabilities.DON{}
-	for _, d := range state.IDsToDONs {
+	for _, d := range w.latestState.IDsToDONs {
 		for _, p := range d.NodeP2PIds {
 			if p == pid {
 				if d.AcceptsWorkflows {
@@ -126,15 +126,57 @@ func (w *launcher) updateLocalNode(state registrysyncer.State) {
 		}
 	}
 
-	w.localNode = capabilities.Node{
+	return capabilities.Node{
 		PeerID:         &pid,
 		WorkflowDON:    workflowDON,
 		CapabilityDONs: capabilityDONs,
+	}, nil
+}
+
+type CapabilityConfig struct {
+	Config *values.Map
+}
+
+func (w *launcher) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (CapabilityConfig, error) {
+	ls := w.latestState
+	if ls == nil {
+		return CapabilityConfig{}, errors.New("unable to get config for capability: waiting for initial call from syncer")
 	}
+
+	d, ok := ls.IDsToDONs[registrysyncer.DonID(donID)]
+	if !ok {
+		return CapabilityConfig{}, fmt.Errorf("could not find don %d", donID)
+	}
+
+	hid, ok := ls.CapabilityIDsToHashedIDs[capabilityID]
+	if !ok {
+		return CapabilityConfig{}, fmt.Errorf("could map id %s to hashed id", hid)
+	}
+
+	var config []byte
+	for _, dc := range d.CapabilityConfigurations {
+		if dc.CapabilityId == hid {
+			config = dc.Config
+		}
+	}
+
+	if len(config) == 0 {
+		return CapabilityConfig{}, fmt.Errorf("could not find config for capability %s", capabilityID)
+	}
+
+	var &values.Map{}
+	err := proto.Unmarshal(config, nil)
+	if err != nil {
+		return CapabilityConfig{}, fmt.Errorf("could not unmarshal capability config: %w", err)
+	}
+
+	return CapabilityConfig{Config: m}, nil
 }
 
 func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
-	w.updateLocalNode(state)
+	w.mu.Lock()
+	w.latestState = &state
+	w.mu.Unlock()
 
 	// Let's start by updating the list of Peers
 	// We do this by creating a new entry for each node belonging

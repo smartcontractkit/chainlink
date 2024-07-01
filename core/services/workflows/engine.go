@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -26,12 +27,24 @@ type stepRequest struct {
 	state   store.WorkflowExecution
 }
 
+type ConfigProvider interface {
+	LocalNode(ctx context.Context) (capabilities.Node, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID string) (coreCapabilities.CapabilityConfig, error)
+}
+
+type noopConfigProvider struct{}
+
+func (n *noopConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	return capabilities.Node{}, nil
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
+	configProvider       ConfigProvider
 	getLocalNode         func(ctx context.Context) (capabilities.Node, error)
 	localNode            capabilities.Node
 	executionStates      store.Store
@@ -157,6 +170,8 @@ func (e *Engine) initializeCapability(ctx context.Context, step *step) error {
 		return newCPErr("failed to get capability info", err)
 	}
 
+	step.info = info
+
 	// Special treatment for local targets - wrap into a transmission capability
 	// If the DON is nil, this is a local target.
 	if info.CapabilityType == capabilities.CapabilityTypeTarget && info.DON == nil {
@@ -215,7 +230,7 @@ func (e *Engine) init(ctx context.Context) {
 	retryErr := retryable(ctx, e.logger, e.retryMs, e.maxRetries, func() error {
 		// first wait for localDON to return a non-error response; this depends
 		// on the underlying peerWrapper returning the PeerID.
-		node, err := e.getLocalNode(ctx)
+		node, err := e.configProvider.LocalNode(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get donInfo: %w", err)
 		}
@@ -678,6 +693,31 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 }
 
+func merge(baseConfig *values.Map, overrideConfig *values.Map) *values.Map {
+	m := values.EmptyMap()
+
+	for k, v := range baseConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	for k, v := range overrideConfig.Underlying {
+		m.Underlying[k] = v
+	}
+
+	return m
+}
+
+func configForStep(ctx context.Context, configProvider ConfigProvider, step *step) (*values.Map, error) {
+	ID, donID := step.info.ID, step.info.DON.ID
+
+	capConfig, err := configProvider.ConfigForCapability(ctx, ID, donID)
+	if err != nil {
+		return nil, err
+	}
+
+	return merge(capConfig.Config, step.config), nil
+}
+
 // executeStep executes the referenced capability within a step and returns the result.
 func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map, values.Value, error) {
 	step, err := e.workflow.Vertex(msg.stepRef)
@@ -702,9 +742,14 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
+	config, err := configForStep(ctx, e.configProvider, step)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
-		Config: step.config,
+		Config: config,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
@@ -823,7 +868,7 @@ type Config struct {
 	QueueSize            int
 	NewWorkerTimeout     time.Duration
 	MaxExecutionDuration time.Duration
-	GetLocalNode         func(ctx context.Context) (capabilities.Node, error)
+	ConfigProvider       ConfigProvider
 	Store                store.Store
 
 	// For testing purposes only
@@ -866,10 +911,8 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		cfg.MaxExecutionDuration = defaultMaxExecutionDuration
 	}
 
-	if cfg.GetLocalNode == nil {
-		cfg.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{}, nil
-		}
+	if cfg.ConfigProvider == nil {
+		cfg.ConfigProvider = &noopConfigProvider{}
 	}
 
 	if cfg.retryMs == 0 {
@@ -915,7 +958,7 @@ func NewEngine(cfg Config) (engine *Engine, err error) {
 		logger:               cfg.Lggr.Named("WorkflowEngine").With("workflowID", cfg.WorkflowID),
 		registry:             cfg.Registry,
 		workflow:             workflow,
-		getLocalNode:         cfg.GetLocalNode,
+		configProvider:       cfg.ConfigProvider,
 		executionStates:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		newWorkerCh:          newWorkerCh,
