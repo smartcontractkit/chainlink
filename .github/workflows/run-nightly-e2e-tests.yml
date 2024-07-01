@@ -4,6 +4,7 @@ on:
   schedule:
     # Run every night at midnight UTC (0:00 AM)
     - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   call-run-e2e-tests-workflow:
