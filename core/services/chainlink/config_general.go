@@ -228,10 +228,6 @@ func (g *generalConfig) ValidateDB() error {
 	return g.validate(g.secrets.ValidateDB)
 }
 
-func (g *generalConfig) ValidateConfig() error {
-	return g.validate(g.ValidateConfig)
-}
-
 //go:embed legacy.env
 var emptyStringsEnv string
 
