@@ -115,7 +115,7 @@ jobs:
           MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
-          echo "::set-output name=matrix::$MATRIX_JSON"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
       - name: Generate K8s Tests Matrix
         id: set-k8s-runner-matrix
         run: |
@@ -123,7 +123,7 @@ jobs:
           MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
-          echo "::set-output name=matrix::$MATRIX_JSON"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
       - name: Check Test Matrices
         id: check-matrices
         run: |
@@ -137,14 +137,14 @@ jobs:
           fi
 
           if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]]; then
-            echo "::set-output name=run-docker-tests::false"
+            echo "run-docker-tests=false" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=run-docker-tests::true"
+            echo "run-docker-tests=true" >> $GITHUB_OUTPUT
           fi
           if [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
-            echo "::set-output name=run-k8s-tests::false"
+            echo "run-k8s-tests=false" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=run-k8s-tests::true"
+            echo "run-k8s-tests=true" >> $GITHUB_OUTPUT
           fi
 
           # Check if both matrices are empty
@@ -271,9 +271,9 @@ jobs:
         id: set-remote-runner-version
         run: |
           if [[ -z "${{ inputs.with_existing_remote_runner_version }}" ]]; then
-            echo "::set-output name=remote-runner-version::${{ github.sha }}"
+            echo "remote-runner-version=${{ github.sha }}" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=remote-runner-version::${{ inputs.with_existing_remote_runner_version }}"
+            echo "remote-runner-version=${{ inputs.with_existing_remote_runner_version }}" >> $GITHUB_OUTPUT
           fi
 
   run-k8s-runner-tests:
