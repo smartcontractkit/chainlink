@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Allow block 0 in buildCallOpts to prevent nil pointer
+Allow block 0 in buildCallOpts to prevent nil pointer #changed
