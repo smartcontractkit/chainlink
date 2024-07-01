@@ -66,7 +66,8 @@ on:
                
 env: 
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
-  MOD_CACHE_VERSION: 2
+  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  MOD_CACHE_VERSION: 1
 
 jobs:
   validate-inputs:
@@ -301,7 +302,6 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
-      QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 
     steps:
       - name: Checkout repository
@@ -315,7 +315,7 @@ jobs:
           echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
 
       - name: Create default test config override (use overrides from e2e-tests.yml or defaults)
-        # if: ${{ inputs.test_config_base64_override == '' }}
+        id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
@@ -356,8 +356,8 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
+          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
+          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           cache_key_id: run_k8s_e2e_tests_${{ matrix.tests.idSanitized }}_${{ env.MOD_CACHE_VERSION }}

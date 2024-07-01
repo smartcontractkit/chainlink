@@ -45,7 +45,7 @@ var createTestConfigCmd = &cobra.Command{
 		if cmd.Flags().Changed(ChainlinkUpgradeVersionFlag) {
 			upgradeVersion = &oc.ChainlinkUpgradeVersion
 		}
-		if upgradeImage != nil || upgradeVersion == nil {
+		if upgradeImage != nil || upgradeVersion != nil {
 			tc.ChainlinkUpgradeImage = &ctf_config.ChainlinkImageConfig{
 				Image:   upgradeImage,
 				Version: upgradeVersion,

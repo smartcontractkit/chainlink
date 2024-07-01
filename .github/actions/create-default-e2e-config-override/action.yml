@@ -60,82 +60,90 @@ inputs:
   private_ethereum_network_custom_docker_image:
     required: false
     description: 'Private Ethereum network custom Docker image for the tests'
+outputs:
+  chainlink_image:
+    value: ${{ steps.build-args.outputs.chainlink_image }}
+    description: 'Chainlink image resolved from the input'
+  chainlink_version:
+    value: ${{ steps.build-args.outputs.chainlink_version }}
+    description: 'Chainlink version resolved from the input'
 
 runs:
   using: 'composite'
   steps:
-    - name: Build the command line arguments
+    - name: Create default E2E test config override
+      id: build-args
       shell: bash
       run: |
-        cmd_args=""
+        cd integration-tests/e2e_tests_ci_tool/
+
+        create_args=()
         if [ -n "${{ inputs.chainlink_image }}" ]; then
-          cmd_args+="--chainlink-image=\"${{ inputs.chainlink_image }}\" "
+          create_args+=(--chainlink-image="${{ inputs.chainlink_image }}")
+          echo "chainlink_image=$(go run main.go envresolve "${{ inputs.chainlink_image }}")" >> $GITHUB_OUTPUT
         fi
         if [ -n "${{ inputs.chainlink_version }}" ]; then
-          cmd_args+="--chainlink-version=\"${{ inputs.chainlink_version }}\" "
+          create_args+=(--chainlink-version="${{ inputs.chainlink_version }}")
+          echo "chainlink_version=$(go run main.go envresolve "${{ inputs.chainlink_version }}")" >> $GITHUB_OUTPUT
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
-          cmd_args+="--chainlink-postgres-version=\"${{ inputs.chainlink_postgres_version }}\" "
+          create_args+=(--chainlink-postgres-version="${{ inputs.chainlink_postgres_version }}")
         fi
         if [ -n "${{ inputs.chainlink_upgrade_image }}" ]; then
-          cmd_args+="--chainlink-upgrade-image=\"${{ inputs.chainlink_upgrade_image }}\" "
+          create_args+=(--chainlink-upgrade-image="${{ inputs.chainlink_upgrade_image }}")
         fi
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
-          cmd_args+="--chainlink-upgrade-version=\"${{ inputs.chainlink_upgrade_version }}\" "
+          create_args+=(--chainlink-upgrade-version="${{ inputs.chainlink_upgrade_version }}")
         fi
         if [ -n "${{ inputs.pyroscope_server }}" ]; then
-          cmd_args+="--pyroscope-server-url=\"${{ inputs.pyroscope_server }}\" "
+          create_args+=(--pyroscope-server-url="${{ inputs.pyroscope_server }}")
         fi
         if [ -n "${{ inputs.pyroscope_environment }}" ]; then
-          cmd_args+="--pyroscope-environment=\"${{ inputs.pyroscope_environment }}\" "
+          create_args+=(--pyroscope-environment="${{ inputs.pyroscope_environment }}")
         fi
         if [ -n "${{ inputs.pyroscope_key }}" ]; then
-          cmd_args+="--pyroscope-key=\"${{ inputs.pyroscope_key }}\" "
+          create_args+=(--pyroscope-key="${{ inputs.pyroscope_key }}")
         fi
         if [ -n "${{ inputs.loki_endpoint }}" ]; then
-          cmd_args+="--logging-loki-endpoint=\"${{ inputs.loki_endpoint }}\" "
+          create_args+=(--logging-loki-endpoint="${{ inputs.loki_endpoint }}")
         fi
         if [ -n "${{ inputs.loki_tenant_id }}" ]; then
-          cmd_args+="--logging-loki-tenant-id=\"${{ inputs.loki_tenant_id }}\" "
+          create_args+=(--logging-loki-tenant-id="${{ inputs.loki_tenant_id }}")
         fi
         if [ -n "${{ inputs.loki_basic_auth }}" ]; then
-          cmd_args+="--logging-loki-basic-auth=\"${{ inputs.loki_basic_auth }}\" "
+          create_args+=(--logging-loki-basic-auth="${{ inputs.loki_basic_auth }}")
         fi
         if [ -n "${{ inputs.loki_run_id }}" ]; then
-          cmd_args+="--logging-run-id=\"${{ inputs.loki_run_id }}\" "
+          create_args+=(--logging-run-id="${{ inputs.loki_run_id }}")
         fi
         if [ -n "${{ inputs.test_log_collect }}" ]; then
-          cmd_args+="--logging-test-log-collect=\"${{ inputs.test_log_collect }}\" "
+          create_args+=(--logging-test-log-collect="${{ inputs.test_log_collect }}")
         fi
         if [ -n "${{ inputs.private_ethereum_network_execution_layer }}" ]; then
-          cmd_args+="--private-ethereum-network-execution-layer=\"${{ inputs.private_ethereum_network_execution_layer }}\" "
+          create_args+=(--private-ethereum-network-execution-layer="${{ inputs.private_ethereum_network_execution_layer }}")
         fi
         if [ -n "${{ inputs.private_ethereum_network_custom_docker_image }}" ]; then
-          cmd_args+="--private-ethereum-network-custom-docker-image=\"${{ inputs.private_ethereum_network_custom_docker_image }}\" "
+          create_args+=(--private-ethereum-network-custom-docker-image="${{ inputs.private_ethereum_network_custom_docker_image }}")
         fi
         
-        # Split the log targets input by comma and add to the command line arguments
+        # # Split the log targets input by comma and add to the command line arguments
         IFS=',' read -ra ADDR <<< "${{ inputs.logstream_log_targets }}"
         for i in "${ADDR[@]}"; do
-          cmd_args+="--logging-log-targets=\"$i\" "
+          create_args+=(--logging-log-targets="$i")
         done
 
         # Split selected_networks input by comma and add to the command line arguments
         IFS=',' read -ra ADDR <<< "${{ inputs.selected_networks }}"
         for i in "${ADDR[@]}"; do
-          cmd_args+="--selected-networks=\"$i\" "
+          create_args+=(--selected-networks="$i")
         done
 
-        echo "Command line arguments: $cmd_args" 
-        echo "CMD_ARGS=$cmd_args" >> $GITHUB_ENV
-
-    - name: Run the command to create the test config and set it as BASE64_CONFIG_OVERRIDE env variable
-      shell: bash
-      run: |      
-        cd integration-tests/e2e_tests_ci_tool/
-        config_override=$(go run main.go test-config create ${{ env.CMD_ARGS }})
+        config_override=$(go run main.go test-config create "${create_args[@]}")
+        # echo "go run main.go test-config create ${create_args[*]}"
+        # echo "Output:"
+        # echo "$config_override"
 
         BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
+        echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV        
     

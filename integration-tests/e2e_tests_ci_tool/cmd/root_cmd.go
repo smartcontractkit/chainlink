@@ -24,6 +24,7 @@ func Execute() {
 func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
+	rootCmd.AddCommand(envresolveCmd)
 	rootCmd.AddCommand(checkTestsCmd)
 	rootCmd.AddCommand(filterCmd)
 	rootCmd.AddCommand(testConfigCmd)
