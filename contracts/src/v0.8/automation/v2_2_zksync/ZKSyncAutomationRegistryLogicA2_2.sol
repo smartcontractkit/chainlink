@@ -6,8 +6,8 @@ import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils
 import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2.sol";
 import {ZKSyncAutomationRegistryLogicB2_2} from "./ZKSyncAutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../Chainable.sol";
-import {AutomationForwarder} from "../AutomationForwarder.sol";
-import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {AutomationZKSyncForwarder} from "../AutomationZKSyncForwarder.sol";
+import {IAutomationZKSyncForwarder} from "../interfaces/IAutomationZKSyncForwarder.sol";
 import {UpkeepTranscoderInterfaceV2} from "../interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {MigratableKeeperRegistryInterfaceV2} from "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
@@ -228,8 +228,8 @@ contract ZKSyncAutomationRegistryLogicA2_2 is ZKSyncAutomationRegistryBase2_2, C
     if (msg.sender != owner() && !s_registrars.contains(msg.sender)) revert OnlyCallableByOwnerOrRegistrar();
     if (!target.isContract()) revert NotAContract();
     id = _createID(triggerType);
-    IAutomationForwarder forwarder = IAutomationForwarder(
-      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
+    IAutomationZKSyncForwarder forwarder = IAutomationZKSyncForwarder(
+      address(new AutomationZKSyncForwarder(target, address(this), i_automationForwarderLogic))
     );
     _createUpkeep(
       id,
@@ -404,8 +404,8 @@ contract ZKSyncAutomationRegistryLogicA2_2 is ZKSyncAutomationRegistryBase2_2, C
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
-        upkeeps[idx].forwarder = IAutomationForwarder(
-          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
+        upkeeps[idx].forwarder = IAutomationZKSyncForwarder(
+          address(new AutomationZKSyncForwarder(targets[idx], address(this), i_automationForwarderLogic))
         );
       }
       _createUpkeep(

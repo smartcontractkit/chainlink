@@ -5,7 +5,7 @@ import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {StreamsLookupCompatibleInterface} from "../interfaces/StreamsLookupCompatibleInterface.sol";
 import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
-import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {IAutomationZKSyncForwarder} from "../interfaces/IAutomationZKSyncForwarder.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AggregatorV3Interface} from "../../shared/interfaces/AggregatorV3Interface.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
@@ -244,7 +244,7 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
     bool paused;
     uint32 performGas;
     uint32 maxValidBlocknumber;
-    IAutomationForwarder forwarder;
+    IAutomationZKSyncForwarder forwarder;
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
@@ -402,7 +402,7 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
-  event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 p1, uint256 p2, uint256 gasprice);
+//  event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 gasprice);
 
   /**
    * @param link address of the LINK Token
@@ -796,10 +796,10 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
    * transmitter and the exact gas required by the Upkeep
    */
   function _performUpkeep(
-    IAutomationForwarder forwarder,
+    IAutomationZKSyncForwarder forwarder,
     uint256 performGas,
     bytes memory performData
-  ) internal nonReentrant returns (bool success, uint256 gasUsed) {
+  ) internal nonReentrant returns (bool success, uint256 gasUsed, uint256 l1GasUsed) {
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
     return forwarder.forward(performGas, performData);
   }

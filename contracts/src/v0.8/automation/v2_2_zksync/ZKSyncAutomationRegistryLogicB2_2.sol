@@ -5,7 +5,7 @@ import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
-import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {IAutomationZKSyncForwarder} from "../interfaces/IAutomationZKSyncForwarder.sol";
 import {IChainModule} from "../interfaces/IChainModule.sol";
 import {IAutomationV21PlusCommon} from "../interfaces/IAutomationV21PlusCommon.sol";
 
@@ -527,7 +527,7 @@ contract ZKSyncAutomationRegistryLogicB2_2 is ZKSyncAutomationRegistryBase2_2 {
   /**
    * @notice returns the upkeep's forwarder contract
    */
-  function getForwarder(uint256 upkeepID) external view returns (IAutomationForwarder) {
+  function getForwarder(uint256 upkeepID) external view returns (IAutomationZKSyncForwarder) {
     return s_upkeep[upkeepID].forwarder;
   }
 
