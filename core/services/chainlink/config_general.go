@@ -209,7 +209,7 @@ func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
 	return g.c.Starknet
 }
 
-func (g *generalConfig) AptosConfigs() []*RawConfig {
+func (g *generalConfig) AptosConfigs() RawConfigs {
 	return g.c.Aptos
 }
 
