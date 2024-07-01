@@ -451,6 +451,8 @@ func (e *eventBinding) confirmationsFrom(confidence primitives.ConfidenceLevel) 
 		return value
 	}
 
+	// TODO is this ok? Maybe some things have to always be faster than Finalized?
+
 	// if the mapping doesn't exist, default to finalized for safety
 	return evmtypes.Finalized
 }
