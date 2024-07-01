@@ -3,17 +3,24 @@ pragma solidity 0.8.19;
 
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {ZKSyncAutomationRegistryBase2_2} from "./ZKSyncAutomationRegistryBase2_2.sol";
-import {ZKSyncAutomationRegistryLogicB2_2} from "./ZKSyncAutomationRegistryLogicB2_2.sol";
+import {AutomationRegistryBase2_2} from "./../v2_2/AutomationRegistryBase2_2.sol";
+import {AutomationRegistryLogicB2_2} from "./../v2_2/AutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../Chainable.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
+
+interface ISystemContext {
+  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
+  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
+}
+
+ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
 
 /**
  * @notice Registry for adding work for Chainlink nodes to perform on client
  * contracts. Clients must support the AutomationCompatibleInterface interface.
  */
-contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abstract, Chainable, IERC677Receiver {
+contract ZKSyncAutomationRegistry2_2 is AutomationRegistryBase2_2, OCR2Abstract, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -45,9 +52,9 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
    * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
    */
   constructor(
-    ZKSyncAutomationRegistryLogicB2_2 logicA
+    AutomationRegistryLogicB2_2 logicA
   )
-    ZKSyncAutomationRegistryBase2_2(
+    AutomationRegistryBase2_2(
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
       logicA.getFastGasFeedAddress(),
@@ -63,7 +70,6 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
   // solhint-disable-next-line gas-struct-packing
   struct TransmitVars {
     uint16 numUpkeepsPassedChecks;
-//    uint256 totalCalldataWeight;
     uint96 totalReimbursement;
     uint96 totalPremium;
   }
@@ -107,15 +113,14 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
 
   function _handleReport(HotVars memory hotVars, Report memory report, uint256 gasOverhead) private {
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
+    uint256[] memory l1GasUsed = new uint256[](report.upkeepIds.length);
     TransmitVars memory transmitVars = TransmitVars({
       numUpkeepsPassedChecks: 0,
-//      totalCalldataWeight: 0,
       totalReimbursement: 0,
       totalPremium: 0
     });
 
     uint256 blocknumber = hotVars.chainModule.blockNumber();
-//    uint256 l1Fee = hotVars.chainModule.getCurrentL1Fee();
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
@@ -136,16 +141,31 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
       }
 
       // Actually perform the target upkeep
+      uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
       (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
         upkeepTransmitInfo[i].upkeep.forwarder,
         report.gasLimits[i],
         report.performDatas[i]
       );
+      uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
+      uint256 pubdataUsed;
+      if (p2 > p1) {
+        pubdataUsed = p2 - p1;
+      }
+      uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
+      l1GasUsed[i] = gasPerPubdataByte * pubdataUsed;
+//      if (report.gasLimits[i] < upkeepTransmitInfo[i].l1GasUsed + upkeepTransmitInfo[i].gasUsed) {
+//        // revert or ?
+//        revert InsufficientGas(upkeepTransmitInfo[i].gasUsed, upkeepTransmitInfo[i].l1GasUsed);
+//      }
+//      emit GasDetails(pubdataUsed, gasPerPubdataByte, upkeepTransmitInfo[i].gasUsed, p1, p2, tx.gasprice);
 
       // Deduct that gasUsed by upkeep from our running counter
-      // for zksync, the L1 gas is deducted at the end of a transaction but gasUsed here already has all the cost
-      // if we don't add l1GasUsed here for zksync, `gasOverhead - gasleft()` will underflow
-      gasOverhead -= upkeepTransmitInfo[i].gasUsed;
+      // for zksync, the L1 gas is deducted at the end of a transaction
+      // so gasleft() is actually higher than it's actual value by (upkeepTransmitInfo[i].l1GasUsed) amount
+      // ??
+//      gasOverhead = gasOverhead + l1GasUsed[i] - upkeepTransmitInfo[i].gasUsed;
+      gasOverhead = gasOverhead - upkeepTransmitInfo[i].gasUsed;
 
       // Store last perform block number / deduping key for upkeep
       _updateTriggerMarker(report.upkeepIds[i], blocknumber, upkeepTransmitInfo[i]);
@@ -173,7 +193,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
-            0
+            l1GasUsed[i] * tx.gasprice
           );
           transmitVars.totalPremium += premium;
           transmitVars.totalReimbursement += reimbursement;
@@ -187,12 +207,12 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.triggers[i]
           );
 
-          emit UpkeepPerformedDetails(
-            reimbursement + premium,
-            upkeepTransmitInfo[i].gasUsed,
-            gasOverhead,
-            upkeepTransmitInfo[i].l1GasUsed
-          );
+//          emit UpkeepPerformedDetails(
+//            reimbursement + premium,
+//            upkeepTransmitInfo[i].gasUsed,
+//            gasOverhead,
+//            upkeepTransmitInfo[i].l1GasUsed
+//          );
         }
       }
     }
@@ -216,7 +236,17 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
 
     if (s_hotVars.paused) revert RegistryPaused();
     Upkeep memory upkeep = s_upkeep[id];
+    uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
     (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
+    uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
+    uint256 pubdataUsed;
+    if (p2 > p1) {
+      pubdataUsed = p2 - p1;
+    }
+    uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
+    if (upkeep.performGas < pubdataUsed * gasPerPubdataByte + gasUsed) {
+      return (false, pubdataUsed * gasPerPubdataByte + gasUsed);
+    }
     return (success, gasUsed);
   }
 

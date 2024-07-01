@@ -13,13 +13,6 @@ import {KeeperCompatibleInterface} from "../interfaces/KeeperCompatibleInterface
 import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
 import {IChainModule} from "../interfaces/IChainModule.sol";
 
-interface ISystemContext {
-  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
-  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
-}
-
-ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
-
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * AutomationRegistry and AutomationRegistryLogic
@@ -808,20 +801,7 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
     bytes memory performData
   ) internal nonReentrant returns (bool success, uint256 gasUsed) {
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-    (bool success, uint256 executionGasUsed) = forwarder.forward(performGas, performData);
-    uint256 p2 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
-    uint256 pubdataUsed;
-    if (p2 > p1) {
-      pubdataUsed = p2 - p1;
-    }
-    uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
-    emit GasDetails(pubdataUsed, gasPerPubdataByte, executionGasUsed, p1, p2, tx.gasprice);
-    uint256 l1GasUsed = gasPerPubdataByte * pubdataUsed;
-    if (performGas < l1GasUsed + executionGasUsed) {
-      revert InsufficientGas(executionGasUsed, l1GasUsed);
-    }
-    return (success, executionGasUsed + l1GasUsed);
+    return forwarder.forward(performGas, performData);
   }
 
   /**
