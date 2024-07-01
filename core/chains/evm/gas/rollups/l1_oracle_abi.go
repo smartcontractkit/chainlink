@@ -12,6 +12,10 @@ const GasEstimateL1ComponentAbiString = `[{"inputs":[{"internalType":"address","
 const L1BaseFeeAbiString = `[{"inputs":[],"name":"l1BaseFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 const GetL1FeeAbiString = `[{"inputs":[{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"getL1Fee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
 
-// ABIs for OP Stack Ecotone GasPriceOracle methods needed to calculated encoded gas price
+// ABIs for OP Stack GasPriceOracle methods needed to calculated encoded gas price
 const OPIsEcotoneAbiString = `[{"inputs":[],"name":"isEcotone","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}]`
-const OPGetL1GasUsedAbiString = `[{"inputs":[{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"getL1GasUsed","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
+const OPIsFjordAbiString = `[{"inputs":[],"name":"isFjord","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"}]`
+const OPBaseFeeScalarAbiString = `[{"inputs":[],"name":"baseFeeScalar","outputs":[{"internalType":"uint32","name":"","type":"uint32"}],"stateMutability":"view","type":"function"}]`
+const OPBlobBaseFeeAbiString = `[{"inputs":[],"name":"blobBaseFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}]`
+const OPBlobBaseFeeScalarAbiString = `[{"inputs":[],"name":"blobBaseFeeScalar","outputs":[{"internalType":"uint32","name":"","type":"uint32"}],"stateMutability":"view","type":"function"}]`
+const OPDecimalsAbiString = `[{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}]`
