@@ -206,52 +206,6 @@ jobs:
           grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
           grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
-      # TODO: Remove this step since we do not have to mask secrets anymore
-      # - name: Mask secrets in test config base64 override
-      #   id: mask-secrets-in-test_config_base64_override
-      #   if: ${{ inputs.test_config_base64_override != '' }}
-      #   run: "to do"
-          # - name: Remove secrets from test config base64 override
-          #   id: mask-in
-          # - name: Set outputs
-          #   id: set-outputs
-          #   run: |
-          #     echo "::set-output name=base64ConfigNoSecrets::$BASE64_CONFIG_OVERRIDE"
-
-      # TODO: Remove this step since we do not have to mask or override secrets in custom test config anymore 
-      # - name: Override secrets in custom test config
-      #   if: ${{ inputs.test_config_base64_override != '' }}          
-      #   run: |
-      #     # Show what parts of the test config are being overridden
-      #     go run main.go test-config override \
-      #       --dry-run \
-      #       --from-base64-config ${{ inputs.test_config_base64_override }} \
-      #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
-      #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
-      #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
-      #       --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
-      #       --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
-      #       --grafana-url "http://localhost:8080/primary" \
-      #       --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
-      #       --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-
-      #     # Override custom test config with CI secrets
-      #     config_override=$(go run main.go test-config override \
-      #       --from-base64-config ${{ inputs.test_config_base64_override }} \
-      #       --perycope-server-url ${{ secrets.QA_PYROSCOPE_INSTANCE }} \
-      #       --peryscope-key ${{ secrets.QA_PYROSCOPE_KEY }} \
-      #       --loki-endpoint https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push \
-      #       --loki-tenant-id ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }} \
-      #       --loki-basic-auth ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }} \
-      #       --grafana-url "http://localhost:8080/primary" \
-      #       --grafana-dashboard-url "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs" \
-      #       --grafana-bearer-token ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      #     )
-
-      #     BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
-      #     echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-      #     echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
         id: setup-gap
@@ -260,6 +214,7 @@ jobs:
           aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
           api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
           duplicate-authorization-header: "true"
+          
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
