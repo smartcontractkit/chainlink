@@ -162,8 +162,6 @@ APIKey = 'key'
 [[Aptos]]
 Enabled = 1
 
-[[Aptos]]
-
 [OCR2]
 Enabled = true
 
