@@ -2798,6 +2798,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -2815,7 +2816,7 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
+PriceDefault = '800 gwei'
 PriceMax = '80 micro'
 PriceMin = '800 gwei'
 LimitDefault = 8000000
@@ -2852,6 +2853,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4

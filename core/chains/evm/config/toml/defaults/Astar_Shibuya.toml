@@ -4,6 +4,7 @@ LogPollInterval = '12s'
 
 [GasEstimator]
 EIP1559DynamicFees = false
+PriceDefault = '800 gwei'
 PriceMin = '800 gwei'
 PriceMax = '80000 gwei'
 LimitDefault = 8000000
