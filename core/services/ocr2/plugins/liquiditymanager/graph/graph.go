@@ -10,9 +10,8 @@ import (
 
 // GraphWriter provides write access to the liquidity graph.
 type GraphWriter interface {
+	// Add adds new data and connection to the graph.
 	Add(from, to Data) error
-	// AddEdges adds a list of edges to the graph.
-	AddEdges(edges []models.Edge) error
 	// SetLiquidity sets the liquidity of the provided network.
 	SetLiquidity(n models.NetworkSelector, liquidity *big.Int) bool
 }
