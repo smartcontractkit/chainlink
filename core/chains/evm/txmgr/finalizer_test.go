@@ -1,6 +1,7 @@
 package txmgr_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -12,7 +13,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -30,8 +34,9 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	feeLimit := uint64(10_000)
 	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
 	rpcBatchSize := uint32(1)
+	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
 
-	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, txStore, ethClient)
+	finalizer := txmgr.NewEvmFinalizer(logger.Test(t), testutils.FixtureChainID, rpcBatchSize, txStore, ethClient, ht)
 	err := finalizer.Start(ctx)
 	require.NoError(t, err)
 
@@ -63,6 +68,8 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for unfinalized block num
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attemptHash)
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -88,6 +95,8 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, utils.NewHash(), attemptHash)
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -114,6 +123,8 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
 		mustInsertEthReceipt(t, txStore, head.Parent.Number, head.Parent.Hash, attemptHash)
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
@@ -175,11 +186,26 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 			}
 			rpcElements[0].Result = &headResult
 		}).Return(nil).Twice()
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent, nil).Once()
 		err = finalizer.ProcessHead(ctx, head)
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
 		require.Equal(t, true, tx.Finalized)
+	})
+
+	t.Run("returns error if failed to retrieve latest head in headtracker", func(t *testing.T) {
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("failed to get latest head")).Once()
+		err = finalizer.ProcessHead(ctx, head)
+		require.Error(t, err)
+	})
+
+	t.Run("returns error if failed to calculate latest finalized head in headtracker", func(t *testing.T) {
+		ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Once()
+		ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("failed to calculate latest finalized head")).Once()
+		err = finalizer.ProcessHead(ctx, head)
+		require.Error(t, err)
 	})
 }
 

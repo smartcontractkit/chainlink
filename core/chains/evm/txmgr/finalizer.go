@@ -32,14 +32,21 @@ type finalizerChainClient interface {
 	BatchCallContext(ctx context.Context, elems []rpc.BatchElem) error
 }
 
+type finalizerHeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 // Finalizer handles processing new finalized blocks and marking transactions as finalized accordingly in the TXM DB
 type evmFinalizer struct {
 	services.StateMachine
 	lggr         logger.SugaredLogger
 	chainId      *big.Int
 	rpcBatchSize int
+
 	txStore      finalizerTxStore
 	client       finalizerChainClient
+	headTracker finalizerHeadTracker
+
 	mb           *mailbox.Mailbox[*evmtypes.Head]
 	stopCh       services.StopChan
 	wg           sync.WaitGroup
@@ -51,6 +58,7 @@ func NewEvmFinalizer(
 	rpcBatchSize uint32,
 	txStore finalizerTxStore,
 	client finalizerChainClient,
+	headTracker finalizerHeadTracker,
 ) *evmFinalizer {
 	lggr = logger.Named(lggr, "Finalizer")
 	return &evmFinalizer{
@@ -59,6 +67,7 @@ func NewEvmFinalizer(
 		rpcBatchSize: int(rpcBatchSize),
 		txStore:      txStore,
 		client:       client,
+		headTracker: headTracker,
 		mb:           mailbox.NewSingle[*evmtypes.Head](),
 	}
 }
@@ -115,22 +124,25 @@ func (f *evmFinalizer) runLoop() {
 	}
 }
 
-func (f *evmFinalizer) DeliverHead(head *evmtypes.Head) bool {
+func (f *evmFinalizer) DeliverLatestHead(head *evmtypes.Head) bool {
 	return f.mb.Deliver(head)
 }
 
 func (f *evmFinalizer) ProcessHead(ctx context.Context, head *evmtypes.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
-	return f.processHead(ctx, head)
+	_, latestFinalizedHead, err := f.headTracker.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve latest finalized head: %w", err)
+	}
+	return f.processFinalizedHead(ctx, latestFinalizedHead)
 }
 
 // Determines if any confirmed transactions can be marked as finalized by comparing their receipts against the latest finalized block
-func (f *evmFinalizer) processHead(ctx context.Context, head *evmtypes.Head) error {
-	latestFinalizedHead := head.LatestFinalizedHead()
+func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalizedHead *evmtypes.Head) error {
 	// Cannot determine finality without a finalized head for comparison
 	if latestFinalizedHead == nil || !latestFinalizedHead.IsValid() {
-		return fmt.Errorf("failed to find latest finalized head in chain")
+		return fmt.Errorf("invalid latestFinalizedHead")
 	}
 	earliestBlockNumInChain := latestFinalizedHead.EarliestHeadInChain().BlockNumber()
 	f.lggr.Debugw("processing latest finalized head", "block num", latestFinalizedHead.BlockNumber(), "block hash", latestFinalizedHead.BlockHash(), "earliest block num in chain", earliestBlockNumInChain)
