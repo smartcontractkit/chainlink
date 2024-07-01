@@ -6,12 +6,16 @@ on:
     inputs:
       chainlink_version:
         description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
-        required: true
-        type: string
+        required: false
+        type: string    
       test_ids:
         description: 'Run tests by test ids separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
         required: false
         type: string
+      test_map:
+        description: 'Run tests by test map.'
+        required: true
+        type: string            
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
         required: false
@@ -112,7 +116,7 @@ jobs:
         id: set-docker-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-map '${{ inputs.test_map }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "Docker tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
@@ -120,7 +124,7 @@ jobs:
         id: set-k8s-runner-matrix
         run: |
           cd integration-tests/e2e_tests_ci_tool/
-          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-map '${{ inputs.test_map }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
           echo "K8s tests:"
           echo "$MATRIX_JSON" | jq
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
@@ -189,11 +193,11 @@ jobs:
         # if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
-          chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
-          chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
-          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
-          selected_networks: ${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
+          chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_postgres_version: ${{ matrix.tests.testConfigOverrides.chainlinkPostgresVersion }}
+          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testConfigOverrides.selectedNetworks || env.SELECTED_NETWORKS}}
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
@@ -312,11 +316,11 @@ jobs:
         # if: ${{ inputs.test_config_base64_override == '' }}
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverride.chainlinkVersion || github.sha }}
-          chainlink_image: ${{ matrix.tests.testConfigOverride.chainlinkImage || env.CHAINLINK_IMAGE }}
-          chainlink_postgres_version: ${{ matrix.tests.testConfigOverride.chainlinkPostgresVersion }}
-          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverride.chainlinkUpgradeVersion }}
-          selected_networks: ${{ matrix.tests.testConfigOverride.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testConfigOverrides.chainlinkVersion || github.sha }}
+          chainlink_image: ${{ matrix.tests.testConfigOverrides.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_postgres_version: ${{ matrix.tests.testConfigOverrides.chainlinkPostgresVersion }}
+          chainlink_upgrade_version: ${{ matrix.tests.testConfigOverrides.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testConfigOverrides.selectedNetworks || env.SELECTED_NETWORKS}}
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
