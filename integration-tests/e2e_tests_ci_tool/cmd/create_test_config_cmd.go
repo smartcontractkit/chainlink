@@ -38,6 +38,20 @@ var createTestConfigCmd = &cobra.Command{
 			}
 		}
 
+		var upgradeImage, upgradeVersion *string
+		if cmd.Flags().Changed(ChainlinkUpgradeImageFlag) {
+			upgradeImage = &oc.ChainlinkUpgradeImage
+		}
+		if cmd.Flags().Changed(ChainlinkUpgradeVersionFlag) {
+			upgradeVersion = &oc.ChainlinkUpgradeVersion
+		}
+		if upgradeImage != nil || upgradeVersion == nil {
+			tc.ChainlinkUpgradeImage = &ctf_config.ChainlinkImageConfig{
+				Image:   upgradeImage,
+				Version: upgradeVersion,
+			}
+		}
+
 		var selectedNetworks *[]string
 		if cmd.Flags().Changed(SelectedNetworksFlag) {
 			selectedNetworks = &oc.SelectedNetworks

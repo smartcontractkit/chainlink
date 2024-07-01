@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,14 +14,14 @@ import (
 )
 
 // Filter tests based on workflow, test type, and test IDs.
-func filterTests(tests []CITestConf, workflow, testType, ids string) []CITestConf {
+func filterTests(allTests []CITestConf, workflow, testType, ids string) []CITestConf {
 	workflowFilter := workflow
 	typeFilter := testType
 	idFilter := strings.Split(ids, ",")
 
 	var filteredTests []CITestConf
 
-	for _, test := range tests {
+	for _, test := range allTests {
 		workflowMatch := workflow == "" || contains(test.Workflows, workflowFilter)
 		typeMatch := testType == "" || test.TestType == typeFilter
 		idMatch := ids == "*" || ids == "" || contains(idFilter, test.ID)
@@ -32,6 +33,43 @@ func filterTests(tests []CITestConf, workflow, testType, ids string) []CITestCon
 	}
 
 	return filteredTests
+}
+
+func filterAndMergeTests(allTests []CITestConf, workflow, testType, base64Tests string) ([]CITestConf, error) {
+	decodedBytes, err := base64.StdEncoding.DecodeString(base64Tests)
+	if err != nil {
+		return nil, err
+	}
+	var decodedTests []CITestConf
+	err = yaml.Unmarshal(decodedBytes, &decodedTests)
+	if err != nil {
+		return nil, err
+	}
+
+	idFilter := make(map[string]CITestConf)
+	for _, dt := range decodedTests {
+		idFilter[dt.ID] = dt
+	}
+
+	var filteredTests []CITestConf
+	for _, test := range allTests {
+		workflowMatch := workflow == "" || contains(test.Workflows, workflow)
+		typeMatch := testType == "" || test.TestType == testType
+
+		if decodedTest, exists := idFilter[test.ID]; exists && workflowMatch && typeMatch {
+			// Apply config overrides
+			for k, v := range decodedTest.TestConfigOverrides {
+				if test.TestConfigOverrides == nil {
+					test.TestConfigOverrides = make(map[string]string)
+				}
+				test.TestConfigOverrides[k] = v
+			}
+			test.IDSanitized = sanitizeTestID(test.ID)
+			filteredTests = append(filteredTests, test)
+		}
+	}
+
+	return filteredTests, nil
 }
 
 func sanitizeTestID(id string) string {
@@ -63,6 +101,7 @@ Example usage:
 		workflow, _ := cmd.Flags().GetString("workflow")
 		testType, _ := cmd.Flags().GetString("test-type")
 		testIDs, _ := cmd.Flags().GetString("test-ids")
+		testMap, _ := cmd.Flags().GetString("test-map")
 
 		data, err := os.ReadFile(yamlFile)
 		if err != nil {
@@ -75,7 +114,15 @@ Example usage:
 			log.Fatalf("Error parsing YAML data: %v", err)
 		}
 
-		filteredTests := filterTests(config.Tests, workflow, testType, testIDs)
+		var filteredTests []CITestConf
+		if testMap == "" {
+			filteredTests = filterTests(config.Tests, workflow, testType, testIDs)
+		} else {
+			filteredTests, err = filterAndMergeTests(config.Tests, workflow, testType, testMap)
+			if err != nil {
+				log.Fatalf("Error filtering and merging tests: %v", err)
+			}
+		}
 		matrix := map[string][]CITestConf{"tests": filteredTests}
 		matrixJSON, err := json.Marshal(matrix)
 		if err != nil {
@@ -88,9 +135,10 @@ Example usage:
 
 func init() {
 	filterCmd.Flags().StringP("file", "f", "", "Path to the YAML file")
-	filterCmd.Flags().StringP("workflow", "t", "", "Workflow filter")
-	filterCmd.Flags().StringP("test-type", "y", "", "Type of test to filter by")
+	filterCmd.Flags().String("test-map", "", "Base64 encoded list of tests (YML objects) to filter by. Can include test-config-overrides for each test.")
 	filterCmd.Flags().StringP("test-ids", "i", "*", "Comma-separated list of test IDs to filter by")
+	filterCmd.Flags().StringP("test-type", "y", "", "Type of test to filter by")
+	filterCmd.Flags().StringP("workflow", "t", "", "Workflow filter")
 	err := filterCmd.MarkFlagRequired("file")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marking flag as required: %v\n", err)

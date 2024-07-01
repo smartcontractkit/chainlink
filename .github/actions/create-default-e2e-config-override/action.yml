@@ -9,6 +9,9 @@ inputs:
   chainlink_postgres_version:
     required: false
     description: 'Chainlink Postgres version to use for the tests'
+  chainlink_upgrade_image:
+    required: false
+    description: 'Chainlink upgrade image to use for the tests'
   chainlink_upgrade_version:
     required: false
     description: 'Chainlink upgrade version to use for the tests'
@@ -73,6 +76,9 @@ runs:
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
           cmd_args+="--chainlink-postgres-version=\"${{ inputs.chainlink_postgres_version }}\" "
+        fi
+        if [ -n "${{ inputs.chainlink_upgrade_image }}" ]; then
+          cmd_args+="--chainlink-upgrade-image=\"${{ inputs.chainlink_upgrade_image }}\" "
         fi
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
           cmd_args+="--chainlink-upgrade-version=\"${{ inputs.chainlink_upgrade_version }}\" "

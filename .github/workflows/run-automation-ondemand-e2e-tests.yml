@@ -1,0 +1,149 @@
+name: Run Automation On Demand Tests (TEST WORKFLOW)
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlinkImage:
+        description: Chainlink image repo to use (Leave empty to build from head/ref)
+        options:
+          - QA_ECR
+          - public.ecr.aws/chainlink/chainlink
+        default: QA_ECR
+        type: choice
+      chainlinkVersion:
+        description: Chainlink image version to use
+        required: false
+        default: develop
+        type: string        
+      chainlinkImageUpdate:
+        description: Chainlink image repo to use initially for upgrade test
+        required: true
+        options:
+          - QA_ECR
+          - public.ecr.aws/chainlink/chainlink
+        default: QA_ECR
+        type: choice
+      chainlinkVersionUpdate:
+        description: Chainlink image version to use initially for upgrade test
+        default: develop
+        required: true
+        type: string
+      enableChaos:
+        description: Check to enable chaos tests
+        type: boolean
+        default: false
+        required: true
+      enableReorg:
+        description: Check to enable reorg tests
+        type: boolean
+        default: false
+        required: true
+      with_existing_remote_runner_version:
+        description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        required: false
+        type: string                 
+
+jobs:
+  # Set tests to run based on the workflow inputs
+  set-tests-to-run:
+    name: Set tests to run
+    runs-on: ubuntu-latest
+    outputs:
+      test_map: ${{ steps.set-tests.outputs.test_map }}
+    steps:
+      - name: Set tests to run
+        id: set-tests
+        run: |
+          if [[ "${{ github.event.inputs.chainlinkImage }}" == 'QA_ECR' ]]; then
+            # Instead of passing chainlink image as plain text input, {{ env.QA_CHAINLINK_IMAGE }} will be securely resolved in the E2E tests reusable workflow
+            CHAINLINK_IMAGE="'{{ env.QA_CHAINLINK_IMAGE }}'"
+          elif [[ "${{ github.event.inputs.chainlinkImage }}" == 'public.ecr.aws/chainlink/chainlink' ]]; then
+            CHAINLINK_IMAGE=public.ecr.aws/chainlink/chainlink
+          else
+            echo "Error: Not supported image source '${{ github.event.inputs.chainlinkImage }}'"
+            exit 1
+          fi  
+          
+          if [[ "${{ github.event.inputs.chainlinkImageUpdate }}" == 'QA_ECR' ]]; then
+            CHAINLINK_UPGRADE_IMAGE="'{{ env.QA_CHAINLINK_IMAGE }}'"
+          elif [[ "${{ github.event.inputs.chainlinkImageUpdate }}" == 'public.ecr.aws/chainlink/chainlink' ]]; then
+            CHAINLINK_UPGRADE_IMAGE=public.ecr.aws/chainlink/chainlink
+          else
+            echo "Error: Not supported image source '${{ github.event.inputs.chainlinkImageUpdate }}'"
+            exit 1
+          fi            
+
+          CHAINLINK_VERSION="${{ inputs.chainlinkVersion || github.sha }}"
+          CHAINLINK_UPGRADE_VERSION="${{ inputs.chainlinkVersionUpdate }}"
+
+          # Always run upgrade tests 
+          cat > test_map.yaml <<EOF
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
+            test-config-overrides:
+              chainlinkImage: $CHAINLINK_IMAGE
+              chainlinkVersion: $CHAINLINK_VERSION
+              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
+              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
+
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+            test-config-overrides:
+              chainlinkImage: $CHAINLINK_IMAGE
+              chainlinkVersion: $CHAINLINK_VERSION
+              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
+              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION
+
+          - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+            test-config-overrides:
+              chainlinkImage: $CHAINLINK_IMAGE
+              chainlinkVersion: $CHAINLINK_VERSION
+              chainlinkUpgradeImage: $CHAINLINK_UPGRADE_IMAGE
+              chainlinkUpgradeVersion: $CHAINLINK_UPGRADE_VERSION              
+          EOF
+
+          # Run reorg tests if enabled
+          if [[ "${{ github.event.inputs.enableReorg }}" == 'true' ]]; then
+          cat >> test_map.yaml <<EOF
+          - id: integration-tests/reorg/automation_reorg_test.go
+            test-config-overrides:
+              chainlinkImage: $CHAINLINK_IMAGE
+              chainlinkVersion: $CHAINLINK_VERSION
+          EOF
+          fi
+
+          # Run chaos tests if enabled
+          if [[ "${{ github.event.inputs.enableChaos }}" == 'true' ]]; then
+          cat >> test_map.yaml <<EOF
+          - id: integration-tests/chaos/automation_chaos_test.go
+            test-config-overrides:
+              chainlinkImage: $CHAINLINK_IMAGE
+              chainlinkVersion: $CHAINLINK_VERSION
+          EOF
+          fi
+
+          echo "chainlink_version=$CHAINLINK_VERSION" >> $GITHUB_OUTPUT
+          echo "test_map=$(cat test_map.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
+
+  call-run-e2e-tests-workflow:
+    name: Run E2E Tests
+    needs: set-tests-to-run
+    uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
+    with:
+      chainlink_version: ${{ needs.set-tests-to-run.outputs.chainlink_version }}
+      test_map: ${{ needs.set-tests-to-run.outputs.test_map }}
+      with_existing_remote_runner_version: ${{ github.event.inputs.with_existing_remote_runner_version }}
+    secrets:
+      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+      QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
+      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}        
+

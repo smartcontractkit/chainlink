@@ -48,11 +48,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
-    test-config-override:
-      chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
-      chainlink-upgrade-version: develop
-      chainlink-image: public.ecr.aws/chainlink/chainlink
-      chainlink-version: latest
+    test-config-overrides:
+      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
+      chainlinkUpgradeVersion: latest
+      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
@@ -62,11 +62,11 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests    
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-override:
-      chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
-      chainlink-upgrade-version: develop
-      chainlink-image: public.ecr.aws/chainlink/chainlink
-      chainlink-version: latest
+    test-config-overrides:
+      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
+      chainlinkUpgradeVersion: latest
+      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
@@ -76,14 +76,34 @@ runner-test-matrix:
     workflows:
       - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
-    test-config-override:
-      chainlink-upgrade-image: ${{ env.CHAINLINK_IMAGE }}
-      chainlink-upgrade-version: develop
-      chainlink-image: public.ecr.aws/chainlink/chainlink
-      chainlink-version: latest
+    test-config-overrides:
+      chainlinkUpgradeImage: public.ecr.aws/chainlink/chainlink 
+      chainlinkUpgradeVersion: latest
+      chainlinkImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
   # END Automation upgrade tests
+
+  - id: integration-tests/reorg/automation_reorg_test.go
+    path: integration-tests/reorg/automation_reorg_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: reorg
+    runs-on: ubuntu-latest
+    workflows:
+      # - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=5 -timeout 60m -count=1
+    pyroscope-env: ci-automation-on-demand-reorg
+
+  - id: integration-tests/chaos/automation_chaos_test.go
+    path: integration-tests/chaos/automation_chaos_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: chaos
+    runs-on: ubuntu-latest
+    workflows:
+      # - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1
+    pyroscope-env: ci-automation-on-demand-chaos
 
   # Example of a configuration for running a single soak test in Kubernetes Remote Runner
   - id: soak/ocr_test.go:^TestOCRv1Soak$

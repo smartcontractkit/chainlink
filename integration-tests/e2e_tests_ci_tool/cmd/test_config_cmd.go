@@ -18,6 +18,8 @@ var testConfigCmd = &cobra.Command{
 type OverrideConfig struct {
 	ChainlinkImage                           string
 	ChainlinkVersion                         string
+	ChainlinkUpgradeImage                    string
+	ChainlinkUpgradeVersion                  string
 	ChainlinkPostgresVersion                 string
 	SelectedNetworks                         []string
 	PyroscopeEnabled                         bool
@@ -41,6 +43,8 @@ type OverrideConfig struct {
 const (
 	ChainlinkImageFlag                          = "chainlink-image"
 	ChainlinkVersionFlag                        = "chainlink-version"
+	ChainlinkUpgradeImageFlag                   = "chainlink-upgrade-image"
+	ChainlinkUpgradeVersionFlag                 = "chainlink-upgrade-version"
 	ChainlinkPostgresVersionFlag                = "chainlink-postgres-version"
 	SelectedNetworksFlag                        = "selected-networks"
 	FromBase64ConfigFlag                        = "from-base64-config"
@@ -70,6 +74,8 @@ func init() {
 		c.Flags().StringArrayVar(&oc.SelectedNetworks, SelectedNetworksFlag, nil, "Selected networks")
 		c.Flags().StringVar(&oc.ChainlinkImage, ChainlinkImageFlag, "", "Chainlink image")
 		c.Flags().StringVar(&oc.ChainlinkVersion, ChainlinkVersionFlag, "", "Chainlink version")
+		c.Flags().StringVar(&oc.ChainlinkUpgradeImage, ChainlinkUpgradeImageFlag, "", "Chainlink upgrade image")
+		c.Flags().StringVar(&oc.ChainlinkUpgradeVersion, ChainlinkUpgradeVersionFlag, "", "Chainlink upgrade version")
 		c.Flags().StringVar(&oc.ChainlinkPostgresVersion, ChainlinkPostgresVersionFlag, "", "Chainlink Postgres version")
 		c.Flags().BoolVar(&oc.PyroscopeEnabled, PyroscopeEnabledFlag, false, "Pyroscope enabled")
 		c.Flags().StringVar(&oc.PyroscopeServerURL, PyroscopeServerURLFlag, "", "Pyroscope server URL")
@@ -101,6 +107,8 @@ func init() {
 			// Resolve all other environment variables
 			oc.ChainlinkImage = mustResolveEnvPlaceholder(oc.ChainlinkImage)
 			oc.ChainlinkVersion = mustResolveEnvPlaceholder(oc.ChainlinkVersion)
+			oc.ChainlinkUpgradeImage = mustResolveEnvPlaceholder(oc.ChainlinkUpgradeImage)
+			oc.ChainlinkUpgradeVersion = mustResolveEnvPlaceholder(oc.ChainlinkUpgradeVersion)
 			oc.ChainlinkPostgresVersion = mustResolveEnvPlaceholder(oc.ChainlinkPostgresVersion)
 			oc.PyroscopeServerURL = mustResolveEnvPlaceholder(oc.PyroscopeServerURL)
 			oc.PyroscopeKey = mustResolveEnvPlaceholder(oc.PyroscopeKey)
@@ -134,7 +142,7 @@ func mustResolveEnvPlaceholder(input string) string {
 }
 
 func lookupEnvVarName(input string) (string, bool) {
-	re := regexp.MustCompile(`^\${{ env\.([a-zA-Z_]+) }}$`)
+	re := regexp.MustCompile(`^{{ env\.([a-zA-Z_]+) }}$`)
 	matches := re.FindStringSubmatch(input)
 	if len(matches) > 1 {
 		return matches[1], true
