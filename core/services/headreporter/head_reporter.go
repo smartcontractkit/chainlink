@@ -38,8 +38,8 @@ type (
 )
 
 func NewHeadReporterService(config config.HeadReport, ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, monitoringEndpointGen telemetry.MonitoringEndpointGenerator, opts ...interface{}) *HeadReporterService {
-	reporters := make([]HeadReporter, 2)
-	reporters = append(reporters, NewPrometheusReporter(ds, chainContainer, opts))
+	reporters := make([]HeadReporter, 1, 2)
+	reporters[0] = NewPrometheusReporter(ds, chainContainer, lggr, opts)
 	if config.TelemetryEnabled() {
 		reporters = append(reporters, NewTelemetryReporter(chainContainer, lggr, monitoringEndpointGen))
 	}
@@ -52,6 +52,8 @@ func NewHeadReporterServiceWithReporters(ds sqlutil.DataSource, chainContainer l
 		switch v := opt.(type) {
 		case time.Duration:
 			reportPeriod = v
+		default:
+			lggr.Debugf("Unknown opt type '%T' passed to HeadReporterService", v)
 		}
 	}
 	chStop := make(chan struct{})

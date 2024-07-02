@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (
@@ -59,12 +60,14 @@ var (
 	})
 )
 
-func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, opts ...interface{}) HeadReporter {
+func NewPrometheusReporter(ds sqlutil.DataSource, chainContainer legacyevm.LegacyChainContainer, lggr logger.Logger, opts ...interface{}) HeadReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case PrometheusBackend:
 			backend = v
+		default:
+			lggr.Debugf("Unknown opt type '%T' passed to PrometheusReporter", v)
 		}
 	}
 	return &prometheusReporter{
