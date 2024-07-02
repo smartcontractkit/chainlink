@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,11 +115,13 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":             ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		//"registry_2_0":             ethereum.RegistryVersion_2_0,
+		//"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		//"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
-		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		//"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_3_conditional": ethereum.RegistryVersion_2_3,
+		//"registry_2_3_logtrigger":  ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -192,12 +195,17 @@ func TestAutomationReorg(t *testing.T) {
 			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
+			wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+			require.NoError(t, err, "Error deploying weth token contract")
+
+			defaultOCRRegistryConfig.RegistryVersion = registryVersion
 			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
 				chainClient,
 				registryVersion,
 				defaultOCRRegistryConfig,
 				linkToken,
+				wethToken,
 			)
 
 			// Fund the registry with LINK
@@ -206,7 +214,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
-			defaultOCRRegistryConfig.RegistryVersion = registryVersion
+
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
 			require.NoError(t, err, "OCR2 config should be built successfully")
 			if registryVersion == ethereum.RegistryVersion_2_0 {
@@ -214,10 +222,10 @@ func TestAutomationReorg(t *testing.T) {
 			} else {
 				err = registry.SetConfigTypeSafe(ocrConfig)
 			}
-			require.NoError(t, err, "Registry config should be be set successfully")
+			require.NoError(t, err, "Registry config should be set successfully")
 
 			// Use the name to determine if this is a log trigger or not
-			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
+			isLogTrigger := strings.Contains(name, "logtrigger")
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				chainClient,
@@ -230,7 +238,7 @@ func TestAutomationReorg(t *testing.T) {
 				isLogTrigger,
 				false,
 				false,
-				nil,
+				wethToken,
 			)
 
 			if isLogTrigger {

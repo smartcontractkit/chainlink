@@ -356,9 +356,16 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 				return
 			}
 
+			l.Info().
+				Str("registrar.Address()", registrar.Address()).
+				Str("fundsForEachUpkeep", fundsForEachUpkeep.String()).
+				Msg("Found upkeepId in tx hash")
+			l.Info().Msg("=======do you ever come to this keeper_helpers.go,yes")
+
 			tx, err = linkToken.TransferAndCallFromKey(registrar.Address(), fundsForEachUpkeep, req, keyNum)
+			// TODO this is the error
 			if err != nil {
-				errorCh <- errors.Wrapf(err, "[id: %s] Failed to register upkeep at %s", id, config.address)
+				errorCh <- errors.Wrapf(err, "[id: %s] Failed to register upkeep at@@ %s", id, config.address)
 				return
 			}
 		}

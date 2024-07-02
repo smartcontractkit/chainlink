@@ -69,7 +69,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	var offchainConfigVersion uint64
 	var offchainConfig []byte
 
-	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
+	if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_1 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 || registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
 		offC, err = json.Marshal(ocr2keepers30config.OffchainConfig{
 			TargetProbability:    "0.999",
 			TargetInRounds:       1,
@@ -169,6 +169,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		ocrConfig.TypedOnchainConfig21 = registryConfig.Create21OnchainConfig(registrar, registryOwnerAddress)
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
+		l.Info().Msg("=====================Done building OCR v23 config")
+		ocrConfig.TypedOnchainConfig23 = registryConfig.Create23OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	}
 
 	l.Info().Msg("Done building OCR config")
@@ -191,14 +194,14 @@ func CreateOCRKeeperJobs(
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
 
 	var contractVersion string
-	if registryVersion == ethereum.RegistryVersion_2_2 {
+	if registryVersion == ethereum.RegistryVersion_2_2 || registryVersion == ethereum.RegistryVersion_2_3 {
 		contractVersion = "v2.1+"
 	} else if registryVersion == ethereum.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	} else if registryVersion == ethereum.RegistryVersion_2_0 {
 		contractVersion = "v2.0"
 	} else {
-		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, and v2.2 are the only supported versions, but got something else: %v (iota)", registryVersion))
+		require.FailNow(t, fmt.Sprintf("v2.0, v2.1, v2.2 and v2.3 are the only supported versions, but got something else: %v (iota)", registryVersion))
 	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
@@ -265,9 +268,10 @@ func DeployAutoOCRRegistryAndRegistrar(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken)
-	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken)
+	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken)
+	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken, wethToken)
 
 	return registry, registrar
 }
@@ -373,35 +377,81 @@ func DeployMultiCallAndFundDeploymentAddresses(
 	return SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
 }
 
+// TODO reorg
 func deployRegistrar(
 	t *testing.T,
 	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registry contracts.KeeperRegistry,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
 ) contracts.KeeperRegistrar {
 	registrarSettings := contracts.KeeperRegistrarSettings{
 		AutoApproveConfigType: 2,
 		AutoApproveMaxAllowed: math.MaxUint16,
 		RegistryAddr:          registry.Address(),
 		MinLinkJuels:          big.NewInt(0),
+		WETHTokenAddr:         wethToken.Address(),
 	}
 	registrar, err := contracts.DeployKeeperRegistrar(client, registryVersion, linkToken.Address(), registrarSettings)
 	require.NoError(t, err, "Deploying KeeperRegistrar contract shouldn't fail")
 	return registrar
 }
 
+//func (a *AutomationTest) DeployRegistrar() error {
+//	if a.Registry == nil {
+//		return fmt.Errorf("registry must be deployed or loaded before registrar")
+//	}
+//	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
+//	a.RegistrarSettings.WETHTokenAddr = a.WETHToken.Address()
+//	registrar, err := contracts.DeployKeeperRegistrar(a.ChainClient, a.RegistrySettings.RegistryVersion, a.LinkToken.Address(), a.RegistrarSettings)
+//	if err != nil {
+//		return err
+//	}
+//	a.Registrar = registrar
+//	return nil
+//}
+
+// TODO remove
+//func (a *AutomationTest) DeployRegistry() error {
+//	registryOpts := &contracts.KeeperRegistryOpts{
+//		RegistryVersion:   a.RegistrySettings.RegistryVersion,
+//		LinkAddr:          a.LinkToken.Address(),
+//		ETHFeedAddr:       a.EthLinkFeed.Address(),
+//		GasFeedAddr:       a.GasFeed.Address(),
+//		TranscoderAddr:    a.Transcoder.Address(),
+//		RegistrarAddr:     utils.ZeroAddress.Hex(),
+//		Settings:          a.RegistrySettings,
+//		LinkUSDFeedAddr:   a.EthUSDFeed.Address(),
+//		NativeUSDFeedAddr: a.EthUSDFeed.Address(),
+//		WrappedNativeAddr: a.WETHToken.Address(),
+//	}
+//	registry, err := contracts.DeployKeeperRegistry(a.ChainClient, registryOpts)
+//	if err != nil {
+//		return err
+//	}
+//	a.Registry = registry
+//	return nil
+//}
+
+// TODO
 func deployRegistry(
 	t *testing.T,
 	client *seth.Client,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
 ) contracts.KeeperRegistry {
 	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
+
+	//l := logging.GetTestLogger(t)
+	// This feed is used for both eth/usd and link/usd
+	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(client, registrySettings.FallbackLinkPrice)
+	require.NoError(t, err, "Error deploying eth usd feed contract")
 
 	// Deploy the transcoder here, and then set it to the registry
 	transcoder, err := contracts.DeployUpkeepTranscoder(client)
@@ -410,13 +460,16 @@ func deployRegistry(
 	registry, err := contracts.DeployKeeperRegistry(
 		client,
 		&contracts.KeeperRegistryOpts{
-			RegistryVersion: registryVersion,
-			LinkAddr:        linkToken.Address(),
-			ETHFeedAddr:     ef.Address(),
-			GasFeedAddr:     gf.Address(),
-			TranscoderAddr:  transcoder.Address(),
-			RegistrarAddr:   ZeroAddress.Hex(),
-			Settings:        registrySettings,
+			RegistryVersion:   registryVersion,
+			LinkAddr:          linkToken.Address(),
+			ETHFeedAddr:       ef.Address(),
+			GasFeedAddr:       gf.Address(),
+			TranscoderAddr:    transcoder.Address(),
+			RegistrarAddr:     ZeroAddress.Hex(),
+			Settings:          registrySettings,
+			LinkUSDFeedAddr:   ethUSDFeed.Address(),
+			NativeUSDFeedAddr: ethUSDFeed.Address(),
+			WrappedNativeAddr: wethToken.Address(),
 		},
 	)
 	require.NoError(t, err, "Deploying KeeperRegistry contract shouldn't fail")

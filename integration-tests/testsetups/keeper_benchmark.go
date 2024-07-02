@@ -730,7 +730,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
 		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
+			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, nil,
 		)
 
 		// Fund the registry with LINK

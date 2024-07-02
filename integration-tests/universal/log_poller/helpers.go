@@ -1072,6 +1072,9 @@ func SetupLogPollerTestDocker(
 	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 	require.NoError(t, err, "Error deploying LINK token")
 
+	wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying weth token contract")
+
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
 
@@ -1088,6 +1091,7 @@ func SetupLogPollerTestDocker(
 		registryVersion,
 		registryConfig,
 		linkToken,
+		wethToken,
 	)
 
 	// Fund the registry with LINK
