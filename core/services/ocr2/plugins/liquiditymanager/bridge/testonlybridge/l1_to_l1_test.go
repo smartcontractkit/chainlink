@@ -728,7 +728,7 @@ func TestNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.expect(t, tt.args)
 			defer tt.assert(t, tt.args)
-			got, err := New(tt.args.sourceSelector, tt.args.destSelector, tt.args.sourceLiquidityManagerAddress, tt.args.destLiquidityManagerAddress, tt.args.sourceAdapter, tt.args.destAdapter, tt.args.sourceLogPoller, tt.args.destLogPoller, tt.args.sourceClient, tt.args.destClient, tt.args.lggr)
+			got, err := New(testutils.Context(t), tt.args.sourceSelector, tt.args.destSelector, tt.args.sourceLiquidityManagerAddress, tt.args.destLiquidityManagerAddress, tt.args.sourceAdapter, tt.args.destAdapter, tt.args.sourceLogPoller, tt.args.destLogPoller, tt.args.sourceClient, tt.args.destClient, tt.args.lggr)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

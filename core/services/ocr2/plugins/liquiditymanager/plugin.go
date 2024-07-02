@@ -507,7 +507,7 @@ func (p *Plugin) loadPendingTransfers(ctx context.Context, lggr logger.Logger) (
 	}
 	for _, edge := range edges {
 		logger := lggr.With("sourceNetwork", edge.Source, "sourceChainID", edge.Source.ChainID(), "destNetwork", edge.Dest, "destChainID", edge.Dest.ChainID())
-		bridge, err := p.bridgeFactory.NewBridge(edge.Source, edge.Dest)
+		bridge, err := p.bridgeFactory.NewBridge(ctx, edge.Source, edge.Dest)
 		if err != nil {
 			return nil, fmt.Errorf("init bridge: %w", err)
 		}
@@ -607,7 +607,7 @@ func (p *Plugin) computeResolvedTransfersQuorum(observations []models.Observatio
 			}
 			medianizedNativeFee := rebalcalc.BigIntSortedMiddle(bridgeFees)
 			medianizedDateUnix := rebalcalc.BigIntSortedMiddle(datesUnix)
-			bridge, err := p.bridgeFactory.NewBridge(k.From, k.To)
+			bridge, err := p.bridgeFactory.GetBridge(k.From, k.To)
 			if err != nil {
 				return nil, fmt.Errorf("init bridge: %w", err)
 			}
@@ -650,7 +650,7 @@ func (p *Plugin) resolveProposedTransfers(ctx context.Context, lggr logger.Logge
 
 	resolvedTransfers := make([]models.Transfer, 0, len(outcome.ProposedTransfers))
 	for _, proposedTransfer := range outcome.ProposedTransfers {
-		bridge, err := p.bridgeFactory.NewBridge(proposedTransfer.From, proposedTransfer.To)
+		bridge, err := p.bridgeFactory.NewBridge(ctx, proposedTransfer.From, proposedTransfer.To)
 		if err != nil {
 			return nil, fmt.Errorf("init bridge: %w", err)
 		}

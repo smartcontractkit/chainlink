@@ -51,13 +51,13 @@ type testBridge struct {
 }
 
 func New(
+	ctx context.Context,
 	sourceSelector, destSelector models.NetworkSelector,
 	sourceLiquidityManagerAddress, destLiquidityManagerAddress, sourceAdapter, destAdapter models.Address,
 	sourceLogPoller, destLogPoller logpoller.LogPoller,
 	sourceClient, destClient client.Client,
 	lggr logger.Logger,
 ) (*testBridge, error) {
-	ctx := context.Background()
 	err := sourceLogPoller.RegisterFilter(
 		ctx,
 		logpoller.Filter{

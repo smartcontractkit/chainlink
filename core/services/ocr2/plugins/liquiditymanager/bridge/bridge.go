@@ -60,7 +60,8 @@ type Bridge interface {
 
 //go:generate mockery --name Factory --output ./mocks --filename bridge_factory_mock.go --case=underscore
 type Factory interface {
-	NewBridge(source, dest models.NetworkSelector) (Bridge, error)
+	NewBridge(ctx context.Context, source, dest models.NetworkSelector) (Bridge, error)
+	GetBridge(source, dest models.NetworkSelector) (Bridge, error)
 }
 
 type Opt func(c *factory)
@@ -106,7 +107,7 @@ func WithEvmDep(
 	}
 }
 
-func (f *factory) NewBridge(source, dest models.NetworkSelector) (Bridge, error) {
+func (f *factory) NewBridge(ctx context.Context, source, dest models.NetworkSelector) (Bridge, error) {
 	if source == dest {
 		return nil, fmt.Errorf("no bridge between the same network and itself: %d", source)
 	}
@@ -114,12 +115,12 @@ func (f *factory) NewBridge(source, dest models.NetworkSelector) (Bridge, error)
 	bridge, err := f.GetBridge(source, dest)
 	if errors.Is(err, ErrBridgeNotFound) {
 		f.lggr.Infow("Bridge not found, initializing new bridge", "source", source, "dest", dest)
-		return f.initBridge(source, dest)
+		return f.initBridge(ctx, source, dest)
 	}
 	return bridge, err
 }
 
-func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error) {
+func (f *factory) initBridge(ctx context.Context, source, dest models.NetworkSelector) (Bridge, error) {
 	f.lggr.Debugw("Initializing bridge", "source", source, "dest", dest)
 
 	var bridge Bridge
@@ -155,6 +156,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 			"l2BridgeAdapter", l2BridgeAdapter,
 		)
 		bridge, err = arb.NewL2ToL1Bridge(
+			ctx,
 			f.lggr,
 			source,
 			dest,
@@ -198,6 +200,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 			"l2BridgeAdapter", l2BridgeAdapter,
 		)
 		bridge, err = opstack.NewL2ToL1Bridge(
+			ctx,
 			f.lggr,
 			source,
 			dest,
@@ -245,6 +248,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 				"l1BridgeAdapter", l1BridgeAdapter,
 			)
 			bridge, err = arb.NewL1ToL2Bridge(
+				ctx,
 				f.lggr,
 				source,
 				dest,
@@ -267,6 +271,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 				"l1BridgeAdapter", l1BridgeAdapter,
 			)
 			bridge, err = opstack.NewL1ToL2Bridge(
+				ctx,
 				f.lggr,
 				source,
 				dest,
@@ -310,6 +315,7 @@ func (f *factory) initBridge(source, dest models.NetworkSelector) (Bridge, error
 			return nil, fmt.Errorf("bridge adapter not found for dest selector %d in deps for selector %d", dest, source)
 		}
 		bridge, err = testonlybridge.New(
+			ctx,
 			source,
 			dest,
 			sourceDeps.liquidityManagerAddress,

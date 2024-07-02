@@ -47,6 +47,7 @@ type l1ToL2Bridge struct {
 }
 
 func NewL1ToL2Bridge(
+	ctx context.Context,
 	lggr logger.Logger,
 	localSelector,
 	remoteSelector models.NetworkSelector,
@@ -77,8 +78,6 @@ func NewL1ToL2Bridge(
 		"",
 	)
 
-	// TODO: FIXME pass valid context
-	ctx := context.Background()
 	err := l1LogPoller.RegisterFilter(ctx, logpoller.Filter{
 		Addresses: []common.Address{l1LiquidityManagerAddress}, // emits LiquidityTransferred
 		Name:      l1FilterName,
