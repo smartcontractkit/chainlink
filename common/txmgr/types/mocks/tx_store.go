@@ -196,6 +196,36 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	return r0
 }
 
+// FindConfirmedTxesAwaitingFinalization provides a mock function with given fields: ctx, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindConfirmedTxesAwaitingFinalization")
+	}
+
+	var r0 []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) ([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID) []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindEarliestUnconfirmedBroadcastTime provides a mock function with given fields: ctx, chainID
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindEarliestUnconfirmedBroadcastTime(ctx context.Context, chainID CHAIN_ID) (null.Time, error) {
 	ret := _m.Called(ctx, chainID)
@@ -848,34 +878,6 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HasInProgre
 	return r0, r1
 }
 
-// IsTxFinalized provides a mock function with given fields: ctx, blockHeight, txID, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsTxFinalized(ctx context.Context, blockHeight int64, txID int64, chainID CHAIN_ID) (bool, error) {
-	ret := _m.Called(ctx, blockHeight, txID, chainID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for IsTxFinalized")
-	}
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) (bool, error)); ok {
-		return rf(ctx, blockHeight, txID, chainID)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, CHAIN_ID) bool); ok {
-		r0 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, CHAIN_ID) error); ok {
-		r1 = rf(ctx, blockHeight, txID, chainID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // LoadTxAttempts provides a mock function with given fields: ctx, etx
 func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) LoadTxAttempts(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	ret := _m.Called(ctx, etx)
@@ -978,17 +980,17 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) PruneUnstar
 	return r0, r1
 }
 
-// ReapTxHistory provides a mock function with given fields: ctx, minBlockNumberToKeep, timeThreshold, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error {
-	ret := _m.Called(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+// ReapTxHistory provides a mock function with given fields: ctx, timeThreshold, chainID
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ReapTxHistory(ctx context.Context, timeThreshold time.Time, chainID CHAIN_ID) error {
+	ret := _m.Called(ctx, timeThreshold, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ReapTxHistory")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, time.Time, CHAIN_ID) error); ok {
-		r0 = rf(ctx, minBlockNumberToKeep, timeThreshold, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, CHAIN_ID) error); ok {
+		r0 = rf(ctx, timeThreshold, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -1223,6 +1225,24 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxUns
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], *txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error); ok {
 		r0 = rf(ctx, etx, attempt)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateTxesFinalized provides a mock function with given fields: ctx, etxs, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxesFinalized(ctx context.Context, etxs []int64, chainId CHAIN_ID) error {
+	ret := _m.Called(ctx, etxs, chainId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateTxesFinalized")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []int64, CHAIN_ID) error); ok {
+		r0 = rf(ctx, etxs, chainId)
 	} else {
 		r0 = ret.Error(0)
 	}

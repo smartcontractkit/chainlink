@@ -74,6 +74,7 @@ ok EVM.1.Txm
 ok EVM.1.Txm.BlockHistoryEstimator
 ok EVM.1.Txm.Broadcaster
 ok EVM.1.Txm.Confirmer
+ok EVM.1.Txm.Finalizer
 ok EVM.1.Txm.WrappedEvmEstimator
 ok JobSpawner
 ok Mailbox.Monitor
@@ -203,6 +204,15 @@ ok TelemetryManager
       "id": "EVM.1.Txm.Confirmer",
       "attributes": {
         "name": "EVM.1.Txm.Confirmer",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "EVM.1.Txm.Finalizer",
+      "attributes": {
+        "name": "EVM.1.Txm.Finalizer",
         "status": "passing",
         "output": ""
       }

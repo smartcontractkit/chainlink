@@ -1100,6 +1100,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 		"txID", etx.ID,
 		"attemptID", attempt.ID,
 		"nReceipts", len(attempt.Receipts),
+		"finalized", etx.Finalized,
 		"id", "confirmer",
 	}
 

@@ -2828,6 +2828,50 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
 		assert.Len(t, attempt.Receipts, 1)
 	})
+
+	t.Run("unconfirms, unfinalizes, and rebroadcasts finalized transactions that have receipts within head height of the chain but not included in the chain", func(t *testing.T) {
+		nonce := evmtypes.Nonce(8)
+		broadcast := time.Now()
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+			Finalized:          true,
+		}
+		err := txStore.InsertTx(ctx, tx)
+		require.NoError(t, err)
+		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
+		require.NoError(t, err)
+		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		broadcastBeforeBlockNum := int64(1)
+		attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
+		attempt.State = txmgrtypes.TxAttemptBroadcast
+		err = txStore.InsertTxAttempt(ctx, &attempt)
+		require.NoError(t, err)
+		// Include one within head height but a different block hash
+		mustInsertEthReceipt(t, txStore, head.Parent.Number, testutils.NewHash(), attempt.Hash)
+
+		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			atx, signErr := txmgr.GetGethSignedTx(attempt.SignedRawTx)
+			require.NoError(t, signErr)
+			// Keeps gas price and nonce the same
+			return atx.GasPrice().Cmp(tx.GasPrice()) == 0 && atx.Nonce() == tx.Nonce()
+		}), fromAddress).Return(commonclient.Successful, nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+
+		etx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
+		require.NoError(t, err)
+		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx.State)
+		require.Len(t, etx.TxAttempts, 1)
+		attempt = etx.TxAttempts[0]
+		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, attempt.State)
+		assert.Equal(t, false, etx.Finalized)
+	})
 }
 
 func TestEthConfirmer_ForceRebroadcast(t *testing.T) {

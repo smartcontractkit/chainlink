@@ -16,7 +16,6 @@ import (
 // Reaper handles periodic database cleanup for Txm
 type Reaper[CHAIN_ID types.ID] struct {
 	store          txmgrtypes.TxHistoryReaper[CHAIN_ID]
-	config         txmgrtypes.ReaperChainConfig
 	txConfig       txmgrtypes.ReaperTransactionsConfig
 	chainID        CHAIN_ID
 	log            logger.Logger
@@ -27,10 +26,9 @@ type Reaper[CHAIN_ID types.ID] struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], config txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
+func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], txConfig txmgrtypes.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
 	r := &Reaper[CHAIN_ID]{
 		store,
-		config,
 		txConfig,
 		chainID,
 		logger.Named(lggr, "Reaper"),
@@ -106,13 +104,12 @@ func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
 		r.log.Debug("Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
 	}
-	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 
-	r.log.Debugw(fmt.Sprintf("reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
+	r.log.Debugw(fmt.Sprintf("reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold)
 
-	if err := r.store.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
+	if err := r.store.ReapTxHistory(ctx, timeThreshold, r.chainID); err != nil {
 		return err
 	}
 

@@ -40,7 +40,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	ec := evmtest.NewEthClientMockWithDefaultChain(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil, nil)
 
 	return txm
 }
