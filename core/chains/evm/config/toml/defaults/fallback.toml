@@ -82,3 +82,5 @@ ObservationGracePeriod = '1s'
 
 [OCR2.Automation]
 GasLimit = 5400000
+BlockRate = 1
+LogLimit = 2

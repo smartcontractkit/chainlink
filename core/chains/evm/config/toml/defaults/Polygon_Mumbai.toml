@@ -24,3 +24,4 @@ HistoryDepth = 2000
 
 [NodePool]
 SyncThreshold = 10
+

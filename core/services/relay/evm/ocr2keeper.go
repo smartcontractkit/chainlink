@@ -89,7 +89,9 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 		return nil, err
 	}
 
-	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
+	automationConfig := cfgWatcher.chain.Config().EVM().OCR2().Automation()
+
+	gasLimit := automationConfig.GasLimit()
 	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ethKeystore, cfgWatcher, configTransmitterOpts{pluginGasLimit: &gasLimit}, OCR2AggregatorTransmissionContractABI, 0)
 	if err != nil {
 		return nil, err
@@ -126,7 +128,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs commontypes.RelayArgs, p
 	scanner := upkeepstate.NewPerformedEventsScanner(r.lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepStateStore = upkeepstate.NewUpkeepStateStore(orm, r.lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, client.ID())
+	logProvider, logRecoverer := logprovider.New(r.lggr, client.LogPoller(), client.Client(), services.upkeepStateStore, finalityDepth, client.ID(), automationConfig.BlockRate(), automationConfig.LogLimit())
 	services.logEventProvider = logProvider
 	services.logRecoverer = logRecoverer
 	blockSubscriber := evm.NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, r.lggr)

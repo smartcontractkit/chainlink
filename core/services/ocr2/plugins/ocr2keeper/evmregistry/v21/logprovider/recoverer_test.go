@@ -34,7 +34,7 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx := testutils.Context(t)
 	lp := &lpmocks.LogPoller{}
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
-	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
+	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200, 1, 20, big.NewInt(1)))
 
 	tests := []struct {
 		name    string
@@ -1152,7 +1152,7 @@ func TestLogRecoverer_pending(t *testing.T) {
 				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
 			}()
 
-			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200, big.NewInt(1)))
+			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200, 1, 20, big.NewInt(1)))
 			r.lock.Lock()
 			r.pending = tc.exist
 			for i, p := range tc.new {
@@ -1233,7 +1233,7 @@ func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int
 	lp := new(lpmocks.LogPoller)
 	statesReader := new(mocks.UpkeepStateReader)
 	filterStore := NewUpkeepFilterStore()
-	opts := NewOptions(lookbackBlocks, big.NewInt(1))
+	opts := NewOptions(lookbackBlocks, 1, 20, big.NewInt(1))
 	opts.ReadInterval = interval / 5
 	opts.LookbackBlocks = lookbackBlocks
 	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)

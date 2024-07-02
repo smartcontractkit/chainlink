@@ -138,10 +138,10 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 	logLimit := cfg.LogLimit
 
 	if blockRate == 0 {
-		blockRate = p.opts.defaultBlockRate()
+		blockRate = p.opts.BlockRate
 	}
 	if logLimit == 0 {
-		logLimit = p.opts.defaultLogLimit()
+		logLimit = p.opts.LogLimit
 	}
 
 	p.lggr.With("where", "setConfig").Infow("setting config ", "bockRate", blockRate, "logLimit", logLimit)
