@@ -100,30 +100,28 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			var val *big.Int
 
 			stream, exists := d.registry.Get(streamID)
-			if exists {
-				run, trrs, err := stream.Run(ctx)
-				if err != nil {
-					errmu.Lock()
-					errors = append(errors, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "pipeline run failed"})
-					errmu.Unlock()
-					promObservationErrorCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
-					return
-				} else {
-					// TODO: support types other than *big.Int
-					// https://smartcontract-it.atlassian.net/browse/MERC-3525
-					val, err = streams.ExtractBigInt(trrs)
-					if err != nil {
-						errmu.Lock()
-						errors = append(errors, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "failed to extract big.Int"})
-						errmu.Unlock()
-						return
-					}
-				}
-			} else {
+			if !exists {
 				errmu.Lock()
 				errors = append(errors, ErrObservationFailed{streamID: streamID, reason: fmt.Sprintf("missing stream: %d", streamID)})
 				errmu.Unlock()
 				promMissingStreamCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
+				return
+			}
+			run, trrs, err := stream.Run(ctx)
+			if err != nil {
+				errmu.Lock()
+				errors = append(errors, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "pipeline run failed"})
+				errmu.Unlock()
+				promObservationErrorCount.WithLabelValues(fmt.Sprintf("%d", streamID)).Inc()
+				return
+			}
+			// TODO: support types other than *big.Int
+			// https://smartcontract-it.atlassian.net/browse/MERC-3525
+			val, err = streams.ExtractBigInt(trrs)
+			if err != nil {
+				errmu.Lock()
+				errors = append(errors, ErrObservationFailed{inner: err, run: run, streamID: streamID, reason: "failed to extract big.Int"})
+				errmu.Unlock()
 				return
 			}
 
