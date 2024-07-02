@@ -12,8 +12,6 @@ services:
     # parity/geth node to be prefunded with eth.
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
-    environment:
-      - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env
     ports:
@@ -32,8 +30,6 @@ services:
       dockerfile: core/chainlink.Dockerfile
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
-    environment:
-      - CL_DATABASE_URL
     env_file:
       - chainlink-variables.env
     ports:
@@ -43,10 +39,6 @@ services:
       - apicredentials
       - keystore
       - config
-
-# TODO
-# - replace clroot with secrets
-# - extract tools into separate docker-compose files
 
 secrets:
   node_password:

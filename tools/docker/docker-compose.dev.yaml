@@ -1,13 +1,7 @@
 version: '3.8'
 services:
-  cldev:
-    entrypoint: '/bin/sh -c "while sleep 1000; do :; done"'
-    build:
-      context: ../../
-      dockerfile: tools/docker/cldev.Dockerfile
-      args:
-        - SRCROOT
-    command: ''
-    image: smartcontract/chainlink-dev
-    volumes:
-      - ../..:$SRCROOT
+  node:
+    develop:
+      watch:
+        - action: rebuild
+          path: ../../core

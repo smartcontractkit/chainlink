@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-set -ex
+#!/bin/sh
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
@@ -12,32 +11,26 @@ else
   base_files="$base_files -f docker-compose.paritynet.yaml"
 fi
 
-base="docker-compose $base_files"      # base config, used standalone for acceptance
-dev="$base -f docker-compose.dev.yaml" # config for cldev
+base="docker-compose $base_files"
+dev="$base -f docker-compose.dev.yaml"
 
 clean_docker() {
   $base down -v --remove-orphans
   $dev down -v --remove-orphans
 }
 
-function usage() {
+usage() {
   echo "compose -- A helper script for running common docker-compose commands\
 
 Commands:
     help                  Displays this help menu
     clean                 Remove any containers and volumes related to compose files
     logs                  Display the logs of any service(s) by name
-
-    cld                   Runs the chainlink node container in dev mode
-
-    acceptance            Run the services required to perform an acceptance test
-
-    dev                   Run docker-compose with dev config for the core node 
-
-    eth:restart             Reset blockchain data to genesis state
-    cl:restart              Reset chainlink database
-
-    *                     Run docker-compose with base config"
+    dev                   Runs the chainlink node container in dev mode
+    connect               Connect to chainlink node container
+    up                    Run the chainlink cluster with base config
+    eth:restart           Reset blockchain data to genesis state
+    cl:restart            Reset chainlink database"
 }
 
 case "$1" in
@@ -50,21 +43,17 @@ clean)
 logs)
   $base logs -f ${@:2}
   ;;
-cld)
+dev)
   $dev build
   $dev up -d node
-  docker exec -it chainlink-node bash
-  $dev down -v --remove-orphans
+  $dev watch --no-up node
   ;;
-
-acceptance)
+connect)
+  docker exec -it chainlink-node bash
+  ;;
+up)
   $base up
   ;;
-
-dev)
-  $dev ${@:2}
-  ;;
-
 eth:restart)
   $base rm --force --stop devnet
   if [ $GETH_MODE ]; then
