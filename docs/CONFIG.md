@@ -6728,7 +6728,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '100 wei'
+BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = true
@@ -6738,7 +6738,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 50
+BlockHistorySize = 200
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -6821,7 +6821,7 @@ LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '100 wei'
+BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = true
@@ -6831,7 +6831,7 @@ TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 50
+BlockHistorySize = 200
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
