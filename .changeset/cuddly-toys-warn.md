@@ -10,3 +10,5 @@ Off by default, can be enabled like so:
 [Mercury]
 VerboseLogging = true
 ```
+
+#updated
