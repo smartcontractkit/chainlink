@@ -9,6 +9,7 @@ MinIncomingConfirmations = 1
 EIP1559DynamicFees = true
 PriceMin = '1 wei'
 BumpMin = '100 wei'
+CostMax = '1 ether'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 60

@@ -155,6 +155,7 @@ type MockGasEstimatorConfig struct {
 	PriceMinF           *assets.Wei
 	PriceDefaultF       *assets.Wei
 	FeeCapDefaultF      *assets.Wei
+	CostMaxF            *assets.Wei
 	LimitMaxF           uint64
 	ModeF               string
 }
@@ -174,6 +175,8 @@ func (m *MockGasEstimatorConfig) BumpThreshold() uint64 {
 func (m *MockGasEstimatorConfig) BumpMin() *assets.Wei {
 	return m.BumpMinF
 }
+
+func (m *MockGasEstimatorConfig) CostMax() *assets.Wei { return m.CostMaxF }
 
 func (m *MockGasEstimatorConfig) EIP1559DynamicFees() bool {
 	return m.EIP1559DynamicFeesF
