@@ -329,10 +329,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.localNode.WorkflowDON.ID,
-			WorkflowName:  e.workflow.name,
-			WorkflowOwner: e.workflow.owner,
+			WorkflowID:               e.workflow.id,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowName:             e.workflow.name,
+			WorkflowOwner:            e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -705,11 +706,12 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		Inputs: inputsMap,
 		Config: step.config,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          msg.state.WorkflowID,
-			WorkflowExecutionID: msg.state.ExecutionID,
-			WorkflowOwner:       e.workflow.owner,
-			WorkflowName:        e.workflow.name,
-			WorkflowDonID:       e.localNode.WorkflowDON.ID,
+			WorkflowID:               msg.state.WorkflowID,
+			WorkflowExecutionID:      msg.state.ExecutionID,
+			WorkflowOwner:            e.workflow.owner,
+			WorkflowName:             e.workflow.name,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 		},
 	}
 
@@ -732,10 +734,11 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.localNode.WorkflowDON.ID,
-			WorkflowName:  e.workflow.name,
-			WorkflowOwner: e.workflow.owner,
+			WorkflowID:               e.workflow.id,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowName:             e.workflow.name,
+			WorkflowOwner:            e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,
