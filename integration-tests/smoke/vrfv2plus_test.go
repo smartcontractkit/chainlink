@@ -91,14 +91,14 @@ func TestVRFv2Plus(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
 		var isNativeBilling = false
 
-		consumers, subIDsForRequestRandomness, err := vrfv2plus.SetupNewConsumersAndSubs(
+		subIDsForRequestRandomness, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 			testcontext.Get(t),
 			sethClient,
 			vrfContracts.CoordinatorV2Plus,
-			configCopy,
 			vrfContracts.LinkToken,
 			1,
 			1,
+			configCopy,
 			l,
 		)
 		require.NoError(t, err, "error setting up new consumers and subs")
@@ -149,14 +149,14 @@ func TestVRFv2Plus(t *testing.T) {
 		testConfig := configCopy.VRFv2Plus.General
 		var isNativeBilling = true
 
-		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+		subIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 			testcontext.Get(t),
 			sethClient,
 			vrfContracts.CoordinatorV2Plus,
-			configCopy,
 			vrfContracts.LinkToken,
 			1,
 			1,
+			configCopy,
 			l,
 		)
 		require.NoError(t, err, "error setting up new consumers and subs")
@@ -1297,14 +1297,14 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountLink = ptr.Ptr(float64(0))
 		configCopy.VRFv2Plus.General.SubscriptionFundingAmountNative = ptr.Ptr(float64(0))
 
-		consumers, subIDs, err := vrfv2plus.SetupNewConsumersAndSubs(
+		subIDs, consumers, err := vrfv2plus.SetupSubsAndConsumersForExistingEnv(
 			testcontext.Get(t),
 			sethClient,
 			vrfContracts.CoordinatorV2Plus,
-			configCopy,
 			vrfContracts.LinkToken,
 			1,
 			1,
+			configCopy,
 			l,
 		)
 		require.NoError(t, err, "error setting up new consumers and subs")
