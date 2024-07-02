@@ -1,6 +1,7 @@
 package headreporter_test
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"testing"
 
@@ -19,7 +20,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 
 		backend := mocks.NewPrometheusBackend(t)
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), backend)
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend)
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -53,7 +54,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		})).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(35)).Return()
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), backend)
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend)
 
 		head := newHead()
 		err := reporter.ReportNewHead(testutils.Context(t), &head)
@@ -79,7 +80,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", big.NewInt(0), int64(0)).Return()
 
-		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), backend)
+		reporter := headreporter.NewPrometheusReporter(db, newLegacyChainContainer(t, db), logger.TestLogger(t), backend)
 
 		head := newHead()
 		err := reporter.ReportNewHead(testutils.Context(t), &head)
