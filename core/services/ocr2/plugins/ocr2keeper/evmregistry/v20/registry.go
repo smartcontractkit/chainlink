@@ -466,7 +466,9 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 	}
 
 	if block == nil || block.Int64() == 0 {
-		opts.BlockNumber = big.NewInt(r.LatestBlock())
+		if r.LatestBlock() != 0 {
+			opts.BlockNumber = big.NewInt(r.LatestBlock())
+		}
 	} else {
 		opts.BlockNumber = block
 	}
@@ -592,16 +594,21 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		checkReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		}
 
@@ -658,16 +665,21 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			return nil, err
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		})
 
@@ -724,16 +736,21 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
 		}
 
+		args := []interface{}{
+			map[string]interface{}{
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		uReqs[i] = rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		}
 
