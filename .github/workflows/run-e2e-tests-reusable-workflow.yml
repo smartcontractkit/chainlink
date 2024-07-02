@@ -14,7 +14,7 @@ on:
         type: string
       test_list:
         description: 'Base64 encoded list of tests (YML objects) to run. Example in run-automation-ondemand-e2e-tests.yml'
-        required: true
+        required: false
         type: string            
       test_workflow:
         description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
@@ -32,6 +32,14 @@ on:
         default: false
       with_existing_remote_runner_version:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        required: false
+        type: string
+      require_chainlink_image_versions_in_qa_ecr:
+        description: 'Check Chainlink image versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string
+      require_chainlink_plugin_versions_in_qa_ecr:
+        description: 'Check Chainlink plugins versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
         type: string
     secrets:
@@ -73,6 +81,9 @@ jobs:
   validate-inputs:
     name: Validate workflow inputs
     runs-on: ubuntu-latest
+    outputs:
+      require_chainlink_image_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-image-versions-matrix.outputs.versions }}
+      require_chainlink_plugin_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-plugin-versions-matrix.outputs.versions }}
     steps:
       - name: Check input conditions
         run: |
@@ -80,6 +91,22 @@ jobs:
             echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
             exit 1
           fi
+      - name: Install jq
+        run: sudo apt-get install jq          
+      - name: Create matrix for required Chainlink image versions
+        id: set-required-chainlink-image-versions-matrix
+        run: |
+          if [[ "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" != '' ]]; then
+            image_versions=$(echo "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+            echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          fi
+      - name: Create matrix for required Chainlink plugin versions
+        id: set-required-chainlink-plugin-versions-matrix
+        run: |
+          if [[ "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" != '' ]]; then
+            image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+            echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          fi          
 
   check-test-configurations:
     name: Check test configurations
@@ -159,11 +186,70 @@ jobs:
           fi
         shell: bash   
 
+  # Build Chainlink images required for the tests
+  require-chainlink-image-versions-in-qa-ecr:
+    name: Build Chainlink image
+    needs: [validate-inputs, load-test-configurations]
+    if: ${{ needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    strategy:
+      matrix:
+        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build Chainlink image for ${{ matrix.version }} and push it to QA ECR
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ matrix.version }}
+          tag_suffix: ''
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}        
+
+  # Build Chainlink plugins required for the tests
+  require-chainlink-plugin-versions-in-qa-ecr:
+    name: Build Chainlink plugins 
+    needs: [validate-inputs, load-test-configurations]
+    if: ${{ needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    strategy:
+      matrix:
+        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build Chainlink plugins image for ${{ matrix.version }}
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: plugins/chainlink.Dockerfile
+          git_commit_sha: ${{ matrix.version }}
+          tag_suffix: '-plugins'
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+
   # Run Docker tests
   docker-tests:
     name: Run docker tests (${{ matrix.tests.id }})
-    needs: load-test-configurations
-    if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' }}
+    needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok) 
+    if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }} 
     runs-on: ${{ matrix.tests.runsOn }}
     strategy:
       fail-fast: false
@@ -248,8 +334,8 @@ jobs:
   # Run K8s tests using old remote runner
 
   prepare-remote-runner-test-image:
-    needs: load-test-configurations
-    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
+    needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
     name: Prepare remote runner test image
     runs-on: ubuntu-latest
     environment: integration
@@ -283,8 +369,8 @@ jobs:
           fi
 
   run-k8s-runner-tests:
-    needs: [load-test-configurations, prepare-remote-runner-test-image]
-    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' }}
+    needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
     name: Run k8s tests (${{ matrix.tests.id }})
     runs-on: ${{ matrix.tests.runsOn }}
     strategy:
