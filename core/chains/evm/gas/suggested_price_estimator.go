@@ -188,11 +188,25 @@ func (o *SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, Ga
 	} else if err != nil {
 		return
 	}
+
+	gasPrice = o.gasPriceWithBuffer(gasPrice, maxGasPriceWei)
+
 	// For L2 chains, submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
 	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
 		return nil, 0, pkgerrors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
 	}
 	return
+}
+
+func (o *SuggestedPriceEstimator) gasPriceWithBuffer(gasPrice *assets.Wei, maxGasPriceWei *assets.Wei) *assets.Wei {
+	const BufferPercent = 20
+	gasPrice = gasPrice.AddPercentage(BufferPercent)
+	if gasPrice.Cmp(maxGasPriceWei) > 0 {
+		o.logger.Warnw("Updated gasPrice with buffer is higher than the max gas price limit. Falling back to max gas price", "gasPriceWithBuffer", gasPrice, "maxGasPriceWei", maxGasPriceWei)
+		gasPrice = maxGasPriceWei
+	}
+	o.logger.Debugw("gasPriceWithBuffer", "updatedGasPrice", gasPrice)
+	return gasPrice
 }
 
 // Refreshes the gas price by making a call to the RPC in case the current one has gone stale.
