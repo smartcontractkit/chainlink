@@ -41,7 +41,7 @@ func SetupFeed(
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 ) ([]contracts.OffchainAggregator, error) {
-	ocrInstances, err := actions.DeployOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := actions.SetupOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	if err != nil {
 		return nil, err
 	}

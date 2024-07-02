@@ -601,29 +601,41 @@ func TrackForwarder(
 		Msg("Forwarder tracked")
 }
 
-// DeployOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
-func DeployOCRv2Contracts(
+// SetupOCRv2Contracts deploys a number of OCRv2 contracts and configures them with defaults
+func SetupOCRv2Contracts(
 	l zerolog.Logger,
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenAddress common.Address,
+	ocrContractAddresses []common.Address,
 	transmitters []string,
 	ocrOptions contracts.OffchainOptions,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contracts.DeployOffchainAggregatorV2(
-			l,
-			seth,
-			linkTokenAddress,
-			ocrOptions,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
+
+	if len(ocrContractAddresses) == 0 {
+		for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+			ocrInstance, err := contracts.DeployOffchainAggregatorV2(
+				l,
+				seth,
+				linkTokenAddress,
+				ocrOptions,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+			if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+				time.Sleep(2 * time.Second)
+			}
 		}
-		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
+	} else {
+		for _, address := range ocrContractAddresses {
+			ocrInstance, err := contracts.LoadOffchainAggregatorV2(l, seth, address)
+			if err != nil {
+				return nil, fmt.Errorf("OCRv2 instance loading have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
 		}
 	}
 
@@ -774,6 +786,7 @@ func DeployOCRContractsForwarderFlow(
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
+	ocrContractAddresses []common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	forwarderAddresses []common.Address,
 ) ([]contracts.OffchainAggregator, error) {
@@ -793,15 +806,16 @@ func DeployOCRContractsForwarderFlow(
 		return forwarderAddresses, nil
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
+	return setupAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, ocrContractAddresses, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-// DeployOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts
-func DeployOCRv1Contracts(
+// SetupOCRv1Contracts deploys and funds a certain number of offchain aggregator contracts
+func SetupOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
+	ocrContractAddresses []common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 ) ([]contracts.OffchainAggregator, error) {
 	transmitterPayeesFn := func() (transmitters []string, payees []string, err error) {
@@ -834,28 +848,41 @@ func DeployOCRv1Contracts(
 		return transmitterAddresses, nil
 	}
 
-	return deployAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
+	return setupAnyOCRv1Contracts(logger, seth, numberOfContracts, linkTokenContractAddress, ocrContractAddresses, workerNodes, transmitterPayeesFn, transmitterAddressesFn)
 }
 
-func deployAnyOCRv1Contracts(
+func setupAnyOCRv1Contracts(
 	logger zerolog.Logger,
 	seth *seth.Client,
 	numberOfContracts int,
 	linkTokenContractAddress common.Address,
+	ocrContractAddresses []common.Address,
 	workerNodes []contracts.ChainlinkNodeWithKeysAndAddress,
 	getTransmitterAndPayeesFn func() ([]string, []string, error),
 	getTransmitterAddressesFn func() ([]common.Address, error),
 ) ([]contracts.OffchainAggregator, error) {
-	// Deploy contracts
 	var ocrInstances []contracts.OffchainAggregator
-	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
-		ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
-		if err != nil {
-			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
+
+	if len(ocrContractAddresses) == 0 {
+		// Deploy contracts
+		for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+			ocrInstance, err := contracts.DeployOffchainAggregator(logger, seth, linkTokenContractAddress, contracts.DefaultOffChainAggregatorOptions())
+			if err != nil {
+				return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
+			if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
+				time.Sleep(2 * time.Second)
+			}
 		}
-		ocrInstances = append(ocrInstances, &ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			time.Sleep(2 * time.Second)
+	} else {
+		// Load contract wrappers
+		for _, address := range ocrContractAddresses {
+			ocrInstance, err := contracts.LoadOffchainAggregator(logger, seth, address)
+			if err != nil {
+				return nil, fmt.Errorf("OCR instance loading have failed: %w", err)
+			}
+			ocrInstances = append(ocrInstances, &ocrInstance)
 		}
 	}
 

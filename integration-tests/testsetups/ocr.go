@@ -280,8 +280,13 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
-	require.NoError(o.t, err, "Error deploying LINK contract")
+	var linkContract *contracts.EthereumLinkToken
+	if ocrTestConfig.GetActiveOCRConfig().Contracts != nil && ocrTestConfig.GetActiveOCRConfig().Contracts.UseExisting() {
+		linkContract, err = contracts.LoadLinkTokenContract(o.log, sethClient, common.HexToAddress(*ocrTestConfig.GetActiveOCRConfig().Contracts.LinkTokenAddress))
+	} else {
+		linkContract, err = contracts.DeployLinkTokenContract(o.log, sethClient)
+	}
+	require.NoError(o.t, err, "Error loading/deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
@@ -289,6 +294,10 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
+	var ocrInstanceAddresses []common.Address
+	for _, address := range ocrTestConfig.GetActiveOCRConfig().Contracts.OffchainAggregatorAddresses {
+		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
+	}
 
 	if o.OperatorForwarderFlow {
 		var operators []common.Address
@@ -312,16 +321,18 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 				o.seth,
 				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
 				common.HexToAddress(linkContract.Address()),
+				ocrInstanceAddresses,
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
 			)
 			require.NoError(o.t, err, "Error deploying OCR Forwarder contracts")
 		} else {
-			o.ocrV1Instances, err = actions.DeployOCRv1Contracts(
+			o.ocrV1Instances, err = actions.SetupOCRv1Contracts(
 				o.log,
 				sethClient,
 				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
 				common.HexToAddress(linkContract.Address()),
+				ocrInstanceAddresses,
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
 			require.NoError(o.t, err)
@@ -342,11 +353,12 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		}
 
 		ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
+		o.ocrV2Instances, err = actions.SetupOCRv2Contracts(
 			o.log,
 			o.seth,
 			*ocrTestConfig.GetActiveOCRConfig().Soak.NumberOfContracts,
 			common.HexToAddress(linkContract.Address()),
+			ocrInstanceAddresses,
 			transmitters,
 			ocrOffchainOptions,
 		)

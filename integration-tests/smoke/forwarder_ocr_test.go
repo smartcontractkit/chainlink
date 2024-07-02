@@ -81,11 +81,18 @@ func TestForwarderOCRBasic(t *testing.T) {
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
 		actions.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
 	}
+
+	var ocrInstanceAddresses []common.Address
+	for _, address := range config.OCR.Contracts.OffchainAggregatorAddresses {
+		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
+	}
+
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
 		l,
 		sethClient,
 		1,
 		common.HexToAddress(lt.Address()),
+		ocrInstanceAddresses,
 		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 		authorizedForwarders,
 	)

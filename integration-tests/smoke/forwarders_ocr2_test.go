@@ -89,8 +89,13 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		transmitters = append(transmitters, forwarderCommonAddress.Hex())
 	}
 
+	var ocrInstanceAddresses []common.Address
+	for _, address := range config.OCR2.Contracts.OffchainAggregatorAddresses {
+		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
+	}
+
 	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	ocrInstances, err := actions.DeployOCRv2Contracts(l, sethClient, 1, common.HexToAddress(lt.Address()), transmitters, ocrOffchainOptions)
+	ocrInstances, err := actions.SetupOCRv2Contracts(l, sethClient, 1, common.HexToAddress(lt.Address()), ocrInstanceAddresses, transmitters, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)

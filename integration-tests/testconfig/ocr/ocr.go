@@ -2,15 +2,18 @@ package ocr
 
 import (
 	"errors"
+	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 )
 
 type Config struct {
-	Soak   *SoakConfig `toml:"Soak"`
-	Load   *Load       `toml:"Load"`
-	Volume *Volume     `toml:"Volume"`
-	Common *Common     `toml:"Common"`
+	Soak      *SoakConfig `toml:"Soak"`
+	Load      *Load       `toml:"Load"`
+	Volume    *Volume     `toml:"Volume"`
+	Common    *Common     `toml:"Common"`
+	Contracts *Contracts  `toml:"Contracts"`
 }
 
 func (o *Config) Validate() error {
@@ -26,6 +29,11 @@ func (o *Config) Validate() error {
 	}
 	if o.Volume != nil {
 		if err := o.Volume.Validate(); err != nil {
+			return err
+		}
+	}
+	if o.Contracts != nil {
+		if err := o.Contracts.Validate(); err != nil {
 			return err
 		}
 	}
@@ -129,4 +137,45 @@ func (o *SoakConfig) Validate() error {
 		return errors.New("time_between_rounds must be set and be a positive integer")
 	}
 	return nil
+}
+
+type Contracts struct {
+	Settings                    *ContractSettings `toml:"Settings"`
+	LinkTokenAddress            *string           `toml:"link_token"`
+	OffchainAggregatorAddresses []string          `toml:"offchain_aggregators"`
+}
+
+func (o *Contracts) Validate() error {
+	if o.LinkTokenAddress != nil && !common.IsHexAddress(*o.LinkTokenAddress) {
+		return errors.New("link_token must be a valid ethereum address")
+	}
+	if o.OffchainAggregatorAddresses != nil {
+		for _, address := range o.OffchainAggregatorAddresses {
+			if !common.IsHexAddress(address) {
+				return fmt.Errorf("offchain_aggregators must be valid ethereum addresses, but %s is not", address)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (o *Contracts) UseExisting() bool {
+	if o.Settings != nil && o.Settings.UseExisting != nil {
+		return *o.Settings.UseExisting
+	}
+	return false
+}
+
+func (o *Contracts) MustGetLinkTokenContractAddress() common.Address {
+	if o.LinkTokenAddress != nil {
+		return common.HexToAddress(*o.LinkTokenAddress)
+	}
+
+	panic("link token address must be set")
+}
+
+type ContractSettings struct {
+	UseExisting *bool `toml:"use_existing"`
+	Configure   *bool `toml:"configure"`
 }

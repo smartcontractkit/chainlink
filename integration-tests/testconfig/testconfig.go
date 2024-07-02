@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"os"
 	"slices"
@@ -67,6 +68,10 @@ type OcrTestConfig interface {
 
 type Ocr2TestConfig interface {
 	GetOCR2Config() *ocr_config.Config
+}
+
+type LinkTokenContractConfig interface {
+	MustGetLinkTokenContractAddress() common.Address
 }
 
 type TestConfig struct {
