@@ -70,7 +70,7 @@ func TestHomeChainReader(t *testing.T) {
 	chainAConf := setupConfigInfo(chainA, p2pIDS, fChainA, []byte("chainA"))
 	chainBConf := setupConfigInfo(chainB, p2pIDS[1:], fChainB, []byte("chainB"))
 	chainCConf := setupConfigInfo(chainC, p2pIDS[2:], fChainC, []byte("chainC"))
-	inputConfig := []capcfg.CCIPConfigChainConfigInfo{
+	inputConfig := []capcfg.CCIPConfigTypesChainConfigInfo{
 		chainAConf,
 		chainBConf,
 		chainCConf,
@@ -129,10 +129,10 @@ func toPeerIDs(readers [][32]byte) mapset.Set[libocrtypes.PeerID] {
 	return peerIDs
 }
 
-func setupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) capcfg.CCIPConfigChainConfigInfo {
-	return capcfg.CCIPConfigChainConfigInfo{
+func setupConfigInfo(chainSelector uint64, readers [][32]byte, fChain uint8, cfg []byte) capcfg.CCIPConfigTypesChainConfigInfo {
+	return capcfg.CCIPConfigTypesChainConfigInfo{
 		ChainSelector: chainSelector,
-		ChainConfig: capcfg.CCIPConfigChainConfig{
+		ChainConfig: capcfg.CCIPConfigTypesChainConfig{
 			Readers: readers,
 			FChain:  fChain,
 			Config:  cfg,

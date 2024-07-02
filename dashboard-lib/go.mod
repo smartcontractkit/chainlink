@@ -9,12 +9,7 @@ require (
 	github.com/rs/zerolog v1.32.0
 )
 
-replace (
-	github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
-	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.17.0
-	github.com/prometheus/client_model => github.com/prometheus/client_model v0.5.0
-	github.com/prometheus/common => github.com/prometheus/common v0.45.0
-)
+replace github.com/grafana/grafana-foundation-sdk/go => github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240314112857-a7c9c6d0044c
 
 require (
 	github.com/K-Phoen/sdk v0.12.4 // indirect
