@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -99,28 +100,47 @@ func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
 	return store.NewDBStore(db, logger.TestLogger(t), clock)
 }
 
+type testConfigProvider struct {
+	localNode           func(ctx context.Context) (capabilities.Node, error)
+	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (coreCapabilities.CapabilityConfig, error)
+}
+
+func (t testConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
+	if t.localNode != nil {
+		return t.localNode(ctx)
+	}
+
+	peerID := p2ptypes.PeerID{}
+	return capabilities.Node{
+		WorkflowDON: capabilities.DON{
+			ID: 1,
+		},
+		PeerID: &peerID,
+	}, nil
+}
+
+func (t testConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (coreCapabilities.CapabilityConfig, error) {
+	if t.configForCapability != nil {
+		return t.configForCapability(ctx, capabilityID, donID)
+	}
+
+	return coreCapabilities.CapabilityConfig{Config: values.EmptyMap()}, nil
+}
+
 // newTestEngine creates a new engine with some test defaults.
 func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...func(c *Config)) (*Engine, *testHooks) {
-	peerID := p2ptypes.PeerID{}
 	initFailed := make(chan struct{})
 	initSuccessful := make(chan struct{})
 	executionFinished := make(chan string, 100)
 	clock := clockwork.NewFakeClock()
 	cfg := Config{
-		WorkflowID: testWorkflowId,
-		Lggr:       logger.TestLogger(t),
-		Registry:   reg,
-		Spec:       spec,
-		GetLocalNode: func(ctx context.Context) (capabilities.Node, error) {
-			return capabilities.Node{
-				WorkflowDON: capabilities.DON{
-					ID: 1,
-				},
-				PeerID: &peerID,
-			}, nil
-		},
-		maxRetries: 1,
-		retryMs:    100,
+		WorkflowID:     testWorkflowId,
+		Lggr:           logger.TestLogger(t),
+		Registry:       reg,
+		Spec:           spec,
+		ConfigProvider: testConfigProvider{},
+		maxRetries:     1,
+		retryMs:        100,
 		afterInit: func(success bool) {
 			if success {
 				close(initSuccessful)
@@ -796,15 +816,18 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			c.clock = clock
 			c.maxRetries = 2
 			c.retryMs = 0
-			c.GetLocalNode = func(ctx context.Context) (capabilities.Node, error) {
-				n := capabilities.Node{}
-				err := errors.New("peer not initialized")
-				if retryCount > 0 {
-					n = node
-					err = nil
-				}
-				retryCount++
-				return n, err
+
+			c.ConfigProvider = testConfigProvider{
+				localNode: func(ctx context.Context) (capabilities.Node, error) {
+					n := capabilities.Node{}
+					err := errors.New("peer not initialized")
+					if retryCount > 0 {
+						n = node
+						err = nil
+					}
+					retryCount++
+					return n, err
+				},
 			}
 		},
 	)

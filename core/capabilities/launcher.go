@@ -164,13 +164,15 @@ func (w *launcher) ConfigForCapability(ctx context.Context, capabilityID string,
 		return CapabilityConfig{}, fmt.Errorf("could not find config for capability %s", capabilityID)
 	}
 
-	var &values.Map{}
-	err := proto.Unmarshal(config, nil)
+	// TODO: fill everything below in
+	var unknown proto.Message
+	err := proto.Unmarshal(config, unknown)
 	if err != nil {
 		return CapabilityConfig{}, fmt.Errorf("could not unmarshal capability config: %w", err)
 	}
 
-	return CapabilityConfig{Config: m}, nil
+	var v *values.Map
+	return CapabilityConfig{Config: v}, nil
 }
 
 func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {

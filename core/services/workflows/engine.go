@@ -29,13 +29,17 @@ type stepRequest struct {
 
 type ConfigProvider interface {
 	LocalNode(ctx context.Context) (capabilities.Node, error)
-	ConfigForCapability(ctx context.Context, capabilityID string, donID string) (coreCapabilities.CapabilityConfig, error)
+	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (coreCapabilities.CapabilityConfig, error)
 }
 
 type noopConfigProvider struct{}
 
 func (n *noopConfigProvider) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	return capabilities.Node{}, nil
+}
+
+func (n *noopConfigProvider) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (coreCapabilities.CapabilityConfig, error) {
+	return coreCapabilities.CapabilityConfig{}, nil
 }
 
 // Engine handles the lifecycle of a single workflow and its executions.
