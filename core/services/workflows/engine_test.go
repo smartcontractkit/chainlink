@@ -140,7 +140,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, spec string, opts ...fun
 		Registry:   reg,
 		Spec:       spec,
 		maxRetries: 1,
-		retryMs:    100,
+		retryMs:    1,
 		afterInit: func(success bool) {
 			if success {
 				close(initSuccessful)
@@ -240,7 +240,6 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-
 	trigger, cr := mockTrigger(t)
 
 	require.NoError(t, reg.Add(ctx, trigger))
@@ -806,6 +805,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			ID: 1,
 		},
 	}
+
 	retryCount := 0
 
 	reg.SetLocalRegistry(testConfigProvider{
@@ -828,7 +828,6 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 			c.Store = dbstore
 			c.clock = clock
 			c.maxRetries = 2
-			c.retryMs = 0
 		},
 	)
 	servicetest.Run(t, eng)

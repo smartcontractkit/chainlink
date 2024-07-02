@@ -595,7 +595,6 @@ func DeleteUnstable[T any](s []T, i int) []T {
 	return s
 }
 
-
 // Retryable is a helper function that retries a function until it succeeds.
 //
 // It will retry every `retryMs` milliseconds, up to `maxRetries` times.
@@ -605,7 +604,7 @@ func DeleteUnstable[T any](s []T, i int) []T {
 // retryable will return an error in the following conditions:
 //   - the context is cancelled: the error returned is the context error
 //   - the retry limit has been hit: the error returned is the last error returned by `fn`
-func Retryable(ctx context.Context, logErrF func (string, ...any), retryMs int, maxRetries int, fn func() error) error {
+func Retryable(ctx context.Context, logErrF func(string, ...any), retryMs int, maxRetries int, fn func() error) error {
 	ticker := time.NewTicker(time.Duration(retryMs) * time.Millisecond)
 	defer ticker.Stop()
 
