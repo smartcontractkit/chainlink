@@ -41,15 +41,6 @@ ListenAddresses = ['0.0.0.0:6690']
 """
 
 CommonChainConfigTOML = """
-AutoCreateKey = true
-FinalityDepth = 1
-MinContractPayment = 0
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-
 [Transactions]
 ForwardersEnabled = true
 """
@@ -94,10 +85,8 @@ ea_change_interval = "5s"
 chainlink_node_funding = 1
 
 [Soak.OCR2.Common]
-test_duration="15m"
+test_duration = "15m"
 
 [Soak.OCR2.Soak]
-number_of_contracts=2
-time_between_rounds="1m"
-
-
+number_of_contracts = 2
+time_between_rounds = "1m"
