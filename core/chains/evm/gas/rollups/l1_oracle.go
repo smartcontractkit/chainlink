@@ -46,24 +46,30 @@ const (
 	PollPeriod = 6 * time.Second
 )
 
-var supportedChainTypes = []chaintype.ChainType{chaintype.ChainArbitrum, chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll}
+var supportedChainTypes = []chaintype.ChainType{chaintype.ChainArbitrum, chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll, chaintype.ChainZkSync}
 
 func IsRollupWithL1Support(chainType chaintype.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
-func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) L1Oracle {
+func NewL1GasOracle(lggr logger.Logger, ethClient l1OracleClient, chainType chaintype.ChainType) (L1Oracle, error) {
 	if !IsRollupWithL1Support(chainType) {
-		return nil
+		return nil, nil
 	}
 	var l1Oracle L1Oracle
+	var err error
 	switch chainType {
 	case chaintype.ChainOptimismBedrock, chaintype.ChainKroma, chaintype.ChainScroll:
-		l1Oracle = NewOpStackL1GasOracle(lggr, ethClient, chainType)
+		l1Oracle, err = NewOpStackL1GasOracle(lggr, ethClient, chainType)
 	case chaintype.ChainArbitrum:
-		l1Oracle = NewArbitrumL1GasOracle(lggr, ethClient)
+		l1Oracle, err = NewArbitrumL1GasOracle(lggr, ethClient)
+	case chaintype.ChainZkSync:
+		l1Oracle = NewZkSyncL1GasOracle(lggr, ethClient)
 	default:
-		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
+		return nil, fmt.Errorf("received unsupported chaintype %s", chainType)
 	}
-	return l1Oracle
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize L1 oracle for chaintype %s: %w", chainType, err)
+	}
+	return l1Oracle, nil
 }

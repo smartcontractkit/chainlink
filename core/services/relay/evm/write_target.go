@@ -69,7 +69,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
+
+	encodedWriterConfig, err := json.Marshal(chainWriterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal chainwriter config: %w", err)
+	}
+
+	cw, err := relayer.NewChainWriter(ctx, encodedWriterConfig)
 	if err != nil {
 		return nil, err
 	}

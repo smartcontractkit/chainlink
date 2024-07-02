@@ -358,6 +358,7 @@ type Chain struct {
 	OperatorFactoryAddress    *types.EIP55Address
 	RPCDefaultBatchSize       *uint32
 	RPCBlockQueryDelay        *uint16
+	FinalizedBlockOffset      *uint32
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -380,10 +381,6 @@ func (c *Chain) ValidateConfig() (err error) {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
 	}
-	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
-			Msg: "must be equal to or greater than FinalityDepth"})
-	}
 	if *c.FinalityDepth < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
 			Msg: "must be greater than or equal to 1"})
@@ -391,6 +388,11 @@ func (c *Chain) ValidateConfig() (err error) {
 	if *c.MinIncomingConfirmations < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "MinIncomingConfirmations", Value: *c.MinIncomingConfirmations,
 			Msg: "must be greater than or equal to 1"})
+	}
+
+	if *c.FinalizedBlockOffset > *c.HeadTracker.HistoryDepth {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
+			Msg: "must be greater than or equal to FinalizedBlockOffset"})
 	}
 
 	// AutoPurge configs depend on ChainType so handling validation on per chain basis
@@ -846,6 +848,8 @@ type NodePool struct {
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
 	Errors                     ClientErrors `toml:",omitempty"`
+	EnforceRepeatableRead      *bool
+	DeathDeclarationDelay      *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -869,6 +873,14 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
+	}
+
+	if v := f.EnforceRepeatableRead; v != nil {
+		p.EnforceRepeatableRead = v
+	}
+
+	if v := f.DeathDeclarationDelay; v != nil {
+		p.DeathDeclarationDelay = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

@@ -94,6 +94,10 @@ async function run() {
       core.notice(
         "No JIRA issue number found in: PR title, commit message, or branch name. Please include the issue ID in one of these."
       );
+      core.setOutput(
+        "jiraComment",
+        "> :medal_military:	No JIRA issue number found - Please include it in the PR title or in a commit message."
+      );
       return;
     }
     const fixVersionName = `chainlink-v${chainlinkVersion}`;
@@ -105,6 +109,7 @@ async function run() {
       tags,
       fixVersionName
     );
+    core.setOutput("jiraComment", "");
   } catch (error) {
     core.setFailed(error.message);
   }

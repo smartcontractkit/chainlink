@@ -276,7 +276,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	}
 
 	if err := s.restartConnection(ctx, mgr); err != nil {
-		s.lggr.Errorf("could not restart FMS connection: %w", err)
+		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
 	return nil
@@ -347,7 +347,7 @@ func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -371,7 +371,7 @@ func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error
 	}
 
 	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -412,7 +412,7 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 	}
 
 	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %w", err)
+		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
 	}
 
 	return id, nil
@@ -466,7 +466,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job proposal deletion", err)
+		logger.Errorw("Failed to push metrics for job proposal deletion", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -518,7 +518,7 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 	)
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for revoke job", err)
+		logger.Errorw("Failed to push metrics for revoke job", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -632,7 +632,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for propose job", err)
+		logger.Errorw("Failed to push metrics for propose job", "err", err)
 	}
 
 	return id, nil
@@ -704,7 +704,7 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job rejection", err)
+		logger.Errorw("Failed to push metrics for job rejection", "err", err)
 	}
 
 	return nil
@@ -883,7 +883,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job approval", err)
+		logger.Errorw("Failed to push metrics for job approval", "err", err)
 	}
 
 	return nil
@@ -973,7 +973,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job cancellation", err)
+		logger.Errorw("Failed to push metrics for job cancellation", "err", err)
 	}
 
 	return nil
@@ -1179,7 +1179,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.jobCfg, spec)
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowSpec(spec)
+		js, err = workflows.ValidatedWorkflowJobSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

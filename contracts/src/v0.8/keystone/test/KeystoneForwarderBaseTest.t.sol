@@ -20,11 +20,14 @@ contract BaseTest is Test {
 
   Signer[MAX_ORACLES] internal s_signers;
   KeystoneForwarder internal s_forwarder;
+  KeystoneForwarder internal s_router;
   Receiver internal s_receiver;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
+    s_router = new KeystoneForwarder();
     s_forwarder = new KeystoneForwarder();
+    s_router.addForwarder(address(s_forwarder));
     s_receiver = new Receiver();
 
     uint256 seed = 0;

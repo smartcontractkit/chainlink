@@ -20,7 +20,10 @@ const COMPILER_SETTINGS = {
 subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
   async (_, __, runSuper) => {
     const paths = await runSuper()
-    return paths.filter((p: string) => !p.endsWith('.t.sol'))
+    const noTests = paths.filter((p: string) => !p.endsWith('.t.sol'))
+    return noTests.filter(
+      (p: string) => !p.includes('src/v0.8/vendor/forge-std'),
+    )
   },
 )
 
@@ -67,6 +70,13 @@ let config = {
         version: '0.8.19',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.24',
+        settings: {
+          ...COMPILER_SETTINGS,
+          evmVersion: 'paris',
+        },
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
@@ -92,6 +102,10 @@ let config = {
             bytecodeHash: 'none',
           },
         },
+      },
+      'src/v0.8/automation/AutomationForwarderLogic.sol': {
+        version: '0.8.19',
+        settings: COMPILER_SETTINGS,
       },
     },
   },

@@ -2,10 +2,26 @@ name: On Demand OCR Soak Test
 on:
   workflow_dispatch:
     inputs:
+      testToRun:
+        description: Select a test to run
+        required: true
+        default: TestOCRSoak
+        type: choice
+        options:
+          - TestOCRv1Soak
+          - TestOCRv2Soak
+          - TestForwarderOCRv1Soak
+          - TestForwarderOCRv2Soak
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
+          - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
+          - TestOCRSoak_GasSpike
+          - TestOCRSoak_ChangeBlockGasLimit
+          - TestOCRSoak_RPCDownForAllCLNodes
+          - TestOCRSoak_RPCDownForHalfCLNodes
       base64Config:
         description: base64-ed config
         required: true
-        type: string      
+        type: string
       slackMemberID:
         description: Slack Member ID (Not your @)
         required: true
@@ -65,7 +81,7 @@ jobs:
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
@@ -73,7 +89,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak
@@ -83,7 +99,7 @@ jobs:
           TEST_UPLOAD_CPU_PROFILE: true
           TEST_UPLOAD_MEM_PROFILE: true
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^${{ github.event.inputs.testToRun }}$ ./soak
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}

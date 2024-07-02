@@ -26,12 +26,13 @@ import (
 	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/concurrency"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -203,11 +204,6 @@ func randomWait(minMilliseconds, maxMilliseconds int) {
 	time.Sleep(time.Duration(randomMilliseconds) * time.Millisecond)
 }
 
-type LogEmitterChannel struct {
-	logsEmitted int
-	err         error
-}
-
 // getIntSlice returns a slice of ints of the provided length
 func getIntSlice(length int) []int {
 	result := make([]int, length)
@@ -226,95 +222,6 @@ func getStringSlice(length int) []string {
 	}
 
 	return result
-}
-
-// emitEvents emits events from the provided log emitter concurrently according to the provided config
-func emitEvents(ctx context.Context, l zerolog.Logger, client *seth.Client, logEmitter *contracts.LogEmitter, cfg *lp_config.Config, wg *sync.WaitGroup, results chan LogEmitterChannel) {
-	address := (*logEmitter).Address().String()
-	defer wg.Done()
-
-	var executionGroup sync.WaitGroup
-
-	// Atomic counter is used to keep track of the number of logs emitted
-	var atomicCounter = atomic.Int32{}
-
-	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
-		executionGroup.Add(1)
-	}
-
-	var emitAllEvents = func() {
-		defer executionGroup.Done()
-		current := atomicCounter.Add(1)
-
-		for _, event := range cfg.General.EventsToEmit {
-			select {
-			case <-ctx.Done():
-				l.Warn().Str("Emitter address", address).Msg("Context cancelled, not emitting events")
-				return
-			default:
-				l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
-				var err error
-				switch event.Name {
-				case "Log1":
-					_, err = client.Decode((*logEmitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log2":
-					_, err = client.Decode((*logEmitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log3":
-					_, err = client.Decode((*logEmitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
-				case "Log4":
-					_, err = client.Decode((*logEmitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
-				default:
-					err = fmt.Errorf("unknown event name: %s", event.Name)
-				}
-
-				if err != nil {
-					results <- LogEmitterChannel{
-						err: err,
-					}
-					return
-				}
-				randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
-			}
-
-			if (current)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
-			}
-		}
-	}
-
-	clientNumber := int(*client.Cfg.EphemeralAddrs)
-	emissionsPerClient := *cfg.LoopedConfig.ExecutionCount / clientNumber
-	extraEmissions := *cfg.LoopedConfig.ExecutionCount % clientNumber
-
-	l.Debug().Str("Emitter address", address).
-		Int("Total logs to emit", *cfg.LoopedConfig.ExecutionCount*len(cfg.General.EventsToEmit)*(*cfg.General.EventsPerTx)).
-		Int("Total clients", clientNumber).
-		Int("Emissions per client", emissionsPerClient).
-		Int("Extra emissions", extraEmissions).
-		Msg("Starting to emit events")
-
-	for i := 0; i < clientNumber; i++ {
-		go func(key int) {
-			numTasks := emissionsPerClient
-			if key < extraEmissions {
-				numTasks++
-			}
-
-			for idx := 0; idx < numTasks; idx++ {
-				emitAllEvents()
-			}
-		}(i)
-	}
-
-	executionGroup.Wait()
-
-	localCounter := int(atomicCounter.Load()) * *cfg.General.EventsPerTx * len(cfg.General.EventsToEmit)
-	l.Info().Str("Emitter address", address).Int("Total logs emitted", localCounter).Msg("Finished emitting events")
-
-	results <- LogEmitterChannel{
-		logsEmitted: localCounter,
-		err:         nil,
-	}
 }
 
 // LogPollerHasFinalisedEndBlock returns true if all CL nodes have finalised processing the provided end block
@@ -698,7 +605,7 @@ func GetMissingLogs(startBlock, endBlock int64, logEmitters []*contracts.LogEmit
 	if int64(len(allLogsInEVMNode)) != expectedTotalLogsEmitted {
 		l.Warn().
 			Str("Actual/Expected", fmt.Sprintf("%d/%d", expectedTotalLogsEmitted, len(allLogsInEVMNode))).
-			Msg("Some of the test logs were not found in EVM node. This is a bug in the test")
+			Msg("Actual number of logs found on EVM nodes differs from expected ones. Most probably this is a bug in the test")
 	}
 
 	return missingLogs, nil
@@ -853,58 +760,89 @@ func runWaspGenerator(t *testing.T, cfg *lp_config.Config, logEmitters []*contra
 	return counter.value, nil
 }
 
+type logEmissionTask struct {
+	emitter      *contracts.LogEmitter
+	eventsToEmit []abi.Event
+	eventsPerTx  int
+}
+
+type emittedLogsData struct {
+	count int
+}
+
+func (d emittedLogsData) GetResult() emittedLogsData {
+	return d
+}
+
 // runLoopedGenerator runs the looped generator and returns the total number of logs emitted
 func runLoopedGenerator(t *testing.T, cfg *lp_config.Config, client *seth.Client, logEmitters []*contracts.LogEmitter) (int, error) {
 	l := logging.GetTestLogger(t)
 
-	// Start emitting events in parallel, each contract is emitting events in a separate goroutine
-	// We will stop as soon as we encounter an error
-	wg := &sync.WaitGroup{}
-	emitterCh := make(chan LogEmitterChannel, len(logEmitters))
-
-	ctx, cancelFn := context.WithCancel(context.Background())
-	defer cancelFn()
-
-	for i := 0; i < len(logEmitters); i++ {
-		wg.Add(1)
-		go func(idx int) {
-			emitEvents(ctx, l, client, logEmitters[idx], cfg, wg, emitterCh)
-		}(i)
+	tasks := make([]logEmissionTask, 0)
+	for i := 0; i < *cfg.LoopedConfig.ExecutionCount; i++ {
+		for _, logEmitter := range logEmitters {
+			tasks = append(tasks, logEmissionTask{
+				emitter:      logEmitter,
+				eventsToEmit: cfg.General.EventsToEmit,
+				eventsPerTx:  *cfg.General.EventsPerTx,
+			})
+		}
 	}
 
-	var emitErr error
-	total := 0
+	l.Info().Int("Total tasks", len(tasks)).Msg("Starting to emit events")
 
-	aggrChan := make(chan int, len(logEmitters))
+	var atomicCounter = atomic.Int32{}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
+	var emitAllEventsFn = func(resultCh chan emittedLogsData, errorCh chan error, _ int, task logEmissionTask) {
+		current := atomicCounter.Add(1)
+
+		address := (*task.emitter).Address().String()
+
+		for _, event := range cfg.General.EventsToEmit {
+			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+			var err error
+			switch event.Name {
+			case "Log1":
+				_, err = client.Decode((*task.emitter).EmitLogIntsFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log2":
+				_, err = client.Decode((*task.emitter).EmitLogIntsIndexedFromKey(getIntSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log3":
+				_, err = client.Decode((*task.emitter).EmitLogStringsFromKey(getStringSlice(*cfg.General.EventsPerTx), client.AnySyncedKey()))
+			case "Log4":
+				_, err = client.Decode((*task.emitter).EmitLogIntMultiIndexedFromKey(1, 1, *cfg.General.EventsPerTx, client.AnySyncedKey()))
+			default:
+				err = fmt.Errorf("unknown event name: %s", event.Name)
+			}
+
+			if err != nil {
+				errorCh <- err
 				return
-			case emitter := <-emitterCh:
-				if emitter.err != nil {
-					emitErr = emitter.err
-					cancelFn()
-					return
-				}
-				aggrChan <- emitter.logsEmitted
+			}
+			randomWait(*cfg.LoopedConfig.MinEmitWaitTimeMs, *cfg.LoopedConfig.MaxEmitWaitTimeMs)
+
+			if (current)%10 == 0 {
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, *cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
 			}
 		}
-	}()
 
-	wg.Wait()
-	close(emitterCh)
-
-	if emitErr != nil {
-		return 0, emitErr
+		resultCh <- emittedLogsData{
+			*cfg.General.EventsPerTx * len(cfg.General.EventsToEmit),
+		}
 	}
 
-	for i := 0; i < len(logEmitters); i++ {
-		total += <-aggrChan
+	executor := ctf_concurrency.NewConcurrentExecutor[emittedLogsData, emittedLogsData, logEmissionTask](l)
+	r, err := executor.Execute(int(*client.Cfg.EphemeralAddrs), tasks, emitAllEventsFn)
+
+	if err != nil {
+		return 0, err
 	}
 
-	return int(total), nil
+	var total int
+	for _, result := range r {
+		total += result.count
+	}
+
+	return total, nil
 }
 
 // GetExpectedLogCount returns the expected number of logs to be emitted based on the provided config
@@ -981,7 +919,7 @@ type ChaosPauseData struct {
 }
 
 // ExecuteChaosExperiment executes the configured chaos experiment, which consist of pausing CL node or Postgres containers
-func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, testConfig *tc.TestConfig, errorCh chan error) {
+func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv, sethClient *seth.Client, testConfig *tc.TestConfig, errorCh chan error) {
 	if testConfig == nil || testConfig.LogPoller.ChaosConfig == nil || *testConfig.LogPoller.ChaosConfig.ExperimentCount == 0 {
 		errorCh <- nil
 		return
@@ -989,12 +927,6 @@ func ExecuteChaosExperiment(l zerolog.Logger, testEnv *test_env.CLClusterTestEnv
 
 	chaosChan := make(chan ChaosPauseData, *testConfig.LogPoller.ChaosConfig.ExperimentCount)
 	wg := &sync.WaitGroup{}
-
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	sethClient, err := testEnv.GetSethClient(selectedNetwork.ChainID)
-	if err != nil {
-		errorCh <- err
-	}
 
 	go func() {
 		// if we wanted to have more than 1 container paused, we'd need to make sure we aren't trying to pause an already paused one
@@ -1119,37 +1051,26 @@ func SetupLogPollerTestDocker(
 		WithTestInstance(t).
 		WithPrivateEthereumNetwork(privateNetwork.EthereumNetworkConfig).
 		WithCLNodes(clNodesCount).
-		WithFunding(big.NewFloat(chainlinkNodeFunding)).
 		WithEVMNetworkOptions(evmNetworkExtraSettingsFn).
 		WithChainlinkNodeLogScanner(logScannerSettings).
 		WithStandardCleanup().
-		WithSeth().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
-	selectedNetwork := networks.MustGetSelectedNetworkConfig(testConfig.Network)[0]
-	chainClient, err := env.GetSethClient(selectedNetwork.ChainID)
+	evmNetwork, err := env.GetFirstEvmNetwork()
+	require.NoError(t, err, "Error getting first evm network")
+
+	chainClient, err := seth_utils.GetChainClient(testConfig, *evmNetwork)
 	require.NoError(t, err, "Error getting seth client")
+
+	err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()), big.NewFloat(chainlinkNodeFunding))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 
-	var linkToken contracts.LinkToken
-
-	switch network.ChainID {
-	// Simulated
-	case 1337:
-		linkToken, err = contracts.DeployLinkTokenContract(l, chainClient)
-	// Ethereum Sepolia
-	case 11155111:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x779877A7B0D9E8603169DdbD7836e478b4624789")
-	// Polygon Mumbai
-	case 80001:
-		linkToken, err = env.ContractLoader.LoadLINKToken("0x326C977E6efc84E512bB9C30f76E30c160eD06FB")
-	default:
-		panic("Not implemented")
-	}
-	require.NoError(t, err, "Error loading/deploying LINK token")
+	linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
+	require.NoError(t, err, "Error deploying LINK token")
 
 	linkBalance, err := linkToken.BalanceOf(context.Background(), chainClient.MustGetRootKeyAddress().Hex())
 	require.NoError(t, err, "Error getting LINK balance")
@@ -1161,7 +1082,7 @@ func SetupLogPollerTestDocker(
 		require.FailNowf(t, "Not enough LINK", "Not enough LINK to run the test. Need at least %s. but has only %s", big.NewInt(0).Div(minLinkBalance, big.NewInt(1e18)).String(), big.NewInt(0).Div(linkBalance, big.NewInt(1e18)).String())
 	}
 
-	registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 		t,
 		chainClient,
 		registryVersion,

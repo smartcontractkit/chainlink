@@ -2,7 +2,6 @@ package job
 
 import (
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -17,6 +16,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -173,6 +174,8 @@ type Job struct {
 	WorkflowSpec                  *WorkflowSpec
 	StandardCapabilitiesSpecID    *int32
 	StandardCapabilitiesSpec      *StandardCapabilitiesSpec
+	CCIPSpecID                    *int32
+	CCIPBootstrapSpecID           *int32
 	JobSpecErrors                 []SpecError
 	Type                          Type          `toml:"type"`
 	SchemaVersion                 uint32        `toml:"schemaVersion"`
@@ -380,7 +383,7 @@ type OCR2OracleSpec struct {
 
 func validateRelayID(id types.RelayID) error {
 	// only the EVM has specific requirements
-	if id.Network == types.NetworkEVM {
+	if id.Network == relay.NetworkEVM {
 		_, err := toml.ChainIDInt64(id.ChainID)
 		if err != nil {
 			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
@@ -487,6 +490,7 @@ type DirectRequestSpec struct {
 type CronSpec struct {
 	ID           int32     `toml:"-"`
 	CronSchedule string    `toml:"schedule"`
+	EVMChainID   *big.Big  `toml:"evmChainID"`
 	CreatedAt    time.Time `toml:"-"`
 	UpdatedAt    time.Time `toml:"-"`
 }
@@ -848,47 +852,38 @@ type LiquidityBalancerSpec struct {
 }
 
 type WorkflowSpec struct {
-	ID int32 `toml:"-"`
-	// TODO it may be possible to compute the workflow id from the hash(yaml, owner, name) and remove this field
-	WorkflowID    string    `toml:"workflowId"` // globally unique identifier for the workflow, specified by the user
-	Workflow      string    `toml:"workflow"`
-	WorkflowOwner string    `toml:"workflowOwner"` // hex string representation of 20 bytes
-	WorkflowName  string    `toml:"workflowName"`  // 10 byte plain text name
+	ID       int32  `toml:"-"`
+	Workflow string `toml:"workflow"` // the yaml representation of the workflow
+	// fields derived from the yaml spec, used for indexing the database
+	// note: i tried to make these private, but translating them to the database seems to require them to be public
+	WorkflowID    string    `toml:"-" db:"workflow_id"`    // Derived. Do not modify. the CID of the workflow.
+	WorkflowOwner string    `toml:"-" db:"workflow_owner"` // Derived. Do not modify. the owner of the workflow.
+	WorkflowName  string    `toml:"-" db:"workflow_name"`  // Derived. Do not modify. the name of the workflow.
 	CreatedAt     time.Time `toml:"-"`
 	UpdatedAt     time.Time `toml:"-"`
 }
 
 var (
-	ErrInvalidWorkflowID    = errors.New("invalid workflow id")
-	ErrInvalidWorkflowOwner = errors.New("invalid workflow owner")
-	ErrInvalidWorkflowName  = errors.New("invalid workflow name")
+	ErrInvalidWorkflowID       = errors.New("invalid workflow id")
+	ErrInvalidWorkflowYAMLSpec = errors.New("invalid workflow yaml spec")
 )
 
 const (
-	workflowIDLen = 64 // conveniently the same length as a sha256 hash
-	// owner and name are constrained the onchain representation in [github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/types/Metadata]
-	workflowOwnerLen = 40 // hex string representation of 20 bytes
-	workflowNameLen  = 10 // plain text name
+	workflowIDLen = 64 // sha256 hash
 )
 
-// Validate checks the length of the workflow id, owner and name
-// that latter two are constrained by the onchain representation in [github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/types/Metadata]
+// Validate checks the workflow spec for correctness
 func (w *WorkflowSpec) Validate() error {
+	s, err := pkgworkflows.ParseWorkflowSpecYaml(w.Workflow)
+	if err != nil {
+		return fmt.Errorf("%w: failed to parse workflow spec %s: %w", ErrInvalidWorkflowYAMLSpec, w.Workflow, err)
+	}
+	w.WorkflowOwner = strings.TrimPrefix(s.Owner, "0x") // the json schema validation ensures it is a hex string with 0x prefix, but the database does not store the prefix
+	w.WorkflowName = s.Name
+	w.WorkflowID = s.CID()
+
 	if len(w.WorkflowID) != workflowIDLen {
 		return fmt.Errorf("%w: incorrect length for id %s: expected %d, got %d", ErrInvalidWorkflowID, w.WorkflowID, workflowIDLen, len(w.WorkflowID))
-	}
-
-	w.WorkflowOwner = strings.TrimPrefix(w.WorkflowOwner, "0x")
-	_, err := hex.DecodeString(w.WorkflowOwner)
-	if err != nil {
-		return fmt.Errorf("%w: expected hex encoding got %s: %w", ErrInvalidWorkflowOwner, w.WorkflowOwner, err)
-	}
-	if len(w.WorkflowOwner) != workflowOwnerLen {
-		return fmt.Errorf("%w: incorrect length for owner %s: expected %d, got %d", ErrInvalidWorkflowOwner, w.WorkflowOwner, workflowOwnerLen, len(w.WorkflowOwner))
-	}
-
-	if len(w.WorkflowName) != workflowNameLen {
-		return fmt.Errorf("%w: incorrect length for name %s: expected %d, got %d", ErrInvalidWorkflowName, w.WorkflowName, workflowNameLen, len(w.WorkflowName))
 	}
 
 	return nil
