@@ -304,6 +304,8 @@ contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
   }
 }
 
+
+
 /// @notice #onTokenTransfer
 contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
   uint64 s_subscriptionId;
@@ -346,9 +348,24 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsClientSetup {
     s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(invalidSubscriptionId));
   }
 
+  event SubscriptionBalanceModified(uint64 indexed subscriptionId, uint256 balance);
+  event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
+  
   function test_OnTokenTransfer_Success() public {
-    // Funding amount must be less than LINK total supply
+     // Funding amount must be less than LINK total supply
     uint256 totalSupplyJuels = 1_000_000_000 * 1e18;
+
+    // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = true;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionFunded(s_subscriptionId, 0, totalSupplyJuels);
+
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionBalanceModified(s_subscriptionId, totalSupplyJuels);
+   
     // Some of the total supply is already in the subscription account
     s_linkToken.transferAndCall(address(s_functionsRouter), totalSupplyJuels, abi.encode(s_subscriptionId));
     uint96 subscriptionBalanceAfter = s_functionsRouter.getSubscription(s_subscriptionId).balance;
