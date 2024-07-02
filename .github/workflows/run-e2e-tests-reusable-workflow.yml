@@ -321,9 +321,8 @@ jobs:
             /tmp/gotest.log
           publish_check_name: ${{ matrix.tests.idSanitized }}
           token: ${{ secrets.GH_TOKEN }}
-          cache_key_id: run_docker_e2e_tests_${{ matrix.tests.idSanitized }}_${{ env.MOD_CACHE_VERSION }}
+          no_cache: true # Do not restore cache since go was already configured in the previous step
           go_mod_path: ./integration-tests/go.mod
-          cache_restore_only: "true"
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ""
@@ -446,7 +445,7 @@ jobs:
           cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
-          cache_key_id: run_k8s_e2e_tests_${{ matrix.tests.idSanitized }}_${{ env.MOD_CACHE_VERSION }}
+          no_cache: true # Do not restore cache since go was already configured in the previous step
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
