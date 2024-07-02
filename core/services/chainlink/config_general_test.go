@@ -30,6 +30,7 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	assert.False(t, config.StarkNetEnabled())
 	assert.Equal(t, false, config.JobPipeline().ExternalInitiatorsEnabled())
 	assert.Equal(t, 15*time.Minute, config.WebServer().SessionTimeout().Duration())
+	assert.Equal(t, false, config.HeadReport().TelemetryEnabled())
 }
 
 func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
