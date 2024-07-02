@@ -43,6 +43,9 @@ Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 """
 
+[OCR2.Common]
+number_of_contracts=1
+
 # load test specific configuration
 [Load.OCR2]
 [Load.OCR2.Common]
@@ -76,8 +79,8 @@ chainlink_node_funding = 0.5
 
 [Soak.OCR2]
 [Soak.OCR2.Common]
+number_of_contracts=2
 test_duration="15m"
 
 [Soak.OCR2.Soak]
-number_of_contracts=2
 time_between_rounds="1m"

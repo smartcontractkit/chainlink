@@ -280,13 +280,8 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	var linkContract *contracts.EthereumLinkToken
-	if ocrTestConfig.GetActiveOCRConfig().Contracts != nil && ocrTestConfig.GetActiveOCRConfig().Contracts.UseExisting() {
-		linkContract, err = contracts.LoadLinkTokenContract(o.log, sethClient, common.HexToAddress(*ocrTestConfig.GetActiveOCRConfig().Contracts.LinkTokenAddress))
-	} else {
-		linkContract, err = contracts.DeployLinkTokenContract(o.log, sethClient)
-	}
-	require.NoError(o.t, err, "Error loading/deploying LINK contract")
+	linkContract, err := actions.GetLinkTokenContract(o.log, sethClient, ocrTestConfig.GetActiveOCRConfig().Contracts)
+	require.NoError(o.t, err, "Error loading/deploying link token contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")

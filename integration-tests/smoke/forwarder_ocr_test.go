@@ -60,8 +60,8 @@ func TestForwarderOCRBasic(t *testing.T) {
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+	linkContract, err := actions.GetLinkTokenContract(l, sethClient, config.OCR)
+	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	fundingAmount := big.NewFloat(.05)
 	l.Info().Str("ETH amount per node", fundingAmount.String()).Msg("Funding Chainlink nodes")
@@ -69,7 +69,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, sethClient, common.HexToAddress(lt.Address()), len(workerNodes),
+		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
 	)
 
 	require.Equal(t, len(workerNodes), len(operators), "Number of operators should match number of worker nodes")
@@ -90,9 +90,8 @@ func TestForwarderOCRBasic(t *testing.T) {
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
 		l,
 		sethClient,
-		1,
-		common.HexToAddress(lt.Address()),
-		ocrInstanceAddresses,
+		config.OCR,
+		common.HexToAddress(linkContract.Address()),
 		contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes),
 		authorizedForwarders,
 	)

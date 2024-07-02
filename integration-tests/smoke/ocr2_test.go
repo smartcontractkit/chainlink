@@ -169,12 +169,8 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	nodeClients := testEnv.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
-	var linkContract *contracts.EthereumLinkToken
-	if config.OCR2.Contracts != nil && config.OCR2.Contracts.UseExisting() {
-		linkContract, err = contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(*config.OCR2.Contracts.LinkTokenAddress))
-	} else {
-		linkContract, err = contracts.DeployLinkTokenContract(l, sethClient)
-	}
+	linkContract, err := actions.GetLinkTokenContract(l, sethClient, config.OCR2)
+	require.NoError(t, err, "Error loading/deploying link token contract")
 
 	err = actions.FundChainlinkNodesFromRootAddress(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes), big.NewFloat(*config.Common.ChainlinkNodeFunding))
 	require.NoError(t, err, "Error funding Chainlink nodes")
@@ -194,23 +190,20 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		transmitters = append(transmitters, addr)
 	}
 
-	var ocrInstanceAddresses []common.Address
-	for _, address := range config.OCR2.Contracts.OffchainAggregatorAddresses {
-		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
-	}
-
-	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
-	aggregatorContracts, err := actions.SetupOCRv2Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), ocrInstanceAddresses, transmitters, ocrOffchainOptions)
+	ocrOffChainOptions := contracts.DefaultOffChainAggregatorOptions()
+	aggregatorContracts, err := actions.SetupOCRv2Contracts(l, sethClient, config.OCR2, common.HexToAddress(linkContract.Address()), transmitters, ocrOffChainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
 	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
-	require.NoError(t, err, "Error building OCRv2 config")
+	if config.OCR2.UseExistingOffChainAggregatorsContracts() && !config.OCR2.ConfigureExistingOffChainAggregatorsContracts() {
+		ocrV2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffChainOptions)
+		require.NoError(t, err, "Error building OCRv2 config")
 
-	err = actions.ConfigureOCRv2AggregatorContracts(ocrv2Config, aggregatorContracts)
-	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+		err = actions.ConfigureOCRv2AggregatorContracts(ocrV2Config, aggregatorContracts)
+		require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
+	}
 
 	assertCorrectNodeConfiguration(t, l, clNodeCount, testData, testEnv)
 

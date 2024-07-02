@@ -71,7 +71,8 @@ type Ocr2TestConfig interface {
 }
 
 type LinkTokenContractConfig interface {
-	MustGetLinkTokenContractAddress() common.Address
+	GetLinkTokenContractAddress() (common.Address, error)
+	UseExistingLinkTokenContract() bool
 }
 
 type TestConfig struct {

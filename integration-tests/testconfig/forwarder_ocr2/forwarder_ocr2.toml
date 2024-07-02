@@ -62,7 +62,10 @@ MinContractPayment = 0
 
 [Transactions]
 ForwardersEnabled = true
- """
+"""
+
+[OCR2.Common]
+number_of_contracts=1
 
 # load test specific configuration
 [Load.OCR2.Common]
@@ -94,10 +97,10 @@ ea_change_interval = "5s"
 chainlink_node_funding = 1
 
 [Soak.OCR2.Common]
+number_of_contracts=2
 test_duration="15m"
 
 [Soak.OCR2.Soak]
-number_of_contracts=2
 time_between_rounds="1m"
 
 

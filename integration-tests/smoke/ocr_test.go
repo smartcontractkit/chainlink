@@ -81,9 +81,7 @@ func TestOCRJobReplacement(t *testing.T) {
 
 func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult int64) (*test_env.CLClusterTestEnv, []contracts.OffchainAggregator, *seth.Client) {
 	config, err := tc.GetConfig([]string{"Smoke"}, tc.OCR)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err, "Error getting config")
 
 	network, err := actions.EthereumNetworkConfigFromConfig(l, &config)
 	require.NoError(t, err, "Error building ethereum network config")
@@ -115,21 +113,10 @@ func prepareORCv1SmokeTestEnv(t *testing.T, l zerolog.Logger, firstRoundResult i
 		_ = actions.ReturnFundsFromNodes(l, sethClient, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(env.ClCluster.NodeAPIs()))
 	})
 
-	var linkContract *contracts.EthereumLinkToken
-	if config.OCR.Contracts != nil && config.OCR.Contracts.UseExisting() {
-		linkContract, err = contracts.LoadLinkTokenContract(l, sethClient, common.HexToAddress(*config.OCR.Contracts.LinkTokenAddress))
-	} else {
-		linkContract, err = contracts.DeployLinkTokenContract(l, sethClient)
-	}
-
+	linkContract, err := actions.GetLinkTokenContract(l, sethClient, config.OCR)
 	require.NoError(t, err, "Error loading/deploying link token contract")
 
-	var ocrInstanceAddresses []common.Address
-	for _, address := range config.OCR.Contracts.OffchainAggregatorAddresses {
-		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
-	}
-
-	ocrInstances, err := actions.SetupOCRv1Contracts(l, sethClient, 1, common.HexToAddress(linkContract.Address()), ocrInstanceAddresses, contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := actions.SetupOCRv1Contracts(l, sethClient, config.OCR, common.HexToAddress(linkContract.Address()), contracts.ChainlinkClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	require.NoError(t, err, "Error deploying OCR contracts")
 
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))

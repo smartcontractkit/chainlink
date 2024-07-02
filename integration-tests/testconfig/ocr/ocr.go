@@ -41,11 +41,15 @@ func (o *Config) Validate() error {
 }
 
 type Common struct {
-	ETHFunds     *int                    `toml:"eth_funds"`
-	TestDuration *blockchain.StrDuration `toml:"test_duration"`
+	NumberOfContracts *int                    `toml:"number_of_contracts"`
+	ETHFunds          *int                    `toml:"eth_funds"`
+	TestDuration      *blockchain.StrDuration `toml:"test_duration"`
 }
 
 func (o *Common) Validate() error {
+	if o.NumberOfContracts != nil && *o.NumberOfContracts < 1 {
+		return errors.New("when number_of_contracts is set, it must be greater than 0")
+	}
 	if o.ETHFunds != nil && *o.ETHFunds < 0 {
 		return errors.New("eth_funds must be set and cannot be negative")
 	}
@@ -125,14 +129,10 @@ func (o *Volume) Validate() error {
 }
 
 type SoakConfig struct {
-	NumberOfContracts *int                    `toml:"number_of_contracts"`
 	TimeBetweenRounds *blockchain.StrDuration `toml:"time_between_rounds"`
 }
 
 func (o *SoakConfig) Validate() error {
-	if o.NumberOfContracts == nil || *o.NumberOfContracts <= 1 {
-		return errors.New("number_of_contracts must be set and be greater than 1")
-	}
 	if o.TimeBetweenRounds == nil || o.TimeBetweenRounds.Duration == 0 {
 		return errors.New("time_between_rounds must be set and be a positive integer")
 	}
@@ -140,9 +140,10 @@ func (o *SoakConfig) Validate() error {
 }
 
 type Contracts struct {
-	Settings                    *ContractSettings `toml:"Settings"`
-	LinkTokenAddress            *string           `toml:"link_token"`
-	OffchainAggregatorAddresses []string          `toml:"offchain_aggregators"`
+	ShouldBeUsed                *bool                      `toml:"use"`
+	LinkTokenAddress            *string                    `toml:"link_token"`
+	OffchainAggregatorAddresses []string                   `toml:"offchain_aggregators"`
+	Settings                    map[string]ContractSetting `toml:"Settings"`
 }
 
 func (o *Contracts) Validate() error {
@@ -150,32 +151,143 @@ func (o *Contracts) Validate() error {
 		return errors.New("link_token must be a valid ethereum address")
 	}
 	if o.OffchainAggregatorAddresses != nil {
+		allEnabled := make(map[bool]int)
+		allConfigure := make(map[bool]int)
 		for _, address := range o.OffchainAggregatorAddresses {
 			if !common.IsHexAddress(address) {
 				return fmt.Errorf("offchain_aggregators must be valid ethereum addresses, but %s is not", address)
 			}
+
+			if v, ok := o.Settings[address]; ok {
+				if v.ShouldBeUsed != nil {
+					allEnabled[*v.ShouldBeUsed]++
+				} else {
+					allEnabled[true]++
+				}
+				if v.Configure != nil {
+					allConfigure[*v.Configure]++
+				} else {
+					allConfigure[true]++
+				}
+			}
+		}
+
+		if allEnabled[true] > 0 && allEnabled[false] > 0 {
+			return errors.New("either all or none offchain_aggregators must be used")
+		}
+
+		if allConfigure[true] > 0 && allConfigure[false] > 0 {
+			return errors.New("either all or none offchain_aggregators must be configured")
 		}
 	}
 
 	return nil
 }
 
-func (o *Contracts) UseExisting() bool {
-	if o.Settings != nil && o.Settings.UseExisting != nil {
-		return *o.Settings.UseExisting
+func (o *Config) UseExistingContracts() bool {
+	if o.Contracts == nil {
+		return false
+	}
+
+	if o.Contracts.ShouldBeUsed != nil {
+		return *o.Contracts.ShouldBeUsed
 	}
 	return false
 }
 
-func (o *Contracts) MustGetLinkTokenContractAddress() common.Address {
-	if o.LinkTokenAddress != nil {
-		return common.HexToAddress(*o.LinkTokenAddress)
+func (o *Config) GetLinkTokenContractAddress() (common.Address, error) {
+	if o.Contracts != nil && o.Contracts.LinkTokenAddress != nil {
+		return common.HexToAddress(*o.Contracts.LinkTokenAddress), nil
 	}
 
-	panic("link token address must be set")
+	return common.Address{}, errors.New("link token address must be set")
 }
 
-type ContractSettings struct {
-	UseExisting *bool `toml:"use_existing"`
-	Configure   *bool `toml:"configure"`
+func (o *Config) UseExistingLinkTokenContract() bool {
+	if !o.UseExistingContracts() {
+		return false
+	}
+
+	if o.Contracts.LinkTokenAddress == nil {
+		return false
+	}
+
+	if len(o.Contracts.Settings) == 0 {
+		return true
+	}
+
+	if v, ok := o.Contracts.Settings[*o.Contracts.LinkTokenAddress]; ok {
+		return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+	}
+
+	return true
+}
+
+type ContractSetting struct {
+	ShouldBeUsed *bool `toml:"use"`
+	Configure    *bool `toml:"configure"`
+}
+
+type OffChainAggregatorsConfig interface {
+	GetOffChainAggregatorsContractsAddresses() []common.Address
+	UseExistingOffChainAggregatorsContracts() bool
+	ConfigureExistingOffChainAggregatorsContracts() bool
+	GetNumberOfContractsToDeploy() int
+}
+
+func (o *Config) UseExistingOffChainAggregatorsContracts() bool {
+	if !o.UseExistingContracts() {
+		return false
+	}
+
+	if len(o.Contracts.OffchainAggregatorAddresses) == 0 {
+		return false
+	}
+
+	if len(o.Contracts.Settings) == 0 {
+		return true
+	}
+
+	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+		if v, ok := o.Contracts.Settings[address]; ok {
+			return v.ShouldBeUsed != nil && *v.ShouldBeUsed
+		}
+	}
+
+	return true
+}
+
+func (o *Config) GetOffChainAggregatorsContractsAddresses() []common.Address {
+	var ocrInstanceAddresses []common.Address
+	if !o.UseExistingOffChainAggregatorsContracts() {
+		return ocrInstanceAddresses
+	}
+
+	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
+	}
+	return ocrInstanceAddresses
+}
+
+func (o *Config) ConfigureExistingOffChainAggregatorsContracts() bool {
+	if !o.UseExistingOffChainAggregatorsContracts() {
+		return true
+	}
+
+	for _, address := range o.Contracts.OffchainAggregatorAddresses {
+		for maybeOcrAddress, setting := range o.Contracts.Settings {
+			if maybeOcrAddress == address {
+				return setting.Configure != nil && *setting.Configure
+			}
+		}
+	}
+
+	return true
+}
+
+func (o *Config) GetNumberOfContractsToDeploy() int {
+	if o.Soak != nil && o.Common.NumberOfContracts != nil {
+		return *o.Common.NumberOfContracts
+	}
+	return 0
 }
