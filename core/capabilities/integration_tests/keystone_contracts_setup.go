@@ -144,10 +144,12 @@ func setupBlockchain(t *testing.T, triggerDonPeers []peer) (*backends.SimulatedB
 
 }
 
-func setupForwarder(t *testing.T, ctx context.Context, triggerDonPeers []peer, transactOpts *bind.TransactOpts, backend *backends.SimulatedBackend) common.Address {
-	addr, _, _, err := forwarder.DeployKeystoneForwarder(transactOpts, backend)
+func setupForwarder(t *testing.T, ctx context.Context, triggerDonPeers []peer, transactOpts *bind.TransactOpts, backend *backends.SimulatedBackend) (common.Address, *forwarder.KeystoneForwarder) {
+	addr, _, fwd, err := forwarder.DeployKeystoneForwarder(transactOpts, backend)
 	require.NoError(t, err)
 	backend.Commit()
+
+	//fwd.SetConfig(transactOpts)
 
 	// setup the config for the target don here
 	//	forwarder.SetConfig(transactOpts, )
@@ -156,7 +158,7 @@ func setupForwarder(t *testing.T, ctx context.Context, triggerDonPeers []peer, t
 
 	//	also, can setup reciever using KeystoneFeedsConsumer for the report and use this in the test to confirm result
 
-	return addr
+	return addr, fwd
 
 }
 

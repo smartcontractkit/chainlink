@@ -156,13 +156,15 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		return nil, err
 	}
 
+	fmt.Printf("TRANSACTION SENT\n")
+
 	for {
-		stat, err := cap.cw.GetTransactionStatus(ctx, txID.String())
-		time.Sleep(1 * time.Second)
+		status, err := cap.cw.GetTransactionStatus(ctx, txID.String())
 		if err != nil {
 			fmt.Printf("Error getting transaction status: %v\n", err)
 		}
-		fmt.Printf("Transaction status: %v\n", stat)
+		fmt.Printf("Transaction status: %v\n", status)
+		time.Sleep(1 * time.Second)
 	}
 
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)

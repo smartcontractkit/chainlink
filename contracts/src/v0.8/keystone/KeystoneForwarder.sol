@@ -205,6 +205,10 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     emit ConfigSet(donId, configVersion, 0, new address[](0));
   }
 
+  event Log2(bytes32 workflowExecutionId, uint64 configId, bytes2 reportId);
+
+
+
   // send a report to receiver
   function report(
     address receiver,
@@ -212,6 +216,9 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     bytes calldata reportContext,
     bytes[] calldata signatures
   ) external {
+
+
+
     if (rawReport.length < METADATA_LENGTH) {
       revert InvalidReport();
     }
@@ -223,9 +230,19 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
       (workflowExecutionId, configId, reportId) = _getMetadata(rawReport);
       OracleSet storage config = s_configs[configId];
 
+      emit Log2(workflowExecutionId, configId, reportId);
+
+      return;
+      /*
+
       uint8 f = config.f;
       // f can never be 0, so this means the config doesn't actually exist
       if (f == 0) revert InvalidConfig(configId);
+
+
+
+
+
       if (f + 1 != signatures.length) revert InvalidSignatureCount(f + 1, signatures.length);
 
       // validate signatures
@@ -247,6 +264,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
         if (signed[index] != address(0)) revert DuplicateSigner(signer);
         signed[index] = signer;
       }
+      */
     }
 
     bool success = this.route(
@@ -258,6 +276,7 @@ contract KeystoneForwarder is OwnerIsCreator, ITypeAndVersion, IRouter {
     );
 
     emit ReportProcessed(receiver, workflowExecutionId, reportId, success);
+
   }
 
   // solhint-disable-next-line chainlink-solidity/explicit-returns

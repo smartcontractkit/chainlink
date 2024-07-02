@@ -5,14 +5,22 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"math"
 	"math/big"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
@@ -23,6 +31,8 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -41,8 +51,11 @@ type targetFactory = func(t *testing.T, reportsSink chan commoncap.CapabilityRes
 
 type consensusFactory = func(t *testing.T, keys []ocr2key.KeyBundle) commoncap.ConsensusCapability
 
+type RevertError interface {
+	ErrorData() interface{}
+}
+
 func Test_HardcodedWorkflow_DonTopologies(t *testing.T) {
-	return
 	ctx := testutils.Context(t)
 
 	reportsSink := make(chan commoncap.CapabilityResponse, 1000)
@@ -158,8 +171,149 @@ func Test_HardcodedWorkflow_DonTopologies(t *testing.T) {
 	}
 
 	simulatedEthBlockchain, transactor := setupBlockchain(t, triggerDonPeerIDs)
+
+	go func() {
+		var lastBlock *big.Int
+		for {
+
+			lastBlock = simulatedEthBlockchain.Blockchain().CurrentBlock().Number
+
+			block, err := simulatedEthBlockchain.BlockByNumber(ctx, lastBlock)
+			require.NoError(t, err)
+
+			if len(block.Transactions()) > 0 {
+				fmt.Printf("TRANSACTION COUNT %d\n", block.Transactions().Len())
+
+				for _, tx := range block.Transactions() {
+					receipt, err := simulatedEthBlockchain.TransactionReceipt(ctx, tx.Hash())
+					require.NoError(t, err)
+
+					if receipt.Status == 0 {
+						fmt.Printf("TRANSACTION %s FAILED\n", tx.Hash().String())
+
+						msg := ethereum.CallMsg{
+							From:     transactor.From,
+							To:       tx.To(),
+							Gas:      tx.Gas(),
+							GasPrice: tx.GasPrice(),
+							Value:    tx.Value(),
+							Data:     tx.Data(),
+						} // Transaction failed
+
+						res, err := simulatedEthBlockchain.CallContract(context.Background(), msg, nil)
+						/*	if err != nil {
+
+							be := err.(RevertError)
+
+							d := be.ErrorData()
+							s := d.(string)
+
+							data, err := hexutil.Decode(s)
+							if err != nil {
+								fmt.Printf("Failed to decode hex data: %v\n", err)
+								return
+							}
+
+							errorAbi, _ := abi.JSON(strings.NewReader(`[{"constant":false,"inputs":[{"name":"message","type":"string"}],"name":"Error","outputs":[],"type":"function"}]`))
+							method, _ := errorAbi.Methods["Error"]
+							output, _ := method.Outputs.Unpack(data[4:]) // Skip the first 4 bytes which is the function selector
+							fmt.Println("TRANSACTION Revert reason:", output[0])
+
+							fmt.Printf("TRANSACTION CallContract error: %s\n", s)
+						}*/
+
+						require.NoError(t, err)
+						fmt.Printf("TRANSACTION Revert reason: %s\n", res)
+
+						for _, log := range receipt.Logs {
+							data := log.Data
+							if len(data) > 0 {
+								// The ABI for a revert reason is `Error(string)`
+								errorAbi, _ := abi.JSON(strings.NewReader(`[{"constant":false,"inputs":[{"name":"message","type":"string"}],"name":"Error","outputs":[],"type":"function"}]`))
+								method, _ := errorAbi.Methods["Error"]
+								output, _ := method.Outputs.Unpack(data[4:])         // Skip the first 4 bytes which is the function selector
+								fmt.Println("TRANSACTION Revert reason:", output[0]) // This will print the revert reason
+							}
+						}
+					} else {
+
+						fmt.Printf("TRANSACTION %s SUCCESS\n", tx.Hash().String())
+						/*	for _, log := range receipt.Logs {
+
+							//	contractFilterer := forwarder.KeystoneForwarderFilterer{}
+
+								event, err := contractFilterer.ParseLog2(*log)
+								require.NoError(t, err)
+
+								// Now you can access the fields of the event
+								fmt.Printf("Event Log2: %v", event)
+
+								/*
+									data := log.Data
+									if len(data) > 0 {
+										// The ABI for a revert reason is `Error(string)`
+										errorAbi, _ := abi.JSON(strings.NewReader(`[{"constant":false,"inputs":[{"name":"message","type":"string"}],"name":"Error","outputs":[],"type":"function"}]`))
+										method, _ := errorAbi.Methods["Error"]
+										output, _ := method.Outputs.Unpack(data[4:])         // Skip the first 4 bytes which is the function selector
+										fmt.Println("TRANSACTION Revert reason:", output[0]) // This will print the revert reason
+									} */
+						//}
+
+					}
+				}
+
+			}
+
+			time.Sleep(50 * time.Millisecond)
+		}
+
+	}()
+
+	simulatedEthBlockchain.Blockchain().CurrentBlock()
+
+	go func() {
+		logs := make(chan ethtypes.Log, 10000)
+		sub, err := simulatedEthBlockchain.SubscribeFilterLogs(ctx, ethereum.FilterQuery{
+			FromBlock: big.NewInt(0),
+			ToBlock:   big.NewInt(math.MaxInt64),
+		}, logs)
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+
+		for {
+			select {
+			case err := <-sub.Err():
+				log.Fatalf("Received subscription error: %v", err)
+			case vLog := <-logs:
+				fmt.Println("LOGGOGOGOGO: ", vLog)
+			}
+		}
+	}()
+
 	capabilitiesRegistryAddr := setupCapabilitiesRegistry(t, ctx, workflowDonPeerIDs, triggerDonPeerIDs, transactor, simulatedEthBlockchain)
-	forwarderAddr := setupForwarder(t, ctx, triggerDonPeerIDs, transactor, simulatedEthBlockchain)
+	forwarderAddr, fwd := setupForwarder(t, ctx, triggerDonPeerIDs, transactor, simulatedEthBlockchain)
+
+	logs := make(chan *forwarder.KeystoneForwarderLog2, 1000)
+	sub, err := fwd.WatchLog2(&bind.WatchOpts{}, logs)
+	require.NoError(t, err)
+
+	go func() {
+		for {
+			select {
+			case err := <-sub.Err():
+				log.Fatalf("Error from subscription: %v", err)
+			case vLog := <-logs:
+				fmt.Printf("Log2 event: %v\n", vLog)
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			simulatedEthBlockchain.Commit()
+			time.Sleep(1 * time.Second)
+		}
+	}()
 
 	workflowDonNodes, _, _ := createDons(ctx, t, []triggerFactory{mockMercuryTrigger},
 		[]targetFactory{mockEthereumTestnetSepoliaTarget},
@@ -418,6 +572,8 @@ func StartNewNode(ctx context.Context,
 		c.Capabilities.ExternalRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		c.Capabilities.ExternalRegistry.Address = ptr(capRegistryAddr.String())
 		c.Capabilities.Peering.V2.Enabled = ptr(true)
+
+		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
 
 		//here - need to get the key out to sign ? or can pass in key?
 
