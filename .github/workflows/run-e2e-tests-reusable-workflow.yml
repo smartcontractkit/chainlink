@@ -1,0 +1,528 @@
+# This is a reusable workflow that runs E2E tests for Chainlink. 
+# It is not meant to be run on its own.
+name: Run E2E Tests
+on:
+  workflow_call:
+    inputs:
+      chainlink_version:
+        description: 'Enter Chainlink version to use for the tests. Example: "v2.10.0" or sha'
+        required: false
+        type: string    
+      test_ids:
+        description: 'Run tests by test ids separated by commas. Example: "run_all_in_ocr_tests_go,run_TestOCRv2Request_in_ocr2_test_go". Check all test IDs in .github/e2e-tests.yml'
+        required: false
+        type: string
+      test_list:
+        description: 'Base64 encoded list of tests (YML objects) to run. Example in run-automation-ondemand-e2e-tests.yml'
+        required: false
+        type: string            
+      test_workflow:
+        description: 'Run tests by workflow name. Example: "Run Nightly E2E Tests"'
+        required: false
+        type: string
+      # Enable once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1283
+      # test_config_base64_override:
+      #   description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
+      #   required: false
+      #   type: string        
+      enable_check_test_configurations:
+        description: 'Set to "true" to enable check-test-configurations job'
+        required: false
+        type: boolean
+        default: false
+      with_existing_remote_runner_version:
+        description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
+        required: false
+        type: string
+      require_chainlink_image_versions_in_qa_ecr:
+        description: 'Check Chainlink image versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string
+      require_chainlink_plugin_versions_in_qa_ecr:
+        description: 'Check Chainlink plugins versions to be present in QA ECR. If not, build and push the image to QA ECR. Takes comma separated list of Chainlink image versions. Example: "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string
+    secrets:
+      QA_AWS_REGION:
+        required: true
+      QA_AWS_ROLE_TO_ASSUME:
+        required: true
+      QA_AWS_ACCOUNT_NUMBER:
+        required: true
+      QA_PYROSCOPE_INSTANCE:
+        required: true
+      QA_PYROSCOPE_KEY:
+        required: true
+      QA_KUBECONFIG:
+        required: true
+      GRAFANA_INTERNAL_TENANT_ID:
+        required: true
+      GRAFANA_INTERNAL_BASIC_AUTH:
+        required: true
+      GRAFANA_INTERNAL_HOST:
+        required: true
+      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN:
+        required: true
+      GH_TOKEN:
+        required: true  
+      AWS_REGION:
+        required: true
+      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN:
+        required: true
+      AWS_API_GW_HOST_GRAFANA:
+        required: true        
+               
+env: 
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  MOD_CACHE_VERSION: 1
+
+jobs:
+  validate-inputs:
+    name: Validate workflow inputs
+    runs-on: ubuntu-latest
+    outputs:
+      require_chainlink_image_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-image-versions-matrix.outputs.versions }}
+      require_chainlink_plugin_versions_in_qa_ecr_matrix: ${{ steps.set-required-chainlink-plugin-versions-matrix.outputs.versions }}
+    steps:
+      - name: Check input conditions
+        run: |
+          if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
+            echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
+            exit 1
+          fi
+      - name: Install jq
+        run: sudo apt-get install jq          
+      - name: Create matrix for required Chainlink image versions
+        id: set-required-chainlink-image-versions-matrix
+        run: |
+          if [[ "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" != '' ]]; then
+            image_versions=$(echo "${{ inputs.require_chainlink_image_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+            echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          fi
+      - name: Create matrix for required Chainlink plugin versions
+        id: set-required-chainlink-plugin-versions-matrix
+        run: |
+          if [[ "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" != '' ]]; then
+            image_versions=$(echo "${{ inputs.require_chainlink_plugin_versions_in_qa_ecr }}" | jq -Rc 'split(",") | if . == [""] then [] else . end')
+            echo "versions=$image_versions" >> $GITHUB_OUTPUT
+          fi          
+
+  check-test-configurations:
+    name: Check test configurations
+    if: ${{ inputs.enable_check_test_configurations }}
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Run Check Tests Command
+        run: |
+          if ! go run integration-tests/e2e_tests_ci_tool/main.go check-tests ./integration-tests .github/e2e-tests.yml; then
+            echo "::error::Some E2E test configurations have to be added to .github/e2e-tests.yml. This file defines Github CI configuration for each E2E test or set of E2E tests." && exit 1
+          fi
+
+  load-test-configurations:
+    name: Load test configurations
+    runs-on: ubuntu-latest
+    needs: validate-inputs
+    outputs:
+      run-docker-tests: ${{ steps.check-matrices.outputs.run-docker-tests }}
+      run-k8s-tests: ${{ steps.check-matrices.outputs.run-k8s-tests }}
+      docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
+      k8s-runner-matrix: ${{ steps.set-k8s-runner-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Install jq
+        run: sudo apt-get install jq
+      - name: Generate Docker Tests Matrix
+        id: set-docker-matrix
+        run: |
+          cd integration-tests/e2e_tests_ci_tool/
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'docker' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          echo "Docker tests:"
+          echo "$MATRIX_JSON" | jq
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+      - name: Generate K8s Tests Matrix
+        id: set-k8s-runner-matrix
+        run: |
+          cd integration-tests/e2e_tests_ci_tool/
+          MATRIX_JSON=$(go run main.go filter --file ../../.github/e2e-tests.yml --test-type 'k8s-remote-runner' --test-list '${{ inputs.test_list }}' --test-ids '${{ inputs.test_ids }}' --workflow '${{ inputs.test_workflow }}')
+          echo "K8s tests:"
+          echo "$MATRIX_JSON" | jq
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+      - name: Check Test Matrices
+        id: check-matrices
+        run: |
+          DOCKER_MATRIX_EMPTY=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+          K8S_MATRIX_EMPTY=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq '.tests == null or .tests == []')
+
+          # Check if jq commands succeeded
+          if [ $? -ne 0 ]; then
+            echo "JSON parse error occurred."
+            exit 1
+          fi
+
+          if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]]; then
+            echo "run-docker-tests=false" >> $GITHUB_OUTPUT
+          else
+            echo "run-docker-tests=true" >> $GITHUB_OUTPUT
+          fi
+          if [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
+            echo "run-k8s-tests=false" >> $GITHUB_OUTPUT
+          else
+            echo "run-k8s-tests=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if both matrices are empty
+          if [[ "$DOCKER_MATRIX_EMPTY" == "true" ]] && [[ "$K8S_MATRIX_EMPTY" == "true" ]]; then
+            echo "No tests found for inputs: '${{ toJson(inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
+            exit 1
+          fi
+        shell: bash   
+
+  # Build Chainlink images required for the tests
+  require-chainlink-image-versions-in-qa-ecr:
+    name: Build Chainlink image
+    needs: [validate-inputs, load-test-configurations]
+    if: ${{ needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix != '' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    strategy:
+      matrix:
+        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_image_versions_in_qa_ecr_matrix) }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build Chainlink image for ${{ matrix.version }} and push it to QA ECR
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ matrix.version }}
+          tag_suffix: ''
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}        
+
+  # Build Chainlink plugins required for the tests
+  require-chainlink-plugin-versions-in-qa-ecr:
+    name: Build Chainlink plugins 
+    needs: [validate-inputs, load-test-configurations]
+    if: ${{ needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix != '' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    strategy:
+      matrix:
+        version: ${{ fromJson(needs.validate-inputs.outputs.require_chainlink_plugin_versions_in_qa_ecr_matrix) }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build Chainlink plugins image for ${{ matrix.version }}
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: plugins/chainlink.Dockerfile
+          git_commit_sha: ${{ matrix.version }}
+          tag_suffix: '-plugins'
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+
+  # Run Docker tests
+  docker-tests:
+    name: Run docker tests (${{ matrix.tests.id }})
+    needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok) 
+    if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }} 
+    runs-on: ${{ matrix.tests.runsOn }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+      QA_CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Show test configuration
+        run: echo '${{ toJson(matrix.tests) }}' | jq .
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+
+      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
+        id: create-default-test-config-override
+        uses: ./.github/actions/create-default-e2e-config-override
+        with:
+          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
+          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+
+      - name: Setup GAP for Grafana
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+        id: setup-gap
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-arn: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
+          duplicate-authorization-header: "true"
+
+      - name: Run tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        with:
+          test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
+          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
+          artifacts_location: |
+            ./integration-tests/smoke/logs/
+            /tmp/gotest.log
+          publish_check_name: ${{ matrix.tests.idSanitized }}
+          token: ${{ secrets.GH_TOKEN }}
+          no_cache: true # Do not restore cache since go was already configured in the previous step
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ""
+          should_tidy: "false"
+          go_coverage_src_dir: /var/tmp/go-coverage
+          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+
+  # Run K8s tests using old remote runner
+
+  prepare-remote-runner-test-image:
+    needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
+    name: Prepare remote runner test image
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    outputs:
+      remote-runner-version: ${{ steps.set-remote-runner-version.outputs.remote-runner-version }}
+    env:
+      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2      
+      - name: Build Test Runner Image
+        uses: ./.github/actions/build-test-image
+        if: ${{ inputs.with_existing_remote_runner_version == '' }}
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - name: Set Remote Runner Version
+        id: set-remote-runner-version
+        run: |
+          if [[ -z "${{ inputs.with_existing_remote_runner_version }}" ]]; then
+            echo "remote-runner-version=${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "remote-runner-version=${{ inputs.with_existing_remote_runner_version }}" >> $GITHUB_OUTPUT
+          fi
+
+  run-k8s-runner-tests:
+    needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr]
+    if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
+    name: Run k8s tests (${{ matrix.tests.id }})
+    runs-on: ${{ matrix.tests.runsOn }}
+    strategy:
+      fail-fast: false
+      matrix: ${{fromJson(needs.load-test-configurations.outputs.k8s-runner-matrix)}}
+    environment: integration
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: SIMULATED
+      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Install jq
+        run: sudo apt-get install -y jq
+      - name: Show Test Configuration
+        run: echo '${{ toJson(matrix.tests) }}' | jq .
+      - name: Show Remote Runner Version
+        run: |
+          echo "Remote Runner Version: ${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}"
+
+      - name: Create default test config override (use test inputs from e2e-tests.yml or defaults)
+        id: create-default-test-config-override
+        uses: ./.github/actions/create-default-e2e-config-override
+        with:
+          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
+          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
+          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
+          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
+          loki_run_id: ${{ github.run_id }}
+          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
+          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
+          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
+          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}          
+          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
+
+      - name: Run tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          RR_MEM: ${{ matrix.tests.remoteRunnerMemory }}
+          TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
+          ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}
+          INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+          # We can comment these out when we have a stable soak test and aren't worried about resource consumption
+          TEST_UPLOAD_CPU_PROFILE: true
+          TEST_UPLOAD_MEM_PROFILE: true
+          TEST_LOG_LEVEL: debug
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
+        with:
+          test_command_to_run: ${{ matrix.tests.testCmd }}
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
+          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
+          token: ${{ secrets.GH_TOKEN }}
+          should_cleanup: false
+          no_cache: true # Do not restore cache since go was already configured in the previous step
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
+
+  # Run K8s tests using new remote runner
+  # remote-runner-k8s-tests:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: golang:1.18
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v2
+      
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v2
+  #       with:
+  #         go-version: '1.18'
+      
+  #     - name: Load Runner Config
+  #       run: echo "$RUNNER_CONFIG" > runner.toml
+  #       env:
+  #         RUNNER_CONFIG: |
+  #           # Runner configuration
+  #           detached_mode = true
+  #           debug = false
+            
+  #           [[test_runs]]
+  #           namespace = "dev-env"
+  #           rbac_role_name = "dev-role"
+  #           rbac_service_account_name = "dev-service-account"
+  #           sync_value = "unique-sync-value-1"
+  #           ttl_seconds_after_finished = 300
+  #           image_registry_url = "https://myregistry.dev/"
+  #           image_name = "dev-image"
+  #           image_tag = "v1.0.0"
+  #           test_name = "TestMercuryLoad/all_endpoints"
+  #           test_config_base64_env_name = "CONFIG_ENV_DEV"
+  #           test_config_file_path = "/configs/dev/test-config.toml"
+  #           test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgZGV2"
+  #           test_timeout = "30m"
+  #           resources_requests_cpu = "500m"
+  #           resources_requests_memory = "1Gi"
+  #           resources_limits_cpu = "1000m"
+  #           resources_limits_memory = "2Gi"
+  #           job_count = 2
+  #           chart_path = "/charts/dev"
+  #           [envs]
+  #           WASP_LOG_LEVEL = "info"
+  #           TEST_LOG_LEVEL = "info"
+  #           MERCURY_TEST_LOG_LEVEL = "info"
+            
+  #           [[test_runs]]
+  #           namespace = "prod-env"
+  #           rbac_role_name = "prod-role"
+  #           rbac_service_account_name = "prod-service-account"
+  #           sync_value = "unique-sync-value-2"
+  #           ttl_seconds_after_finished = 600
+  #           image_registry_url = "https://myregistry.prod/"
+  #           image_name = "prod-image"
+  #           image_tag = "v1.0.1"
+  #           test_name = "TestMercuryLoad/all_endpoints"
+  #           test_config_base64_env_name = "CONFIG_ENV_PROD"
+  #           test_config_file_path = "/configs/prod/test-config.toml"
+  #           test_config_base64 = "dGVzdCBjb25maWcgdmFsdWUgcHJvZA=="
+  #           test_timeout = "45m"
+  #           resources_requests_cpu = "800m"
+  #           resources_requests_memory = "2Gi"
+  #           resources_limits_cpu = "1500m"
+  #           resources_limits_memory = "4Gi"
+  #           job_count = 3
+  #           chart_path = "/charts/prod"
+  #           [envs]
+  #           WASP_LOG_LEVEL = "info"
+  #           TEST_LOG_LEVEL = "info"
+  #           MERCURY_TEST_LOG_LEVEL = "info"
+        
+  #     # Schedule the tests in K8s in remote runner
+  #     - name: Run Kubernetes Tests
+  #       run: go run ./cmd/main.go run -c runner.toml        

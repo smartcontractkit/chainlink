@@ -1,0 +1,128 @@
+# This file specifies the GitHub runner for each E2E test and is utilized by all E2E CI workflows.
+#
+# Each entry in this file includes the following:
+# - The GitHub runner (runs-on field) that will execute tests.
+# - The tests that will be run by the runner.
+# - The workflows (e.g., Run PR E2E Tests, Run Nightly E2E Tests) that should trigger these tests.
+#
+runner-test-matrix:
+
+  # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
+  - id: smoke/ocr_test.go:* 
+    path: integration-tests/smoke/ocr_test.go
+    test-type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr_test.go -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-ocr-evm-simulated-nightly
+
+  # Example of 2 separate runners for the same test file but different tests. Can be used if tests if are too heavy to run on the same runner
+  - id: smoke/ocr2_test.go:^TestOCRv2Request$
+    path: integration-tests/smoke/ocr2_test.go
+    test-type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Request$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
+
+  - id: smoke/ocr2_test.go:^TestOCRv2Basic$
+    path: integration-tests/smoke/ocr2_test.go
+    test-type: docker
+    runs-on: ubuntu-latest
+    workflows:
+      - Run PR E2E Tests
+      - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
+
+  # Automation upgrade tests
+  
+  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
+    path: integration-tests/smoke/automation_upgrade_test.go
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    workflows:
+      - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_0 -test.parallel=1 -timeout 60m -count=1 -json
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkUpgradeVersion: develop
+    pyroscope-env: ci-smoke-automation-upgrade-tests
+
+  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_1
+    path: integration-tests/smoke/automation_upgrade_test.go
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    workflows:
+      - Run Automation Product Nightly E2E Tests    
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_1 -test.parallel=5 -timeout 60m -count=1 -json
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkUpgradeVersion: develop
+    pyroscope-env: ci-smoke-automation-upgrade-tests
+
+  - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_2
+    path: integration-tests/smoke/automation_upgrade_test.go
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    workflows:
+      - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationNodeUpgrade/registry_2_2 -test.parallel=5 -timeout 60m -count=1 -json
+    test-inputs:
+      chainlinkImage: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion: latest
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
+      chainlinkUpgradeVersion: develop
+    pyroscope-env: ci-smoke-automation-upgrade-tests
+
+  # END Automation upgrade tests
+
+  - id: integration-tests/reorg/automation_reorg_test.go
+    path: integration-tests/reorg/automation_reorg_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: reorg
+    runs-on: ubuntu-latest
+    workflows:
+      # - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=5 -timeout 60m -count=1
+    pyroscope-env: ci-automation-on-demand-reorg
+
+  - id: integration-tests/chaos/automation_chaos_test.go
+    path: integration-tests/chaos/automation_chaos_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: chaos
+    runs-on: ubuntu-latest
+    workflows:
+      # - Run Automation Product Nightly E2E Tests
+    test-cmd: cd integration-tests/chaos && go test -v -test.run ^TestAutomationChaos$ -test.parallel=15 -timeout 60m -count=1
+    pyroscope-env: ci-automation-on-demand-chaos
+
+  # Example of a configuration for running a single soak test in Kubernetes Remote Runner
+  - id: soak/ocr_test.go:^TestOCRv1Soak$
+    path: integration-tests/soak/ocr_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: soak
+    runs-on: ubuntu-latest
+    # workflows:
+    #   - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
+
+  - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
+    path: integration-tests/benchmark/keeper_test.go
+    test-type: k8s-remote-runner
+    remote-runner-test-suite: benchmark
+    remote-runner-memory: 4Gi
+    runs-on: ubuntu-latest
+    # workflows:
+    #   - Run Nightly E2E Tests
+    test-cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
+    pyroscope-env: ci-benchmark-automation-nightly
