@@ -51,7 +51,7 @@ runner-test-matrix:
     test-inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
-      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
@@ -65,7 +65,7 @@ runner-test-matrix:
     test-inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
-      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
@@ -79,7 +79,7 @@ runner-test-matrix:
     test-inputs:
       chainlinkImage: public.ecr.aws/chainlink/chainlink
       chainlinkVersion: latest
-      chainlinkUpgradeImage: {{ env.QA_CHAINLINK_IMAGE }}
+      chainlinkUpgradeImage: '{{ env.QA_CHAINLINK_IMAGE }}'
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 

@@ -105,13 +105,15 @@ Example usage:
 
 		data, err := os.ReadFile(yamlFile)
 		if err != nil {
-			log.Fatalf("Error reading YAML file: %v", err)
+			fmt.Fprintf(os.Stderr, "Error reading YAML file: %v\n", err)
+			os.Exit(1)
 		}
 
 		var config Config
 		err = yaml.Unmarshal(data, &config)
 		if err != nil {
-			log.Fatalf("Error parsing YAML data: %v", err)
+			fmt.Fprintf(os.Stderr, "Error parsing YAML file %s data: %v\n", yamlFile, err)
+			os.Exit(1)
 		}
 
 		var filteredTests []CITestConf
@@ -126,7 +128,8 @@ Example usage:
 		matrix := map[string][]CITestConf{"tests": filteredTests}
 		matrixJSON, err := json.Marshal(matrix)
 		if err != nil {
-			log.Fatalf("Error marshaling matrix to JSON: %v", err)
+			fmt.Fprintf(os.Stderr, "Error marshaling matrix to JSON: %v\n", err)
+			os.Exit(1)
 		}
 
 		fmt.Printf("%s", matrixJSON)
