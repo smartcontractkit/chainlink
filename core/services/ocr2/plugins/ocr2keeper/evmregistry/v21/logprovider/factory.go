@@ -95,7 +95,7 @@ func (o *LogTriggersOptions) defaultBlockRate() uint32 {
 func (o *LogTriggersOptions) defaultLogLimit() uint32 {
 	switch o.chainID.Int64() {
 	case 42161, 421613, 421614: // Arbitrum
-		return 1
+		return 1 // TODO should this be 2
 	case 1, 4, 5, 42, 11155111: // Eth
 		return 20
 	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
