@@ -8,11 +8,11 @@ import {ICommitStore} from "../../interfaces/ICommitStore.sol";
 import {IRMN} from "../../interfaces/IRMN.sol";
 
 import {AuthorizedCallers} from "../../../shared/access/AuthorizedCallers.sol";
+import {NonceManager} from "../../NonceManager.sol";
 import {RMN} from "../../RMN.sol";
 import {Router} from "../../Router.sol";
 import {Client} from "../../libraries/Client.sol";
 import {Internal} from "../../libraries/Internal.sol";
-
 import {MultiOCR3Base} from "../../ocr/MultiOCR3Base.sol";
 import {EVM2EVMMultiOffRamp} from "../../offRamp/EVM2EVMMultiOffRamp.sol";
 import {EVM2EVMOffRamp} from "../../offRamp/EVM2EVMOffRamp.sol";
@@ -22,7 +22,6 @@ import {TokenSetup} from "../TokenSetup.t.sol";
 import {EVM2EVMMultiOffRampHelper} from "../helpers/EVM2EVMMultiOffRampHelper.sol";
 import {EVM2EVMOffRampHelper} from "../helpers/EVM2EVMOffRampHelper.sol";
 import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
-
 import {MessageInterceptorHelper} from "../helpers/MessageInterceptorHelper.sol";
 import {MaybeRevertMessageReceiver} from "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import {MockCommitStore} from "../mocks/MockCommitStore.sol";
@@ -50,6 +49,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
   EVM2EVMMultiOffRampHelper internal s_offRamp;
   MessageInterceptorHelper internal s_inboundMessageValidator;
+  NonceManager internal s_inboundNonceManager;
   RMN internal s_realRMN;
   address internal s_sourceTokenPool = makeAddr("sourceTokenPool");
 
@@ -71,11 +71,12 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     s_reverting_receiver = new MaybeRevertMessageReceiver(true);
 
     s_maybeRevertingPool = MaybeRevertingBurnMintTokenPool(s_destPoolByToken[s_destTokens[1]]);
+    s_inboundNonceManager = new NonceManager(new address[](0));
 
-    _deployOffRamp(s_destRouter, s_mockRMN);
+    _deployOffRamp(s_destRouter, s_mockRMN, s_inboundNonceManager);
   }
 
-  function _deployOffRamp(Router router, IRMN rmnProxy) internal {
+  function _deployOffRamp(Router router, IRMN rmnProxy, NonceManager nonceManager) internal {
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0);
 
@@ -83,7 +84,8 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       EVM2EVMMultiOffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnProxy: address(rmnProxy),
-        tokenAdminRegistry: address(s_tokenAdminRegistry)
+        tokenAdminRegistry: address(s_tokenAdminRegistry),
+        nonceManager: address(nonceManager)
       }),
       sourceChainConfigs
     );
@@ -111,6 +113,12 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
 
     s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(router), address(s_priceRegistry)));
     s_offRamp.setOCR3Configs(ocrConfigs);
+
+    address[] memory authorizedCallers = new address[](1);
+    authorizedCallers[0] = address(s_offRamp);
+    NonceManager(nonceManager).applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: authorizedCallers, removedCallers: new address[](0)})
+    );
 
     address[] memory priceUpdaters = new address[](1);
     priceUpdaters[0] = address(s_offRamp);
@@ -168,19 +176,16 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       isEnabled: true,
-      prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_1
     });
     sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       isEnabled: false,
-      prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_2
     });
     sourceChainConfigs[2] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       isEnabled: true,
-      prevOffRamp: address(0),
       onRamp: ON_RAMP_ADDRESS_3
     });
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
@@ -200,8 +205,10 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       onRampUpdates[i] = Router.OnRamp({destChainSelector: DEST_CHAIN_SELECTOR, onRamp: sourceChainConfigs[i].onRamp});
 
       offRampUpdates[2 * i] = Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(s_offRamp)});
-      offRampUpdates[2 * i + 1] =
-        Router.OffRamp({sourceChainSelector: sourceChainSelector, offRamp: address(sourceChainConfigs[i].prevOffRamp)});
+      offRampUpdates[2 * i + 1] = Router.OffRamp({
+        sourceChainSelector: sourceChainSelector,
+        offRamp: s_inboundNonceManager.getPreviousRamps(sourceChainSelector).prevOffRamp
+      });
     }
 
     s_destRouter.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
@@ -423,7 +430,6 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   ) internal pure {
     assertEq(config1.isEnabled, config2.isEnabled);
     assertEq(config1.minSeqNr, config2.minSeqNr);
-    assertEq(config1.prevOffRamp, config2.prevOffRamp);
     assertEq(config1.onRamp, config2.onRamp);
     assertEq(config1.metadataHash, config2.metadataHash);
   }
@@ -457,12 +463,18 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       EVM2EVMMultiOffRamp.StaticConfig({
         chainSelector: DEST_CHAIN_SELECTOR,
         rmnProxy: address(s_mockRMN),
-        tokenAdminRegistry: address(s_tokenAdminRegistry)
+        tokenAdminRegistry: address(s_tokenAdminRegistry),
+        nonceManager: address(s_inboundNonceManager)
       }),
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0)
     );
 
     s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(s_destRouter), address(s_priceRegistry)));
+    address[] memory authorizedCallers = new address[](1);
+    authorizedCallers[0] = address(s_offRamp);
+    s_inboundNonceManager.applyAuthorizedCallerUpdates(
+      AuthorizedCallers.AuthorizedCallerArgs({addedCallers: authorizedCallers, removedCallers: new address[](0)})
+    );
     _setupMultipleOffRamps();
 
     address[] memory priceUpdaters = new address[](1);

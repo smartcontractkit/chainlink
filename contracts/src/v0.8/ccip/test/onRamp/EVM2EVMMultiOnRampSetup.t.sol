@@ -35,7 +35,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
   EVM2EVMMultiOnRampHelper internal s_onRamp;
   MessageInterceptorHelper internal s_outboundMessageValidator;
   address[] internal s_offRamps;
-  NonceManager internal s_nonceManager;
+  NonceManager internal s_outboundNonceManager;
   address internal s_destTokenPool = makeAddr("destTokenPool");
   address internal s_destToken = makeAddr("destToken");
 
@@ -104,9 +104,9 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     );
 
     s_outboundMessageValidator = new MessageInterceptorHelper();
-    s_nonceManager = new NonceManager(new address[](0));
+    s_outboundNonceManager = new NonceManager(new address[](0));
     (s_onRamp, s_metadataHash) = _deployOnRamp(
-      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_nonceManager), address(s_tokenAdminRegistry)
+      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_outboundNonceManager), address(s_tokenAdminRegistry)
     );
 
     s_offRamps = new address[](2);

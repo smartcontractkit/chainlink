@@ -81,7 +81,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     s_sourceRouter2.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), new Router.OffRamp[](0));
 
     // Deploy offramp
-    _deployOffRamp(s_destRouter, s_mockRMN);
+    _deployOffRamp(s_destRouter, s_mockRMN, s_inboundNonceManager);
 
     // Enable source chains on offramp
     EVM2EVMMultiOffRamp.SourceChainConfigArgs[] memory sourceChainConfigs =
@@ -89,13 +89,11 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       isEnabled: true,
-      prevOffRamp: address(0),
       onRamp: address(s_onRamp)
     });
     sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
       isEnabled: true,
-      prevOffRamp: address(0),
       onRamp: address(s_onRamp2)
     });
 

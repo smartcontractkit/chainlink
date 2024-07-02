@@ -24,7 +24,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
       chainSelector: SOURCE_CHAIN_SELECTOR,
       maxFeeJuelsPerMsg: MAX_MSG_FEES_JUELS,
       rmnProxy: address(s_mockRMN),
-      nonceManager: address(s_nonceManager),
+      nonceManager: address(s_outboundNonceManager),
       tokenAdminRegistry: address(s_tokenAdminRegistry)
     });
     EVM2EVMMultiOnRamp.DynamicConfig memory dynamicConfig =
@@ -56,7 +56,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
     );
 
     _deployOnRamp(
-      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_nonceManager), address(s_tokenAdminRegistry)
+      SOURCE_CHAIN_SELECTOR, address(s_sourceRouter), address(s_outboundNonceManager), address(s_tokenAdminRegistry)
     );
 
     EVM2EVMMultiOnRamp.DestChainConfig memory expectedDestChainConfig = EVM2EVMMultiOnRamp.DestChainConfig({
@@ -99,7 +99,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
         chainSelector: SOURCE_CHAIN_SELECTOR,
         maxFeeJuelsPerMsg: MAX_NOP_FEES_JUELS,
         rmnProxy: address(s_mockRMN),
-        nonceManager: address(s_nonceManager),
+        nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       _generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
@@ -117,7 +117,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
         chainSelector: 0,
         maxFeeJuelsPerMsg: MAX_NOP_FEES_JUELS,
         rmnProxy: address(s_mockRMN),
-        nonceManager: address(s_nonceManager),
+        nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       _generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
@@ -135,7 +135,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
         chainSelector: SOURCE_CHAIN_SELECTOR,
         maxFeeJuelsPerMsg: MAX_NOP_FEES_JUELS,
         rmnProxy: address(0),
-        nonceManager: address(s_nonceManager),
+        nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(s_tokenAdminRegistry)
       }),
       _generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
@@ -171,7 +171,7 @@ contract EVM2EVMMultiOnRamp_constructor is EVM2EVMMultiOnRampSetup {
         chainSelector: SOURCE_CHAIN_SELECTOR,
         maxFeeJuelsPerMsg: MAX_NOP_FEES_JUELS,
         rmnProxy: address(s_mockRMN),
-        nonceManager: address(s_nonceManager),
+        nonceManager: address(s_outboundNonceManager),
         tokenAdminRegistry: address(0)
       }),
       _generateDynamicMultiOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
@@ -489,7 +489,7 @@ contract EVM2EVMMultiOnRamp_forwardFromRouter is EVM2EVMMultiOnRampSetup {
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
 
     for (uint64 i = 1; i < 4; ++i) {
-      uint64 nonceBefore = s_nonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
+      uint64 nonceBefore = s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
       uint64 sequenceNumberBefore = s_onRamp.getDestChainConfig(DEST_CHAIN_SELECTOR).sequenceNumber;
 
       vm.expectEmit();
@@ -497,7 +497,7 @@ contract EVM2EVMMultiOnRamp_forwardFromRouter is EVM2EVMMultiOnRampSetup {
 
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
 
-      uint64 nonceAfter = s_nonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
+      uint64 nonceAfter = s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
       uint64 sequenceNumberAfter = s_onRamp.getDestChainConfig(DEST_CHAIN_SELECTOR).sequenceNumber;
       assertEq(nonceAfter, nonceBefore + 1);
       assertEq(sequenceNumberAfter, sequenceNumberBefore + 1);
@@ -511,7 +511,7 @@ contract EVM2EVMMultiOnRamp_forwardFromRouter is EVM2EVMMultiOnRampSetup {
     );
 
     for (uint64 i = 1; i < 4; ++i) {
-      uint64 nonceBefore = s_nonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
+      uint64 nonceBefore = s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
       uint64 sequenceNumberBefore = s_onRamp.getDestChainConfig(DEST_CHAIN_SELECTOR).sequenceNumber;
 
       vm.expectEmit();
@@ -519,7 +519,7 @@ contract EVM2EVMMultiOnRamp_forwardFromRouter is EVM2EVMMultiOnRampSetup {
 
       s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, 0, OWNER);
 
-      uint64 nonceAfter = s_nonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
+      uint64 nonceAfter = s_outboundNonceManager.getOutboundNonce(DEST_CHAIN_SELECTOR, OWNER);
       uint64 sequenceNumberAfter = s_onRamp.getDestChainConfig(DEST_CHAIN_SELECTOR).sequenceNumber;
       assertEq(nonceAfter, nonceBefore);
       assertEq(sequenceNumberAfter, sequenceNumberBefore + 1);
