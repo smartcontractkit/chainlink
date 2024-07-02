@@ -211,7 +211,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, conf)
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr

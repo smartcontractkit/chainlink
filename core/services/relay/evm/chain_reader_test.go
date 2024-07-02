@@ -132,7 +132,7 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := evm.NewChainReaderService(testutils.Context(t), logger.NullLogger, nil, nil, nil, types.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())

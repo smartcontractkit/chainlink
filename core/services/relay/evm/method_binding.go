@@ -26,7 +26,7 @@ func (e NoContractExistsError) Error() string {
 }
 
 type methodBinding struct {
-	lp                   logpoller.LogPoller
+	ht                   logpoller.HeadTracker
 	address              common.Address
 	contractName         string
 	method               string
@@ -109,16 +109,16 @@ func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 		value = evmtypes.Finalized
 	}
 
-	lpBlock, err := m.lp.LatestBlock(ctx)
+	latest, finalized, err := m.ht.LatestAndFinalizedBlock(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	if value == evmtypes.Finalized {
-		return big.NewInt(lpBlock.FinalizedBlockNumber), nil
+		return big.NewInt(finalized.Number), nil
 	} else if value == evmtypes.Unconfirmed {
 		// this is the latest block
-		return big.NewInt(lpBlock.BlockNumber), nil
+		return big.NewInt(latest.BlockNumber()), nil
 	}
 
 	return nil, fmt.Errorf("unknown confidence level: %v", confidenceLevel)

@@ -33,6 +33,7 @@ type ChainReaderService interface {
 
 type chainReader struct {
 	lggr             logger.Logger
+	ht               logpoller.HeadTracker
 	lp               logpoller.LogPoller
 	client           evmclient.Client
 	contractBindings bindings
@@ -46,9 +47,10 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
-func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:             lggr.Named("ChainReader"),
+		ht:               ht,
 		lp:               lp,
 		client:           client,
 		contractBindings: bindings{},
@@ -203,7 +205,7 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
-	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
 		return err
 	}
@@ -211,7 +213,7 @@ func (cr *chainReader) addMethod(
 	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
 		contractName:         contractName,
 		method:               methodName,
-		lp:                   cr.lp,
+		ht:                   cr.ht,
 		client:               cr.client,
 		confirmationsMapping: confirmations,
 	})
@@ -253,7 +255,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
 		return err
 	}
@@ -395,7 +397,7 @@ func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, typ
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
 }
 
-func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
+func ConfirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
 	mappings := map[primitives.ConfidenceLevel]evmtypes.Confirmations{
 		primitives.Unconfirmed: evmtypes.Unconfirmed,
 		primitives.Finalized:   evmtypes.Finalized,
