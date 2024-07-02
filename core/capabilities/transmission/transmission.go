@@ -34,7 +34,7 @@ func extractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
+		return TransmissionConfig{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
 	}
 
 	duration, err := time.ParseDuration(tc.DeltaStage)
