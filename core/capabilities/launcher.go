@@ -502,9 +502,10 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 
 	return &capabilities.DON{
-		ID:      don.Id,
-		Members: peerIDs,
-		F:       don.F,
+		ID:            don.Id,
+		ConfigVersion: don.ConfigCount,
+		Members:       peerIDs,
+		F:             don.F,
 	}
 }
 
