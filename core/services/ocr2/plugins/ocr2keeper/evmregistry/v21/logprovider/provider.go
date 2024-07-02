@@ -265,6 +265,7 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	case BufferVersionV1:
 		payloads = p.minimumCommitmentDequeue(latestBlock, start)
 
+		// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
 		if len(payloads) < MaxPayloads {
 			payloads = p.bestEffortDequeue(latestBlock, startBlock, payloads)
 		}
@@ -281,13 +282,17 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	return payloads
 }
 
-func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads []ocr2keepers.UpkeepPayload) []ocr2keepers.UpkeepPayload {
+// minimumCommitmentDequeue dequeues the minimum number of logs per upkeep per block window, when available.
+func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []ocr2keepers.UpkeepPayload {
+	var payloads []ocr2keepers.UpkeepPayload
+
 	blockRate := int(p.opts.BlockRate)
 
 	for len(payloads) < MaxPayloads && start <= latestBlock {
 		startWindow, end := getBlockWindow(start, blockRate)
 
-		logs, remaining := p.bufferV1.Dequeue(startWindow, end, MaxPayloads-len(payloads), MaxPayloads-len(payloads), true)
+		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
+		logs, remaining := p.bufferV1.Dequeue(startWindow, end, int(p.opts.LogLimit), MaxPayloads-len(payloads), false)
 		if len(logs) > 0 {
 			p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -304,15 +309,16 @@ func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads 
 	return payloads
 }
 
-func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []ocr2keepers.UpkeepPayload {
-	var payloads []ocr2keepers.UpkeepPayload
-
+// bestEffortDequeue dequeues the remaining logs from the buffer, after the minimum number of logs
+// have been dequeued for every upkeep in every block window.
+func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads []ocr2keepers.UpkeepPayload) []ocr2keepers.UpkeepPayload {
 	blockRate := int(p.opts.BlockRate)
 
 	for len(payloads) < MaxPayloads && start <= latestBlock {
 		startWindow, end := getBlockWindow(start, blockRate)
 
-		logs, remaining := p.bufferV1.Dequeue(startWindow, end, int(p.opts.LogLimit), MaxPayloads-len(payloads), false)
+		// dequeue as many logs as we can, based on remaining capacity, for this block window
+		logs, remaining := p.bufferV1.Dequeue(startWindow, end, MaxPayloads-len(payloads), MaxPayloads-len(payloads), true)
 		if len(logs) > 0 {
 			p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}

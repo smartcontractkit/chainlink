@@ -192,6 +192,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, bestEff
 			// adjust limit if it is higher than the actual capacity
 			upkeepLimit = capacity
 		}
+
 		logs, remaining := q.dequeue(start, end, upkeepLimit)
 		for _, l := range logs {
 			result = append(result, BufferedLog{ID: q.id, Log: l})
@@ -199,7 +200,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, bestEff
 		}
 		remainingLogs += remaining
 
-		// update the buffer with how many logs we have dequeued
+		// update the buffer with how many logs we have dequeued for this window
 		q.dequeued[start] += len(logs)
 	}
 	return result, remainingLogs
