@@ -48,8 +48,6 @@ var (
 	readerThreads = 4
 
 	bufferSyncInterval = 10 * time.Minute
-	// logLimitMinimum is how low the log limit can go.
-	logLimitMinimum = 1
 )
 
 // LogTriggerConfig is an alias for log trigger config.
