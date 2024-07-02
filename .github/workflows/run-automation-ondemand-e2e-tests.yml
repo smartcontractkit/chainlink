@@ -43,6 +43,10 @@ on:
         required: false
         type: string                 
 
+env:
+  CHAINLINK_VERSION: ${{ inputs.chainlinkVersion || github.sha }}
+  CHAINLINK_UPGRADE_VERSION: ${{ inputs.chainlinkVersionUpdate }}
+
 jobs:
   # Set tests to run based on the workflow inputs
   set-tests-to-run:
@@ -73,8 +77,8 @@ jobs:
             exit 1
           fi            
 
-          CHAINLINK_VERSION="${{ inputs.chainlinkVersion || github.sha }}"
-          CHAINLINK_UPGRADE_VERSION="${{ inputs.chainlinkVersionUpdate }}"
+          CHAINLINK_VERSION="${{ env.CHAINLINK_VERSION }}"
+          CHAINLINK_UPGRADE_VERSION="${{ env.CHAINLINK_UPGRADE_VERSION }}"
 
           # Always run upgrade tests 
           cat > test_list.yaml <<EOF
@@ -122,9 +126,74 @@ jobs:
 
           echo "test_list=$(cat test_list.yaml | base64 -w 0)" >> $GITHUB_OUTPUT
 
+  build-chainlink-image:
+    name: Build required Chainlink images 
+    if: ${{ github.event.inputs.chainlinkImage == 'QA_ECR' ||  github.event.inputs.chainlinkImageUpdate == 'QA_ECR' }}
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+    strategy:
+      matrix:
+        image:
+          - name: ""
+            dockerfile: core/chainlink.Dockerfile
+            tag-suffix: ""
+          - name: (plugins)
+            dockerfile: plugins/chainlink.Dockerfile
+            tag-suffix: -plugins
+    steps:
+      - name: Checkout the repo
+        if: ${{ github.event.inputs.chainlinkImage == 'QA_ECR' }}
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+
+      - name: Build Chainlink Image (from image upgrade) 
+        if: ${{ github.event.inputs.chainlinkImage == 'QA_ECR' }}
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ env.CHAINLINK_VERSION }}
+          tag_suffix: ${{ matrix.image.tag-suffix }}
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
+      - name: Build Chainlink Image (to image upgrade) 
+        if: ${{ github.event.inputs.chainlinkImageUpdate == 'QA_ECR' }}
+        uses: ./.github/actions/build-chainlink-image
+        with:
+          dockerfile: core/chainlink.Dockerfile
+          git_commit_sha: ${{ env.CHAINLINK_UPGRADE_VERSION }}
+          tag_suffix: ${{ matrix.image.tag-suffix }}
+          check_image_exists: 'true'
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
+
+      # - name: Check if image exists ${{ env.CHAINLINK_VERSION }}${{ matrix.image.tag-suffix }}
+      #   if: ${{ github.event.inputs.chainlinkImage == 'QA_ECR' }}
+      #   id: check-from-image
+      #   uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+      #   with:
+      #     repository: chainlink
+      #     tag: ${{ env.CHAINLINK_VERSION }}${{ matrix.image.tag-suffix }}
+      #     AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      #     AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}      
+      # - name: Check if image exists ${{ env.CHAINLINK_UPGRADE_VERSION }}${{ matrix.image.tag-suffix }}
+      #   if: ${{ github.event.inputs.chainlinkImageUpdate == 'QA_ECR' }}
+      #   id: check-to-image
+      #   uses: smartcontractkit/chainlink-github-actions/docker/image-exists@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+      #   with:
+      #     repository: chainlink
+      #     tag: ${{ env.CHAINLINK_UPGRADE_VERSION }}${{ matrix.image.tag-suffix }}
+      #     AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+      #     AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    needs: set-tests-to-run
+    needs: [set-tests-to-run, build-chainlink-image]
     uses: ./.github/workflows/run-e2e-tests-reusable-workflow.yml
     with:
       test_list: ${{ needs.set-tests-to-run.outputs.test_list }}
