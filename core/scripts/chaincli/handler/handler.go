@@ -624,6 +624,8 @@ func createCredsFiles() (string, string, func(), error) {
 	return apiFile.Name(), passwordFile.Name(), func() {
 		os.RemoveAll(apiFile.Name())
 		os.RemoveAll(passwordFile.Name())
+		apiFile.Close()
+		passwordFile.Close()
 	}, nil
 }
 
@@ -638,5 +640,6 @@ func createTomlFile(tomlString string) (string, func(), error) {
 
 	return tomlFile.Name(), func() {
 		os.RemoveAll(tomlFile.Name())
+		tomlFile.Close()
 	}, nil
 }
