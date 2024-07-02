@@ -56,8 +56,8 @@ type Core struct {
 	Insecure         Insecure         `toml:",omitempty"`
 	Tracing          Tracing          `toml:",omitempty"`
 	Mercury          Mercury          `toml:",omitempty"`
-	Capabilities     Capabilities     `toml:",omitempty"`
 	HeadReport       HeadReport       `toml:",omitempty"`
+	Capabilities     Capabilities     `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)

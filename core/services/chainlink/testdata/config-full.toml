@@ -231,9 +231,6 @@ TLSCertPath = '/path/to/cert.pem'
 env = 'dev'
 test = 'load'
 
-[HeadReport]
-TelemetryEnabled = true
-
 [Mercury]
 [Mercury.Cache]
 LatestReportTTL = '1m40s'
@@ -246,6 +243,9 @@ CertFile = '/path/to/cert.pem'
 [Mercury.Transmitter]
 TransmitQueueMaxSize = 123
 TransmitTimeout = '3m54s'
+
+[HeadReport]
+TelemetryEnabled = true
 
 [Capabilities]
 [Capabilities.Peering]
