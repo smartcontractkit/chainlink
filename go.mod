@@ -79,7 +79,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240701154249-032706dcb7c8
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
-	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
+	github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wsrpc v0.8.1
