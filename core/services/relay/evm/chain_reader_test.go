@@ -30,7 +30,11 @@ import (
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
@@ -221,6 +225,38 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	return maxWaitTime
 }
 
-func (h *helper) TXM(client client.Client) evmtxmgr.TxManager {
-	return nil
+func (h *helper) TXM(t *testing.T, client client.Client, db *sqlx.DB) evmtxmgr.TxManager {
+	lggr := logger.TestLogger(t)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RpcBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+
+	ht := headtracker.NewSimulatedHeadTracker(client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), client, lggr, ht, lpOpts)
+
+	config, dbConfig, evmConfig := evmtxmgr.MakeTestConfigs(t)
+	keyStore := cltest.NewKeyStore(t, db).Eth()
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), client, config, evmConfig.GasEstimator())
+	require.NoError(t, err)
+
+	txm, err := evmtxmgr.NewTxm(
+		db,
+		evmConfig,
+		evmConfig.GasEstimator(),
+		evmConfig.Transactions(),
+		nil,
+		dbConfig,
+		dbConfig.Listener(),
+		client,
+		lggr,
+		lp,
+		keyStore,
+		estimator,
+	)
+	require.NoError(t, err)
+	return txm
 }
