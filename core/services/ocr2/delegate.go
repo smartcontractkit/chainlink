@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink-vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/chainlink-vrf/dkg"
@@ -199,6 +200,7 @@ type mercuryConfig interface {
 	Cache() coreconfig.MercuryCache
 	TLS() coreconfig.MercuryTLS
 	Transmitter() coreconfig.MercuryTransmitter
+	VerboseLogging() bool
 }
 
 type thresholdConfig interface {
@@ -995,6 +997,9 @@ func (d *Delegate) newServicesLLO(
 		OffchainKeyring:        kb,
 		OnchainKeyring:         kr,
 		OCRLogger:              ocrLogger,
+
+		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
+		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
 	}
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {
