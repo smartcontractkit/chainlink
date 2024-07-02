@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
 )
 
@@ -27,6 +28,8 @@ type Solana interface {
 type SolanaSigner struct {
 	Solana
 }
+
+var _ loop.Keystore = &SolanaSigner{}
 
 func (s *SolanaSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
