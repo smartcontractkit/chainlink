@@ -34,10 +34,6 @@ type LogBuffer interface {
 	SyncFilters(filterStore UpkeepFilterStore) error
 }
 
-func DefaultUpkeepSelector(id *big.Int) bool {
-	return true
-}
-
 type logBufferOptions struct {
 	// number of blocks to keep in the buffer
 	lookback *atomic.Uint32

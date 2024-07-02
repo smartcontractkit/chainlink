@@ -148,7 +148,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 		{
 			name:         "empty",
 			logsInBuffer: map[*big.Int][]logpoller.Log{},
-			args:         newDequeueArgs(10, 1, 1, 10, nil),
+			args:         newDequeueArgs(10, 1, 1, 10),
 			lookback:     20,
 			results:      []logpoller.Log{},
 		},
@@ -160,7 +160,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 3, 10, nil),
+			args:     newDequeueArgs(10, 5, 3, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {},
@@ -186,7 +186,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x14"), LogIndex: 12},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 2, 10, nil),
+			args:     newDequeueArgs(10, 5, 2, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
@@ -199,7 +199,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				big.NewInt(1): append(createDummyLogSequence(2, 0, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 0, 13, common.HexToHash("0x13"))...),
 				big.NewInt(2): append(createDummyLogSequence(2, 10, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 10, 13, common.HexToHash("0x13"))...),
 			},
-			args:     newDequeueArgs(10, 5, 3, 4, nil),
+			args:     newDequeueArgs(10, 5, 3, 4),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
@@ -503,25 +503,20 @@ func TestLogEventBufferV1_BlockWindow(t *testing.T) {
 }
 
 type dequeueArgs struct {
-	block          int64
-	blockRate      int
-	upkeepLimit    int
-	maxResults     int
-	upkeepSelector func(id *big.Int) bool
+	block       int64
+	blockRate   int
+	upkeepLimit int
+	maxResults  int
 }
 
-func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
+func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int) dequeueArgs {
 	args := dequeueArgs{
-		block:          block,
-		blockRate:      blockRate,
-		upkeepLimit:    upkeepLimit,
-		maxResults:     maxResults,
-		upkeepSelector: upkeepSelector,
+		block:       block,
+		blockRate:   blockRate,
+		upkeepLimit: upkeepLimit,
+		maxResults:  maxResults,
 	}
 
-	if upkeepSelector == nil {
-		args.upkeepSelector = DefaultUpkeepSelector
-	}
 	if blockRate == 0 {
 		args.blockRate = 1
 	}
