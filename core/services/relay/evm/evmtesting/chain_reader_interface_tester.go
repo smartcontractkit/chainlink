@@ -17,8 +17,10 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,18 +46,23 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	NewSqlxDB(t T) *sqlx.DB
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
+	TXM(T, client.Client, *sqlx.DB) evmtxmgr.TxManager
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
-	Helper         EVMChainReaderInterfaceTesterHelper[T]
-	client         client.Client
-	address        string
-	address2       string
-	chainConfig    types.ChainReaderConfig
-	auth           *bind.TransactOpts
-	evmTest        *chain_reader_tester.ChainReaderTester
-	cr             evm.ChainReaderService
-	dirtyContracts bool
+	Helper            EVMChainReaderInterfaceTesterHelper[T]
+	client            client.Client
+	address           string
+	address2          string
+	chainReaderConfig types.ChainReaderConfig
+	chainWriterConfig types.ChainWriterConfig
+	auth              *bind.TransactOpts
+	evmTest           *chain_reader_tester.ChainReaderTester
+	cr                evm.ChainReaderService
+	cw                evm.ChainWriterService
+	txm               evmtxmgr.TxManager
+	gasEstimator      gas.EvmFeeEstimator
+	dirtyContracts    bool
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
@@ -81,7 +88,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 
 	testStruct := CreateTestStruct[T](0, it)
 
-	it.chainConfig = types.ChainReaderConfig{
+	it.chainReaderConfig = types.ChainReaderConfig{
 		Contracts: map[string]types.ChainContractReader{
 			AnyContractName: {
 				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
@@ -169,7 +176,25 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 			},
 		},
 	}
+
+	it.chainWriterConfig = types.ChainWriterConfig{
+		Contracts: map[string]*types.ContractConfig{
+			AnyContractName: {
+				ContractABI: chain_reader_tester.ChainReaderTesterMetaData.ABI,
+				Configs: map[string]*types.ChainWriterDefinition{
+					"addTestStruct": {
+						ChainSpecificName: "addTestStruct",
+						FromAddress:       it.auth.From,
+						GasLimit:          200_000,
+						Checker:           "simulate",
+					},
+				},
+			},
+		},
+	}
+
 	it.client = it.Helper.Client(t)
+	it.txm = it.Helper.TXM(t, it.client, it.Helper.NewSqlxDB(t))
 
 	it.deployNewContracts(t)
 }
@@ -205,7 +230,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	require.NoError(t, lp.Start(ctx))
 
 	// encode and decode the config to ensure the test covers type issues
-	confBytes, err := json.Marshal(it.chainConfig)
+	confBytes, err := json.Marshal(it.chainReaderConfig)
 	require.NoError(t, err)
 
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
@@ -216,6 +241,19 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr
 	return cr
+}
+
+func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.ChainWriter {
+	ctx := it.Helper.Context(t)
+	if it.cw != nil {
+		return it.cw
+	}
+
+	cw, err := evm.NewChainWriterService(logger.NullLogger, it.client, it.txm, it.gasEstimator, it.chainWriterConfig)
+	require.NoError(t, err)
+	require.NoError(t, cw.Start(ctx))
+	it.cw = cw
+	return cw
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
