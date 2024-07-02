@@ -46,7 +46,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	NewSqlxDB(t T) *sqlx.DB
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
-	TXM(client.Client) evmtxmgr.TxManager
+	TXM(T, client.Client, *sqlx.DB) evmtxmgr.TxManager
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
@@ -194,7 +194,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 	}
 
 	it.client = it.Helper.Client(t)
-	it.txm = it.Helper.TXM(it.client)
+	it.txm = it.Helper.TXM(t, it.client, it.Helper.NewSqlxDB(t))
 
 	it.deployNewContracts(t)
 }
