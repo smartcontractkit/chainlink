@@ -46,6 +46,8 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 				kb = newKeyBundle(new(solanaKeyring))
 			case chaintype.StarkNet:
 				kb = newKeyBundle(new(starkkey.OCR2Key))
+			case chaintype.Aptos:
+				kb = newKeyBundle(new(aptosKeyring))
 			default:
 				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 			}

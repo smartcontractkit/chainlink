@@ -1,4 +1,4 @@
-package solkey
+package aptoskey
 
 import (
 	"crypto"
@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
 )
 
-// Raw represents the Solana private key
+// Raw represents the Aptos private key
 type Raw []byte
 
 // Key gets the Key
 func (raw Raw) Key() Key {
 	privKey := ed25519.NewKeyFromSeed(raw)
-	pubKey := make([]byte, ed25519.PublicKeySize)
-	copy(pubKey, privKey[ed25519.PublicKeySize:])
+	pubKey := privKey.Public().(ed25519.PublicKey)
 	return Key{
 		privkey: privKey,
 		pubKey:  pubKey,
@@ -27,7 +25,7 @@ func (raw Raw) Key() Key {
 
 // String returns description
 func (raw Raw) String() string {
-	return "<Solana Raw Private Key>"
+	return "<Aptos Raw Private Key>"
 }
 
 // GoString wraps String()
@@ -37,7 +35,7 @@ func (raw Raw) GoString() string {
 
 var _ fmt.GoStringer = &Key{}
 
-// Key represents Solana key
+// Key represents Aptos key
 type Key struct {
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
@@ -57,6 +55,7 @@ func MustNewInsecure(reader io.Reader) Key {
 	return key
 }
 
+// newFrom creates new Key from a provided random reader
 func newFrom(reader io.Reader) (Key, error) {
 	pub, priv, err := ed25519.GenerateKey(reader)
 	if err != nil {
@@ -83,14 +82,14 @@ func (key Key) PublicKeyStr() string {
 	return base58.Encode(key.pubKey)
 }
 
-// Raw from private key
+// Raw returns the seed from private key
 func (key Key) Raw() Raw {
 	return key.privkey.Seed()
 }
 
 // String is the print-friendly format of the Key
 func (key Key) String() string {
-	return fmt.Sprintf("SolanaKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
+	return fmt.Sprintf("AptosKey{PrivateKey: <redacted>, Public Key: %s}", key.PublicKeyStr())
 }
 
 // GoString wraps String()
@@ -100,11 +99,5 @@ func (key Key) GoString() string {
 
 // Sign is used to sign a message
 func (key Key) Sign(msg []byte) ([]byte, error) {
-	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0))
-}
-
-// PublicKey copies public key slice
-func (key Key) PublicKey() (pubKey solana.PublicKey) {
-	copy(pubKey[:], key.pubKey)
-	return
+	return key.privkey.Sign(crypto_rand.Reader, msg, crypto.Hash(0)) // no specific hash function used
 }
