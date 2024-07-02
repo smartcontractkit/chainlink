@@ -646,5 +646,5 @@ TransmitQueueMaxSize = 10_000 # Default
 TransmitTimeout = "5s" # Default
 
 [HeadReport]
-# Head report telemetry collects information about new blocks from blockchain
+# TelemetryEnabled controls if it collects information about new blocks from blockchain
 TelemetryEnabled = false # Default

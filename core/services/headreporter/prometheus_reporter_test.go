@@ -1,9 +1,10 @@
 package headreporter_test
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
