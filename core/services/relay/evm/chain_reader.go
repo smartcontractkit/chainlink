@@ -410,3 +410,31 @@ func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLe
 
 	return mappings, nil
 }
+
+func NewContractStateReader(ctx context.Context, lggr logger.Logger, client evmclient.Client, config types.ChainReaderConfig) (commontypes.ContractStateReader, error) {
+	cr := &chainReader{
+		lggr:             lggr.Named("ContractStateReader"),
+		client:           client,
+		contractBindings: bindings{},
+		parsed: &parsedTypes{encoderDefs: map[string]types.CodecEntry{},
+			decoderDefs: map[string]types.CodecEntry{}},
+	}
+
+	var err error
+	if err = cr.init(config.Contracts); err != nil {
+		return nil, err
+	}
+
+	if cr.codec, err = cr.parsed.toCodec(); err != nil {
+		return nil, err
+	}
+
+	err = cr.contractBindings.ForEach(ctx, func(c context.Context, cb *contractBinding) error {
+		for _, rb := range cb.readBindings {
+			rb.SetCodec(cr.codec)
+		}
+		return nil
+	})
+
+	return cr, err
+}

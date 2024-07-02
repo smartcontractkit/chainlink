@@ -15,8 +15,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 
@@ -77,6 +79,8 @@ type runner struct {
 
 	chStop services.StopChan
 	wgDone sync.WaitGroup
+
+	relayers map[types.RelayID]loop.Relayer
 }
 
 var (
@@ -119,6 +123,7 @@ func NewRunner(
 	vrfks VRFKeyStore,
 	lggr logger.Logger,
 	httpClient, unrestrictedHTTPClient *http.Client,
+	relayers map[types.RelayID]loop.Relayer,
 ) *runner {
 	lggr = lggr.Named("PipelineRunner")
 
@@ -136,6 +141,7 @@ func NewRunner(
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
+		relayers:               relayers,
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -376,6 +382,10 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*ETHTxTask).specGasLimit = spec.GasLimit
 			task.(*ETHTxTask).jobType = spec.JobType
 			task.(*ETHTxTask).forwardingAllowed = spec.ForwardingAllowed
+		case TaskTypeOnchainRead:
+			task.(*OnChainRead).relayers = r.relayers
+			task.(*OnChainRead).RelayConfig = spec.RelayConfig
+			task.(*OnChainRead).Relay = spec.Relay
 		default:
 		}
 	}

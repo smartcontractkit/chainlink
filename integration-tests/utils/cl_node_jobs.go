@@ -22,13 +22,13 @@ func BuildBootstrapSpec(verifierAddr common.Address, chainID int64, feedId [32]b
 	return &coreClient.OCR2TaskJobSpec{
 		Name:    fmt.Sprintf("bootstrap-%s", uuid.NewString()),
 		JobType: "bootstrap",
+		Relay:   "evm",
+		RelayConfig: map[string]interface{}{
+			"chainID": int(chainID),
+		},
 		OCR2OracleSpec: job.OCR2OracleSpec{
-			ContractID: verifierAddr.String(),
-			Relay:      "evm",
-			FeedID:     &hash,
-			RelayConfig: map[string]interface{}{
-				"chainID": int(chainID),
-			},
+			ContractID:                        verifierAddr.String(),
+			FeedID:                            &hash,
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
 	}
@@ -94,16 +94,16 @@ ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
 		JobType:           "offchainreporting2",
 		MaxTaskDuration:   "1s",
 		ForwardingAllowed: false,
+		Relay:             "evm",
+		RelayConfig: map[string]interface{}{
+			"chainID":   int(chainID),
+			"fromBlock": fromBlock,
+		},
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			PluginType: "mercury",
 			PluginConfig: map[string]interface{}{
 				"serverURL":    fmt.Sprintf("\"%s\"", msRemoteUrl),
 				"serverPubKey": fmt.Sprintf("\"%s\"", msPubKey),
-			},
-			Relay: "evm",
-			RelayConfig: map[string]interface{}{
-				"chainID":   int(chainID),
-				"fromBlock": fromBlock,
 			},
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 			ContractID:                        verifierAddr.String(),

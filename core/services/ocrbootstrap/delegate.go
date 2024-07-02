@@ -86,8 +86,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	s := spec.AsOCR2Spec()
-	rid, err := s.RelayID()
+	rid, err := jb.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("ServicesForSpec: could not get relayer: %w", err)
 	}
@@ -147,7 +146,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc, err := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
+	lc, err := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, jb)
 	if err != nil {
 		return nil, err
 	}

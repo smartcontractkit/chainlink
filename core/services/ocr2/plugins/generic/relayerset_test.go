@@ -133,6 +133,10 @@ type TestRelayer struct {
 	pluginArgs types.PluginArgs
 }
 
+func (t *TestRelayer) NewContractStateReader(ctx context.Context, config []byte) (types.ContractStateReader, error) {
+	return nil, nil
+}
+
 func (t *TestRelayer) NewPluginProvider(ctx context.Context, args types.RelayArgs, args2 types.PluginArgs) (types.PluginProvider, error) {
 	t.relayArgs = args
 	t.pluginArgs = args2

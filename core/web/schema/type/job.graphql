@@ -12,6 +12,8 @@ type Job {
     observationSource: String!
     errors: [JobError!]!
     createdAt: Time!
+    relay: String!
+    relayConfig: Map!
 }
 
 # JobsPayload defines the response when fetching a page of jobs

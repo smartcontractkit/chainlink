@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -46,7 +48,8 @@ func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.G
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := mocks.NewORM(t)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, logger.TestLogger(t), c, c)
+	relays := map[types.RelayID]loop.Relayer{}
+	r := pipeline.NewRunner(orm, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, logger.TestLogger(t), c, c, relays)
 	return r, orm
 }
 
@@ -473,8 +476,9 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	relays := map[types.RelayID]loop.Relayer{}
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil, relays)
 
 	spec := pipeline.Spec{
 		ID: 1,
@@ -513,8 +517,9 @@ func Test_PipelineRunner_ExecuteAndInsertFinishedRun_SavingTheSpec(t *testing.T)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	relays := map[types.RelayID]loop.Relayer{}
 	lggr := logger.TestLogger(t)
-	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil, relays)
 
 	spec := pipeline.Spec{
 		DotDagSource: `
@@ -992,8 +997,9 @@ func Test_PipelineRunner_ExecuteRun(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		relays := map[types.RelayID]loop.Relayer{}
 		lggr := logger.TestLogger(t)
-		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil)
+		r := pipeline.NewRunner(nil, nil, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ethKeyStore, nil, lggr, nil, nil, relays)
 
 		template := `
 succeed             [type=memo value=%d]

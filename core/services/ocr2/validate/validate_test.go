@@ -424,7 +424,7 @@ ds1          [type=bridge name=voter_turnout];
 chainID = 1337
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				t.Log("relay", os.OCR2OracleSpec.Relay)
+				t.Log("relay", os.Relay)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "no such relay blerg supported")
 			},

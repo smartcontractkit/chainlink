@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/web/gqlscalar"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
@@ -27,6 +28,16 @@ func NewJobs(app chainlink.Application, jobs []job.Job) []*JobResolver {
 	}
 
 	return resolvers
+}
+
+// RelayConfig resolves the spec's relay config
+func (r *JobResolver) RelayConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.j.RelayConfig)
+}
+
+// Relay resolves the jobs relay
+func (r *JobResolver) Relay() string {
+	return r.j.Relay
 }
 
 // ID resolves the job's id.

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -205,6 +204,11 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	jb.PipelineSpec.JobID = jb.ID
 	jb.PipelineSpec.JobType = string(jb.Type)
 	jb.PipelineSpec.ForwardingAllowed = jb.ForwardingAllowed
+
+	//We add the relayC config to the pipeline spec, so it can be accessed in the runner
+	jb.PipelineSpec.RelayConfig = jb.RelayConfig
+	jb.PipelineSpec.Relay = jb.Relay
+
 	if jb.GasLimit.Valid {
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}

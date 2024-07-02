@@ -226,6 +226,36 @@ func (_m *LoopRelayAdapter) NewContractReader(ctx context.Context, contractReade
 	return r0, r1
 }
 
+// NewContractStateReader provides a mock function with given fields: ctx, config
+func (_m *LoopRelayAdapter) NewContractStateReader(ctx context.Context, config []byte) (types.ContractStateReader, error) {
+	ret := _m.Called(ctx, config)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NewContractStateReader")
+	}
+
+	var r0 types.ContractStateReader
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ContractStateReader, error)); ok {
+		return rf(ctx, config)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ContractStateReader); ok {
+		r0 = rf(ctx, config)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.ContractStateReader)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
+		r1 = rf(ctx, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewLLOProvider provides a mock function with given fields: _a0, _a1, _a2
 func (_m *LoopRelayAdapter) NewLLOProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.LLOProvider, error) {
 	ret := _m.Called(_a0, _a1, _a2)
