@@ -97,7 +97,7 @@ func (w *launcher) LocalNode(ctx context.Context) (capabilities.Node, error) {
 		return w.localNode, errors.New("unable to get local node: peerWrapper hasn't started yet")
 	}
 
-	if w.localNode.WorkflowDON.ID == "" {
+	if w.localNode.WorkflowDON.ID == 0 {
 		return w.localNode, errors.New("unable to get local node: waiting for initial call from syncer")
 	}
 
@@ -113,7 +113,7 @@ func (w *launcher) updateLocalNode(state registrysyncer.State) {
 		for _, p := range d.NodeP2PIds {
 			if p == pid {
 				if d.AcceptsWorkflows {
-					if workflowDON.ID == "" {
+					if workflowDON.ID == 0 {
 						workflowDON = *toDONInfo(d)
 						w.lggr.Debug("Workflow DON identified: %+v", workflowDON)
 					} else {
@@ -353,7 +353,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 
 	err = w.dispatcher.SetReceiver(
 		fullCapID,
-		fmt.Sprint(don.Id),
+		don.Id,
 		capability,
 	)
 	if err != nil {
@@ -373,9 +373,9 @@ var (
 )
 
 func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don kcr.CapabilitiesRegistryDONInfo, state registrysyncer.State, remoteWorkflowDONs []kcr.CapabilitiesRegistryDONInfo) error {
-	idsToDONs := map[string]capabilities.DON{}
+	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
-		idsToDONs[fmt.Sprint(d.Id)] = *toDONInfo(d)
+		idsToDONs[d.Id] = *toDONInfo(d)
 	}
 
 	for _, c := range don.CapabilityConfigurations {
@@ -465,7 +465,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability kcr.CapabilitiesR
 	}
 
 	w.lggr.Debugw("Enabling external access for capability", "id", fullCapID, "donID", don.Id)
-	err = w.dispatcher.SetReceiver(fullCapID, fmt.Sprint(don.Id), receiver)
+	err = w.dispatcher.SetReceiver(fullCapID, don.Id, receiver)
 	if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
 	}
@@ -502,7 +502,7 @@ func toDONInfo(don kcr.CapabilitiesRegistryDONInfo) *capabilities.DON {
 	}
 
 	return &capabilities.DON{
-		ID:      fmt.Sprint(don.Id),
+		ID:      don.Id,
 		Members: peerIDs,
 		F:       don.F,
 	}

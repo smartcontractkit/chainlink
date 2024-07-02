@@ -680,7 +680,7 @@ func TestLauncher_LocalNode(t *testing.T) {
 	require.NoError(t, err)
 
 	don := capabilities.DON{
-		ID:      fmt.Sprintf("%d", dID),
+		ID:      dID,
 		Members: toPeerIDs(workflowDonNodes),
 		F:       1,
 	}
