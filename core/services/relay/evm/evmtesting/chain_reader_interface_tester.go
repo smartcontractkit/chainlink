@@ -3,6 +3,7 @@ package evmtesting
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -15,17 +16,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
-	evmtypes "github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,6 +40,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	SetupAuth(t T) *bind.TransactOpts
 	Client(t T) client.Client
 	Commit()
+	MustGenerateRandomKey(t T) ethkey.KeyV2
 	Backend() bind.ContractBackend
 	ChainID() *big.Int
 	Context(t T) context.Context
@@ -95,6 +98,10 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
+					// this is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
+					//MethodReturningAlterableUint64: {
+					//	ChainSpecificName:       "getAlterablePrimitiveValue",
+					//},
 					MethodReturningUint64: {
 						ChainSpecificName: "getPrimitiveValue",
 					},
@@ -110,13 +117,11 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
-						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					EventWithFilterName: {
-						ChainSpecificName:       "Triggered",
-						ReadType:                types.Event,
-						EventDefinitions:        &types.EventDefinitions{InputFields: []string{"Field"}},
-						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
+						ChainSpecificName: "Triggered",
+						ReadType:          types.Event,
+						EventDefinitions:  &types.EventDefinitions{InputFields: []string{"Field"}},
 					},
 					triggerWithDynamicTopic: {
 						ChainSpecificName: triggerWithDynamicTopic,
@@ -139,7 +144,6 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							InputFields:   []string{"Field1", "Field2", "Field3"},
 							PollingFilter: &types.PollingFilter{},
 						},
-						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -218,12 +222,52 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	return cr
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
+func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+}
+
+// SetUintLatestValue is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
+func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64) {
+	it.sendTxWithUintVal(t, val, (*chain_reader_tester.ChainReaderTesterTransactor).SetAlterablePrimitiveValue)
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
+}
+
+// GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
+func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t T, contractName, readName string, confidenceLevel primitives.ConfidenceLevel) {
+	contractCfg, ok := it.chainConfig.Contracts[contractName]
+	if !ok {
+		t.Errorf("contract %s not found", contractName)
+		return
+	}
+
+	readCfg, ok := contractCfg.Configs[readName]
+	require.True(t, ok, fmt.Sprintf("readName: %s not found for contract: %s", readName, contractName))
+
+	toEvmConf, err := evm.ConfirmationsFromConfig(readCfg.ConfidenceConfirmations)
+	require.True(t, ok, fmt.Errorf("failed to parse confidence level mapping:%s not found for contract: %s readName: %s, err:%w", confidenceLevel, readName, contractName, err))
+
+	confirmations, ok := toEvmConf[confidenceLevel]
+	require.True(t, ok, fmt.Sprintf("confidence level mapping:%s not found for contract: %s readName: %s", confidenceLevel, readName, contractName))
+
+	key := it.Helper.MustGenerateRandomKey(t)
+	pk := key.ToEcdsaPrivKey()
+	toAddress := common.HexToAddress("0x0")
+
+	// confirmations are in form of negative values that signify how many blocks are needed for a specific confidence level
+	for i := confirmations; i == 0; i++ {
+		nonce, err := it.client.PendingNonceAt(it.Helper.Context(t), key.Address)
+		require.NoError(t, err)
+
+		tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{ChainID: it.client.ConfiguredChainID(), Nonce: nonce, Gas: 21000, To: &toAddress})
+		signedTx, err := gethtypes.SignTx(tx, gethtypes.NewEIP155Signer(it.client.ConfiguredChainID()), pk)
+		require.NoError(t, err)
+
+		require.NoError(t, it.client.SendTransaction(it.Helper.Context(t), signedTx))
+		it.AwaitTx(t, &gethtypes.Transaction{})
+	}
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.BoundContract {
@@ -233,7 +277,24 @@ func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.Bou
 	}
 }
 
-type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*evmtypes.Transaction, error)
+type uintFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, uint64) (*gethtypes.Transaction, error)
+
+// sendTxWithUintVal is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
+func (it *EVMChainReaderInterfaceTester[T]) sendTxWithUintVal(t T, val uint64, fn uintFn) {
+	tx, err := fn(
+		&it.evmTest.ChainReaderTesterTransactor,
+		it.GetAuthWithGasSet(t),
+		val,
+	)
+
+	require.NoError(t, err)
+	it.Helper.Commit()
+	it.IncNonce()
+	it.AwaitTx(t, tx)
+	it.dirtyContracts = true
+}
+
+type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*gethtypes.Transaction, error)
 
 func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, testStruct *TestStruct, fn testStructFn) {
 	tx, err := fn(
@@ -272,11 +333,11 @@ func (it *EVMChainReaderInterfaceTester[T]) IncNonce() {
 	}
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) AwaitTx(t T, tx *evmtypes.Transaction) {
+func (it *EVMChainReaderInterfaceTester[T]) AwaitTx(t T, tx *gethtypes.Transaction) {
 	ctx := it.Helper.Context(t)
 	receipt, err := bind.WaitMined(ctx, it.client, tx)
 	require.NoError(t, err)
-	require.Equal(t, evmtypes.ReceiptStatusSuccessful, receipt.Status)
+	require.Equal(t, gethtypes.ReceiptStatusSuccessful, receipt.Status)
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) deployNewContracts(t T) {
