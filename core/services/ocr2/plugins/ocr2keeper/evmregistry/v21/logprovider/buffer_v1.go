@@ -22,10 +22,10 @@ type LogBuffer interface {
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
 	// Dequeue pulls logs from the buffer that are within the given block window,
 	// with a maximum number of logs per upkeep and a total maximum number of logs to return.
-	// It also accepts a function to select upkeeps.
+	// It also accepts a boolean to identify if we are operating under minimum dequeue.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(start, end int64, upkeepLimit, maxResults int, bestEffort bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, minimumDequeue bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -160,20 +160,19 @@ func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, bestE
 	return b.dequeue(start, end, upkeepLimit, maxResults, bestEffort)
 }
 
-// dequeue pulls logs from the buffers, depends the given selector (upkeepSelector),
-// in block range [start,end] with minimum number of results per upkeep (upkeepLimit)
-// and the maximum number of results (capacity).
+// dequeue pulls logs from the buffers, in block range [start,end] with minimum number
+// of results per upkeep (upkeepLimit) and the maximum number of results (capacity).
+// If operating under minimum dequeue, upkeeps are skipped when the minimum number
+// of logs have been dequeued for that upkeep.
 // Returns logs and the number of remaining logs in the buffer for the given range and selector.
 // NOTE: this method is not thread safe and should be called within a lock.
-func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, bestEffort bool) ([]BufferedLog, int) {
+func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimumDequeue bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
-		if bestEffort {
-			upkeepLimit = capacity
-		} else if q.dequeued[start] >= upkeepLimit {
+		if minimumDequeue && q.dequeued[start] >= upkeepLimit {
 			// if we have already dequeued the minimum commitment for this window, skip it
 			continue
 		}
