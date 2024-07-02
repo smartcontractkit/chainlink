@@ -127,6 +127,7 @@ func TestAutomationChaos(t *testing.T) {
 		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 		"registry_2_2": eth_contracts.RegistryVersion_2_2,
+		"registry_2_3": eth_contracts.RegistryVersion_2_3,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -261,12 +262,16 @@ func TestAutomationChaos(t *testing.T) {
 					linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 					require.NoError(t, err, "Error deploying LINK token")
 
+					wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
+					require.NoError(t, err, "Error deploying weth token contract")
+
 					registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 						t,
 						chainClient,
 						rv,
 						defaultOCRRegistryConfig,
 						linkToken,
+						wethToken,
 					)
 
 					// Fund the registry with LINK

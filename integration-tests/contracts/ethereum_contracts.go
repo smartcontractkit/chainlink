@@ -854,7 +854,7 @@ func (l *EthereumLinkToken) TransferAndCallFromKey(to string, amount *big.Int, d
 		Str("From", l.client.Addresses[keyNum].Hex()).
 		Str("To", to).
 		Str("Amount", amount.String()).
-		Msg("Transferring and Calling LINK")
+		Msg("Transferring and Calling LINK@@ yes")
 	decodedTx, err := l.client.Decode(l.instance.TransferAndCall(l.client.NewTXKeyOpts(keyNum), common.HexToAddress(to), amount, data))
 	if err != nil {
 		return nil, err
