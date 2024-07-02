@@ -16,6 +16,7 @@ union JobSpec =
 
 type CronSpec {
     schedule: String!
+    evmChainID: String
     createdAt: Time!
 }
 

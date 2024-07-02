@@ -626,6 +626,15 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	)
 }
 
+func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
+	var cfg types.ChainWriterConfig
+	if err := json.Unmarshal(config, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshall chain writer config err: %s", err)
+	}
+
+	return NewChainWriterService(r.lggr, r.chain.Client(), r.chain.TxManager(), r.chain.GasEstimator(), cfg)
+}
+
 func (r *Relayer) NewContractReader(chainReaderConfig []byte) (commontypes.ContractReader, error) {
 	ctx := context.Background()
 	cfg := &types.ChainReaderConfig{}
@@ -723,6 +732,14 @@ func (r *Relayer) NewAutomationProvider(rargs commontypes.RelayArgs, pargs commo
 	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(rargs, pargs)
+}
+
+func (r *Relayer) NewCCIPCommitProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
+	return nil, errors.New("ccip.commit is not supported for evm")
+}
+
+func (r *Relayer) NewCCIPExecProvider(_ commontypes.RelayArgs, _ commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
+	return nil, errors.New("ccip.exec is not supported for evm")
 }
 
 var _ commontypes.MedianProvider = (*medianProvider)(nil)

@@ -41,6 +41,7 @@ func TestResolver_CronSpec(t *testing.T) {
 					Type: job.Cron,
 					CronSpec: &job.CronSpec{
 						CronSchedule: "CRON_TZ=UTC 0 0 1 1 *",
+						EVMChainID:   ubig.NewI(42),
 						CreatedAt:    f.Timestamp(),
 					},
 				}, nil)
@@ -53,6 +54,7 @@ func TestResolver_CronSpec(t *testing.T) {
 								__typename
 								... on CronSpec {
 									schedule
+									evmChainID
 									createdAt
 								}
 							}
@@ -66,6 +68,7 @@ func TestResolver_CronSpec(t *testing.T) {
 						"spec": {
 							"__typename": "CronSpec",
 							"schedule": "CRON_TZ=UTC 0 0 1 1 *",
+							"evmChainID": "42",
 							"createdAt": "2021-01-01T00:00:00Z"
 						}
 					}

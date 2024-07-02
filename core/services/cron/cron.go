@@ -31,6 +31,9 @@ func NewCronFromJobSpec(
 		"jobID", jobSpec.ID,
 		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
+	if id := jobSpec.CronSpec.EVMChainID; id != nil {
+		cronLogger = logger.With("evmChainID", id)
+	}
 
 	return &Cron{
 		cronRunner:     cronRunner(),
@@ -47,7 +50,7 @@ func (cr *Cron) Start(context.Context) error {
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "err", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
+		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "err", err)
 		return err
 	}
 	cr.cronRunner.Start()
@@ -66,12 +69,17 @@ func (cr *Cron) runPipeline() {
 	ctx, cancel := cr.chStop.NewCtx()
 	defer cancel()
 
+	jobSpec := map[string]interface{}{
+		"databaseID":    cr.jobSpec.ID,
+		"externalJobID": cr.jobSpec.ExternalJobID,
+		"name":          cr.jobSpec.Name.ValueOrZero(),
+	}
+	if id := cr.jobSpec.CronSpec.EVMChainID; id != nil {
+		jobSpec["evmChainID"] = id.String()
+	}
+
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    cr.jobSpec.ID,
-			"externalJobID": cr.jobSpec.ExternalJobID,
-			"name":          cr.jobSpec.Name.ValueOrZero(),
-		},
+		"jobSpec": jobSpec,
 		"jobRun": map[string]interface{}{
 			"meta": map[string]interface{}{},
 		},
