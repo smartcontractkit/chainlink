@@ -633,7 +633,7 @@ func TestLauncher_LocalNode(t *testing.T) {
 		IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
 			registrysyncer.DonID(dID): {
 				Id:               dID,
-				ConfigCount:      uint32(0),
+				ConfigCount:      uint32(2),
 				F:                uint8(1),
 				IsPublic:         true,
 				AcceptsWorkflows: true,
@@ -679,9 +679,10 @@ func TestLauncher_LocalNode(t *testing.T) {
 	require.NoError(t, err)
 
 	don := capabilities.DON{
-		ID:      dID,
-		Members: toPeerIDs(workflowDonNodes),
-		F:       1,
+		ID:            dID,
+		ConfigVersion: 2,
+		Members:       toPeerIDs(workflowDonNodes),
+		F:             1,
 	}
 	expectedNode := capabilities.Node{
 		PeerID:         &pid,
