@@ -181,7 +181,7 @@ func (d *dispatcher) receive() {
 			}
 
 			receiverQueueUsage := float64(len(receiver.ch)) / receiverBufferSize
-			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprintf("%x", k.donId)).Set(receiverQueueUsage)
+			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprint(k.donId)).Set(receiverQueueUsage)
 			select {
 			case receiver.ch <- body:
 			default:

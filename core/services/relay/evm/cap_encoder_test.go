@@ -2,7 +2,6 @@ package evm_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -22,6 +21,7 @@ var (
 	workflowID       = "15c631d295ef5e32deb99a10ee6804bc4af1385568f9b3363f6552ac6dbb2cef"
 	workflowName     = "aabbccddeeaabbccddee"
 	donID            = uint32(2)
+	donIDHex         = "00000002"
 	executionID      = "8d4e66421db647dd916d3ec28d56188c8d7dae5f808e03d03339ed2562f13bb0"
 	workflowOwnerID  = "0000000000000000000000000000000000000000"
 	reportID         = "9988"
@@ -218,7 +218,7 @@ func TestEVMEncoder_InvalidIDs(t *testing.T) {
 }
 
 func getHexMetadata() string {
-	return "01" + executionID + timestampHex + fmt.Sprintf("%x", donID) + configVersionHex + workflowID + workflowName + workflowOwnerID + reportID
+	return "01" + executionID + timestampHex + donIDHex + configVersionHex + workflowID + workflowName + workflowOwnerID + reportID
 }
 
 func getMetadata(cid string) consensustypes.Metadata {
