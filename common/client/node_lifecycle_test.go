@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
@@ -49,8 +48,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 
 		expectedError := errors.New("failed to subscribe to rpc")
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(nil, expectedError).Once()
 		rpc.On("DisconnectAll").Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, expectedError).Once()
 		// might be called in unreachable loop
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
@@ -67,6 +66,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			rpc:  rpc,
 			lggr: lggr,
 		})
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		defer func() { assert.NoError(t, node.close()) }()
 
 		sub := mocks.NewSubscription(t)
@@ -74,7 +74,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		close(errChan)
 		sub.On("Err").Return((<-chan error)(errChan)).Once()
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		// disconnects all on transfer to unreachable
 		rpc.On("DisconnectAll").Once()
@@ -89,13 +89,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		opts.rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		opts.rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		opts.rpc.On("SetAliveLoopSub", sub).Once()
 		return newDialedNode(t, opts)
 	}
 	t.Run("Stays alive and waits for signal", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
@@ -111,6 +112,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
@@ -152,6 +154,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
@@ -189,9 +192,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, 20, big.NewInt(10)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber: 20,
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
@@ -213,10 +219,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 10, syncThreshold + node.stateLatestBlockNumber + 1, big.NewInt(10)
-		}
+		const mostRecentBlock = 20
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(10, ChainInfo{
+			BlockNumber:     syncThreshold + mostRecentBlock + 1,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
@@ -246,10 +256,14 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, syncThreshold + node.stateLatestBlockNumber + 1, big.NewInt(10)
-		}
+		const mostRecentBlock = 20
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     syncThreshold + mostRecentBlock + 1,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
@@ -268,19 +282,17 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.stateLatestBlockNumber = 20
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, node.stateLatestBlockNumber + 100, big.NewInt(10)
-		}
+		const mostRecentBlock = 20
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, "Version poll successful", 2)
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
-
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{
@@ -307,6 +319,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
@@ -317,21 +330,24 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			rpc: rpc,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 1, 20, big.NewInt(10)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     20,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
-
 	t.Run("rpc closed head channel", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			close(ch)
 		}).Return(sub, nil).Once()
@@ -354,30 +370,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, "Subscription channel unexpectedly closed")
 		assert.Equal(t, nodeStateUnreachable, node.State())
 	})
-	t.Run("updates block number and difficulty on new head", func(t *testing.T) {
-		t.Parallel()
-		rpc := newMockNodeClient[types.ID, Head](t)
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return((<-chan error)(nil))
-		sub.On("Unsubscribe").Once()
-		expectedBlockNumber := rand.Int64()
-		expectedDiff := big.NewInt(rand.Int64())
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
-			ch := args.Get(1).(chan<- Head)
-			go writeHeads(t, ch, head{BlockNumber: expectedBlockNumber, BlockDifficulty: expectedDiff})
-		}).Return(sub, nil).Once()
-		rpc.On("SetAliveLoopSub", sub).Once()
-		node := newDialedNode(t, testNodeOpts{
-			config: testNodeConfig{},
-			rpc:    rpc,
-		})
-		defer func() { assert.NoError(t, node.close()) }()
-		node.declareAlive()
-		tests.AssertEventually(t, func() bool {
-			state, block, diff := node.StateAndLatest()
-			return state == nodeStateAlive && block == expectedBlockNumber == bigmath.Equal(diff, expectedDiff)
-		})
-	})
 	t.Run("If finality tag is not enabled updates finalized block metric using finality depth and latest head", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
@@ -387,7 +379,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const blockNumber = 1000
 		const finalityDepth = 10
 		const expectedBlock = 990
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: blockNumber - 1}, head{BlockNumber: blockNumber}, head{BlockNumber: blockNumber - 1})
 		}).Return(sub, nil).Once()
@@ -413,11 +406,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	t.Run("Logs warning if failed to get finalized block", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockNodeClient[types.ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		rpc.On("LatestFinalizedBlock", mock.Anything).Return(newMockHead(t), errors.New("failed to get finalized block"))
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
@@ -440,10 +434,11 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		head := newMockHead(t)
 		head.On("IsValid").Return(false)
 		rpc.On("LatestFinalizedBlock", mock.Anything).Return(head, nil)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
@@ -470,12 +465,13 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			// ensure that "calculated" finalized head is larger than actual, to ensure we are correctly setting
 			// the metric
 			go writeHeads(t, ch, head{BlockNumber: expectedBlock*2 + finalityDepth})
 		}).Return(sub, nil).Once()
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		rpc.On("SetAliveLoopSub", sub).Once()
 		name := "node-" + rand.Str(5)
 		node := newDialedNode(t, testNodeOpts{
@@ -531,8 +527,9 @@ func setupRPCForAliveLoop(t *testing.T, rpc *mockNodeClient[types.ID, Head]) {
 	aliveSubscription := mocks.NewSubscription(t)
 	aliveSubscription.On("Err").Return((<-chan error)(nil)).Maybe()
 	aliveSubscription.On("Unsubscribe").Maybe()
-	rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(aliveSubscription, nil).Maybe()
+	rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(aliveSubscription, nil).Maybe()
 	rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Maybe()
 }
 
 func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
@@ -577,7 +574,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		heads := []head{{BlockNumber: 7}, {BlockNumber: 11}, {BlockNumber: 13}}
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, heads...)
 		}).Return(outOfSyncSubscription, nil).Once()
@@ -701,7 +698,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		expectedError := errors.New("failed to subscribe")
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(nil, expectedError)
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, expectedError)
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertEventually(t, func() bool {
@@ -728,7 +725,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(sub, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Once()
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
 		node.declareOutOfSync(stubIsOutOfSync)
 		tests.AssertLogEventually(t, observedLogs, "Subscription was terminated")
@@ -754,7 +751,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return((<-chan error)(nil))
 		sub.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			close(ch)
 		}).Return(sub, nil).Once()
@@ -785,10 +782,11 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		const highestBlock = 1000
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Run(func(args mock.Arguments) {
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			ch := args.Get(1).(chan<- Head)
 			go writeHeads(t, ch, head{BlockNumber: highestBlock - 1}, head{BlockNumber: highestBlock})
 		}).Return(outOfSyncSubscription, nil).Once()
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: highestBlock}, ChainInfo{BlockNumber: highestBlock})
 
 		setupRPCForAliveLoop(t, rpc)
 
@@ -815,9 +813,13 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			lggr:    lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return 0, 100, big.NewInt(200)
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
+			BlockNumber:     100,
+			TotalDifficulty: big.NewInt(200),
+		})
+		node.SetPoolChainInfoProvider(poolInfo)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 0}, ChainInfo{BlockNumber: 0})
 
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
@@ -825,7 +827,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription := mocks.NewSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
-		rpc.On("Subscribe", mock.Anything, mock.Anything, rpcSubscriptionMethodNewHeads).Return(outOfSyncSubscription, nil).Once()
+		rpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(outOfSyncSubscription, nil).Once()
 
 		setupRPCForAliveLoop(t, rpc)
 
@@ -1304,9 +1306,8 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 	})
 	t.Run("skip if syncThreshold is not configured", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		node.SetPoolChainInfoProvider(poolInfo)
 		outOfSync, liveNodes := node.syncStatus(0, nil)
 		assert.Equal(t, false, outOfSync)
 		assert.Equal(t, 0, liveNodes)
@@ -1315,9 +1316,9 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{
 			config: testNodeConfig{syncThreshold: 1},
 		})
-		node.nLiveNodes = func() (count int, blockNumber int64, totalDifficulty *big.Int) {
-			return
-		}
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		assert.Panics(t, func() {
 			_, _ = node.syncStatus(0, nil)
 		})
@@ -1361,9 +1362,12 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 					selectionMode: selectionMode,
 				},
 			})
-			node.nLiveNodes = func() (int, int64, *big.Int) {
-				return nodesNum, highestBlock, big.NewInt(totalDifficulty)
-			}
+			poolInfo := newMockPoolChainInfoProvider(t)
+			poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+				BlockNumber:     highestBlock,
+				TotalDifficulty: big.NewInt(totalDifficulty),
+			})
+			node.SetPoolChainInfoProvider(poolInfo)
 			for _, td := range []int64{totalDifficulty - syncThreshold - 1, totalDifficulty - syncThreshold, totalDifficulty, totalDifficulty + 1} {
 				for _, testCase := range testCases {
 					t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
@@ -1413,9 +1417,13 @@ func TestUnit_NodeLifecycle_syncStatus(t *testing.T) {
 				selectionMode: NodeSelectionModeTotalDifficulty,
 			},
 		})
-		node.nLiveNodes = func() (int, int64, *big.Int) {
-			return nodesNum, highestBlock, big.NewInt(totalDifficulty)
-		}
+
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+			BlockNumber:     highestBlock,
+			TotalDifficulty: big.NewInt(totalDifficulty),
+		})
+		node.SetPoolChainInfoProvider(poolInfo)
 		for _, hb := range []int64{highestBlock - syncThreshold - 1, highestBlock - syncThreshold, highestBlock, highestBlock + 1} {
 			for _, testCase := range testCases {
 				t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
@@ -1572,4 +1580,99 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 			return node.State() == nodeStateAlive
 		})
 	})
+}
+
+func TestNode_State(t *testing.T) {
+	t.Run("If not Alive, returns as is", func(t *testing.T) {
+		for state := nodeState(0); state < nodeStateLen; state++ {
+			if state == nodeStateAlive {
+				continue
+			}
+
+			node := newTestNode(t, testNodeOpts{})
+			node.setState(state)
+			assert.Equal(t, state, node.State())
+		}
+	})
+	t.Run("If repeatable read is not enforced, returns alive", func(t *testing.T) {
+		node := newTestNode(t, testNodeOpts{})
+		node.setState(nodeStateAlive)
+		assert.Equal(t, nodeStateAlive, node.State())
+	})
+	testCases := []struct {
+		Name                    string
+		FinalizedBlockOffsetVal uint32
+		IsFinalityTagEnabled    bool
+		PoolChainInfo           ChainInfo
+		NodeChainInfo           ChainInfo
+		ExpectedState           nodeState
+	}{
+		{
+			Name:                    "If finality lag does not exceeds offset, returns alive (FinalityDepth)",
+			FinalizedBlockOffsetVal: 15,
+			PoolChainInfo: ChainInfo{
+				BlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				BlockNumber: 5,
+			},
+			ExpectedState: nodeStateAlive,
+		},
+		{
+			Name:                    "If finality lag does not exceeds offset, returns alive (FinalityTag)",
+			FinalizedBlockOffsetVal: 15,
+			IsFinalityTagEnabled:    true,
+			PoolChainInfo: ChainInfo{
+				FinalizedBlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				FinalizedBlockNumber: 5,
+			},
+			ExpectedState: nodeStateAlive,
+		},
+		{
+			Name:                    "If finality lag exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityDepth)",
+			FinalizedBlockOffsetVal: 15,
+			PoolChainInfo: ChainInfo{
+				BlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				BlockNumber: 4,
+			},
+			ExpectedState: nodeStateFinalizedBlockOutOfSync,
+		},
+		{
+			Name:                    "If finality lag exceeds offset, returns nodeStateFinalizedBlockOutOfSync (FinalityTag)",
+			FinalizedBlockOffsetVal: 15,
+			IsFinalityTagEnabled:    true,
+			PoolChainInfo: ChainInfo{
+				FinalizedBlockNumber: 20,
+			},
+			NodeChainInfo: ChainInfo{
+				FinalizedBlockNumber: 4,
+			},
+			ExpectedState: nodeStateFinalizedBlockOutOfSync,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			rpc := newMockNodeClient[types.ID, Head](t)
+			rpc.On("GetInterceptedChainInfo").Return(tc.NodeChainInfo, tc.PoolChainInfo).Once()
+			node := newTestNode(t, testNodeOpts{
+				config: testNodeConfig{
+					enforceRepeatableRead: true,
+				},
+				chainConfig: clientMocks.ChainConfig{
+					FinalizedBlockOffsetVal: tc.FinalizedBlockOffsetVal,
+					IsFinalityTagEnabled:    tc.IsFinalityTagEnabled,
+				},
+				rpc: rpc,
+			})
+			poolInfo := newMockPoolChainInfoProvider(t)
+			poolInfo.On("HighestUserObservations").Return(tc.PoolChainInfo).Once()
+			node.SetPoolChainInfoProvider(poolInfo)
+			node.setState(nodeStateAlive)
+			assert.Equal(t, tc.ExpectedState, node.State())
+		})
+	}
 }

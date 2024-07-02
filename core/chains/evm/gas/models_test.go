@@ -65,7 +65,8 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		oracle := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock)
+		oracle, err := rollups.NewL1GasOracle(lggr, nil, chaintype.ChainOptimismBedrock)
+		require.NoError(t, err)
 		// cast oracle to L1Oracle interface
 		estimator = gas.NewEvmFeeEstimator(lggr, getEst, false, geCfg)
 

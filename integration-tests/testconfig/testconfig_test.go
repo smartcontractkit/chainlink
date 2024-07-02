@@ -76,7 +76,7 @@ func TestBase64ConfigRead(t *testing.T) {
 	testConfigEncoded := base64.StdEncoding.EncodeToString(configMarshalled)
 	os.Setenv(Base64OverrideEnvVarName, testConfigEncoded)
 
-	readConfig, err := GetConfig("test", Automation)
+	readConfig, err := GetConfig([]string{"test"}, Automation)
 	require.NoError(t, err, "Error reading config")
 
 	require.NotNil(t, readConfig.Automation, "Automation config read from base64 is nil")

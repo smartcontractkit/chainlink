@@ -42,6 +42,32 @@ type Config struct {
 	Solana solcfg.TOMLConfigs `toml:",omitempty"`
 
 	Starknet stkcfg.TOMLConfigs `toml:",omitempty"`
+
+	Aptos RawConfigs `toml:",omitempty"`
+}
+
+// RawConfigs is a list of RawConfig.
+type RawConfigs []RawConfig
+
+// RawConfig is the config used for chains that are not embedded.
+type RawConfig map[string]any
+
+// ValidateConfig returns an error if the Config is not valid for use, as-is.
+func (c *RawConfig) ValidateConfig() (err error) {
+	if v, ok := (*c)["Enabled"]; ok {
+		if _, ok := v.(*bool); !ok {
+			err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected *bool"})
+		}
+	}
+	return err
+}
+
+func (c *RawConfig) IsEnabled() bool {
+	if c == nil {
+		return false
+	}
+
+	return (*c)["Enabled"] == nil || *(*c)["Enabled"].(*bool)
 }
 
 // TOMLString returns a TOML encoded string.

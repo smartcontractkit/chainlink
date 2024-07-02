@@ -329,10 +329,11 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 
 	triggerRegRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.localNode.WorkflowDON.ID,
-			WorkflowName:  e.workflow.name,
-			WorkflowOwner: e.workflow.owner,
+			WorkflowID:               e.workflow.id,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowName:             e.workflow.name,
+			WorkflowOwner:            e.workflow.owner,
 		},
 		Config: tc,
 		Inputs: triggerInputs,
@@ -355,9 +356,25 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 			}}
 	}
 
+	e.wg.Add(1)
 	go func() {
-		for event := range eventsCh {
-			e.triggerEvents <- event
+		defer e.wg.Done()
+
+		for {
+			select {
+			case <-e.stopCh:
+				return
+			case event, isOpen := <-eventsCh:
+				if !isOpen {
+					return
+				}
+
+				select {
+				case <-e.stopCh:
+					return
+				case e.triggerEvents <- event:
+				}
+			}
 		}
 	}()
 
@@ -668,34 +685,42 @@ func (e *Engine) executeStep(ctx context.Context, msg stepRequest) (*values.Map,
 		return nil, nil, err
 	}
 
-	i, err := findAndInterpolateAllKeys(step.Inputs, msg.state)
+	var inputs any
+	if step.Inputs.OutputRef != "" {
+		inputs = step.Inputs.OutputRef
+	} else {
+		inputs = step.Inputs.Mapping
+	}
+
+	i, err := findAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	inputs, err := values.NewMap(i.(map[string]any))
+	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	tr := capabilities.CapabilityRequest{
-		Inputs: inputs,
+		Inputs: inputsMap,
 		Config: step.config,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          msg.state.WorkflowID,
-			WorkflowExecutionID: msg.state.ExecutionID,
-			WorkflowOwner:       e.workflow.owner,
-			WorkflowName:        e.workflow.name,
-			WorkflowDonID:       e.localNode.WorkflowDON.ID,
+			WorkflowID:               msg.state.WorkflowID,
+			WorkflowExecutionID:      msg.state.ExecutionID,
+			WorkflowOwner:            e.workflow.owner,
+			WorkflowName:             e.workflow.name,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 		},
 	}
 
 	output, err := executeSyncAndUnwrapSingleValue(ctx, step.capability, tr)
 	if err != nil {
-		return inputs, nil, err
+		return inputsMap, nil, err
 	}
 
-	return inputs, output, err
+	return inputsMap, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -709,10 +734,11 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	}
 	deregRequest := capabilities.CapabilityRequest{
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID:    e.workflow.id,
-			WorkflowDonID: e.localNode.WorkflowDON.ID,
-			WorkflowName:  e.workflow.name,
-			WorkflowOwner: e.workflow.owner,
+			WorkflowID:               e.workflow.id,
+			WorkflowDonID:            e.localNode.WorkflowDON.ID,
+			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
+			WorkflowName:             e.workflow.name,
+			WorkflowOwner:            e.workflow.owner,
 		},
 		Inputs: triggerInputs,
 		Config: t.config,

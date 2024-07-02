@@ -88,18 +88,19 @@ type multiNode[
 	BATCH_ELEM any,
 ] struct {
 	services.StateMachine
-	nodes               []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	chainID             CHAIN_ID
-	lggr                logger.SugaredLogger
-	selectionMode       string
-	noNewHeadsThreshold time.Duration
-	nodeSelector        NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
-	leaseDuration       time.Duration
-	leaseTicker         *time.Ticker
-	chainFamily         string
-	reportInterval      time.Duration
-	sendTxSoftTimeout   time.Duration // defines max waiting time from first response til responses evaluation
+	nodes                 []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	sendonlys             []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	chainID               CHAIN_ID
+	lggr                  logger.SugaredLogger
+	selectionMode         string
+	noNewHeadsThreshold   time.Duration
+	nodeSelector          NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]
+	leaseDuration         time.Duration
+	leaseTicker           *time.Ticker
+	chainFamily           string
+	reportInterval        time.Duration
+	deathDeclarationDelay time.Duration
+	sendTxSoftTimeout     time.Duration // defines max waiting time from first response til responses evaluation
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, HEAD, RPC_CLIENT]
@@ -135,6 +136,7 @@ func NewMultiNode[
 	chainFamily string,
 	classifySendTxError func(tx TX, err error) SendTxReturnCode,
 	sendTxSoftTimeout time.Duration,
+	deathDeclarationDelay time.Duration,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM] {
 	nodeSelector := newNodeSelector(selectionMode, nodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
@@ -144,19 +146,20 @@ func NewMultiNode[
 		sendTxSoftTimeout = QueryTimeout / 2
 	}
 	c := &multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]{
-		nodes:               nodes,
-		sendonlys:           sendonlys,
-		chainID:             chainID,
-		lggr:                logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
-		selectionMode:       selectionMode,
-		noNewHeadsThreshold: noNewHeadsThreshold,
-		nodeSelector:        nodeSelector,
-		chStop:              make(services.StopChan),
-		leaseDuration:       leaseDuration,
-		chainFamily:         chainFamily,
-		classifySendTxError: classifySendTxError,
-		reportInterval:      reportInterval,
-		sendTxSoftTimeout:   sendTxSoftTimeout,
+		nodes:                 nodes,
+		sendonlys:             sendonlys,
+		chainID:               chainID,
+		lggr:                  logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
+		selectionMode:         selectionMode,
+		noNewHeadsThreshold:   noNewHeadsThreshold,
+		nodeSelector:          nodeSelector,
+		chStop:                make(services.StopChan),
+		leaseDuration:         leaseDuration,
+		chainFamily:           chainFamily,
+		classifySendTxError:   classifySendTxError,
+		reportInterval:        reportInterval,
+		deathDeclarationDelay: deathDeclarationDelay,
+		sendTxSoftTimeout:     sendTxSoftTimeout,
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -178,14 +181,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 			if n.ConfiguredChainID().String() != c.chainID.String() {
 				return ms.CloseBecause(fmt.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
-			rawNode, ok := n.(*node[CHAIN_ID, HEAD, RPC_CLIENT])
-			if ok {
-				// This is a bit hacky but it allows the node to be aware of
-				// pool state and prevent certain state transitions that might
-				// otherwise leave no nodes available. It is better to have one
-				// node in a degraded state than no nodes at all.
-				rawNode.nLiveNodes = c.nLiveNodes
-			}
+			n.SetPoolChainInfoProvider(c)
 			// node will handle its own redialing and automatic recovery
 			if err := ms.Start(ctx, n); err != nil {
 				return err
@@ -251,6 +247,9 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		return // another goroutine beat us here
 	}
 
+	if c.activeNode != nil {
+		c.activeNode.UnsubscribeAllExceptAliveLoop()
+	}
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
@@ -263,22 +262,37 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return c.activeNode, err
 }
 
-// nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
-// totalDifficulty will be 0 if all nodes return nil.
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
-	totalDifficulty = big.NewInt(0)
+// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
+// Return highest ChainInfo most recently received by the alive nodes.
+// E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) LatestChainInfo() (int, ChainInfo) {
+	var nLiveNodes int
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
 	for _, n := range c.nodes {
-		if s, num, td := n.StateAndLatest(); s == nodeStateAlive {
+		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
 			nLiveNodes++
-			if num > blockNumber {
-				blockNumber = num
-			}
-			if td != nil && td.Cmp(totalDifficulty) > 0 {
-				totalDifficulty = td
-			}
+			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+			ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
 		}
 	}
-	return
+	return nLiveNodes, ch
+}
+
+// HighestUserObservations - returns highest ChainInfo ever observed by any user of the MultiNode
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) HighestUserObservations() ChainInfo {
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.nodes {
+		nodeChainInfo := n.HighestUserObservations()
+		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+		ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
+	}
+	return ch
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLease() {
@@ -293,10 +307,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	c.activeMu.Lock()
+	defer c.activeMu.Unlock()
 	if bestNode != c.activeNode {
+		if c.activeNode != nil {
+			c.activeNode.UnsubscribeAllExceptAliveLoop()
+		}
 		c.activeNode = bestNode
 	}
-	c.activeMu.Unlock()
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) checkLeaseLoop() {
@@ -317,7 +334,16 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) runLoop() {
 	defer c.wg.Done()
 
-	c.report()
+	nodeStates := make([]nodeWithState, len(c.nodes))
+	for i, n := range c.nodes {
+		nodeStates[i] = nodeWithState{
+			Node:      n.String(),
+			State:     n.State().String(),
+			DeadSince: nil,
+		}
+	}
+
+	c.report(nodeStates)
 
 	monitor := services.NewTicker(c.reportInterval)
 	defer monitor.Stop()
@@ -325,44 +351,54 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for {
 		select {
 		case <-monitor.C:
-			c.report()
+			c.report(nodeStates)
 		case <-c.chStop:
 			return
 		}
 	}
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) report() {
-	type nodeWithState struct {
-		Node  string
-		State string
-	}
+type nodeWithState struct {
+	Node      string
+	State     string
+	DeadSince *time.Time
+}
 
-	var total, dead int
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) report(nodesStateInfo []nodeWithState) {
+	start := time.Now()
+	var dead int
 	counts := make(map[nodeState]int)
-	nodeStates := make([]nodeWithState, len(c.nodes))
 	for i, n := range c.nodes {
 		state := n.State()
-		nodeStates[i] = nodeWithState{n.String(), state.String()}
-		total++
-		if state != nodeStateAlive {
+		counts[state]++
+		nodesStateInfo[i].State = state.String()
+		if state == nodeStateAlive {
+			nodesStateInfo[i].DeadSince = nil
+			continue
+		}
+
+		if nodesStateInfo[i].DeadSince == nil {
+			nodesStateInfo[i].DeadSince = &start
+		}
+
+		if start.Sub(*nodesStateInfo[i].DeadSince) >= c.deathDeclarationDelay {
 			dead++
 		}
-		counts[state]++
 	}
 	for _, state := range allNodeStates {
 		count := counts[state]
 		PromMultiNodeRPCNodeStates.WithLabelValues(c.chainFamily, c.chainID.String(), state.String()).Set(float64(count))
 	}
 
+	total := len(c.nodes)
 	live := total - dead
-	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
-		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodesStateInfo)
 		c.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
-		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	}
 }
 
@@ -777,12 +813,12 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	return n.RPC().SimulateTransaction(ctx, tx)
 }
 
-func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (s types.Subscription, err error) {
+func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (s types.Subscription, err error) {
 	n, err := c.selectNode()
 	if err != nil {
 		return s, err
 	}
-	return n.RPC().Subscribe(ctx, channel, args...)
+	return n.RPC().SubscribeNewHead(ctx, channel)
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT, BATCH_ELEM]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (b *big.Int, err error) {

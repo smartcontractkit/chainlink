@@ -565,10 +565,19 @@ func (a *AutomationTest) SetConfigOnRegistry() error {
 		} else if a.RegistrySettings.RegistryVersion == ethereum.RegistryVersion_2_3 {
 			ocrConfig.TypedOnchainConfig23 = a.RegistrySettings.Create23OnchainConfig(a.Registrar.Address(), a.UpkeepPrivilegeManager, a.Registry.ChainModuleAddress(), a.Registry.ReorgProtectionEnabled())
 			ocrConfig.BillingTokens = []common.Address{
-				common.HexToAddress(a.LinkToken.Address()), // TODO add more billing tokens
+				common.HexToAddress(a.LinkToken.Address()),
+				common.HexToAddress(a.WETHToken.Address()),
 			}
 
 			ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
+				{
+					GasFeePPB:         100,
+					FlatFeeMilliCents: big.NewInt(500),
+					PriceFeed:         common.HexToAddress(a.EthUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+					Decimals:          18,
+					FallbackPrice:     big.NewInt(1000),
+					MinSpend:          big.NewInt(200),
+				},
 				{
 					GasFeePPB:         100,
 					FlatFeeMilliCents: big.NewInt(500),
