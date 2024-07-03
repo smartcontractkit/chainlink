@@ -37,9 +37,26 @@
     },
     {
       "name": "TestAutomationBasic",
-      "nodes": 1,
+      "nodes": 2,
       "run":[
-        {"name":"registry_2_3_conditional"}
+        {"name":"registry_2_3_conditional_native"},
+        {"name":"registry_2_3_conditional_link"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_3_logtrigger_native"},
+        {"name":"registry_2_3_logtrigger_link"}
+      ]
+    },
+    {
+      "name": "TestAutomationBasic",
+      "nodes": 2,
+      "run":[
+        {"name":"registry_2_3_with_mercury_v03_link"},
+        {"name":"registry_2_3_with_logtrigger_and_mercury_v02_link"}
       ]
     },
     {
