@@ -1000,7 +1000,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	}
 }
 
-// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the depth
+// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the LatestFinalizedHead
 // of the given chain and ensures that every one has a receipt with a block hash that is
 // in the given chain.
 //
