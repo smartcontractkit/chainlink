@@ -6,6 +6,8 @@ import (
 	sync "sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -24,7 +26,7 @@ type dispatcher struct {
 	peerID      p2ptypes.PeerID
 	signer      p2ptypes.Signer
 	registry    core.CapabilitiesRegistry
-	receivers   map[key]remotetypes.Receiver
+	receivers   map[key]*receiver
 	mu          sync.RWMutex
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
@@ -33,7 +35,7 @@ type dispatcher struct {
 
 type key struct {
 	capId string
-	donId string
+	donId uint32
 }
 
 var _ services.Service = &dispatcher{}
@@ -45,7 +47,7 @@ func NewDispatcher(peerWrapper p2ptypes.PeerWrapper, signer p2ptypes.Signer, reg
 		peerWrapper: peerWrapper,
 		signer:      signer,
 		registry:    registry,
-		receivers:   make(map[key]remotetypes.Receiver),
+		receivers:   make(map[key]*receiver),
 		stopCh:      make(services.StopChan),
 		lggr:        lggr.Named("Dispatcher"),
 	}
@@ -58,29 +60,79 @@ func (d *dispatcher) Start(ctx context.Context) error {
 		return fmt.Errorf("peer is not initialized")
 	}
 	d.wg.Add(1)
-	go d.receive()
+	go func() {
+		defer d.wg.Done()
+		d.receive()
+	}()
+
 	d.lggr.Info("dispatcher started")
 	return nil
 }
 
-func (d *dispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {
+func (d *dispatcher) Close() error {
+	close(d.stopCh)
+	d.wg.Wait()
+	d.lggr.Info("dispatcher closed")
+	return nil
+}
+
+var capReceiveChannelUsage = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "capability_receive_channel_usage",
+	Help: "The usage of the receive channel for each capability, 0 indicates empty, 1 indicates full.",
+}, []string{"capabilityId", "donId"})
+
+const receiverBufferSize = 10000
+
+type receiver struct {
+	cancel context.CancelFunc
+	ch     chan *remotetypes.MessageBody
+}
+
+func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec remotetypes.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	k := key{capabilityId, donId}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("receiver already exists for capability %s and don %s", capabilityId, donId)
+		return fmt.Errorf("receiver already exists for capability %s and don %d", capabilityId, donId)
 	}
-	d.receivers[k] = receiver
+
+	receiverCh := make(chan *remotetypes.MessageBody, receiverBufferSize)
+
+	ctx, cancelCtx := d.stopCh.NewCtx()
+	d.wg.Add(1)
+	go func() {
+		defer cancelCtx()
+		defer d.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-receiverCh:
+				rec.Receive(ctx, msg)
+			}
+		}
+	}()
+
+	d.receivers[k] = &receiver{
+		cancel: cancelCtx,
+		ch:     receiverCh,
+	}
+
 	d.lggr.Debugw("receiver set", "capabilityId", capabilityId, "donId", donId)
 	return nil
 }
 
-func (d *dispatcher) RemoveReceiver(capabilityId string, donId string) {
+func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	delete(d.receivers, key{capabilityId, donId})
-	d.lggr.Debugw("receiver removed", "capabilityId", capabilityId, "donId", donId)
+
+	receiverKey := key{capabilityId, donId}
+	if receiver, ok := d.receivers[receiverKey]; ok {
+		receiver.cancel()
+		delete(d.receivers, receiverKey)
+		d.lggr.Debugw("receiver removed", "capabilityId", capabilityId, "donId", donId)
+	}
 }
 
 func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -105,7 +157,6 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBo
 }
 
 func (d *dispatcher) receive() {
-	defer d.wg.Done()
 	recvCh := d.peer.Receive()
 	for {
 		select {
@@ -128,7 +179,14 @@ func (d *dispatcher) receive() {
 				d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 				continue
 			}
-			receiver.Receive(body)
+
+			receiverQueueUsage := float64(len(receiver.ch)) / receiverBufferSize
+			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprint(k.donId)).Set(receiverQueueUsage)
+			select {
+			case receiver.ch <- body:
+			default:
+				d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capId, "donId", k.donId)
+			}
 		}
 	}
 }
@@ -148,13 +206,6 @@ func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *remotetyp
 	if err != nil {
 		d.lggr.Debugw("failed to send error response", "error", err)
 	}
-}
-
-func (d *dispatcher) Close() error {
-	close(d.stopCh)
-	d.wg.Wait()
-	d.lggr.Info("dispatcher closed")
-	return nil
 }
 
 func (d *dispatcher) Ready() error {

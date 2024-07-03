@@ -1150,7 +1150,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Address() string {
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(_ *big.Float) error {
-	panic("do not use this function, use actions_seth.SendFunds() instead, otherwise we will have to deal with circular dependencies")
+	panic("do not use this function, use actions.SendFunds() instead, otherwise we will have to deal with circular dependencies")
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) RequestRandomness(

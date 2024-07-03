@@ -11,7 +11,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -22,8 +22,7 @@ import (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
@@ -34,9 +33,9 @@ func Test_Client_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -60,15 +59,14 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -99,8 +97,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -133,7 +130,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -152,10 +149,10 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
-	broker := newTestMessageBroker()
+	broker := newTestAsyncMessageBroker(t, 100)
 
 	receivers := make([]remotetypes.Receiver, numCapabilityPeers)
 	for i := 0; i < numCapabilityPeers; i++ {
@@ -166,15 +163,16 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	callers := make([]commoncap.TargetCapability, numWorkflowPeers)
-	srvcs := make([]services.Service, numWorkflowPeers)
+
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeResponseTimeout, lggr)
-		require.NoError(t, caller.Start(ctx))
+		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
 		callers[i] = caller
-		srvcs[i] = caller
 	}
+
+	servicetest.Run(t, broker)
 
 	executeInputs, err := values.NewMap(
 		map[string]any{
@@ -190,6 +188,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	// Fire off all the requests
 	for _, caller := range callers {
 		go func(caller commoncap.TargetCapability) {
+			defer wg.Done()
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
@@ -201,14 +200,10 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 				})
 
 			responseTest(t, responseCh, err)
-			wg.Done()
 		}(caller)
 	}
 
 	wg.Wait()
-	for i := 0; i < numWorkflowPeers; i++ {
-		require.NoError(t, srvcs[i].Close())
-	}
 }
 
 // Simple client that only responds once it has received a message from each workflow peer
@@ -234,7 +229,7 @@ func newTestServer(peerID p2ptypes.PeerID, dispatcher remotetypes.Dispatcher, wo
 	}
 }
 
-func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
+func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
 
@@ -264,7 +259,7 @@ func (t *clientTestServer) Receive(msg *remotetypes.MessageBody) {
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
 				CapabilityId:    "cap_id@1.0.0",
-				CapabilityDonId: "capability-don",
+				CapabilityDonId: 1,
 				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
 				MessageId:       []byte(messageID),
@@ -302,7 +297,7 @@ func NewTestDispatcher() *TestDispatcher {
 }
 
 func (t *TestDispatcher) SendToReceiver(msgBody *remotetypes.MessageBody) {
-	t.receiver.Receive(msgBody)
+	t.receiver.Receive(context.Background(), msgBody)
 }
 
 func (t *TestDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {

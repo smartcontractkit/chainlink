@@ -16,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -226,7 +224,7 @@ func (f *FwdMgr) initForwardersCache(ctx context.Context, fwdrs []Forwarder) {
 	for _, fwdr := range fwdrs {
 		senders, err := f.getAuthorizedSenders(ctx, fwdr.Address)
 		if err != nil {
-			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", fwdr, "err", err)
+			f.logger.Warnw("Failed to call getAuthorizedSenders on forwarder", "forwarder", fwdr.Address, "err", err)
 			continue
 		}
 		f.setCachedSenders(fwdr.Address, senders)
@@ -276,10 +274,12 @@ func (f *FwdMgr) runLoop() {
 	ctx, cancel := f.stopCh.NewCtx()
 	defer cancel()
 
-	tick := time.After(0)
-	for ; ; tick = time.After(utils.WithJitter(time.Minute)) {
+	ticker := services.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
 		select {
-		case <-tick:
+		case <-ticker.C:
 			if err := f.logpoller.Ready(); err != nil {
 				f.logger.Warnw("Skipping log syncing", "err", err)
 				continue

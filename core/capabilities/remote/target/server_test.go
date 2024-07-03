@@ -19,8 +19,7 @@ import (
 )
 
 func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -47,8 +46,7 @@ func Test_Server_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -75,8 +73,7 @@ func Test_Server_InsufficientCallers(t *testing.T) {
 }
 
 func Test_Server_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	numCapabilityPeers := 4
 
@@ -115,7 +112,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -134,18 +131,22 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 		F:       workflowDonF,
 	}
 
-	broker := newTestMessageBroker()
+	var srvcs []services.Service
+	broker := newTestAsyncMessageBroker(t, 1000)
+	err := broker.Start(context.Background())
+	require.NoError(t, err)
+	srvcs = append(srvcs, broker)
 
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
 	capabilityNodes := make([]remotetypes.Receiver, numCapabilityPeers)
-	srvcs := make([]services.Service, numCapabilityPeers)
+
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
@@ -154,7 +155,7 @@ func testRemoteTargetServer(ctx context.Context, t *testing.T,
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
-		srvcs[i] = capabilityNode
+		srvcs = append(srvcs, capabilityNode)
 	}
 
 	workflowNodes := make([]*serverTestClient, numWorkflowPeers)
@@ -182,7 +183,7 @@ type serverTestClient struct {
 	callerDonID       string
 }
 
-func (r *serverTestClient) Receive(msg *remotetypes.MessageBody) {
+func (r *serverTestClient) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.receivedMessages <- msg
 }
 
@@ -218,8 +219,8 @@ func (r *serverTestClient) Execute(ctx context.Context, req commoncap.Capability
 	for _, node := range r.capabilityDonInfo.Members {
 		message := &remotetypes.MessageBody{
 			CapabilityId:    "capability-id",
-			CapabilityDonId: "capability-don",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 1,
+			CallerDonId:     2,
 			Method:          remotetypes.MethodExecute,
 			Payload:         rawRequest,
 			MessageId:       []byte(messageID),

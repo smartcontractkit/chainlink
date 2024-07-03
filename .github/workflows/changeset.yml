@@ -68,7 +68,7 @@ jobs:
         uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         with:
-          version: ^8.0.0
+          version: ^9.0.0
 
       - name: Setup node
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
@@ -88,6 +88,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Jira ticket for core
+        id: jira
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         shell: bash
         working-directory: ./.github/scripts/jira
@@ -108,10 +109,12 @@ jobs:
         if: ${{ steps.files-changed.outputs.core == 'true' || steps.files-changed.outputs.shared == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_COMMENT: ${{ steps.jira.outputs.jiraComment }}
         with:
           message: |
             I see you updated files related to `core`. Please run `pnpm changeset` in the root directory to add a changeset as well as in the text include at least one of the following tags:
             ${{ env.TAGS }}
+            ${{ env.JIRA_COMMENT }}
           reactions: eyes
           comment_tag: changeset-core
           mode: ${{ steps.files-changed.outputs.core-changeset == 'false' && 'upsert' || 'delete' }}
@@ -149,10 +152,12 @@ jobs:
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_COMMENT: ${{ steps.jira.outputs.jiraComment }}
         with:
           message: |
             I see you added a changeset file but it does not contain a tag. Please edit the text include at least one of the following tags:
             ${{ env.TAGS }}
+            ${{ env.JIRA_COMMENT }}
           reactions: eyes
           comment_tag: changeset-core-tags
           mode: ${{ steps.changeset-tags.outputs.has_tags == 'false' && 'upsert' || 'delete' }}

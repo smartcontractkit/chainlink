@@ -2,6 +2,7 @@ package request_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       1,
 	}
@@ -49,7 +50,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
 	executeInputs, err := values.NewMap(
@@ -74,8 +75,10 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		Config: transmissionSchedule,
 	}
 
+	m, err := values.NewMap(map[string]any{"response": "response1"})
+	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
-		Value: values.NewString("response1"),
+		Value: m,
 		Err:   nil,
 	}
 
@@ -101,10 +104,14 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
+		defer request.Cancel(errors.New("test end"))
+
 		require.NoError(t, err)
 
+		nm, err := values.NewMap(map[string]any{"response": "response2"})
+		require.NoError(t, err)
 		capabilityResponse2 := commoncap.CapabilityResponse{
-			Value: values.NewString("response2"),
+			Value: nm,
 			Err:   nil,
 		}
 
@@ -142,6 +149,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -167,6 +175,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
@@ -189,6 +198,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -226,6 +236,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -275,6 +286,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		request, err := request.NewClientRequest(ctx, lggr, capabilityRequest, messageID, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute)
 		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
 
 		<-dispatcher.msgs
 		<-dispatcher.msgs
@@ -289,8 +301,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		response := <-request.ResponseChan()
+		resp := response.Value.Underlying["response"]
 
-		assert.Equal(t, response.Value, values.NewString("response1"))
+		assert.Equal(t, resp, values.NewString("response1"))
 	})
 }
 
@@ -298,11 +311,11 @@ type clientRequestTestDispatcher struct {
 	msgs chan *types.MessageBody
 }
 
-func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId string, receiver types.Receiver) error {
+func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

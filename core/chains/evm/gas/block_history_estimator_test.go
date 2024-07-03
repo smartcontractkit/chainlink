@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
@@ -721,6 +721,9 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 	bhCfg.TransactionPercentileF = uint16(35)
 	bhCfg.BlockHistorySizeF = uint16(3)
 	bhCfg.BatchSizeF = uint32(0)
+	// Set CheckInclusionBlocks larger than BlockHistorySize to cache more blocks than needed for calculation
+	// Helps test whether the latest block is being used or not
+	bhCfg.CheckInclusionBlocksF = uint16(5)
 
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
@@ -729,38 +732,115 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 
 	bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
 
+	b0 := evmtypes.Block{
+		Number:       0,
+		Hash:         utils.NewHash(),
+		Transactions: legacyTransactionsFromGasPrices(1, 2, 3),
+	}
 	b1 := evmtypes.Block{
 		Number:       1,
 		Hash:         utils.NewHash(),
-		Transactions: legacyTransactionsFromGasPrices(1),
+		Transactions: legacyTransactionsFromGasPrices(4, 5, 6),
 	}
 	b2 := evmtypes.Block{
 		Number:       2,
 		Hash:         utils.NewHash(),
-		Transactions: legacyTransactionsFromGasPrices(2),
+		Transactions: legacyTransactionsFromGasPrices(7, 8, 9),
 	}
 	b3 := evmtypes.Block{
 		Number:       3,
+		Hash:         utils.NewHash(),
+		Transactions: legacyTransactionsFromGasPrices(100),
+	}
+	b4 := evmtypes.Block{
+		Number:       4,
 		Hash:         utils.NewHash(),
 		Transactions: legacyTransactionsFromGasPrices(200, 300, 100, 100, 100, 100),
 	}
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 3 &&
-			b[0].Args[0] == "0x3" &&
-			b[1].Args[0] == "0x2" &&
-			b[2].Args[0] == "0x1"
+		return len(b) == 5 &&
+			b[0].Args[0] == "0x4" &&
+			b[1].Args[0] == "0x3" &&
+			b[2].Args[0] == "0x2" &&
+			b[3].Args[0] == "0x1" &&
+			b[4].Args[0] == "0x0"
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &b3
-		elems[1].Result = &b2
-		elems[2].Result = &b1
+		elems[0].Result = &b4
+		elems[1].Result = &b3
+		elems[2].Result = &b2
+		elems[3].Result = &b1
+		elems[4].Result = &b0
 	})
 
-	bhe.FetchBlocksAndRecalculate(tests.Context(t), testutils.Head(3))
+	bhe.FetchBlocksAndRecalculate(tests.Context(t), testutils.Head(4))
 
 	price := gas.GetGasPrice(bhe)
 	require.Equal(t, assets.NewWeiI(100), price)
+
+	assert.Len(t, gas.GetRollingBlockHistory(bhe), 5)
+}
+
+func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_EIP1559(t *testing.T) {
+	t.Parallel()
+
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	l1Oracle := rollupMocks.NewL1Oracle(t)
+
+	cfg := gas.NewMockConfig()
+	bhCfg := newBlockHistoryConfig()
+	bhCfg.BlockDelayF = uint16(0)
+	bhCfg.TransactionPercentileF = uint16(50)
+	bhCfg.BlockHistorySizeF = uint16(1)
+	bhCfg.BatchSizeF = uint32(0)
+	// Set CheckInclusionBlocks larger than BlockHistorySize to cache more blocks than needed for calculation
+	// Helps test whether the latest block is being used or not
+	bhCfg.CheckInclusionBlocksF = uint16(3)
+
+	geCfg := &gas.MockGasEstimatorConfig{}
+	geCfg.EIP1559DynamicFeesF = true
+	geCfg.PriceMaxF = assets.NewWeiI(1000)
+	geCfg.PriceMinF = assets.NewWeiI(0)
+	geCfg.TipCapMinF = assets.NewWeiI(0)
+
+	bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
+
+	b0 := evmtypes.Block{
+		BaseFeePerGas: assets.NewWeiI(1),
+		Number:        0,
+		Hash:          utils.NewHash(),
+		Transactions:  dynamicFeeTransactionsFromTipCaps(1, 2, 3),
+	}
+	b1 := evmtypes.Block{
+		BaseFeePerGas: assets.NewWeiI(2),
+		Number:        1,
+		Hash:          utils.NewHash(),
+		Transactions:  dynamicFeeTransactionsFromTipCaps(4, 5, 6),
+	}
+	b2 := evmtypes.Block{
+		BaseFeePerGas: assets.NewWeiI(3),
+		Number:        2,
+		Hash:          utils.NewHash(),
+		Transactions:  dynamicFeeTransactionsFromTipCaps(7, 8, 9),
+	}
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 3 &&
+			b[0].Args[0] == "0x2" &&
+			b[1].Args[0] == "0x1" &&
+			b[2].Args[0] == "0x0"
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &b2
+		elems[1].Result = &b1
+		elems[2].Result = &b0
+	})
+
+	bhe.FetchBlocksAndRecalculate(tests.Context(t), testutils.Head(2))
+
+	price := gas.GetTipCap(bhe)
+	require.Equal(t, assets.NewWeiI(8), price) // 50th percentile of latest block
 
 	assert.Len(t, gas.GetRollingBlockHistory(bhe), 3)
 }
@@ -990,12 +1070,12 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		require.Equal(t, assets.NewWeiI(11), gas.GetGasPrice(bhe))
 
 		// Set chainType to Gnosis - GasEstimator should now ignore zero priced transactions
-		cfg.ChainTypeF = string(config.ChainGnosis)
+		cfg.ChainTypeF = string(chaintype.ChainGnosis)
 		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 
 		// And for X Layer
-		cfg.ChainTypeF = string(config.ChainXLayer)
+		cfg.ChainTypeF = string(chaintype.ChainXLayer)
 		bhe.Recalculate(testutils.Head(0))
 		require.Equal(t, assets.NewWeiI(80), gas.GetGasPrice(bhe))
 	})
@@ -1413,7 +1493,7 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 	})
 
 	t.Run("returns false if transaction is of type 0x71 or 0xff only on zkSync", func(t *testing.T) {
-		cfg.ChainTypeF = string(config.ChainZkSync)
+		cfg.ChainTypeF = string(chaintype.ChainZkSync)
 		tx := evmtypes.Transaction{Type: 0x71, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
@@ -1421,6 +1501,15 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		tx.Type = 0xff
+		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+
+		cfg.ChainTypeF = ""
+		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
+	})
+
+	t.Run("returns false if transaction is of type 0x7e only on Scroll", func(t *testing.T) {
+		cfg.ChainTypeF = string(chaintype.ChainScroll)
+		tx := evmtypes.Transaction{Type: 0x7e, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.Test(t)))
 
 		cfg.ChainTypeF = ""
@@ -2125,78 +2214,82 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	})
 }
 
-func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
+func TestBlockHistoryEstimator_HaltBumping(t *testing.T) {
 	cfg := gas.NewMockConfig()
 	bhCfg := newBlockHistoryConfig()
 	bhCfg.CheckInclusionBlocksF = uint16(4)
-	lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
+	bhCfg.CheckInclusionPercentileF = uint16(90)
+	lggr, _ := logger.TestObserved(t, zapcore.DebugLevel)
 	geCfg := &gas.MockGasEstimatorConfig{}
 	geCfg.EIP1559DynamicFeesF = false
+	geCfg.PriceMinF = assets.NewWeiI(1)
+	geCfg.PriceMaxF = assets.NewWeiI(100)
 	l1Oracle := rollupMocks.NewL1Oracle(t)
+	ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+	ctx := tests.Context(t)
 
 	bhe := gas.BlockHistoryEstimatorFromInterface(
-		gas.NewBlockHistoryEstimator(lggr, nil, cfg, geCfg, bhCfg, testutils.NewRandomEVMChainID(), l1Oracle),
+		gas.NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bhCfg, testutils.NewRandomEVMChainID(), l1Oracle),
 	)
 
 	attempts := []gas.EvmPriorAttempt{
 		{TxType: 0x0, TxHash: NewEvmHash()},
 	}
 
-	t.Run("skips connectivity check if latest block is not present", func(t *testing.T) {
-		err := bhe.CheckConnectivity(attempts)
-		require.NoError(t, err)
-
-		tests.AssertLogEventually(t, obs, "Latest block is unknown; skipping inclusion check")
+	t.Run("fails halt bumping check if estimator is not started", func(t *testing.T) {
+		err := bhe.HaltBumping(attempts)
+		require.Error(t, err, "BlockHistoryEstimator is not started; do not have max gas to allow bumping")
 	})
 
-	h := testutils.Head(1)
-	h.BaseFeePerGas = assets.NewWeiI(112500)
-	bhe.OnNewLongestChain(tests.Context(t), h)
-
+	h := testutils.Head(0)
 	b0 := evmtypes.Block{
 		Number:       0,
 		Hash:         utils.NewHash(),
 		Transactions: legacyTransactionsFromGasPrices(),
 	}
-	gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0})
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &b0
+	}).Once()
+	err := bhe.Start(ctx)
+	require.NoError(t, err)
 
-	t.Run("skips connectivity check if block history has insufficient size", func(t *testing.T) {
-		err := bhe.CheckConnectivity(attempts)
-		require.NoError(t, err)
-
-		tests.AssertLogEventually(t, obs, "Block history in memory with length 1 is insufficient to determine whether transaction should have been included within the past 4 blocks")
-	})
-
-	t.Run("skips connectivity check if attempts is nil or empty", func(t *testing.T) {
-		err := bhe.CheckConnectivity(nil)
-		require.NoError(t, err)
+	t.Run("allows bumping check if CheckInclusionPercentile price failed to set due to no suitable transactions", func(t *testing.T) {
+		err := bhe.HaltBumping(attempts)
+		require.Error(t, err, "90 percentile price is not set. This is likely because there aren't any valid transactions to estimate from. Preventing bumping until valid price is available to compare")
 	})
 
 	b1 := evmtypes.Block{
 		Number:       1,
 		Hash:         utils.NewHash(),
 		ParentHash:   b0.Hash,
-		Transactions: legacyTransactionsFromGasPrices(),
+		Transactions: legacyTransactionsFromGasPrices(10, 20, 30, 40, 50),
 	}
 	b2 := evmtypes.Block{
 		Number:       2,
 		Hash:         utils.NewHash(),
 		ParentHash:   b1.Hash,
-		Transactions: legacyTransactionsFromGasPrices(),
+		Transactions: legacyTransactionsFromGasPrices(60, 70, 80),
 	}
 	b3 := evmtypes.Block{
 		Number:       3,
 		Hash:         utils.NewHash(),
 		ParentHash:   b2.Hash,
-		Transactions: legacyTransactionsFromGasPrices(),
+		Transactions: legacyTransactionsFromGasPrices(90, 100),
 	}
 	gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
-	h = testutils.Head(5)
-	h.BaseFeePerGas = assets.NewWeiI(112500)
-	bhe.OnNewLongestChain(tests.Context(t), h)
+	bhe.Recalculate(testutils.Head(3))
+
+	t.Run("skips halt bumping check if attempts is nil or empty", func(t *testing.T) {
+		err := bhe.HaltBumping(nil)
+		require.NoError(t, err)
+	})
 
 	t.Run("returns error if one of the supplied attempts is missing BroadcastBeforeBlockNum", func(t *testing.T) {
-		err := bhe.CheckConnectivity(attempts)
+		err := bhe.HaltBumping(attempts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempts[0].TxHash))
 	})
@@ -2208,7 +2301,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	}
 
 	t.Run("returns error if one of the supplied attempts has an unknown transaction type", func(t *testing.T) {
-		err := bhe.CheckConnectivity(attempts)
+		err := bhe.HaltBumping(attempts)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("attempt %s has unknown transaction type 0x3", hash))
 	})
@@ -2216,13 +2309,6 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	attempts = []gas.EvmPriorAttempt{
 		{TxType: 0x0, BroadcastBeforeBlockNum: &num, TxHash: hash},
 	}
-
-	t.Run("skips connectivity check if no transactions are suitable", func(t *testing.T) {
-		err := bhe.CheckConnectivity(attempts)
-		require.NoError(t, err)
-
-		tests.AssertLogEventually(t, obs, fmt.Sprintf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of 4", hash))
-	})
 
 	t.Run("in legacy mode", func(t *testing.T) {
 		b0 = evmtypes.Block{
@@ -2251,43 +2337,27 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0, b1, b2, b3})
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
 			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(3), BroadcastBeforeBlockNum: ptr(int64(0))},
 			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(5), BroadcastBeforeBlockNum: ptr(int64(1))},
 			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(7), BroadcastBeforeBlockNum: ptr(int64(1))},
 		}
 
-		t.Run("passes check if all blocks have percentile price higher or exactly at the highest transaction gas price", func(t *testing.T) {
+		t.Run("passes check if all attempt gas prices are lower than or equal to percentile price", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 80 // percentile price is 7 wei
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.NoError(t, err)
 		})
-		t.Run("fails check if one or more blocks has percentile price higher than highest transaction gas price", func(t *testing.T) {
+		t.Run("fails check if any attempt price is higher than percentile price", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 40 // percentile price is 5 wei
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[3].TxHash))
-			require.ErrorIs(t, err, commonfee.ErrConnectivity)
-		})
-
-		t.Run("fails check if one or more blocks has percentile price higher than any transaction gas price", func(t *testing.T) {
-			bhCfg.CheckInclusionBlocksF = 3
-			bhCfg.CheckInclusionPercentileF = 30 // percentile price is 4 wei
-
-			err := bhe.CheckConnectivity(attempts)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 5 wei, which is above percentile=30%% (percentile price: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].TxHash))
-
-			bhCfg.CheckInclusionBlocksF = 3
-			bhCfg.CheckInclusionPercentileF = 5 // percentile price is 2 wei
-
-			err = bhe.CheckConnectivity(attempts)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 3 wei, which is above percentile=5%% (percentile price: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei)", attempts[2].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 	})
@@ -2309,17 +2379,19 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		t.Run("passes check if both transactions are ok", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 1
 			bhCfg.CheckInclusionPercentileF = 90 // percentile price is 5 wei
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.NoError(t, err)
 		})
 		t.Run("fails check if legacy transaction fails", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 1
 			bhCfg.CheckInclusionPercentileF = 60
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[1].TxHash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei)", attempts[1].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
@@ -2329,18 +2401,21 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		}
 
 		t.Run("fails check if dynamic fee transaction fails", func(t *testing.T) {
-			gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b0})
+			geCfg.EIP1559DynamicFeesF = true
+			geCfg.TipCapMinF = assets.NewWeiI(1)
 			bhCfg.CheckInclusionBlocksF = 1
 			bhCfg.CheckInclusionPercentileF = 60
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[0].TxHash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei)", attempts[0].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 	})
 
 	t.Run("in EIP-1559 mode", func(t *testing.T) {
+		geCfg.EIP1559DynamicFeesF = true
 		b0 = evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(5),
 			Number:        0,
@@ -2372,47 +2447,50 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 
 		attempts = []gas.EvmPriorAttempt{
-			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(1000)}, BroadcastBeforeBlockNum: ptr(int64(4))}, // This is very expensive but will be ignored due to BroadcastBeforeBlockNum being too recent
 			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(3)}, BroadcastBeforeBlockNum: ptr(int64(0))},
 			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(5)}, BroadcastBeforeBlockNum: ptr(int64(1))},
 			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(30), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: ptr(int64(1))},
 		}
 
-		t.Run("passes check if all blocks have 90th percentile price higher than highest transaction tip cap", func(t *testing.T) {
+		t.Run("passes check if 90th percentile price higher than highest transaction tip cap", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 80
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.NoError(t, err)
 		})
 
-		t.Run("fails check if one or more blocks has percentile tip cap higher than any transaction tip cap, and base fee higher than the block base fee", func(t *testing.T) {
+		t.Run("fails check if percentile tip cap higher than any transaction tip cap, and base fee higher than the block base fee", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 20
+			bhe.Recalculate(testutils.Head(3))
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].TxHash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei)", attempts[1].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 
 			bhCfg.CheckInclusionBlocksF = 3
-			bhCfg.CheckInclusionPercentileF = 5
+			bhCfg.CheckInclusionPercentileF = 2
+			bhe.Recalculate(testutils.Head(3))
 
-			err = bhe.CheckConnectivity(attempts)
+			err = bhe.HaltBumping(attempts)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=5%% (percentile tip cap: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
+			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=2%% (percentile tip cap: 2 wei)", attempts[0].TxHash))
 			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
 		t.Run("passes check if, for at least one block, feecap < tipcap+basefee, even if percentile is not reached", func(t *testing.T) {
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 5
+			bhe.Recalculate(testutils.Head(3))
 
 			attempts = []gas.EvmPriorAttempt{
 				{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{FeeCap: assets.NewWeiI(4), TipCap: assets.NewWeiI(7)}, BroadcastBeforeBlockNum: ptr(int64(1))},
 			}
 
-			err := bhe.CheckConnectivity(attempts)
+			err := bhe.HaltBumping(attempts)
 			require.NoError(t, err)
 		})
 	})
@@ -2423,8 +2501,9 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 	maxGasPrice := assets.NewWeiI(1000000)
 	bhCfg := newBlockHistoryConfig()
 
-	t.Run("BumpLegacyGas checks connectivity", func(t *testing.T) {
+	t.Run("BumpLegacyGas halts bumping", func(t *testing.T) {
 		cfg := gas.NewMockConfig()
+		bhCfg.BlockDelayF = 0
 		bhCfg.CheckInclusionBlocksF = 1
 		bhCfg.CheckInclusionPercentileF = 10
 		geCfg := &gas.MockGasEstimatorConfig{}
@@ -2432,39 +2511,57 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
+		geCfg.PriceMinF = assets.NewWeiI(0)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ctx := tests.Context(t)
 
-		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg, l1Oracle)
+		bhe := gas.BlockHistoryEstimatorFromInterface(
+			gas.NewBlockHistoryEstimator(logger.Test(t), ethClient, cfg, geCfg, bhCfg, testutils.NewRandomEVMChainID(), l1Oracle),
+		)
 
-		b1 := evmtypes.Block{
-			Number:       1,
+		b0 := evmtypes.Block{
+			Number:       0,
 			Hash:         utils.NewHash(),
 			Transactions: legacyTransactionsFromGasPrices(1),
 		}
-		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b1})
-		head := testutils.Head(1)
-		bhe.OnNewLongestChain(tests.Context(t), head)
+		h := testutils.Head(0)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b0
+		}).Once()
+		err := bhe.Start(ctx)
+		require.NoError(t, err)
 
 		attempts := []gas.EvmPriorAttempt{
 			{TxType: 0x0, TxHash: NewEvmHash(), GasPrice: assets.NewWeiI(1000), BroadcastBeforeBlockNum: ptr(int64(0))},
 		}
-
-		_, _, err := bhe.BumpLegacyGas(tests.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, attempts)
+		_, _, err = bhe.BumpLegacyGas(ctx, assets.NewWeiI(42), 100000, maxGasPrice, attempts)
 		require.Error(t, err)
 		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
-		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
+		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei)", attempts[0].TxHash))
 	})
 
 	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly with proper current gas price", func(t *testing.T) {
 		cfg := gas.NewMockConfig()
+		bhCfg := newBlockHistoryConfig()
+		bhCfg.CheckInclusionBlocksF = 0
 		geCfg := &gas.MockGasEstimatorConfig{}
 		geCfg.EIP1559DynamicFeesF = false
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
 		l1Oracle := rollupMocks.NewL1Oracle(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ctx := tests.Context(t)
 
-		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg, l1Oracle)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
+		err := bhe.Start(ctx)
+		require.NoError(t, err)
 
 		t.Run("ignores nil current gas price", func(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(tests.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
@@ -2544,28 +2641,38 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.BumpPercentF = 10
 		geCfg.BumpMinF = assets.NewWeiI(150)
 		geCfg.PriceMaxF = maxGasPrice
+		geCfg.PriceMinF = assets.NewWeiI(0)
+		geCfg.TipCapMinF = assets.NewWeiI(0)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ctx := tests.Context(t)
 
-		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg, l1Oracle)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
 
-		b1 := evmtypes.Block{
+		b0 := evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(1),
-			Number:        1,
+			Number:        0,
 			Hash:          utils.NewHash(),
 			Transactions:  dynamicFeeTransactionsFromTipCaps(1),
 		}
-		gas.SetRollingBlockHistory(bhe, []evmtypes.Block{b1})
-		head := testutils.Head(1)
-		bhe.OnNewLongestChain(tests.Context(t), head)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(testutils.Head(0), nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b0
+		}).Once()
+		err := bhe.Start(ctx)
+		require.NoError(t, err)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		attempts := []gas.EvmPriorAttempt{
 			{TxType: 0x2, TxHash: NewEvmHash(), DynamicFee: gas.DynamicFee{TipCap: originalFee.TipCap, FeeCap: originalFee.FeeCap}, BroadcastBeforeBlockNum: ptr(int64(0))}}
 
-		_, err := bhe.BumpDynamicFee(tests.Context(t), originalFee, maxGasPrice, attempts)
+		_, err = bhe.BumpDynamicFee(tests.Context(t), originalFee, maxGasPrice, attempts)
 		require.Error(t, err)
 		assert.True(t, pkgerrors.Is(err, commonfee.ErrConnectivity))
-		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
+		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei)", attempts[0].TxHash))
 	})
 
 	t.Run("BumpDynamicFee bumps the fee", func(t *testing.T) {
@@ -2579,8 +2686,13 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 		geCfg.PriceMaxF = maxGasPrice
 		geCfg.TipCapDefaultF = assets.NewWeiI(52)
 		l1Oracle := rollupMocks.NewL1Oracle(t)
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		ctx := tests.Context(t)
 
-		bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg, l1Oracle)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
+		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
+		err := bhe.Start(ctx)
+		require.NoError(t, err)
 
 		t.Run("when current tip cap is nil", func(t *testing.T) {
 			originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
@@ -2638,6 +2750,130 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			assert.Equal(t, gas.DynamicFee{}, fee)
 			assert.Contains(t, err.Error(), "bumped fee cap of 1.089 mwei would exceed configured max gas price of 1 mwei (original fee: tip cap 25 wei, fee cap 990 kwei)")
 		})
+	})
+}
+
+func TestBlockHistoryEstimator_CheckInclusionPercentile_Calculation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("sets CheckInclusionPercentile price using the latest blocks, eip-1559 disabled", func(t *testing.T) {
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		l1Oracle := rollupMocks.NewL1Oracle(t)
+
+		cfg := gas.NewMockConfig()
+		bhCfg := newBlockHistoryConfig()
+		bhCfg.BlockDelayF = 0
+		bhCfg.TransactionPercentileF = 35
+		// Set BlockHistorySize larger than CheckInclusionBlocks to cache more blocks than needed for calculation
+		// Helps test whether the latest block is being used or not
+		bhCfg.BlockHistorySizeF = 3
+		bhCfg.BatchSizeF = 0
+		bhCfg.CheckInclusionBlocksF = 1
+		bhCfg.CheckInclusionPercentileF = 100
+
+		geCfg := &gas.MockGasEstimatorConfig{}
+		geCfg.EIP1559DynamicFeesF = false
+		geCfg.PriceMaxF = assets.NewWeiI(1000)
+		geCfg.PriceMinF = assets.NewWeiI(0)
+
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
+
+		b0 := evmtypes.Block{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			Transactions: legacyTransactionsFromGasPrices(1, 2, 3),
+		}
+		b1 := evmtypes.Block{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			Transactions: legacyTransactionsFromGasPrices(4, 5, 6),
+		}
+		b2 := evmtypes.Block{
+			Number:       2,
+			Hash:         utils.NewHash(),
+			Transactions: legacyTransactionsFromGasPrices(7, 8, 9),
+		}
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				b[0].Args[0] == "0x2" &&
+				b[1].Args[0] == "0x1" &&
+				b[2].Args[0] == "0x0"
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b2
+			elems[1].Result = &b1
+			elems[2].Result = &b0
+		})
+
+		bhe.FetchBlocksAndRecalculate(tests.Context(t), testutils.Head(2))
+
+		price := gas.GetMaxPercentileGasPrice(bhe)
+		require.Equal(t, assets.NewWeiI(9), price)
+
+		assert.Len(t, gas.GetRollingBlockHistory(bhe), 3)
+	})
+
+	t.Run("sets CheckInclusionPercentile price using the latest blocks, eip-1559 enabled", func(t *testing.T) {
+		ethClient := testutils.NewEthClientMockWithDefaultChain(t)
+		l1Oracle := rollupMocks.NewL1Oracle(t)
+
+		cfg := gas.NewMockConfig()
+		bhCfg := newBlockHistoryConfig()
+		bhCfg.BlockDelayF = 0
+		bhCfg.TransactionPercentileF = 35
+		// Set BlockHistorySize larger than CheckInclusionBlocks to cache more blocks than needed for calculation
+		// Helps test whether the latest block is being used or not
+		bhCfg.BlockHistorySizeF = 3
+		bhCfg.BatchSizeF = 0
+		bhCfg.CheckInclusionBlocksF = 1
+		bhCfg.CheckInclusionPercentileF = 100
+
+		geCfg := &gas.MockGasEstimatorConfig{}
+		geCfg.EIP1559DynamicFeesF = true
+		geCfg.PriceMaxF = assets.NewWeiI(1000)
+		geCfg.PriceMinF = assets.NewWeiI(0)
+		geCfg.TipCapMinF = assets.NewWeiI(0)
+
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg, l1Oracle)
+
+		b0 := evmtypes.Block{
+			BaseFeePerGas: assets.NewWeiI(1),
+			Number:        0,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(1, 2, 3),
+		}
+		b1 := evmtypes.Block{
+			BaseFeePerGas: assets.NewWeiI(2),
+			Number:        1,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(4, 5, 6),
+		}
+		b2 := evmtypes.Block{
+			BaseFeePerGas: assets.NewWeiI(3),
+			Number:        2,
+			Hash:          utils.NewHash(),
+			Transactions:  dynamicFeeTransactionsFromTipCaps(7, 8, 9),
+		}
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				b[0].Args[0] == "0x2" &&
+				b[1].Args[0] == "0x1" &&
+				b[2].Args[0] == "0x0"
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b2
+			elems[1].Result = &b1
+			elems[2].Result = &b0
+		})
+
+		bhe.FetchBlocksAndRecalculate(tests.Context(t), testutils.Head(2))
+
+		price := gas.GetMaxPercentileTipCap(bhe)
+		require.Equal(t, assets.NewWeiI(9), price)
+
+		assert.Len(t, gas.GetRollingBlockHistory(bhe), 3)
 	})
 }
 

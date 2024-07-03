@@ -29,24 +29,24 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
 	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
+		ID:      2,
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := remotetypes.RemoteTriggerConfig{
+	config := &remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100_000,
 		MinResponsesToAggregate: 1,
 		MessageExpiryMs:         100_000,
 	}
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 	underlying := &testTrigger{
@@ -70,7 +70,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		CallerDonId: workflowDonInfo.ID,
 		Payload:     marshaled,
 	}
-	publisher.Receive(regEvent)
+	publisher.Receive(ctx, regEvent)
 	forwarded := <-underlying.registrationsCh
 	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 

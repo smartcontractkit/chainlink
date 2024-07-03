@@ -1,6 +1,12 @@
+// Note: the proto_path below directive ensures the generated protobuf's file descriptor has a fully
+// qualified path, ensuring we avoid conflicts with other files called messages.proto
+//
+//go:generate protoc --proto_path=../../../../ --go_out=../../../../ --go_opt=paths=source_relative core/capabilities/remote/types/messages.proto
 package types
 
 import (
+	"context"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -14,14 +20,14 @@ const (
 
 //go:generate mockery --quiet --name Dispatcher --output ./mocks/ --case=underscore
 type Dispatcher interface {
-	SetReceiver(capabilityId string, donId string, receiver Receiver) error
-	RemoveReceiver(capabilityId string, donId string)
+	SetReceiver(capabilityId string, donId uint32, receiver Receiver) error
+	RemoveReceiver(capabilityId string, donId uint32)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
 }
 
 //go:generate mockery --quiet --name Receiver --output ./mocks/ --case=underscore
 type Receiver interface {
-	Receive(msg *MessageBody)
+	Receive(ctx context.Context, msg *MessageBody)
 }
 
 type Aggregator interface {

@@ -21,6 +21,7 @@ import (
 )
 
 type ClientRequest struct {
+	cancelFn         context.CancelFunc
 	responseCh       chan commoncap.CapabilityResponse
 	createdAt        time.Time
 	responseIDCount  map[[32]byte]int
@@ -33,6 +34,7 @@ type ClientRequest struct {
 
 	respSent bool
 	mux      sync.Mutex
+	wg       *sync.WaitGroup
 }
 
 func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest, messageID string,
@@ -48,13 +50,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		return nil, fmt.Errorf("failed to marshal capability request: %w", err)
 	}
 
-	tc, err := transmission.ExtractTransmissionConfig(req.Config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract transmission config from request config: %w", err)
-	}
-
-	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, localDonInfo.Config.SharedSecret,
-		messageID, tc)
+	peerIDToTransmissionDelay, err := transmission.GetPeerIDToTransmissionDelay(remoteCapabilityDonInfo.Members, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
@@ -62,9 +58,14 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 	lggr.Debugw("sending request to peers", "execID", req.Metadata.WorkflowExecutionID, "schedule", peerIDToTransmissionDelay)
 
 	responseReceived := make(map[p2ptypes.PeerID]bool)
+
+	ctxWithCancel, cancelFn := context.WithCancel(ctx)
+	wg := &sync.WaitGroup{}
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
-		go func(peerID ragep2ptypes.PeerID, delay time.Duration) {
+		wg.Add(1)
+		go func(ctx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
+			defer wg.Done()
 			message := &types.MessageBody{
 				CapabilityId:    remoteCapabilityInfo.ID,
 				CapabilityDonId: remoteCapabilityDonInfo.ID,
@@ -75,7 +76,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 			}
 
 			select {
-			case <-ctx.Done():
+			case <-ctxWithCancel.Done():
 				lggr.Debugw("context done, not sending request to peer", "execID", req.Metadata.WorkflowExecutionID, "peerID", peerID)
 				return
 			case <-time.After(delay):
@@ -85,10 +86,11 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
 				}
 			}
-		}(peerID, delay)
+		}(ctxWithCancel, peerID, delay)
 	}
 
 	return &ClientRequest{
+		cancelFn:                   cancelFn,
 		createdAt:                  time.Now(),
 		requestTimeout:             requestTimeout,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
@@ -96,6 +98,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
+		wg:                         wg,
 	}, nil
 }
 
@@ -108,6 +111,8 @@ func (c *ClientRequest) Expired() bool {
 }
 
 func (c *ClientRequest) Cancel(err error) {
+	c.cancelFn()
+	c.wg.Wait()
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if !c.respSent {

@@ -139,7 +139,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@main
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}

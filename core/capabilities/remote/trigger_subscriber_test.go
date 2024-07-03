@@ -18,11 +18,14 @@ import (
 )
 
 const (
-	peerID1       = "12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"
-	peerID2       = "12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8"
-	workflowID1   = "workflowID1"
-	triggerEvent1 = "triggerEvent1"
-	triggerEvent2 = "triggerEvent2"
+	peerID1     = "12D3KooWF3dVeJ6YoT5HFnYhmwQWWMoEwVFzJQ5kKCMX3ZityxMC"
+	peerID2     = "12D3KooWQsmok6aD8PZqt3RnJhQRrNzKHLficq7zYFRp7kZ1hHP8"
+	workflowID1 = "workflowID1"
+)
+
+var (
+	triggerEvent1 = map[string]any{"event": "triggerEvent1"}
+	triggerEvent2 = map[string]any{"event": "triggerEvent2"}
 )
 
 func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
@@ -38,12 +41,12 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
 	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
+		ID:      2,
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
 	}
@@ -58,7 +61,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	})
 
 	// register trigger
-	config := remotetypes.RemoteTriggerConfig{
+	config := &remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100,
 		MinResponsesToAggregate: 1,
@@ -77,7 +80,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	<-awaitRegistrationMessageCh
 
 	// receive trigger event
-	triggerEventValue, err := values.Wrap(triggerEvent1)
+	triggerEventValue, err := values.NewMap(triggerEvent1)
 	require.NoError(t, err)
 	capResponse := commoncap.CapabilityResponse{
 		Value: triggerEventValue,
@@ -95,7 +98,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 		},
 		Payload: marshaled,
 	}
-	subscriber.Receive(triggerEvent)
+	subscriber.Receive(ctx, triggerEvent)
 	response := <-triggerEventCallbackCh
 	require.Equal(t, response.Value, triggerEventValue)
 

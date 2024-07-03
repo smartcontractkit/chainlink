@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -155,6 +156,7 @@ type keyRing struct {
 	Cosmos     map[string]cosmoskey.Key
 	Solana     map[string]solkey.Key
 	StarkNet   map[string]starkkey.Key
+	Aptos      map[string]aptoskey.Key
 	VRF        map[string]vrfkey.KeyV2
 	LegacyKeys LegacyKeyStorage
 }
@@ -169,6 +171,7 @@ func newKeyRing() *keyRing {
 		Cosmos:   make(map[string]cosmoskey.Key),
 		Solana:   make(map[string]solkey.Key),
 		StarkNet: make(map[string]starkkey.Key),
+		Aptos:    make(map[string]aptoskey.Key),
 		VRF:      make(map[string]vrfkey.KeyV2),
 	}
 }
@@ -227,6 +230,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, starkkey := range kr.StarkNet {
 		rawKeys.StarkNet = append(rawKeys.StarkNet, starkkey.Raw())
 	}
+	for _, aptoskey := range kr.Aptos {
+		rawKeys.Aptos = append(rawKeys.Aptos, aptoskey.Raw())
+	}
 	for _, vrfKey := range kr.VRF {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
@@ -267,6 +273,10 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	for _, starkkey := range kr.StarkNet {
 		starknetIDs = append(starknetIDs, starkkey.ID())
 	}
+	var aptosIDs []string
+	for _, aptosKey := range kr.Aptos {
+		aptosIDs = append(aptosIDs, aptosKey.ID())
+	}
 	var vrfIDs []string
 	for _, VRFKey := range kr.VRF {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
@@ -295,6 +305,9 @@ func (kr *keyRing) logPubKeys(lggr logger.Logger) {
 	if len(starknetIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d StarkNet keys", len(starknetIDs)), "keys", starknetIDs)
 	}
+	if len(aptosIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d Aptos keys", len(aptosIDs)), "keys", aptosIDs)
+	}
 	if len(vrfIDs) > 0 {
 		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
 	}
@@ -315,6 +328,7 @@ type rawKeyRing struct {
 	Cosmos     []cosmoskey.Raw
 	Solana     []solkey.Raw
 	StarkNet   []starkkey.Raw
+	Aptos      []aptoskey.Raw
 	VRF        []vrfkey.Raw
 	LegacyKeys LegacyKeyStorage `json:"-"`
 }
@@ -353,6 +367,10 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 	for _, rawStarkNetKey := range rawKeys.StarkNet {
 		starkKey := rawStarkNetKey.Key()
 		keyRing.StarkNet[starkKey.ID()] = starkKey
+	}
+	for _, rawAptosKey := range rawKeys.Aptos {
+		aptosKey := rawAptosKey.Key()
+		keyRing.Aptos[aptosKey.ID()] = aptosKey
 	}
 	for _, rawVRFKey := range rawKeys.VRF {
 		vrfKey := rawVRFKey.Key()

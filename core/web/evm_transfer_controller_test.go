@@ -268,7 +268,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 
-	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
+	resp, cleanup := client.Post("/v2/transfers", bytes.NewBufferString(`{"address":""}`))
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
