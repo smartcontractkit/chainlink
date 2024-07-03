@@ -169,11 +169,13 @@ func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, bestE
 func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimumDequeue bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
+	minimumDequeueMet := 0
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
 		if minimumDequeue && q.dequeued[start] >= upkeepLimit {
 			// if we have already dequeued the minimum commitment for this window, skip it
+			minimumDequeueMet++
 			continue
 		}
 
@@ -202,6 +204,11 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimum
 		// update the buffer with how many logs we have dequeued for this window
 		q.dequeued[start] += len(logs)
 	}
+	pctMet := 0.0
+	if len(b.queues) > 0 {
+		pctMet = 100 * float64(float64(minimumDequeueMet)/float64(len(b.queues)))
+	}
+	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "minimumDequeueMet", minimumDequeueMet, "pctMinimimDequeue", pctMet)
 	return result, remainingLogs
 }
 
