@@ -111,8 +111,8 @@ contracts/scripts/requirements.txt @smartcontractkit/prodsec-public
 .nvmrc @smartcontractkit/prodsec-public
 contracts/package.json @smartcontractkit/prodsec-public
 contracts/pnpm.lock @smartcontractkit/prodsec-public
-go.mod @smartcontractkit/prodsec-public
-go.sum @smartcontractkit/prodsec-public
+go.mod @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
 integration-tests/go.mod @smartcontractkit/prodsec-public
 integration-tests/go.sum @smartcontractkit/prodsec-public
 flake.nix @smartcontractkit/prodsec-public
