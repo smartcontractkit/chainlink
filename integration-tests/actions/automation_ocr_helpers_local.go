@@ -203,12 +203,12 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapSpec := &client.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + registryAddr,
 		JobType: "bootstrap",
+		Relay:   "evm",
+		RelayConfig: map[string]interface{}{
+			"chainID": int(chainID),
+		},
 		OCR2OracleSpec: job.OCR2OracleSpec{
-			ContractID: registryAddr,
-			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
-				"chainID": int(chainID),
-			},
+			ContractID:                        registryAddr,
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
 	}
@@ -241,12 +241,12 @@ func CreateOCRKeeperJobsLocal(
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:    "ocr2 " + registryAddr,
 			JobType: "offchainreporting2",
+			Relay:   "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": int(chainID),
+			},
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				PluginType: "ocr2automation",
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": int(chainID),
-				},
 				PluginConfig: map[string]interface{}{
 					"mercuryCredentialName": "\"cred1\"",
 					"contractVersion":       "\"" + contractVersion + "\"",
