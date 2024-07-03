@@ -34,8 +34,8 @@ jobs:
         if: ${{ steps.change.outputs.changelog-only == 'false' }}
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
           publish: false
           sign-images: false
 

@@ -30,8 +30,7 @@ env:
   TEST_LOG_LEVEL: debug
 
 jobs:
-
-    # Build Test Dependencies
+  # Build Test Dependencies
 
   build-chainlink:
     environment: integration
@@ -107,7 +106,6 @@ jobs:
           cache_restore_only: "true"
           binary_name: tests
 
-
   # End Build Test Dependencies
 
   live-smoke-tests:
@@ -120,7 +118,7 @@ jobs:
     needs: [build-chainlink, build-tests]
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         network: ${{fromJson(needs.build-tests.outputs.matrix)}}
     name: Smoke Tests on ${{ matrix.network }}
     runs-on: ubuntu-latest
@@ -177,8 +175,8 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
           artifacts_location: ./logs
           token: ${{ secrets.GITHUB_TOKEN }}
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}

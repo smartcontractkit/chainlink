@@ -50,8 +50,8 @@ jobs:
           sign-images: false
           ecr-hostname: ${{ secrets.AWS_SDLC_ECR_HOSTNAME }}
           ecr-image-name: ${{ env.ECR_IMAGE_NAME }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
 
       - name: Collect Metrics
         if: always()

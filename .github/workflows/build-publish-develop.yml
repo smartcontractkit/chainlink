@@ -52,8 +52,8 @@ jobs:
           ecr-image-name: ccip-develop
           ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
+          dockerhub_username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          dockerhub_password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
           git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
 
       - name: Collect Metrics
