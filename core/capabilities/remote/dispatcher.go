@@ -35,7 +35,7 @@ type dispatcher struct {
 
 type key struct {
 	capId string
-	donId string
+	donId uint32
 }
 
 var _ services.Service = &dispatcher{}
@@ -88,13 +88,13 @@ type receiver struct {
 	ch     chan *remotetypes.MessageBody
 }
 
-func (d *dispatcher) SetReceiver(capabilityId string, donId string, rec remotetypes.Receiver) error {
+func (d *dispatcher) SetReceiver(capabilityId string, donId uint32, rec remotetypes.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	k := key{capabilityId, donId}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("receiver already exists for capability %s and don %s", capabilityId, donId)
+		return fmt.Errorf("receiver already exists for capability %s and don %d", capabilityId, donId)
 	}
 
 	receiverCh := make(chan *remotetypes.MessageBody, receiverBufferSize)
@@ -123,7 +123,7 @@ func (d *dispatcher) SetReceiver(capabilityId string, donId string, rec remotety
 	return nil
 }
 
-func (d *dispatcher) RemoveReceiver(capabilityId string, donId string) {
+func (d *dispatcher) RemoveReceiver(capabilityId string, donId uint32) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -181,7 +181,7 @@ func (d *dispatcher) receive() {
 			}
 
 			receiverQueueUsage := float64(len(receiver.ch)) / receiverBufferSize
-			capReceiveChannelUsage.WithLabelValues(k.capId, k.donId).Set(receiverQueueUsage)
+			capReceiveChannelUsage.WithLabelValues(k.capId, fmt.Sprint(k.donId)).Set(receiverQueueUsage)
 			select {
 			case receiver.ch <- body:
 			default:

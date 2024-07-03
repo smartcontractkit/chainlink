@@ -41,12 +41,12 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
 	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
+		ID:      2,
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
 	}
