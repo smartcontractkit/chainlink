@@ -1,19 +1,11 @@
 package types
 
 import (
-	"context"
-
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 )
 
 // OCR3ConfigWithMeta is a type alias in order to generate correct mocks for the OracleCreator interface.
 type OCR3ConfigWithMeta ccipreaderpkg.OCR3ConfigWithMeta
-
-type HomeChainReader interface {
-	// GetOCRConfigs Gets the OCR3Configs for a given donID and pluginType
-	GetOCRConfigs(ctx context.Context, donID uint32, pluginType uint8) ([]ccipreaderpkg.OCR3ConfigWithMeta, error)
-	Ready() error
-}
 
 // PluginType represents the type of CCIP plugin.
 // It mirrors the OCRPluginType in Internal.sol.

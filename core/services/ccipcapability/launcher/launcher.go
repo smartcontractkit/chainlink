@@ -13,6 +13,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/types"
@@ -31,7 +32,7 @@ func New(
 	capabilityLabelledName string,
 	p2pID ragep2ptypes.PeerID,
 	lggr logger.Logger,
-	homeChainReader cctypes.HomeChainReader,
+	homeChainReader ccipreader.HomeChain,
 	oracleCreator cctypes.OracleCreator,
 	tickInterval time.Duration,
 ) *launcher {
@@ -60,7 +61,7 @@ type launcher struct {
 	capabilityLabelledName string
 	p2pID                  ragep2ptypes.PeerID
 	lggr                   logger.Logger
-	homeChainReader        cctypes.HomeChainReader
+	homeChainReader        ccipreader.HomeChain
 	stopChan               chan struct{}
 	// latestState is the latest capability registry state received from the syncer.
 	latestState registrysyncer.State
@@ -284,7 +285,7 @@ func (l *launcher) processRemoved(removed map[registrysyncer.DonID]kcr.Capabilit
 func updateDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
-	homeChainReader cctypes.HomeChainReader,
+	homeChainReader ccipreader.HomeChain,
 	oracleCreator cctypes.OracleCreator,
 	prevDeployment ccipDeployment,
 	don kcr.CapabilitiesRegistryDONInfo,
@@ -358,7 +359,7 @@ func createFutureBlueGreenDeployment(
 func createDON(
 	lggr logger.Logger,
 	p2pID ragep2ptypes.PeerID,
-	homeChainReader cctypes.HomeChainReader,
+	homeChainReader ccipreader.HomeChain,
 	oracleCreator cctypes.OracleCreator,
 	don kcr.CapabilitiesRegistryDONInfo,
 ) (*ccipDeployment, error) {

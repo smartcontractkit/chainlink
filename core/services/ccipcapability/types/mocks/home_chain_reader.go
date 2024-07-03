@@ -3,17 +3,65 @@ package mocks
 import (
 	"context"
 
-	mock "github.com/stretchr/testify/mock"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/stretchr/testify/mock"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/services/ccipcapability/types"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
-var _ cctypes.HomeChainReader = (*HomeChainReader)(nil)
+var _ ccipreaderpkg.HomeChain = (*HomeChainReader)(nil)
 
 type HomeChainReader struct {
 	mock.Mock
+}
+
+func (_m *HomeChainReader) GetChainConfig(chainSelector cciptypes.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) GetAllChainConfigs() (map[cciptypes.ChainSelector]ccipreaderpkg.ChainConfig, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[cciptypes.ChainSelector], error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[cciptypes.ChainSelector], error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) GetFChain() (map[cciptypes.ChainSelector]int, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) Start(ctx context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) Close() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) HealthReport() map[string]error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (_m *HomeChainReader) Name() string {
+	//TODO implement me
+	panic("implement me")
 }
 
 // GetOCRConfigs provides a mock function with given fields: ctx, donID, pluginType
