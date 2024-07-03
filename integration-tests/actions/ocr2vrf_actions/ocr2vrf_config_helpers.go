@@ -72,12 +72,12 @@ func createNonBootstrapJobs(
 		OCR2VRFJobSpec := client.OCR2TaskJobSpec{
 			Name:    "ocr2",
 			JobType: "offchainreporting2",
+			Relay:   "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": int(chainID),
+			},
 			OCR2OracleSpec: job.OCR2OracleSpec{
-				PluginType: "ocr2vrf",
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": int(chainID),
-				},
+				PluginType:         "ocr2vrf",
 				ContractID:         OCR2VRFPluginConfig.VRFBeaconConfig.VRFBeaconAddress,
 				OCRKeyBundleID:     null.StringFrom(nodeOCRKeyId[keyIndex]),
 				TransmitterID:      null.StringFrom(nodeTransmitterAddress[keyIndex]),
@@ -105,12 +105,12 @@ func createBootstrapJob(t *testing.T, bootstrapNode *client.ChainlinkK8sClient, 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node",
 		JobType: "bootstrap",
+		Relay:   "evm",
+		RelayConfig: map[string]interface{}{
+			"chainID": int(chainID),
+		},
 		OCR2OracleSpec: job.OCR2OracleSpec{
 			ContractID: dkgAddress,
-			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
-				"chainID": int(chainID),
-			},
 		},
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)

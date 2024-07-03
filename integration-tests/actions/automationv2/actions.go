@@ -388,12 +388,12 @@ func (a *AutomationTest) AddBootstrapJob() error {
 	bootstrapSpec := &client.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + a.Registry.Address(),
 		JobType: "bootstrap",
+		Relay:   "evm",
+		RelayConfig: map[string]interface{}{
+			"chainID": int(a.ChainClient.ChainID),
+		},
 		OCR2OracleSpec: job.OCR2OracleSpec{
-			ContractID: a.Registry.Address(),
-			Relay:      "evm",
-			RelayConfig: map[string]interface{}{
-				"chainID": int(a.ChainClient.ChainID),
-			},
+			ContractID:                        a.Registry.Address(),
 			ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 		},
 	}
@@ -430,13 +430,13 @@ func (a *AutomationTest) AddAutomationJobs() error {
 		autoOCR2JobSpec := client.OCR2TaskJobSpec{
 			Name:    "automation-" + contractVersion + "-" + a.Registry.Address(),
 			JobType: "offchainreporting2",
+			Relay:   "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": int(a.ChainClient.ChainID),
+			},
 			OCR2OracleSpec: job.OCR2OracleSpec{
-				PluginType: "ocr2automation",
-				ContractID: a.Registry.Address(),
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": int(a.ChainClient.ChainID),
-				},
+				PluginType:                        "ocr2automation",
+				ContractID:                        a.Registry.Address(),
 				PluginConfig:                      pluginCfg,
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				TransmitterID:                     null.StringFrom(a.NodeDetails[i].TransmitterAddresses[a.TransmitterKeyIndex]),
