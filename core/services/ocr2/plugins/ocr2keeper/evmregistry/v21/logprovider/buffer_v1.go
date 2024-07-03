@@ -170,7 +170,6 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimum
 	var result []BufferedLog
 	var remainingLogs int
 	minimumDequeueMet := 0
-	upeekpsWithLogs := map[string]interface{}{}
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
@@ -195,8 +194,6 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimum
 			upkeepLimit = capacity
 		}
 
-		upeekpsWithLogs[q.id.String()] = true
-
 		logs, remaining := q.dequeue(start, end, upkeepLimit)
 		for _, l := range logs {
 			result = append(result, BufferedLog{ID: q.id, Log: l})
@@ -207,11 +204,7 @@ func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimum
 		// update the buffer with how many logs we have dequeued for this window
 		q.dequeued[start] += len(logs)
 	}
-	pctMet := 0.0
-	if len(upeekpsWithLogs) > 0 {
-		pctMet = 100 * float64(float64(minimumDequeueMet)/float64(len(upeekpsWithLogs)))
-	}
-	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "numUpkeepsInWindow", len(upeekpsWithLogs), "minimumDequeueMet", minimumDequeueMet, "pctMinimimDequeue", pctMet)
+	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "minimumDequeueMet", minimumDequeueMet)
 	return result, remainingLogs
 }
 
