@@ -152,9 +152,10 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 			Hash:   testutils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
+				Number:      8,
+				Hash:        testutils.NewHash(),
+				IsFinalized: true,
+				Parent:      nil,
 			},
 		},
 	}
@@ -199,6 +200,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	nonce := int64(0)
 	ctx := tests.Context(t)
 	blockNum := int64(0)
+	latestFinalizedBlockNum := int64(0)
 
 	t.Run("only finds eth_txes in unconfirmed state with at least one broadcast attempt", func(t *testing.T) {
 		mustInsertFatalErrorEthTx(t, txStore, fromAddress)
@@ -211,7 +213,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		mustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 	})
 
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
@@ -232,7 +234,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		var err error
 		etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
@@ -261,7 +263,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// No error because it is merely logged
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx1.ID)
 		require.NoError(t, err)
@@ -289,7 +291,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// No error because it is merely logged
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		etx, err := txStore.FindTxWithAttempts(ctx, etx1.ID)
 		require.NoError(t, err)
@@ -326,7 +328,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// Check that the receipt was saved
 		etx, err := txStore.FindTxWithAttempts(ctx, etx1.ID)
@@ -388,7 +390,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// Check that the state was updated
 		etx, err := txStore.FindTxWithAttempts(ctx, etx2.ID)
@@ -416,7 +418,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// No receipt, but no error either
 		etx, err := txStore.FindTxWithAttempts(ctx, etx3.ID)
@@ -443,7 +445,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// No receipt, but no error either
 		etx, err := txStore.FindTxWithAttempts(ctx, etx3.ID)
@@ -472,7 +474,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// Check that the receipt was unchanged
 		etx, err := txStore.FindTxWithAttempts(ctx, etx3.ID)
@@ -523,7 +525,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// Check that the state was updated
 		var err error
@@ -576,7 +578,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum, latestFinalizedBlockNum))
 
 		// Check that the state was updated
 		etx5, err = txStore.FindTxWithAttempts(ctx, etx5.ID)
@@ -614,6 +616,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
 	var attempts []txmgr.TxAttempt
+	latestFinalizedBlockNum := int64(0)
 
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
@@ -650,7 +653,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 		elems[0].Result = &evmtypes.Receipt{}
 	}).Once()
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+	require.NoError(t, ec.CheckForReceipts(ctx, 42, latestFinalizedBlockNum))
 }
 
 func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *testing.T) {
@@ -671,6 +674,8 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
 	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 	ctx := tests.Context(t)
+	latestFinalizedBlockNum := int64(0)
+
 	// tx is not forwarded and doesn't have meta set. EthConfirmer should handle nil meta values
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
 	attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
@@ -697,7 +702,7 @@ func TestEthConfirmer_CheckForReceipts_HandlesNonFwdTxsWithForwardingEnabled(t *
 		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt // confirmed
 	}).Once()
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+	require.NoError(t, ec.CheckForReceipts(ctx, 42, latestFinalizedBlockNum))
 
 	// Check receipt is inserted correctly.
 	dbtx, err = txStore.FindTxWithAttempts(ctx, etx.ID)
@@ -724,6 +729,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 	ctx := tests.Context(t)
+	latestFinalizedBlockNum := int64(0)
 
 	var attempts []txmgr.TxAttempt
 	// inserting in DESC nonce order to test DB ASC ordering
@@ -755,7 +761,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 		elems[3].Result = &evmtypes.Receipt{}
 	}).Once()
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+	require.NoError(t, ec.CheckForReceipts(ctx, 42, latestFinalizedBlockNum))
 
 	cltest.BatchElemMustMatchParams(t, captured[0], attempts[0].Hash, "eth_getTransactionReceipt")
 	cltest.BatchElemMustMatchParams(t, captured[1], attempts[1].Hash, "eth_getTransactionReceipt")
@@ -778,6 +784,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 	ctx := tests.Context(t)
+	latestFinalizedBlockNum := int64(0)
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 1, fromAddress)
 	for i := 0; i < 4; i++ {
@@ -788,7 +795,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 	// latest nonce is lower that all attempts' nonces
 	ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil)
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+	require.NoError(t, ec.CheckForReceipts(ctx, 42, latestFinalizedBlockNum))
 }
 
 func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t *testing.T) {
@@ -809,6 +816,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 
 	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 	ctx := tests.Context(t)
+	latestFinalizedBlockNum := int64(0)
 
 	// STATE
 	// key 1, tx with nonce 0 is unconfirmed
@@ -832,7 +840,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt2_9
 	}).Once()
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 10))
+	require.NoError(t, ec.CheckForReceipts(ctx, 10, latestFinalizedBlockNum))
 
 	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.TxUnconfirmed)
 	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.TxUnconfirmed)
@@ -850,7 +858,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt_scoped_to_key(t
 		*(elems[0].Result.(*evmtypes.Receipt)) = txmReceipt1_1
 	}).Once()
 
-	require.NoError(t, ec.CheckForReceipts(ctx, 11))
+	require.NoError(t, ec.CheckForReceipts(ctx, 11, latestFinalizedBlockNum))
 
 	mustTxBeInState(t, txStore, etx1_0, txmgrcommon.TxConfirmedMissingReceipt)
 	mustTxBeInState(t, txStore, etx1_1, txmgrcommon.TxConfirmed)
@@ -861,9 +869,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
-	})
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -876,6 +882,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	ec := newEthConfirmer(t, txStore, ethClient, cfg, evmcfg, ethKeyStore, nil)
 	ctx := tests.Context(t)
+	latestFinalizedBlockNum := int64(0)
 
 	// STATE
 	// eth_txes with nonce 0 has two attempts (broadcast before block 21 and 41) the first of which will get a receipt
@@ -949,7 +956,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// PERFORM
 		// Block num of 43 is one higher than the receipt (as would generally be expected)
-		require.NoError(t, ec.CheckForReceipts(ctx, 43))
+		require.NoError(t, ec.CheckForReceipts(ctx, 43, latestFinalizedBlockNum))
 
 		// Expected state is that the "top" eth_tx is now confirmed, with the
 		// two below it "confirmed_missing_receipt" and the "bottom" eth_tx also confirmed
@@ -1009,7 +1016,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 		// PERFORM
 		// Block num of 44 is one higher than the receipt (as would generally be expected)
-		require.NoError(t, ec.CheckForReceipts(ctx, 44))
+		require.NoError(t, ec.CheckForReceipts(ctx, 44, latestFinalizedBlockNum))
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
@@ -1038,7 +1045,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 2 is confirmed
 	// eth_txes with nonce 3 is confirmed
 
-	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above EVM.FinalityDepth", func(t *testing.T) {
+	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above LatestFinalizedBlockNum", func(t *testing.T) {
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -1051,9 +1058,11 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			elems[1].Result = &evmtypes.Receipt{}
 		}).Once()
 
+		latestFinalizedBlockNum = 30
+
 		// PERFORM
 		// Block num of 80 puts the first attempt (21) below threshold but second attempt (41) still above
-		require.NoError(t, ec.CheckForReceipts(ctx, 80))
+		require.NoError(t, ec.CheckForReceipts(ctx, 80, latestFinalizedBlockNum))
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
@@ -1078,7 +1087,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 2 is confirmed
 	// eth_txes with nonce 3 is confirmed
 
-	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than EVM.FinalityDepth", func(t *testing.T) {
+	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than LatestFinalizedBlockNum", func(t *testing.T) {
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -1091,9 +1100,11 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			elems[1].Result = &evmtypes.Receipt{}
 		}).Once()
 
+		latestFinalizedBlockNum = 50
+
 		// PERFORM
 		// Block num of 100 puts the first attempt (21) and second attempt (41) below threshold
-		require.NoError(t, ec.CheckForReceipts(ctx, 100))
+		require.NoError(t, ec.CheckForReceipts(ctx, 100, latestFinalizedBlockNum))
 
 		// Expected state is that the "top" two eth_txes are now confirmed, with the
 		// one below it marked as "fatal_error" and the bottom one remains confirmed
@@ -1117,9 +1128,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
-	})
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -1197,9 +1206,7 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_batchSendTransactions_fails(t
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
-	})
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
 	txStore := cltest.NewTestTxStore(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -1262,7 +1269,6 @@ func TestEthConfirmer_CheckConfirmedMissingReceipt_smallEvmRPCBatchSize_middleBa
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](50)
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
 	txStore := cltest.NewTestTxStore(t, db)
@@ -2679,9 +2685,10 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			Hash:   testutils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
+				Number:      8,
+				Hash:        testutils.NewHash(),
+				IsFinalized: true,
+				Parent:      nil,
 			},
 		},
 	}
@@ -3216,8 +3223,9 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		tx := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, nonce, fromAddress, autoPurgeMinAttempts, blockNum-int64(autoPurgeThreshold), marketGasPrice.Add(oneGwei))
 
 		head := evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: blockNum,
+			Hash:        testutils.NewHash(),
+			Number:      blockNum,
+			IsFinalized: true,
 		}
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Once()
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil).Once()
@@ -3240,8 +3248,9 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 		require.Equal(t, bumpedFee.Legacy, latestAttempt.TxFee.Legacy)
 
 		head = evmtypes.Head{
-			Hash:   testutils.NewHash(),
-			Number: blockNum + 1,
+			Hash:        testutils.NewHash(),
+			Number:      blockNum + 1,
+			IsFinalized: true,
 		}
 		ethClient.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
