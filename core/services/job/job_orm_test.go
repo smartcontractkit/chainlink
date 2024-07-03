@@ -999,13 +999,13 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run(("test Aptos key validation"), func(t *testing.T) {
 		ctx := testutils.Context(t)
-		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
-		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
+		jb.Relay = relay.NetworkAptos
+		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, "bad key")
 		require.EqualError(t, err, "no Aptos key matching: \"bad key\"")
 
 		aptosKey, err := keyStore.Aptos().Create(ctx)
 		require.NoError(t, err)
-		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, aptosKey.ID())
+		err = job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec.PluginType, jb.Relay, keyStore, aptosKey.ID())
 		require.NoError(t, err)
 	})
 
