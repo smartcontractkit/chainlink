@@ -25,7 +25,6 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240702120320-563bf07487fe
-	github.com/smartcontractkit/chainlink-vrf v0.0.0-20240222010609-cd67d123c772
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e
 	github.com/spf13/cobra v1.8.0
@@ -34,7 +33,6 @@ require (
 	github.com/umbracle/ethgo v0.1.3
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.14
-	go.dedis.ch/kyber/v3 v3.1.0
 	google.golang.org/protobuf v1.33.0
 	k8s.io/api v0.30.0
 	k8s.io/apimachinery v0.30.0
