@@ -20,8 +20,8 @@ const (
 
 //go:generate mockery --quiet --name Dispatcher --output ./mocks/ --case=underscore
 type Dispatcher interface {
-	SetReceiver(capabilityId string, donId string, receiver Receiver) error
-	RemoveReceiver(capabilityId string, donId string)
+	SetReceiver(capabilityId string, donId uint32, receiver Receiver) error
+	RemoveReceiver(capabilityId string, donId uint32)
 	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
 }
 

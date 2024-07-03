@@ -395,6 +395,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	// That is, when we specify we want to run on a live network in our config, we will run on the live network and not bother with a private network.
 	// Even if we explicitly declare that we want to run on a private network in the test.
 	// Keeping this a Kludge for now as SETH transition should change all of this anyway.
+	b.te.EVMNetworks = make([]*blockchain.EVMNetwork, 0)
 	if len(b.privateEthereumNetworks) == 1 {
 		if networkConfig.Simulated {
 			// TODO here we should save the ethereum network config to te.Cfg, but it doesn't exist at this point
@@ -419,9 +420,16 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
 			b.te.isSimulatedNetwork = false
 		}
-		b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
-
+	} else if len(b.privateEthereumNetworks) == 0 && !networkConfig.Simulated {
+		b.te.l.Warn().
+			Str("Network", networkConfig.Name).
+			Int64("Chain ID", networkConfig.ChainID).
+			Msg("Private network config provided, but we are running on a live network. Ignoring private network config.")
+		rpcProvider := test_env.NewRPCProvider(networkConfig.HTTPURLs, networkConfig.URLs, networkConfig.HTTPURLs, networkConfig.URLs)
+		b.te.rpcProviders[networkConfig.ChainID] = &rpcProvider
+		b.te.isSimulatedNetwork = false
 	}
+	b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 
 	if b.isEVM {
 		if b.evmNetworkOption != nil && len(b.evmNetworkOption) > 0 {

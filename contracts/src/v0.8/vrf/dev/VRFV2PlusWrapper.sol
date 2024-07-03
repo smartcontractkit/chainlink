@@ -232,6 +232,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _fulfillmentFlatFeeLinkDiscountPPM is the flat fee discount in millionths of native that VRFCoordinatorV2Plus
    *        charges for link payment.
    */
+  /// @dev This function while having only 12 parameters is causing a Stack too deep error when running forge coverage.
   function setConfig(
     uint32 _wrapperGasOverhead,
     uint32 _coordinatorGasOverheadNative,
