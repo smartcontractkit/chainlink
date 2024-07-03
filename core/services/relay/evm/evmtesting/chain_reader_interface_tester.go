@@ -100,9 +100,6 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 					MethodReturningUint64: {
 						ChainSpecificName: "getPrimitiveValue",
 					},
-					DifferentMethodReturningUint64: {
-						ChainSpecificName: "getDifferentPrimitiveValue",
-					},
 					MethodReturningUint64Slice: {
 						ChainSpecificName: "getSliceValue",
 					},

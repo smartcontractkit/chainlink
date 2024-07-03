@@ -179,8 +179,8 @@ func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, readNam
 	return b.GetLatestValue(ctx, params, returnVal)
 }
 
-func (cr *chainReader) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
-	return cr.bindings.BatchGetLatestValue(ctx, request)
+func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
+	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
 
 func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {

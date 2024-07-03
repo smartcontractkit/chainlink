@@ -16,28 +16,28 @@ type ChainReader struct {
 	mock.Mock
 }
 
-// BatchGetLatestValue provides a mock function with given fields: ctx, request
-func (_m *ChainReader) BatchGetLatestValue(ctx context.Context, request types.BatchGetLatestValueRequest) (types.BatchGetLatestValueResult, error) {
+// BatchGetLatestValues provides a mock function with given fields: ctx, request
+func (_m *ChainReader) BatchGetLatestValues(ctx context.Context, request types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error) {
 	ret := _m.Called(ctx, request)
 
 	if len(ret) == 0 {
-		panic("no return value specified for BatchGetLatestValue")
+		panic("no return value specified for BatchGetLatestValues")
 	}
 
-	var r0 types.BatchGetLatestValueResult
+	var r0 types.BatchGetLatestValuesResult
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValueRequest) (types.BatchGetLatestValueResult, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValuesRequest) (types.BatchGetLatestValuesResult, error)); ok {
 		return rf(ctx, request)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValueRequest) types.BatchGetLatestValueResult); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.BatchGetLatestValuesRequest) types.BatchGetLatestValuesResult); ok {
 		r0 = rf(ctx, request)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.BatchGetLatestValueResult)
+			r0 = ret.Get(0).(types.BatchGetLatestValuesResult)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, types.BatchGetLatestValueRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, types.BatchGetLatestValuesRequest) error); ok {
 		r1 = rf(ctx, request)
 	} else {
 		r1 = ret.Error(1)

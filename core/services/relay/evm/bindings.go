@@ -64,7 +64,7 @@ func (b bindings) Bind(ctx context.Context, lp logpoller.LogPoller, boundContrac
 	return nil
 }
 
-func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.BatchGetLatestValueRequest) (commontypes.BatchGetLatestValueResult, error) {
+func (b bindings) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
 	var batchCall BatchCall
 	toChainAgnosticMethodName := make(map[string]string)
 	for contractName, contractBatch := range request {
@@ -96,12 +96,12 @@ func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.B
 	}
 
 	// reconstruct results from batchCall and filteredLogs into common type while maintaining order from request.
-	batchGetLatestValueResults := make(commontypes.BatchGetLatestValueResult)
+	batchGetLatestValuesResults := make(commontypes.BatchGetLatestValuesResult)
 	for contractName, contractResult := range results {
-		batchGetLatestValueResults[contractName] = commontypes.ContractBatchResults{}
+		batchGetLatestValuesResults[contractName] = commontypes.ContractBatchResults{}
 		for _, methodResult := range contractResult {
-			batchGetLatestValueResults[contractName] = append(
-				batchGetLatestValueResults[contractName],
+			batchGetLatestValuesResults[contractName] = append(
+				batchGetLatestValuesResults[contractName],
 				commontypes.BatchReadResult{
 					ReadName:    toChainAgnosticMethodName[methodResult.MethodName],
 					ReturnValue: methodResult.ReturnValue,
@@ -110,7 +110,7 @@ func (b bindings) BatchGetLatestValue(ctx context.Context, request commontypes.B
 		}
 	}
 
-	return batchGetLatestValueResults, err
+	return batchGetLatestValuesResults, err
 }
 
 func (b bindings) ForEach(ctx context.Context, fn func(context.Context, *contractBinding) error) error {

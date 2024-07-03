@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-#internal Add BatchGetLatestValue to ChainReader
+#internal Add BatchGetLatestValues to ChainReader
