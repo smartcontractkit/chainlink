@@ -342,6 +342,12 @@ jobs:
             os: ubuntu-latest
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
+          - name: ccip-smoke-rate-limit
+            nodes: 1
+            dir: ccip-tests/smoke
+            os: ubuntu-latest
+            file: ccip
+            run: -run ^TestSmokeCCIPTokenPoolRateLimits$
           - name: ccip-smoke-multicall
             nodes: 1
             dir: ccip-tests/smoke

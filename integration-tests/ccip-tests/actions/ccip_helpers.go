@@ -3094,7 +3094,6 @@ func ExpectPhaseToFail(phase testreporters.Phase, phaseSpecificOptions ...PhaseS
 // If not, just pass in nil.
 func (lane *CCIPLane) ValidateRequests(validationOptionFuncs ...ValidationOptionFunc) {
 	var opts validationOptions
-	require.LessOrEqual(lane.Test, len(validationOptionFuncs), 1, "only one validation option function can be passed in to ValidateRequests")
 	for _, f := range validationOptionFuncs {
 		if f != nil {
 			f(lane.Logger, &opts)
@@ -3151,7 +3150,7 @@ func (lane *CCIPLane) ValidateRequestByTxHash(txHash common.Hash, opts validatio
 	}
 	for _, msgLog := range msgLogs {
 		seqNumber := msgLog.SequenceNumber
-		lane.Logger = ptr.Ptr(lane.Logger.With().Str("msgId ", fmt.Sprintf("0x%x", msgLog.MessageId[:])).Logger())
+		lane.Logger = ptr.Ptr(lane.Logger.With().Str("msgId", fmt.Sprintf("0x%x", msgLog.MessageId[:])).Logger())
 		var reqStat *testreporters.RequestStat
 		for _, stat := range reqStats {
 			if stat.SeqNum == seqNumber {
