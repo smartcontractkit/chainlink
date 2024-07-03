@@ -35,7 +35,7 @@ type KeeperBenchmarkTestConfig interface {
 	ctf_config.GlobalTestConfig
 	tc.CommonTestConfig
 	tc.KeeperTestConfig
-	ctf_config.NamedConfiguration
+	ctf_config.NamedConfigurations
 	testreporters.GrafanaURLProvider
 }
 

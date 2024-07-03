@@ -28,7 +28,7 @@ var StartNodesCmd = &cobra.Command{
 		log.Logger = logging.GetLogger(nil, "CORE_DOCKER_ENV_LOG_LEVEL")
 		log.Info().Msg("Starting docker test env with Chainlink nodes..")
 
-		config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
+		config, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2)
 		if err != nil {
 			return err
 		}

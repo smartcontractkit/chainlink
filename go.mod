@@ -72,17 +72,17 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240620164046-1c03d0a97b20
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240524214833-c362c2ebbd2d
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240220203239-09be0ea34540
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240702120320-563bf07487fe
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240605170242-555ff582f36a
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240531021326-99118e47f696
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240701154249-032706dcb7c8
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba
 	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
-	github.com/smartcontractkit/libocr v0.0.0-20240419185742-fd3cab206b2c
+	github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
-	github.com/smartcontractkit/wsrpc v0.8.1
+	github.com/smartcontractkit/wsrpc v0.7.3
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
 	github.com/test-go/testify v1.1.4
@@ -346,6 +346,10 @@ replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20240208201424-b3b91517de16
 
+	// until nolag updates merged upstream
+	github.com/mitchellh/mapstructure => github.com/nolag/mapstructure v1.5.2-0.20240625151721-90ea83a3f479
+
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
 )

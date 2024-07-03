@@ -71,7 +71,7 @@ const (
 	ArbGasInfo_getPricesInArbGas = "02199f34"
 )
 
-func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *arbitrumL1Oracle {
+func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) (*arbitrumL1Oracle, error) {
 	var l1GasPriceAddress, gasPriceMethod, l1GasCostAddress, gasCostMethod string
 	var l1GasPriceMethodAbi, l1GasCostMethodAbi abi.ABI
 	var gasPriceErr, gasCostErr error
@@ -84,10 +84,10 @@ func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *arbit
 	l1GasCostMethodAbi, gasCostErr = abi.JSON(strings.NewReader(GasEstimateL1ComponentAbiString))
 
 	if gasPriceErr != nil {
-		panic("Failed to parse L1 gas price method ABI for chain: arbitrum")
+		return nil, fmt.Errorf("failed to parse L1 gas price method ABI for chain: arbitrum: %w", gasPriceErr)
 	}
 	if gasCostErr != nil {
-		panic("Failed to parse L1 gas cost method ABI for chain: arbitrum")
+		return nil, fmt.Errorf("failed to parse L1 gas cost method ABI for chain: arbitrum: %w", gasCostErr)
 	}
 
 	return &arbitrumL1Oracle{
@@ -106,7 +106,7 @@ func NewArbitrumL1GasOracle(lggr logger.Logger, ethClient l1OracleClient) *arbit
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
 		chDone:        make(chan struct{}),
-	}
+	}, nil
 }
 
 func (o *arbitrumL1Oracle) Name() string {
