@@ -1433,23 +1433,18 @@ ORDER BY nonce ASC
 
 // markOldTxesMissingReceiptAsErrored
 //
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold
+// Once eth_tx has all of its attempts broadcast before latestFinalizedBlockNum
 // without receiving any receipts, we mark it as fatally errored (never sent).
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
+func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, latestFinalizedBlockNum int64, chainID *big.Int) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	// cutoffBlockNum is a block height
-	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
+	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than latestFinalizedBlockNum will be marked as errored
 	// We will not try to query for receipts for this transaction any more
-	cutoff := blockNum - int64(finalityDepth)
-	if cutoff <= 0 {
-		return nil
-	}
-	if cutoff <= 0 {
+	if latestFinalizedBlockNum <= 0 {
 		return nil
 	}
 	// note: if QOpt passes in a sql.Tx this will reuse it
@@ -1474,7 +1469,7 @@ FROM (
 	FOR UPDATE OF e1
 ) e0
 WHERE e0.id = evm.txes.id
-RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, cutoff, chainID.String())
+RETURNING e0.id, e0.nonce`, ErrCouldNotGetReceipt, latestFinalizedBlockNum, chainID.String())
 
 		if err != nil {
 			return pkgerrors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
