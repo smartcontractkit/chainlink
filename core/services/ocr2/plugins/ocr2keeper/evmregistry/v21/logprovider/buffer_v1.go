@@ -488,6 +488,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 
 	for _, blockNumber := range oldBlockNumbers {
 		delete(q.logs, blockNumber)
+		delete(q.dequeued, blockNumber)
 	}
 	q.blockNumbers = blockNumbers
 
