@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 )
@@ -26,6 +27,7 @@ func (e NoContractExistsError) Error() string {
 }
 
 type methodBinding struct {
+	lggr                 logger.Logger
 	ht                   logpoller.HeadTracker
 	address              common.Address
 	contractName         string
@@ -105,8 +107,14 @@ func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.L
 func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
 	value, ok := m.confirmationsMapping[confidenceLevel]
 	if !ok {
-		// TODO is this ok? Maybe some things have to always be faster than Finalized?
-		value = evmtypes.Finalized
+		// caller needs safe data, so return an error if confidence is misconfigured
+		if confidenceLevel == primitives.Finalized {
+			return nil, fmt.Errorf("finalized confidence mapping missing for contract: %s, method: %s", m.contractName, m.method)
+		}
+
+		m.lggr.Errorf("unknown confidence level: %s confidence confirmations are misconfigured for contract: %s, method: %s, now "+
+			"falling back to default contract call behaviour that calls latest state", confidenceLevel, m.contractName, m.method)
+		return nil, nil
 	}
 
 	latest, finalized, err := m.ht.LatestAndFinalizedBlock(ctx)
@@ -117,7 +125,6 @@ func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 	if value == evmtypes.Finalized {
 		return big.NewInt(finalized.Number), nil
 	} else if value == evmtypes.Unconfirmed {
-		// this is the latest block
 		return big.NewInt(latest.BlockNumber()), nil
 	}
 

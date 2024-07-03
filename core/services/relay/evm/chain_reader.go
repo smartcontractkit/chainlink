@@ -211,6 +211,7 @@ func (cr *chainReader) addMethod(
 	}
 
 	cr.contractBindings.AddReadBinding(contractName, methodName, &methodBinding{
+		lggr:                 cr.lggr,
 		contractName:         contractName,
 		method:               methodName,
 		ht:                   cr.ht,
