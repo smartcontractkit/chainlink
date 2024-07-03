@@ -5,7 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
+	"math"
 	"math/big"
 	"strings"
 	"sync"
@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -41,7 +42,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/require"
-	"math"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
