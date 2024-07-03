@@ -8,13 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/seth"
 
 	client2 "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
 func SetupCluster(
@@ -36,12 +36,13 @@ func SetupCluster(
 func SetupFeed(
 	l zerolog.Logger,
 	seth *seth.Client,
+	config *tc.TestConfig,
 	lta common.Address,
 	msClient *client2.MockserverClient,
 	bootstrapNode *client.ChainlinkK8sClient,
 	workerNodes []*client.ChainlinkK8sClient,
 ) ([]contracts.OffchainAggregator, error) {
-	ocrInstances, err := actions.SetupOCRv1Contracts(l, seth, 1, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
+	ocrInstances, err := actions.SetupOCRv1Contracts(l, seth, config.OCR, lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(workerNodes))
 	if err != nil {
 		return nil, err
 	}

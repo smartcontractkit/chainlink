@@ -36,7 +36,7 @@ func TestOCRLoad(t *testing.T) {
 
 	lta, err := SetupCluster(l, seth, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := SetupFeed(l, seth, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := SetupFeed(l, seth, &config, lta, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
@@ -83,7 +83,7 @@ func TestOCRVolume(t *testing.T) {
 		LoadType:    wasp.VU,
 		CallTimeout: cfg.Volume.VerificationTimeout.Duration,
 		Schedule:    wasp.Plain(*cfg.Volume.Rate, cfg.Volume.TestDuration.Duration),
-		VU:          NewVU(l, seth, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
+		VU:          NewVU(l, seth, cfg, *cfg.Volume.VURequestsPerUnit, cfg.Volume.RateLimitUnitDuration.Duration, lta, bootstrapNode, workerNodes, msClient),
 		Labels:      CommonTestLabels,
 		LokiConfig:  wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}))

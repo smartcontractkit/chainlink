@@ -12,41 +12,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml/v2"
-
 	geth "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+	"github.com/test-go/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
-	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-
-	"github.com/rs/zerolog"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"github.com/smartcontractkit/seth"
-
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	"github.com/test-go/testify/require"
-
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
@@ -879,7 +872,7 @@ func setupAnyOCRv1Contracts(
 	} else {
 		// Load contract wrappers
 		for _, address := range ocrContractsConfig.GetOffChainAggregatorsContractsAddresses() {
-			ocrInstance, err := contracts.LoadOffchainAggregator(logger, seth, address)
+			ocrInstance, err := contracts.LoadOffChainAggregator(logger, seth, address)
 			if err != nil {
 				return nil, fmt.Errorf("OCR instance loading have failed: %w", err)
 			}

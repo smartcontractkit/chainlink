@@ -2,9 +2,10 @@ package actions
 
 import (
 	"github.com/rs/zerolog"
+	"github.com/smartcontractkit/seth"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
-	"github.com/smartcontractkit/seth"
 )
 
 func GetLinkTokenContract(l zerolog.Logger, sethClient *seth.Client, configWithLinkToken tc.LinkTokenContractConfig) (*contracts.EthereumLinkToken, error) {

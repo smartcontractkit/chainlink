@@ -4,20 +4,19 @@ import (
 	"embed"
 	"encoding/base64"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"os"
 	"slices"
 	"strings"
 
 	"github.com/barkimedes/go-deepcopy"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/seth"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
-	"github.com/smartcontractkit/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"

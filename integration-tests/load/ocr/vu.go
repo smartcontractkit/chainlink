@@ -8,9 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/seth"
-
 	"github.com/smartcontractkit/wasp"
 	"go.uber.org/ratelimit"
 
@@ -19,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
 )
 
 // VU is a virtual user for the OCR load test
@@ -36,11 +35,13 @@ type VU struct {
 	msClient      *client2.MockserverClient
 	l             zerolog.Logger
 	ocrInstances  []contracts.OffchainAggregator
+	config        ocr.OffChainAggregatorsConfig
 }
 
 func NewVU(
 	l zerolog.Logger,
 	seth *seth.Client,
+	config ocr.OffChainAggregatorsConfig,
 	rate int,
 	rateUnit time.Duration,
 	lta common.Address,
@@ -59,6 +60,7 @@ func NewVU(
 		msClient:      msClient,
 		bootstrapNode: bootstrapNode,
 		workerNodes:   workerNodes,
+		config:        config,
 	}
 }
 
@@ -74,11 +76,12 @@ func (m *VU) Clone(_ *wasp.Generator) wasp.VirtualUser {
 		msClient:      m.msClient,
 		bootstrapNode: m.bootstrapNode,
 		workerNodes:   m.workerNodes,
+		config:        m.config,
 	}
 }
 
 func (m *VU) Setup(_ *wasp.Generator) error {
-	ocrInstances, err := actions.SetupOCRv1Contracts(m.l, m.seth, 1, m.lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(m.workerNodes))
+	ocrInstances, err := actions.SetupOCRv1Contracts(m.l, m.seth, m.config, m.lta, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(m.workerNodes))
 	if err != nil {
 		return err
 	}

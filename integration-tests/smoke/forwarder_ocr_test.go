@@ -82,11 +82,6 @@ func TestForwarderOCRBasic(t *testing.T) {
 		actions.TrackForwarder(t, sethClient, authorizedForwarders[i], workerNodes[i])
 	}
 
-	var ocrInstanceAddresses []common.Address
-	for _, address := range config.OCR.Contracts.OffchainAggregatorAddresses {
-		ocrInstanceAddresses = append(ocrInstanceAddresses, common.HexToAddress(address))
-	}
-
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlow(
 		l,
 		sethClient,
