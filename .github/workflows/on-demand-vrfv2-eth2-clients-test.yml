@@ -4,8 +4,12 @@ on:
     inputs:
       base64Config:
         description: base64-ed config
-        required: true
-        type: string 
+        required: false
+        type: string
+      test_secrets_override_key:
+        description: 'Key for custom secrets to use in tests'
+        required: false
+        type: string
 
 jobs:
   vrfv2_smoke_test:
@@ -26,11 +30,14 @@ jobs:
         with:
           fetch-depth: 0    
       - name: Mask base64 config
+        shell: bash
+        if: ${{ inputs.base64Config }}
         run: |
           BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Parse base64 config
+        if: ${{ inputs.base64Config }}
         uses: ./.github/actions/setup-parse-base64-config
         with:
           base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}  
@@ -46,10 +53,11 @@ jobs:
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY          
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@054ac56361c13a5823d1f1cb096ba31797f2ed69 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run TestVRFv2Basic ./smoke/vrfv2_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}

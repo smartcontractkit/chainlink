@@ -373,6 +373,12 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
+	// Read selected config values from environment variables
+	err = testConfig.ReadConfigValuesFromEnvVars()
+	if err != nil {
+		return TestConfig{}, err
+	}
+
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
