@@ -220,13 +220,13 @@ func CreateOCRv2Jobs(
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
 			Name:    fmt.Sprintf("ocr2-bootstrap-%s", ocrInstance.Address()),
-			JobType: "bootstrap",
+			JobType: "bootstrap", Relay: "evm",
+			RelayConfig: map[string]interface{}{
+				"chainID": chainId,
+			},
 			OCR2OracleSpec: job.OCR2OracleSpec{
 				ContractID: ocrInstance.Address(),
-				Relay:      "evm",
-				RelayConfig: map[string]interface{}{
-					"chainID": chainId,
-				},
+
 				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, "ocr2")),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
@@ -266,13 +266,13 @@ func CreateOCRv2Jobs(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed: forwardingAllowed,
+				ForwardingAllowed: forwardingAllowed, Relay: "evm",
+				RelayConfig: map[string]interface{}{
+					"chainID": chainId,
+				},
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
-					Relay:      "evm",
-					RelayConfig: map[string]interface{}{
-						"chainID": chainId,
-					},
+
 					PluginConfig: map[string]any{
 						"juelsPerFeeCoinSource": fmt.Sprintf("\"\"\"%s\"\"\"", client.ObservationSourceSpecBridge(juelsBridge)),
 					},
