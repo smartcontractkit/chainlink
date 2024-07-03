@@ -226,21 +226,30 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_arb_eth_opt_0(t *testing.T)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			overrides := make(map[models.NetworkSelector]*big.Int)
 			g := graph.NewGraph()
 			for net, b := range tc.balances {
 				g.(graph.GraphTest).AddNetwork(net, graph.Data{
 					Liquidity:        big.NewInt(b),
 					NetworkSelector:  net,
 					MinimumLiquidity: big.NewInt(tc.minimums[net]),
-					TargetLiquidity:  big.NewInt(tc.targets[net]),
 				})
+				overrides[net] = big.NewInt(tc.targets[net])
 			}
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, opt))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(opt, eth))
 
-			r := NewTargetMinBalancer(lggr)
+			pluginConfigOverrides := models.PluginConfig{
+				RebalancerConfig: models.RebalancerConfig{
+					Type:                   "target-and-min",
+					DefaultTarget:          big.NewInt(5),
+					NetworkTargetOverrides: overrides,
+				},
+			}
+
+			r := NewTargetMinBalancer(lggr, pluginConfigOverrides)
 
 			unexecuted := make([]UnexecutedTransfer, 0, len(tc.pendingTransfers))
 			for _, tr := range tc.pendingTransfers {
@@ -336,21 +345,30 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_arb_eth_opt_pending_status_
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			overrides := make(map[models.NetworkSelector]*big.Int)
+
 			g := graph.NewGraph()
 			for net, b := range tc.balances {
 				g.(graph.GraphTest).AddNetwork(net, graph.Data{
 					Liquidity:        big.NewInt(b),
 					NetworkSelector:  net,
 					MinimumLiquidity: big.NewInt(tc.minimums[net]),
-					TargetLiquidity:  big.NewInt(tc.targets[net]),
 				})
+				overrides[net] = big.NewInt(tc.targets[net])
 			}
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, opt))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(opt, eth))
 
-			r := NewTargetMinBalancer(lggr)
+			pluginConfigOverrides := models.PluginConfig{
+				RebalancerConfig: models.RebalancerConfig{
+					Type:                   "target-and-min",
+					DefaultTarget:          big.NewInt(5),
+					NetworkTargetOverrides: overrides,
+				},
+			}
+			r := NewTargetMinBalancer(lggr, pluginConfigOverrides)
 
 			unexecuted := make([]UnexecutedTransfer, 0, len(tc.pendingTransfers))
 			for _, tr := range tc.pendingTransfers {
@@ -476,14 +494,15 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_arb_eth_opt_base(t *testing
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			overrides := make(map[models.NetworkSelector]*big.Int)
 			g := graph.NewGraph()
 			for net, b := range tc.balances {
 				g.(graph.GraphTest).AddNetwork(net, graph.Data{
 					Liquidity:        big.NewInt(b),
 					NetworkSelector:  net,
 					MinimumLiquidity: big.NewInt(tc.minimums[net]),
-					TargetLiquidity:  big.NewInt(tc.targets[net]),
 				})
+				overrides[net] = big.NewInt(tc.targets[net])
 			}
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
@@ -492,7 +511,14 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_arb_eth_opt_base(t *testing
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, base))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(base, eth))
 
-			r := NewTargetMinBalancer(lggr)
+			pluginConfigOverrides := models.PluginConfig{
+				RebalancerConfig: models.RebalancerConfig{
+					Type:                   "target-and-min",
+					DefaultTarget:          big.NewInt(5),
+					NetworkTargetOverrides: overrides,
+				},
+			}
+			r := NewTargetMinBalancer(lggr, pluginConfigOverrides)
 
 			unexecuted := make([]UnexecutedTransfer, 0, len(tc.pendingTransfers))
 			for _, tr := range tc.pendingTransfers {
@@ -586,14 +612,16 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_islands_in_graph(t *testing
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			overrides := make(map[models.NetworkSelector]*big.Int)
+
 			g := graph.NewGraph()
 			for net, b := range tc.balances {
 				g.(graph.GraphTest).AddNetwork(net, graph.Data{
 					Liquidity:        big.NewInt(b),
 					NetworkSelector:  net,
 					MinimumLiquidity: big.NewInt(tc.minimums[net]),
-					TargetLiquidity:  big.NewInt(tc.targets[net]),
 				})
+				overrides[net] = big.NewInt(tc.targets[net])
 			}
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
@@ -602,7 +630,92 @@ func TestTargetMinBalancer_ComputeTransfersToBalance_islands_in_graph(t *testing
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, base))
 			assert.NoError(t, g.(graph.GraphTest).AddConnection(base, eth))
 
-			r := NewTargetMinBalancer(lggr)
+			pluginConfigOverrides := models.PluginConfig{
+				RebalancerConfig: models.RebalancerConfig{
+					Type:                   "target-and-min",
+					DefaultTarget:          big.NewInt(5),
+					NetworkTargetOverrides: overrides,
+				},
+			}
+			r := NewTargetMinBalancer(lggr, pluginConfigOverrides)
+
+			unexecuted := make([]UnexecutedTransfer, 0, len(tc.pendingTransfers))
+			for _, tr := range tc.pendingTransfers {
+				unexecuted = append(unexecuted, models.PendingTransfer{
+					Transfer: models.Transfer{
+						From:   tr.From,
+						To:     tr.To,
+						Amount: tr.Amount,
+					},
+					Status: tr.Status,
+				})
+			}
+			transfersToBalance, err := r.ComputeTransfersToBalance(g, unexecuted)
+			assert.NoError(t, err)
+
+			for _, tr := range transfersToBalance {
+				t.Logf("actual transfer: %s -> %s = %s", tr.From, tr.To, tr.Amount)
+			}
+			sort.Sort(models.ProposedTransfers(tc.expTransfers))
+			require.Len(t, transfersToBalance, len(tc.expTransfers))
+			for i, tr := range tc.expTransfers {
+				t.Logf("expected transfer: %s -> %s = %s", tr.From, tr.To, tr.Amount)
+				assert.Equal(t, tr.From, transfersToBalance[i].From)
+				assert.Equal(t, tr.To, transfersToBalance[i].To)
+				assert.Equal(t, tr.Amount.Int64(), transfersToBalance[i].Amount.Int64())
+			}
+		})
+	}
+}
+
+func TestTargetMinBalancer_ComputeTransfersToBalance_no_tiny_transfers(t *testing.T) {
+	testCases := []struct {
+		name             string
+		balances         map[models.NetworkSelector]int64
+		minimums         map[models.NetworkSelector]int64
+		targets          map[models.NetworkSelector]int64
+		pendingTransfers []models.ProposedTransfer
+		expTransfers     []models.ProposedTransfer
+	}{
+		{
+			name:             "arb and opt below but not more than 5%, so even tho eth has funds we wait",
+			balances:         map[models.NetworkSelector]int64{eth: 2100, arb: 1950, opt: 1950},
+			minimums:         map[models.NetworkSelector]int64{eth: 500, arb: 500, opt: 500},
+			targets:          map[models.NetworkSelector]int64{eth: 2000, arb: 2000, opt: 2000},
+			pendingTransfers: []models.ProposedTransfer{},
+			expTransfers:     []models.ProposedTransfer{},
+		},
+	}
+
+	lggr := logger.TestLogger(t)
+	lggr.SetLogLevel(zapcore.DebugLevel)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			overrides := make(map[models.NetworkSelector]*big.Int)
+
+			g := graph.NewGraph()
+			for net, b := range tc.balances {
+				g.(graph.GraphTest).AddNetwork(net, graph.Data{
+					Liquidity:        big.NewInt(b),
+					NetworkSelector:  net,
+					MinimumLiquidity: big.NewInt(tc.minimums[net]),
+				})
+				overrides[net] = big.NewInt(tc.targets[net])
+			}
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, arb))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(arb, eth))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(eth, opt))
+			assert.NoError(t, g.(graph.GraphTest).AddConnection(opt, eth))
+
+			pluginConfigOverrides := models.PluginConfig{
+				RebalancerConfig: models.RebalancerConfig{
+					Type:                   "target-and-min",
+					DefaultTarget:          big.NewInt(5),
+					NetworkTargetOverrides: overrides,
+				},
+			}
+			r := NewTargetMinBalancer(lggr, pluginConfigOverrides)
 
 			unexecuted := make([]UnexecutedTransfer, 0, len(tc.pendingTransfers))
 			for _, tr := range tc.pendingTransfers {

@@ -17,12 +17,10 @@ type PluginConfig struct {
 }
 
 type RebalancerConfig struct {
-	Type string `json:"type"`
-}
-
-type NetworkTarget struct {
-	Network NetworkSelector `json:"network,string"`
-	Target  *big.Int        `json:"target"`
+	Type          string   `json:"type"`
+	DefaultTarget *big.Int `json:"defaultTarget"`
+	// NetworkTargetOverrides is a map of NetworkSelector to big Int amounts
+	NetworkTargetOverrides map[NetworkSelector]*big.Int `json:"networkTargetOverrides"`
 }
 
 func ValidateRebalancerConfig(config RebalancerConfig) error {
@@ -47,6 +45,7 @@ var (
 	AllRebalancerTypes = []string{
 		RebalancerTypePingPong,
 		RebalancerTypeMinLiquidity,
+		RebalancerTypeTargetAndMin,
 	}
 )
 

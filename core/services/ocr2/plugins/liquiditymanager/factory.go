@@ -67,7 +67,7 @@ func (p PluginFactory) buildRebalancer() (rebalalgo.RebalancingAlgo, error) {
 	case models.RebalancerTypeMinLiquidity:
 		return rebalalgo.NewMinLiquidityRebalancer(p.lggr), nil
 	case models.RebalancerTypeTargetAndMin:
-		return rebalalgo.NewTargetMinBalancer(p.lggr), nil
+		return rebalalgo.NewTargetMinBalancer(p.lggr, p.config), nil
 	default:
 		return nil, fmt.Errorf("invalid rebalancer type %s", p.config.RebalancerConfig.Type)
 	}

@@ -14,6 +14,8 @@ type GraphWriter interface {
 	Add(from, to Data) error
 	// SetLiquidity sets the liquidity of the provided network.
 	SetLiquidity(n models.NetworkSelector, liquidity *big.Int) bool
+	// SetTargetLiquidity sets the target liquidity of the provided network.
+	SetTargetLiquidity(n models.NetworkSelector, liquidity *big.Int) bool
 }
 
 // NodeReader provides read access to the data saved in the graph nodes.
