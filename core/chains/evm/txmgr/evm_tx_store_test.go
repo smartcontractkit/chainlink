@@ -1864,7 +1864,7 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, 100)
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
-	txs, err := txStore.FindConfirmedTxesAwaitingFinalization(ctx, testutils.FixtureChainID)
+	txs, err := txStore.FindConfirmedTxes(ctx, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
 }
@@ -1895,23 +1895,6 @@ func TestORM_UpdateTxesFinalized(t *testing.T) {
 		require.NoError(t, err)
 		etx, err := txStore.FindTxWithAttempts(ctx, tx.ID)
 		require.NoError(t, err)
-		require.True(t, etx.Finalized)
-	})
-	t.Run("fails to finalize an unconfirmed transaction", func(t *testing.T) {
-		nonce := evmtypes.Nonce(1)
-		tx := &txmgr.Tx{
-			Sequence:           &nonce,
-			FromAddress:        fromAddress,
-			EncodedPayload:     []byte{1, 2, 3},
-			State:              txmgrcommon.TxUnconfirmed,
-			BroadcastAt:        &broadcast,
-			InitialBroadcastAt: &broadcast,
-		}
-		err := txStore.InsertTx(ctx, tx)
-		require.NoError(t, err)
-		err = txStore.UpdateTxesFinalized(ctx, []int64{tx.ID}, testutils.FixtureChainID)
-		// Fails due to chk_eth_txes_state_finalized constraint
-		// Tx Store is poisoned after this
-		require.ErrorContains(t, err, "chk_eth_txes_state_finalized")
+		require.Equal(t, txmgrcommon.TxFinalized, etx.State)
 	})
 }

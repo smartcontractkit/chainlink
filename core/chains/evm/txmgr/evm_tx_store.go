@@ -181,7 +181,6 @@ type DbEthTx struct {
 	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
 	CreatedAt time.Time
 	State     txmgrtypes.TxState
-	Finalized bool
 	// Marshalled EvmTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
@@ -212,7 +211,6 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.BroadcastAt = tx.BroadcastAt
 	db.CreatedAt = tx.CreatedAt
 	db.State = tx.State
-	db.Finalized = tx.Finalized
 	db.Meta = tx.Meta
 	db.Subject = tx.Subject
 	db.PipelineTaskRunID = tx.PipelineTaskRunID
@@ -247,7 +245,6 @@ func (db DbEthTx) ToTx(tx *Tx) {
 	tx.BroadcastAt = db.BroadcastAt
 	tx.CreatedAt = db.CreatedAt
 	tx.State = db.State
-	tx.Finalized = db.Finalized
 	tx.Meta = db.Meta
 	tx.Subject = db.Subject
 	tx.PipelineTaskRunID = db.PipelineTaskRunID
@@ -532,8 +529,8 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
-	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed, finalized) VALUES (
-:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed, :finalized
+	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed) VALUES (
+:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed
 ) RETURNING *`
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
@@ -1119,13 +1116,11 @@ func updateEthTxAttemptUnbroadcast(ctx context.Context, orm *evmTxStore, attempt
 	return pkgerrors.Wrap(err, "updateEthTxAttemptUnbroadcast failed")
 }
 
-// Ensure to mark the transaction as not finalized in case there is a finality violation and a "finalized" transaction
-// has been considered re-org'd out
 func updateEthTxUnconfirm(ctx context.Context, orm *evmTxStore, etx Tx) error {
 	if etx.State != txmgr.TxConfirmed {
-		return errors.New("expected eth_tx state to be confirmed")
+		return errors.New("expected tx state to be confirmed")
 	}
-	_, err := orm.q.ExecContext(ctx, `UPDATE evm.txes SET state = 'unconfirmed', finalized = false WHERE id = $1`, etx.ID)
+	_, err := orm.q.ExecContext(ctx, `UPDATE evm.txes SET state = 'unconfirmed' WHERE id = $1`, etx.ID)
 	return pkgerrors.Wrap(err, "updateEthTxUnconfirm failed")
 }
 
@@ -1884,8 +1879,7 @@ USING old_enough_receipts, evm.tx_attempts
 WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
 AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
 AND evm.txes.created_at < $2
-AND evm.txes.state = 'confirmed'
-AND evm.txes.finalized = true
+AND evm.txes.state = 'finalized'
 AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
@@ -2047,13 +2041,13 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	return err
 }
 
-// Returns all confirmed transactions not yet marked as finalized
-func (o *evmTxStore) FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
+// Returns all confirmed transactions
+func (o *evmTxStore) FindConfirmedTxes(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		sql := "SELECT * FROM evm.txes WHERE state = 'confirmed' AND finalized = false AND evm_chain_id = $1"
+		sql := "SELECT * FROM evm.txes WHERE state = 'confirmed' AND evm_chain_id = $1"
 		var dbEtxs []DbEthTx
 		err = o.q.SelectContext(ctx, &dbEtxs, sql, chainID.String())
 		if len(dbEtxs) == 0 {
@@ -2077,7 +2071,7 @@ func (o *evmTxStore) UpdateTxesFinalized(ctx context.Context, etxIDs []int64, ch
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
-	sql := "UPDATE evm.txes SET finalized = true WHERE id = ANY($1) AND evm_chain_id = $2"
+	sql := "UPDATE evm.txes SET state = 'finalized' WHERE id = ANY($1) AND evm_chain_id = $2"
 	_, err := o.q.ExecContext(ctx, sql, pq.Array(etxIDs), chainId.String())
 	return err
 }

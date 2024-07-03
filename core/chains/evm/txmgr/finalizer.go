@@ -24,7 +24,7 @@ var _ Finalizer = (*evmFinalizer)(nil)
 const processHeadTimeout = 10 * time.Minute
 
 type finalizerTxStore interface {
-	FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID *big.Int) ([]*Tx, error)
+	FindConfirmedTxes(ctx context.Context, chainID *big.Int) ([]*Tx, error)
 	UpdateTxesFinalized(ctx context.Context, txs []int64, chainId *big.Int) error
 }
 
@@ -152,7 +152,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	f.lggr.Debugw("processing latest finalized head", "block num", latestFinalizedHead.BlockNumber(), "block hash", latestFinalizedHead.BlockHash(), "earliest block num in chain", earliestBlockNumInChain)
 
 	// Retrieve all confirmed transactions, loaded with attempts and receipts
-	unfinalizedTxs, err := f.txStore.FindConfirmedTxesAwaitingFinalization(ctx, f.chainId)
+	unfinalizedTxs, err := f.txStore.FindConfirmedTxes(ctx, f.chainId)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve confirmed transactions: %w", err)
 	}
@@ -162,10 +162,6 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	receiptBlockHashToTx := make(map[common.Hash][]*Tx)
 	// Find transactions with receipt block nums older than the latest finalized block num and block hashes still in chain
 	for _, tx := range unfinalizedTxs {
-		// Only consider transactions not already marked as finalized
-		if tx.Finalized {
-			continue
-		}
 		receipt := tx.GetReceipt()
 		if receipt == nil || receipt.IsZero() || receipt.IsUnmined() {
 			f.lggr.AssumptionViolationw("invalid receipt found for confirmed transaction", "tx", tx, "receipt", receipt)

@@ -702,7 +702,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
-	t.Run("returns unconfirmed for confirmed state not marked as finalized", func(t *testing.T) {
+	t.Run("returns unconfirmed for confirmed state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -716,7 +716,6 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 			State:              txmgrcommon.TxConfirmed,
 			BroadcastAt:        &broadcast,
 			InitialBroadcastAt: &broadcast,
-			Finalized:          false, // Set to false by default in DB but here for explicitness
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)
@@ -732,7 +731,7 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 		require.Equal(t, commontypes.Unconfirmed, state)
 	})
 
-	t.Run("returns finalized for confirmed state marked as finalized", func(t *testing.T) {
+	t.Run("returns finalized for finalized state", func(t *testing.T) {
 		idempotencyKey := uuid.New().String()
 		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 		nonce := evmtypes.Nonce(0)
@@ -743,10 +742,9 @@ func TestTxm_GetTransactionStatus(t *testing.T) {
 			FromAddress:        fromAddress,
 			EncodedPayload:     []byte{1, 2, 3},
 			FeeLimit:           feeLimit,
-			State:              txmgrcommon.TxConfirmed,
+			State:              txmgrcommon.TxFinalized,
 			BroadcastAt:        &broadcast,
 			InitialBroadcastAt: &broadcast,
-			Finalized:          true,
 		}
 		err := txStore.InsertTx(ctx, tx)
 		require.NoError(t, err)

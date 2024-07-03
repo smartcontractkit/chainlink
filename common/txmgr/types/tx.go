@@ -215,7 +215,6 @@ type Tx[
 	InitialBroadcastAt *time.Time
 	CreatedAt          time.Time
 	State              TxState
-	Finalized          bool
 	TxAttempts         []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] `json:"-"`
 	// Marshalled TxMeta
 	// Used for additional context around transactions which you want to log

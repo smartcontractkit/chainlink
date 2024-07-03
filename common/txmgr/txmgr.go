@@ -659,12 +659,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 		// Return unconfirmed for ConfirmedMissingReceipt since a receipt is required to determine if it is finalized
 		return commontypes.Unconfirmed, nil
 	case TxConfirmed:
-		if tx.Finalized {
-			// Return finalized if tx receipt's block is equal or older than the latest finalized block
-			return commontypes.Finalized, nil
-		}
-		// Return unconfirmed if tx receipt's block is newer than the latest finalized block
+		// Return unconfirmed for confirmed transactions because they are not yet finalized
 		return commontypes.Unconfirmed, nil
+	case TxFinalized:
+		return commontypes.Finalized, nil
 	case TxFatalError:
 		// Use an ErrorClassifier to determine if the transaction is considered Fatal
 		txErr := b.newErrorClassifier(tx.GetError())

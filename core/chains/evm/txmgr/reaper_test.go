@@ -83,7 +83,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
 
-	t.Run("deletes confirmed evm.txes marked as finalized that exceed the age threshold", func(t *testing.T) {
+	t.Run("deletes finalized evm.txes that exceed the age threshold", func(t *testing.T) {
 		tc := &reaperConfig{reaperThreshold: 1 * time.Hour}
 
 		r := newReaper(t, txStore, tc)
@@ -100,7 +100,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 		// Didn't delete because eth_tx although old enough, was not marked as finalized
 		cltest.AssertCount(t, db, "evm.txes", 1)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET finalized=true`)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET state='finalized'`)
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)

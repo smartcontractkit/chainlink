@@ -74,7 +74,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, false, tx.Finalized)
+		require.Equal(t, txmgrcommon.TxConfirmed, tx.State)
 	})
 
 	t.Run("returns not finalized for tx with receipt re-org'd out", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, false, tx.Finalized)
+		require.Equal(t, txmgrcommon.TxConfirmed, tx.State)
 	})
 
 	t.Run("returns finalized for tx with receipt in a finalized block", func(t *testing.T) {
@@ -118,7 +118,6 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 			State:              txmgrcommon.TxConfirmed,
 			BroadcastAt:        &broadcast,
 			InitialBroadcastAt: &broadcast,
-			Finalized:          true,
 		}
 		attemptHash := insertTxAndAttemptWithIdempotencyKey(t, txStore, tx, idempotencyKey)
 		// Insert receipt for finalized block num
@@ -129,7 +128,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, true, tx.Finalized)
+		require.Equal(t, txmgrcommon.TxFinalized, tx.State)
 	})
 
 	t.Run("returns finalized for tx with receipt older than block history depth", func(t *testing.T) {
@@ -192,7 +191,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 		require.NoError(t, err)
 		tx, err = txStore.FindTxWithIdempotencyKey(ctx, idempotencyKey, testutils.FixtureChainID)
 		require.NoError(t, err)
-		require.Equal(t, true, tx.Finalized)
+		require.Equal(t, txmgrcommon.TxFinalized, tx.State)
 	})
 
 	t.Run("returns error if failed to retrieve latest head in headtracker", func(t *testing.T) {

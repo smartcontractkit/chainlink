@@ -199,12 +199,12 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	return r0
 }
 
-// FindConfirmedTxesAwaitingFinalization provides a mock function with given fields: ctx, chainID
-func (_m *EvmTxStore) FindConfirmedTxesAwaitingFinalization(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+// FindConfirmedTxes provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindConfirmedTxes(ctx context.Context, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(ctx, chainID)
 
 	if len(ret) == 0 {
-		panic("no return value specified for FindConfirmedTxesAwaitingFinalization")
+		panic("no return value specified for FindConfirmedTxes")
 	}
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]

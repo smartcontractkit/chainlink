@@ -600,3 +600,11 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 		require.NoError(b, err)
 	}
 }
+
+func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
+	_, db := heavyweight.FullTestDBV2(t, nil)
+	err := goose.DownTo(db.DB, migrationDir, 54)
+	require.NoError(t, err)
+	err = goose.UpTo(db.DB, migrationDir, 247)
+	require.NoError(t, err)
+}
