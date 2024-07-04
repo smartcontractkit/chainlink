@@ -46,12 +46,12 @@ func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
 
 	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
-	//medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
+	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
 	for _, test := range []ocr2test{
 		{"legacy", noMedianPlugin, false},
-		//{"legacy-chain-reader", noMedianPlugin, true},
-		//{"plugins", medianPlugin, false},
-		//{"plugins-chain-reader", medianPlugin, true},
+		{"legacy-chain-reader", noMedianPlugin, true},
+		{"plugins", medianPlugin, false},
+		{"plugins-chain-reader", medianPlugin, true},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
