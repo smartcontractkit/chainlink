@@ -57,10 +57,10 @@ type TransactionStats struct {
 }
 
 type PhaseStat struct {
-	SeqNum               uint64           `json:"seq_num,omitempty"`
-	Duration             float64          `json:"duration,omitempty"`
-	Status               Status           `json:"success"`
-	SendTransactionStats TransactionStats `json:"ccip_send_data,omitempty"`
+	SeqNum               uint64            `json:"seq_num,omitempty"`
+	Duration             float64           `json:"duration,omitempty"`
+	Status               Status            `json:"success"`
+	SendTransactionStats *TransactionStats `json:"ccip_send_data,omitempty"`
 }
 
 type RequestStat struct {
@@ -77,19 +77,17 @@ func (stat *RequestStat) UpdateState(
 	step Phase,
 	duration time.Duration,
 	state Status,
-	sendTransactionStats ...TransactionStats,
+	sendTransactionStats *TransactionStats,
 ) {
 	durationInSec := duration.Seconds()
 	stat.SeqNum = seqNum
 	phaseDetails := PhaseStat{
-		SeqNum:   seqNum,
-		Duration: durationInSec,
-		Status:   state,
+		SeqNum:               seqNum,
+		Duration:             durationInSec,
+		Status:               state,
+		SendTransactionStats: sendTransactionStats,
 	}
-	if len(sendTransactionStats) > 0 {
-		phaseDetails.SendTransactionStats = sendTransactionStats[0]
-	}
-	stat.StatusByPhase[step] = phaseDetails
+
 	event := lggr.Info()
 	if seqNum != 0 {
 		event.Uint64("seq num", seqNum)
@@ -100,12 +98,17 @@ func (stat *RequestStat) UpdateState(
 			SeqNum: seqNum,
 			Status: state,
 		}
+		stat.StatusByPhase[step] = phaseDetails
 		lggr.Info().
 			Str(fmt.Sprint(E2E), string(state)).
 			Msgf("reqNo %d", stat.ReqNo)
 		event.Str(string(step), string(state)).Msgf("reqNo %d", stat.ReqNo)
 	} else {
 		event.Str(string(step), string(Success)).Msgf("reqNo %d", stat.ReqNo)
+		// we don't want to save phase details for TX and CCIPSendRe to avoid redundancy if these phases are successful
+		if step != TX && step != CCIPSendRe {
+			stat.StatusByPhase[step] = phaseDetails
+		}
 		if step == Commit || step == ReportBlessed || step == ExecStateChanged {
 			stat.StatusByPhase[E2E] = PhaseStat{
 				SeqNum:   seqNum,

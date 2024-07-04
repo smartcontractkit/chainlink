@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/AlekSi/pointer"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
@@ -258,24 +257,14 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	}
 	startTime := time.Now().UTC()
 	if feeToken != common.HexToAddress("0x0") {
-		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, nil)
+		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, nil)
 	} else {
 		// add a bit buffer to fee
-		sendTx, err = sourceCCIP.Common.Router.CCIPSend(destChainSelector, msg, new(big.Int).Add(big.NewInt(1e5), fee))
+		sendTx, err = sourceCCIP.Common.Router.CCIPSendAndProcessTx(destChainSelector, msg, new(big.Int).Add(big.NewInt(1e5), fee))
 	}
 	if err != nil {
-		stats.UpdateState(&lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
+		stats.UpdateState(&lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure, nil)
 		res.Error = fmt.Sprintf("ccip-send tx error %s for reqNo %d", err.Error(), msgSerialNo)
-		res.Data = stats.StatusByPhase
-		res.Failed = true
-		return res
-	}
-
-	err = sourceCCIP.Common.ChainClient.MarkTxAsSentOnL2(sendTx)
-
-	if err != nil {
-		stats.UpdateState(&lggr, 0, testreporters.TX, time.Since(startTime), testreporters.Failure)
-		res.Error = fmt.Sprintf("reqNo %d failed to mark tx as sent on L2 %s", msgSerialNo, err.Error())
 		res.Data = stats.StatusByPhase
 		res.Failed = true
 		return res
@@ -284,52 +273,9 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	txConfirmationTime := time.Now().UTC()
 	// wait for the tx to be mined, timeout is set to 10 minutes
 	lggr.Info().Str("tx", sendTx.Hash().Hex()).Msg("waiting for tx to be mined")
-	ctx, cancel := context.WithTimeout(context.Background(), sourceCCIP.Common.ChainClient.GetNetworkConfig().Timeout.Duration)
-	defer cancel()
-	rcpt, err := bind.WaitMined(ctx, sourceCCIP.Common.ChainClient.DeployBackend(), sendTx)
-	if err != nil {
-		res.Error = fmt.Sprintf("ccip-send request tx not mined, err=%s", err.Error())
-		res.Failed = true
-		res.Data = stats.StatusByPhase
-		return res
-	}
-	if rcpt == nil {
-		res.Error = "ccip-send request tx not mined, receipt is nil"
-		res.Failed = true
-		res.Data = stats.StatusByPhase
-		return res
-	}
-	hdr, err := c.Lane.Source.Common.ChainClient.HeaderByNumber(context.Background(), rcpt.BlockNumber)
-	if err == nil && hdr != nil {
-		txConfirmationTime = hdr.Timestamp
-	}
 	lggr = lggr.With().Str("Msg Tx", sendTx.Hash().String()).Logger()
-	if rcpt.Status != types.ReceiptStatusSuccessful {
-		stats.UpdateState(&lggr, 0, testreporters.TX, txConfirmationTime.Sub(startTime), testreporters.Failure,
-			testreporters.TransactionStats{
-				Fee:                fee.String(),
-				GasUsed:            rcpt.GasUsed,
-				TxHash:             sendTx.Hash().Hex(),
-				NoOfTokensSent:     len(msg.TokenAmounts),
-				MessageBytesLength: int64(len(msg.Data)),
-			})
-		errReason, v, err := c.Lane.Source.Common.ChainClient.RevertReasonFromTx(rcpt.TxHash, router.RouterABI)
-		if err != nil {
-			errReason = "could not decode"
-		}
-		res.Error = fmt.Sprintf("ccip-send request receipt is not successful, errReason=%s, args =%v", errReason, v)
-		res.Failed = true
-		res.Data = stats.StatusByPhase
-		return res
-	}
-	stats.UpdateState(&lggr, 0, testreporters.TX, txConfirmationTime.Sub(startTime), testreporters.Success,
-		testreporters.TransactionStats{
-			Fee:                fee.String(),
-			GasUsed:            rcpt.GasUsed,
-			TxHash:             sendTx.Hash().Hex(),
-			NoOfTokensSent:     len(msg.TokenAmounts),
-			MessageBytesLength: int64(len(msg.Data)),
-		})
+
+	stats.UpdateState(&lggr, 0, testreporters.TX, txConfirmationTime.Sub(startTime), testreporters.Success, nil)
 	err = c.Validate(lggr, sendTx, txConfirmationTime, []*testreporters.RequestStat{stats})
 	if err != nil {
 		res.Error = err.Error()
@@ -356,19 +302,23 @@ func (c *CCIPE2ELoad) Validate(lggr zerolog.Logger, sendTx *types.Transaction, t
 	if c.Lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 &&
 		lstFinalizedBlock != 0 && lstFinalizedBlock > msgLogs[0].Raw.BlockNumber {
 		sourceLogFinalizedAt = c.LastFinalizedTimestamp.Load()
-		for _, stat := range stats {
+		for i, stat := range stats {
 			stat.UpdateState(&lggr, stat.SeqNum, testreporters.SourceLogFinalized,
 				sourceLogFinalizedAt.Sub(sourceLogTime), testreporters.Success,
-				testreporters.TransactionStats{
-					TxHash:           msgLogs[0].Raw.TxHash.Hex(),
-					FinalizedByBlock: strconv.FormatUint(lstFinalizedBlock, 10),
-					FinalizedAt:      sourceLogFinalizedAt.String(),
+				&testreporters.TransactionStats{
+					TxHash:             msgLogs[i].Raw.TxHash.Hex(),
+					FinalizedByBlock:   strconv.FormatUint(lstFinalizedBlock, 10),
+					FinalizedAt:        sourceLogFinalizedAt.String(),
+					Fee:                msgLogs[i].Fee.String(),
+					NoOfTokensSent:     msgLogs[i].NoOfTokens,
+					MessageBytesLength: int64(msgLogs[i].DataLength),
+					MsgID:              fmt.Sprintf("0x%x", msgLogs[i].MessageId[:]),
 				})
 		}
 	} else {
 		var finalizingBlock uint64
 		sourceLogFinalizedAt, finalizingBlock, err = c.Lane.Source.AssertSendRequestedLogFinalized(
-			&lggr, msgLogs[0].Raw.TxHash, sourceLogTime, stats)
+			&lggr, msgLogs[0].Raw.TxHash, msgLogs, sourceLogTime, stats)
 		if err != nil {
 			return err
 		}

@@ -1,13 +1,11 @@
 package load
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/common/model"
 	"github.com/rs/zerolog"
@@ -178,33 +176,14 @@ func (m *CCIPMultiCallLoadGenerator) Call(_ *wasp.Generator) *wasp.Response {
 
 	lggr := m.logger.With().Str("Msg Tx", sendTx.Hash().String()).Logger()
 	txConfirmationTime := time.Now().UTC()
-	rcpt, err1 := bind.WaitMined(context.Background(), m.client.DeployBackend(), sendTx)
-	if err1 == nil {
-		hdr, err1 := m.client.HeaderByNumber(context.Background(), rcpt.BlockNumber)
-		if err1 == nil {
-			txConfirmationTime = hdr.Timestamp
-		}
-	}
-	var gasUsed uint64
-	if rcpt != nil {
-		gasUsed = rcpt.GasUsed
-	}
 	for _, rValues := range returnValuesByDest {
 		if len(rValues.Stats) != len(rValues.Msgs) {
 			res.Error = fmt.Sprintf("number of stats %d and msgs %d should be same", len(rValues.Stats), len(rValues.Msgs))
 			res.Failed = true
 			return res
 		}
-		for i, stat := range rValues.Stats {
-			msg := rValues.Msgs[i]
-			stat.UpdateState(&lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Success,
-				testreporters.TransactionStats{
-					Fee:                msg.Fee.String(),
-					GasUsed:            gasUsed,
-					TxHash:             sendTx.Hash().Hex(),
-					NoOfTokensSent:     len(msg.Msg.TokenAmounts),
-					MessageBytesLength: int64(len(msg.Msg.Data)),
-				})
+		for _, stat := range rValues.Stats {
+			stat.UpdateState(&lggr, 0, testreporters.TX, startTime.Sub(txConfirmationTime), testreporters.Success, nil)
 		}
 	}
 
