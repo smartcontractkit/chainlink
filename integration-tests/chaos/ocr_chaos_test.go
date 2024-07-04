@@ -51,6 +51,11 @@ var (
 	chaosEndRound   int64 = 4
 )
 
+func getDefaultOcrSettings(config *tc.TestConfig) map[string]interface{} {
+	defaultOCRSettings["toml"] = networks.AddNetworksConfig(baseTOML, config.Pyroscope, networks.MustGetSelectedNetworkConfig(config.Network)[0])
+	return defaultAutomationSettings
+}
+
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
@@ -62,12 +67,7 @@ func TestOCRChaos(t *testing.T) {
 		ctf_config.MightConfigOverridePyroscopeKey(config.GetPyroscopeConfig(), target)
 	}
 
-	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, networks.MustGetSelectedNetworkConfig(config.Network)[0])
-	require.NoError(t, err, "Error building TOML config")
-
-	defaultOCRSettings["toml"] = tomlConfig
-
-	chainlinkCfg := chainlink.NewWithOverride(0, defaultOCRSettings, config.ChainlinkImage, overrideFn)
+	chainlinkCfg := chainlink.NewWithOverride(0, getDefaultOcrSettings(&config), config.ChainlinkImage, overrideFn)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart

@@ -4,8 +4,6 @@ package reorg
 import (
 	"fmt"
 	"math/big"
-	"regexp"
-	"strconv"
 	"testing"
 	"time"
 
@@ -32,15 +30,37 @@ import (
 )
 
 var (
-	reorgBlockCount       = 10 // Number of blocks to reorg (should be less than finalityDepth)
-	upkeepCount           = 2
-	nodeCount             = 6
-	nodeFundsAmount       = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
-	defaultUpkeepGasLimit = uint32(2500000)
-	defaultLinkFunds      = int64(9e18)
-	finalityDepth         int
-	historyDepth          int
+	baseTOML = `
+[Feature]
+LogPoller = true
 
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]
+	`
+	finalityDepth   = 20
+	historyDepth    = 30
+	reorgBlockCount = 10 // Number of blocks to reorg (less than finalityDepth)
+	networkTOML     = fmt.Sprintf(`
+Enabled = true
+FinalityDepth = %d
+
+[EVM.HeadTracker]
+HistoryDepth = %d
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+LimitDefault = 5_000_000
+	`, finalityDepth, historyDepth)
+	upkeepCount               = 2
+	nodeCount                 = 6
+	nodeFundsAmount           = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
+	defaultUpkeepGasLimit     = uint32(2500000)
+	defaultLinkFunds          = int64(9e18)
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
 		"db": map[string]interface{}{
@@ -133,11 +153,8 @@ func TestAutomationReorg(t *testing.T) {
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
-			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
-			require.NoError(t, err, "Error building TOML config")
-
 			defaultAutomationSettings["replicas"] = nodeCount
-			defaultAutomationSettings["toml"] = tomlConfig
+			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)

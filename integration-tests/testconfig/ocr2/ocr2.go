@@ -1,4 +1,4 @@
-package ocr2
+package ocr
 
 import (
 	"errors"
@@ -38,11 +38,15 @@ func (o *Common) Validate() error {
 }
 
 type SoakConfig struct {
+	OCRVersion        *string                 `toml:"ocr_version"`
 	NumberOfContracts *int                    `toml:"number_of_contracts"`
 	TimeBetweenRounds *blockchain.StrDuration `toml:"time_between_rounds"`
 }
 
 func (o *SoakConfig) Validate() error {
+	if o.OCRVersion == nil || *o.OCRVersion == "" {
+		return errors.New("ocr_version must be set to either 1 or 2")
+	}
 	if o.NumberOfContracts == nil || *o.NumberOfContracts <= 1 {
 		return errors.New("number_of_contracts must be set and be greater than 1")
 	}

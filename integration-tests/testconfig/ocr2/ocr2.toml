@@ -44,11 +44,11 @@ ListenAddresses = ['0.0.0.0:6690']
 """
 
 # load test specific configuration
-[Load.OCR2]
-[Load.OCR2.Common]
+[Load.OCR]
+[Load.OCR.Common]
 eth_funds = 3
 
-[Load.OCR2.Load]
+[Load.OCR.Load]
 test_duration = "3m"
 rate_limit_unit_duration = "1m"
 rate = 3
@@ -57,11 +57,11 @@ verification_timeout = "3m"
 ea_change_interval = "5s"
 
 # volume test specific configuration
-[Volume.OCR2]
-[Volume.OCR2.Common]
+[Volume.OCR]
+[Volume.OCR.Common]
 eth_funds = 3
 
-[Volume.OCR2.Volume]
+[Volume.OCR.Volume]
 test_duration = "3m"
 rate_limit_unit_duration = "1m"
 vu_requests_per_unit = 10
@@ -72,12 +72,13 @@ ea_change_interval = "5s"
 
 # soak test specific configuration
 [Soak.Common]
-chainlink_node_funding = 0.5
+chainlink_node_funding = 100
 
-[Soak.OCR2]
-[Soak.OCR2.Common]
+[Soak.OCR]
+[Soak.OCR.Common]
 test_duration="15m"
 
-[Soak.OCR2.Soak]
+[Soak.OCR.Soak]
+ocr_version="1"
 number_of_contracts=2
 time_between_rounds="1m"

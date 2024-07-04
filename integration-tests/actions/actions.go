@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pelletier/go-toml/v2"
-
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -25,13 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	ethContracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/rs/zerolog"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -42,11 +39,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/test-go/testify/require"
 
-	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 )
@@ -1075,7 +1069,7 @@ func SendLinkFundsToDeploymentAddresses(
 
 // GenerateUpkeepReport generates a report of performed, successful, reverted and stale upkeeps for a given registry contract based on transaction logs. In case of test failure it can help us
 // to triage the issue by providing more context.
-func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethContracts.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
+func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, endBlock *big.Int, instance contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) (performedUpkeeps, successfulUpkeeps, revertedUpkeeps, staleUpkeeps int, err error) {
 	registryLogs := []gethtypes.Log{}
 	l := logging.GetTestLogger(t)
 
@@ -1156,7 +1150,7 @@ func GenerateUpkeepReport(t *testing.T, chainClient *seth.Client, startBlock, en
 	return
 }
 
-func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethContracts.KeeperRegistryVersion) func() {
+func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClient *seth.Client, startBlock uint64, registry contracts.KeeperRegistry, registryVersion ethereum.KeeperRegistryVersion) func() {
 	return func() {
 		if t.Failed() {
 			endBlock, err := chainClient.Client.BlockNumber(context.Background())
@@ -1171,31 +1165,4 @@ func GetStalenessReportCleanupFn(t *testing.T, logger zerolog.Logger, chainClien
 			}
 		}
 	}
-}
-
-func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwork blockchain.EVMNetwork) (string, error) {
-	nodeConfigInToml := testConfig.GetNodeConfig()
-
-	nodeConfig, _, err := node.BuildChainlinkNodeConfig(
-		[]blockchain.EVMNetwork{testNetwork},
-		nodeConfigInToml.BaseConfigTOML,
-		nodeConfigInToml.CommonChainConfigTOML,
-		nodeConfigInToml.ChainConfigTOMLByChainID,
-	)
-
-	if err != nil {
-		return "", err
-	}
-
-	if testConfig.GetPyroscopeConfig() != nil && *testConfig.GetPyroscopeConfig().Enabled {
-		nodeConfig.Pyroscope.Environment = testConfig.GetPyroscopeConfig().Environment
-		nodeConfig.Pyroscope.ServerAddress = testConfig.GetPyroscopeConfig().ServerUrl
-	}
-
-	asStr, err := toml.Marshal(nodeConfig)
-	if err != nil {
-		return "", err
-	}
-
-	return string(asStr), nil
 }

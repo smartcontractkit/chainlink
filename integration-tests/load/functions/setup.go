@@ -54,30 +54,30 @@ type S4SecretsCfg struct {
 
 func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsConfig types.FunctionsTestConfig) (*FunctionsTest, error) {
 	selectedNetwork := networks.MustGetSelectedNetworkConfig(globalConfig.GetNetworkConfig())[0]
-	sethClient, err := seth_utils.GetChainClient(globalConfig, selectedNetwork)
+	seth, err := seth_utils.GetChainClient(globalConfig, selectedNetwork)
 	if err != nil {
 		return nil, err
 	}
 
 	cfg := functionsConfig.GetFunctionsConfig()
 
-	lt, err := contracts.DeployLinkTokenContract(log.Logger, sethClient)
+	lt, err := contracts.DeployLinkTokenContract(log.Logger, seth)
 	if err != nil {
 		return nil, err
 	}
-	coord, err := contracts.LoadFunctionsCoordinator(sethClient, *cfg.Common.Coordinator)
+	coord, err := contracts.LoadFunctionsCoordinator(seth, *cfg.Common.Coordinator)
 	if err != nil {
 		return nil, err
 	}
-	router, err := contracts.LoadFunctionsRouter(log.Logger, sethClient, *cfg.Common.Router)
+	router, err := contracts.LoadFunctionsRouter(log.Logger, seth, *cfg.Common.Router)
 	if err != nil {
 		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
 	if cfg.Common.LoadTestClient != nil && *cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = contracts.LoadFunctionsLoadTestClient(sethClient, *cfg.Common.LoadTestClient)
+		loadTestClient, err = contracts.LoadFunctionsLoadTestClient(seth, *cfg.Common.LoadTestClient)
 	} else {
-		loadTestClient, err = contracts.DeployFunctionsLoadTestClient(sethClient, *cfg.Common.Router)
+		loadTestClient, err = contracts.DeployFunctionsLoadTestClient(seth, *cfg.Common.Router)
 	}
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func SetupLocalLoadTestEnv(globalConfig ctf_config.GlobalTestConfig, functionsCo
 			Msg("Set new secret")
 	}
 	return &FunctionsTest{
-		SethClient:                *sethClient,
+		SethClient:                *seth,
 		LinkToken:                 lt,
 		Coordinator:               coord,
 		Router:                    router,

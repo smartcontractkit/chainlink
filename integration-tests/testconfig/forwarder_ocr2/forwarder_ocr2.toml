@@ -40,20 +40,6 @@ DefaultTransactionQueueDepth = 0
 ListenAddresses = ['0.0.0.0:6690']
 """
 
-CommonChainConfigTOML = """
-AutoCreateKey = true
-FinalityDepth = 1
-MinContractPayment = 0
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
-
-[Transactions]
-ForwardersEnabled = true
-"""
-
 [NodeConfig.ChainConfigTOMLByChainID]
 1337 = """
 AutoCreateKey = true
@@ -63,41 +49,5 @@ MinContractPayment = 0
 [Transactions]
 ForwardersEnabled = true
  """
-
-# load test specific configuration
-[Load.OCR2.Common]
-eth_funds = 3
-
-[Load.OCR2.Load]
-test_duration = "3m"
-rate_limit_unit_duration = "1m"
-rate = 3
-verification_interval = "5s"
-verification_timeout = "3m"
-ea_change_interval = "5s"
-
-# volume test specific configuration
-[Volume.OCR2.Common]
-eth_funds = 3
-
-[Volume.OCR2.Volume]
-test_duration = "3m"
-rate_limit_unit_duration = "1m"
-vu_requests_per_unit = 10
-rate = 1
-verification_interval = "5s"
-verification_timeout = "3m"
-ea_change_interval = "5s"
-
-# soak test specific configuration
-[Soak.Common]
-chainlink_node_funding = 1
-
-[Soak.OCR2.Common]
-test_duration="15m"
-
-[Soak.OCR2.Soak]
-number_of_contracts=2
-time_between_rounds="1m"
 
 

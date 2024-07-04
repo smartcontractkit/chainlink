@@ -32,10 +32,20 @@ func TestForwarderOCRv2Soak(t *testing.T) {
 
 func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 	l := logging.GetTestLogger(t)
+	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
+	customNetworkTOML := `[EVM.Transactions]
+ForwardersEnabled = true`
+	// Uncomment below for debugging TOML issues on the node
+	// fmt.Println("Using Chainlink TOML\n---------------------")
+	// fmt.Println(networks.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network))
+	// fmt.Println("---------------------")
 
-	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, config, testsetups.WithForwarderFlow(true))
+	config, err := tc.GetConfig("Soak", tc.OCR)
+	require.NoError(t, err, "Error getting config")
+
+	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config, testsetups.WithForwarderFlow(true))
 	require.NoError(t, err, "Error creating soak test")
-	ocrSoakTest.DeployEnvironment(config)
+	ocrSoakTest.DeployEnvironment(customNetworkTOML, &config)
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -44,6 +54,6 @@ func executeForwarderOCRSoakTest(t *testing.T, config *tc.TestConfig) {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
-	ocrSoakTest.Setup(config)
+	ocrSoakTest.Setup(&config)
 	ocrSoakTest.Run()
 }

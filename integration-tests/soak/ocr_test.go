@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -17,7 +15,6 @@ import (
 	"github.com/smartcontractkit/havoc/k8schaos"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -46,7 +43,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
 func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
@@ -54,7 +51,7 @@ func TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
 func TestOCRSoak_GasSpike(t *testing.T) {
@@ -62,7 +59,7 @@ func TestOCRSoak_GasSpike(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
 // TestOCRSoak_ChangeBlockGasLimit changes next block gas limit and sets it to percentage of last gasUsed in previous block creating congestion
@@ -71,7 +68,7 @@ func TestOCRSoak_ChangeBlockGasLimit(t *testing.T) {
 	require.NoError(t, err, "Error getting config")
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, &config)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for all Chainlink Nodes
@@ -103,7 +100,7 @@ func TestOCRSoak_RPCDownForAllCLNodes(t *testing.T) {
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
 // TestOCRSoak_RPCDownForAllCLNodes simulates a network chaos by bringing down network to RPC node for 50% of Chainlink Nodes
@@ -136,12 +133,13 @@ func TestOCRSoak_RPCDownForHalfCLNodes(t *testing.T) {
 		testsetups.WithChaos([]*k8schaos.Chaos{chaos}),
 	)
 	require.NoError(t, err, "Error creating OCR soak test")
-	executeOCRSoakTest(t, ocrSoakTest, &config)
+	runOCRSoakTest(t, ocrSoakTest, config, "")
 }
 
-func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.TestConfig) {
+func runOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config tc.TestConfig, customNetworkTOML string) {
 	l := logging.GetTestLogger(t)
 
+<<<<<<< HEAD
 	// validate Seth config before anything else, but only for live networks (simulated will fail, since there's no chain started yet)
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
 	if !network.Simulated {
@@ -149,11 +147,12 @@ func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.T
 		require.NoError(t, err, "Error creating seth client")
 	}
 
+=======
+>>>>>>> parent of e61d25606c ([TT-1209] use the same CL node config in k8s as in docker (#13411))
 	l.Info().Str("test", t.Name()).Msg("Starting OCR soak test")
 	if !test.Interrupted() {
-		test.DeployEnvironment(config)
+		test.DeployEnvironment(customNetworkTOML, &config)
 	}
-
 	if test.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -167,7 +166,7 @@ func executeOCRSoakTest(t *testing.T, test *testsetups.OCRSoakTest, config *tc.T
 		require.NoError(t, err, "Error loading state")
 		test.Resume()
 	} else {
-		test.Setup(config)
+		test.Setup(&config)
 		test.Run()
 	}
 }
