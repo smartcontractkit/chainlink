@@ -259,15 +259,13 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 		start = 1
 	}
 
-	startBlock := start
-
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
 		payloads = p.minimumCommitmentDequeue(latestBlock, start)
 
 		// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
 		if len(payloads) < MaxPayloads {
-			payloads = p.bestEffortDequeue(latestBlock, startBlock, payloads)
+			payloads = p.bestEffortDequeue(latestBlock, start, payloads)
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
@@ -289,10 +287,10 @@ func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []
 	blockRate := int(p.opts.BlockRate)
 
 	for len(payloads) < MaxPayloads && start <= latestBlock {
-		startWindow, end := getBlockWindow(start, blockRate)
+		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, end, int(p.opts.LogLimit), MaxPayloads-len(payloads), true)
+		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), true)
 		if len(logs) > 0 {
 			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -315,10 +313,10 @@ func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads 
 	blockRate := int(p.opts.BlockRate)
 
 	for len(payloads) < MaxPayloads && start <= latestBlock {
-		startWindow, end := getBlockWindow(start, blockRate)
+		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue as many logs as we can, based on remaining capacity, for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, end, MaxPayloads-len(payloads), MaxPayloads-len(payloads), false)
+		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), false)
 		if len(logs) > 0 {
 			p.lggr.Debugw("best effort dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}

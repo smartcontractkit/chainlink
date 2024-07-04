@@ -52,11 +52,6 @@ const (
 	BufferVersionV1      BufferVersion = "v1"
 )
 
-var (
-	// RPC nodes can provide logs as far back as 128 blocks
-	lookbackBlocks = int64(128)
-)
-
 func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 	opts := new(LogTriggersOptions)
 	opts.chainID = chainID
@@ -68,6 +63,7 @@ func NewOptions(finalityDepth int64, chainID *big.Int) LogTriggersOptions {
 // NOTE: o.LookbackBlocks should be set only from within tests
 func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.LookbackBlocks == 0 {
+		lookbackBlocks := int64(100)
 		if lookbackBlocks < finalityDepth {
 			lookbackBlocks = finalityDepth
 		}
@@ -98,11 +94,13 @@ func (o *LogTriggersOptions) defaultBlockRate() uint32 {
 
 func (o *LogTriggersOptions) defaultLogLimit() uint32 {
 	switch o.chainID.Int64() {
+	case 42161, 421613, 421614: // Arbitrum
+		return 2
 	case 1, 4, 5, 42, 11155111: // Eth
 		return 20
 	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
 		return 5
 	default:
-		return 2
+		return 1
 	}
 }

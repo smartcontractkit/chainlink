@@ -23,11 +23,11 @@ func TestLogEventBufferV1(t *testing.T) {
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 	)
-	results, remaining := buf.Dequeue(int64(1), 10, 1, 2, true)
+	results, remaining := buf.Dequeue(int64(1), 2, true)
 	require.Equal(t, 2, len(results))
 	require.Equal(t, 2, remaining)
 	require.True(t, results[0].ID.Cmp(results[1].ID) != 0)
-	results, remaining = buf.Dequeue(int64(1), 10, 1, 2, true)
+	results, remaining = buf.Dequeue(int64(1), 2, true)
 	require.Equal(t, 0, len(results))
 	require.Equal(t, 0, remaining)
 }
@@ -215,9 +215,9 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			start, end := getBlockWindow(tc.args.block, tc.args.blockRate)
+			start, _ := getBlockWindow(tc.args.block, tc.args.blockRate)
 
-			results, remaining := buf.Dequeue(start, end, tc.args.upkeepLimit, tc.args.maxResults, true)
+			results, remaining := buf.Dequeue(start, tc.args.maxResults, true)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
 		})
