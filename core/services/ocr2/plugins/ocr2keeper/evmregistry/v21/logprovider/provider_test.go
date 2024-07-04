@@ -526,9 +526,9 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Equal(t, 100, len(payloads))
 
 		// upkeep 1 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 2, buffer.queues["1"].dequeued[100])
+		assert.Equal(t, 1, buffer.queues["1"].dequeued[100])
 		// upkeep 2 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 2, buffer.queues["2"].dequeued[100])
+		assert.Equal(t, 1, buffer.queues["2"].dequeued[100])
 
 		// the third dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)

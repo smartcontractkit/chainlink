@@ -179,10 +179,6 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 	logLimit := int(b.opts.logLimit.Load())
 	end := start + int64(b.opts.blockRate.Load())
 
-	if !minimumDequeue {
-		logLimit = capacity
-	}
-
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
@@ -202,18 +198,14 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 			remainingLogs += logsInRange
 			continue
 		}
-		if logLimit > capacity {
-			// adjust limit if it is higher than the actual capacity
-			logLimit = capacity
-		}
 
 		var logs []logpoller.Log
 		remaining := 0
 
 		if minimumDequeue {
-			logs, remaining = q.dequeue(start, end, logLimit-q.dequeued[start])
+			logs, remaining = q.dequeue(start, end, min(capacity, logLimit-q.dequeued[start]))
 		} else {
-			logs, remaining = q.dequeue(start, end, logLimit)
+			logs, remaining = q.dequeue(start, end, capacity)
 		}
 
 		for _, l := range logs {
