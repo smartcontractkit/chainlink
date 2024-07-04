@@ -348,6 +348,18 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		}
 	}
 
+	// it needs some custom logic, so we do it separately
+	err := testConfig.readNetworkConfiguration()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
+	}
+
+	logger.Info().Msg("Reading config values from environment variables")
+	err = testConfig.ReadConfigValuesFromEnvVars()
+	if err != nil {
+		return TestConfig{}, err
+	}
+
 	logger.Info().Msg("Reading configs from Base64 override env var")
 	configEncoded, isSet := os.LookupEnv(Base64OverrideEnvVarName)
 	if isSet && configEncoded != "" {
@@ -365,18 +377,6 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		}
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
-	}
-
-	// it needs some custom logic, so we do it separately
-	err := testConfig.readNetworkConfiguration()
-	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading network config")
-	}
-
-	// Read selected config values from environment variables
-	err = testConfig.ReadConfigValuesFromEnvVars()
-	if err != nil {
-		return TestConfig{}, err
 	}
 
 	logger.Debug().Msg("Validating test config")
