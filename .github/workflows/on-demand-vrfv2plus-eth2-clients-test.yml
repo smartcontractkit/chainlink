@@ -2,12 +2,12 @@ name: On Demand VRFV2Plus Smoke Test (Ethereum clients)
 on:
   workflow_dispatch:
     inputs:
-      base64Config:
-        description: base64-ed config
+      test_config_override_base64:
+        description: The base64-encoded test config override
         required: true
         type: string       
       test_secrets_override_key:
-        description: 'Key for custom secrets to use in tests'
+        description: Key for custom secrets to use in tests
         required: false
         type: string
 
@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
       - name: Mask base64 config
         run: |
-          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
+          BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.test_config_override_base64' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
       - name: Send details to Step Summary
