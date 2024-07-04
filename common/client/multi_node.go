@@ -35,15 +35,15 @@ var (
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT any,
+	RPC any,
 ] struct {
 	services.StateMachine
-	primaryNodes          []Node[CHAIN_ID, RPC_CLIENT]
-	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	primaryNodes          []Node[CHAIN_ID, RPC]
+	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC]
 	chainID               CHAIN_ID
 	lggr                  logger.SugaredLogger
 	selectionMode         string
-	nodeSelector          NodeSelector[CHAIN_ID, RPC_CLIENT]
+	nodeSelector          NodeSelector[CHAIN_ID, RPC]
 	leaseDuration         time.Duration
 	leaseTicker           *time.Ticker
 	chainFamily           string
@@ -51,7 +51,7 @@ type MultiNode[
 	deathDeclarationDelay time.Duration
 
 	activeMu   sync.RWMutex
-	activeNode Node[CHAIN_ID, RPC_CLIENT]
+	activeNode Node[CHAIN_ID, RPC]
 
 	chStop services.StopChan
 	wg     sync.WaitGroup
@@ -59,22 +59,22 @@ type MultiNode[
 
 func NewMultiNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT any,
+	RPC any,
 ](
 	lggr logger.Logger,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
-	primaryNodes []Node[CHAIN_ID, RPC_CLIENT],
-	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
+	primaryNodes []Node[CHAIN_ID, RPC],
+	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC],
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
 	deathDeclarationDelay time.Duration,
-) *MultiNode[CHAIN_ID, RPC_CLIENT] {
+) *MultiNode[CHAIN_ID, RPC] {
 	nodeSelector := newNodeSelector(selectionMode, primaryNodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
-	c := &MultiNode[CHAIN_ID, RPC_CLIENT]{
+	c := &MultiNode[CHAIN_ID, RPC]{
 		primaryNodes:          primaryNodes,
 		sendOnlyNodes:         sendOnlyNodes,
 		chainID:               chainID,
@@ -93,11 +93,11 @@ func NewMultiNode[
 	return c
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) ChainID() CHAIN_ID {
+func (c *MultiNode[CHAIN_ID, RPC]) ChainID() CHAIN_ID {
 	return c.chainID
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC_CLIENT, isSendOnly bool)) error {
+func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC, isSendOnly bool)) error {
 	callsCompleted := 0
 	for _, n := range c.primaryNodes {
 		if ctx.Err() != nil {
@@ -125,7 +125,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) DoAll(ctx context.Context, do func(ctx
 	return nil
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) NodeStates() map[string]NodeState {
+func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]NodeState {
 	states := map[string]NodeState{}
 	for _, n := range c.primaryNodes {
 		states[n.String()] = n.State()
@@ -137,7 +137,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) NodeStates() map[string]NodeState {
 }
 
 // HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
+func (c *MultiNode[CHAIN_ID, RPC]) HighestChainInfo() ChainInfo {
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
 	}
@@ -154,7 +154,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
 //
 // Nodes handle their own redialing and runloops, so this function does not
 // return any error if the nodes aren't available
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
+func (c *MultiNode[CHAIN_ID, RPC]) Start(ctx context.Context) error {
 	return c.StartOnce("MultiNode", func() (merr error) {
 		if len(c.primaryNodes) == 0 {
 			return fmt.Errorf("no available nodes for chain %s", c.chainID.String())
@@ -194,7 +194,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
 }
 
 // Close tears down the MultiNode and closes all nodes
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Close() error {
+func (c *MultiNode[CHAIN_ID, RPC]) Close() error {
 	return c.StopOnce("MultiNode", func() error {
 		close(c.chStop)
 		c.wg.Wait()
@@ -205,7 +205,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) Close() error {
 
 // SelectRPC returns an RPC of an active node. If there are no active nodes it returns an error.
 // Call this method from your chain-specific client implementation to access any chain-specific rpc calls.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) SelectRPC() (rpc RPC_CLIENT, err error) {
+func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC() (rpc RPC, err error) {
 	n, err := c.selectNode()
 	if err != nil {
 		return rpc, err
@@ -214,7 +214,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) SelectRPC() (rpc RPC_CLIENT, err error
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_CLIENT], err error) {
+func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -248,7 +248,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_
 // LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
 // Return highest ChainInfo most recently received by the alive nodes.
 // E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) LatestChainInfo() (int, ChainInfo) {
+func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo() (int, ChainInfo) {
 	var nLiveNodes int
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
@@ -265,7 +265,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) LatestChainInfo() (int, ChainInfo) {
 }
 
 // HighestUserObservations - returns highest ChainInfo ever observed by any user of the MultiNode
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestUserObservations() ChainInfo {
+func (c *MultiNode[CHAIN_ID, RPC]) HighestUserObservations() ChainInfo {
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
 	}
@@ -278,7 +278,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestUserObservations() ChainInfo {
 	return ch
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLease() {
+func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	bestNode := c.nodeSelector.Select()
 	for _, n := range c.primaryNodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
@@ -299,7 +299,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLease() {
 	}
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLeaseLoop() {
+func (c *MultiNode[CHAIN_ID, RPC]) checkLeaseLoop() {
 	defer c.wg.Done()
 	c.leaseTicker = time.NewTicker(c.leaseDuration)
 	defer c.leaseTicker.Stop()
@@ -314,7 +314,7 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLeaseLoop() {
 	}
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) runLoop() {
+func (c *MultiNode[CHAIN_ID, RPC]) runLoop() {
 	defer c.wg.Done()
 
 	nodeStates := make([]nodeWithState, len(c.primaryNodes))
@@ -347,7 +347,7 @@ type nodeWithState struct {
 	DeadSince *time.Time
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) report(nodesStateInfo []nodeWithState) {
+func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 	start := time.Now()
 	var dead int
 	counts := make(map[NodeState]int)

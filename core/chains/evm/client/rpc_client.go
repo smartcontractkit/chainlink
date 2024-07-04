@@ -217,7 +217,6 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 			sub.Unsubscribe()
 		}
 	}
-	// TODO: Reset latest?
 	r.latestChainInfo = commonclient.ChainInfo{}
 }
 
@@ -357,12 +356,6 @@ func (r *RpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 	return nil
 }
 
-func (r *RpcClient) SetAliveLoopSub(sub commontypes.Subscription) {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-	r.aliveLoopSub = sub
-}
-
 // SubscribersCount returns the number of client subscribed to the node
 func (r *RpcClient) SubscribersCount() int32 {
 	r.stateMu.RLock()
@@ -441,7 +434,7 @@ func (r *RpcClient) subscribe(ctx context.Context, channel chan<- *evmtypes.Head
 
 // GethClient wrappers
 
-func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+func (r *RpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (receipt *evmtypes.Receipt, err error) {
 	err = r.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash, false)
 	if err != nil {
 		return nil, err

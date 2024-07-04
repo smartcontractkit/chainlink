@@ -460,7 +460,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, "Latest finalized block is not valid")
 	})
-	t.Run("If finality tag and finalized block polling are enabled updates latest finalized block metric", func(t *testing.T) {
+	t.Run("If finality tag is enabled updates latest finalized block metric", func(t *testing.T) {
 		t.Parallel()
 		rpc := NewMockRPCClient[types.ID, Head](t)
 		const expectedBlock = 1101
@@ -469,7 +469,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		sub.On("Err").Return(nil)
 		sub.On("Unsubscribe")
 		ch := make(chan Head, 1)
-		// I think it has to in case finality tag doesn't exist?
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Run(func(args mock.Arguments) {
 			go writeHeads(t, ch, head{BlockNumber: expectedBlock - 1}, head{BlockNumber: expectedBlock})
@@ -495,7 +494,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))
-			fmt.Println("Val:", m.Gauge.GetValue())
 			return float64(expectedBlock) == m.Gauge.GetValue()
 		})
 	})
@@ -531,7 +529,7 @@ func setupRPCForAliveLoop(t *testing.T, rpc *MockRPCClient[types.ID, Head]) {
 	aliveSubscription.On("Err").Return(nil).Maybe()
 	aliveSubscription.On("Unsubscribe").Maybe()
 	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), aliveSubscription, nil).Maybe()
-	rpc.On("UnsubscribeAllExcept", nil, nil).Maybe()
+	rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
 	rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
 	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Maybe()
 }
@@ -1113,18 +1111,9 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		headCh := make(<-chan Head)
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-
-		rpc.On("Dial", mock.Anything).Return(nil).Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(headCh, sub, nil)
+		setupRPCForAliveLoop(t, rpc)
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
-		rpc.On("UnsubscribeAllExcept", mock.Anything).Once()
-
-		setupRPCForAliveLoop(t, rpc)
 
 		node.declareInvalidChainID()
 		tests.AssertEventually(t, func() bool {
@@ -1143,15 +1132,9 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil).Once()
-		rpc.On("UnsubscribeAllExcept", mock.Anything).Once()
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 
 		setupRPCForAliveLoop(t, rpc)
 
@@ -1167,7 +1150,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 	newNode := func(t *testing.T, opts testNodeOpts) testNode {
 		node := newTestNode(t, opts)
-		opts.rpc.On("UnsubscribeAllExcept", nil, nil).Maybe()
+		opts.rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
 		opts.rpc.On("Close").Return(nil).Once()
 
 		return node
@@ -1185,8 +1168,6 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
-		// disconnects all on transfer to unreachable
-		rpc.On("UnsubscribeAllExcept", mock.Anything).Once()
 		err := node.Start(tests.Context(t))
 		assert.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")

@@ -27,7 +27,7 @@ type NodeSelector[
 
 func newNodeSelector[
 	CHAIN_ID types.ID,
-	RPC any, //RPCClient[CHAIN_ID, HEAD],
+	RPC any,
 ](selectionMode string, nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	switch selectionMode {
 	case NodeSelectionModeHighestHead:

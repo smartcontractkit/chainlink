@@ -8,12 +8,12 @@ import (
 
 type highestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	RPC any, //RPCClient[CHAIN_ID, HEAD],
+	RPC any,
 ] []Node[CHAIN_ID, RPC]
 
 func NewHighestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	RPC any, //RPCClient[CHAIN_ID, HEAD],
+	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	return highestHeadNodeSelector[CHAIN_ID, RPC](nodes)
 }
