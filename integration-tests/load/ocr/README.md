@@ -1,28 +1,30 @@
 ### OCR Load tests
 
-## Setup
-These tests can connect to any cluster create with [chainlink-cluster](../../../charts/chainlink-cluster/README.md)
-
-Create your cluster, if you already have one just use `kubefwd`
+## Setup CRIB
+CRIB CORE user documentation is available in [CORE CRIB - Deploy & Access Instructions](https://smartcontract-it.atlassian.net/wiki/spaces/TT/pages/597197209/CORE+CRIB+-+Deploy+Access+Instructions)
+```toml
+devspace deploy --debug --profile local-dev-simulated-core-ocr1 --skip-build
 ```
-kubectl create ns cl-cluster
-devspace use namespace cl-cluster
-devspace deploy
-sudo kubefwd svc -n cl-cluster
-```
-
-Change environment connection configuration [here](../../../charts/chainlink-cluster/connect.toml)
-
-If you haven't changed anything in [devspace.yaml](../../crib/devspace.yaml) then default connection configuration will work
 
 ## Usage
 
+Create `overrides.toml` in this directory
 ```
-export LOKI_TOKEN=...
-export LOKI_URL=...
+[CRIB]
+namespace = "crib-skudasov"
+network_name = "geth"
+nodes = 5
 
+[Logging.Loki]
+tenant_id="promtail"
+endpoint="..."
+basic_auth_secret="..."
+```
+Run the tests
+
+Set `K8S_STAGING_INGRESS_SUFFIX` when run locally (`export K8S_STAGING_INGRESS_SUFFIX=$(op read op://CRIB/secrets/K8S_STAGING_INGRESS_SUFFIX)`)
+
+```
 go test -v -run TestOCRLoad
 go test -v -run TestOCRVolume
 ```
-
-Check test configuration [here](config.toml)
