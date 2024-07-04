@@ -31,8 +31,6 @@ type RPCClient[
 	IsSyncing(ctx context.Context) (bool, error)
 	// UnsubscribeAllExcept - close all subscriptions except `subs`
 	UnsubscribeAllExcept(subs ...types.Subscription)
-	// DisconnectAll - cancels all inflight requests, terminates all subscriptions and resets latest ChainInfo.
-	DisconnectAll()
 	// Close - closes all subscriptions and aborts all RPC calls
 	Close()
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.

@@ -351,27 +351,6 @@ func (r *RpcClient) registerSub(sub ethereum.Subscription, stopInFLightCh chan s
 	return nil
 }
 
-// DisconnectAll disconnects all clients connected to the rpcClient
-func (r *RpcClient) DisconnectAll() {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-	if r.ws.rpc != nil {
-		r.ws.rpc.Close()
-	}
-	r.cancelInflightRequests()
-	r.unsubscribeAll()
-	r.latestChainInfo = commonclient.ChainInfo{}
-}
-
-// unsubscribeAll unsubscribes all subscriptions
-func (r *RpcClient) unsubscribeAll() {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-	for _, sub := range r.subs {
-		sub.Unsubscribe()
-	}
-	r.subs = nil
-}
 func (r *RpcClient) SetAliveLoopSub(sub commontypes.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
@@ -383,19 +362,6 @@ func (r *RpcClient) SubscribersCount() int32 {
 	r.stateMu.RLock()
 	defer r.stateMu.RUnlock()
 	return int32(len(r.subs))
-}
-
-// UnsubscribeAllExceptAliveLoop disconnects all subscriptions to the node except the alive loop subscription
-// while holding the n.stateMu lock
-func (r *RpcClient) UnsubscribeAllExceptAliveLoop() {
-	r.stateMu.Lock()
-	defer r.stateMu.Unlock()
-
-	for _, s := range r.subs {
-		if s != r.aliveLoopSub {
-			s.Unsubscribe()
-		}
-	}
 }
 
 // RPC wrappers
@@ -465,38 +431,6 @@ func (r *RpcClient) subscribe(ctx context.Context, channel chan<- *evmtypes.Head
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
 
 	return sub, r.wrapWS(err)
-}
-
-// TODO: Remove this
-func (r *RpcClient) SubscribeNewHead(ctx context.Context, channel chan<- *evmtypes.Head) (_ commontypes.Subscription, err error) {
-	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
-	defer cancel()
-	args := []interface{}{"newHeads"}
-	lggr := r.newRqLggr().With("args", args)
-
-	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
-	start := time.Now()
-	defer func() {
-		duration := time.Since(start)
-		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
-		err = r.wrapWS(err)
-	}()
-	subForwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
-		head.EVMChainID = ubig.New(r.chainID)
-		r.onNewHead(ctx, chStopInFlight, head)
-		return head
-	}, r.wrapRPCClientError)
-	err = subForwarder.start(ws.rpc.EthSubscribe(ctx, subForwarder.srcCh, args...))
-	if err != nil {
-		return
-	}
-
-	err = r.registerSub(subForwarder, chStopInFlight)
-	if err != nil {
-		return
-	}
-
-	return subForwarder, nil
 }
 
 // GethClient wrappers

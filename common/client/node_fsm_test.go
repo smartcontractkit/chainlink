@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -53,33 +55,33 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		const destinationState = NodeStateOutOfSync
 		allowedStates := []NodeState{NodeStateAlive}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("DisconnectAll").Once()
+		rpc.On("UnsubscribeAllExcept", mock.Anything)
 		testTransition(t, rpc, testNode.transitionToOutOfSync, destinationState, allowedStates...)
 	})
 	t.Run("transitionToUnreachable", func(t *testing.T) {
 		const destinationState = NodeStateUnreachable
 		allowedStates := []NodeState{NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID, NodeStateSyncing}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("DisconnectAll")
+		rpc.On("UnsubscribeAllExcept", mock.Anything)
 		testTransition(t, rpc, testNode.transitionToUnreachable, destinationState, allowedStates...)
 	})
 	t.Run("transitionToInvalidChain", func(t *testing.T) {
 		const destinationState = NodeStateInvalidChainID
 		allowedStates := []NodeState{NodeStateDialed, NodeStateOutOfSync, NodeStateSyncing}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("DisconnectAll")
+		rpc.On("UnsubscribeAllExcept", mock.Anything)
 		testTransition(t, rpc, testNode.transitionToInvalidChainID, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing", func(t *testing.T) {
 		const destinationState = NodeStateSyncing
 		allowedStates := []NodeState{NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID}
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("DisconnectAll")
+		rpc.On("UnsubscribeAllExcept", mock.Anything)
 		testTransition(t, rpc, testNode.transitionToSyncing, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing panics if nodeIsSyncing is disabled", func(t *testing.T) {
 		rpc := NewMockRPCClient[types.ID, Head](t)
-		rpc.On("DisconnectAll").Once()
+		rpc.On("UnsubscribeAllExcept", mock.Anything)
 		node := newTestNode(t, testNodeOpts{rpc: rpc})
 		node.setState(NodeStateDialed)
 		fn := new(fnMock)
