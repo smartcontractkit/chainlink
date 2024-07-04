@@ -14,11 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -242,41 +241,45 @@ func (o *optimismL1Oracle) HealthReport() map[string]error {
 func (o *optimismL1Oracle) run() {
 	defer close(o.chDone)
 
-	t := o.refresh()
+	o.refresh()
 	close(o.chInitialised)
+
+	t := services.TickerConfig{
+		Initial:   o.pollPeriod,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(o.pollPeriod)
+	defer t.Stop()
 
 	for {
 		select {
 		case <-o.chStop:
 			return
 		case <-t.C:
-			t = o.refresh()
+			o.refresh()
 		}
 	}
 }
-func (o *optimismL1Oracle) refresh() (t *time.Timer) {
-	t, err := o.refreshWithError()
+func (o *optimismL1Oracle) refresh() {
+	err := o.refreshWithError()
 	if err != nil {
+		o.logger.Criticalw("Failed to refresh gas price", "err", err)
 		o.SvcErrBuffer.Append(err)
 	}
-	return
 }
 
-func (o *optimismL1Oracle) refreshWithError() (t *time.Timer, err error) {
-	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
-
+func (o *optimismL1Oracle) refreshWithError() error {
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
 	defer cancel()
 
 	price, err := o.GetDAGasPrice(ctx)
 	if err != nil {
-		return t, err
+		return err
 	}
 
 	o.l1GasPriceMu.Lock()
 	defer o.l1GasPriceMu.Unlock()
 	o.l1GasPrice = priceEntry{price: assets.NewWei(price), timestamp: time.Now()}
-	return
+	return nil
 }
 
 func (o *optimismL1Oracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
