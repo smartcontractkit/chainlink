@@ -214,50 +214,6 @@ type VRFKeys struct {
 	Data []VRFKey `json:"data"`
 }
 
-// DKGSignKeyAttributes is the model that represents the created DKG Sign key attributes when read
-type DKGSignKeyAttributes struct {
-	PublicKey string `json:"publicKey"`
-}
-
-// DKGSignKeyData is the model that represents the created DKG Sign key's data when read
-type DKGSignKeyData struct {
-	Type       string               `json:"type"`
-	ID         string               `json:"id"`
-	Attributes DKGSignKeyAttributes `json:"attributes"`
-}
-
-// DKGSignKey is the model that represents the created DKG Sign key when read
-type DKGSignKey struct {
-	Data DKGSignKeyData `json:"data"`
-}
-
-// DKGSignKeys is the model that represents the created DKGSignData key when read
-type DKGSignKeys struct {
-	Data []DKGSignKey `json:"data"`
-}
-
-// DKGEncryptKeyAttributes is the model that represents the created DKG Encrypt key attributes when read
-type DKGEncryptKeyAttributes struct {
-	PublicKey string `json:"publicKey"`
-}
-
-// DKGEncryptKeyData is the model that represents the created DKG Encrypt key's data when read
-type DKGEncryptKeyData struct {
-	Type       string                  `json:"type"`
-	ID         string                  `json:"id"`
-	Attributes DKGEncryptKeyAttributes `json:"attributes"`
-}
-
-// DKGEncryptKey is the model that represents the created DKG Encrypt key when read
-type DKGEncryptKey struct {
-	Data DKGEncryptKeyData `json:"data"`
-}
-
-// DKGEncryptKeys is the model that represents the created DKGEncryptKeys key when read
-type DKGEncryptKeys struct {
-	Data []DKGEncryptKey `json:"data"`
-}
-
 // OCRKeys is the model that represents the created OCR keys when read
 type OCRKeys struct {
 	Data []OCRKeyData `json:"data"`

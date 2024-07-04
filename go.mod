@@ -72,13 +72,12 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chain-selectors v1.0.10
 	github.com/smartcontractkit/chainlink-automation v1.0.4
-	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240702121126-804cba432559
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240625144529-919cd16b8c75
+	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240702120320-563bf07487fe
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240703122557-05d588521a4a
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240703132808-e2b960f1b9dd
-	github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240703132526-6362ffb96401
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba
 	github.com/smartcontractkit/libocr v0.0.0-20240702141926-063ceef8c42e
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
@@ -283,7 +282,6 @@ require (
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
