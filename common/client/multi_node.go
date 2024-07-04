@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -23,11 +21,6 @@ var (
 		Name: "multi_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
-	// PromMultiNodeInvariantViolations reports violation of our assumptions
-	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multi_node_invariant_violations",
-		Help: "The number of invariant violations",
-	}, []string{"network", "chainId", "invariant"})
 	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
@@ -328,7 +321,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) runLoop() {
 
 	c.report(nodeStates)
 
-	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
+	monitor := services.NewTicker(c.reportInterval)
 	defer monitor.Stop()
 
 	for {
