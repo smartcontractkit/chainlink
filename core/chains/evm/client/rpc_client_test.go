@@ -1,6 +1,5 @@
 package client_test
 
-/* TODO: Implement tests for RPCClient using new interface
 import (
 	"context"
 	"encoding/json"
@@ -8,6 +7,7 @@ import (
 	"math/big"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,10 +16,8 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
@@ -42,6 +40,10 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	chainId := big.NewInt(123456)
 	lggr := logger.Test(t)
 
+	nodePoolCfg := client.TestNodePoolConfig{
+		NodeFinalizedBlockPollInterval: 1 * time.Second,
+	}
+
 	serverCallBack := func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
 		if method == "eth_unsubscribe" {
 			resp.Result = "true"
@@ -57,7 +59,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		// set to default values
@@ -69,8 +71,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		assert.Equal(t, int64(0), highestUserObservations.FinalizedBlockNumber)
 		assert.Nil(t, highestUserObservations.TotalDifficulty)
 
-		ch := make(chan *evmtypes.Head)
-		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
@@ -93,8 +94,8 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 
 		assertHighestUserObservations(highestUserObservations)
 
-		// DisconnectAll resets latest
-		rpc.DisconnectAll()
+		// UnsubscribeAllExcept resets latest
+		rpc.UnsubscribeAllExcept()
 
 		latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 		assert.Equal(t, int64(0), latest.BlockNumber)
@@ -107,11 +108,10 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
 
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
-		ch := make(chan *evmtypes.Head)
-		sub, err := rpc.SubscribeNewHead(commonclient.CtxAddHealthCheckFlag(tests.Context(t)), ch)
+		ch, sub, err := rpc.SubscribeToHeads(commonclient.CtxAddHealthCheckFlag(tests.Context(t)))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256, TotalDifficulty: big.NewInt(1000)}))
@@ -130,11 +130,10 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 	t.Run("Block's chain ID matched configured", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
-		ch := make(chan *evmtypes.Head)
-		sub, err := rpc.SubscribeNewHead(tests.Context(t), ch)
+		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 		go server.MustWriteBinaryMessageSync(t, makeNewHeadWSMessage(&evmtypes.Head{Number: 256}))
@@ -147,20 +146,20 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(nodePoolCfg, observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
-		_, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
+		_, _, err := rpc.SubscribeToHeads(ctx)
 		require.ErrorContains(t, err, "RPCClient returned error (rpc)")
 		tests.AssertLogEventually(t, observed, "evmclient.Client#EthSubscribe RPC call failure")
 	})
 	t.Run("Subscription error is properly wrapper", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, serverCallBack)
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(nodePoolCfg, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
-		sub, err := rpc.SubscribeNewHead(ctx, make(chan *evmtypes.Head))
+		_, sub, err := rpc.SubscribeToHeads(ctx)
 		require.NoError(t, err)
 		go server.MustWriteBinaryMessageSync(t, "invalid msg")
 		select {
@@ -185,7 +184,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 		})
 		wsURL := server.WSURL()
 		observedLggr, observed := logger.TestObserved(t, zap.DebugLevel)
-		rpc := client.NewRPCClient(observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(client.TestNodePoolConfig{}, observedLggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		require.NoError(t, rpc.Dial(ctx))
 		server.Close()
 		_, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -202,7 +201,7 @@ func TestRPCClient_SubscribeFilterLogs(t *testing.T) {
 			return resp
 		})
 		wsURL := server.WSURL()
-		rpc := client.NewRPCClient(lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
+		rpc := client.NewRPCClient(client.TestNodePoolConfig{}, lggr, *wsURL, nil, "rpc", 1, chainId, commonclient.Primary)
 		defer rpc.Close()
 		require.NoError(t, rpc.Dial(ctx))
 		sub, err := rpc.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, make(chan types.Log))
@@ -251,7 +250,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	}
 
 	server := createRPCServer()
-	rpc := client.NewRPCClient(lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
+	rpc := client.NewRPCClient(client.TestNodePoolConfig{}, lggr, *server.URL, nil, "rpc", 1, chainId, commonclient.Primary)
 	require.NoError(t, rpc.Dial(ctx))
 	defer rpc.Close()
 	server.Head = &evmtypes.Head{Number: 128}
@@ -291,7 +290,7 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(256), latest.FinalizedBlockNumber)
 
 	// DisconnectAll resets latest ChainInfo
-	rpc.DisconnectAll()
+	rpc.UnsubscribeAllExcept()
 	latest, highestUserObservations = rpc.GetInterceptedChainInfo()
 	assert.Equal(t, int64(0), highestUserObservations.BlockNumber)
 	assert.Equal(t, int64(128), highestUserObservations.FinalizedBlockNumber)
@@ -299,4 +298,3 @@ func TestRPCClient_LatestFinalizedBlock(t *testing.T) {
 	assert.Equal(t, int64(0), latest.BlockNumber)
 	assert.Equal(t, int64(0), latest.FinalizedBlockNumber)
 }
-*/

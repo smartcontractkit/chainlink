@@ -151,11 +151,15 @@ func NewRPCClient(
 }
 
 func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
+	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx)
+	defer cancel()
+
 	newChainIDSubForwarder := func(chainID *big.Int, ch chan<- *evmtypes.Head) *subForwarder[*evmtypes.Head] {
 		return newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
 			head.EVMChainID = ubig.New(chainID)
+			r.onNewHead(ctx, chStopInFlight, head)
 			return head
-		}, nil)
+		}, r.wrapRPCClientError)
 	}
 
 	ch := make(chan *evmtypes.Head)
@@ -213,6 +217,8 @@ func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 			sub.Unsubscribe()
 		}
 	}
+	// TODO: Reset latest?
+	r.latestChainInfo = commonclient.ChainInfo{}
 }
 
 // Not thread-safe, pure dial.
