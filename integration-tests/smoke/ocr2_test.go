@@ -197,7 +197,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, testEnv.MockAdapter, "ocr2", 5, uint64(sethClient.ChainID), false, testData.chainReaderAndCodec)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
-	if config.OCR2.UseExistingOffChainAggregatorsContracts() && !config.OCR2.ConfigureExistingOffChainAggregatorsContracts() {
+	if !config.OCR2.UseExistingOffChainAggregatorsContracts() || (config.OCR2.UseExistingOffChainAggregatorsContracts() && config.OCR2.ConfigureExistingOffChainAggregatorsContracts()) {
 		ocrV2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffChainOptions)
 		require.NoError(t, err, "Error building OCRv2 config")
 

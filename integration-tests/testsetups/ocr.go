@@ -350,10 +350,12 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			ocrOffchainOptions,
 		)
 		require.NoError(o.t, err, "Error deploying OCRv2 contracts")
-		contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
-		require.NoError(o.t, err, "Error building median config")
-		err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
-		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
+		if !ocrTestConfig.GetActiveOCRConfig().UseExistingOffChainAggregatorsContracts() || (ocrTestConfig.GetActiveOCRConfig().UseExistingOffChainAggregatorsContracts() && ocrTestConfig.GetActiveOCRConfig().ConfigureExistingOffChainAggregatorsContracts()) {
+			contractConfig, err := actions.BuildMedianOCR2Config(o.workerNodes, ocrOffchainOptions)
+			require.NoError(o.t, err, "Error building median config")
+			err = actions.ConfigureOCRv2AggregatorContracts(contractConfig, o.ocrV2Instances)
+			require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
+		}
 	}
 
 	if o.OCRVersion == "1" {
