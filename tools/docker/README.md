@@ -8,7 +8,7 @@ The docker-compose configuration present in this directory allows to quickly run
 
 # Using the compose script
 
-Inside the `chainlink/tools/docker` directory, there is a helper script that is included
+You should use the script `compose` located in the `chainlink/tools/docker` directory
 To see a list of available commands, perform the following:
 
 ```sh
@@ -18,11 +18,17 @@ cd tools/docker
 
 ## Env vars
 
-You can use the following env vars :
+### .env file
+.env file is used to set the environment variables for the docker-compose commands
+
+### Compose script env vars
+The following env vars are used for the compose script :
 - `GETH_MODE=true` to use geth instead of parity
 - `CHAIN_ID=<number>` to specify the chainID (default is 34055 for parity and 1337 for geth)
 - `HTTPURL=<url>` to specify the RPC node HTTP url (default is set if you use geth or parity)
 - `WSURL=<url>` to specify the RPC node WS url (default is set if you use geth or parity)
+
+If you specify both `HTTPURL` and `WSURL`, it won't run the devnet RPC node.
 
 for example :
 ```sh
@@ -31,7 +37,7 @@ CHAIN_ID=11155111 WSURL=wss://eth.sepolia HTTPURL=https://eth.sepolia ./compose 
 
 ## Dev
 
-Will run one node with a postgres database and optionally by default a devnet RPC node that can be either geth or parity.
+Will run one node with a postgres database and by default a devnet RPC node that can be either geth or parity.
 
 ```sh
 ./compose dev
@@ -43,7 +49,7 @@ Credentials for logging into the operator-ui can be found [here](../../tools/sec
 
 ## Up
 
-Runs all services including two nodes with two postgres databases and optionally by default a devnet RPC node that can be either geth or parity.
+Runs all services including two nodes with two postgres databases and by default a devnet RPC node that can be either geth or parity.
 
 ```sh
 ./compose up
