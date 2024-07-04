@@ -42,6 +42,7 @@ type ChainlinkNodeLogScannerSettings struct {
 type CLTestEnvBuilder struct {
 	hasLogStream                    bool
 	hasKillgrave                    bool
+	hasClNodes                      bool
 	clNodeConfig                    *chainlink.Config
 	secretsConfig                   string
 	clNodesCount                    int
@@ -84,6 +85,7 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		l:                               log.Logger,
 		hasLogStream:                    true,
+		hasClNodes:                      true,
 		isEVM:                           true,
 		chainlinkNodeLogScannerSettings: &DefaultChainlinkNodeLogScannerSettings,
 	}
@@ -143,6 +145,9 @@ func (b *CLTestEnvBuilder) WithChainlinkNodeLogScanner(settings ChainlinkNodeLog
 	return b
 }
 
+// remove and move to TOML?
+// get either cluster details or no of nodes to run from TOML?
+// Deprecated: Use TOML instead
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
 	return b
@@ -158,11 +163,13 @@ func (b *CLTestEnvBuilder) WithCLNodeOptions(opt ...ClNodeOption) *CLTestEnvBuil
 	return b
 }
 
+// can we get this from TOML as well?
 func (b *CLTestEnvBuilder) WithPrivateEthereumNetwork(en ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = append(b.privateEthereumNetworks, &en)
 	return b
 }
 
+// can we get this from TOML as well?
 func (b *CLTestEnvBuilder) WithPrivateEthereumNetworks(ens []*ctf_config.EthereumNetworkConfig) *CLTestEnvBuilder {
 	b.privateEthereumNetworks = ens
 	return b
@@ -232,6 +239,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 
 	b.te.TestConfig = b.testConfig
+
+	if b.hasClNodes && b.clNodesCount == 0 && len(b.testConfig.GetNodeConfig().Nodes) == 0 {
+		b.clNodesCount = *b.testConfig.GetNodeConfig().NumberOfNodes
+	}
 
 	var err error
 	if b.t != nil {

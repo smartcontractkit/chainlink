@@ -3,11 +3,14 @@ package client
 import (
 	"bytes"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/ptr"
 	"text/template"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -25,6 +28,16 @@ type ChainlinkConfig struct {
 	Password    string         `toml:",omitempty"`
 	InternalIP  string         `toml:",omitempty"`
 	HTTPTimeout *time.Duration `toml:"-"`
+}
+
+func ChainlinkConfigFromNodeTestConfig(nodeTestConfig config.NodeDetails) *ChainlinkConfig {
+	return &ChainlinkConfig{
+		URL:         *nodeTestConfig.URL,
+		Email:       *nodeTestConfig.Email,
+		Password:    *nodeTestConfig.Password,
+		InternalIP:  *nodeTestConfig.InternalIP,
+		HTTPTimeout: ptr.Ptr(1 * time.Minute),
+	}
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice

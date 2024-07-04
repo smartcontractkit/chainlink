@@ -63,7 +63,7 @@ func (c *ChainlinkK8sClient) Name() string {
 	return c.ChartName
 }
 
-func parseHostname(s string) string {
+func ParseHostname(s string) string {
 	r := regexp.MustCompile(`://(?P<Host>.*):`)
 	return r.FindStringSubmatch(s)[1]
 }
@@ -76,7 +76,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*ChainlinkK8sClient, e
 			URL:        nodeDetails.LocalIP,
 			Email:      "notreal@fakeemail.ch",
 			Password:   "fj293fbBnlQ!f9vNs",
-			InternalIP: parseHostname(nodeDetails.InternalIP),
+			InternalIP: ParseHostname(nodeDetails.InternalIP),
 		}, nodeDetails.PodName, nodeDetails.ChartName)
 		if err != nil {
 			return nil, err
@@ -102,7 +102,7 @@ func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*
 					URL:        details.LocalIP,
 					Email:      "notreal@fakeemail.ch",
 					Password:   "fj293fbBnlQ!f9vNs",
-					InternalIP: parseHostname(details.InternalIP),
+					InternalIP: ParseHostname(details.InternalIP),
 				}, details.PodName, details.ChartName)
 				if err != nil {
 					return err
@@ -138,9 +138,9 @@ func ConnectChainlinkNodeURL(url string) (*ChainlinkK8sClient, error) {
 		URL:        url,
 		Email:      "notreal@fakeemail.ch",
 		Password:   "fj293fbBnlQ!f9vNs",
-		InternalIP: parseHostname(url),
+		InternalIP: ParseHostname(url),
 	},
-		parseHostname(url),   // a decent guess
+		ParseHostname(url),   // a decent guess
 		"connectedNodeByURL", // an intentionally bad decision
 	)
 }
