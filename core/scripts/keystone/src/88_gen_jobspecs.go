@@ -39,7 +39,7 @@ func genSpecs(
 
 	bootstrapSpecLines, err := readLines(filepath.Join(templatesDir, bootstrapSpecTemplate))
 	helpers.PanicErr(err)
-	bootHost := nodes[0].url.Host
+	bootHost := nodes[0].url.Hostname()
 	bootstrapSpecLines = replacePlaceholders(
 		bootstrapSpecLines,
 		chainID, p2pPort,
