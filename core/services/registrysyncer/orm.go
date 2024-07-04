@@ -3,6 +3,7 @@ package registrysyncer
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -22,9 +23,13 @@ func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
 	}
 }
 
-func (orm syncerORM) addState(ctx context.Context, stateJSON string) error {
-	hash := sha256.Sum256([]byte(stateJSON))
-	_, err := orm.ds.ExecContext(
+func (orm syncerORM) addState(ctx context.Context, state State) error {
+	stateJSON, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	hash := sha256.Sum256(stateJSON)
+	_, err = orm.ds.ExecContext(
 		ctx,
 		`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
 		stateJSON, hash[:],

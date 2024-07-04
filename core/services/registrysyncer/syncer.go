@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -25,7 +26,6 @@ type State struct {
 	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo `json:"IDsToCapabilities"`
 }
 
-// UnmarshalJSON converts a bytes slice of JSON to a State.
 func (t *State) UnmarshalJSON(input []byte) error {
 	var st State
 	if err := json.Unmarshal(input, &st); err != nil {
@@ -33,6 +33,10 @@ func (t *State) UnmarshalJSON(input []byte) error {
 	}
 	*t = st
 	return nil
+}
+
+func (t *State) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t)
 }
 
 type Launcher interface {
@@ -48,6 +52,10 @@ type registrySyncer struct {
 	stopCh    services.StopChan
 	launchers []Launcher
 	reader    types.ContractReader
+	orm       *syncerORM
+
+	dbChan chan *State
+	dbMu   sync.RWMutex
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -62,6 +70,7 @@ var (
 
 // New instantiates a new RegistrySyncer
 func New(
+	ds sqlutil.DataSource,
 	lggr logger.Logger,
 	relayer contractReaderFactory,
 	registryAddress string,
@@ -72,11 +81,13 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	orm := newORM(ds, lggr)
 
 	return newSyncer(
 		stopCh,
 		lggr.Named("RegistrySyncer"),
 		reader,
+		&orm,
 	), nil
 }
 
@@ -128,11 +139,13 @@ func newSyncer(
 	stopCh services.StopChan,
 	lggr logger.Logger,
 	reader types.ContractReader,
+	orm *syncerORM,
 ) *registrySyncer {
 	return &registrySyncer{
 		stopCh: stopCh,
 		lggr:   lggr,
 		reader: reader,
+		orm:    orm,
 	}
 }
 
@@ -141,6 +154,11 @@ func (s *registrySyncer) Start(ctx context.Context) error {
 	go func() {
 		defer s.wg.Done()
 		s.syncLoop()
+	}()
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.updateStateLoop()
 	}()
 	return nil
 }
@@ -156,7 +174,7 @@ func (s *registrySyncer) syncLoop() {
 	// sync immediately once spinning up syncLoop, as by default a ticker will
 	// fire for the first time at T+N, where N is the interval.
 	s.lggr.Debug("starting initial sync with remote registry")
-	err := s.sync(ctx)
+	err := s.sync(ctx, true)
 	if err != nil {
 		s.lggr.Errorw("failed to sync with remote registry", "error", err)
 	}
@@ -167,10 +185,32 @@ func (s *registrySyncer) syncLoop() {
 			return
 		case <-ticker.C:
 			s.lggr.Debug("starting regular sync with the remote registry")
-			err := s.sync(ctx)
+			err := s.sync(ctx, false)
 			if err != nil {
 				s.lggr.Errorw("failed to sync with remote registry", "error", err)
 			}
+		}
+	}
+}
+
+func (s *registrySyncer) updateStateLoop() {
+	ctx, cancel := s.stopCh.NewCtx()
+	defer cancel()
+
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		case state, ok := <-s.dbChan:
+			if !ok {
+				// channel has been closed, terminating.
+				return
+			}
+			s.dbMu.Lock()
+			if err := s.orm.addState(ctx, *state); err != nil {
+				s.lggr.Errorw("failed to save state to local registry", "error", err)
+			}
+			s.dbMu.Unlock()
 		}
 	}
 }
@@ -212,7 +252,7 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	return State{IDsToDONs: idsToDONs, IDsToCapabilities: idsToCapabilities, IDsToNodes: idsToNodes}, nil
 }
 
-func (s *registrySyncer) sync(ctx context.Context) error {
+func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -221,13 +261,29 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		return nil
 	}
 
-	state, err := s.state(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to sync with remote registry: %w", err)
+	var state *State
+	var err error
+
+	if isInitialSync {
+		s.lggr.Debug("syncing with local registry")
+		state, err = s.orm.latestState(ctx)
+		if err != nil {
+			s.lggr.Errorw("failed to sync with local registry, using remote registry instead", "error", err)
+		}
+	}
+
+	if state == nil {
+		s.lggr.Debug("syncing with remote registry")
+		st, err := s.state(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to sync with remote registry: %w", err)
+		}
+		state = &st
+		s.dbChan <- state
 	}
 
 	for _, h := range s.launchers {
-		if err := h.Launch(ctx, state); err != nil {
+		if err := h.Launch(ctx, *state); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}
@@ -243,6 +299,7 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 
 func (s *registrySyncer) Close() error {
 	close(s.stopCh)
+	close(s.dbChan)
 	s.wg.Wait()
 	return nil
 }
