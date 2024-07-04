@@ -79,7 +79,6 @@ type TestConfig struct {
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
 	OCR2       *ocr_config.Config       `toml:"OCR2"`
-	OCR2VRF    *ocr_config.Config       `toml:"OCRR2VRF"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
@@ -209,11 +208,7 @@ func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
 		return c.OCR
 	}
 
-	if c.OCR2 != nil {
-		return c.OCR2
-	}
-
-	return c.OCR2VRF
+	return c.OCR2
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -251,7 +246,6 @@ const (
 	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
-	OCR2VRF       Product = "ocr2vrf"
 	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
@@ -562,12 +556,6 @@ func (c *TestConfig) Validate() error {
 	if c.OCR2 != nil {
 		if err := c.OCR2.Validate(); err != nil {
 			return errors.Wrapf(err, "OCR2 config validation failed")
-		}
-	}
-
-	if c.OCR2VRF != nil {
-		if err := c.OCR2VRF.Validate(); err != nil {
-			return errors.Wrapf(err, "OCR2VRF config validation failed")
 		}
 	}
 

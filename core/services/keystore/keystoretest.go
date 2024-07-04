@@ -75,7 +75,5 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr lo
 		starknet:   newStarkNetKeyStore(km),
 		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
-		dkgSign:    newDKGSignKeyStore(km),
-		dkgEncrypt: newDKGEncryptKeyStore(km),
 	}
 }
