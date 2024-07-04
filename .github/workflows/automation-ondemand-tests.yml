@@ -8,8 +8,10 @@ on:
         type: string
       chainlinkImage:
         description: Chainlink image repo to use (Leave empty to build from head/ref)
-        required: false
-        type: string
+        options:
+          - public.ecr.aws/chainlink/chainlink
+          - QA_ECR
+        type: choice
       chainlinkVersionUpdate:
         description: Chainlink image version to use initially for upgrade test
         default: latest
@@ -18,8 +20,10 @@ on:
       chainlinkImageUpdate:
         description: Chainlink image repo to use initially for upgrade test
         required: true
-        default: public.ecr.aws/chainlink/chainlink
-        type: string
+        options:
+          - public.ecr.aws/chainlink/chainlink
+          - QA_ECR
+        type: choice
       enableChaos:
         description: Check to enable chaos tests
         type: boolean
@@ -198,23 +202,24 @@ jobs:
         id: determine-build
         shell: bash
         run: |
-          if [[ "${{ inputs.chainlinkImage }}" == "" ]]; then
+          if [[ "${{ inputs.chainlinkImage }}" == "QA_ECR" ]]; then
             echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
             echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
             echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-          else
-            READ_CL_IMAGE=$(jq -r '.inputs.chainlinkImage' $GITHUB_EVENT_PATH)
-            echo ::add-mask::$READ_CL_IMAGE
+          elif [[ "${{ inputs.chainlinkImage }}" == "public.ecr.aws/chainlink/chainlink" ]]; then
+            READ_CL_IMAGE="public.ecr.aws/chainlink/chainlink"
             echo "image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_image=$READ_CL_IMAGE" >>$GITHUB_OUTPUT
           fi
           if [[ "${{ matrix.tests.type }}" == "upgrade" ]]; then
-            READ_CL_UPGR_IMAGE=$(jq -r '.inputs.chainlinkImageUpdate' $GITHUB_EVENT_PATH)
-            echo ::add-mask::$READ_CL_UPGR_IMAGE
-            echo "image=$READ_CL_UPGR_IMAGE" >>$GITHUB_OUTPUT
+            if [[ "${{ inputs.chainlinkImageUpdate }}" == "QA_ECR" ]]; then
+              echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
+            elif [[ "${{ inputs.chainlinkImageUpdate }}" == "public.ecr.aws/chainlink/chainlink" ]]; then
+              echo "image=public.ecr.aws/chainlink/chainlink" >>$GITHUB_OUTPUT
+            fi
             echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Setup GAP for Grafana
@@ -233,19 +238,11 @@ jobs:
           OLD_VERSION: ${{ steps.determine-build.outputs.version }}          
           UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
           UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
-          PYROSCOPE_SERVER: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           RUN_ID: ${{ github.run_id }}
           TEST_LOG_COLLECT: "true"
-          LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          LOKI_BASIC_AUTH:  ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          GRAFANA_URL: "http://localhost:8080/primary"
-          GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
-          $GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
         run: |
+          # TODO: This can be removed as these are non secrets. We validate these values
           echo ::add-mask::$UPGRADE_IMAGE
           echo ::add-mask::$OLD_IMAGE
 
@@ -254,12 +251,6 @@ jobs:
           
           selected_networks=$(convert_to_toml_array "$SELECTED_NETWORKS")          
 
-          if [ -n "$PYROSCOPE_SERVER" ]; then
-            pyroscope_enabled=true
-          else
-            pyroscope_enabled=false
-          fi          
-
           if [ -n "$TEST_LOG_COLLECT" ]; then
           test_log_collect=true
           else
@@ -267,11 +258,6 @@ jobs:
           fi
 
           log_targets=$(convert_to_toml_array "$LOGSTREAM_LOG_TARGETS")
-
-          grafana_bearer_token=""
-          if [ -n "$GRAFANA_BEARER_TOKEN" ]; then
-            grafana_bearer_token="bearer_token_secret=\"$GRAFANA_BEARER_TOKEN\""
-          fi
 
           cat << EOF > config.toml
           [Network]
@@ -292,28 +278,11 @@ jobs:
           [Logging.LogStream]
           log_targets=$log_targets
 
-          [Logging.Loki]
-          tenant_id="$LOKI_TENANT_ID"
-          endpoint="$LOKI_ENDPOINT"
-          basic_auth_secret="$LOKI_BASIC_AUTH"
-
-          [Logging.Grafana]
-          base_url="$GRAFANA_URL"
-          dashboard_url="$GRAFANA_DASHBOARD_URL"
-          $grafana_bearer_token
-
-          [Pyroscope]
-          enabled=$pyroscope_enabled
-          server_url="$PYROSCOPE_SERVER"
-          environment="$PYROSCOPE_ENVIRONMENT"
-          key_secret="$PYROSCOPE_KEY"          
-          EOF
-          
           BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6ca82bba30506e39cb8b0f69cd87979d4c8a831f # v2.3.21
         if: ${{ matrix.tests.enabled == true }}
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
@@ -330,6 +299,17 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          DEFAULT_TEST_CONFIG_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_TEST_CONFIG_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_TEST_CONFIG_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_TEST_CONFIG_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_TEST_CONFIG_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_TEST_CONFIG_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_TEST_CONFIG_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          DEFAULT_TEST_CONFIG_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_TEST_CONFIG_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          DEFAULT_TEST_CONFIG_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env == '' && 'false' || !startsWith(github.ref, 'refs/tags/') && 'false' || 'true' }}
+          
       - name: Upload test log
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
         if: failure()
