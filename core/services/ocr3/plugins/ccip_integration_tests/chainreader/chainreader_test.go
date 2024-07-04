@@ -78,6 +78,9 @@ func TestChainReader(t *testing.T) {
 	cfg := evmtypes.ChainReaderConfig{
 		Contracts: map[string]evmtypes.ChainContractReader{
 			ContractNameAlias: {
+				ContractPollingFilter: evmtypes.ContractPollingFilter{
+					GenericEventNames: []string{EventNameAlias},
+				},
 				ContractABI: ChainreaderMetaData.ABI,
 				Configs: map[string]*evmtypes.ChainReaderDefinition{
 					EventNameAlias: {
