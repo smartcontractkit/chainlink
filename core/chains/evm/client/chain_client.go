@@ -20,7 +20,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-const queryTimeout = 10 * time.Second
+const queryTimeout = 50 * time.Second
 const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 var _ Client = (*chainClient)(nil)
