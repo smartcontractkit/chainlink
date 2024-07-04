@@ -138,7 +138,7 @@ jobs:
     env:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: info
+      TEST_LOG_LEVEL: debug
     strategy:
       fail-fast: false
       matrix:
