@@ -21,7 +21,7 @@ type LogBuffer interface {
 	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
 	// Dequeue pulls logs from the buffer that are within the given block window,
-	// with a maximum number of logs per upkeep and a total maximum number of logs to return.
+	// with a maximum number of logs to return.
 	// It also accepts a boolean to identify if we are operating under minimum dequeue.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
@@ -512,7 +512,8 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 
 	for _, blockNumber := range oldBlockNumbers {
 		delete(q.logs, blockNumber)
-		delete(q.dequeued, blockNumber)
+		startWindow, _ := getBlockWindow(blockNumber, int(q.opts.blockRate.Load()))
+		delete(q.dequeued, startWindow)
 	}
 	q.blockNumbers = blockNumbers
 
