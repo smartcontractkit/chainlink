@@ -287,7 +287,7 @@ func (o *Config) ConfigureExistingOffChainAggregatorsContracts() bool {
 }
 
 func (o *Config) GetNumberOfContractsToDeploy() int {
-	if o.Soak != nil && o.Common.NumberOfContracts != nil {
+	if o.Common != nil && o.Common.NumberOfContracts != nil {
 		return *o.Common.NumberOfContracts
 	}
 	return 0
