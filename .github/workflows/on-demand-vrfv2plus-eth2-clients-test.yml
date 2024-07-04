@@ -6,6 +6,10 @@ on:
         description: base64-ed config
         required: true
         type: string       
+      test_secrets_override_key:
+        description: 'Key for custom secrets to use in tests'
+        required: false
+        type: string
 
 jobs:
   vrfv2plus_smoke_test:
@@ -30,10 +34,6 @@ jobs:
           BASE64_CONFIG_OVERRIDE=$(jq -r '.inputs.base64Config' $GITHUB_EVENT_PATH)
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-      - name: Parse base64 config
-        uses: ./.github/actions/setup-parse-base64-config
-        with:
-          base64Config: ${{ env.BASE64_CONFIG_OVERRIDE }}
       - name: Send details to Step Summary
         shell: bash
         run: |
@@ -46,10 +46,13 @@ jobs:
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a0e61f5046fc157bc9a41f25f2e73fa726ec2474 # v2.3.21
         with:
-          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/Native_Billing ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          # test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
+          test_secrets_override_base64: ${{ secrets[inputs.test_secrets_override_key] }}
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.CHAINLINK_VERSION }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -61,3 +64,10 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}          
           QA_KUBECONFIG: ""
+          DEFAULT_TEST_CONFIG_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_TEST_CONFIG_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_TEST_CONFIG_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_TEST_CONFIG_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_TEST_CONFIG_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_TEST_CONFIG_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_TEST_CONFIG_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
