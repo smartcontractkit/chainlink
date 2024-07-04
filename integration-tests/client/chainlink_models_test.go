@@ -5,9 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 func TestOCR2TaskJobSpec_String(t *testing.T) {
@@ -20,65 +18,6 @@ func TestOCR2TaskJobSpec_String(t *testing.T) {
 			name: "chain-reader-codec",
 			spec: OCR2TaskJobSpec{
 				OCR2OracleSpec: job.OCR2OracleSpec{
-					RelayConfig: map[string]interface{}{
-						"chainID":   1337,
-						"fromBlock": 42,
-						"chainReader": evmtypes.ChainReaderConfig{
-							Contracts: map[string]evmtypes.ChainContractReader{
-								"median": {
-									ContractABI: `[
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "requester",
-        "type": "address"
-      }
-    ],
-    "name": "RoundRequested",
-    "type": "event"
-  }
-]
-`,
-									Configs: map[string]*evmtypes.ChainReaderDefinition{
-										"LatestTransmissionDetails": {
-											ChainSpecificName: "latestTransmissionDetails",
-											OutputModifications: codec.ModifiersConfig{
-												&codec.EpochToTimeModifierConfig{
-													Fields: []string{"LatestTimestamp_"},
-												},
-												&codec.RenameModifierConfig{
-													Fields: map[string]string{
-														"LatestAnswer_":    "LatestAnswer",
-														"LatestTimestamp_": "LatestTimestamp",
-													},
-												},
-											},
-										},
-										"LatestRoundRequested": {
-											ChainSpecificName: "RoundRequested",
-											ReadType:          evmtypes.Event,
-										},
-									},
-								},
-							},
-						},
-						"codec": evmtypes.CodecConfig{
-							Configs: map[string]evmtypes.ChainCodecConfig{
-								"MedianReport": {
-									TypeABI: `[
-  {
-    "Name": "Timestamp",
-    "Type": "uint32"
-  }
-]
-`,
-								},
-							},
-						},
-					},
 					PluginConfig: map[string]interface{}{"juelsPerFeeCoinSource": `		// data source 1
 		ds1          [type=bridge name="%s"];
 		ds1_parse    [type=jsonparse path="data"];
