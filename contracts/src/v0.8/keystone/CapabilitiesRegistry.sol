@@ -1010,10 +1010,7 @@ contract CapabilitiesRegistry is OwnerIsCreator, TypeAndVersionInterface {
       /// beforeCapabilityConfigSet
       if (
         capability.configurationContract.code.length == 0 ||
-        !IERC165(capability.configurationContract).supportsInterface(
-          ICapabilityConfiguration.getCapabilityConfiguration.selector ^
-            ICapabilityConfiguration.beforeCapabilityConfigSet.selector
-        )
+        !IERC165(capability.configurationContract).supportsInterface(type(ICapabilityConfiguration).interfaceId)
       ) revert InvalidCapabilityConfigurationContractInterface(capability.configurationContract);
     }
     s_capabilities[hashedCapabilityId] = capability;

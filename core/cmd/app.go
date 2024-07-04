@@ -194,8 +194,7 @@ func NewApp(s *Shell) *cli.App {
 				keysCommand("Cosmos", NewCosmosKeysClient(s)),
 				keysCommand("Solana", NewSolanaKeysClient(s)),
 				keysCommand("StarkNet", NewStarkNetKeysClient(s)),
-				keysCommand("DKGSign", NewDKGSignKeysClient(s)),
-				keysCommand("DKGEncrypt", NewDKGEncryptKeysClient(s)),
+				keysCommand("Aptos", NewAptosKeysClient(s)),
 
 				initVRFKeysSubCmd(s),
 			},

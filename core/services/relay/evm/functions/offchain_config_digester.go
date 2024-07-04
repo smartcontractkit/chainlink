@@ -17,7 +17,7 @@ import (
 var (
 	_                     types.OffchainConfigDigester        = &functionsOffchainConfigDigester{}
 	_                     evmRelayTypes.RouteUpdateSubscriber = &functionsOffchainConfigDigester{}
-	FunctionsDigestPrefix                                     = types.ConfigDigestPrefixEVM
+	FunctionsDigestPrefix                                     = types.ConfigDigestPrefixEVMSimple
 	// In order to support multiple OCR plugins with a single jobspec & OCR2Base contract, each plugin must have a unique config digest.
 	// This is accomplished by overriding the single config digest from the contract with a unique prefix for each plugin via this custom offchain digester & config poller.
 	ThresholdDigestPrefix = types.ConfigDigestPrefix(7)

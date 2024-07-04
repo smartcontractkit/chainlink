@@ -134,12 +134,12 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 			}
 			localDON := capabilities.Node{
 				WorkflowDON: capabilities.DON{
-					ID:      "1",
+					ID:      1,
 					Members: ids,
 				},
 				PeerID: &ids[tc.position],
 			}
-			localTargetCapability := NewLocalTargetCapability(log, localDON, mt)
+			localTargetCapability := NewLocalTargetCapability(log, "capabilityID", localDON, mt)
 
 			_, err = localTargetCapability.Execute(tests.Context(t), req)
 

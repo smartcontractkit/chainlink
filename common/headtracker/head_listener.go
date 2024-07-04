@@ -36,7 +36,7 @@ type headHandler[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] func(ctx c
 type HeadListener[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	// ListenForNewHeads kicks off the listen loop (not thread safe)
 	// done() must be executed upon leaving ListenForNewHeads()
-	ListenForNewHeads(handleNewHead headHandler[H, BLOCK_HASH], done func())
+	ListenForNewHeads(onSubscribe func(), handleNewHead headHandler[H, BLOCK_HASH], done func())
 
 	// ReceivingHeads returns true if the listener is receiving heads (thread safe)
 	ReceivingHeads() bool
@@ -88,7 +88,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Name() string {
 	return hl.logger.Name()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(handleNewHead headHandler[HTH, BLOCK_HASH], done func()) {
+func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(onSubscription func(), handleNewHead headHandler[HTH, BLOCK_HASH], done func()) {
 	defer done()
 	defer hl.unsubscribe()
 
@@ -99,6 +99,8 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(handleNewHead 
 		if !hl.subscribe(ctx) {
 			break
 		}
+
+		onSubscription()
 		err := hl.receiveHeaders(ctx, handleNewHead)
 		if ctx.Err() != nil {
 			break

@@ -352,7 +352,7 @@ type ocr2Config interface {
 	SimulateTransactions() bool
 }
 
-var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
@@ -490,6 +490,7 @@ type DirectRequestSpec struct {
 type CronSpec struct {
 	ID           int32     `toml:"-"`
 	CronSchedule string    `toml:"schedule"`
+	EVMChainID   *big.Big  `toml:"evmChainID"`
 	CreatedAt    time.Time `toml:"-"`
 	UpdatedAt    time.Time `toml:"-"`
 }
