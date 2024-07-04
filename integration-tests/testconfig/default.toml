@@ -82,6 +82,18 @@ DeltaReconcile = '5s'
 CommonChainConfigTOML = """
 """
 
+[NodeConfig.ChainConfigTOMLByChainID]
+# applicable for simulated chain
+1337 = """
+AutoCreateKey = true
+FinalityDepth = 1
+MinContractPayment = 0
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
 [Seth]
 # controls which transactions are decoded/traced. Possbile values are: none, all, reverted (default).
 # if transaction level doesn't match, then calling Decode() does nothing. It's advised to keep it set
