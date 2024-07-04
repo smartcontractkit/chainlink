@@ -20,9 +20,19 @@ type HashedCapabilityID [32]byte
 type DonID uint32
 
 type State struct {
-	IDsToDONs         map[DonID]kcr.CapabilitiesRegistryDONInfo
-	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo
-	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo
+	IDsToDONs         map[DonID]kcr.CapabilitiesRegistryDONInfo                     `json:"IDsToDONs"`
+	IDsToNodes        map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo          `json:"IDsToNodes"`
+	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo `json:"IDsToCapabilities"`
+}
+
+// UnmarshalJSON converts a bytes slice of JSON to a State.
+func (t *State) UnmarshalJSON(input []byte) error {
+	var st State
+	if err := json.Unmarshal(input, &st); err != nil {
+		return err
+	}
+	*t = st
+	return nil
 }
 
 type Launcher interface {

@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE registry_syncer_state (
+CREATE TABLE registry_syncer_states (
     id SERIAL PRIMARY KEY,
     data JSONB NOT NULL,
     data_hash TEXT NOT NULL UNIQUE,
@@ -7,5 +7,5 @@ CREATE TABLE registry_syncer_state (
 );
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE registry_syncer_state;
+DROP TABLE registry_syncer_states;
 -- +goose StatementEnd
