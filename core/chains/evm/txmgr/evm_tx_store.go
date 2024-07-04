@@ -34,8 +34,8 @@ import (
 
 var (
 	ErrKeyNotUpdated = errors.New("evmTxStore: Key not updated")
-	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
-	// This most likely happened because an external wallet used the account for this nonce
+	// ErrCouldNotGetReceipt is the error string we save if we reach our LatestFinalizedBlockNum for a confirmed transaction
+	// without ever getting a receipt. This most likely happened because an external wallet used the account for this nonce
 	ErrCouldNotGetReceipt = "could not get receipt"
 )
 
@@ -960,11 +960,11 @@ func (o *evmTxStore) SaveFetchedReceipts(ctx context.Context, r []*evmtypes.Rece
 // NOTE: We continue to attempt to resend evm.txes in this state on
 // every head to guard against the extremely rare scenario of nonce gap due to
 // reorg that excludes the transaction (from another wallet) that had this
-// nonce (until finality depth is reached, after which we make the explicit
+// nonce (until LatestFinalizedBlockNum is reached, after which we make the explicit
 // decision to give up). This is done in the EthResender.
 //
 // We will continue to try to fetch a receipt for these attempts until all
-// attempts are below the finality depth from current head.
+// attempts are below the LatestFinalizedBlockNum from current head.
 func (o *evmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) (err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)

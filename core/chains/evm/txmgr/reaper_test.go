@@ -104,7 +104,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 		err = r.ReapTxes(42)
 		assert.NoError(t, err)
-		// Now it deleted because the eth_tx was past EVM.FinalityDepth
+		// Now it deleted because the eth_tx was marked as finalized
 		cltest.AssertCount(t, db, "evm.txes", 0)
 	})
 
