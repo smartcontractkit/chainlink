@@ -101,6 +101,7 @@ type RPCClient interface {
 	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
 	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
 	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
 }
 
 type rawclient struct {
@@ -445,6 +446,7 @@ func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Ha
 
 	return
 }
+
 func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
 	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	defer cancel()
@@ -883,6 +885,29 @@ func (r *rpcClient) BalanceAt(ctx context.Context, account common.Address, block
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "BalanceAt",
 		"balance", balance,
+	)
+
+	return
+}
+
+func (r *rpcClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	ctx, cancel, ws, http := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	defer cancel()
+	lggr := r.newRqLggr().With("blockCount", blockCount, "rewardPercentiles", rewardPercentiles)
+
+	lggr.Debug("RPC call: evmclient.Client#FeeHistory")
+	start := time.Now()
+	if http != nil {
+		feeHistory, err = http.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		err = r.wrapHTTP(err)
+	} else {
+		feeHistory, err = ws.geth.FeeHistory(ctx, blockCount, nil, rewardPercentiles)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "FeeHistory",
+		"feeHistory", feeHistory,
 	)
 
 	return
