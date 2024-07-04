@@ -80,14 +80,6 @@ DeltaReconcile = '5s'
 
 # override config toml related to EVMNode configs for chainlink nodes; applicable to all EVM node configs in chainlink toml
 CommonChainConfigTOML = """
-AutoCreateKey = true
-FinalityDepth = 1
-MinContractPayment = 0
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
 """
 
 [Seth]
