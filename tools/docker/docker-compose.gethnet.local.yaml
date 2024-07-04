@@ -2,13 +2,9 @@ version: '3.8'
 
 services:
   node:
-    environment:
-      - ETH_CHAIN_ID=1337
     depends_on:
       - devnet
   node-2:
-    environment:
-      - ETH_CHAIN_ID=1337
     depends_on:
       - devnet
   devnet:

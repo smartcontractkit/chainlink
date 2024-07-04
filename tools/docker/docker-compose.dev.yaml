@@ -4,4 +4,13 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: ../../core
+          path: ../../
+          ignore:
+            - '.changeset/'
+            - '.github/'
+            - 'charts/'
+            - 'core/sgx/target/'
+            - 'docs/'
+            - 'fuzz/'
+            - 'integration-tests/'
+            - 'tools/'

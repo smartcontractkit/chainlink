@@ -13,7 +13,7 @@ services:
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     env_file:
-      - chainlink-variables.env
+      - .env
     ports:
       - 6688:6688
     secrets:
@@ -31,7 +31,7 @@ services:
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     env_file:
-      - chainlink-variables.env
+      - .env
     ports:
       - 6699:6688
     secrets:
