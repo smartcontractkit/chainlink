@@ -122,15 +122,9 @@ runs:
         selected_networks=$selected_networks
 
         [ChainlinkImage]
-        image="$CHAINLINK_IMAGE"
+        image=""
         version="$CHAINLINK_VERSION"
         postgres_version="$CHAINLINK_POSTGRES_VERSION"
-
-        [Pyroscope]
-        enabled=$pyroscope_enabled
-        server_url="$PYROSCOPE_SERVER"
-        environment="$PYROSCOPE_ENVIRONMENT"
-        key_secret="$PYROSCOPE_KEY"
 
         [Logging]
         test_log_collect=$test_log_collect
@@ -138,16 +132,6 @@ runs:
 
         [Logging.LogStream]
         log_targets=$log_targets
-
-        [Logging.Loki]
-        tenant_id="$LOKI_TENANT_ID"
-        endpoint="$LOKI_ENDPOINT"
-        basic_auth_secret="$LOKI_BASIC_AUTH"
-
-        [Logging.Grafana]
-        base_url="$GRAFANA_URL"
-        dashboard_url="$GRAFANA_DASHBOARD_URL"
-        $grafana_bearer_token
 
         [PrivateEthereumNetwork]
         execution_layer="$execution_layer"
