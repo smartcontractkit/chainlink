@@ -54,8 +54,8 @@ type registrySyncer struct {
 	reader    types.ContractReader
 	orm       *syncerORM
 
-	dbChan chan *State
-	dbMu   sync.RWMutex
+	updateChan chan *State
+	dbMu       sync.RWMutex
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -142,10 +142,11 @@ func newSyncer(
 	orm *syncerORM,
 ) *registrySyncer {
 	return &registrySyncer{
-		stopCh: stopCh,
-		lggr:   lggr,
-		reader: reader,
-		orm:    orm,
+		stopCh:     stopCh,
+		lggr:       lggr,
+		reader:     reader,
+		orm:        orm,
+		updateChan: make(chan *State),
 	}
 }
 
@@ -201,7 +202,7 @@ func (s *registrySyncer) updateStateLoop() {
 		select {
 		case <-s.stopCh:
 			return
-		case state, ok := <-s.dbChan:
+		case state, ok := <-s.updateChan:
 			if !ok {
 				// channel has been closed, terminating.
 				return
@@ -279,7 +280,7 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
 		state = &st
-		s.dbChan <- state
+		s.updateChan <- state
 	}
 
 	for _, h := range s.launchers {
@@ -299,7 +300,7 @@ func (s *registrySyncer) AddLauncher(launchers ...Launcher) {
 
 func (s *registrySyncer) Close() error {
 	close(s.stopCh)
-	close(s.dbChan)
+	close(s.updateChan)
 	s.wg.Wait()
 	return nil
 }
