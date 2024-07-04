@@ -68,7 +68,7 @@ type testNodeOpts struct {
 	id          int32
 	chainID     types.ID
 	nodeOrder   int32
-	rpc         *MockRPCClient[types.ID, Head]
+	rpc         *mockRPCClient[types.ID, Head]
 	chainFamily string
 }
 
