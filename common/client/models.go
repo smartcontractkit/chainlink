@@ -22,14 +22,6 @@ const (
 	sendTxReturnCodeLen                      // tracks the number of errors. Must always be last
 )
 
-// sendTxSevereErrors - error codes which signal that transaction would never be accepted in its current form by the node
-// TODO: Implement Transaction Sending
-//var sendTxSevereErrors = []SendTxReturnCode{Fatal, Underpriced, Unsupported, ExceedsMaxFee, FeeOutOfValidRange, Unknown}
-
-// sendTxSuccessfulCodes - error codes which signal that transaction was accepted by the node
-// TODO: Implement Transaction Sending
-//var sendTxSuccessfulCodes = []SendTxReturnCode{Successful, TransactionAlreadyKnown}
-
 func (c SendTxReturnCode) String() string {
 	switch c {
 	case Successful:

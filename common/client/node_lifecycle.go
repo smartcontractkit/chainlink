@@ -440,8 +440,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		}
 	}
 
-	fmt.Println("invalidChainIDLoop")
-
 	invalidAt := time.Now()
 
 	lggr := logger.Named(n.lfcLog, "InvalidChainID")
