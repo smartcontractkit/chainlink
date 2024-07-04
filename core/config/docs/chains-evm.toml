@@ -437,7 +437,7 @@ GasLimit = 5400000 # Default
 # BlockRate is the number of blocks that make up a block window.
 BlockRate = 1 # Default
 # LogLimit is the number of logs per upkeep per block window we guarantee will be processed.
-LogLimit = 2 # Default
+LogLimit = 1 # Default
 
 [EVM.Workflow]
 # FromAddress is Address of the transmitter key to use for workflow writes.
