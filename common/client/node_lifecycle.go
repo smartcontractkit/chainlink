@@ -145,7 +145,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		}
 		defer finalizedHeadSub.Unsubscribe()
 	}
+
+	n.stateMu.Lock()
 	n.finalizedBlockSub = finalizedHeadSub
+	n.stateMu.Unlock()
 
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32

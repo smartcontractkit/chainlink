@@ -101,9 +101,6 @@ type RpcClient struct {
 	// close the underlying subscription
 	subs []ethereum.Subscription
 
-	// Need to track the aliveLoop subscription, so we do not cancel it when checking lease on the MultiNode
-	aliveLoopSub ethereum.Subscription
-
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this RpcClient. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as RpcClient Close.
