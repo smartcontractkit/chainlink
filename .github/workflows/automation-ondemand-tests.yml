@@ -283,7 +283,7 @@ jobs:
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV               
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a0e61f5046fc157bc9a41f25f2e73fa726ec2474 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cfda96316d2b0446815caba162b7bcbdf61765e7 # v2.3.21
         if: ${{ matrix.tests.enabled == true }}
         env:
           TEST_SUITE: ${{ matrix.tests.suite }}
