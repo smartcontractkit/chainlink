@@ -69,7 +69,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
-	go hl.ListenForNewHeads(handler, done)
+	go hl.ListenForNewHeads(func() {}, handler, done)
 
 	subscribeAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 	require.Eventually(t, hl.Connected, tests.WaitTimeout(t), tests.TestInterval)
@@ -127,7 +127,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	done := func() {
 		doneAwaiter.ItHappened()
 	}
-	go hl.ListenForNewHeads(handler, done)
+	go hl.ListenForNewHeads(func() {}, handler, done)
 
 	subscribeAwaiter.AwaitOrFail(t, tests.WaitTimeout(t))
 
@@ -187,7 +187,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 				subscribeAwaiter.ItHappened()
 			})
 			go func() {
-				hl.ListenForNewHeads(hnh, done)
+				hl.ListenForNewHeads(func() {}, hnh, done)
 			}()
 
 			// Put a head on the channel to ensure we test all code paths

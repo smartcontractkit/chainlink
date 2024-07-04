@@ -22,8 +22,8 @@ func (s highestHeadNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 	var highestHeadNumber int64 = math.MinInt64
 	var highestHeadNodes []Node[CHAIN_ID, RPC]
 	for _, n := range s {
-		state, chainInfo := n.StateAndLatest()
-		currentHeadNumber := chainInfo.BlockNumber
+		state, currentChainInfo := n.StateAndLatest()
+		currentHeadNumber := currentChainInfo.BlockNumber
 		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
 			if highestHeadNumber < currentHeadNumber {
 				highestHeadNumber = currentHeadNumber

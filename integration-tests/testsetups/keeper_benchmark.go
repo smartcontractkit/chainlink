@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -195,7 +194,7 @@ func (k *KeeperBenchmarkTest) Setup(env *environment.Environment, config tt.Keep
 		if inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_0 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_1 || inputs.RegistryVersions[index] == ethereum.RegistryVersion_2_2 {
 			nodesToFund = k.chainlinkNodes[1:]
 		}
-		err = actions_seth.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
+		err = actions.FundChainlinkNodesAtKeyIndexFromRootAddress(k.log, k.chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(nodesToFund), k.Inputs.ChainlinkNodeFunding, index)
 		require.NoError(k.t, err, "Funding Chainlink nodes shouldn't fail")
 	}
 
@@ -730,7 +729,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 		registrar, err = contracts.DeployKeeperRegistrar(k.chainClient, registryVersion, k.linkToken.Address(), registrarSettings)
 		require.NoError(k.t, err, "Funding keeper registrar contract shouldn't fail")
 	} else { // OCR automation - v2.X
-		registry, registrar = actions_seth.DeployAutoOCRRegistryAndRegistrar(
+		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
 			k.t, k.chainClient, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken,
 		)
 
@@ -799,10 +798,10 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(index int) {
 
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
 
-	err = actions_seth.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
+	err = actions.DeployMultiCallAndFundDeploymentAddresses(k.chainClient, k.linkToken, upkeep.NumberOfUpkeeps, linkFunds)
 	require.NoError(k.t, err, "Sending link funds to deployment addresses shouldn't fail")
 
-	upkeepIds := actions_seth.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false)
+	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(k.t, k.chainClient, k.linkToken, linkFunds, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false, false, false, nil)
 
 	k.keeperRegistries[index] = registry
 	k.keeperRegistrars[index] = registrar

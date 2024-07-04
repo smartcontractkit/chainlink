@@ -339,3 +339,10 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (Transm
 
 	return t, nil
 }
+
+// Provides error classification to external components in a chain agnostic way
+// Only exposes the error types that could be set in the transaction error field
+type ErrorClassifier interface {
+	error
+	IsFatal() bool
+}

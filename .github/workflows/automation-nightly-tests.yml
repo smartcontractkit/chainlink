@@ -88,7 +88,7 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref_name }}
       - name: Setup GAP for Grafana
-        uses: smartcontractkit/.github/actions/setup-gap@6c9d62fdad050cfb8b59376ded291f1350705944 # setup-gap@0.2.2
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
         with:
           # aws inputs
           aws-region: ${{ secrets.AWS_REGION }}

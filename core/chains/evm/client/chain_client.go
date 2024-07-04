@@ -57,6 +57,9 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)
+	// LatestFinalizedBlock - returns the latest finalized block as it's returned from an RPC.
+	// CAUTION: Using this method might cause local finality violations. It's highly recommended
+	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
@@ -116,6 +119,7 @@ func NewChainClient(
 	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
+	deathDeclarationDelay time.Duration,
 ) Client {
 	multiNode := commonclient.NewMultiNode(
 		lggr,
@@ -125,7 +129,9 @@ func NewChainClient(
 		sendonlys,
 		chainID,
 		"EVM",
+		deathDeclarationDelay,
 	)
+
 	return &chainClient{
 		multiNode:    multiNode,
 		logger:       logger.Sugared(lggr),
@@ -377,13 +383,8 @@ func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	if err != nil {
 		return nil, nil, err
 	}
-	chainID := c.ConfiguredChainID()
-	forwardCh, csf := newChainIDSubForwarder(chainID, ch)
-	err = csf.start(sub, err)
-	if err != nil {
-		return nil, nil, err
-	}
-	return forwardCh, csf, nil
+
+	return ch, sub, nil
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {

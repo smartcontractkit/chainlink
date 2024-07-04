@@ -18,7 +18,7 @@ const (
 	InsufficientFunds                        // Tx was rejected due to insufficient funds.
 	ExceedsMaxFee                            // Attempt's fee was higher than the node's limit and got rejected.
 	FeeOutOfValidRange                       // This error is returned when we use a fee price suggested from an RPC, but the network rejects the attempt due to an invalid range(mostly used by L2 chains). Retry by requesting a new suggested fee price.
-	OutOfCounters                            // The error returned when a transaction is too complex to be proven by zk circuits. This error is mainly returned by zk chains.
+	TerminallyStuck                          // The error returned when a transaction is or could get terminally stuck in the mempool without any chance of inclusion.
 	sendTxReturnCodeLen                      // tracks the number of errors. Must always be last
 )
 
@@ -52,8 +52,8 @@ func (c SendTxReturnCode) String() string {
 		return "ExceedsMaxFee"
 	case FeeOutOfValidRange:
 		return "FeeOutOfValidRange"
-	case OutOfCounters:
-		return "OutOfCounters"
+	case TerminallyStuck:
+		return "TerminallyStuck"
 	default:
 		return fmt.Sprintf("SendTxReturnCode(%d)", c)
 	}

@@ -26,13 +26,14 @@ type testMultiNode struct {
 }
 
 type multiNodeOpts struct {
-	logger        logger.Logger
-	selectionMode string
-	leaseDuration time.Duration
-	nodes         []Node[types.ID, multiNodeRPCClient]
-	sendonlys     []SendOnlyNode[types.ID, multiNodeRPCClient]
-	chainID       types.ID
-	chainFamily   string
+	logger                logger.Logger
+	selectionMode         string
+	leaseDuration         time.Duration
+	nodes                 []Node[types.ID, multiNodeRPCClient]
+	sendonlys             []SendOnlyNode[types.ID, multiNodeRPCClient]
+	chainID               types.ID
+	chainFamily           string
+	deathDeclarationDelay time.Duration
 }
 
 func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
@@ -41,7 +42,7 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	}
 
 	result := NewMultiNode[types.ID, multiNodeRPCClient](
-		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily)
+		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily, opts.deathDeclarationDelay)
 	return testMultiNode{
 		result,
 	}
@@ -56,11 +57,12 @@ func newNodeWithState(t *testing.T, chainID types.ID, state NodeState) *mockNode
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
 	node.On("Close").Return(nil).Once()
-	node.On("State").Return(state).Maybe()
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
 	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
+	node.On("State").Return(state).Maybe()
 	return node
 }
+
 func TestMultiNode_Dial(t *testing.T) {
 	t.Parallel()
 
@@ -207,6 +209,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Start(tests.Context(t))
 		require.NoError(t, err)
@@ -224,6 +227,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Start(tests.Context(t))
 		require.NoError(t, err)
@@ -273,7 +277,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 		t.Parallel()
 		chainID := types.RandomID()
 		node := newHealthyNode(t, chainID)
-		node.On("UnsubscribeAll")
+		node.On("UnsubscribeAllExceptAliveLoop")
 		bestNode := newHealthyNode(t, chainID)
 		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(bestNode)
@@ -364,6 +368,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		chainID := types.RandomID()
 		oldBest := newMockNode[types.ID, multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
+		oldBest.On("UnsubscribeAllExceptAliveLoop")
 		newBest := newMockNode[types.ID, multiNodeRPCClient](t)
 		newBest.On("String").Return("newBest").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -404,55 +409,93 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 }
 
-func TestMultiNode_nLiveNodes(t *testing.T) {
+func TestMultiNode_ChainInfo(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
-		chainInfo ChainInfo
-		State     NodeState
+		LatestChainInfo         ChainInfo
+		HighestUserObservations ChainInfo
+		State                   NodeState
 	}
 	testCases := []struct {
-		Name                    string
-		ExpectedNLiveNodes      int
-		ExpectedBlockNumber     int64
-		ExpectedTotalDifficulty *big.Int
-		NodeParams              []nodeParams
+		Name                            string
+		ExpectedNLiveNodes              int
+		ExpectedLatestChainInfo         ChainInfo
+		ExpectedHighestUserObservations ChainInfo
+		NodeParams                      []nodeParams
 	}{
 		{
-			Name:                    "no nodes",
-			ExpectedTotalDifficulty: big.NewInt(0),
+			Name: "no nodes",
+			ExpectedLatestChainInfo: ChainInfo{
+				TotalDifficulty: big.NewInt(0),
+			},
+			ExpectedHighestUserObservations: ChainInfo{
+				TotalDifficulty: big.NewInt(0),
+			},
 		},
 		{
-			Name:                    "Best node is not healthy",
-			ExpectedTotalDifficulty: big.NewInt(10),
-			ExpectedBlockNumber:     20,
-			ExpectedNLiveNodes:      3,
+			Name:               "Best node is not healthy",
+			ExpectedNLiveNodes: 3,
+			ExpectedLatestChainInfo: ChainInfo{
+				BlockNumber:          20,
+				FinalizedBlockNumber: 10,
+				TotalDifficulty:      big.NewInt(10),
+			},
+			ExpectedHighestUserObservations: ChainInfo{
+				BlockNumber:          1005,
+				FinalizedBlockNumber: 995,
+				TotalDifficulty:      big.NewInt(2005),
+			},
 			NodeParams: []nodeParams{
 				{
 					State: NodeStateOutOfSync,
-					chainInfo: ChainInfo{
-						BlockNumber:     1000,
-						BlockDifficulty: big.NewInt(2000),
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          1000,
+						FinalizedBlockNumber: 990,
+						TotalDifficulty:      big.NewInt(2000),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          1005,
+						FinalizedBlockNumber: 995,
+						TotalDifficulty:      big.NewInt(2005),
 					},
 				},
 				{
 					State: NodeStateAlive,
-					chainInfo: ChainInfo{
-						BlockNumber:     20,
-						BlockDifficulty: big.NewInt(9),
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          20,
+						FinalizedBlockNumber: 10,
+						TotalDifficulty:      big.NewInt(9),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          25,
+						FinalizedBlockNumber: 15,
+						TotalDifficulty:      big.NewInt(14),
 					},
 				},
 				{
 					State: NodeStateAlive,
-					chainInfo: ChainInfo{
-						BlockNumber:     19,
-						BlockDifficulty: big.NewInt(10),
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          19,
+						FinalizedBlockNumber: 9,
+						TotalDifficulty:      big.NewInt(10),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          24,
+						FinalizedBlockNumber: 14,
+						TotalDifficulty:      big.NewInt(15),
 					},
 				},
 				{
 					State: NodeStateAlive,
-					chainInfo: ChainInfo{
-						BlockNumber:     11,
-						BlockDifficulty: nil,
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          11,
+						FinalizedBlockNumber: 1,
+						TotalDifficulty:      nil,
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          16,
+						FinalizedBlockNumber: 6,
+						TotalDifficulty:      nil,
 					},
 				},
 			},
@@ -469,14 +512,17 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, multiNodeRPCClient](t)
-				node.On("StateAndLatest").Return(params.State, params.chainInfo)
 				mn.primaryNodes = append(mn.primaryNodes, node)
+				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
+				node.On("HighestUserObservations").Return(params.HighestUserObservations)
 			}
 
-			nNodes, blockNum, td := mn.nLiveNodes()
+			nNodes, latestChainInfo := mn.LatestChainInfo()
 			assert.Equal(t, tc.ExpectedNLiveNodes, nNodes)
-			assert.Equal(t, tc.ExpectedTotalDifficulty, td)
-			assert.Equal(t, tc.ExpectedBlockNumber, blockNum)
+			assert.Equal(t, tc.ExpectedLatestChainInfo, latestChainInfo)
+
+			highestChainInfo := mn.HighestUserObservations()
+			assert.Equal(t, tc.ExpectedHighestUserObservations, highestChainInfo)
 		})
 	}
 }
@@ -748,7 +794,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
 			ResultsByCode: sendTxErrors{
-				OutOfCounters: {errors.New("not enough keccak counters to continue the execution")},
+				TerminallyStuck: {errors.New("not enough keccak counters to continue the execution")},
 			},
 		},
 	}

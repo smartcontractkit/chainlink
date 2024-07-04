@@ -86,6 +86,8 @@ type TestNodePoolConfig struct {
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
 	NodeErrors                     config.ClientErrors
+	EnforceRepeatableReadVal       bool
+	NodeDeathDeclarationDelay      time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -106,6 +108,14 @@ func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 
 func (tc TestNodePoolConfig) Errors() config.ClientErrors {
 	return tc.NodeErrors
+}
+
+func (tc TestNodePoolConfig) EnforceRepeatableRead() bool {
+	return tc.EnforceRepeatableReadVal
+}
+
+func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
+	return tc.NodeDeathDeclarationDelay
 }
 
 func NewChainClientWithTestNode(
@@ -151,7 +161,7 @@ func NewChainClientWithTestNode(
 	}
 
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -165,7 +175,7 @@ func NewChainClientWithEmptyNode(
 ) Client {
 	lggr := logger.Test(t)
 
-	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil, 0)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -189,7 +199,7 @@ func NewChainClientWithMockedRpc(
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *RpcClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c
 }

@@ -14,19 +14,21 @@ import (
 type LocalTargetCapability struct {
 	lggr logger.Logger
 	capabilities.TargetCapability
-	localNode capabilities.Node
+	localNode    capabilities.Node
+	capabilityID string
 }
 
-func NewLocalTargetCapability(lggr logger.Logger, localDON capabilities.Node, underlying capabilities.TargetCapability) *LocalTargetCapability {
+func NewLocalTargetCapability(lggr logger.Logger, capabilityID string, localDON capabilities.Node, underlying capabilities.TargetCapability) *LocalTargetCapability {
 	return &LocalTargetCapability{
 		TargetCapability: underlying,
+		capabilityID:     capabilityID,
 		lggr:             lggr,
 		localNode:        localDON,
 	}
 }
 
 func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
-	if l.localNode.PeerID == nil || l.localNode.WorkflowDON.ID == "" {
+	if l.localNode.PeerID == nil || l.localNode.WorkflowDON.ID == 0 {
 		l.lggr.Debugf("empty DON info, executing immediately")
 		return l.TargetCapability.Execute(ctx, req)
 	}
@@ -38,7 +40,7 @@ func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.Ca
 
 	peerIDToTransmissionDelay, err := GetPeerIDToTransmissionDelay(l.localNode.WorkflowDON.Members, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get peer ID to transmission delay map: %w", err)
+		return nil, fmt.Errorf("capability id: %s failed to get peer ID to transmission delay map: %w", l.capabilityID, err)
 	}
 
 	delay, existsForPeerID := peerIDToTransmissionDelay[*l.localNode.PeerID]

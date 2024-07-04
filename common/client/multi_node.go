@@ -38,16 +38,17 @@ type MultiNode[
 	RPC_CLIENT any,
 ] struct {
 	services.StateMachine
-	primaryNodes   []Node[CHAIN_ID, RPC_CLIENT]
-	sendOnlyNodes  []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
-	chainID        CHAIN_ID
-	lggr           logger.SugaredLogger
-	selectionMode  string
-	nodeSelector   NodeSelector[CHAIN_ID, RPC_CLIENT]
-	leaseDuration  time.Duration
-	leaseTicker    *time.Ticker
-	chainFamily    string
-	reportInterval time.Duration
+	primaryNodes          []Node[CHAIN_ID, RPC_CLIENT]
+	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	chainID               CHAIN_ID
+	lggr                  logger.SugaredLogger
+	selectionMode         string
+	nodeSelector          NodeSelector[CHAIN_ID, RPC_CLIENT]
+	leaseDuration         time.Duration
+	leaseTicker           *time.Ticker
+	chainFamily           string
+	reportInterval        time.Duration
+	deathDeclarationDelay time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, RPC_CLIENT]
@@ -67,22 +68,24 @@ func NewMultiNode[
 	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
+	deathDeclarationDelay time.Duration,
 ) *MultiNode[CHAIN_ID, RPC_CLIENT] {
 	nodeSelector := newNodeSelector(selectionMode, primaryNodes)
 	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
 	c := &MultiNode[CHAIN_ID, RPC_CLIENT]{
-		primaryNodes:   primaryNodes,
-		sendOnlyNodes:  sendOnlyNodes,
-		chainID:        chainID,
-		lggr:           logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
-		selectionMode:  selectionMode,
-		nodeSelector:   nodeSelector,
-		chStop:         make(services.StopChan),
-		leaseDuration:  leaseDuration,
-		chainFamily:    chainFamily,
-		reportInterval: reportInterval,
+		primaryNodes:          primaryNodes,
+		sendOnlyNodes:         sendOnlyNodes,
+		chainID:               chainID,
+		lggr:                  logger.Sugared(lggr).Named("MultiNode").With("chainID", chainID.String()),
+		selectionMode:         selectionMode,
+		nodeSelector:          nodeSelector,
+		chStop:                make(services.StopChan),
+		leaseDuration:         leaseDuration,
+		chainFamily:           chainFamily,
+		reportInterval:        reportInterval,
+		deathDeclarationDelay: deathDeclarationDelay,
 	}
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
@@ -133,35 +136,16 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) NodeStates() map[string]NodeState {
 	return states
 }
 
-// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
-// Return highest ChainInfo most recently received by the alive nodes.
-// E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) LatestChainInfo() (int, ChainInfo) {
-	var nLiveNodes int
-	ch := ChainInfo{
-		BlockDifficulty: big.NewInt(0),
-	}
-	for _, n := range c.primaryNodes {
-		if s, nodeChainInfo := n.StateAndLatest(); s == NodeStateAlive {
-			nLiveNodes++
-			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
-			ch.LatestFinalizedBlock = max(ch.LatestFinalizedBlock, nodeChainInfo.LatestFinalizedBlock)
-			ch.BlockDifficulty = nodeChainInfo.BlockDifficulty
-		}
-	}
-	return nLiveNodes, ch
-}
-
 // HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestChainInfo() ChainInfo {
 	ch := ChainInfo{
-		BlockDifficulty: big.NewInt(0),
+		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.primaryNodes {
 		_, nodeChainInfo := n.StateAndLatest()
 		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
-		ch.LatestFinalizedBlock = max(ch.LatestFinalizedBlock, nodeChainInfo.LatestFinalizedBlock)
-		ch.BlockDifficulty = nodeChainInfo.BlockDifficulty
+		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+		ch.TotalDifficulty = nodeChainInfo.TotalDifficulty
 	}
 	return ch
 }
@@ -246,6 +230,9 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_
 		return // another goroutine beat us here
 	}
 
+	if c.activeNode != nil {
+		c.activeNode.UnsubscribeAllExceptAliveLoop()
+	}
 	c.activeNode = c.nodeSelector.Select()
 
 	if c.activeNode == nil {
@@ -258,22 +245,37 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, RPC_
 	return c.activeNode, err
 }
 
-// nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
-// totalDifficulty will be 0 if all nodes return nil.
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *big.Int) {
-	totalDifficulty = big.NewInt(0)
+// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
+// Return highest ChainInfo most recently received by the alive nodes.
+// E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) LatestChainInfo() (int, ChainInfo) {
+	var nLiveNodes int
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
 	for _, n := range c.primaryNodes {
-		if s, chainInfo := n.StateAndLatest(); s == NodeStateAlive {
+		if s, nodeChainInfo := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
-			if chainInfo.BlockNumber > blockNumber {
-				blockNumber = chainInfo.BlockNumber
-			}
-			if chainInfo.BlockDifficulty != nil && chainInfo.BlockDifficulty.Cmp(totalDifficulty) > 0 {
-				totalDifficulty = chainInfo.BlockDifficulty
-			}
+			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+			ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
 		}
 	}
-	return
+	return nLiveNodes, ch
+}
+
+// HighestUserObservations - returns highest ChainInfo ever observed by any user of the MultiNode
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) HighestUserObservations() ChainInfo {
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.primaryNodes {
+		nodeChainInfo := n.HighestUserObservations()
+		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
+		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
+		ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
+	}
+	return ch
 }
 
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLease() {
@@ -283,15 +285,18 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLease() {
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
 		if n.State() == NodeStateAlive && n != bestNode {
 			c.lggr.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
-			n.UnsubscribeAll()
+			n.UnsubscribeAllExceptAliveLoop()
 		}
 	}
 
 	c.activeMu.Lock()
+	defer c.activeMu.Unlock()
 	if bestNode != c.activeNode {
+		if c.activeNode != nil {
+			c.activeNode.UnsubscribeAllExceptAliveLoop()
+		}
 		c.activeNode = bestNode
 	}
-	c.activeMu.Unlock()
 }
 
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLeaseLoop() {
@@ -312,7 +317,16 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) checkLeaseLoop() {
 func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) runLoop() {
 	defer c.wg.Done()
 
-	c.report()
+	nodeStates := make([]nodeWithState, len(c.primaryNodes))
+	for i, n := range c.primaryNodes {
+		nodeStates[i] = nodeWithState{
+			Node:      n.String(),
+			State:     n.State().String(),
+			DeadSince: nil,
+		}
+	}
+
+	c.report(nodeStates)
 
 	monitor := time.NewTicker(utils.WithJitter(c.reportInterval))
 	defer monitor.Stop()
@@ -320,43 +334,53 @@ func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) runLoop() {
 	for {
 		select {
 		case <-monitor.C:
-			c.report()
+			c.report(nodeStates)
 		case <-c.chStop:
 			return
 		}
 	}
 }
 
-func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) report() {
-	type nodeWithState struct {
-		Node  string
-		State string
-	}
+type nodeWithState struct {
+	Node      string
+	State     string
+	DeadSince *time.Time
+}
 
-	var total, dead int
+func (c *MultiNode[CHAIN_ID, RPC_CLIENT]) report(nodesStateInfo []nodeWithState) {
+	start := time.Now()
+	var dead int
 	counts := make(map[NodeState]int)
-	nodeStates := make([]nodeWithState, len(c.primaryNodes))
 	for i, n := range c.primaryNodes {
 		state := n.State()
-		nodeStates[i] = nodeWithState{n.String(), state.String()}
-		total++
-		if state != NodeStateAlive {
+		counts[state]++
+		nodesStateInfo[i].State = state.String()
+		if state == NodeStateAlive {
+			nodesStateInfo[i].DeadSince = nil
+			continue
+		}
+
+		if nodesStateInfo[i].DeadSince == nil {
+			nodesStateInfo[i].DeadSince = &start
+		}
+
+		if start.Sub(*nodesStateInfo[i].DeadSince) >= c.deathDeclarationDelay {
 			dead++
 		}
-		counts[state]++
 	}
 	for _, state := range allNodeStates {
 		count := counts[state]
 		PromMultiNodeRPCNodeStates.WithLabelValues(c.chainFamily, c.chainID.String(), state.String()).Set(float64(count))
 	}
 
+	total := len(c.primaryNodes)
 	live := total - dead
-	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	c.lggr.Tracew(fmt.Sprintf("MultiNode state: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
-		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		c.lggr.Criticalw(rerr.Error(), "nodeStates", nodesStateInfo)
 		c.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
-		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+		c.lggr.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodesStateInfo)
 	}
 }

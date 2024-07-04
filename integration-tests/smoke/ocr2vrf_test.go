@@ -22,9 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -33,13 +31,11 @@ var ocr2vrfSmokeConfig *testconfig.TestConfig
 
 func TestOCR2VRFRedeemModel(t *testing.T) {
 	t.Parallel()
-	// remember to add TOML config for Chainlink node before trying to run this test in future
+	// remember to add TOML testConfig for Chainlink node before trying to run this test in future
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testConfig, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2VRF)
+	require.NoError(t, err, "Error getting config")
 
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
@@ -47,7 +43,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(testConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -56,7 +52,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config)
+		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -99,10 +95,8 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	t.Parallel()
 	t.Skip("VRFv3 is on pause, skipping")
 	l := logging.GetTestLogger(t)
-	config, err := testconfig.GetConfig("Smoke", testconfig.OCR2)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testConfig, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2VRF)
+	require.NoError(t, err, "Error getting config")
 
 	testEnvironment, testNetwork := setupOCR2VRFEnvironment(t)
 	if testEnvironment.WillUseRemoteRunner() {
@@ -110,7 +104,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	}
 
 	testNetwork = seth_utils.MustReplaceSimulatedNetworkUrlWithK8(l, testNetwork, *testEnvironment)
-	chainClient, err := actions_seth.GetChainClientWithConfigFunction(config, testNetwork, actions_seth.OneEphemeralKeysLiveTestnetCheckFn)
+	chainClient, err := seth_utils.GetChainClientWithConfigFunction(testConfig, testNetwork, seth_utils.OneEphemeralKeysLiveTestnetCheckFn)
 	require.NoError(t, err, "Error creating seth client")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -119,7 +113,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	t.Cleanup(func() {
-		err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &config)
+		err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.ErrorLevel, &testConfig)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
@@ -159,10 +153,8 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 
 func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
 	if ocr2vrfSmokeConfig == nil {
-		c, err := testconfig.GetConfig("Smoke", testconfig.OCR2VRF)
-		if err != nil {
-			t.Fatal(err)
-		}
+		c, err := testconfig.GetConfig([]string{"Smoke"}, testconfig.OCR2VRF)
+		require.NoError(t, err, "Error getting config")
 		ocr2vrfSmokeConfig = &c
 	}
 
@@ -181,14 +173,12 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 		ctf_config.MightConfigOverridePyroscopeKey(ocr2vrfSmokeConfig.GetPyroscopeConfig(), target)
 	}
 
+	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(ocr2vrfSmokeConfig, testNetwork)
+	require.NoError(t, err, "Error building TOML config")
+
 	cd := chainlink.NewWithOverride(0, map[string]interface{}{
 		"replicas": 6,
-		"toml": networks.AddNetworkDetailedConfig(
-			config.BaseOCR2Config,
-			ocr2vrfSmokeConfig.Pyroscope,
-			config.DefaultOCR2VRFNetworkDetailTomlConfig,
-			testNetwork,
-		),
+		"toml":     tomlConfig,
 	}, ocr2vrfSmokeConfig.ChainlinkImage, overrideFn)
 
 	testEnvironment = environment.New(&environment.Config{
@@ -197,7 +187,7 @@ func setupOCR2VRFEnvironment(t *testing.T) (testEnvironment *environment.Environ
 	}).
 		AddHelm(evmConfig).
 		AddHelm(cd)
-	err := testEnvironment.Run()
+	err = testEnvironment.Run()
 
 	require.NoError(t, err, "Error running test environment")
 

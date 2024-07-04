@@ -4,8 +4,12 @@ package reorg
 import (
 	"fmt"
 	"math/big"
+	"regexp"
+	"strconv"
 	"testing"
 	"time"
+
+	seth_utils "github.com/smartcontractkit/chainlink-testing-framework/utils/seth"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -18,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-	actions_seth "github.com/smartcontractkit/chainlink/integration-tests/actions/seth"
 
 	geth_helm "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -29,37 +32,15 @@ import (
 )
 
 var (
-	baseTOML = `
-[Feature]
-LogPoller = true
+	reorgBlockCount       = 10 // Number of blocks to reorg (should be less than finalityDepth)
+	upkeepCount           = 2
+	nodeCount             = 6
+	nodeFundsAmount       = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
+	defaultUpkeepGasLimit = uint32(2500000)
+	defaultLinkFunds      = int64(9e18)
+	finalityDepth         int
+	historyDepth          int
 
-[OCR2]
-Enabled = true
-
-[P2P]
-[P2P.V2]
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]
-	`
-	finalityDepth   = 20
-	historyDepth    = 30
-	reorgBlockCount = 10 // Number of blocks to reorg (less than finalityDepth)
-	networkTOML     = fmt.Sprintf(`
-Enabled = true
-FinalityDepth = %d
-
-[EVM.HeadTracker]
-HistoryDepth = %d
-
-[EVM.GasEstimator]
-Mode = 'FixedPrice'
-LimitDefault = 5_000_000
-	`, finalityDepth, historyDepth)
-	upkeepCount               = 2
-	nodeCount                 = 6
-	nodeFundsAmount           = new(big.Float).SetFloat64(2) // Each node will have 2 ETH
-	defaultUpkeepGasLimit     = uint32(2500000)
-	defaultLinkFunds          = int64(9e18)
 	defaultAutomationSettings = map[string]interface{}{
 		"toml": "",
 		"db": map[string]interface{}{
@@ -103,6 +84,30 @@ LimitDefault = 5_000_000
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
+	require.NoError(t, err, "Error getting config")
+
+	findIntValue := func(text string, substring string) (int, error) {
+		re := regexp.MustCompile(fmt.Sprintf(`%s\s*=\s*(\d+)`, substring))
+
+		match := re.FindStringSubmatch(text)
+		if len(match) > 1 {
+			asInt, err := strconv.Atoi(match[1])
+			if err != nil {
+				return 0, err
+			}
+			return asInt, nil
+		}
+
+		return 0, fmt.Errorf("no match found for %s", substring)
+	}
+
+	finalityDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "FinalityDepth")
+	require.NoError(t, err, "Error getting finality depth")
+
+	historyDepth, err = findIntValue(c.NodeConfig.CommonChainConfigTOML, "HistoryDepth")
+	require.NoError(t, err, "Error getting history depth")
+
 	require.Less(t, reorgBlockCount, finalityDepth, "Reorg block count should be less than finality depth")
 
 	t.Parallel()
@@ -121,15 +126,18 @@ func TestAutomationReorg(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, err := tc.GetConfig("Reorg", tc.Automation)
+			config, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			network := networks.MustGetSelectedNetworkConfig(config.Network)[0]
 
+			tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(&config, network)
+			require.NoError(t, err, "Error building TOML config")
+
 			defaultAutomationSettings["replicas"] = nodeCount
-			defaultAutomationSettings["toml"] = networks.AddNetworkDetailedConfig(baseTOML, config.Pyroscope, networkTOML, network)
+			defaultAutomationSettings["toml"] = tomlConfig
 
 			var overrideFn = func(_ interface{}, target interface{}) {
 				ctf_config.MustConfigOverrideChainlinkVersion(config.GetChainlinkImageConfig(), target)
@@ -167,24 +175,24 @@ func TestAutomationReorg(t *testing.T) {
 			}
 
 			gethRPCClient := ctf_client.NewRPCClient(network.HTTPURLs[0])
-			chainClient, err := actions_seth.GetChainClient(config, network)
+			chainClient, err := seth_utils.GetChainClient(config, network)
 			require.NoError(t, err, "Error connecting to blockchain")
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
 
 			// Register cleanup for any test
 			t.Cleanup(func() {
-				err := actions_seth.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
+				err := actions.TeardownSuite(t, chainClient, testEnvironment, chainlinkNodes, nil, zapcore.PanicLevel, &config)
 				require.NoError(t, err, "Error tearing down environment")
 			})
 
-			err = actions_seth.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
+			err = actions.FundChainlinkNodesFromRootAddress(l, chainClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(chainlinkNodes), nodeFundsAmount)
 			require.NoError(t, err, "Error funding Chainlink nodes")
 
 			linkToken, err := contracts.DeployLinkTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying LINK token")
 
-			registry, registrar := actions_seth.DeployAutoOCRRegistryAndRegistrar(
+			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
 				chainClient,
 				registryVersion,
@@ -210,7 +218,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_2_logtrigger"
-			consumers, upkeepIDs := actions_seth.DeployConsumers(
+			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				chainClient,
 				registry,
@@ -221,6 +229,8 @@ func TestAutomationReorg(t *testing.T) {
 				defaultUpkeepGasLimit,
 				isLogTrigger,
 				false,
+				false,
+				nil,
 			)
 
 			if isLogTrigger {
