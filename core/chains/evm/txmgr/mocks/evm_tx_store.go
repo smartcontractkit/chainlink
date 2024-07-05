@@ -671,9 +671,9 @@ func (_m *EvmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaFiel
 	return r0, r1
 }
 
-// FindTxesPendingCallback provides a mock function with given fields: ctx, blockNum, chainID
-func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
-	ret := _m.Called(ctx, blockNum, chainID)
+// FindTxesPendingCallback provides a mock function with given fields: ctx, latestFinalizedBlockNum, chainID
+func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinalizedBlockNum int64, chainID *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error) {
+	ret := _m.Called(ctx, latestFinalizedBlockNum, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTxesPendingCallback")
@@ -682,10 +682,10 @@ func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int6
 	var r0 []types.ReceiptPlus[*evmtypes.Receipt]
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) ([]types.ReceiptPlus[*evmtypes.Receipt], error)); ok {
-		return rf(ctx, blockNum, chainID)
+		return rf(ctx, latestFinalizedBlockNum, chainID)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) []types.ReceiptPlus[*evmtypes.Receipt]); ok {
-		r0 = rf(ctx, blockNum, chainID)
+		r0 = rf(ctx, latestFinalizedBlockNum, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.ReceiptPlus[*evmtypes.Receipt])
@@ -693,7 +693,7 @@ func (_m *EvmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int6
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, int64, *big.Int) error); ok {
-		r1 = rf(ctx, blockNum, chainID)
+		r1 = rf(ctx, latestFinalizedBlockNum, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
