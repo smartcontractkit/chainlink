@@ -14,7 +14,7 @@ import "../onRamp/EVM2EVMMultiOnRampSetup.t.sol";
 /// 2. Commit multiple merkle roots (1 for each source chain).
 /// 3. Batch execute all the committed messages.
 contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
-  using Internal for Internal.EVM2EVMMessage;
+  using Internal for Internal.Any2EVMRampMessage;
 
   Router internal s_sourceRouter2;
   EVM2EVMMultiOnRampHelper internal s_onRamp2;
@@ -89,12 +89,13 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     sourceChainConfigs[0] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       isEnabled: true,
-      onRamp: address(s_onRamp)
+      // Must match OnRamp address
+      onRamp: abi.encode(address(s_onRamp))
     });
     sourceChainConfigs[1] = EVM2EVMMultiOffRamp.SourceChainConfigArgs({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
       isEnabled: true,
-      onRamp: address(s_onRamp2)
+      onRamp: abi.encode(address(s_onRamp2))
     });
 
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
@@ -108,10 +109,10 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     uint256 balance1Pre = token1.balanceOf(OWNER);
 
     // Send messages
-    Internal.EVM2EVMMessage[] memory messages1 = new Internal.EVM2EVMMessage[](2);
+    Internal.Any2EVMRampMessage[] memory messages1 = new Internal.Any2EVMRampMessage[](2);
     messages1[0] = _sendRequest(1, SOURCE_CHAIN_SELECTOR, 1, s_metadataHash, s_sourceRouter, s_tokenAdminRegistry);
     messages1[1] = _sendRequest(2, SOURCE_CHAIN_SELECTOR, 2, s_metadataHash, s_sourceRouter, s_tokenAdminRegistry);
-    Internal.EVM2EVMMessage[] memory messages2 = new Internal.EVM2EVMMessage[](1);
+    Internal.Any2EVMRampMessage[] memory messages2 = new Internal.Any2EVMRampMessage[](1);
     messages2[0] =
       _sendRequest(1, SOURCE_CHAIN_SELECTOR + 1, 1, s_metadataHash2, s_sourceRouter2, s_tokenAdminRegistry2);
 
@@ -124,13 +125,10 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
 
     // Commit
     bytes32[] memory hashedMessages1 = new bytes32[](2);
-    hashedMessages1[0] = messages1[0]._hash(s_metadataHash);
-    messages1[0].messageId = hashedMessages1[0];
-    hashedMessages1[1] = messages1[1]._hash(s_metadataHash);
-    messages1[1].messageId = hashedMessages1[1];
+    hashedMessages1[0] = messages1[0]._hash(abi.encode(address(s_onRamp)));
+    hashedMessages1[1] = messages1[1]._hash(abi.encode(address(s_onRamp)));
     bytes32[] memory hashedMessages2 = new bytes32[](1);
-    hashedMessages2[0] = messages2[0]._hash(s_metadataHash2);
-    messages2[0].messageId = hashedMessages2[0];
+    hashedMessages2[0] = messages2[0]._hash(abi.encode(address(s_onRamp2)));
 
     bytes32[] memory merkleRoots = new bytes32[](2);
     merkleRoots[0] = MerkleHelper.getMerkleRoot(hashedMessages1);
@@ -139,12 +137,12 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     EVM2EVMMultiOffRamp.MerkleRoot[] memory roots = new EVM2EVMMultiOffRamp.MerkleRoot[](2);
     roots[0] = EVM2EVMMultiOffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
-      interval: EVM2EVMMultiOffRamp.Interval(messages1[0].sequenceNumber, messages1[1].sequenceNumber),
+      interval: EVM2EVMMultiOffRamp.Interval(messages1[0].header.sequenceNumber, messages1[1].header.sequenceNumber),
       merkleRoot: merkleRoots[0]
     });
     roots[1] = EVM2EVMMultiOffRamp.MerkleRoot({
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
-      interval: EVM2EVMMultiOffRamp.Interval(messages2[0].sequenceNumber, messages2[0].sequenceNumber),
+      interval: EVM2EVMMultiOffRamp.Interval(messages2[0].header.sequenceNumber, messages2[0].header.sequenceNumber),
       merkleRoot: merkleRoots[1]
     });
 
@@ -176,8 +174,8 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR,
-      messages1[0].sequenceNumber,
-      messages1[0].messageId,
+      messages1[0].header.sequenceNumber,
+      messages1[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -185,8 +183,8 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR,
-      messages1[1].sequenceNumber,
-      messages1[1].messageId,
+      messages1[1].header.sequenceNumber,
+      messages1[1].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -194,8 +192,8 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.ExecutionStateChanged(
       SOURCE_CHAIN_SELECTOR + 1,
-      messages2[0].sequenceNumber,
-      messages2[0].messageId,
+      messages2[0].header.sequenceNumber,
+      messages2[0].header.messageId,
       Internal.MessageExecutionState.SUCCESS,
       ""
     );
@@ -215,7 +213,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     bytes32 metadataHash,
     Router router,
     TokenAdminRegistry tokenAdminRegistry
-  ) public returns (Internal.EVM2EVMMessage memory) {
+  ) public returns (Internal.Any2EVMRampMessage memory) {
     Client.EVM2AnyMessage memory message = _generateTokenMessage();
     uint256 expectedFee = router.getFee(DEST_CHAIN_SELECTOR, message);
 
@@ -242,6 +240,20 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
     vm.pauseGasMetering();
 
-    return msgEvent;
+    return Internal.Any2EVMRampMessage({
+      header: Internal.RampMessageHeader({
+        messageId: msgEvent.messageId,
+        sourceChainSelector: sourceChainSelector,
+        destChainSelector: DEST_CHAIN_SELECTOR,
+        sequenceNumber: msgEvent.sequenceNumber,
+        nonce: msgEvent.nonce
+      }),
+      sender: abi.encode(msgEvent.sender),
+      data: msgEvent.data,
+      receiver: msgEvent.receiver,
+      gasLimit: msgEvent.gasLimit,
+      tokenAmounts: msgEvent.tokenAmounts,
+      sourceTokenData: msgEvent.sourceTokenData
+    });
   }
 }

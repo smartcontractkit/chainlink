@@ -33,25 +33,27 @@ type ClientEVMTokenAmount struct {
 	Amount *big.Int
 }
 
-type InternalEVM2EVMMessage struct {
-	SourceChainSelector uint64
-	Sender              common.Address
-	Receiver            common.Address
-	SequenceNumber      uint64
-	GasLimit            *big.Int
-	Strict              bool
-	Nonce               uint64
-	FeeToken            common.Address
-	FeeTokenAmount      *big.Int
-	Data                []byte
-	TokenAmounts        []ClientEVMTokenAmount
-	SourceTokenData     [][]byte
+type InternalAny2EVMRampMessage struct {
+	Header          InternalRampMessageHeader
+	Sender          []byte
+	Data            []byte
+	Receiver        common.Address
+	GasLimit        *big.Int
+	TokenAmounts    []ClientEVMTokenAmount
+	SourceTokenData [][]byte
+}
+
+type InternalRampMessageHeader struct {
 	MessageId           [32]byte
+	SourceChainSelector uint64
+	DestChainSelector   uint64
+	SequenceNumber      uint64
+	Nonce               uint64
 }
 
 var MessageHasherMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"sequenceNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"strict\",\"type\":\"bool\"},{\"internalType\":\"uint64\",\"name\":\"nonce\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"feeToken\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"feeTokenAmount\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structClient.EVMTokenAmount[]\",\"name\":\"tokenAmounts\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes[]\",\"name\":\"sourceTokenData\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes32\",\"name\":\"messageId\",\"type\":\"bytes32\"}],\"internalType\":\"structInternal.EVM2EVMMessage\",\"name\":\"msg\",\"type\":\"tuple\"},{\"internalType\":\"bytes32\",\"name\":\"metadataHash\",\"type\":\"bytes32\"}],\"name\":\"hash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b50610771806100206000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063c9f1502914610030575b600080fd5b61004361003e3660046104d2565b610055565b60405190815260200160405180910390f35b60006100618383610068565b9392505050565b60008060001b8284602001518560400151866060015187608001518860a001518960c001518a60e001518b610100015160405160200161010b98979695949392919073ffffffffffffffffffffffffffffffffffffffff9889168152968816602088015267ffffffffffffffff95861660408801526060870194909452911515608086015290921660a0840152921660c082015260e08101919091526101000190565b60405160208183030381529060405280519060200120856101200151805190602001208661014001516040516020016101449190610631565b604051602081830303815290604052805190602001208761016001516040516020016101709190610696565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08184030181528282528051602091820120908301979097528101949094526060840192909252608083015260a082015260c081019190915260e00160405160208183030381529060405280519060200120905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff81118282101715610240576102406101ee565b60405290565b6040516101a0810167ffffffffffffffff81118282101715610240576102406101ee565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff811182821017156102b1576102b16101ee565b604052919050565b803567ffffffffffffffff811681146102d157600080fd5b919050565b803573ffffffffffffffffffffffffffffffffffffffff811681146102d157600080fd5b803580151581146102d157600080fd5b600082601f83011261031b57600080fd5b813567ffffffffffffffff811115610335576103356101ee565b61036660207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8401160161026a565b81815284602083860101111561037b57600080fd5b816020850160208301376000918101602001919091529392505050565b600067ffffffffffffffff8211156103b2576103b26101ee565b5060051b60200190565b600082601f8301126103cd57600080fd5b813560206103e26103dd83610398565b61026a565b82815260069290921b8401810191818101908684111561040157600080fd5b8286015b84811015610447576040818903121561041e5760008081fd5b61042661021d565b61042f826102d6565b81528185013585820152835291830191604001610405565b509695505050505050565b600082601f83011261046357600080fd5b813560206104736103dd83610398565b82815260059290921b8401810191818101908684111561049257600080fd5b8286015b8481101561044757803567ffffffffffffffff8111156104b65760008081fd5b6104c48986838b010161030a565b845250918301918301610496565b600080604083850312156104e557600080fd5b823567ffffffffffffffff808211156104fd57600080fd5b908401906101a0828703121561051257600080fd5b61051a610246565b610523836102b9565b8152610531602084016102d6565b6020820152610542604084016102d6565b6040820152610553606084016102b9565b60608201526080830135608082015261056e60a084016102fa565b60a082015261057f60c084016102b9565b60c082015261059060e084016102d6565b60e0820152610100838101359082015261012080840135838111156105b457600080fd5b6105c08982870161030a565b82840152505061014080840135838111156105da57600080fd5b6105e6898287016103bc565b828401525050610160808401358381111561060057600080fd5b61060c89828701610452565b9183019190915250610180928301359281019290925250946020939093013593505050565b602080825282518282018190526000919060409081850190868401855b82811015610689578151805173ffffffffffffffffffffffffffffffffffffffff16855286015186850152928401929085019060010161064e565b5091979650505050505050565b6000602080830181845280855180835260408601915060408160051b87010192508387016000805b83811015610756577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc089870301855282518051808852835b81811015610711578281018a01518982018b015289016106f6565b508781018901849052601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169096018701955093860193918601916001016106be565b50939897505050505050505056fea164736f6c6343000818000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"leafDomainSeparator\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"implicitMetadataHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"fixedSizeFieldsHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"dataHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"tokenAmountsHash\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"sourceTokenDataHash\",\"type\":\"bytes32\"}],\"name\":\"encodeFinalHashPreimage\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"messageId\",\"type\":\"bytes32\"},{\"internalType\":\"bytes\",\"name\":\"sender\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"sequenceNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"nonce\",\"type\":\"uint64\"}],\"name\":\"encodeFixedSizeFieldsHashPreimage\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"any2EVMMessageHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"onRamp\",\"type\":\"bytes\"}],\"name\":\"encodeMetadataHashPreimage\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"sourceTokenData\",\"type\":\"bytes[]\"}],\"name\":\"encodeSourceTokenDataHashPreimage\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structClient.EVMTokenAmount[]\",\"name\":\"tokenAmounts\",\"type\":\"tuple[]\"}],\"name\":\"encodeTokenAmountsHashPreimage\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"components\":[{\"components\":[{\"internalType\":\"bytes32\",\"name\":\"messageId\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"sourceChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"destChainSelector\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"sequenceNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"nonce\",\"type\":\"uint64\"}],\"internalType\":\"structInternal.RampMessageHeader\",\"name\":\"header\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"sender\",\"type\":\"bytes\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"receiver\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"gasLimit\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"internalType\":\"structClient.EVMTokenAmount[]\",\"name\":\"tokenAmounts\",\"type\":\"tuple[]\"},{\"internalType\":\"bytes[]\",\"name\":\"sourceTokenData\",\"type\":\"bytes[]\"}],\"internalType\":\"structInternal.Any2EVMRampMessage\",\"name\":\"message\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"onRamp\",\"type\":\"bytes\"}],\"name\":\"hash\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610bb8806100206000396000f3fe608060405234801561001057600080fd5b50600436106100725760003560e01c8063bf0619ad11610050578063bf0619ad146100d0578063c2cfa165146100e3578063cd34ba82146100f657600080fd5b80633b61b52e14610077578063a1e747df1461009d578063a91d3aeb146100bd575b600080fd5b61008a6100853660046106e3565b610109565b6040519081526020015b60405180910390f35b6100b06100ab366004610812565b61011c565b60405161009491906108de565b6100b06100cb3660046108f1565b61014e565b6100b06100de366004610972565b610186565b6100b06100f13660046109b5565b6101bd565b6100b06101043660046109f2565b6101e6565b600061011583836101f9565b9392505050565b6060848484846040516020016101359493929190610a27565b6040516020818303038152906040529050949350505050565b606086868686868660405160200161016b96959493929190610a64565b60405160208183030381529060405290509695505050505050565b604080516020810188905290810186905260608181018690526080820185905260a0820184905260c082018390529060e00161016b565b6060816040516020016101d09190610ac4565b6040516020818303038152906040529050919050565b6060816040516020016101d09190610b46565b81516020808201516040928301519251600093849361023f937f2425b0b9f9054c76ff151b0a175b18f37a4a4e82013a72e9f15c9caa095ed21f93909291889101610a27565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe081840301815290829052805160209182012086518051888401516060808b0151908401516080808d015195015195976102a69794969395929491939101610a64565b604051602081830303815290604052805190602001208560400151805190602001208660a001516040516020016102dd9190610b46565b604051602081830303815290604052805190602001208760c001516040516020016103089190610ac4565b604080517fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe08184030181528282528051602091820120908301979097528101949094526060840192909252608083015260a082015260c081019190915260e00160405160208183030381529060405280519060200120905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff811182821017156103d8576103d8610386565b60405290565b60405160e0810167ffffffffffffffff811182821017156103d8576103d8610386565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff8111828210171561044857610448610386565b604052919050565b803567ffffffffffffffff8116811461046857600080fd5b919050565b600060a0828403121561047f57600080fd5b60405160a0810181811067ffffffffffffffff821117156104a2576104a2610386565b604052823581529050806104b860208401610450565b60208201526104c960408401610450565b60408201526104da60608401610450565b60608201526104eb60808401610450565b60808201525092915050565b600082601f83011261050857600080fd5b813567ffffffffffffffff81111561052257610522610386565b61055360207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f84011601610401565b81815284602083860101111561056857600080fd5b816020850160208301376000918101602001919091529392505050565b803573ffffffffffffffffffffffffffffffffffffffff8116811461046857600080fd5b600067ffffffffffffffff8211156105c3576105c3610386565b5060051b60200190565b600082601f8301126105de57600080fd5b813560206105f36105ee836105a9565b610401565b82815260069290921b8401810191818101908684111561061257600080fd5b8286015b84811015610658576040818903121561062f5760008081fd5b6106376103b5565b61064082610585565b81528185013585820152835291830191604001610616565b509695505050505050565b600082601f83011261067457600080fd5b813560206106846105ee836105a9565b82815260059290921b840181019181810190868411156106a357600080fd5b8286015b8481101561065857803567ffffffffffffffff8111156106c75760008081fd5b6106d58986838b01016104f7565b8452509183019183016106a7565b600080604083850312156106f657600080fd5b823567ffffffffffffffff8082111561070e57600080fd5b90840190610160828703121561072357600080fd5b61072b6103de565b610735878461046d565b815260a08301358281111561074957600080fd5b610755888286016104f7565b60208301525060c08301358281111561076d57600080fd5b610779888286016104f7565b60408301525061078b60e08401610585565b60608201526101008301356080820152610120830135828111156107ae57600080fd5b6107ba888286016105cd565b60a083015250610140830135828111156107d357600080fd5b6107df88828601610663565b60c083015250935060208501359150808211156107fb57600080fd5b50610808858286016104f7565b9150509250929050565b6000806000806080858703121561082857600080fd5b8435935061083860208601610450565b925061084660408601610450565b9150606085013567ffffffffffffffff81111561086257600080fd5b61086e878288016104f7565b91505092959194509250565b6000815180845260005b818110156108a057602081850181015186830182015201610884565b5060006020828601015260207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f83011685010191505092915050565b602081526000610115602083018461087a565b60008060008060008060c0878903121561090a57600080fd5b86359550602087013567ffffffffffffffff81111561092857600080fd5b61093489828a016104f7565b95505061094360408801610585565b935061095160608801610450565b92506080870135915061096660a08801610450565b90509295509295509295565b60008060008060008060c0878903121561098b57600080fd5b505084359660208601359650604086013595606081013595506080810135945060a0013592509050565b6000602082840312156109c757600080fd5b813567ffffffffffffffff8111156109de57600080fd5b6109ea84828501610663565b949350505050565b600060208284031215610a0457600080fd5b813567ffffffffffffffff811115610a1b57600080fd5b6109ea848285016105cd565b848152600067ffffffffffffffff808616602084015280851660408401525060806060830152610a5a608083018461087a565b9695505050505050565b86815260c060208201526000610a7d60c083018861087a565b73ffffffffffffffffffffffffffffffffffffffff9690961660408301525067ffffffffffffffff9384166060820152608081019290925290911660a09091015292915050565b600060208083016020845280855180835260408601915060408160051b87010192506020870160005b82811015610b39577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc0888603018452610b2785835161087a565b94509285019290850190600101610aed565b5092979650505050505050565b602080825282518282018190526000919060409081850190868401855b82811015610b9e578151805173ffffffffffffffffffffffffffffffffffffffff168552860151868501529284019290850190600101610b63565b509197965050505050505056fea164736f6c6343000818000a",
 }
 
 var MessageHasherABI = MessageHasherMetaData.ABI
@@ -190,9 +192,119 @@ func (_MessageHasher *MessageHasherTransactorRaw) Transact(opts *bind.TransactOp
 	return _MessageHasher.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_MessageHasher *MessageHasherCaller) Hash(opts *bind.CallOpts, msg InternalEVM2EVMMessage, metadataHash [32]byte) ([32]byte, error) {
+func (_MessageHasher *MessageHasherCaller) EncodeFinalHashPreimage(opts *bind.CallOpts, leafDomainSeparator [32]byte, implicitMetadataHash [32]byte, fixedSizeFieldsHash [32]byte, dataHash [32]byte, tokenAmountsHash [32]byte, sourceTokenDataHash [32]byte) ([]byte, error) {
 	var out []interface{}
-	err := _MessageHasher.contract.Call(opts, &out, "hash", msg, metadataHash)
+	err := _MessageHasher.contract.Call(opts, &out, "encodeFinalHashPreimage", leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash, sourceTokenDataHash)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_MessageHasher *MessageHasherSession) EncodeFinalHashPreimage(leafDomainSeparator [32]byte, implicitMetadataHash [32]byte, fixedSizeFieldsHash [32]byte, dataHash [32]byte, tokenAmountsHash [32]byte, sourceTokenDataHash [32]byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeFinalHashPreimage(&_MessageHasher.CallOpts, leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash, sourceTokenDataHash)
+}
+
+func (_MessageHasher *MessageHasherCallerSession) EncodeFinalHashPreimage(leafDomainSeparator [32]byte, implicitMetadataHash [32]byte, fixedSizeFieldsHash [32]byte, dataHash [32]byte, tokenAmountsHash [32]byte, sourceTokenDataHash [32]byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeFinalHashPreimage(&_MessageHasher.CallOpts, leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash, sourceTokenDataHash)
+}
+
+func (_MessageHasher *MessageHasherCaller) EncodeFixedSizeFieldsHashPreimage(opts *bind.CallOpts, messageId [32]byte, sender []byte, receiver common.Address, sequenceNumber uint64, gasLimit *big.Int, nonce uint64) ([]byte, error) {
+	var out []interface{}
+	err := _MessageHasher.contract.Call(opts, &out, "encodeFixedSizeFieldsHashPreimage", messageId, sender, receiver, sequenceNumber, gasLimit, nonce)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_MessageHasher *MessageHasherSession) EncodeFixedSizeFieldsHashPreimage(messageId [32]byte, sender []byte, receiver common.Address, sequenceNumber uint64, gasLimit *big.Int, nonce uint64) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeFixedSizeFieldsHashPreimage(&_MessageHasher.CallOpts, messageId, sender, receiver, sequenceNumber, gasLimit, nonce)
+}
+
+func (_MessageHasher *MessageHasherCallerSession) EncodeFixedSizeFieldsHashPreimage(messageId [32]byte, sender []byte, receiver common.Address, sequenceNumber uint64, gasLimit *big.Int, nonce uint64) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeFixedSizeFieldsHashPreimage(&_MessageHasher.CallOpts, messageId, sender, receiver, sequenceNumber, gasLimit, nonce)
+}
+
+func (_MessageHasher *MessageHasherCaller) EncodeMetadataHashPreimage(opts *bind.CallOpts, any2EVMMessageHash [32]byte, sourceChainSelector uint64, destChainSelector uint64, onRamp []byte) ([]byte, error) {
+	var out []interface{}
+	err := _MessageHasher.contract.Call(opts, &out, "encodeMetadataHashPreimage", any2EVMMessageHash, sourceChainSelector, destChainSelector, onRamp)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_MessageHasher *MessageHasherSession) EncodeMetadataHashPreimage(any2EVMMessageHash [32]byte, sourceChainSelector uint64, destChainSelector uint64, onRamp []byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeMetadataHashPreimage(&_MessageHasher.CallOpts, any2EVMMessageHash, sourceChainSelector, destChainSelector, onRamp)
+}
+
+func (_MessageHasher *MessageHasherCallerSession) EncodeMetadataHashPreimage(any2EVMMessageHash [32]byte, sourceChainSelector uint64, destChainSelector uint64, onRamp []byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeMetadataHashPreimage(&_MessageHasher.CallOpts, any2EVMMessageHash, sourceChainSelector, destChainSelector, onRamp)
+}
+
+func (_MessageHasher *MessageHasherCaller) EncodeSourceTokenDataHashPreimage(opts *bind.CallOpts, sourceTokenData [][]byte) ([]byte, error) {
+	var out []interface{}
+	err := _MessageHasher.contract.Call(opts, &out, "encodeSourceTokenDataHashPreimage", sourceTokenData)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_MessageHasher *MessageHasherSession) EncodeSourceTokenDataHashPreimage(sourceTokenData [][]byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeSourceTokenDataHashPreimage(&_MessageHasher.CallOpts, sourceTokenData)
+}
+
+func (_MessageHasher *MessageHasherCallerSession) EncodeSourceTokenDataHashPreimage(sourceTokenData [][]byte) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeSourceTokenDataHashPreimage(&_MessageHasher.CallOpts, sourceTokenData)
+}
+
+func (_MessageHasher *MessageHasherCaller) EncodeTokenAmountsHashPreimage(opts *bind.CallOpts, tokenAmounts []ClientEVMTokenAmount) ([]byte, error) {
+	var out []interface{}
+	err := _MessageHasher.contract.Call(opts, &out, "encodeTokenAmountsHashPreimage", tokenAmounts)
+
+	if err != nil {
+		return *new([]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return out0, err
+
+}
+
+func (_MessageHasher *MessageHasherSession) EncodeTokenAmountsHashPreimage(tokenAmounts []ClientEVMTokenAmount) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeTokenAmountsHashPreimage(&_MessageHasher.CallOpts, tokenAmounts)
+}
+
+func (_MessageHasher *MessageHasherCallerSession) EncodeTokenAmountsHashPreimage(tokenAmounts []ClientEVMTokenAmount) ([]byte, error) {
+	return _MessageHasher.Contract.EncodeTokenAmountsHashPreimage(&_MessageHasher.CallOpts, tokenAmounts)
+}
+
+func (_MessageHasher *MessageHasherCaller) Hash(opts *bind.CallOpts, message InternalAny2EVMRampMessage, onRamp []byte) ([32]byte, error) {
+	var out []interface{}
+	err := _MessageHasher.contract.Call(opts, &out, "hash", message, onRamp)
 
 	if err != nil {
 		return *new([32]byte), err
@@ -204,12 +316,12 @@ func (_MessageHasher *MessageHasherCaller) Hash(opts *bind.CallOpts, msg Interna
 
 }
 
-func (_MessageHasher *MessageHasherSession) Hash(msg InternalEVM2EVMMessage, metadataHash [32]byte) ([32]byte, error) {
-	return _MessageHasher.Contract.Hash(&_MessageHasher.CallOpts, msg, metadataHash)
+func (_MessageHasher *MessageHasherSession) Hash(message InternalAny2EVMRampMessage, onRamp []byte) ([32]byte, error) {
+	return _MessageHasher.Contract.Hash(&_MessageHasher.CallOpts, message, onRamp)
 }
 
-func (_MessageHasher *MessageHasherCallerSession) Hash(msg InternalEVM2EVMMessage, metadataHash [32]byte) ([32]byte, error) {
-	return _MessageHasher.Contract.Hash(&_MessageHasher.CallOpts, msg, metadataHash)
+func (_MessageHasher *MessageHasherCallerSession) Hash(message InternalAny2EVMRampMessage, onRamp []byte) ([32]byte, error) {
+	return _MessageHasher.Contract.Hash(&_MessageHasher.CallOpts, message, onRamp)
 }
 
 func (_MessageHasher *MessageHasher) Address() common.Address {
@@ -217,7 +329,17 @@ func (_MessageHasher *MessageHasher) Address() common.Address {
 }
 
 type MessageHasherInterface interface {
-	Hash(opts *bind.CallOpts, msg InternalEVM2EVMMessage, metadataHash [32]byte) ([32]byte, error)
+	EncodeFinalHashPreimage(opts *bind.CallOpts, leafDomainSeparator [32]byte, implicitMetadataHash [32]byte, fixedSizeFieldsHash [32]byte, dataHash [32]byte, tokenAmountsHash [32]byte, sourceTokenDataHash [32]byte) ([]byte, error)
+
+	EncodeFixedSizeFieldsHashPreimage(opts *bind.CallOpts, messageId [32]byte, sender []byte, receiver common.Address, sequenceNumber uint64, gasLimit *big.Int, nonce uint64) ([]byte, error)
+
+	EncodeMetadataHashPreimage(opts *bind.CallOpts, any2EVMMessageHash [32]byte, sourceChainSelector uint64, destChainSelector uint64, onRamp []byte) ([]byte, error)
+
+	EncodeSourceTokenDataHashPreimage(opts *bind.CallOpts, sourceTokenData [][]byte) ([]byte, error)
+
+	EncodeTokenAmountsHashPreimage(opts *bind.CallOpts, tokenAmounts []ClientEVMTokenAmount) ([]byte, error)
+
+	Hash(opts *bind.CallOpts, message InternalAny2EVMRampMessage, onRamp []byte) ([32]byte, error)
 
 	Address() common.Address
 }

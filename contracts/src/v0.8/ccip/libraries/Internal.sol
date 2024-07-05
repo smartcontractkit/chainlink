@@ -71,7 +71,7 @@ library Internal {
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct ExecutionReportSingleChain {
     uint64 sourceChainSelector; // Source chain selector for which the report is submitted
-    EVM2EVMMessage[] messages;
+    Any2EVMRampMessage[] messages;
     // Contains a bytes array for each message, each inner bytes array contains bytes per transferred token
     bytes[][] offchainTokenData;
     bytes32[] proofs;
@@ -106,6 +106,7 @@ library Internal {
     bytes32 messageId; //                       a hash of the message data
   }
 
+  // TODO: create new const for EVM2AnyMessage
   /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
@@ -113,6 +114,7 @@ library Internal {
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 17.
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
 
+  // TODO: create new const for EVM2AnyMessage
   /// @dev Each token transfer adds 1 EVMTokenAmount and 1 bytes.
   /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots, excl bytes contents
   uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 4;
@@ -132,6 +134,12 @@ library Internal {
 
   bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
 
+  /// @dev Used to hash messages for single-lane ramps.
+  /// OnRamp hash(EVM2EVMMessage) = OffRamp hash(EVM2EVMMessage)
+  /// The EVM2EVMMessage's messageId is expected to be the output of this hash function
+  /// @param original Message to hash
+  /// @param metadataHash Immutable metadata hash representing a lane with a fixed OnRamp
+  /// @return hashedMessage hashed message as a keccak256
   function _hash(EVM2EVMMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
     // Fixed-size message fields are included in nested hash to reduce stack pressure.
     // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
@@ -149,6 +157,43 @@ library Internal {
             original.nonce,
             original.feeToken,
             original.feeTokenAmount
+          )
+        ),
+        keccak256(original.data),
+        keccak256(abi.encode(original.tokenAmounts)),
+        keccak256(abi.encode(original.sourceTokenData))
+      )
+    );
+  }
+
+  bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
+
+  /// @dev Used to hash messages for multi-lane family-agnostic OffRamps.
+  /// OnRamp hash(EVM2AnyMessage) != Any2EVMRampMessage.messageId
+  /// OnRamp hash(EVM2AnyMessage) != OffRamp hash(Any2EVMRampMessage)
+  /// @param original OffRamp message to hash
+  /// @param onRamp OnRamp to hash the message with - used to compute the metadataHash
+  /// @return hashedMessage hashed message as a keccak256
+  function _hash(Any2EVMRampMessage memory original, bytes memory onRamp) internal pure returns (bytes32) {
+    // Fixed-size message fields are included in nested hash to reduce stack pressure.
+    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
+    return keccak256(
+      abi.encode(
+        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+        // Implicit metadata hash
+        keccak256(
+          abi.encode(
+            ANY_2_EVM_MESSAGE_HASH, original.header.sourceChainSelector, original.header.destChainSelector, onRamp
+          )
+        ),
+        keccak256(
+          abi.encode(
+            original.header.messageId,
+            original.sender,
+            original.receiver,
+            original.header.sequenceNumber,
+            original.gasLimit,
+            original.header.nonce
           )
         ),
         keccak256(original.data),
@@ -199,5 +244,30 @@ library Internal {
   enum OCRPluginType {
     Commit,
     Execution
+  }
+
+  /// @notice Family-agnostic header for OnRamp & OffRamp messages.
+  /// The messageId is not expected to match hash(message), since it may originate from another ramp family
+  // TODO: revisit if destChainSelector is required (likely sufficient to have it implicitly in the commit roots)
+  struct RampMessageHeader {
+    bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded)
+    uint64 sourceChainSelector; // ───────╮ the chain selector of the source chain, note: not chainId
+    uint64 destChainSelector; //          | the chain selector of the destination chain, note: not chainId
+    uint64 sequenceNumber; //             │ sequence number, not unique across lanes
+    uint64 nonce; // ─────────────────────╯ nonce for this lane for this sender, not unique across senders/lanes
+  }
+
+  /// @notice Family-agnostic message routed to an OffRamp
+  /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage), hash(Any2EVMRampMessage) != messageId
+  /// due to encoding & parameter differences
+  struct Any2EVMRampMessage {
+    RampMessageHeader header; // Message header
+    bytes sender; // sender address on the source chain
+    bytes data; // arbitrary data payload supplied by the message sender
+    address receiver; // receiver address on the destination chain
+    uint256 gasLimit; // user supplied maximum gas amount available for dest chain execution
+    // TODO: revisit collapsing tokenAmounts + sourceTokenData into one struct array
+    Client.EVMTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
+    bytes[] sourceTokenData; // array of token data, one per token
   }
 }

@@ -54,7 +54,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
   event TokenTransferFeeConfigUpdated(
     uint64 indexed destChainSelector, address indexed token, TokenTransferFeeConfig tokenTransferFeeConfig
   );
-  event TokenTransferFeeConfigDeleted(uint256 indexed destChainSelector, address indexed token);
+  event TokenTransferFeeConfigDeleted(uint64 indexed destChainSelector, address indexed token);
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPSendRequested(uint64 indexed destChainSelector, Internal.EVM2EVMMessage message);
   event DestChainAdded(uint64 indexed destChainSelector, DestChainConfig destChainConfig);
