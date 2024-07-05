@@ -229,6 +229,8 @@ func TestAutomationReorg(t *testing.T) {
 				defaultUpkeepGasLimit,
 				isLogTrigger,
 				false,
+				false,
+				nil,
 			)
 
 			if isLogTrigger {

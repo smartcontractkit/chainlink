@@ -45,6 +45,7 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+	FinalizedBlockOffset() uint32
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -170,6 +171,8 @@ type NodePool interface {
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
 	Errors() ClientErrors
+	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
