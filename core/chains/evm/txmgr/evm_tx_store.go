@@ -1018,7 +1018,7 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 }
 
 // Find confirmed txes requiring callback but have not yet been signaled
-func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
+func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, latestFinalizedBlockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
 	var cancel context.CancelFunc
@@ -1029,8 +1029,8 @@ func (o *evmTxStore) FindTxesPendingCallback(ctx context.Context, blockNum int64
 	INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
 	INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
 	WHERE evm.txes.pipeline_task_run_id IS NOT NULL AND evm.txes.signal_callback = TRUE AND evm.txes.callback_completed = FALSE
-	AND evm.receipts.block_number <= ($1 - evm.txes.min_confirmations) AND evm.txes.evm_chain_id = $2
-	`, blockNum, chainID.String())
+	AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2
+	`, latestFinalizedBlockNum, chainID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve transactions pending pipeline resume callback: %w", err)
 	}
