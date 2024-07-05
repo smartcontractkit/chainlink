@@ -88,7 +88,8 @@ type estimatorGasEstimatorConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMax() *assets.Wei
 	PriceMin() *assets.Wei
-	bumpConfig
+	BumpPercent() uint16
+	BumpMin() *assets.Wei
 }
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -409,7 +410,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, maxGasPriceWei 
 				"Using Evm.GasEstimator.TipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 			tipCap = b.eConfig.TipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.eConfig.PriceMax())
+		maxGasPrice := assets.WeiMin(maxGasPriceWei, b.eConfig.PriceMax())
 		if b.eConfig.BumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice

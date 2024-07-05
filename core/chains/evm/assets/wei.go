@@ -63,10 +63,6 @@ func suffixExp(suf string) int32 {
 // additional functions
 type Wei ubig.Big
 
-func MaxWei(w, x *Wei) *Wei {
-	return NewWei(bigmath.Max(w.ToInt(), x.ToInt()))
-}
-
 // NewWei constructs a Wei from *big.Int.
 func NewWei(i *big.Int) *Wei {
 	return (*Wei)(i)
