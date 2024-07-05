@@ -30,11 +30,6 @@ Unauthenticated = 1000
 [WebServer.TLS]
 HTTPSPort = 0
 
-[Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
-MigrateOnStartup = true
-
 [Keeper]
 TurnLookBack = 0
 """
