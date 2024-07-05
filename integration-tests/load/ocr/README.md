@@ -11,7 +11,8 @@ devspace deploy --debug --profile local-dev-simulated-core-ocr1 --skip-build
 Create `overrides.toml` in this directory
 ```
 [CRIB]
-namespace = "crib-skudasov"
+namespace = "$your_crib_namespace_here"
+// only Geth is supported right now
 network_name = "geth"
 nodes = 5
 
