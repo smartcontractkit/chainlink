@@ -62,7 +62,6 @@ core/cmd/vrfkey1
 
 # Integration Tests
 integration-tests/**/logs/
-integration-tests/**/.secrets
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
@@ -99,7 +98,6 @@ tools/flakeytests/coverage.txt
 
 # Runtime test configuration that might contain secrets
 override*.toml
-.secrets
 
 # Pythin venv
 .venv/

@@ -16,9 +16,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"path/filepath"
-	"runtime"
-
 	"github.com/joho/godotenv"
 
 	"github.com/smartcontractkit/seth"
@@ -372,7 +369,7 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	logger.Info().Msg("Loading secret env vars from local .secrets file if exists")
+	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
 	err = testConfig.LoadSecretEnvsFromFile()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading secrets file")
@@ -469,15 +466,38 @@ func (c *TestConfig) readNetworkConfiguration() error {
 }
 
 func (c *TestConfig) LoadSecretEnvsFromFile() error {
-	// Get the current file path
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		panic("No caller information")
+	logger := logging.GetTestLogger(nil)
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return errors.Wrapf(err, "error getting user home directory")
 	}
-	// Calculate the directory containing the file
-	dir := filepath.Dir(filename)
-	file := filepath.Join(dir, ".secrets")
-	return godotenv.Load(file)
+	path := fmt.Sprintf("%s/.testsecrets", homeDir)
+
+	// Load existing environment variables into a map
+	existingEnv := make(map[string]string)
+	for _, env := range os.Environ() {
+		pair := strings.SplitN(env, "=", 2)
+		existingEnv[pair[0]] = pair[1]
+	}
+
+	// Load variables from the env file
+	envMap, err := godotenv.Read(path)
+	if err != nil {
+		return errors.Wrapf(err, "error loading %s file with test secrets", path)
+	}
+
+	// Set env vars from file only if they are not already set
+	for key, value := range envMap {
+		if _, exists := existingEnv[key]; !exists {
+			logger.Debug().Msgf("Setting env var %s from %s file", key, path)
+			os.Setenv(key, value)
+		} else {
+			logger.Debug().Msgf("Env var %s already set, not overriding it from %s file", key, path)
+		}
+	}
+
+	return nil
 }
 
 func (c *TestConfig) Validate() error {
