@@ -112,7 +112,7 @@ func TestJobRelayConfig(t *testing.T) {
 		ForwardingAllowed: false,
 		Name:              null.StringFrom("some name"),
 		MaxTaskDuration:   models.Interval(time.Second * 2),
-		CreatedAt:         time.Unix(1718894576, 0), // 20.06.2024 14:42:56 GMT
+		CreatedAt:         time.Date(2024, 6, 1, 17, 13, 55, 0, time.UTC),
 		ChainID:           "323211",
 
 		Relay: relay.NetworkEVM,

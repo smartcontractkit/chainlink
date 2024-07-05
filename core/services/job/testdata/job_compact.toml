@@ -7,7 +7,7 @@ gasLimit = '1234'
 forwardingAllowed = false
 name = 'some name'
 MaxTaskDuration = '2s'
-CreatedAt = 2024-06-20T17:42:56+03:00
+CreatedAt = 2024-06-01T17:13:55Z
 relay = 'evm'
 chainID = '323211'
 
