@@ -16,6 +16,11 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
+	"path/filepath"
+	"runtime"
+
+	"github.com/joho/godotenv"
+
 	"github.com/smartcontractkit/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -367,7 +372,13 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	logger.Info().Msg("Reading selected config values from environment variables")
+	logger.Info().Msg("Loading secret env vars from local .secrets file if exists")
+	err = testConfig.LoadSecretEnvsFromFile()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading secrets file")
+	}
+
+	logger.Info().Msg("Reading values from environment variables")
 	err = testConfig.ReadConfigValuesFromEnvVars()
 	if err != nil {
 		return TestConfig{}, err
@@ -455,6 +466,18 @@ func (c *TestConfig) readNetworkConfiguration() error {
 	}
 
 	return nil
+}
+
+func (c *TestConfig) LoadSecretEnvsFromFile() error {
+	// Get the current file path
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("No caller information")
+	}
+	// Calculate the directory containing the file
+	dir := filepath.Dir(filename)
+	file := filepath.Join(dir, ".secrets")
+	return godotenv.Load(file)
 }
 
 func (c *TestConfig) Validate() error {
