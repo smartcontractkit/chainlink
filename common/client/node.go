@@ -112,7 +112,6 @@ type node[
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	subsMu            sync.Mutex
 	aliveLoopSub      types.Subscription
 	finalizedBlockSub types.Subscription
 }
