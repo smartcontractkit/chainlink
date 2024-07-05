@@ -635,14 +635,15 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 			Hash:   utils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   utils.NewHash(),
-				Parent: nil,
+				Number:      8,
+				Hash:        utils.NewHash(),
+				Parent:      nil,
+				IsFinalized: true,
 			},
 		},
 	}
 
-	minConfirmations := int64(2)
+	latestFinalizedBlockNum := int64(8)
 
 	// Suspended run waiting for callback
 	run1 := cltest.MustInsertPipelineRun(t, db)
@@ -651,8 +652,8 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx1 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt1 := etx1.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt1.Hash)
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr1.ID, minConfirmations, etx1.ID)
+	mustInsertEthReceipt(t, txStore, latestFinalizedBlockNum, head.Hash, attempt1.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr1.ID, etx1.ID)
 
 	// Callback to pipeline service completed. Should be ignored
 	run2 := cltest.MustInsertPipelineRunWithStatus(t, db, 0, pipeline.RunStatusCompleted, 0)
@@ -660,10 +661,10 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	etx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 4, 1, fromAddress)
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt2 := etx2.TxAttempts[0]
-	mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt2.Hash)
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr2.ID, minConfirmations, etx2.ID)
+	mustInsertEthReceipt(t, txStore, latestFinalizedBlockNum-2, head.Hash, attempt2.Hash)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr2.ID, etx2.ID)
 
-	// Suspended run younger than minConfirmations. Should be ignored
+	// Suspend run after LatestFinalizedBlockNum. Should be ignored
 	run3 := cltest.MustInsertPipelineRun(t, db)
 	tr3 := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run3.ID)
 	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run3.ID)
@@ -671,20 +672,18 @@ func TestORM_FindTxesPendingCallback(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": false}'`)
 	attempt3 := etx3.TxAttempts[0]
 	mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt3.Hash)
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr3.ID, minConfirmations, etx3.ID)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr3.ID, etx3.ID)
 
 	// Tx not marked for callback. Should be ignore
 	etx4 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 6, 1, fromAddress)
 	attempt4 := etx4.TxAttempts[0]
 	mustInsertEthReceipt(t, txStore, head.Number, head.Hash, attempt4.Hash)
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx4.ID)
 
 	// Unconfirmed Tx without receipts. Should be ignored
-	etx5 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
-	pgtest.MustExec(t, db, `UPDATE evm.txes SET min_confirmations = $1 WHERE id = $2`, minConfirmations, etx5.ID)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 1, fromAddress)
 
 	// Search evm.txes table for tx requiring callback
-	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), head.Number, ethClient.ConfiguredChainID())
+	receiptsPlus, err := txStore.FindTxesPendingCallback(tests.Context(t), latestFinalizedBlockNum, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
 	assert.Len(t, receiptsPlus, 1)
 	assert.Equal(t, tr1.ID, receiptsPlus[0].ID)

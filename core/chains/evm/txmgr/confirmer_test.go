@@ -3003,14 +3003,15 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			Hash:   testutils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number: 8,
-				Hash:   testutils.NewHash(),
-				Parent: nil,
+				Number:      8,
+				Hash:        testutils.NewHash(),
+				Parent:      nil,
+				IsFinalized: true,
 			},
 		},
 	}
 
-	minConfirmations := int64(2)
+	latestFinalizedBlockNum := int64(8)
 
 	pgtest.MustExec(t, db, `SET CONSTRAINTS fk_pipeline_runs_pruning_key DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`)
@@ -3025,16 +3026,16 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertEthReceipt(t, txStore, latestFinalizedBlockNum, head.Hash, etx.TxAttempts[0].Hash)
 		// Setting both signal_callback and callback_completed to TRUE to simulate a completed pipeline task
 		// It would only be in a state past suspended if the resume callback was called and callback_completed was set to TRUE
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE, callback_completed = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE, callback_completed = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
 		require.NoError(t, err)
 	})
 
-	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
+	t.Run("doesn't process task runs where the receipt is before LatestFinalizedBlockNum", func(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, config, evmcfg, ethKeyStore, func(context.Context, uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
@@ -3046,13 +3047,13 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 1, fromAddress)
 		mustInsertEthReceipt(t, txStore, head.Number, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
 		require.NoError(t, err)
 	})
 
-	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
+	t.Run("processes eth_txes with receipts after LatestFinalizedBlockNum", func(t *testing.T) {
 		ch := make(chan interface{})
 		nonce := evmtypes.Nonce(3)
 		var err error
@@ -3068,9 +3069,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
-		receipt := mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		receipt := mustInsertEthReceipt(t, txStore, latestFinalizedBlockNum, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -3102,7 +3103,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	pgtest.MustExec(t, db, `DELETE FROM pipeline_runs`)
 
-	t.Run("processes eth_txes with receipt older than minConfirmations that reverted", func(t *testing.T) {
+	t.Run("processes eth_txes with receipt before LatestFinalizedBlockNum that reverted", func(t *testing.T) {
 		type data struct {
 			value any
 			error
@@ -3122,9 +3123,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 
 		// receipt is not passed through as a value since it reverted and caused an error
-		mustInsertRevertedEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
+		mustInsertRevertedEthReceipt(t, txStore, latestFinalizedBlockNum-2, head.Hash, etx.TxAttempts[0].Hash)
 
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		done := make(chan struct{})
 		t.Cleanup(func() { <-done })
@@ -3164,8 +3165,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(nonce), 1, fromAddress)
-		mustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, etx.TxAttempts[0].Hash)
-		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2, signal_callback = TRUE WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+		mustInsertEthReceipt(t, txStore, latestFinalizedBlockNum, head.Hash, etx.TxAttempts[0].Hash)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, signal_callback = TRUE WHERE id = $2`, &tr.ID, etx.ID)
 
 		err := ec.ResumePendingTaskRuns(tests.Context(t), &head)
 		require.Error(t, err)
