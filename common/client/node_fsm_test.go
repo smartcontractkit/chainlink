@@ -55,33 +55,33 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		const destinationState = NodeStateOutOfSync
 		allowedStates := []NodeState{NodeStateAlive}
 		rpc := newMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept", mock.Anything)
+		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		testTransition(t, rpc, testNode.transitionToOutOfSync, destinationState, allowedStates...)
 	})
 	t.Run("transitionToUnreachable", func(t *testing.T) {
 		const destinationState = NodeStateUnreachable
 		allowedStates := []NodeState{NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID, NodeStateSyncing}
 		rpc := newMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept", mock.Anything)
+		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		testTransition(t, rpc, testNode.transitionToUnreachable, destinationState, allowedStates...)
 	})
 	t.Run("transitionToInvalidChain", func(t *testing.T) {
 		const destinationState = NodeStateInvalidChainID
 		allowedStates := []NodeState{NodeStateDialed, NodeStateOutOfSync, NodeStateSyncing}
 		rpc := newMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept", mock.Anything)
+		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		testTransition(t, rpc, testNode.transitionToInvalidChainID, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing", func(t *testing.T) {
 		const destinationState = NodeStateSyncing
 		allowedStates := []NodeState{NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID}
 		rpc := newMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept", mock.Anything)
+		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		testTransition(t, rpc, testNode.transitionToSyncing, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing panics if nodeIsSyncing is disabled", func(t *testing.T) {
 		rpc := newMockRPCClient[types.ID, Head](t)
-		rpc.On("UnsubscribeAllExcept", mock.Anything)
+		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		node := newTestNode(t, testNodeOpts{rpc: rpc})
 		node.setState(NodeStateDialed)
 		fn := new(fnMock)

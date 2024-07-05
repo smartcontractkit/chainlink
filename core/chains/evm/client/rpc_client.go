@@ -147,34 +147,39 @@ func NewRPCClient(
 	return r
 }
 
-func (r *RpcClient) SubscribeToHeads(ctx context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
-	ctx, cancel, chStopInFlight, _, _ := r.acquireQueryCtx(ctx)
+func (r *RpcClient) SubscribeToHeads(ctx context.Context) (ch <-chan *evmtypes.Head, sub commontypes.Subscription, err error) {
+	ctx, cancel, chStopInFlight, ws, _ := r.acquireQueryCtx(ctx)
 	defer cancel()
 
-	newChainIDSubForwarder := func(chainID *big.Int, ch chan<- *evmtypes.Head) *subForwarder[*evmtypes.Head] {
-		return newSubForwarder(ch, func(head *evmtypes.Head) *evmtypes.Head {
-			head.EVMChainID = ubig.New(chainID)
-			r.onNewHead(ctx, chStopInFlight, head)
-			return head
-		}, r.wrapRPCClientError)
-	}
+	args := []interface{}{rpcSubscriptionMethodNewHeads}
+	start := time.Now()
+	lggr := r.newRqLggr().With("args", args)
 
-	ch := make(chan *evmtypes.Head)
-	forwarder := newChainIDSubForwarder(r.chainID, ch)
+	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
+	defer func() {
+		duration := time.Since(start)
+		r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
+		err = r.wrapWS(err)
+	}()
 
-	sub, err := r.subscribe(ctx, forwarder.srcCh, rpcSubscriptionMethodNewHeads)
+	channel := make(chan *evmtypes.Head)
+	forwarder := newSubForwarder(channel, func(head *evmtypes.Head) *evmtypes.Head {
+		head.EVMChainID = ubig.New(r.chainID)
+		r.onNewHead(ctx, chStopInFlight, head)
+		return head
+	}, r.wrapRPCClientError)
 
-	err = forwarder.start(sub, err)
+	err = forwarder.start(ws.rpc.EthSubscribe(ctx, forwarder.srcCh, args...))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = r.registerSub(forwarder, r.chStopInFlight)
+	err = r.registerSub(forwarder, chStopInFlight)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return ch, forwarder, err
+	return channel, forwarder, err
 }
 
 func (r *RpcClient) SubscribeToFinalizedHeads(_ context.Context) (<-chan *evmtypes.Head, commontypes.Subscription, error) {
@@ -202,15 +207,14 @@ func (r *RpcClient) Ping(ctx context.Context) error {
 func (r *RpcClient) UnsubscribeAllExcept(subs ...commontypes.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
+
+	keepSubs := map[commontypes.Subscription]struct{}{}
+	for _, sub := range subs {
+		keepSubs[sub] = struct{}{}
+	}
+
 	for _, sub := range r.subs {
-		var keep bool
-		for _, s := range subs {
-			if sub == s {
-				keep = true
-				break
-			}
-		}
-		if !keep {
+		if _, keep := keepSubs[sub]; !keep {
 			sub.Unsubscribe()
 		}
 	}
@@ -404,29 +408,6 @@ func (r *RpcClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "BatchCallContext")
 
 	return err
-}
-
-func (r *RpcClient) subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
-	ctx, cancel, ws, _ := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	defer cancel()
-	lggr := r.newRqLggr().With("args", args)
-
-	lggr.Debug("RPC call: evmclient.Client#EthSubscribe")
-	start := time.Now()
-	var sub commontypes.Subscription
-	sub, err := ws.rpc.EthSubscribe(ctx, channel, args...)
-	if err == nil {
-		err = r.registerSub(sub, r.chStopInFlight)
-		if err != nil {
-			sub.Unsubscribe()
-			return nil, err
-		}
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "EthSubscribe")
-
-	return sub, r.wrapWS(err)
 }
 
 // GethClient wrappers

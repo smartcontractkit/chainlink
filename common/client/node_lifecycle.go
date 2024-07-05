@@ -104,7 +104,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	n.stateMu.Lock()
 	n.aliveLoopSub = sub
 	n.stateMu.Unlock()
-	defer sub.Unsubscribe()
+	defer func() {
+		defer sub.Unsubscribe()
+		n.stateMu.Lock()
+		n.aliveLoopSub = nil
+		n.stateMu.Unlock()
+	}()
 
 	var outOfSyncT *time.Ticker
 	var outOfSyncTC <-chan time.Time
@@ -134,8 +139,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 
 	var finalizedHeadCh <-chan HEAD
-	var finalizedHeadSub types.Subscription
 	if n.chainCfg.FinalityTagEnabled() {
+		var finalizedHeadSub types.Subscription
 		lggr.Debugw("Finalized block polling enabled")
 		finalizedHeadCh, finalizedHeadSub, err = n.rpc.SubscribeToFinalizedHeads(ctx)
 		if err != nil {
@@ -143,12 +148,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			n.declareUnreachable()
 			return
 		}
-		defer finalizedHeadSub.Unsubscribe()
-	}
 
-	n.stateMu.Lock()
-	n.finalizedBlockSub = finalizedHeadSub
-	n.stateMu.Unlock()
+		n.stateMu.Lock()
+		n.finalizedBlockSub = finalizedHeadSub
+		n.stateMu.Unlock()
+		defer func() {
+			finalizedHeadSub.Unsubscribe()
+			n.stateMu.Lock()
+			n.finalizedBlockSub = nil
+			n.stateMu.Unlock()
+		}()
+	}
 
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
@@ -252,13 +262,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				continue
 			}
 
-			n.stateMu.Lock()
 			latestFinalizedBN := latestFinalized.BlockNumber()
 			if latestFinalizedBN > localHighestChainInfo.FinalizedBlockNumber {
 				promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
 				localHighestChainInfo.FinalizedBlockNumber = latestFinalizedBN
 			}
-			n.stateMu.Unlock()
 		}
 	}
 }

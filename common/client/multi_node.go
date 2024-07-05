@@ -129,20 +129,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]NodeState {
 	return states
 }
 
-// HighestChainInfo - returns highest ChainInfo ever observed by any node in the pool.
-func (c *MultiNode[CHAIN_ID, RPC]) HighestChainInfo() ChainInfo {
-	ch := ChainInfo{
-		TotalDifficulty: big.NewInt(0),
-	}
-	for _, n := range c.primaryNodes {
-		_, nodeChainInfo := n.StateAndLatest()
-		ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
-		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
-		ch.TotalDifficulty = nodeChainInfo.TotalDifficulty
-	}
-	return ch
-}
-
 // Start starts every node in the pool
 //
 // Nodes handle their own redialing and runloops, so this function does not
