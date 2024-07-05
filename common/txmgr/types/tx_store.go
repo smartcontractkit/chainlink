@@ -35,8 +35,8 @@ type TxStore[
 	TxHistoryReaper[CHAIN_ID]
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
-	// Find confirmed txes beyond the minConfirmations param that require callback but have not yet been signaled
-	FindTxesPendingCallback(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
+	// Find confirmed txes before the LatestFinalizedBlockNum param that require callback but have not yet been signaled
+	FindTxesPendingCallback(ctx context.Context, latestFinalizedBlockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
 	// Update tx to mark that its callback has been signaled
 	UpdateTxCallbackCompleted(ctx context.Context, pipelineTaskRunRid uuid.UUID, chainId CHAIN_ID) error
 	SaveFetchedReceipts(ctx context.Context, r []R, state TxState, errorMsg *string, chainID CHAIN_ID) error
