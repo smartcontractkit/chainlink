@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-#added FinalityDepth config where it was missing
+#internal Added FinalityDepth config where it was missing
