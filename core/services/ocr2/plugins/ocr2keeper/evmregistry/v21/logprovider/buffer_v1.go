@@ -103,7 +103,12 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestLogBlock := b.blockStatistics(logs...)
+	latestLogBlock, reorgBlocks := b.blockStatistics(logs...)
+
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
@@ -120,7 +125,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 }
 
 // blockStatistics returns the latest block number from the given logs, and updates any blocks that have been reorgd
-func (b *logBuffer) blockStatistics(logs ...logpoller.Log) int64 {
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
 	var latest int64
 	reorgBlocks := map[int64]bool{}
 
@@ -137,11 +142,7 @@ func (b *logBuffer) blockStatistics(logs ...logpoller.Log) int64 {
 		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 	}
 
-	if len(reorgBlocks) > 0 {
-		b.evictReorgdLogs(reorgBlocks)
-	}
-
-	return latest
+	return latest, reorgBlocks
 }
 
 func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
