@@ -100,13 +100,9 @@ func (b bindings) BatchGetLatestValues(ctx context.Context, request commontypes.
 	for contractName, contractResult := range results {
 		batchGetLatestValuesResults[contractName] = commontypes.ContractBatchResults{}
 		for _, methodResult := range contractResult {
-			batchGetLatestValuesResults[contractName] = append(
-				batchGetLatestValuesResults[contractName],
-				commontypes.BatchReadResult{
-					ReadName:    toChainAgnosticMethodName[methodResult.MethodName],
-					ReturnValue: methodResult.ReturnValue,
-					Err:         methodResult.Err,
-				})
+			brr := commontypes.BatchReadResult{ReadName: toChainAgnosticMethodName[methodResult.MethodName]}
+			brr.SetResult(methodResult.ReturnValue, methodResult.Err)
+			batchGetLatestValuesResults[contractName] = append(batchGetLatestValuesResults[contractName], brr)
 		}
 	}
 
