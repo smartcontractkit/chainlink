@@ -23,12 +23,12 @@ func TestLogEventBufferV1(t *testing.T) {
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 	)
-	results, remaining := buf.Dequeue(int64(1), 10, 1, 2, DefaultUpkeepSelector)
+	results, remaining := buf.Dequeue(int64(1), 2, true)
 	require.Equal(t, 2, len(results))
 	require.Equal(t, 2, remaining)
 	require.True(t, results[0].ID.Cmp(results[1].ID) != 0)
-	results, remaining = buf.Dequeue(int64(1), 10, 1, 2, DefaultUpkeepSelector)
-	require.Equal(t, 2, len(results))
+	results, remaining = buf.Dequeue(int64(1), 2, true)
+	require.Equal(t, 0, len(results))
 	require.Equal(t, 0, remaining)
 }
 
@@ -97,8 +97,6 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["1"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["2"])
 		assert.True(t, true, logReceived)
 	})
 
@@ -134,9 +132,6 @@ func TestLogEventBufferV1_EnqueueViolations(t *testing.T) {
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3b"), LogIndex: 0},
 		)
 
-		assert.Equal(t, 1, buf.enqueuedBlocks[2]["2"])
-		assert.Equal(t, 1, buf.enqueuedBlocks[1]["1"])
-		assert.Equal(t, 2, buf.enqueuedBlocks[3]["3"])
 		assert.True(t, true, logReceived)
 	})
 }
@@ -153,7 +148,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 		{
 			name:         "empty",
 			logsInBuffer: map[*big.Int][]logpoller.Log{},
-			args:         newDequeueArgs(10, 1, 1, 10, nil),
+			args:         newDequeueArgs(10, 1, 1, 10),
 			lookback:     20,
 			results:      []logpoller.Log{},
 		},
@@ -165,7 +160,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 3, 10, nil),
+			args:     newDequeueArgs(10, 5, 3, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {},
@@ -191,7 +186,7 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 					{BlockNumber: 14, TxHash: common.HexToHash("0x14"), LogIndex: 12},
 				},
 			},
-			args:     newDequeueArgs(10, 5, 2, 10, nil),
+			args:     newDequeueArgs(10, 5, 2, 10),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
@@ -204,24 +199,12 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				big.NewInt(1): append(createDummyLogSequence(2, 0, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 0, 13, common.HexToHash("0x13"))...),
 				big.NewInt(2): append(createDummyLogSequence(2, 10, 12, common.HexToHash("0x12")), createDummyLogSequence(2, 10, 13, common.HexToHash("0x13"))...),
 			},
-			args:     newDequeueArgs(10, 5, 3, 4, nil),
+			args:     newDequeueArgs(10, 5, 3, 4),
 			lookback: 20,
 			results: []logpoller.Log{
 				{}, {}, {}, {},
 			},
 			remaining: 4,
-		},
-		{
-			name: "with upkeep selector",
-			logsInBuffer: map[*big.Int][]logpoller.Log{
-				big.NewInt(1): {
-					{BlockNumber: 12, TxHash: common.HexToHash("0x12"), LogIndex: 0},
-					{BlockNumber: 14, TxHash: common.HexToHash("0x15"), LogIndex: 1},
-				},
-			},
-			args:     newDequeueArgs(10, 5, 5, 10, func(id *big.Int) bool { return false }),
-			lookback: 20,
-			results:  []logpoller.Log{},
 		},
 	}
 
@@ -232,7 +215,9 @@ func TestLogEventBufferV1_Dequeue(t *testing.T) {
 				added, dropped := buf.Enqueue(id, logs...)
 				require.Equal(t, len(logs), added+dropped)
 			}
-			results, remaining := buf.Dequeue(tc.args.block, tc.args.blockRate, tc.args.upkeepLimit, tc.args.maxResults, tc.args.upkeepSelector)
+			start, _ := getBlockWindow(tc.args.block, tc.args.blockRate)
+
+			results, remaining := buf.Dequeue(start, tc.args.maxResults, true)
 			require.Equal(t, len(tc.results), len(results))
 			require.Equal(t, tc.remaining, remaining)
 		})
@@ -518,25 +503,20 @@ func TestLogEventBufferV1_BlockWindow(t *testing.T) {
 }
 
 type dequeueArgs struct {
-	block          int64
-	blockRate      int
-	upkeepLimit    int
-	maxResults     int
-	upkeepSelector func(id *big.Int) bool
+	block       int64
+	blockRate   int
+	upkeepLimit int
+	maxResults  int
 }
 
-func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int, upkeepSelector func(id *big.Int) bool) dequeueArgs {
+func newDequeueArgs(block int64, blockRate int, upkeepLimit int, maxResults int) dequeueArgs {
 	args := dequeueArgs{
-		block:          block,
-		blockRate:      blockRate,
-		upkeepLimit:    upkeepLimit,
-		maxResults:     maxResults,
-		upkeepSelector: upkeepSelector,
+		block:       block,
+		blockRate:   blockRate,
+		upkeepLimit: upkeepLimit,
+		maxResults:  maxResults,
 	}
 
-	if upkeepSelector == nil {
-		args.upkeepSelector = DefaultUpkeepSelector
-	}
 	if blockRate == 0 {
 		args.blockRate = 1
 	}
@@ -560,108 +540,4 @@ func createDummyLogSequence(n, startIndex int, block int64, tx common.Hash) []lo
 		}
 	}
 	return logs
-}
-
-func Test_trackBlockNumbersForUpkeep(t *testing.T) {
-	buf := NewLogBuffer(logger.TestLogger(t), 10, 20, 1)
-
-	logBuffer := buf.(*logBuffer)
-
-	for _, tc := range []struct {
-		uid                *big.Int
-		uniqueBlocks       map[int64]bool
-		wantEnqueuedBlocks map[int64]map[string]int
-	}{
-		{
-			uid: big.NewInt(1),
-			uniqueBlocks: map[int64]bool{
-				1: true,
-				2: true,
-				3: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-				},
-				2: {
-					"1": 1,
-				},
-				3: {
-					"1": 1,
-				},
-			},
-		},
-		{
-			uid: big.NewInt(2),
-			uniqueBlocks: map[int64]bool{
-				1: true,
-				2: true,
-				3: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 1,
-				},
-			},
-		},
-		{
-			uid: big.NewInt(2),
-			uniqueBlocks: map[int64]bool{
-				3: true,
-				4: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 2,
-				},
-				4: {
-					"2": 1,
-				},
-			},
-		},
-		{
-			uniqueBlocks: map[int64]bool{
-				3: true,
-				4: true,
-			},
-			wantEnqueuedBlocks: map[int64]map[string]int{
-				1: {
-					"1": 1,
-					"2": 1,
-				},
-				2: {
-					"1": 1,
-					"2": 1,
-				},
-				3: {
-					"1": 1,
-					"2": 2,
-				},
-				4: {
-					"2": 1,
-				},
-			},
-		},
-	} {
-		logBuffer.trackBlockNumbersForUpkeep(tc.uid, tc.uniqueBlocks)
-		assert.Equal(t, tc.wantEnqueuedBlocks, logBuffer.enqueuedBlocks)
-	}
 }
