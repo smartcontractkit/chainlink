@@ -8,7 +8,7 @@ The docker-compose configuration present in this directory allows to quickly run
 
 # Using the compose script
 
-You should use the script `compose` located in the `chainlink/tools/docker` directory
+You should use the script `compose` located in the `chainlink/tools/docker` directory.
 To see a list of available commands, perform the following:
 
 ```sh
