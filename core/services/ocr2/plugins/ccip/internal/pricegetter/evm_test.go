@@ -25,6 +25,7 @@ type testParameters struct {
 	evmClients                   map[uint64]DynamicPriceGetterClient
 	tokens                       []common.Address
 	expectedTokenPrices          map[common.Address]big.Int
+	evmCallErr                   bool
 	invalidConfigErrorExpected   bool
 	priceResolutionErrorExpected bool
 }
@@ -58,6 +59,10 @@ func TestDynamicPriceGetter(t *testing.T) {
 			name:  "no_aggregator_for_token",
 			param: testParamNoAggregatorForToken(t),
 		},
+		{
+			name:  "batchCall_returns_err",
+			param: testParamBatchCallReturnsErr(t),
+		},
 	}
 
 	for _, test := range tests {
@@ -82,6 +87,12 @@ func TestDynamicPriceGetter(t *testing.T) {
 				tokens = append(tokens, tokenAddr)
 			}
 			prices, err := pg.TokenPricesUSD(ctx, tokens)
+
+			if test.param.evmCallErr {
+				require.Error(t, err)
+				return
+			}
+
 			if test.param.priceResolutionErrorExpected {
 				require.Error(t, err)
 				return
@@ -454,6 +465,50 @@ func testParamNoAggregatorForToken(t *testing.T) testParameters {
 	}
 }
 
+func testParamBatchCallReturnsErr(t *testing.T) testParameters {
+	tk1 := utils.RandomAddress()
+	tk2 := utils.RandomAddress()
+	tk3 := utils.RandomAddress()
+	cfg := config.DynamicPriceGetterConfig{
+		AggregatorPrices: map[common.Address]config.AggregatorPriceConfig{
+			tk1: {
+				ChainID:                   101,
+				AggregatorContractAddress: utils.RandomAddress(),
+			},
+			tk2: {
+				ChainID:                   102,
+				AggregatorContractAddress: utils.RandomAddress(),
+			},
+		},
+		StaticPrices: map[common.Address]config.StaticPriceConfig{
+			tk3: {
+				ChainID: 103,
+				Price:   big.NewInt(1_234_000),
+			},
+		},
+	}
+	// Real LINK/USD example from OP.
+	round1 := aggregator_v3_interface.LatestRoundData{
+		RoundId:         big.NewInt(1000),
+		Answer:          big.NewInt(1396818990),
+		StartedAt:       big.NewInt(1704896575),
+		UpdatedAt:       big.NewInt(1704896575),
+		AnsweredInRound: big.NewInt(1000),
+	}
+	evmClients := map[uint64]DynamicPriceGetterClient{
+		uint64(101): mockClient(t, []uint8{8}, []aggregator_v3_interface.LatestRoundData{round1}),
+		uint64(102): {
+			BatchCaller: mockErrCaller(t),
+		},
+	}
+	return testParameters{
+		cfg:        cfg,
+		evmClients: evmClients,
+		tokens:     []common.Address{tk1, tk2, tk3},
+		evmCallErr: true,
+	}
+}
+
 func mockClient(t *testing.T, decimals []uint8, rounds []aggregator_v3_interface.LatestRoundData) DynamicPriceGetterClient {
 	return DynamicPriceGetterClient{
 		BatchCaller: mockCaller(t, decimals, rounds),
@@ -476,6 +531,12 @@ func mockCaller(t *testing.T, decimals []uint8, rounds []aggregator_v3_interface
 		})
 	}
 	caller.On("BatchCall", mock.Anything, uint64(0), mock.Anything).Return(dataAndErrs, nil).Maybe()
+	return caller
+}
+
+func mockErrCaller(t *testing.T) *rpclibmocks.EvmBatchCaller {
+	caller := rpclibmocks.NewEvmBatchCaller(t)
+	caller.On("BatchCall", mock.Anything, uint64(0), mock.Anything).Return(nil, assert.AnError).Maybe()
 	return caller
 }
 
