@@ -9,11 +9,21 @@ import (
 // MissingImageInfoAsError return a helfpul error message when the no Chainlink image info is found in TOML config.
 // If legacy env vars are found it prints ready to use TOML configuration
 func MissingImageInfoAsError(errStr string) error {
-	intro := `
+	missingImage := `
 Chainlink image is a secret and must be set in testconfig/.secrets file or passed as env var. You might have used old configuration approach.
 Please refer to integration-tests/testconfig/README.md#Secrets for more information.
 `
-	return fmt.Errorf(fmt.Sprintf("%s\n%s", errStr, intro))
+	missingVersion := `
+Chainlink version must be set in toml config.
+`
+
+	if os.Getenv("CHAINLINK_IMAGE") == "" || os.Getenv("CHAINLINK_UPGRADE_IMAGE") == "" {
+		return fmt.Errorf(fmt.Sprintf("%s\n%s", errStr, missingImage))
+	}
+	if os.Getenv("CHAINLINK_VERSION") == "" || os.Getenv("CHAINLINK_UPGRADE_VERSION") == "" {
+		return fmt.Errorf(fmt.Sprintf("%s\n%s", errStr, missingVersion))
+	}
+	return fmt.Errorf(errStr)
 }
 
 // NoSelectedNetworkInfoAsError return a helfpul error message when the no selected network info is found in TOML config.
