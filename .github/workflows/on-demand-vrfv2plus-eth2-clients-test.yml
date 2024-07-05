@@ -46,7 +46,7 @@ jobs:
           echo "### Execution client used" >>$GITHUB_STEP_SUMMARY
           echo "\`${{ env.ETH2_EL_CLIENT }}\`" >>$GITHUB_STEP_SUMMARY              
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@cfda96316d2b0446815caba162b7bcbdf61765e7 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@db98257552dd79e6516c6a19e71b0f1fb96765ae # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/Native_Billing ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           # test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -run ^TestVRFv2Plus$/^Link_Billing$ ./smoke/vrfv2plus_test.go 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
