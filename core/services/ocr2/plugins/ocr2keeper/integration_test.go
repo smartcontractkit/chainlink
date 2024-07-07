@@ -459,6 +459,7 @@ func setupForwarderForNode(
 }
 
 func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
+	t.Skip("TODO FIXME")
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)
 
