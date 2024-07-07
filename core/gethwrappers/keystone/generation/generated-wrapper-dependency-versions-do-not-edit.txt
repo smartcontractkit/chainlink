@@ -1,4 +1,4 @@
-GETH_VERSION: 1.13.14
+GETH_VERSION: 1.13.15
 capabilities_registry: ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.abi ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.bin 3a082f0307411f41c30db26e61d59adcd5b003141a5aa8fe79d7779619028e26
 forwarder: ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.bin dc98a86a3775ead987b79d5b6079ee0e26f31c0626032bdd6508f986e2423227
 keystone_capability_registry: ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.abi ../../../contracts/solc/v0.8.19/CapabilityRegistry/CapabilityRegistry.bin d4e0661491c2adc7f0d7553287c938fb32664b9f07770f6d57ae6511ce9884cd

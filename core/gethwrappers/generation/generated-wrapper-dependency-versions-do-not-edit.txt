@@ -1,4 +1,4 @@
-GETH_VERSION: 1.13.14
+GETH_VERSION: 1.13.15
 aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 aggregator_v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
 arbitrum_module: ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin b76cf77e3e8200c5f292e93af3f620f68f207f83634aacaaee43d682701dfea3
