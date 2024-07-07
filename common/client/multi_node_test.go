@@ -29,16 +29,17 @@ type testMultiNode struct {
 }
 
 type multiNodeOpts struct {
-	logger              logger.Logger
-	selectionMode       string
-	leaseDuration       time.Duration
-	noNewHeadsThreshold time.Duration
-	nodes               []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]
-	sendonlys           []SendOnlyNode[types.ID, multiNodeRPCClient]
-	chainID             types.ID
-	chainFamily         string
-	classifySendTxError func(tx any, err error) SendTxReturnCode
-	sendTxSoftTimeout   time.Duration
+	logger                logger.Logger
+	selectionMode         string
+	leaseDuration         time.Duration
+	noNewHeadsThreshold   time.Duration
+	nodes                 []Node[types.ID, types.Head[Hashable], multiNodeRPCClient]
+	sendonlys             []SendOnlyNode[types.ID, multiNodeRPCClient]
+	chainID               types.ID
+	chainFamily           string
+	classifySendTxError   func(tx any, err error) SendTxReturnCode
+	sendTxSoftTimeout     time.Duration
+	deathDeclarationDelay time.Duration
 }
 
 func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
@@ -49,7 +50,7 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	result := NewMultiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 		types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any](opts.logger,
 		opts.selectionMode, opts.leaseDuration, opts.noNewHeadsThreshold, opts.nodes, opts.sendonlys,
-		opts.chainID, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout)
+		opts.chainID, opts.chainFamily, opts.classifySendTxError, opts.sendTxSoftTimeout, opts.deathDeclarationDelay)
 	return testMultiNode{
 		result.(*multiNode[types.ID, *big.Int, Hashable, Hashable, any, Hashable, any, any,
 			types.Receipt[Hashable, Hashable], Hashable, types.Head[Hashable], multiNodeRPCClient, any]),
@@ -67,14 +68,21 @@ func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.He
 }
 
 func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
+	node := newDialableNode(t, chainID)
+	node.On("State").Return(state).Maybe()
+	return node
+}
+
+func newDialableNode(t *testing.T, chainID types.ID) *mockNode[types.ID, types.Head[Hashable], multiNodeRPCClient] {
 	node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
 	node.On("Close").Return(nil).Once()
-	node.On("State").Return(state).Maybe()
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
+	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 	return node
 }
+
 func TestMultiNode_Dial(t *testing.T) {
 	t.Parallel()
 
@@ -111,6 +119,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		node := newMockNode(t)
 		chainID := types.RandomID()
 		node.On("ConfiguredChainID").Return(chainID).Once()
+		node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 		expectedError := errors.New("failed to start node")
 		node.On("Start", mock.Anything).Return(expectedError).Once()
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -128,6 +137,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		node1 := newHealthyNode(t, chainID)
 		node2 := newMockNode(t)
 		node2.On("ConfiguredChainID").Return(chainID).Once()
+		node2.On("SetPoolChainInfoProvider", mock.Anything).Once()
 		expectedError := errors.New("failed to start node")
 		node2.On("Start", mock.Anything).Return(expectedError).Once()
 
@@ -219,6 +229,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
@@ -236,6 +247,7 @@ func TestMultiNode_Report(t *testing.T) {
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
+		mn.deathDeclarationDelay = tests.TestInterval
 		defer func() { assert.NoError(t, mn.Close()) }()
 		err := mn.Dial(tests.Context(t))
 		require.NoError(t, err)
@@ -377,6 +389,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		chainID := types.RandomID()
 		oldBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
+		oldBest.On("UnsubscribeAllExceptAliveLoop").Once()
 		newBest := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
 		newBest.On("String").Return("newBest").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -417,49 +430,94 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 }
 
-func TestMultiNode_nLiveNodes(t *testing.T) {
+func TestMultiNode_ChainInfo(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {
-		BlockNumber     int64
-		TotalDifficulty *big.Int
-		State           nodeState
+		LatestChainInfo         ChainInfo
+		HighestUserObservations ChainInfo
+		State                   nodeState
 	}
 	testCases := []struct {
-		Name                    string
-		ExpectedNLiveNodes      int
-		ExpectedBlockNumber     int64
-		ExpectedTotalDifficulty *big.Int
-		NodeParams              []nodeParams
+		Name                            string
+		ExpectedNLiveNodes              int
+		ExpectedLatestChainInfo         ChainInfo
+		ExpectedHighestUserObservations ChainInfo
+		NodeParams                      []nodeParams
 	}{
 		{
-			Name:                    "no nodes",
-			ExpectedTotalDifficulty: big.NewInt(0),
+			Name: "no nodes",
+			ExpectedLatestChainInfo: ChainInfo{
+				TotalDifficulty: big.NewInt(0),
+			},
+			ExpectedHighestUserObservations: ChainInfo{
+				TotalDifficulty: big.NewInt(0),
+			},
 		},
 		{
-			Name:                    "Best node is not healthy",
-			ExpectedTotalDifficulty: big.NewInt(10),
-			ExpectedBlockNumber:     20,
-			ExpectedNLiveNodes:      3,
+			Name:               "Best node is not healthy",
+			ExpectedNLiveNodes: 3,
+			ExpectedLatestChainInfo: ChainInfo{
+				BlockNumber:          20,
+				FinalizedBlockNumber: 10,
+				TotalDifficulty:      big.NewInt(10),
+			},
+			ExpectedHighestUserObservations: ChainInfo{
+				BlockNumber:          1005,
+				FinalizedBlockNumber: 995,
+				TotalDifficulty:      big.NewInt(2005),
+			},
 			NodeParams: []nodeParams{
 				{
-					State:           nodeStateOutOfSync,
-					BlockNumber:     1000,
-					TotalDifficulty: big.NewInt(2000),
+					State: nodeStateOutOfSync,
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          1000,
+						FinalizedBlockNumber: 990,
+						TotalDifficulty:      big.NewInt(2000),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          1005,
+						FinalizedBlockNumber: 995,
+						TotalDifficulty:      big.NewInt(2005),
+					},
 				},
 				{
-					State:           nodeStateAlive,
-					BlockNumber:     20,
-					TotalDifficulty: big.NewInt(9),
+					State: nodeStateAlive,
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          20,
+						FinalizedBlockNumber: 10,
+						TotalDifficulty:      big.NewInt(9),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          25,
+						FinalizedBlockNumber: 15,
+						TotalDifficulty:      big.NewInt(14),
+					},
 				},
 				{
-					State:           nodeStateAlive,
-					BlockNumber:     19,
-					TotalDifficulty: big.NewInt(10),
+					State: nodeStateAlive,
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          19,
+						FinalizedBlockNumber: 9,
+						TotalDifficulty:      big.NewInt(10),
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          24,
+						FinalizedBlockNumber: 14,
+						TotalDifficulty:      big.NewInt(15),
+					},
 				},
 				{
-					State:           nodeStateAlive,
-					BlockNumber:     11,
-					TotalDifficulty: nil,
+					State: nodeStateAlive,
+					LatestChainInfo: ChainInfo{
+						BlockNumber:          11,
+						FinalizedBlockNumber: 1,
+						TotalDifficulty:      nil,
+					},
+					HighestUserObservations: ChainInfo{
+						BlockNumber:          16,
+						FinalizedBlockNumber: 6,
+						TotalDifficulty:      nil,
+					},
 				},
 			},
 		},
@@ -475,14 +533,17 @@ func TestMultiNode_nLiveNodes(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, params := range tc.NodeParams {
 				node := newMockNode[types.ID, types.Head[Hashable], multiNodeRPCClient](t)
-				node.On("StateAndLatest").Return(params.State, params.BlockNumber, params.TotalDifficulty)
+				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
+				node.On("HighestUserObservations").Return(params.HighestUserObservations)
 				mn.nodes = append(mn.nodes, node)
 			}
 
-			nNodes, blockNum, td := mn.nLiveNodes()
+			nNodes, latestChainInfo := mn.LatestChainInfo()
 			assert.Equal(t, tc.ExpectedNLiveNodes, nNodes)
-			assert.Equal(t, tc.ExpectedTotalDifficulty, td)
-			assert.Equal(t, tc.ExpectedBlockNumber, blockNum)
+			assert.Equal(t, tc.ExpectedLatestChainInfo, latestChainInfo)
+
+			highestChainInfo := mn.HighestUserObservations()
+			assert.Equal(t, tc.ExpectedHighestUserObservations, highestChainInfo)
 		})
 	}
 }

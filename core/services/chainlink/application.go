@@ -353,7 +353,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
-		workflowORM    = workflowstore.NewDBStore(opts.DS, clockwork.NewRealClock())
+		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -500,8 +500,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			ocr2DelegateConfig,
 			keyStore.OCR2(),
-			keyStore.DKGSign(),
-			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
 			opts.RelayerChainInteroperators,
 			mailMon,

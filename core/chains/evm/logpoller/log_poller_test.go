@@ -26,7 +26,9 @@ import (
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 
+	htMocks "github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -708,7 +710,9 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, backend, chainID), lggr, lpOpts)
+		simulatedClient := client.NewSimulatedBackendClient(t, backend, chainID)
+		ht := headtracker.NewSimulatedHeadTracker(simulatedClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		lp := logpoller.NewLogPoller(orm, simulatedClient, lggr, ht, lpOpts)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			backend.Commit()
 		}
@@ -1481,7 +1485,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 		RpcBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, backend, chainID2), lggr, lpOpts)
+	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, backend, chainID2), lggr, nil, lpOpts)
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
@@ -1536,7 +1540,8 @@ func TestTooManyLogResults(t *testing.T) {
 		RpcBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	lp := logpoller.NewLogPoller(o, ec, lggr, lpOpts)
+	headTracker := htMocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+	lp := logpoller.NewLogPoller(o, ec, lggr, headTracker, lpOpts)
 	expected := []int64{10, 5, 2, 1}
 
 	clientErr := client.JsonError{
@@ -1545,9 +1550,13 @@ func TestTooManyLogResults(t *testing.T) {
 		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
 	}
 
+	// Simulate currentBlock = 300
+	head := &evmtypes.Head{Number: 300}
+	finalized := &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			return &evmtypes.Head{Number: 300}, nil // Simulate currentBlock = 300
+			require.FailNow(t, "unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
@@ -1589,9 +1598,12 @@ func TestTooManyLogResults(t *testing.T) {
 
 	// Now jump to block 500, but return error no matter how small the block range gets.
 	//  Should exit the loop with a critical error instead of hanging.
+	head = &evmtypes.Head{Number: 500}
+	finalized = &evmtypes.Head{Number: head.Number - lpOpts.FinalityDepth}
+	headTracker.On("LatestAndFinalizedBlock", mock.Anything).Return(head, finalized, nil).Once()
 	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
 		if blockNumber == nil {
-			return &evmtypes.Head{Number: 500}, nil // Simulate currentBlock = 300
+			require.FailNow(t, "unexpected call to get current head")
 		}
 		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
 	})
@@ -1920,7 +1932,7 @@ func TestFindLCA(t *testing.T) {
 		KeepFinalizedBlocksDepth: 1000,
 	}
 
-	lp := logpoller.NewLogPoller(orm, ec, lggr, lpOpts)
+	lp := logpoller.NewLogPoller(orm, ec, lggr, nil, lpOpts)
 	t.Run("Fails, if failed to select oldest block", func(t *testing.T) {
 		_, err := lp.FindLCA(ctx)
 		require.ErrorContains(t, err, "failed to select the latest block")

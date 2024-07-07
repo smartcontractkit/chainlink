@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -101,7 +102,8 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		RpcBatchSize:             rpcBatchSize,
 		KeepFinalizedBlocksDepth: keepFinalizedBlocksDepth,
 	}
-	lp := logpoller.NewLogPoller(o, esc, lggr, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(esc, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(o, esc, lggr, ht, lpOpts)
 
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)

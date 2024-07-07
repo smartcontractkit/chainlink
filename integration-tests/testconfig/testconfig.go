@@ -79,12 +79,18 @@ type TestConfig struct {
 	LogPoller  *lp_config.Config        `toml:"LogPoller"`
 	OCR        *ocr_config.Config       `toml:"OCR"`
 	OCR2       *ocr_config.Config       `toml:"OCR2"`
-	OCR2VRF    *ocr_config.Config       `toml:"OCRR2VRF"`
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
+	CRIB       *CRIB                    `toml:"CRIB"`
 
-	ConfigurationName string `toml:"-"`
+	ConfigurationNames []string `toml:"-"`
+}
+
+type CRIB struct {
+	Namespace   string `toml:"namespace"`
+	NetworkName string `toml:"network_name"`
+	CLNodesNum  int    `toml:"nodes"`
 }
 
 var embeddedConfigs embed.FS
@@ -196,8 +202,8 @@ func (c TestConfig) GetOCRConfig() *ocr_config.Config {
 	return c.OCR
 }
 
-func (c TestConfig) GetConfigurationName() string {
-	return c.ConfigurationName
+func (c TestConfig) GetConfigurationNames() []string {
+	return c.ConfigurationNames
 }
 
 func (c TestConfig) GetSethConfig() *seth.Config {
@@ -209,11 +215,7 @@ func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
 		return c.OCR
 	}
 
-	if c.OCR2 != nil {
-		return c.OCR2
-	}
-
-	return c.OCR2VRF
+	return c.OCR2
 }
 
 func (c *TestConfig) AsBase64() (string, error) {
@@ -251,7 +253,6 @@ const (
 	Node          Product = "node"
 	OCR           Product = "ocr"
 	OCR2          Product = "ocr2"
-	OCR2VRF       Product = "ocr2vrf"
 	RunLog        Product = "runlog"
 	VRF           Product = "vrf"
 	VRFv2         Product = "vrfv2"
@@ -271,15 +272,23 @@ func GetConfigurationNameFromEnv() (string, error) {
 
 const (
 	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
-	NoKey                    = "NO_KEY"
 )
 
-func GetConfig(configurationName string, product Product) (TestConfig, error) {
+func GetConfig(configurationNames []string, product Product) (TestConfig, error) {
 	logger := logging.GetTestLogger(nil)
 
-	configurationName = strings.ReplaceAll(configurationName, "/", "_")
-	configurationName = strings.ReplaceAll(configurationName, " ", "_")
-	configurationName = cases.Title(language.English, cases.NoLower).String(configurationName)
+	for idx, configurationName := range configurationNames {
+		configurationNames[idx] = strings.ReplaceAll(configurationName, "/", "_")
+		configurationNames[idx] = strings.ReplaceAll(configurationName, " ", "_")
+		configurationNames[idx] = cases.Title(language.English, cases.NoLower).String(configurationName)
+	}
+
+	// add unnamed (default) configuration as the first one to be read
+	configurationNamesCopy := make([]string, len(configurationNames))
+	copy(configurationNamesCopy, configurationNames)
+
+	configurationNames = append([]string{""}, configurationNamesCopy...)
+
 	fileNames := []string{
 		"default.toml",
 		fmt.Sprintf("%s.toml", product),
@@ -287,8 +296,9 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 	}
 
 	testConfig := TestConfig{}
-	testConfig.ConfigurationName = configurationName
-	logger.Debug().Msgf("Will apply configuration named '%s' if it is found in any of the configs", configurationName)
+	testConfig.ConfigurationNames = configurationNames
+
+	logger.Debug().Msgf("Will apply configurations named '%s' if they are found in any of the configs", strings.Join(configurationNames, ","))
 
 	// read embedded configs is build tag "embed" is set
 	// this makes our life much easier when using a binary
@@ -304,9 +314,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading embedded config")
 			}
 
-			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
-			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config")
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, file)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error unmarshalling embedded config %s", embeddedFiles)
+				}
 			}
 		}
 	} else {
@@ -328,9 +340,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 			}
 
-			err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
-			if err != nil {
-				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+			for _, configurationName := range configurationNames {
+				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
+				if err != nil {
+					return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
+				}
 			}
 		}
 	}
@@ -344,9 +358,11 @@ func GetConfig(configurationName string, product Product) (TestConfig, error) {
 			return TestConfig{}, err
 		}
 
-		err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
-		if err != nil {
-			return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+		for _, configurationName := range configurationNames {
+			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
+			if err != nil {
+				return TestConfig{}, errors.Wrapf(err, "error unmarshaling base64 config")
+			}
 		}
 	} else {
 		logger.Debug().Msg("Base64 config override from environment variable not found")
@@ -541,12 +557,6 @@ func (c *TestConfig) Validate() error {
 	if c.OCR2 != nil {
 		if err := c.OCR2.Validate(); err != nil {
 			return errors.Wrapf(err, "OCR2 config validation failed")
-		}
-	}
-
-	if c.OCR2VRF != nil {
-		if err := c.OCR2VRF.Validate(); err != nil {
-			return errors.Wrapf(err, "OCR2VRF config validation failed")
 		}
 	}
 

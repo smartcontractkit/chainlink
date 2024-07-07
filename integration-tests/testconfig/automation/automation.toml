@@ -30,11 +30,6 @@ Unauthenticated = 1000
 [WebServer.TLS]
 HTTPSPort = 0
 
-[Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
-MigrateOnStartup = true
-
 [OCR2]
 Enabled = true
 
@@ -43,8 +38,6 @@ Enabled = true
 Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 AnnounceAddresses = ['0.0.0.0:6690']
-DeltaDial = '500ms'
-DeltaReconcile = '5s'
 """
 
 # smoke test specific overrodes

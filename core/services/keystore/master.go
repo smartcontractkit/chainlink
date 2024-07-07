@@ -11,10 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgsignkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
@@ -39,8 +38,6 @@ type DefaultEVMChainIDFunc func() (defaultEVMChainID *big.Int, err error)
 
 type Master interface {
 	CSA() CSA
-	DKGSign() DKGSign
-	DKGEncrypt() DKGEncrypt
 	Eth() Eth
 	OCR() OCR
 	OCR2() OCR2
@@ -48,6 +45,7 @@ type Master interface {
 	Solana() Solana
 	Cosmos() Cosmos
 	StarkNet() StarkNet
+	Aptos() Aptos
 	VRF() VRF
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
@@ -55,17 +53,16 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	cosmos     *cosmos
-	csa        *csa
-	eth        *eth
-	ocr        *ocr
-	ocr2       ocr2
-	p2p        *p2p
-	solana     *solana
-	starknet   *starknet
-	vrf        *vrf
-	dkgSign    *dkgSign
-	dkgEncrypt *dkgEncrypt
+	cosmos   *cosmos
+	csa      *csa
+	eth      *eth
+	ocr      *ocr
+	ocr2     ocr2
+	p2p      *p2p
+	solana   *solana
+	starknet *starknet
+	aptos    *aptos
+	vrf      *vrf
 }
 
 func New(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
@@ -92,18 +89,9 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
 		starknet:   newStarkNetKeyStore(km),
+		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
-		dkgSign:    newDKGSignKeyStore(km),
-		dkgEncrypt: newDKGEncryptKeyStore(km),
 	}
-}
-
-func (ks *master) DKGEncrypt() DKGEncrypt {
-	return ks.dkgEncrypt
-}
-
-func (ks master) DKGSign() DKGSign {
-	return ks.dkgSign
 }
 
 func (ks master) CSA() CSA {
@@ -136,6 +124,10 @@ func (ks *master) Cosmos() Cosmos {
 
 func (ks *master) StarkNet() StarkNet {
 	return ks.starknet
+}
+
+func (ks *master) Aptos() Aptos {
+	return ks.aptos
 }
 
 func (ks *master) VRF() VRF {
@@ -273,12 +265,10 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Solana", nil
 	case starkkey.Key:
 		return "StarkNet", nil
+	case aptoskey.Key:
+		return "Aptos", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
-	case dkgsignkey.Key:
-		return "DKGSign", nil
-	case dkgencryptkey.Key:
-		return "DKGEncrypt", nil
 	}
 	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }
