@@ -232,6 +232,8 @@ env = 'dev'
 test = 'load'
 
 [Mercury]
+VerboseLogging = true
+
 [Mercury.Cache]
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
