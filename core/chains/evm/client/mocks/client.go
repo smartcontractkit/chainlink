@@ -208,36 +208,6 @@ func (_m *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockN
 	return r0, r1
 }
 
-// ChainID provides a mock function with given fields:
-func (_m *Client) ChainID() (*big.Int, error) {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ChainID")
-	}
-
-	var r0 *big.Int
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (*big.Int, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CheckTxValidity provides a mock function with given fields: ctx, from, to, data
 func (_m *Client) CheckTxValidity(ctx context.Context, from common.Address, to common.Address, data []byte) *client.SendError {
 	ret := _m.Called(ctx, from, to, data)
@@ -618,19 +588,19 @@ func (_m *Client) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head, err
 }
 
 // NodeStates provides a mock function with given fields:
-func (_m *Client) NodeStates() map[string]string {
+func (_m *Client) NodeStates() map[string]commonclient.NodeState {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for NodeStates")
 	}
 
-	var r0 map[string]string
-	if rf, ok := ret.Get(0).(func() map[string]string); ok {
+	var r0 map[string]commonclient.NodeState
+	if rf, ok := ret.Get(0).(func() map[string]commonclient.NodeState); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]string)
+			r0 = ret.Get(0).(map[string]commonclient.NodeState)
 		}
 	}
 
@@ -829,34 +799,43 @@ func (_m *Client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuer
 	return r0, r1
 }
 
-// SubscribeNewHead provides a mock function with given fields: ctx, ch
-func (_m *Client) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	ret := _m.Called(ctx, ch)
+// SubscribeNewHead provides a mock function with given fields: ctx
+func (_m *Client) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SubscribeNewHead")
 	}
 
-	var r0 ethereum.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) (ethereum.Subscription, error)); ok {
-		return rf(ctx, ch)
+	var r0 <-chan *evmtypes.Head
+	var r1 ethereum.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- *evmtypes.Head) ethereum.Subscription); ok {
-		r0 = rf(ctx, ch)
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan *evmtypes.Head); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ethereum.Subscription)
+			r0 = ret.Get(0).(<-chan *evmtypes.Head)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- *evmtypes.Head) error); ok {
-		r1 = rf(ctx, ch)
+	if rf, ok := ret.Get(1).(func(context.Context) ethereum.Subscription); ok {
+		r1 = rf(ctx)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(ethereum.Subscription)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // SuggestGasPrice provides a mock function with given fields: ctx

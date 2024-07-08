@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
@@ -13,10 +12,10 @@ import (
 
 // RPCClient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
 //
-//go:generate mockery --quiet --name RPCClient --output ./mocks --case=underscore
+//go:generate mockery --quiet --name RPCClient --structname mockRPCClient --filename "mock_rpc_client_test.go" --inpackage --case=underscore
 type RPCClient[
 	CHAIN_ID types.ID,
-	HEAD *evmtypes.Head,
+	HEAD Head,
 ] interface {
 	// ChainID - fetches ChainID from the RPC to verify that it matches config
 	ChainID(ctx context.Context) (CHAIN_ID, error)
@@ -34,6 +33,17 @@ type RPCClient[
 	UnsubscribeAllExcept(subs ...types.Subscription)
 	// Close - closes all subscriptions and aborts all RPC calls
 	Close()
+	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.
+	// latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
+	// highestUserObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.
+	// Its values must not be reset.
+	// The results of corresponding calls, to get the most recent head and the latest finalized head, must be
+	// intercepted and reflected in ChainInfo before being returned to a caller. Otherwise, MultiNode is not able to
+	// provide repeatable read guarantee.
+	// DisconnectAll must reset latest ChainInfo to default value.
+	// Ensure implementation does not have a race condition when values are reset before request completion and as
+	// a result latest ChainInfo contains information from the previous cycle.
+	GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo)
 }
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
@@ -83,8 +93,6 @@ type Head interface {
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.
-//
-//go:generate mockery --quiet --name NodeClient --structname mockNodeClient --filename "mock_node_client_test.go" --inpackage --case=underscore
 type NodeClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
@@ -183,7 +191,7 @@ type connection[
 ] interface {
 	ChainID(ctx context.Context) (CHAIN_ID, error)
 	Dial(ctx context.Context) error
-	SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error)
+	SubscribeNewHead(ctx context.Context) (<-chan HEAD, types.Subscription, error)
 }
 
 // PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo

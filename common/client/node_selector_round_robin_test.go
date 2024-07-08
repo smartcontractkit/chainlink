@@ -9,24 +9,24 @@ import (
 )
 
 func TestRoundRobinNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
+	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeRoundRobin)
 }
 
 func TestRoundRobinNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
-	var nodes []Node[types.ID, Head, nodeClient]
+	type nodeClient RPCClient[types.ID, Head]
+	var nodes []Node[types.ID, nodeClient]
 
 	for i := 0; i < 3; i++ {
-		node := newMockNode[types.ID, Head, nodeClient](t)
+		node := newMockNode[types.ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(nodeStateOutOfSync)
+			node.On("State").Return(NodeStateOutOfSync)
 		} else {
 			// second & third nodes are alive
-			node.On("State").Return(nodeStateAlive)
+			node.On("State").Return(NodeStateAlive)
 		}
 		nodes = append(nodes, node)
 	}
@@ -41,17 +41,17 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 func TestRoundRobinNodeSelector_None(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient NodeClient[types.ID, Head]
-	var nodes []Node[types.ID, Head, nodeClient]
+	type nodeClient RPCClient[types.ID, Head]
+	var nodes []Node[types.ID, nodeClient]
 
 	for i := 0; i < 3; i++ {
-		node := newMockNode[types.ID, Head, nodeClient](t)
+		node := newMockNode[types.ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
-			node.On("State").Return(nodeStateOutOfSync)
+			node.On("State").Return(NodeStateOutOfSync)
 		} else {
 			// others are unreachable
-			node.On("State").Return(nodeStateUnreachable)
+			node.On("State").Return(NodeStateUnreachable)
 		}
 		nodes = append(nodes, node)
 	}

@@ -665,34 +665,43 @@ func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS
 	return r0
 }
 
-// SubscribeNewHead provides a mock function with given fields: ctx, channel
-func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeNewHead(ctx context.Context, channel chan<- HEAD) (types.Subscription, error) {
-	ret := _m.Called(ctx, channel)
+// SubscribeNewHead provides a mock function with given fields: ctx
+func (_m *mockRPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, BATCH_ELEM]) SubscribeNewHead(ctx context.Context) (<-chan HEAD, types.Subscription, error) {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SubscribeNewHead")
 	}
 
-	var r0 types.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD) (types.Subscription, error)); ok {
-		return rf(ctx, channel)
+	var r0 <-chan HEAD
+	var r1 types.Subscription
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (<-chan HEAD, types.Subscription, error)); ok {
+		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, chan<- HEAD) types.Subscription); ok {
-		r0 = rf(ctx, channel)
+	if rf, ok := ret.Get(0).(func(context.Context) <-chan HEAD); ok {
+		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.Subscription)
+			r0 = ret.Get(0).(<-chan HEAD)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, chan<- HEAD) error); ok {
-		r1 = rf(ctx, channel)
+	if rf, ok := ret.Get(1).(func(context.Context) types.Subscription); ok {
+		r1 = rf(ctx)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).(types.Subscription)
+		}
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // SubscribersCount provides a mock function with given fields:

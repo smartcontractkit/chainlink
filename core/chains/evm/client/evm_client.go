@@ -10,13 +10,12 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, clientErrors evmconfig.ClientErrors, lggr logger.Logger, chainID *big.Int, nodes []*toml.Node, chainType chaintype.ChainType) Client {
 	var empty url.URL
-	var primaries []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
+	var primaries []commonclient.Node[*big.Int, *RpcClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	for i, node := range nodes {
 		if node.SendOnly != nil && *node.SendOnly {
 			rpc := NewRPCClient(cfg, lggr, empty, (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID,
@@ -34,6 +33,6 @@ func NewEvmClient(cfg evmconfig.NodePool, chainCfg commonclient.ChainConfig, cli
 		}
 	}
 
-	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(), chainCfg.NodeNoNewHeadsThreshold(),
-		primaries, sendonlys, chainID, chainType, clientErrors, cfg.DeathDeclarationDelay())
+	return NewChainClient(lggr, cfg.SelectionMode(), cfg.LeaseDuration(),
+		primaries, sendonlys, chainID, clientErrors, cfg.DeathDeclarationDelay())
 }

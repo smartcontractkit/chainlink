@@ -14,7 +14,6 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	clientMocks "github.com/smartcontractkit/chainlink/v2/common/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -140,27 +139,29 @@ func NewChainClientWithTestNode(
 	}
 
 	lggr := logger.Test(t)
-	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
+	nodePoolCfg := TestNodePoolConfig{
+		NodeFinalizedBlockPollInterval: 1 * time.Second,
+	}
+	rpc := NewRPCClient(nodePoolCfg, lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RpcClient](
 		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
+	primaries := []commonclient.Node[*big.Int, *RpcClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
+		rpc := NewRPCClient(nodePoolCfg, lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
+		s := commonclient.NewSendOnlyNode[*big.Int, *RpcClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType chaintype.ChainType
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors, 0)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -174,8 +175,7 @@ func NewChainClientWithEmptyNode(
 ) Client {
 	lggr := logger.Test(t)
 
-	var chainType chaintype.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil, 0)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil, 0)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -186,22 +186,20 @@ func NewChainClientWithMockedRpc(
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
-	rpc RPCClient,
+	rpc *RpcClient,
 ) Client {
 	lggr := logger.Test(t)
-
-	var chainType chaintype.ChainType
 
 	cfg := TestNodePoolConfig{
 		NodeSelectionMode: commonclient.NodeSelectionModeRoundRobin,
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RpcClient](
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
+	primaries := []commonclient.Node[*big.Int, *RpcClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors, 0)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c
 }

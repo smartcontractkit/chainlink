@@ -90,9 +90,9 @@ func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return newNullSubscription(nc.lggr), nil
 }
 
-func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
+func (nc *NullClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error) {
 	nc.lggr.Debug("SubscribeNewHead")
-	return newNullSubscription(nc.lggr), nil
+	return nil, newNullSubscription(nc.lggr), nil
 }
 
 //
@@ -221,7 +221,7 @@ func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, er
 }
 
 // NodeStates implements evmclient.Client
-func (nc *NullClient) NodeStates() map[string]string { return nil }
+func (nc *NullClient) NodeStates() map[string]commonclient.NodeState { return nil }
 
 func (nc *NullClient) IsL2() bool {
 	nc.lggr.Debug("IsL2")

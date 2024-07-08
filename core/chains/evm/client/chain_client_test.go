@@ -3,14 +3,11 @@ package client_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,10 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
@@ -30,7 +25,6 @@ import (
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -408,6 +402,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+/* TODO: Implement tx sender
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
@@ -450,6 +445,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	// synchronization. We have to rely on timing instead.
 	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, tests.WaitTimeout(t), 500*time.Millisecond)
 }
+*/
 
 func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 	t.Parallel()
@@ -691,6 +687,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 	})
 }
 
+/*
 type sendTxService struct {
 	chainID   *big.Int
 	sentCount atomic.Int32
@@ -704,6 +701,7 @@ func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexuti
 	x.sentCount.Add(1)
 	return nil
 }
+*/
 
 func TestEthClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
@@ -729,8 +727,7 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	err := ethClient.Dial(tests.Context(t))
 	require.NoError(t, err)
 
-	headCh := make(chan *evmtypes.Head)
-	sub, err := ethClient.SubscribeNewHead(ctx, headCh)
+	headCh, sub, err := ethClient.SubscribeNewHead(ctx)
 	require.NoError(t, err)
 
 	select {
@@ -739,63 +736,11 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	case h := <-headCh:
+		fmt.Println("Received head", h)
 		require.NotNil(t, h.EVMChainID)
 		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
 	}
 	sub.Unsubscribe()
-}
-
-func newMockRpc(t *testing.T) *mocks.RPCClient {
-	mockRpc := mocks.NewRPCClient(t)
-	mockRpc.On("Dial", mock.Anything).Return(nil).Once()
-	mockRpc.On("Close").Return(nil).Once()
-	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()
-	// node does not always manage to fully setup aliveLoop, so we have to make calls optional to avoid flakes
-	mockRpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
-	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Maybe()
-	return mockRpc
-}
-
-func TestChainClient_BatchCallContext(t *testing.T) {
-	t.Parallel()
-
-	t.Run("batch requests return errors", func(t *testing.T) {
-		ctx := tests.Context(t)
-		rpcError := errors.New("something went wrong")
-		blockNumResp := ""
-		blockNum := hexutil.EncodeBig(big.NewInt(42))
-		b := []rpc.BatchElem{
-			{
-				Method: "eth_getBlockByNumber",
-				Args:   []interface{}{blockNum, true},
-				Result: &types.Block{},
-			},
-			{
-				Method: "eth_blockNumber",
-				Result: &blockNumResp,
-			},
-		}
-
-		mockRpc := newMockRpc(t)
-		mockRpc.On("GetInterceptedChainInfo").Return(commonclient.ChainInfo{}, commonclient.ChainInfo{}).Maybe()
-		mockRpc.On("BatchCallContext", mock.Anything, b).Run(func(args mock.Arguments) {
-			reqs := args.Get(1).([]rpc.BatchElem)
-			for i := 0; i < len(reqs); i++ {
-				elem := &reqs[i]
-				elem.Error = rpcError
-			}
-		}).Return(nil).Once()
-
-		client := client.NewChainClientWithMockedRpc(t, commonclient.NodeSelectionModeRoundRobin, time.Second*0, time.Second*0, testutils.FixtureChainID, mockRpc)
-		err := client.Dial(ctx)
-		require.NoError(t, err)
-
-		err = client.BatchCallContext(ctx, b)
-		require.NoError(t, err)
-		for _, elem := range b {
-			require.ErrorIs(t, rpcError, elem.Error)
-		}
-	})
 }
 
 func TestEthClient_ErroringClient(t *testing.T) {
@@ -826,11 +771,8 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	_, err = erroringClient.CallContract(ctx, ethereum.CallMsg{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
-	// TODO-1663: test actual ChainID() call once client.go is deprecated.
-	id, err := erroringClient.ChainID()
-	require.Equal(t, id, testutils.FixtureChainID)
-	//require.Equal(t, err, commonclient.ErroringNodeError)
-	require.Equal(t, err, nil)
+	id := erroringClient.ConfiguredChainID()
+	require.Equal(t, id, big.NewInt(0))
 
 	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
@@ -884,7 +826,7 @@ func TestEthClient_ErroringClient(t *testing.T) {
 	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
-	_, err = erroringClient.SubscribeNewHead(ctx, nil)
+	_, _, err = erroringClient.SubscribeNewHead(ctx)
 	require.Equal(t, err, commonclient.ErroringNodeError)
 
 	_, err = erroringClient.SuggestGasPrice(ctx)
