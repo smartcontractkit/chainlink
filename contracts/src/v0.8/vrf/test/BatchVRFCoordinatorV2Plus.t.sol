@@ -168,9 +168,9 @@ contract BatchVRFCoordinatorV2PlusTest is FixtureVRFCoordinatorV2_5 {
     // The payments are NOT pre-calculated and simply copied from the actual event.
     // We can assert and ignore the payment field but the code will be considerably longer.
     vm.expectEmit(true, true, false, true, address(s_coordinator));
-    emit RandomWordsFulfilled(output.requestId, output.randomness, s_subId, 500000000000142215, true, true, false);
+    emit RandomWordsFulfilled(output.requestId, output.randomness, s_subId, 500000000000143283, true, true, false);
     vm.expectEmit(true, true, false, true, address(s_coordinator));
-    emit RandomWordsFulfilled(output1.requestId, output1.randomness, s_subId, 800000000000304103, false, true, false);
+    emit RandomWordsFulfilled(output1.requestId, output1.randomness, s_subId, 800000000000306143, false, true, false);
 
     // Fulfill the requests.
     s_batchCoordinator.fulfillRandomWords(proofs, rcs);
