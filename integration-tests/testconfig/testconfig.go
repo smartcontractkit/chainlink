@@ -447,7 +447,7 @@ root_key_funds_buffer = 1_000
 	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
 		if c.NodeConfig != nil && len(c.NodeConfig.ChainConfigTOMLByChainID) > 0 {
 			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[fmt.Sprint(network.ChainID)]; ok {
-				logger.Warn().Msgf("***** You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used *****", network.Name, network.ChainID)
+				logger.Warn().Msgf("You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used", network.Name, network.ChainID)
 				customChainSettings = append(customChainSettings, fmt.Sprint(network.ChainID))
 			}
 		}
