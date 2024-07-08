@@ -448,18 +448,21 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			b.te.EVMNetworks = append(b.te.EVMNetworks, &networkConfig)
 		}
 
+		// only add EVM networks to node config if running EVM tests
 		dereferrencedEvms := make([]blockchain.EVMNetwork, 0)
-		for _, en := range b.te.EVMNetworks {
-			network := *en
-			if en.Simulated {
-				if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
-					network.HTTPURLs = rpcs.PrivateHttpUrls()
-					network.URLs = rpcs.PrivateWsUrsl()
-				} else {
-					return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
+		if b.isEVM {
+			for _, en := range b.te.EVMNetworks {
+				network := *en
+				if en.Simulated {
+					if rpcs, ok := b.te.rpcProviders[network.ChainID]; ok {
+						network.HTTPURLs = rpcs.PrivateHttpUrls()
+						network.URLs = rpcs.PrivateWsUrsl()
+					} else {
+						return nil, fmt.Errorf("rpc provider for chain %d not found", network.ChainID)
+					}
 				}
+				dereferrencedEvms = append(dereferrencedEvms, network)
 			}
-			dereferrencedEvms = append(dereferrencedEvms, network)
 		}
 
 		nodeConfigInToml := b.testConfig.GetNodeConfig()
