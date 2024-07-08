@@ -343,7 +343,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6cba7d3190478882079953cc9d88d7769fa394e7 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7e83c2a815a9275eea1ffd0be9fa2f19656c1368 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -461,7 +461,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6cba7d3190478882079953cc9d88d7769fa394e7 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7e83c2a815a9275eea1ffd0be9fa2f19656c1368 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -703,7 +703,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true' || github.event_name == 'workflow_dispatch'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6cba7d3190478882079953cc9d88d7769fa394e7 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7e83c2a815a9275eea1ffd0be9fa2f19656c1368 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -959,7 +959,7 @@ jobs:
           grafanaUrl: ${{ vars.GRAFANA_URL }}
           grafanaDashboardUrl: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6cba7d3190478882079953cc9d88d7769fa394e7 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@7e83c2a815a9275eea1ffd0be9fa2f19656c1368 # v2.3.21
         with:
           test_command_to_run: cd ./integration-tests && go test -timeout 20m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
