@@ -10,8 +10,8 @@ import (
 // If legacy env vars are found it prints ready to use TOML configuration
 func MissingImageInfoAsError(errStr string) error {
 	missingImage := `
-Chainlink image is a secret and must be set in testconfig/.secrets file or passed as env var. You might have used old configuration approach.
-Please refer to integration-tests/testconfig/README.md#Secrets for more information.
+Chainlink image is a secret and must be set as env var in ~/.testsecrets file or passed as env var. You might have used old configuration approach.
+Please refer to integration-tests/testconfig/README.md for more information.
 `
 	missingVersion := `
 Chainlink version must be set in toml config.
