@@ -376,13 +376,13 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
 	err = testConfig.LoadSecretEnvsFromFile()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading secrets file")
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
 	}
 
 	logger.Info().Msg("Reading values from environment variables")
 	err = testConfig.ReadConfigValuesFromEnvVars()
 	if err != nil {
-		return TestConfig{}, err
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
 	logger.Debug().Msg("Validating test config")

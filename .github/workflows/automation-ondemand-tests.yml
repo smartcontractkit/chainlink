@@ -242,7 +242,6 @@ jobs:
           TEST_LOG_COLLECT: "true"
           LOGSTREAM_LOG_TARGETS: ${{ vars.LOGSTREAM_LOG_TARGETS }}
         run: |
-          # TODO: This can be removed as these are non secrets. We validate these values
           echo ::add-mask::$UPGRADE_IMAGE
           echo ::add-mask::$OLD_IMAGE
 
