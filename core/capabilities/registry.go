@@ -22,6 +22,10 @@ type Registry struct {
 	mu   sync.RWMutex
 }
 
+func (r *Registry) GetLocalNodeInfo(_ context.Context) (capabilities.Node, error) {
+	return capabilities.Node{}, nil
+}
+
 // Get gets a capability from the registry.
 func (r *Registry) Get(_ context.Context, id string) (capabilities.BaseCapability, error) {
 	r.mu.RLock()
