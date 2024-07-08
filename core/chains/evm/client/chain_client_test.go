@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -446,6 +445,20 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	// synchronization. We have to rely on timing instead.
 	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, tests.WaitTimeout(t), 500*time.Millisecond)
 }
+
+type sendTxService struct {
+	chainID   *big.Int
+	sentCount atomic.Int32
+}
+
+func (x *sendTxService) ChainId(_ context.Context) (*hexutil.Big, error) {
+	return (*hexutil.Big)(x.chainID), nil
+}
+
+func (x *sendTxService) SendRawTransaction(_ context.Context, _ hexutil.Bytes) error {
+	x.sentCount.Add(1)
+	return nil
+}
 */
 
 func TestEthClient_SendTransactionReturnCode(t *testing.T) {
@@ -686,20 +699,6 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, errType, commonclient.Unknown)
 	})
-}
-
-type sendTxService struct {
-	chainID   *big.Int
-	sentCount atomic.Int32
-}
-
-func (x *sendTxService) ChainId(_ context.Context) (*hexutil.Big, error) {
-	return (*hexutil.Big)(x.chainID), nil
-}
-
-func (x *sendTxService) SendRawTransaction(_ context.Context, _ hexutil.Bytes) error {
-	x.sentCount.Add(1)
-	return nil
 }
 
 func TestEthClient_SubscribeNewHead(t *testing.T) {
