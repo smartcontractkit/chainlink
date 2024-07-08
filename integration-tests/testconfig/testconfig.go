@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -21,8 +22,10 @@ import (
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
 	k8s_config "github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/osutil"
+
 	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
 	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
@@ -82,8 +85,15 @@ type TestConfig struct {
 	VRF        *vrf_config.Config       `toml:"VRF"`
 	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
 	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
+	CRIB       *CRIB                    `toml:"CRIB"`
 
 	ConfigurationNames []string `toml:"-"`
+}
+
+type CRIB struct {
+	Namespace   string `toml:"namespace"`
+	NetworkName string `toml:"network_name"`
+	CLNodesNum  int    `toml:"nodes"`
 }
 
 var embeddedConfigs embed.FS
@@ -395,27 +405,34 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		testConfig.Common = &Common{}
 	}
 
+	testConfig.logRiskySettings(logger)
+
+	logger.Debug().Msg("Correct test config constructed successfully")
+	return testConfig, nil
+}
+
+func (c *TestConfig) logRiskySettings(logger zerolog.Logger) {
 	isAnySimulated := false
-	for _, network := range testConfig.Network.SelectedNetworks {
+	for _, network := range c.Network.SelectedNetworks {
 		if strings.Contains(strings.ToUpper(network), "SIMULATED") {
 			isAnySimulated = true
 			break
 		}
 	}
 
-	if testConfig.Seth != nil && !isAnySimulated && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		testConfig.Seth.EphemeralAddrs = new(int64)
+	if c.Seth != nil && !isAnySimulated && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		c.Seth.EphemeralAddrs = new(int64)
 		logger.Warn().
 			Msg("Ephemeral addresses were enabled, but test was setup to run on a live network. Ephemeral addresses will be disabled.")
 	}
 
-	if testConfig.Seth != nil && (testConfig.Seth.EphemeralAddrs != nil && *testConfig.Seth.EphemeralAddrs != 0) {
-		rootBuffer := testConfig.Seth.RootKeyFundsBuffer
+	if c.Seth != nil && (c.Seth.EphemeralAddrs != nil && *c.Seth.EphemeralAddrs != 0) {
+		rootBuffer := c.Seth.RootKeyFundsBuffer
 		zero := int64(0)
 		if rootBuffer == nil {
 			rootBuffer = &zero
 		}
-		clNodeFunding := testConfig.Common.ChainlinkNodeFunding
+		clNodeFunding := c.Common.ChainlinkNodeFunding
 		if clNodeFunding == nil {
 			zero := 0.0
 			clNodeFunding = &zero
@@ -442,8 +459,20 @@ root_key_funds_buffer = 1_000
 		}
 	}
 
-	logger.Debug().Msg("Correct test config constructed successfully")
-	return testConfig, nil
+	var customChainSettings []string
+	for _, network := range networks.MustGetSelectedNetworkConfig(c.Network) {
+		if c.NodeConfig != nil && len(c.NodeConfig.ChainConfigTOMLByChainID) > 0 {
+			if _, ok := c.NodeConfig.ChainConfigTOMLByChainID[fmt.Sprint(network.ChainID)]; ok {
+				logger.Warn().Msgf("You have provided custom Chainlink Node configuration for network '%s' (chain id: %d). Chainlink Node's default settings won't be used", network.Name, network.ChainID)
+				customChainSettings = append(customChainSettings, fmt.Sprint(network.ChainID))
+			}
+		}
+	}
+
+	if len(customChainSettings) == 0 && c.NodeConfig != nil && c.NodeConfig.CommonChainConfigTOML != "" {
+		logger.Warn().Msg("***** You have provided your own default Chainlink Node configuration for all networks. Chainlink Node's default settings for selected networks won't be used *****")
+	}
+
 }
 
 // checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
