@@ -330,6 +330,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			}
 			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
 
+			_ = checkSecretsInToml(filePath)
+
 			content, err := readFile(filePath)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
@@ -442,6 +444,40 @@ root_key_funds_buffer = 1_000
 
 	logger.Debug().Msg("Correct test config constructed successfully")
 	return testConfig, nil
+}
+
+// checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
+// This is a temporary and will be removed after migration to test secrets from env vars
+func checkSecretsInToml(filePath string) error {
+	logger := logging.GetTestLogger(nil)
+
+	data := make(map[string]interface{})
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %v", err)
+	}
+
+	// Decode the TOML data
+	err = toml.Unmarshal(content, &data)
+	if err != nil {
+		return fmt.Errorf("error decoding TOML file: %v", err)
+	}
+
+	logError := func(key, envVar string) {
+		logger.Error().Msgf("Error in TOML test config!! %s cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", filePath, key, envVar)
+	}
+
+	if data["ChainlinkImage"] != nil {
+		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
+		if chainlinkImage["image"] != nil {
+			logError("ChainlinkImage.image", "CHAINLINK_IMAGE")
+		}
+	}
+
+	// TODO: Add more checks for other secrets
+
+	return nil
 }
 
 func (c *TestConfig) readNetworkConfiguration() error {
