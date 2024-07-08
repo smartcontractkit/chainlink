@@ -26,8 +26,8 @@ func NewDAGasPriceEstimator(
 	maxGasPrice *big.Int,
 	deviationPPB int64,
 	daDeviationPPB int64,
-) DAGasPriceEstimator {
-	return DAGasPriceEstimator{
+) *DAGasPriceEstimator {
+	return &DAGasPriceEstimator{
 		execEstimator:       NewExecGasPriceEstimator(estimator, maxGasPrice, deviationPPB),
 		l1Oracle:            estimator.L1Oracle(),
 		priceEncodingLength: daGasPriceEncodingLength,

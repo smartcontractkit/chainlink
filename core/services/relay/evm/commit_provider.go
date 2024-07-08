@@ -22,10 +22,12 @@ var _ commontypes.CCIPCommitProvider = (*SrcCommitProvider)(nil)
 var _ commontypes.CCIPCommitProvider = (*DstCommitProvider)(nil)
 
 type SrcCommitProvider struct {
-	lggr       logger.Logger
-	startBlock uint64
-	client     client.Client
-	lp         logpoller.LogPoller
+	lggr        logger.Logger
+	startBlock  uint64
+	client      client.Client
+	lp          logpoller.LogPoller
+	estimator   gas.EvmFeeEstimator
+	maxGasPrice *big.Int
 }
 
 func NewSrcCommitProvider(
@@ -33,12 +35,16 @@ func NewSrcCommitProvider(
 	startBlock uint64,
 	client client.Client,
 	lp logpoller.LogPoller,
+	srcEstimator gas.EvmFeeEstimator,
+	maxGasPrice *big.Int,
 ) commontypes.CCIPCommitProvider {
 	return &SrcCommitProvider{
-		lggr:       lggr,
-		startBlock: startBlock,
-		client:     client,
-		lp:         lp,
+		lggr:        lggr,
+		startBlock:  startBlock,
+		client:      client,
+		lp:          lp,
+		estimator:   srcEstimator,
+		maxGasPrice: maxGasPrice,
 	}
 }
 
@@ -181,11 +187,14 @@ func (P DstCommitProvider) NewPriceGetter(ctx context.Context) (priceGetter ccip
 }
 
 func (P SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	return nil, fmt.Errorf("can't construct a commit store reader from one relayer")
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(P.estimator, P.maxGasPrice)
+	return
 }
 
 func (P DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
-	return nil, fmt.Errorf("can't construct a commit store reader from one relayer")
+	versionFinder := ccip.NewEvmVersionFinder()
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(P.lggr, versionFinder, commitStoreAddress, P.client, P.lp)
+	return
 }
 
 func (P SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {

@@ -54,25 +54,11 @@ func NewGasPriceEstimatorForCommitPlugin(
 	daDeviationPPB int64,
 	execDeviationPPB int64,
 ) (GasPriceEstimatorCommit, error) {
-	execEstimator := ExecGasPriceEstimator{
-		estimator:    estimator,
-		maxGasPrice:  maxExecGasPrice,
-		deviationPPB: execDeviationPPB,
-	}
-
 	switch commitStoreVersion.String() {
 	case "1.0.0", "1.1.0":
-		return execEstimator, nil
+		return NewExecGasPriceEstimator(estimator, maxExecGasPrice, execDeviationPPB), nil
 	case "1.2.0":
-		return DAGasPriceEstimator{
-			execEstimator:       execEstimator,
-			l1Oracle:            estimator.L1Oracle(),
-			priceEncodingLength: daGasPriceEncodingLength,
-			daDeviationPPB:      daDeviationPPB,
-			daOverheadGas:       0,
-			gasPerDAByte:        0,
-			daMultiplier:        0,
-		}, nil
+		return NewDAGasPriceEstimator(estimator, maxExecGasPrice, execDeviationPPB, daDeviationPPB), nil
 	default:
 		return nil, errors.Errorf("Invalid commitStore version: %s", commitStoreVersion)
 	}
