@@ -68,7 +68,7 @@ func TestHeadTracker_New(t *testing.T) {
 	}
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Maybe().
-		Return(mockEth.NewSub(t), nil)
+		Return(nil, mockEth.NewSub(t), nil)
 
 	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
 	assert.Nil(t, orm.IdempotentInsertHead(tests.Context(t), testutils.Head(1)))
@@ -243,7 +243,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		mockEth := &testutils.MockEth{EthClient: ethClient}
 		sub := mockEth.NewSub(t)
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, sub, nil).Maybe()
 		return createHeadTracker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm)
 	}
 	t.Run("Starts even if failed to get initialHead", func(t *testing.T) {
@@ -271,7 +271,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		head := testutils.Head(1000)
 		ht.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, nil).Once()
-		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Error handling initial head")
 	})
@@ -286,7 +286,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(finalizedHead, nil).Once()
 		// on backfill
 		ht.ethClient.On("LatestFinalizedBlock", mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
-		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
 	})
@@ -300,7 +300,7 @@ func TestHeadTracker_Start(t *testing.T) {
 		require.NoError(t, ht.orm.IdempotentInsertHead(ctx, testutils.Head(finalizedHead.Number-1)))
 		// on backfill
 		ht.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, errors.New("backfill call to finalized failed")).Maybe()
-		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, errors.New("failed to connect")).Maybe()
+		ht.ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(nil, nil, errors.New("failed to connect")).Maybe()
 		ht.Start(t)
 		tests.AssertLogEventually(t, ht.observer, "Loaded chain from DB")
 	}
