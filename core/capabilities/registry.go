@@ -22,7 +22,7 @@ type Registry struct {
 	mu   sync.RWMutex
 }
 
-func (r *Registry) GetLocalNodeInfo(_ context.Context) (capabilities.Node, error) {
+func (r *Registry) GetLocalNode(_ context.Context) (capabilities.Node, error) {
 	return capabilities.Node{}, nil
 }
 
