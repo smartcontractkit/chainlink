@@ -110,7 +110,8 @@ type node[
 
 	stopCh services.StopChan
 	// wg waits for subsidiary goroutines
-	wg                sync.WaitGroup
+	wg sync.WaitGroup
+
 	aliveLoopSub      types.Subscription
 	finalizedBlockSub types.Subscription
 }
@@ -178,8 +179,18 @@ func (n *node[CHAIN_ID, HEAD, RPC]) RPC() RPC {
 	return n.rpc
 }
 
+// unsubscribeAllExceptAliveLoop is not thread-safe; it should only be called
+// while holding the stateMu lock.
+func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeAllExceptAliveLoop() {
+	aliveLoopSub := n.aliveLoopSub
+	finalizedBlockSub := n.finalizedBlockSub
+	n.rpc.UnsubscribeAllExcept(aliveLoopSub, finalizedBlockSub)
+}
+
 func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
-	n.rpc.UnsubscribeAllExcept(n.aliveLoopSub)
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	n.unsubscribeAllExceptAliveLoop()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {

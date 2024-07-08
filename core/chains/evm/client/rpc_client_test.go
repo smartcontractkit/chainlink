@@ -140,7 +140,7 @@ func TestRPCClient_SubscribeNewHead(t *testing.T) {
 		head := <-ch
 		require.Equal(t, chainId, head.ChainID())
 	})
-	t.Run("Failed SubscribeNewHead returns and logs proper error", func(t *testing.T) {
+	t.Run("Failed SubscribeToHeads returns and logs proper error", func(t *testing.T) {
 		server := testutils.NewWSServer(t, chainId, func(reqMethod string, reqParams gjson.Result) (resp testutils.JSONRPCResponse) {
 			return resp
 		})
