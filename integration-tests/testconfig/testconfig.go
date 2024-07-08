@@ -484,7 +484,7 @@ func checkSecretsInToml(content []byte) error {
 	// Decode the TOML data
 	err := toml.Unmarshal(content, &data)
 	if err != nil {
-		return fmt.Errorf("error decoding TOML file: %v", err)
+		return errors.Wrapf(err, "error decoding TOML file")
 	}
 
 	logError := func(key, envVar string) {
