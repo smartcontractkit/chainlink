@@ -216,7 +216,6 @@ func (db *DbEthTx) FromTx(tx *Tx) {
 	db.Meta = tx.Meta
 	db.Subject = tx.Subject
 	db.PipelineTaskRunID = tx.PipelineTaskRunID
-	db.MinConfirmations = tx.MinConfirmations
 	db.TransmitChecker = tx.TransmitChecker
 	db.InitialBroadcastAt = tx.InitialBroadcastAt
 	db.SignalCallback = tx.SignalCallback
@@ -251,7 +250,6 @@ func (db DbEthTx) ToTx(tx *Tx) {
 	tx.Meta = db.Meta
 	tx.Subject = db.Subject
 	tx.PipelineTaskRunID = db.PipelineTaskRunID
-	tx.MinConfirmations = db.MinConfirmations
 	tx.ChainID = db.EVMChainID.ToInt()
 	tx.TransmitChecker = db.TransmitChecker
 	tx.InitialBroadcastAt = db.InitialBroadcastAt
@@ -532,8 +530,8 @@ func (o *evmTxStore) InsertTx(ctx context.Context, etx *Tx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
-	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed, finalized) VALUES (
-:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed, :finalized
+	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, evm_chain_id, transmit_checker, idempotency_key, signal_callback, callback_completed, finalized) VALUES (
+:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :evm_chain_id, :transmit_checker, :idempotency_key, :signal_callback, :callback_completed, :finalized
 ) RETURNING *`
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
@@ -1814,12 +1812,12 @@ func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest,
 			}
 		}
 		err = orm.q.GetContext(ctx, &dbEtx, `
-INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key, signal_callback)
+INSERT INTO evm.txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, pipeline_task_run_id, transmit_checker, idempotency_key, signal_callback)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12,$13
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
 )
 RETURNING "txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey, txRequest.SignalCallback)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
