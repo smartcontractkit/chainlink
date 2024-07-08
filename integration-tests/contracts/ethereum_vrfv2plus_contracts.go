@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/seth"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -727,6 +728,34 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 		SlowestResponseTimeInSeconds:         slowestResponseTimeInSeconds,
 		FastestResponseTimeInSeconds:         fastestResponseTimeInSeconds,
 	}, nil
+}
+
+// DeployBatchBlockhashStore deploys DeployBatchBlockhashStore contract
+func DeployBatchBlockhashStore(seth *seth.Client, blockhashStoreAddr string) (BatchBlockhashStore, error) {
+	abi, err := batch_blockhash_store.BatchBlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("failed to get BatchBlockhashStore ABI: %w", err)
+	}
+	data, err := seth.DeployContract(
+		seth.NewTXOpts(),
+		"BatchBlockhashStore",
+		*abi,
+		common.FromHex(batch_blockhash_store.BatchBlockhashStoreMetaData.Bin),
+		common.HexToAddress(blockhashStoreAddr))
+	if err != nil {
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("BatchBlockhashStore instance deployment have failed: %w", err)
+	}
+
+	contract, err := batch_blockhash_store.NewBatchBlockhashStore(data.Address, wrappers.MustNewWrappedContractBackend(nil, seth))
+	if err != nil {
+		return &EthereumBatchBlockhashStore{}, fmt.Errorf("failed to instantiate BatchBlockhashStore instance: %w", err)
+	}
+
+	return &EthereumBatchBlockhashStore{
+		client:              seth,
+		batchBlockhashStore: contract,
+		address:             data.Address,
+	}, err
 }
 
 func DeployVRFCoordinatorV2PlusUpgradedVersion(client *seth.Client, bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error) {
