@@ -84,7 +84,6 @@ runs:
         selected_networks=$selected_networks
 
         [ChainlinkImage]
-        image=""
         version="$CHAINLINK_VERSION"
         postgres_version="$CHAINLINK_POSTGRES_VERSION"
 
