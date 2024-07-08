@@ -4,6 +4,7 @@ package reorg
 import (
 	"fmt"
 	"math/big"
+	"os"
 	"regexp"
 	"strconv"
 	"testing"
@@ -84,6 +85,15 @@ var (
  * Upkeeps are expected to be performed during the reorg.
  */
 func TestAutomationReorg(t *testing.T) {
+	logger := logging.GetTestLogger(t)
+
+	tId := os.Getenv("LOKI_TENANT_ID")
+	if tId != "" {
+		logger.Info().Msg("LOKI_TENANT_ID env var found and non empty")
+	} else {
+		logger.Info().Msg("LOKI_TENANT_ID env var not found or empty")
+	}
+
 	c, err := tc.GetConfig([]string{"Reorg"}, tc.Automation)
 	require.NoError(t, err, "Error getting config")
 
