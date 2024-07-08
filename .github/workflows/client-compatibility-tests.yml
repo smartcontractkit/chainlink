@@ -520,7 +520,7 @@ jobs:
       TEST_LOG_LEVEL: debug
     strategy:
       fail-fast: false
-      max-parallel: 30
+      max-parallel: 10
       matrix:
         evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
     runs-on: ubuntu-latest
