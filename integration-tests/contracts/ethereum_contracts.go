@@ -99,11 +99,6 @@ func DefaultOffChainAggregatorOptions() OffchainOptions {
 
 // DefaultOffChainAggregatorConfig returns some base defaults for configuring an OCR contract
 func DefaultOffChainAggregatorConfig(numberNodes int) OffChainAggregatorConfig {
-	if numberNodes <= 4 {
-		log.Err(fmt.Errorf("insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
-			Int("Number Chainlink Nodes", numberNodes).
-			Msg("You likely need more chainlink nodes to properly configure OCR, try 5 or more.")
-	}
 	s := []int{1}
 	// First node's stage already inputted as a 1 in line above, so numberNodes-1.
 	for i := 0; i < numberNodes-1; i++ {
