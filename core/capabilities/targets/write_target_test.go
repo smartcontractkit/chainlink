@@ -56,7 +56,7 @@ func TestWriteTarget(t *testing.T) {
 	}).Return(nil)
 
 	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		transmitter := args.Get(4).(*common.Address)
+		transmitter := args.Get(5).(*common.Address)
 		*transmitter = common.HexToAddress("0x0")
 	}).Once()
 

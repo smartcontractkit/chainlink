@@ -62,11 +62,11 @@ contract ChainReaderTester {
   ) public {
     s_seen.push(TestStruct(field, differentField, oracleId, oracleIds, account, accounts, bigField, nestedStruct));
   }
-  
+
   function setAlterablePrimitiveValue(uint64 value) public {
     s_value = value;
   }
-  
+
   function returnSeen(
     int32 field,
     string calldata differentField,

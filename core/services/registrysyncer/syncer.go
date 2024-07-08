@@ -158,7 +158,7 @@ func (s *registrySyncer) syncLoop() {
 
 func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	dons := []kcr.CapabilitiesRegistryDONInfo{}
-	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Finalized, nil, &dons)
+	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return State{}, err
 	}
@@ -169,7 +169,7 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	}
 
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Finalized, nil, &caps)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return State{}, err
 	}
@@ -180,7 +180,7 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	}
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Finalized, nil, &nodes)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return State{}, err
 	}

@@ -131,7 +131,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		ReportId:            inputs.ID,
 	}
 	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Finalized, queryInputs, &transmitter); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
