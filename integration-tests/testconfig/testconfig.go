@@ -475,7 +475,25 @@ func checkSecretsInToml(filePath string) error {
 		}
 	}
 
-	// TODO: Add more checks for other secrets
+	if data["ChainlinkUpgradeImage"] != nil {
+		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
+		if chainlinkUpgradeImage["image"] != nil {
+			logError("ChainlinkUpgradeImage.image", "CHAINLINK_UPGRADE_IMAGE")
+		}
+	}
+
+	if data["Network"] != nil {
+		network := data["Network"].(map[string]interface{})
+		if network["RpcHttpUrls"] != nil {
+			logError("Network.RpcHttpUrls", "`(.+)_RPC_HTTP_URL$` like ARBITRUM_SEPOLIA_RPC_HTTP_URL")
+		}
+		if network["RpcWsUrls"] != nil {
+			logError("Network.RpcWsUrls", "`(.+)_RPC_WS_URL$` like ARBITRUM_SEPOLIA_RPC_WS_URL")
+		}
+		if network["WalletKeys"] != nil {
+			logError("Network.wallet_keys", "`(.+)_WALLET_KEY$` ARBITRUM_SEPOLIA_WALLET_KEY")
+		}
+	}
 
 	return nil
 }
