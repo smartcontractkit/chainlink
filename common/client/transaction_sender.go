@@ -29,6 +29,7 @@ const sendTxQuorum = 0.7
 
 // SendTxRPCClient - defines interface of an RPC used by TransactionSender to broadcast transaction
 type SendTxRPCClient[TX any] interface {
+	// SendTransaction errors returned should include name or other unique identifier of the RPC
 	SendTransaction(ctx context.Context, tx TX) error
 }
 
