@@ -330,12 +330,12 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			}
 			logger.Debug().Str("location", filePath).Msgf("Found config file %s", fileName)
 
-			_ = checkSecretsInToml(filePath)
-
 			content, err := readFile(filePath)
 			if err != nil {
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 			}
+
+			_ = checkSecretsInToml(content)
 
 			for _, configurationName := range configurationNames {
 				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
@@ -360,6 +360,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		if err != nil {
 			return TestConfig{}, err
 		}
+
+		_ = checkSecretsInToml(decoded)
 
 		for _, configurationName := range configurationNames {
 			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
@@ -448,24 +450,18 @@ root_key_funds_buffer = 1_000
 
 // checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
 // This is a temporary and will be removed after migration to test secrets from env vars
-func checkSecretsInToml(filePath string) error {
+func checkSecretsInToml(content []byte) error {
 	logger := logging.GetTestLogger(nil)
-
 	data := make(map[string]interface{})
 
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %v", err)
-	}
-
 	// Decode the TOML data
-	err = toml.Unmarshal(content, &data)
+	err := toml.Unmarshal(content, &data)
 	if err != nil {
 		return fmt.Errorf("error decoding TOML file: %v", err)
 	}
 
 	logError := func(key, envVar string) {
-		logger.Error().Msgf("Error in TOML test config!! %s cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", filePath, key, envVar)
+		logger.Error().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
 	}
 
 	if data["ChainlinkImage"] != nil {
