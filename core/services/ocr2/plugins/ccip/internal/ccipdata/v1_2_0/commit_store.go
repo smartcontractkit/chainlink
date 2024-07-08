@@ -49,7 +49,7 @@ type CommitStore struct {
 
 	// Dynamic config
 	configMu          sync.RWMutex
-	gasPriceEstimator prices.DAGasPriceEstimator
+	gasPriceEstimator *prices.DAGasPriceEstimator
 	offchainConfig    cciptypes.CommitOffchainConfig
 }
 
@@ -228,7 +228,6 @@ func (c JSONCommitOffchainConfig) Validate() error {
 	return nil
 }
 
-// TODO: Pass a Gas Estimator through to the plugin directly
 func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
 	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onchainConfig)
 	if err != nil {
@@ -250,7 +249,6 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		return "", fmt.Errorf("this CommitStore sourceMaxGasPrice is nil. SetSourceMaxGasPrice should be called before ChangeConfig")
 	}
 
-	// TODO: do this in the factory
 	c.gasPriceEstimator = prices.NewDAGasPriceEstimator(
 		*c.estimator,
 		c.sourceMaxGasPrice,
@@ -450,6 +448,6 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 
 		// The fields below are initially empty and set on ChangeConfig method
 		offchainConfig:    cciptypes.CommitOffchainConfig{},
-		gasPriceEstimator: prices.DAGasPriceEstimator{},
+		gasPriceEstimator: nil,
 	}, nil
 }

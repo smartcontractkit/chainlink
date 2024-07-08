@@ -131,38 +131,41 @@ func (s *commitRootsCache) Snooze(merkleRoot [32]byte) {
 }
 
 func (s *commitRootsCache) OldestRootTimestamp() time.Time {
-	messageVisibilityInterval := time.Now().Add(-s.messageVisibilityInterval)
-	timestamp, ok := s.pickOldestRootBlockTimestamp(messageVisibilityInterval)
-
-	if ok {
-		return timestamp
-	}
-
-	s.rootsQueueMu.Lock()
-	defer s.rootsQueueMu.Unlock()
-
-	// If rootsSearchFilter is before messageVisibilityInterval, it means that we have roots that are stuck forever and will never be executed
-	// In that case, we wipe out the entire queue. Next round should start from the messageVisibilityInterval and rebuild cache from scratch.
-	s.unexecutedRootsQueue = orderedmap.New[string, time.Time]()
-	return messageVisibilityInterval
+	return time.Now().Add(-s.messageVisibilityInterval)
+	// TODO we can't rely on block timestamps, because in case of re-org they can change and therefore affect
+	// the logic in the case. In the meantime, always fallback to the default behaviour and use permissionlessThresholdWindow
+	//timestamp, ok := s.pickOldestRootBlockTimestamp(messageVisibilityInterval)
+	//
+	//if ok {
+	//	return timestamp
+	//}
+	//
+	//s.rootsQueueMu.Lock()
+	//defer s.rootsQueueMu.Unlock()
+	//
+	//// If rootsSearchFilter is before messageVisibilityInterval, it means that we have roots that are stuck forever and will never be executed
+	//// In that case, we wipe out the entire queue. Next round should start from the messageVisibilityInterval and rebuild cache from scratch.
+	//s.unexecutedRootsQueue = orderedmap.New[string, time.Time]()
+	//return messageVisibilityInterval
 }
 
-func (s *commitRootsCache) pickOldestRootBlockTimestamp(messageVisibilityInterval time.Time) (time.Time, bool) {
-	s.rootsQueueMu.RLock()
-	defer s.rootsQueueMu.RUnlock()
+//func (s *commitRootsCache) pickOldestRootBlockTimestamp(messageVisibilityInterval time.Time) (time.Time, bool) {
+//	s.rootsQueueMu.RLock()
+//	defer s.rootsQueueMu.RUnlock()
+//
+//	// If there are no roots in the queue, we can return the messageVisibilityInterval
+//	if s.oldestRootTimestamp.IsZero() {
+//		return messageVisibilityInterval, true
+//	}
+//
+//	if s.oldestRootTimestamp.After(messageVisibilityInterval) {
+//		// Query used for fetching roots from the database is exclusive (block_timestamp > :timestamp)
+//		// so we need to subtract 1 second from the head timestamp to make sure that this root is included in the results
+//		return s.oldestRootTimestamp.Add(-time.Second), true
+//	}
+//	return time.Time{}, false
+//}
 
-	// If there are no roots in the queue, we can return the messageVisibilityInterval
-	if s.oldestRootTimestamp.IsZero() {
-		return messageVisibilityInterval, true
-	}
-
-	if s.oldestRootTimestamp.After(messageVisibilityInterval) {
-		// Query used for fetching roots from the database is exclusive (block_timestamp > :timestamp)
-		// so we need to subtract 1 second from the head timestamp to make sure that this root is included in the results
-		return s.oldestRootTimestamp.Add(-time.Second), true
-	}
-	return time.Time{}, false
-}
 func (s *commitRootsCache) AppendUnexecutedRoot(merkleRoot [32]byte, blockTimestamp time.Time) {
 	prettyMerkleRoot := merkleRootToString(merkleRoot)
 
