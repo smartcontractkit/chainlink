@@ -191,7 +191,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      2,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -212,13 +212,13 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      1,
 		F:       workflowDonF,
 	}
 
 	broker := newTestAsyncMessageBroker(t, 1000)
 
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
@@ -380,10 +380,10 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 type abstractTestCapability struct {
 }

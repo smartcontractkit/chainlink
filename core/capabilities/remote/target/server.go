@@ -29,7 +29,7 @@ type server struct {
 	underlying   commoncap.TargetCapability
 	capInfo      commoncap.CapabilityInfo
 	localDonInfo commoncap.DON
-	workflowDONs map[string]commoncap.DON
+	workflowDONs map[uint32]commoncap.DON
 	dispatcher   types.Dispatcher
 
 	requestIDToRequest map[string]*request.ServerRequest
@@ -44,7 +44,7 @@ var _ types.Receiver = &server{}
 var _ services.Service = &server{}
 
 func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
-	workflowDONs map[string]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
+	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
 	return &server{
 		underlying:   underlying,
 		peerID:       peerID,

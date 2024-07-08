@@ -308,7 +308,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T, keeperTestConfig types.KeeperBenc
 		TTL: time.Hour * 720, // 30 days,
 		NamespacePrefix: fmt.Sprintf(
 			"automation-%s-%s-%s",
-			strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), "_")),
+			strings.ToLower(strings.Join(keeperTestConfig.GetConfigurationNames(), "")),
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(*keeperTestConfig.GetKeeperConfig().Common.RegistryToTest), "_", "-"),
 		),

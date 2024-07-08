@@ -120,6 +120,7 @@ func (o *zkSyncL1Oracle) run() {
 func (o *zkSyncL1Oracle) refresh() (t *time.Timer) {
 	t, err := o.refreshWithError()
 	if err != nil {
+		o.logger.Criticalw("Failed to refresh gas price", "err", err)
 		o.SvcErrBuffer.Append(err)
 	}
 	return

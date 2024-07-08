@@ -6691,9 +6691,9 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -6720,25 +6720,25 @@ Enabled = false
 Enabled = true
 
 [GasEstimator]
-Mode = 'SuggestedPrice'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
@@ -6784,9 +6784,9 @@ BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'scroll'
 FinalityDepth = 10
-FinalityTagEnabled = false
+FinalityTagEnabled = true
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -6813,25 +6813,25 @@ Enabled = false
 Enabled = true
 
 [GasEstimator]
-Mode = 'SuggestedPrice'
+Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
+PriceMin = '1 wei'
 LimitDefault = 500000
 LimitMax = 500000
 LimitMultiplier = '1'
 LimitTransfer = 21000
-BumpMin = '5 gwei'
+BumpMin = '1 gwei'
 BumpPercent = 20
 BumpThreshold = 3
-EIP1559DynamicFees = false
+EIP1559DynamicFees = true
 FeeCapDefault = '100 gwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 0
+BlockHistorySize = 24
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60

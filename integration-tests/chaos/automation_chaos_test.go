@@ -286,8 +286,8 @@ func TestAutomationChaos(t *testing.T) {
 					}
 					require.NoError(t, err, "Error setting OCR config")
 
-					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
-					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
+					consumersConditional, upkeepidsConditional := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false, false, nil)
+					consumersLogtrigger, upkeepidsLogtrigger := actions.DeployConsumers(t, chainClient, registry, registrar, linkToken, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false, false, nil)
 
 					consumers := append(consumersConditional, consumersLogtrigger...)
 					upkeepIDs := append(upkeepidsConditional, upkeepidsLogtrigger...)

@@ -22,7 +22,7 @@ import (
 const (
 	capId1   = "cap1"
 	capId2   = "cap2"
-	donId1   = "donA"
+	donId1   = uint32(1)
 	payload1 = "hello world"
 	payload2 = "goodbye world"
 )
@@ -58,7 +58,7 @@ func newKeyPair(t *testing.T) (ed25519.PrivateKey, ragetypes.PeerID) {
 	return privKey, peerID
 }
 
-func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2ptypes.PeerID, receiverId p2ptypes.PeerID, capabilityId string, donId string, payload []byte) p2ptypes.Message {
+func encodeAndSign(t *testing.T, senderPrivKey ed25519.PrivateKey, senderId p2ptypes.PeerID, receiverId p2ptypes.PeerID, capabilityId string, donId uint32, payload []byte) p2ptypes.Message {
 	body := remotetypes.MessageBody{
 		Sender:          senderId[:],
 		Receiver:        receiverId[:],
