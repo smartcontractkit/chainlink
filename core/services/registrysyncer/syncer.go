@@ -70,10 +70,10 @@ var (
 
 // New instantiates a new RegistrySyncer
 func New(
-	ds sqlutil.DataSource,
 	lggr logger.Logger,
 	relayer contractReaderFactory,
 	registryAddress string,
+	ds sqlutil.DataSource,
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
 	ctx, _ := stopCh.NewCtx()

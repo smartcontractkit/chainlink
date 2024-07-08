@@ -191,8 +191,9 @@ func TestReader_Integration(t *testing.T) {
 
 	require.NoError(t, err)
 
+	db := pgtest.NewSqlxDB(t)
 	factory := newContractReaderFactory(t, sim)
-	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())
+	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex(), db)
 	require.NoError(t, err)
 
 	s, err := reader.state(ctx)
