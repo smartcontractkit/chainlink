@@ -86,8 +86,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	newSubscribedNode := func(t *testing.T, opts testNodeOpts) testNode {
 		sub := mocks.NewSubscription(t)
 		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe")
-		opts.rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil)
+		sub.On("Unsubscribe").Once()
+		opts.rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		return newDialedNode(t, opts)
 	}
 	t.Run("Stays alive and waits for signal", func(t *testing.T) {
