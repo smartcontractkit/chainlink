@@ -51,6 +51,7 @@ type DelegateConfig struct {
 
 	// LLO
 	ChannelDefinitionCache llotypes.ChannelDefinitionCache
+	ReportingPluginConfig  llo.Config
 
 	// OCR3
 	BinaryNetworkEndpointFactory ocr2types.BinaryNetworkEndpointFactory
@@ -107,7 +108,7 @@ func (d *delegate) Start(ctx context.Context) error {
 			OffchainKeyring:              d.cfg.OffchainKeyring,
 			OnchainKeyring:               d.cfg.OnchainKeyring,
 			ReportingPluginFactory: llo.NewPluginFactory(
-				d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
+				d.cfg.ReportingPluginConfig, d.prrc, d.src, d.cfg.ChannelDefinitionCache, d.ds, d.cfg.Logger.Named("LLOReportingPlugin"), d.codecs,
 			),
 			MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 		})
