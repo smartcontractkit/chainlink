@@ -8,8 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -56,7 +54,6 @@ func NewTransactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]](
 }
 
 type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struct {
-	services.StateMachine
 	chainID           CHAIN_ID
 	chainFamily       string
 	lggr              logger.SugaredLogger
@@ -69,10 +66,6 @@ type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struc
 	// Metrics
 	TxCount     int
 	RpcErrCount int
-
-	// TODO: add start/ stop methods. Start doesn't need to do much.
-	// TODO: Stop should stop sending transactions, and close chStop to stop collecting results, reporting/ etc.
-	chStop services.StopChan
 }
 
 // SendTransaction - broadcasts transaction to all the send-only and primary nodes in MultiNode.
@@ -98,52 +91,46 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txResultsToReport := make(chan sendTxResult, len(txSender.multiNode.primaryNodes))
 	primaryWg := sync.WaitGroup{}
 
-	var err error
-	ok := txSender.multiNode.IfNotStopped(func() {
-		err = txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
-			if isSendOnly {
-				go func() {
-					// Send-only nodes' results are ignored as they tend to return false-positive responses.
-					// Broadcast to them is necessary to speed up the propagation of TX in the network.
-					_ = txSender.broadcastTxAsync(ctx, rpc, tx)
-				}()
-				return
-			}
+	ctx, cancel := txSender.multiNode.chStop.Ctx(ctx)
+	defer cancel()
 
-			// Primary Nodes
-			primaryWg.Add(1)
+	err := txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
+		if isSendOnly {
 			go func() {
-				defer primaryWg.Done()
-				result := txSender.broadcastTxAsync(ctx, rpc, tx)
-				txResultsToReport <- result
-				txResults <- result
+				// Send-only nodes' results are ignored as they tend to return false-positive responses.
+				// Broadcast to them is necessary to speed up the propagation of TX in the network.
+				_ = txSender.broadcastTxAsync(ctx, rpc, tx)
 			}()
-		})
-		if err != nil {
-			primaryWg.Wait()
-			close(txResultsToReport)
-			close(txResults)
 			return
 		}
 
-		// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
-		txSender.reportingWg.Add(1)
+		// Primary Nodes
+		primaryWg.Add(1)
 		go func() {
-			defer txSender.reportingWg.Done()
-			primaryWg.Wait()
-			close(txResultsToReport)
-			close(txResults)
+			defer primaryWg.Done()
+			result := txSender.broadcastTxAsync(ctx, rpc, tx)
+			txResultsToReport <- result
+			txResults <- result
 		}()
-
-		txSender.reportingWg.Add(1)
-		go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 	})
-	if !ok {
-		return 0, fmt.Errorf("aborted while broadcasting tx - MultiNode is stopped: %w", context.Canceled)
-	}
 	if err != nil {
+		primaryWg.Wait()
+		close(txResultsToReport)
+		close(txResults)
 		return 0, err
 	}
+
+	// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
+	txSender.reportingWg.Add(1)
+	go func() {
+		defer txSender.reportingWg.Done()
+		primaryWg.Wait()
+		close(txResultsToReport)
+		close(txResults)
+	}()
+
+	txSender.reportingWg.Add(1)
+	go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
 	return txSender.collectTxResults(ctx, tx, len(txSender.multiNode.primaryNodes), txResults)
 }
@@ -171,14 +158,12 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx T
 	_, _, criticalErr := aggregateTxResults(resultsByCode)
 	if criticalErr != nil {
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
-		txSender.SvcErrBuffer.Append(criticalErr)
 	}
 }
 
 type sendTxErrors map[SendTxReturnCode][]error
 
 func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode, txResult error, err error) {
-	// TODO: Modify this to return the corresponding returnCode with the error
 	severeCode, severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
 	successCode, successResults, hasSuccess := findFirstIn(resultsByCode, sendTxSuccessfulCodes)
 	if hasSuccess {
@@ -209,12 +194,8 @@ func aggregateTxResults(resultsByCode sendTxErrors) (returnCode SendTxReturnCode
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) collectTxResults(ctx context.Context, tx TX, healthyNodesNum int, txResults <-chan sendTxResult) (SendTxReturnCode, error) {
 	if healthyNodesNum == 0 {
-		// TODO: Should we return fatal here, retryable, or 0?
 		return 0, ErroringNodeError
 	}
-	// combine context and stop channel to ensure we stop, when signal received
-	ctx, cancel := txSender.chStop.Ctx(ctx)
-	defer cancel()
 	requiredResults := int(math.Ceil(float64(healthyNodesNum) * sendTxQuorum))
 	errorsByCode := sendTxErrors{}
 	var softTimeoutChan <-chan time.Time
