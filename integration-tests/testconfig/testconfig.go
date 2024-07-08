@@ -16,8 +16,6 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/joho/godotenv"
-
 	"github.com/smartcontractkit/seth"
 
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/config"
@@ -374,7 +372,7 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 	}
 
 	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
-	err = testConfig.LoadSecretEnvsFromFile()
+	err = ctf_config.LoadSecretEnvsFromFile()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
 	}
@@ -510,41 +508,6 @@ func (c *TestConfig) readNetworkConfiguration() error {
 	// this is the only value we need to generate dynamically before starting a new simulated chain
 	if c.PrivateEthereumNetwork != nil && c.PrivateEthereumNetwork.EthereumChainConfig != nil {
 		c.PrivateEthereumNetwork.EthereumChainConfig.GenerateGenesisTimestamp()
-	}
-
-	return nil
-}
-
-func (c *TestConfig) LoadSecretEnvsFromFile() error {
-	logger := logging.GetTestLogger(nil)
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return errors.Wrapf(err, "error getting user home directory")
-	}
-	path := fmt.Sprintf("%s/.testsecrets", homeDir)
-
-	// Load existing environment variables into a map
-	existingEnv := make(map[string]string)
-	for _, env := range os.Environ() {
-		pair := strings.SplitN(env, "=", 2)
-		existingEnv[pair[0]] = pair[1]
-	}
-
-	// Load variables from the env file
-	envMap, err := godotenv.Read(path)
-	if err != nil {
-		return errors.Wrapf(err, "error loading %s file with test secrets", path)
-	}
-
-	// Set env vars from file only if they are not already set
-	for key, value := range envMap {
-		if _, exists := existingEnv[key]; !exists {
-			logger.Debug().Msgf("Setting env var %s from %s file", key, path)
-			os.Setenv(key, value)
-		} else {
-			logger.Debug().Msgf("Env var %s already set, not overriding it from %s file", key, path)
-		}
 	}
 
 	return nil
