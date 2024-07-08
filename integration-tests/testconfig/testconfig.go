@@ -383,13 +383,6 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
-	tId := os.Getenv("LOKI_TENANT_ID")
-	if tId != "" {
-		logger.Info().Msg("LOKI_TENANT_ID env var found and non empty")
-	} else {
-		logger.Info().Msg("LOKI_TENANT_ID env var not found or empty")
-	}
-
 	logger.Debug().Msg("Validating test config")
 	err = testConfig.Validate()
 	if err != nil {
