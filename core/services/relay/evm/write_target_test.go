@@ -44,6 +44,7 @@ func TestEvmWrite(t *testing.T) {
 		mockCall = append(mockCall, byte(0))
 	}
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
+	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)

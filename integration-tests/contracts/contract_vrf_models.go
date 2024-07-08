@@ -21,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_wrapper_load_test_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/dkg"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ocr2vrf/generated/vrf_beacon"
 )
 
 type VRF interface {
@@ -320,47 +318,6 @@ type VRFv2PlusWrapperLoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetWrapper(ctx context.Context) (common.Address, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
-}
-
-type DKG interface {
-	Address() string
-	AddClient(keyID string, clientAddress string) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*dkg.DKGConfigSet, error)
-	WaitForTransmittedEvent(timeout time.Duration) (*dkg.DKGTransmitted, error)
-}
-
-type VRFCoordinatorV3 interface {
-	Address() string
-	SetProducer(producerAddress string) error
-	CreateSubscription() error
-	FindSubscriptionID() (*big.Int, error)
-	AddConsumer(subId *big.Int, consumerAddress string) error
-	SetConfig(maxCallbackGasLimit, maxCallbackArgumentsLength uint32) error
-}
-
-type VRFBeacon interface {
-	Address() string
-	SetPayees(transmitterAddresses []common.Address, payeesAddresses []common.Address) error
-	SetConfig(
-		signerAddresses []common.Address,
-		transmitterAddresses []common.Address,
-		f uint8,
-		onchainConfig []byte,
-		offchainConfigVersion uint64,
-		offchainConfig []byte,
-	) error
-	WaitForConfigSetEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconConfigSet, error)
-	WaitForNewTransmissionEvent(timeout time.Duration) (*vrf_beacon.VRFBeaconNewTransmission, error)
-	LatestConfigDigestAndEpoch(ctx context.Context) (vrf_beacon.LatestConfigDigestAndEpoch,
-		error)
 }
 
 type VRFBeaconConsumer interface {

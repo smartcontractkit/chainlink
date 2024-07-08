@@ -19,14 +19,13 @@ message Message {
 }
 
 message MessageBody {
+  reserved 7, 8;
   uint32 version = 1;
   bytes sender = 2;
   bytes receiver = 3;
   int64 timestamp = 4;
   bytes message_id = 5; // scoped to sender
   string capability_id = 6;
-  string capability_don_id = 7;
-  string caller_don_id = 8;
   string method = 9;
   Error error = 10;
   string errorMsg = 11;
@@ -38,6 +37,8 @@ message MessageBody {
     TriggerEventMetadata trigger_event_metadata = 14;
   }
 
+  uint32 capability_don_id = 15;
+  uint32 caller_don_id = 16;
 }
 
 message TriggerRegistrationMetadata {

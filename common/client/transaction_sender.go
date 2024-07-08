@@ -100,14 +100,14 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 
 	var err error
 	ok := txSender.multiNode.IfNotStopped(func() {
-		err = txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) bool {
+		err = txSender.multiNode.DoAll(ctx, func(ctx context.Context, rpc RPC, isSendOnly bool) {
 			if isSendOnly {
 				go func() {
 					// Send-only nodes' results are ignored as they tend to return false-positive responses.
 					// Broadcast to them is necessary to speed up the propagation of TX in the network.
 					_ = txSender.broadcastTxAsync(ctx, rpc, tx)
 				}()
-				return true
+				return
 			}
 
 			// Primary Nodes
@@ -118,7 +118,6 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 				txResultsToReport <- result
 				txResults <- result
 			}()
-			return true
 		})
 		if err != nil {
 			primaryWg.Wait()
@@ -173,7 +172,6 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) reportSendTxAnomalies(tx T
 	if criticalErr != nil {
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
 		txSender.SvcErrBuffer.Append(criticalErr)
-		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
 	}
 }
 

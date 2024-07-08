@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"math/big"
 	"net/url"
 	"os"
 	"regexp"
@@ -13,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
@@ -23,7 +21,6 @@ import (
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -271,25 +268,6 @@ func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
 	return common.HexToAddress(addr), nil
 }
 
-func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
-	toAddress, err := n.API.PrimaryEthAddress()
-	if err != nil {
-		return err
-	}
-	n.l.Debug().
-		Str("ChainId", evmClient.GetChainID().String()).
-		Str("Address", toAddress).
-		Msg("Funding Chainlink Node")
-	toAddr := common.HexToAddress(toAddress)
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
-		To: &toAddr,
-	})
-	if err != nil {
-		return err
-	}
-	return evmClient.Fund(toAddress, amount, gasEstimates)
-}
-
 func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 	var err error
 	if restartDb {
@@ -352,8 +330,6 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		Str("userEmail", n.UserEmail).
 		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
-	nodeConfig, _ := n.GetNodeConfigStr()
-	n.l.Info().Str("containerName", n.ContainerName).Msgf("Chainlink Node config:\n%s", nodeConfig)
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,

@@ -61,6 +61,8 @@ func (d *dataSource) Observe(ctx context.Context, streamIDs map[llotypes.StreamI
 	sv := make(llo.StreamValues)
 	var mu sync.Mutex
 
+	d.lggr.Debugw("Observing streams", "streamIDs", streamIDs)
+
 	for streamID := range streamIDs {
 		go func(streamID llotypes.StreamID) {
 			defer wg.Done()
@@ -98,6 +100,8 @@ func (d *dataSource) Observe(ctx context.Context, streamIDs map[llotypes.StreamI
 	}
 
 	wg.Wait()
+
+	d.lggr.Debugw("Observed streams", "streamIDs", streamIDs, "values", sv)
 
 	return sv, nil
 }

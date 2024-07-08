@@ -32,8 +32,6 @@ type Client interface {
 	Close()
 	// ChainID locally stored for quick access
 	ConfiguredChainID() *big.Int
-	// ChainID RPC call
-	ChainID() (*big.Int, error)
 
 	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
@@ -59,6 +57,9 @@ type Client interface {
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
 	HeadByHash(ctx context.Context, n common.Hash) (*evmtypes.Head, error)
 	SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.Head, ethereum.Subscription, error)
+	// LatestFinalizedBlock - returns the latest finalized block as it's returned from an RPC.
+	// CAUTION: Using this method might cause local finality violations. It's highly recommended
+	// to use HeadTracker to get latest finalized block.
 	LatestFinalizedBlock(ctx context.Context) (head *evmtypes.Head, err error)
 
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commonclient.SendTxReturnCode, error)
@@ -103,7 +104,7 @@ func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc
 type chainClient struct {
 	multiNode *commonclient.MultiNode[
 		*big.Int,
-		ChainClientRPC,
+		*RpcClient,
 	]
 	txSender     commonclient.TransactionSender[*types.Transaction]
 	logger       logger.SugaredLogger
@@ -115,13 +116,14 @@ func NewChainClient(
 	lggr logger.Logger,
 	selectionMode string,
 	leaseDuration time.Duration,
-	nodes []commonclient.Node[*big.Int, ChainClientRPC],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, ChainClientRPC],
+	nodes []commonclient.Node[*big.Int, *RpcClient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient],
 	chainID *big.Int,
 	clientErrors evmconfig.ClientErrors,
+	deathDeclarationDelay time.Duration,
 ) Client {
 	chainFamily := "EVM"
-	multiNode := commonclient.NewMultiNode[*big.Int, ChainClientRPC](
+	multiNode := commonclient.NewMultiNode[*big.Int, *RpcClient](
 		lggr,
 		selectionMode,
 		leaseDuration,
@@ -129,13 +131,14 @@ func NewChainClient(
 		sendonlys,
 		chainID,
 		chainFamily,
+		deathDeclarationDelay,
 	)
 
 	classifySendError := func(tx *types.Transaction, err error) commonclient.SendTxReturnCode {
 		return ClassifySendError(err, clientErrors, logger.Sugared(logger.Nop()), tx, common.Address{}, false)
 	}
 
-	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, ChainClientRPC](
+	txSender := commonclient.NewTransactionSender[*types.Transaction, *big.Int, *RpcClient](
 		lggr,
 		chainID,
 		chainFamily,
@@ -182,13 +185,13 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 		return selectionErr
 	}
 
-	doFunc := func(ctx context.Context, rpc ChainClientRPC, isSendOnly bool) bool {
+	doFunc := func(ctx context.Context, rpc *RpcClient, isSendOnly bool) {
 		if rpc == main {
-			return true
+			return
 		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
-		go func(rpc ChainClientRPC) {
+		go func(rpc *RpcClient) {
 			defer wg.Done()
 			err := rpc.BatchCallContext(ctx, b)
 			if err != nil {
@@ -197,7 +200,6 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []ethrpc.BatchE
 				c.logger.Debug("Secondary node BatchCallContext success")
 			}
 		}(rpc)
-		return true
 	}
 
 	if err := c.multiNode.DoAll(ctx, doFunc); err != nil {
@@ -248,16 +250,6 @@ func (c *chainClient) PendingCallContract(ctx context.Context, msg ethereum.Call
 	return rpc.PendingCallContract(ctx, msg)
 }
 
-// TODO-1663: change this to actual ChainID() call once client.go is deprecated.
-func (c *chainClient) ChainID() (*big.Int, error) {
-	rpc, err := c.multiNode.SelectRPC()
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Progagate context
-	return rpc.ChainID(context.Background())
-}
-
 func (c *chainClient) Close() {
 	_ = c.multiNode.Close()
 }
@@ -275,7 +267,7 @@ func (c *chainClient) ConfiguredChainID() *big.Int {
 }
 
 func (c *chainClient) Dial(ctx context.Context) error {
-	return c.multiNode.Dial(ctx)
+	return c.multiNode.Start(ctx)
 }
 
 func (c *chainClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
@@ -404,16 +396,8 @@ func (c *chainClient) SubscribeNewHead(ctx context.Context) (<-chan *evmtypes.He
 	if err != nil {
 		return nil, nil, err
 	}
-	chainID, err := c.ChainID()
-	if err != nil {
-		return nil, nil, err
-	}
-	forwardCh, csf := newChainIDSubForwarder(chainID, ch)
-	err = csf.start(sub, err)
-	if err != nil {
-		return nil, nil, err
-	}
-	return forwardCh, csf, nil
+
+	return ch, sub, nil
 }
 
 func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {

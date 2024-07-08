@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
@@ -88,6 +89,10 @@ type Client interface {
 	ConfiguredChainID() *big.Int
 }
 
+type HeadTracker interface {
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized *evmtypes.Head, err error)
+}
+
 var (
 	_                       LogPollerTest = &logPoller{}
 	ErrReplayRequestAborted               = pkgerrors.New("aborted, replay request cancelled")
@@ -100,6 +105,7 @@ type logPoller struct {
 	services.StateMachine
 	ec                       Client
 	orm                      ORM
+	headTracker              HeadTracker
 	lggr                     logger.SugaredLogger
 	pollPeriod               time.Duration // poll period set by block production rate
 	useFinalityTag           bool          // indicates whether logPoller should use chain's finality or pick a fixed depth for finality
@@ -150,11 +156,12 @@ type Opts struct {
 //
 // How fast that can be done depends largely on network speed and DB, but even for the fastest
 // support chain, polygon, which has 2s block times, we need RPCs roughly with <= 500ms latency
-func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, opts Opts) *logPoller {
+func NewLogPoller(orm ORM, ec Client, lggr logger.Logger, headTracker HeadTracker, opts Opts) *logPoller {
 	return &logPoller{
 		stopCh:                   make(chan struct{}),
 		ec:                       ec,
 		orm:                      orm,
+		headTracker:              headTracker,
 		lggr:                     logger.Sugared(logger.Named(lggr, "LogPoller")),
 		replayStart:              make(chan int64),
 		replayComplete:           make(chan error),
@@ -552,9 +559,14 @@ func (lp *logPoller) run() {
 	defer lp.wg.Done()
 	ctx, cancel := lp.stopCh.NewCtx()
 	defer cancel()
-	logPollTick := time.After(0)
+	logPollTicker := services.NewTicker(lp.pollPeriod)
+	defer logPollTicker.Stop()
 	// stagger these somewhat, so they don't all run back-to-back
-	backupLogPollTick := time.After(100 * time.Millisecond)
+	backupLogPollTicker := services.TickerConfig{
+		Initial:   100 * time.Millisecond,
+		JitterPct: services.DefaultJitter,
+	}.NewTicker(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod)
+	defer backupLogPollTicker.Stop()
 	filtersLoaded := false
 
 	for {
@@ -563,8 +575,7 @@ func (lp *logPoller) run() {
 			return
 		case fromBlockReq := <-lp.replayStart:
 			lp.handleReplayRequest(ctx, fromBlockReq, filtersLoaded)
-		case <-logPollTick:
-			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
+		case <-logPollTicker.C:
 			if !filtersLoaded {
 				if err := lp.loadFilters(ctx); err != nil {
 					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
@@ -602,7 +613,7 @@ func (lp *logPoller) run() {
 				start = lastProcessed.BlockNumber + 1
 			}
 			lp.PollAndSaveLogs(ctx, start)
-		case <-backupLogPollTick:
+		case <-backupLogPollTicker.C:
 			if lp.backupPollerBlockDelay == 0 {
 				continue // backup poller is disabled
 			}
@@ -614,7 +625,6 @@ func (lp *logPoller) run() {
 			// frequently than the primary log poller (instead of roughly once per block it runs once roughly once every
 			// lp.backupPollerDelay blocks--with default settings about 100x less frequently).
 
-			backupLogPollTick = time.After(utils.WithJitter(time.Duration(lp.backupPollerBlockDelay) * lp.pollPeriod))
 			if !filtersLoaded {
 				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
@@ -863,7 +873,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		}
 		// Additional sanity checks, don't necessarily trust the RPC.
 		if currentBlock == nil {
-			lp.lggr.Errorf("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
+			lp.lggr.Errorw("Unexpected nil block from RPC", "currentBlockNumber", currentBlockNumber)
 			return nil, pkgerrors.Errorf("Got nil block for %d", currentBlockNumber)
 		}
 		if currentBlock.Number != currentBlockNumber {
@@ -1007,33 +1017,15 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	}
 }
 
-// Returns information about latestBlock, latestFinalizedBlockNumber
-// If finality tag is not enabled, latestFinalizedBlockNumber is calculated as latestBlockNumber - lp.finalityDepth (configured param)
-// Otherwise, we return last finalized block number returned from chain
+// Returns information about latestBlock, latestFinalizedBlockNumber provided by HeadTracker
 func (lp *logPoller) latestBlocks(ctx context.Context) (*evmtypes.Head, int64, error) {
-	// If finality is not enabled, we can only fetch the latest block
-	if !lp.useFinalityTag {
-		// Example:
-		// finalityDepth = 2
-		// Blocks: 1->2->3->4->5(latestBlock)
-		// latestFinalizedBlockNumber would be 3
-		latestBlock, err := lp.ec.HeadByNumber(ctx, nil)
-		if err != nil {
-			return nil, 0, err
-		}
-		// If chain has fewer blocks than finalityDepth, return 0
-		return latestBlock, mathutil.Max(latestBlock.Number-lp.finalityDepth, 0), nil
+	latest, finalized, err := lp.headTracker.LatestAndFinalizedBlock(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get latest and latest finalized block from HeadTracker: %w", err)
 	}
 
-	// If finality is enabled, we need to get the latest and finalized blocks.
-	blocks, err := lp.batchFetchBlocks(ctx, []string{rpc.LatestBlockNumber.String(), rpc.FinalizedBlockNumber.String()}, 2)
-	if err != nil {
-		return nil, 0, err
-	}
-	latest := blocks[0]
-	finalized := blocks[1]
-	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.Number)
-	return latest, finalized.Number, nil
+	lp.lggr.Debugw("Latest blocks read from chain", "latest", latest.Number, "finalized", finalized.BlockNumber())
+	return latest, finalized.BlockNumber(), nil
 }
 
 // Find the first place where our chain and their chain have the same block,

@@ -114,7 +114,11 @@ setup-testdb: ## Setup the test database.
 testdb: ## Prepares the test database.
 	go run . local db preparetest
 
-.PHONY: testdb
+.PHONY: testdb-force
+testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
+	go run . local db preparetest --force
+
+.PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
 	go run . local db preparetest --user-only
 
@@ -131,7 +135,7 @@ gomods: ## Install gomods
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.42.2
+	go install github.com/vektra/mockery/v2@v2.43.2
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -174,6 +178,10 @@ goreleaser-dev-release: ## run goreleaser snapshot release
 .PHONY: modgraph
 modgraph:
 	./tools/bin/modgraph > go.md
+
+.PHONY: test-short
+test-short: ## Run 'go test -short' and suppress uninteresting output
+	go test -short ./... | grep -v "[no test files]" | grep -v "\(cached\)"
 
 help:
 	@echo ""

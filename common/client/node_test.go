@@ -17,7 +17,9 @@ type testNodeConfig struct {
 	selectionMode              string
 	syncThreshold              uint32
 	nodeIsSyncingEnabled       bool
+	enforceRepeatableRead      bool
 	finalizedBlockPollInterval time.Duration
+	deathDeclarationDelay      time.Duration
 }
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
@@ -44,6 +46,14 @@ func (n testNodeConfig) FinalizedBlockPollInterval() time.Duration {
 	return n.finalizedBlockPollInterval
 }
 
+func (n testNodeConfig) EnforceRepeatableRead() bool {
+	return n.enforceRepeatableRead
+}
+
+func (n testNodeConfig) DeathDeclarationDelay() time.Duration {
+	return n.deathDeclarationDelay
+}
+
 type testNode struct {
 	*node[types.ID, Head, RPCClient[types.ID, Head]]
 }
@@ -58,7 +68,7 @@ type testNodeOpts struct {
 	id          int32
 	chainID     types.ID
 	nodeOrder   int32
-	rpc         *MockRPCClient[types.ID, Head]
+	rpc         *mockRPCClient[types.ID, Head]
 	chainFamily string
 }
 

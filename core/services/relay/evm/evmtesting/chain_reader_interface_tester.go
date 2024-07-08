@@ -2,6 +2,7 @@ package evmtesting
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
@@ -198,10 +200,18 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
 	}
-	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.client, lggr, lpOpts)
+	ht := headtracker.NewSimulatedHeadTracker(it.client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(it.Helper.ChainID(), db, lggr), it.client, lggr, ht, lpOpts)
 	require.NoError(t, lp.Start(ctx))
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, it.chainConfig)
+	// encode and decode the config to ensure the test covers type issues
+	confBytes, err := json.Marshal(it.chainConfig)
+	require.NoError(t, err)
+
+	conf, err := types.ChainReaderConfigFromBytes(confBytes)
+	require.NoError(t, err)
+
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, it.client, conf)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
 	it.cr = cr

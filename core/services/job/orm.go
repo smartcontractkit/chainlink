@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -501,8 +502,8 @@ func (o *orm) insertKeeperSpec(ctx context.Context, spec *KeeperSpec) (specID in
 }
 
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
-	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, created_at, updated_at)
-			VALUES (:cron_schedule, NOW(), NOW())
+	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
+			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
 			RETURNING id;`, spec)
 }
 
@@ -580,29 +581,31 @@ func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore k
 
 func validateKeyStoreMatchForRelay(ctx context.Context, network string, keyStore keystore.Master, key string) error {
 	switch network {
-	case types.NetworkEVM:
+	case relay.NetworkEVM:
 		_, err := keyStore.Eth().Get(ctx, key)
 		if err != nil {
 			return errors.Errorf("no EVM key matching: %q", key)
 		}
-	case types.NetworkCosmos:
+	case relay.NetworkCosmos:
 		_, err := keyStore.Cosmos().Get(key)
 		if err != nil {
 			return errors.Errorf("no Cosmos key matching: %q", key)
 		}
-	case types.NetworkSolana:
+	case relay.NetworkSolana:
 		_, err := keyStore.Solana().Get(key)
 		if err != nil {
 			return errors.Errorf("no Solana key matching: %q", key)
 		}
-	case types.NetworkStarkNet:
+	case relay.NetworkStarkNet:
 		_, err := keyStore.StarkNet().Get(key)
 		if err != nil {
 			return errors.Errorf("no Starknet key matching: %q", key)
 		}
-	case types.NetworkAptos:
-		// TODO BCI-2953
-		return nil
+	case relay.NetworkAptos:
+		_, err := keyStore.Aptos().Get(key)
+		if err != nil {
+			return errors.Errorf("no Aptos key matching: %q", key)
+		}
 	}
 	return nil
 }

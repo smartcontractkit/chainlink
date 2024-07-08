@@ -20,6 +20,7 @@ import (
 
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -143,6 +144,7 @@ func TestChainReaderEventsInitValidation(t *testing.T) {
 func TestChainReader(t *testing.T) {
 	t.Parallel()
 	it := &EVMChainReaderInterfaceTester[*testing.T]{Helper: &helper{}}
+	// add new subtests here so that it can be run on real chains too
 	RunChainReaderEvmTests(t, it)
 	RunChainReaderInterfaceTests[*testing.T](t, commontestutils.WrapChainReaderTesterForLoop(it))
 }

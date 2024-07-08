@@ -86,6 +86,8 @@ type TestNodePoolConfig struct {
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
 	NodeErrors                     config.ClientErrors
+	EnforceRepeatableReadVal       bool
+	NodeDeathDeclarationDelay      time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -106,6 +108,14 @@ func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 
 func (tc TestNodePoolConfig) Errors() config.ClientErrors {
 	return tc.NodeErrors
+}
+
+func (tc TestNodePoolConfig) EnforceRepeatableRead() bool {
+	return tc.EnforceRepeatableReadVal
+}
+
+func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
+	return tc.NodeDeathDeclarationDelay
 }
 
 func NewChainClientWithTestNode(
@@ -134,24 +144,24 @@ func NewChainClientWithTestNode(
 	}
 	rpc := NewRPCClient(nodePoolCfg, lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, ChainClientRPC](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RpcClient](
 		nodeCfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, ChainClientRPC]{n}
+	primaries := []commonclient.Node[*big.Int, *RpcClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, ChainClientRPC]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, *RpcClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, pkgerrors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(nodePoolCfg, lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, ChainClientRPC](
+		s := commonclient.NewSendOnlyNode[*big.Int, *RpcClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
 
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, primaries, sendonlys, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -165,7 +175,7 @@ func NewChainClientWithEmptyNode(
 ) Client {
 	lggr := logger.Test(t)
 
-	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, nil, nil, chainID, nil, 0)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -176,7 +186,7 @@ func NewChainClientWithMockedRpc(
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
 	chainID *big.Int,
-	rpc ChainClientRPC,
+	rpc *RpcClient,
 ) Client {
 	lggr := logger.Test(t)
 
@@ -185,11 +195,11 @@ func NewChainClientWithMockedRpc(
 	}
 	parsed, _ := url.ParseRequestURI("ws://test")
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, ChainClientRPC](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *RpcClient](
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, ChainClientRPC]{n}
+	primaries := []commonclient.Node[*big.Int, *RpcClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, primaries, nil, chainID, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c
 }

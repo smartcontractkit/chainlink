@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 )
@@ -343,7 +344,7 @@ func (d *stuckTxDetector) detectStuckTransactionsZkEVM(ctx context.Context, txs 
 	for i, req := range txReqs {
 		txHash := req.Args[0].(common.Hash)
 		if req.Error != nil {
-			d.lggr.Debugf("failed to get transaction by hash (%s): %w", txHash.String(), req.Error)
+			d.lggr.Debugf("failed to get transaction by hash (%s): %v", txHash.String(), req.Error)
 			continue
 		}
 		result := *txRes[i]
@@ -363,13 +364,6 @@ func (d *stuckTxDetector) SetPurgeBlockNum(fromAddress common.Address, blockNum 
 }
 
 func (d *stuckTxDetector) StuckTxFatalError() *string {
-	var errorMsg string
-	switch d.chainType {
-	case chaintype.ChainScroll, chaintype.ChainZkEvm:
-		errorMsg = "transaction skipped by chain"
-	default:
-		errorMsg = "transaction terminally stuck"
-	}
-
+	errorMsg := client.TerminallyStuckMsg
 	return &errorMsg
 }

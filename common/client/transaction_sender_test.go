@@ -40,7 +40,7 @@ func newSendTxMultiNode(t *testing.T, opts sendTxMultiNodeOpts) sendTxMultiNode 
 	}
 
 	result := NewMultiNode[types.ID, SendTxRPCClient[any]](
-		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily)
+		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily, 0)
 	return sendTxMultiNode{
 		result,
 	}
@@ -181,7 +181,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
 		chainID := types.RandomID()
-		expectedError := errors.New("tmp error")
+		expectedError := errors.New("transaction failed")
 		fastNode := newNode(t, 0, expectedError, nil)
 
 		// hold reply from the node till end of the test
@@ -377,11 +377,11 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 			ResultsByCode:       sendTxErrors{},
 		},
 		{
-			Name:                "Zk out of counter error",
+			Name:                "Zk terminally stuck",
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
 			ResultsByCode: sendTxErrors{
-				OutOfCounters: {errors.New("not enough keccak counters to continue the execution")},
+				TerminallyStuck: {errors.New("not enough keccak counters to continue the execution")},
 			},
 		},
 	}
@@ -411,7 +411,7 @@ func TestMultiNode_SendTransaction_aggregateTxResults(t *testing.T) {
 	}
 
 	// explicitly signal that following codes are properly handled in aggregateTxResults,
-	//but dedicated test cases won't be beneficial
+	// but dedicated test cases won't be beneficial
 	for _, codeToIgnore := range []SendTxReturnCode{Unknown, ExceedsMaxFee, FeeOutOfValidRange} {
 		delete(codesToCover, codeToIgnore)
 	}

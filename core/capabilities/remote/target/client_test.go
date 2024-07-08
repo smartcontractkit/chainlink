@@ -33,9 +33,9 @@ func Test_Client_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -64,9 +64,9 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	capability := &TestCapability{}
@@ -130,7 +130,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -149,7 +149,7 @@ func testClient(ctx context.Context, t *testing.T, numWorkflowPeers int, workflo
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
 	broker := newTestAsyncMessageBroker(t, 100)
@@ -259,7 +259,7 @@ func (t *clientTestServer) Receive(_ context.Context, msg *remotetypes.MessageBo
 		for receiver := range t.messageIDToSenders[messageID] {
 			var responseMsg = &remotetypes.MessageBody{
 				CapabilityId:    "cap_id@1.0.0",
-				CapabilityDonId: "capability-don",
+				CapabilityDonId: 1,
 				CallerDonId:     t.workflowDonInfo.ID,
 				Method:          remotetypes.MethodExecute,
 				MessageId:       []byte(messageID),

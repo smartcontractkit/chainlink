@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -111,6 +110,11 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		checker.CheckerType = txmgrtypes.TransmitCheckerType(methodConfig.Checker)
 	}
 
+	v := big.NewInt(0)
+	if value != nil {
+		v = value
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
@@ -119,6 +123,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
 		Strategy:       w.sendStrategy,
 		Checker:        checker,
+		Value:          *v,
 	}
 
 	_, err = w.txm.CreateTransaction(ctx, req)
@@ -161,8 +166,8 @@ func (w *chainWriter) parseContracts() error {
 	return nil
 }
 
-func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID uuid.UUID) (commontypes.TransactionStatus, error) {
-	return commontypes.Unknown, fmt.Errorf("not implemented")
+func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
+	return w.txm.GetTransactionStatus(ctx, transactionID)
 }
 
 // GetFeeComponents the execution and data availability (L1Oracle) fees for the chain.
@@ -188,8 +193,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	l1Oracle := w.ge.L1Oracle()
 	if l1Oracle == nil {
 		return &commontypes.ChainFeeComponents{
-			ExecutionFee:        *gasPrice,
-			DataAvailabilityFee: *big.NewInt(0),
+			ExecutionFee:        gasPrice,
+			DataAvailabilityFee: big.NewInt(0),
 		}, nil
 	}
 	l1OracleFee, err := l1Oracle.GasPrice(ctx)
@@ -198,8 +203,8 @@ func (w *chainWriter) GetFeeComponents(ctx context.Context) (*commontypes.ChainF
 	}
 
 	return &commontypes.ChainFeeComponents{
-		ExecutionFee:        *gasPrice,
-		DataAvailabilityFee: *big.NewInt(l1OracleFee.Int64()),
+		ExecutionFee:        gasPrice,
+		DataAvailabilityFee: big.NewInt(l1OracleFee.Int64()),
 	}, nil
 }
 

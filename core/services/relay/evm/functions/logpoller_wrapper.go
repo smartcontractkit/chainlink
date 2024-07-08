@@ -244,7 +244,7 @@ func (l *logPollerWrapper) LatestEvents(ctx context.Context) ([]evmRelayTypes.Or
 				oracleRequest.Commitment.TimeoutTimestamp,
 			)
 			if err != nil {
-				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)
+				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", "err", err)
 			}
 
 			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{

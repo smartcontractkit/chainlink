@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmutils "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -99,7 +100,8 @@ func TestConfigPoller(t *testing.T) {
 			RpcBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		}
-		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, lpOpts)
+		ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, ht, lpOpts)
 		servicetest.Run(t, lp)
 	}
 

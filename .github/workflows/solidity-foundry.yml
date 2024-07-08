@@ -16,16 +16,12 @@ jobs:
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
-          # Foundry is only used for Solidity v0.8 contracts, therefore we can ignore
-          # changes to older contracts.
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
-              - 'contracts/foundry-lib/**/*'
-              - '.gitmodules'
 
   tests:
     strategy:

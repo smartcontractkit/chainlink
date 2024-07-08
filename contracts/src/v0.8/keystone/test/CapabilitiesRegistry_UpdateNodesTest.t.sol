@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.24;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {CapabilitiesRegistry} from "../CapabilitiesRegistry.sol";
 
 contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
-  event NodeUpdated(bytes32 p2pId, uint32 indexed nodeOperatorId, bytes32 signer);
-
   function setUp() public override {
     BaseTest.setUp();
     changePrank(ADMIN);
@@ -294,7 +292,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
+    emit CapabilitiesRegistry.NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_CapabilitiesRegistry.updateNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);
@@ -321,7 +319,7 @@ contract CapabilitiesRegistry_UpdateNodesTest is BaseTest {
     });
 
     vm.expectEmit(address(s_CapabilitiesRegistry));
-    emit NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
+    emit CapabilitiesRegistry.NodeUpdated(P2P_ID, TEST_NODE_OPERATOR_ONE_ID, NEW_NODE_SIGNER);
     s_CapabilitiesRegistry.updateNodes(nodes);
 
     CapabilitiesRegistry.NodeInfo memory node = s_CapabilitiesRegistry.getNode(P2P_ID);

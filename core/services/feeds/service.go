@@ -466,7 +466,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job proposal deletion", err)
+		logger.Errorw("Failed to push metrics for job proposal deletion", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -518,7 +518,7 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 	)
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for revoke job", err)
+		logger.Errorw("Failed to push metrics for revoke job", "err", err)
 	}
 
 	return proposal.ID, nil
@@ -632,7 +632,7 @@ func (s *service) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, 
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for propose job", err)
+		logger.Errorw("Failed to push metrics for propose job", "err", err)
 	}
 
 	return id, nil
@@ -704,7 +704,7 @@ func (s *service) RejectSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job rejection", err)
+		logger.Errorw("Failed to push metrics for job rejection", "err", err)
 	}
 
 	return nil
@@ -883,7 +883,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job approval", err)
+		logger.Errorw("Failed to push metrics for job approval", "err", err)
 	}
 
 	return nil
@@ -973,7 +973,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	}
 
 	if err = s.observeJobProposalCounts(ctx); err != nil {
-		logger.Errorw("Failed to push metrics for job cancellation", err)
+		logger.Errorw("Failed to push metrics for job cancellation", "err", err)
 	}
 
 	return nil
