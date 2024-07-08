@@ -10,6 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 )
 
+const (
+	CLNodeTestEmail    = "notreal@fakeemail.ch"
+	CLNodeTestPassword = "fj293fbBnlQ!f9vNs"
+)
+
 type ChainlinkK8sClient struct {
 	ChartName string
 	PodName   string
@@ -74,8 +79,8 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*ChainlinkK8sClient, e
 	for _, nodeDetails := range e.ChainlinkNodeDetails {
 		c, err := NewChainlinkK8sClient(&ChainlinkConfig{
 			URL:        nodeDetails.LocalIP,
-			Email:      "notreal@fakeemail.ch",
-			Password:   "fj293fbBnlQ!f9vNs",
+			Email:      CLNodeTestEmail,
+			Password:   CLNodeTestPassword,
 			InternalIP: parseHostname(nodeDetails.InternalIP),
 		}, nodeDetails.PodName, nodeDetails.ChartName)
 		if err != nil {
@@ -100,8 +105,8 @@ func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*
 			if details.ChartName == node.ChartName { // Make the link from client to pod consistent
 				node, err = NewChainlinkK8sClient(&ChainlinkConfig{
 					URL:        details.LocalIP,
-					Email:      "notreal@fakeemail.ch",
-					Password:   "fj293fbBnlQ!f9vNs",
+					Email:      CLNodeTestEmail,
+					Password:   CLNodeTestPassword,
 					InternalIP: parseHostname(details.InternalIP),
 				}, details.PodName, details.ChartName)
 				if err != nil {
@@ -136,8 +141,8 @@ func ConnectChainlinkNodeURLs(urls []string) ([]*ChainlinkK8sClient, error) {
 func ConnectChainlinkNodeURL(url string) (*ChainlinkK8sClient, error) {
 	return NewChainlinkK8sClient(&ChainlinkConfig{
 		URL:        url,
-		Email:      "notreal@fakeemail.ch",
-		Password:   "fj293fbBnlQ!f9vNs",
+		Email:      CLNodeTestEmail,
+		Password:   CLNodeTestPassword,
 		InternalIP: parseHostname(url),
 	},
 		parseHostname(url),   // a decent guess

@@ -157,7 +157,11 @@ jobs:
             fi
             IFS=','
             eth_implementations="${implementations_arr[*]}"
-            echo "Found new releases for: $eth_implementations"
+            if [ -n "$eth_implementations" ]; then
+              echo "Found new releases for: $eth_implementations"
+            else
+              echo "No new releases found"
+            fi
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
@@ -229,7 +233,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       id-token: write
@@ -263,7 +267,7 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
 
   build-chainlink:
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       id-token: write
@@ -298,7 +302,7 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
@@ -371,7 +375,7 @@ jobs:
 
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       checks: write
@@ -501,7 +505,7 @@ jobs:
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
-    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success'
+    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success' && needs.prepare-compatibility-matrix.outputs.matrix != ''
     environment: integration
     permissions:
       checks: write
@@ -611,7 +615,7 @@ jobs:
 
   start-slack-thread:
     name: Start Slack Thread
-    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -670,7 +674,7 @@ jobs:
 
   parse-test-results:
     name: Parse Test Results
-    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       checks: write
@@ -756,7 +760,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
     environment: integration
     permissions:
       checks: write

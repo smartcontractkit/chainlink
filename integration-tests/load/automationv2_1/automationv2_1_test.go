@@ -89,8 +89,9 @@ Password = '%s'`
 				"memory": "4Gi",
 			},
 		},
-		"stateful": true,
-		"capacity": "20Gi",
+		"stateful":                         true,
+		"capacity":                         "20Gi",
+		"enablePrometheusPostgresExporter": true,
 	}
 
 	recNodeSpec = map[string]interface{}{

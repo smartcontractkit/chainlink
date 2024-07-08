@@ -233,17 +233,22 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		indices[len(checkReqs)] = i
 		results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false)
 
+		args := []interface{}{
+			map[string]interface{}{
+				"from": zeroAddress,
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		checkReqs = append(checkReqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"from": zeroAddress,
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		})
 
@@ -334,17 +339,23 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		opts := r.buildCallOpts(ctx, block)
+
+		args := []interface{}{
+			map[string]interface{}{
+				"from": zeroAddress,
+				"to":   r.addr.Hex(),
+				"data": hexutil.Bytes(payload),
+			},
+		}
+
+		if opts.BlockNumber != nil {
+			args = append(args, hexutil.EncodeBig(opts.BlockNumber))
+		}
+
 		var result string
 		performReqs = append(performReqs, rpc.BatchElem{
 			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"from": zeroAddress,
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
+			Args:   args,
 			Result: &result,
 		})
 
