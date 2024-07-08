@@ -1,0 +1,44 @@
+name: CRIB Integration Tests
+on:
+  push:
+  workflow_call:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: setup-gap
+        uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CRIB_ROLE_ARN_STAGE }}
+          api-gateway-host: ${{ secrets.AWS_API_GW_HOST_K8S_STAGE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          ecr-private-registry: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+          k8s-cluster-name: ${{ secrets.AWS_K8S_CLUSTER_NAME_STAGE }}
+          use-private-ecr-registry: true
+          use-k8s: true
+          metrics-job-name: "k8s"
+          gc-basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          gc-org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+      - name: Test
+        shell: bash
+        run: kubectl describe pods -n crib-skudasov
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - name: Setup go
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: Run tests
+        working-directory: integration-tests/crib
+        env:
+          K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+        run: |-
+          go test -v -run TestCRIB

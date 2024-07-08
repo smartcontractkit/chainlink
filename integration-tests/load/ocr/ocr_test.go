@@ -1,6 +1,7 @@
 package ocr
 
 import (
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,14 +30,14 @@ func TestOCRLoad(t *testing.T) {
 	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote(true)
 	require.NoError(t, err)
 
-	lta, err := SetupCluster(l, sethClient, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
 	require.NoError(t, err)
-	ocrInstances, err := SetupFeed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
+	ocrInstances, err := actions.SetupOCRv1Feed(l, sethClient, lta, msClient, bootstrapNode, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
 	cfgl := config.Logging.Loki
-	SimulateEAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
+	actions.SimulateOCRv1EAActivity(l, cfg.Load.EAChangeInterval.Duration, ocrInstances, workerNodes, msClient)
 
 	p := wasp.NewProfile()
 	p.Add(wasp.NewGenerator(&wasp.Config{
@@ -62,7 +63,7 @@ func TestOCRVolume(t *testing.T) {
 	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote(true)
 	require.NoError(t, err)
 
-	lta, err := SetupCluster(l, sethClient, workerNodes)
+	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
 	require.NoError(t, err)
 
 	cfg := config.OCR
