@@ -30,11 +30,6 @@ Unauthenticated = 1000
 [WebServer.TLS]
 HTTPSPort = 0
 
-[Database]
-MaxIdleConns = 20
-MaxOpenConns = 40
-MigrateOnStartup = true
-
 [Keeper]
 TurnLookBack = 0
 """
@@ -84,14 +79,6 @@ HTTPWriteTimeout = '1h'
 """
 
 CommonChainConfigTOML = """
-AutoCreateKey = true
-FinalityDepth = 1
-MinContractPayment = 0
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
 """
 
 [Benchmark.NodeConfig.ChainConfigTOMLByChainID]
