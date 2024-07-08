@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -402,7 +404,6 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* TODO: Not sure why this is failing. Do we need secondaryURLs?
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
@@ -451,15 +452,15 @@ type sendTxService struct {
 	sentCount atomic.Int32
 }
 
-func (x *sendTxService) ChainId(_ context.Context) (*hexutil.Big, error) {
+func (x *sendTxService) ChainId(ctx context.Context) (*hexutil.Big, error) {
 	return (*hexutil.Big)(x.chainID), nil
 }
 
-func (x *sendTxService) SendRawTransaction(_ context.Context, _ hexutil.Bytes) error {
+func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexutil.Bytes) error {
+	fmt.Println("HERE!!")
 	x.sentCount.Add(1)
 	return nil
 }
-*/
 
 func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 	t.Parallel()
