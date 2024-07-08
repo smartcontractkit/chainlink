@@ -4017,6 +4017,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -4072,6 +4073,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5036,6 +5039,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -5091,6 +5095,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5405,6 +5411,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -5460,6 +5467,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
@@ -6331,6 +6340,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 2
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -6385,6 +6395,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 1
@@ -6606,6 +6618,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -6661,6 +6674,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
@@ -7538,6 +7553,7 @@ NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
 
 [Transactions]
 ForwardersEnabled = false
@@ -7593,6 +7609,8 @@ SyncThreshold = 5
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = false
+DeathDeclarationDelay = '10s'
 
 [OCR]
 ContractConfirmations = 4
