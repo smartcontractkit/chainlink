@@ -62,10 +62,6 @@ type transactionSender[TX any, CHAIN_ID types.ID, RPC SendTxRPCClient[TX]] struc
 	sendTxSoftTimeout time.Duration // defines max waiting time from first response til responses evaluation
 
 	reportingWg sync.WaitGroup // waits for all reporting goroutines to finish
-
-	// Metrics
-	TxCount     int
-	RpcErrCount int
 }
 
 // SendTransaction - broadcasts transaction to all the send-only and primary nodes in MultiNode.
@@ -137,11 +133,9 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 
 func (txSender *transactionSender[TX, CHAIN_ID, RPC]) broadcastTxAsync(ctx context.Context, rpc RPC, tx TX) sendTxResult {
 	txErr := rpc.SendTransaction(ctx, tx)
-	txSender.TxCount++
 	txSender.lggr.Debugw("Node sent transaction", "tx", tx, "err", txErr)
 	resultCode := txSender.txErrorClassifier(tx, txErr)
 	if !slices.Contains(sendTxSuccessfulCodes, resultCode) {
-		txSender.RpcErrCount++
 		txSender.lggr.Warnw("RPC returned error", "tx", tx, "err", txErr)
 	}
 	return sendTxResult{Err: txErr, ResultCode: resultCode}

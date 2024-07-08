@@ -402,7 +402,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-/* TODO: Re-enable this test?
+/* TODO: Not sure why this is failing. Do we need secondaryURLs?
 func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
