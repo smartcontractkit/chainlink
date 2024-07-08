@@ -122,16 +122,12 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
-		rpc.On("Dial", mock.Anything).Return(nil)
-		rpc.On("ChainID", mock.Anything).Return(node.chainID, nil)
-
 		pollError := errors.New("failed to get ClientVersion")
 		// 1. Return error several times, but below threshold
 		rpc.On("Ping", mock.Anything).Return(pollError).Run(func(_ mock.Arguments) {
 			// stays healthy while below threshold
 			assert.Equal(t, NodeStateAlive, node.State())
-		}).Times(pollFailureThreshold)
+		}).Times(pollFailureThreshold - 1)
 		// 2. Successful call that is expected to reset counter
 		rpc.On("Ping", mock.Anything).Return(nil).Once()
 		// 3. Return error. If we have not reset the timer, we'll transition to nonAliveState
@@ -414,7 +410,6 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		expectedError := errors.New("failed to subscribe to finalized heads")
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(nil, sub, expectedError).Once()
 		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Maybe()
-		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -980,15 +975,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil)
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
-		rpc.On("UnsubscribeAllExcept", mock.Anything, mock.Anything).Once()
-
 		setupRPCForAliveLoop(t, rpc)
 
 		node.declareUnreachable()
@@ -1283,13 +1271,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil)
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		setupRPCForAliveLoop(t, rpc)
 
 		err := node.Start(tests.Context(t))
@@ -1308,13 +1291,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil)
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
-
 		setupRPCForAliveLoop(t, rpc)
 
 		err := node.Start(tests.Context(t))
