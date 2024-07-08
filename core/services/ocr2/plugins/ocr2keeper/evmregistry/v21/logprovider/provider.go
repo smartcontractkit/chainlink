@@ -240,7 +240,6 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 	}
 
 	payloads = p.minimumCommitmentDequeue(latestBlock, start)
-
 	// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
 	if len(payloads) < MaxPayloads {
 		payloads = p.bestEffortDequeue(latestBlock, start, payloads)

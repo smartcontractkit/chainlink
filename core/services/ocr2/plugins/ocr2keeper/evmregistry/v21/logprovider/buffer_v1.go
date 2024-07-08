@@ -281,7 +281,7 @@ const (
 	logTriggerStateDropped logTriggerState = iota
 	// the log was enqueued by the buffer
 	logTriggerStateEnqueued
-	// the log was visited/dequeued from the buffer
+	// the log was queuedForRecovery/dequeued from the buffer
 	logTriggerStateDequeued
 )
 
@@ -293,7 +293,7 @@ type logTriggerStateEntry struct {
 }
 
 // upkeepLogQueue is a priority queue for logs associated to a specific upkeep.
-// It keeps track of the logs that were already visited and the capacity of the queue.
+// It keeps track of the logs that were already queuedForRecovery and the capacity of the queue.
 type upkeepLogQueue struct {
 	lggr logger.Logger
 
@@ -412,7 +412,7 @@ func (q *upkeepLogQueue) enqueue(blockThreshold int64, logsToAdd ...logpoller.Lo
 	if added > 0 {
 		q.orderLogs()
 		dropped = q.clean(blockThreshold)
-		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(q.logs), "visited size", len(q.states))
+		q.lggr.Debugw("Enqueued logs", "added", added, "dropped", dropped, "blockThreshold", blockThreshold, "q size", len(q.logs), "queuedForRecovery size", len(q.states))
 	}
 
 	prommetrics.AutomationLogBufferFlow.WithLabelValues(prommetrics.LogBufferFlowDirectionIngress).Add(float64(added))

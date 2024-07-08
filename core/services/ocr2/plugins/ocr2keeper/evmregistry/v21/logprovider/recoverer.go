@@ -1,7 +1,6 @@
 package logprovider
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -43,7 +42,7 @@ var (
 	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
 	MaxProposals = 20
 	// recoveryBatchSize is the number of filters to recover in a single batch
-	recoveryBatchSize = 10
+	recoveryBatchSize = 100
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
@@ -79,8 +78,10 @@ type logRecoverer struct {
 	interval time.Duration
 	lock     sync.RWMutex
 
-	pending []ocr2keepers.UpkeepPayload
-	visited map[string]visitedRecord
+	pendingKeys        []string
+	pendingPayloads    map[string]ocr2keepers.UpkeepPayload
+	upkeepPayloadCount map[ocr2keepers.UpkeepIdentifier]int
+	queuedForRecovery  map[string]visitedRecord
 
 	filterStore       UpkeepFilterStore
 	states            core.UpkeepStateReader
@@ -104,14 +105,16 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		lookbackBlocks: new(atomic.Int64),
 		interval:       opts.ReadInterval * 5,
 
-		pending:           make([]ocr2keepers.UpkeepPayload, 0),
-		visited:           make(map[string]visitedRecord),
-		poller:            poller,
-		filterStore:       filterStore,
-		states:            stateStore,
-		packer:            packer,
-		client:            client,
-		blockTimeResolver: newBlockTimeResolver(poller),
+		pendingKeys:        make([]string, 0),
+		pendingPayloads:    map[string]ocr2keepers.UpkeepPayload{},
+		queuedForRecovery:  make(map[string]visitedRecord),
+		upkeepPayloadCount: make(map[ocr2keepers.UpkeepIdentifier]int),
+		poller:             poller,
+		filterStore:        filterStore,
+		states:             stateStore,
+		packer:             packer,
+		client:             client,
+		blockTimeResolver:  newBlockTimeResolver(poller),
 
 		finalityDepth: opts.FinalityDepth,
 	}
@@ -285,6 +288,11 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("GetRecoveryProposals finished", "time", time.Since(start))
+	}()
+
 	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
@@ -293,7 +301,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	if len(r.pending) == 0 {
+	if len(r.pendingKeys) == 0 {
 		return nil, nil
 	}
 
@@ -302,26 +310,33 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 
 	r.sortPending(uint64(latestBlock.BlockNumber))
 
-	var results, pending []ocr2keepers.UpkeepPayload
-	for _, payload := range r.pending {
+	var results []ocr2keepers.UpkeepPayload
+	var pending []string
+
+	for _, workID := range r.pendingKeys {
 		if allLogsCounter >= MaxProposals {
 			// we have enough proposals, the rest are pushed back to pending
-			pending = append(pending, payload)
+			pending = append(pending, workID)
 			continue
 		}
+
+		payload := r.pendingPayloads[workID]
+
 		uid := payload.UpkeepID.String()
 		if logsCount[uid] >= AllowedLogsPerUpkeep {
 			// we have enough proposals for this upkeep, the rest are pushed back to pending
-			pending = append(pending, payload)
+			pending = append(pending, workID)
 			continue
 		}
 		results = append(results, payload)
+		delete(r.pendingPayloads, workID)
+
 		logsCount[uid]++
 		allLogsCounter++
 	}
 
-	r.pending = pending
-	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pending)))
+	r.pendingKeys = pending
+	prommetrics.AutomationRecovererPendingPayloads.Set(float64(len(r.pendingKeys)))
 
 	r.lggr.Debugf("found %d recoverable payloads", len(results))
 
@@ -329,64 +344,52 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 }
 
 func (r *logRecoverer) recover(ctx context.Context) error {
+	startTime := time.Now()
+	defer func() {
+		r.lggr.Debugw("recover finished", "time", time.Since(startTime))
+	}()
+
 	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 
-	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)
-	if offsetBlock < 0 {
+	recoveryWindowStart, recoveryWindowEnd := r.getRecoveryWindow(latest.BlockNumber)
+	if recoveryWindowEnd < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
 	}
-	if start < 0 {
-		start = 0
+	if recoveryWindowStart < 0 {
+		recoveryWindowStart = 0
 	}
 
-	filters := r.getFilterBatch(offsetBlock)
+	// only get filters that have not been updated after the end of the recovery window
+	// for all filters that are eligible based on this criteria, select 5 at random, and 5 based on oldest last repoll block
+	filters := r.getFilterBatch(recoveryWindowEnd)
 	if len(filters) == 0 {
 		return nil
 	}
 
-	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
+	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", recoveryWindowStart, "recoveryWindowEnd", recoveryWindowEnd, "latestBlock", latest)
 
-	var wg sync.WaitGroup
+	// for up to 10 filters, recover each filter
 	for _, f := range filters {
-		wg.Add(1)
-		go func(f upkeepFilter) {
-			defer wg.Done()
-			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
-				r.lggr.Debugw("error recovering filter", "err", err.Error())
-			}
-		}(f)
+		if err := r.recoverFilter(ctx, f, recoveryWindowStart, recoveryWindowEnd); err != nil {
+			r.lggr.Debugw("error recovering filter", "err", err.Error())
+		}
 	}
-	wg.Wait()
 
 	return nil
 }
 
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
-	start := f.lastRePollBlock + 1 // NOTE: we expect f.lastRePollBlock + 1 <= offsetBlock, as others would have been filtered out
-	// ensure we don't recover logs from before the filter was created
-	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
-		// NOTE: we expect that configUpdateBlock <= offsetBlock, as others would have been filtered out
-		start = configUpdateBlock
-	}
-	if start < startBlock {
-		start = startBlock
-	}
-	end := start + recoveryLogsBuffer
-	if offsetBlock-end > 100*recoveryLogsBuffer {
-		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
-		// a range of recoveryLogsBurst
-		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
-		// (while also taking into account existing pending payloads)
-		end = start + recoveryLogsBurst
-	}
-	if end > offsetBlock {
-		end = offsetBlock
-	}
+	startTime := time.Now()
+	defer func() {
+		r.lggr.Debugw("recoverFilter finished", "time", time.Since(startTime))
+	}()
+
+	start, end := r.getBlockRange(f, startBlock, offsetBlock)
 	// we expect start to be > offsetBlock in any case
 	logs, err := r.poller.LogsWithSigs(ctx, start, end, f.topics, common.BytesToAddress(f.addr))
 	if err != nil {
@@ -433,14 +436,52 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	return nil
 }
 
+// getBlockRange calculates the block range to work with;
+// we first identify the last block polled for a particular filter, and bump forward by one
+// we then fast forward to the config update block if thats newer
+// we then fast forward to the beginning of the recovery window if that's newer
+// we then set an end range of 200 blocks after the start block
+// if the end of the recovery window is very far ahead of the end range, set the end range to 500 blocks after the start
+// if the end exceeds the end of the recovery window, set the end to the end of the recovery window
+func (r *logRecoverer) getBlockRange(f upkeepFilter, startBlock int64, offsetBlock int64) (int64, int64) {
+	start := f.lastRePollBlock + 1 // NOTE: we expect f.lastRePollBlock + 1 <= offsetBlock, as others would have been filtered out
+	// ensure we don't recover logs from before the filter was created
+	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
+		// NOTE: we expect that configUpdateBlock <= offsetBlock, as others would have been filtered out
+		start = configUpdateBlock
+	}
+	if start < startBlock {
+		start = startBlock
+	}
+	end := start + recoveryLogsBuffer
+	if offsetBlock-end > 100*recoveryLogsBuffer {
+		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
+		// a range of recoveryLogsBurst
+		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
+		// (while also taking into account existing pending payloads)
+		end = start + recoveryLogsBurst
+		r.lggr.Debugw("recoverer is lagging, set new end range", "start", start, "recoveryLogsBurst", recoveryLogsBurst, "end", end)
+	}
+	if end > offsetBlock {
+		end = offsetBlock
+		r.lggr.Debugw("end range has exceeded recovery window, set new end range", "end", end)
+	}
+	return start, end
+}
+
 // populatePending adds the logs to the pending list if they are not already pending.
 // returns the number of logs added, the number of logs that were already pending,
 // and a flag that indicates whether some errors happened while we are trying to add to pending q.
 func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int, bool) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("populatePending finished", "time", time.Since(start))
+	}()
+
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	pendingSizeBefore := len(r.pending)
+	pendingSizeBefore := len(r.pendingKeys)
 	alreadyPending := 0
 	errs := make([]error, 0)
 	for _, log := range filteredLogs {
@@ -455,7 +496,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			continue
 		}
 		wid := core.UpkeepWorkID(*upkeepId, trigger)
-		if _, ok := r.visited[wid]; ok {
+		if _, ok := r.queuedForRecovery[wid]; ok {
 			alreadyPending++
 			continue
 		}
@@ -473,13 +514,13 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 		if err := r.addPending(payload); err != nil {
 			errs = append(errs, err)
 		} else {
-			r.visited[wid] = visitedRecord{
+			r.queuedForRecovery[wid] = visitedRecord{
 				visitedAt: time.Now(),
 				payload:   payload,
 			}
 		}
 	}
-	return len(r.pending) - pendingSizeBefore, alreadyPending, len(errs) == 0
+	return len(r.pendingKeys) - pendingSizeBefore, alreadyPending, len(errs) == 0
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
@@ -515,11 +556,11 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 }
 
 // getFilterBatch returns a batch of filters that are ready to be recovered.
-func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
+func (r *logRecoverer) getFilterBatch(recoveryWindowEnd int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
 		// ensure we work only on filters that are ready to be recovered
 		// no need to recover in case f.configUpdateBlock is after offsetBlock
-		return f.lastRePollBlock < offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
+		return f.lastRePollBlock < recoveryWindowEnd && int64(f.configUpdateBlock) <= recoveryWindowEnd
 	})
 
 	sort.Slice(filters, func(i, j int) bool {
@@ -584,9 +625,14 @@ func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 }
 
 func (r *logRecoverer) clean(ctx context.Context) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("clean finished", "time", time.Since(start))
+	}()
+
 	r.lock.RLock()
 	var expired []string
-	for id, t := range r.visited {
+	for id, t := range r.queuedForRecovery {
 		if time.Since(t.visitedAt) > RecoveryCacheTTL {
 			expired = append(expired, id)
 		}
@@ -599,7 +645,7 @@ func (r *logRecoverer) clean(ctx context.Context) {
 	}
 	err := r.tryExpire(ctx, expired...)
 	if err != nil {
-		lggr.Warnw("failed to clean visited upkeeps", "err", err)
+		lggr.Warnw("failed to clean queuedForRecovery upkeeps", "err", err)
 	}
 }
 
@@ -625,26 +671,26 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 		case ocr2keepers.UnknownState:
 			// in case the state is unknown, we can't be sure if the upkeep was performed or not
 			// so we push it back to the pending list
-			rec, ok := r.visited[ids[i]]
+			rec, ok := r.queuedForRecovery[ids[i]]
 			if !ok {
 				// in case it was removed by another thread
 				continue
 			}
 			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {
-				// we can't recover this log anymore, so we remove it from the visited list
+				// we can't recover this log anymore, so we remove it from the queuedForRecovery list
 				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
 					"latestBlock", latestBlock, "logBlock", logBlock, "start", start)
-				r.removePending(rec.payload.WorkID)
-				delete(r.visited, ids[i])
+				r.removePending(rec.payload)
+				delete(r.queuedForRecovery, ids[i])
 				removed++
 				continue
 			}
 			if err := r.addPending(rec.payload); err == nil {
 				rec.visitedAt = time.Now()
-				r.visited[ids[i]] = rec
+				r.queuedForRecovery[ids[i]] = rec
 			}
 		default:
-			delete(r.visited, ids[i])
+			delete(r.queuedForRecovery, ids[i])
 			removed++
 		}
 	}
@@ -659,22 +705,22 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 // addPending adds a payload to the pending list if it's not already there.
 // NOTE: the lock must be held before calling this function.
 func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
-	var exist bool
-	pending := r.pending
-	upkeepPayloads := 0
-	for _, p := range pending {
-		if bytes.Equal(p.UpkeepID[:], payload.UpkeepID[:]) {
-			upkeepPayloads++
-		}
-		if p.WorkID == payload.WorkID {
-			exist = true
-		}
-	}
-	if upkeepPayloads >= maxPendingPayloadsPerUpkeep {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("addPending finished", "time", time.Since(start))
+	}()
+
+	if upkeepPayloads := r.upkeepPayloadCount[payload.UpkeepID]; upkeepPayloads >= maxPendingPayloadsPerUpkeep {
 		return fmt.Errorf("upkeep %v has too many payloads in pending queue", payload.UpkeepID)
 	}
-	if !exist {
-		r.pending = append(pending, payload)
+	if _, ok := r.pendingPayloads[payload.WorkID]; !ok {
+		r.pendingKeys = append(r.pendingKeys, payload.WorkID)
+		r.pendingPayloads[payload.WorkID] = payload
+		if count, ok := r.upkeepPayloadCount[payload.UpkeepID]; ok {
+			r.upkeepPayloadCount[payload.UpkeepID] = count + 1
+		} else {
+			r.upkeepPayloadCount[payload.UpkeepID] = 1
+		}
 		prommetrics.AutomationRecovererPendingPayloads.Inc()
 	}
 	return nil
@@ -682,35 +728,51 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 
 // removePending removes a payload from the pending list.
 // NOTE: the lock must be held before calling this function.
-func (r *logRecoverer) removePending(workID string) {
-	updated := make([]ocr2keepers.UpkeepPayload, 0, len(r.pending))
-	for _, p := range r.pending {
-		if p.WorkID != workID {
+func (r *logRecoverer) removePending(payload ocr2keepers.UpkeepPayload) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("removePending finished", "time", time.Since(start))
+	}()
+
+	updated := make([]string, 0, len(r.pendingKeys))
+	for _, p := range r.pendingKeys {
+		if p != payload.WorkID {
 			updated = append(updated, p)
 		} else {
 			prommetrics.AutomationRecovererPendingPayloads.Dec()
 		}
 	}
-	r.pending = updated
+	delete(r.pendingPayloads, payload.WorkID)
+	if count, ok := r.upkeepPayloadCount[payload.UpkeepID]; ok {
+		if count > 0 {
+			r.upkeepPayloadCount[payload.UpkeepID] = count - 1
+		}
+	}
+	r.pendingKeys = updated
 }
 
 // sortPending sorts the pending list by a random order based on the normalized latest block number.
 // Divided by 10 to ensure that nodes with similar block numbers won't end up with different order.
 // NOTE: the lock must be held before calling this function.
 func (r *logRecoverer) sortPending(latestBlock uint64) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("sortPending finished", "time", time.Since(start))
+	}()
+
 	normalized := latestBlock / 100
 	if normalized == 0 {
 		normalized = 1
 	}
 	randSeed := random.GetRandomKeySource(nil, normalized)
 
-	shuffledIDs := make(map[string]string, len(r.pending))
-	for _, p := range r.pending {
-		shuffledIDs[p.WorkID] = random.ShuffleString(p.WorkID, randSeed)
+	shuffledIDs := make(map[string]string, len(r.pendingKeys))
+	for _, p := range r.pendingKeys {
+		shuffledIDs[p] = random.ShuffleString(p, randSeed)
 	}
 
-	sort.SliceStable(r.pending, func(i, j int) bool {
-		return shuffledIDs[r.pending[i].WorkID] < shuffledIDs[r.pending[j].WorkID]
+	sort.SliceStable(r.pendingKeys, func(i, j int) bool {
+		return shuffledIDs[r.pendingKeys[i]] < shuffledIDs[r.pendingKeys[j]]
 	})
 }
 
