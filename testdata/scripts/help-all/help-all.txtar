@@ -55,6 +55,12 @@ jobs list # List all jobs
 jobs run # Trigger a job run
 jobs show # Show a job
 keys # Commands for managing various types of keys used by the Chainlink node
+keys aptos # Remote commands for administering the node's Aptos keys
+keys aptos create # Create a Aptos key
+keys aptos delete # Delete Aptos key if present
+keys aptos export # Export Aptos key to keyfile
+keys aptos import # Import Aptos key from keyfile
+keys aptos list # List the Aptos keys
 keys cosmos # Remote commands for administering the node's Cosmos keys
 keys cosmos create # Create a Cosmos key
 keys cosmos delete # Delete Cosmos key if present

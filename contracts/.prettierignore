@@ -15,7 +15,6 @@ abi
 artifacts
 foundry-artifacts
 foundry-cache
-foundry-lib
 cache
 node_modules
 solc

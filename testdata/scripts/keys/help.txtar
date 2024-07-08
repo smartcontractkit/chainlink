@@ -17,6 +17,7 @@ COMMANDS:
    cosmos      Remote commands for administering the node's Cosmos keys
    solana      Remote commands for administering the node's Solana keys
    starknet    Remote commands for administering the node's StarkNet keys
+   aptos       Remote commands for administering the node's Aptos keys
    dkgsign     Remote commands for administering the node's DKGSign keys
    dkgencrypt  Remote commands for administering the node's DKGEncrypt keys
    vrf         Remote commands for administering the node's vrf keys

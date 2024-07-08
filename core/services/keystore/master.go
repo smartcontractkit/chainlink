@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/dkgencryptkey"
@@ -48,6 +49,7 @@ type Master interface {
 	Solana() Solana
 	Cosmos() Cosmos
 	StarkNet() StarkNet
+	Aptos() Aptos
 	VRF() VRF
 	Unlock(ctx context.Context, password string) error
 	IsEmpty(ctx context.Context) (bool, error)
@@ -63,6 +65,7 @@ type master struct {
 	p2p        *p2p
 	solana     *solana
 	starknet   *starknet
+	aptos      *aptos
 	vrf        *vrf
 	dkgSign    *dkgSign
 	dkgEncrypt *dkgEncrypt
@@ -92,6 +95,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr logg
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
 		starknet:   newStarkNetKeyStore(km),
+		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		dkgSign:    newDKGSignKeyStore(km),
 		dkgEncrypt: newDKGEncryptKeyStore(km),
@@ -136,6 +140,10 @@ func (ks *master) Cosmos() Cosmos {
 
 func (ks *master) StarkNet() StarkNet {
 	return ks.starknet
+}
+
+func (ks *master) Aptos() Aptos {
+	return ks.aptos
 }
 
 func (ks *master) VRF() VRF {
@@ -273,6 +281,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "Solana", nil
 	case starkkey.Key:
 		return "StarkNet", nil
+	case aptoskey.Key:
+		return "Aptos", nil
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	case dkgsignkey.Key:

@@ -214,7 +214,7 @@ targets:
 			},
 		},
 		{
-			name: "non-trigger step with no dependent refs",
+			name: "invalid refs",
 			yaml: `
 triggers:
   - id: "a-trigger@1.0.0"
@@ -241,7 +241,7 @@ targets:
     inputs:
       consensus_output: $(a-consensus.outputs)
 `,
-			errMsg: "all non-trigger steps must have a dependent ref",
+			errMsg: "invalid refs",
 		},
 		{
 			name: "duplicate edge declarations",

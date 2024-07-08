@@ -11,7 +11,7 @@ import (
 )
 
 func TestGatewayLoad(t *testing.T) {
-	listConfig, err := tc.GetConfig("GatewayList", tc.Functions)
+	listConfig, err := tc.GetConfig([]string{"GatewayList"}, tc.Functions)
 	require.NoError(t, err)
 	cfgl := listConfig.Logging.Loki
 
@@ -42,7 +42,7 @@ func TestGatewayLoad(t *testing.T) {
 		LokiConfig: wasp.NewLokiConfig(cfgl.Endpoint, cfgl.TenantId, cfgl.BasicAuth, cfgl.BearerToken),
 	}
 
-	setConfig, err := tc.GetConfig("GatewaySet", tc.Functions)
+	setConfig, err := tc.GetConfig([]string{"GatewaySet"}, tc.Functions)
 	require.NoError(t, err)
 
 	secretsSetCfg := &wasp.Config{

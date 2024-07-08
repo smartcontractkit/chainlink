@@ -1799,6 +1799,87 @@ func (v *EthereumKeeperRegistrar) Fund(_ *big.Float) error {
 	panic("do not use this function, use actions.SendFunds instead")
 }
 
+// register Upkeep with native token, only available from v2.3
+func (v *EthereumKeeperRegistrar) RegisterUpkeepFromKey(keyNum int, name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, wethTokenAddr string, isLogTrigger bool, isMercury bool) (*types.Transaction, error) {
+	if v.registrar23 == nil {
+		return nil, fmt.Errorf("RegisterUpkeepFromKey with native token is only supported in registrar version v2.3")
+	}
+
+	registrarABI = cltypes.MustGetABI(registrar23.AutomationRegistrarABI)
+	txOpts := v.client.NewTXKeyOpts(keyNum, seth.WithValue(amount))
+
+	if isLogTrigger {
+		var topic0InBytes [32]byte
+		// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
+		bytes0 := [32]byte{
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		}
+		if isMercury {
+			// bytes representation of 0xd1ffe9e45581c11d7d9f2ed5f75217cd4be9f8b7eee6af0f6d03f46de53956cd
+			topic0InBytes = [32]byte{209, 255, 233, 228, 85, 129, 193, 29, 125, 159, 46, 213, 247, 82, 23, 205, 75, 233, 248, 183, 238, 230, 175, 15, 109, 3, 244, 109, 229, 57, 86, 205}
+		} else {
+			// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+			topic0InBytes = [32]byte{
+				61, 83, 163, 149, 80, 224, 70, 136,
+				6, 88, 39, 243, 187, 134, 88, 76,
+				176, 7, 171, 158, 188, 167, 235,
+				213, 40, 231, 48, 28, 156, 49, 235, 93,
+			}
+		}
+
+		logTriggerConfigStruct := acutils.IAutomationV21PlusCommonLogTriggerConfig{
+			ContractAddress: common.HexToAddress(upkeepAddr),
+			FilterSelector:  0,
+			Topic0:          topic0InBytes,
+			Topic1:          bytes0,
+			Topic2:          bytes0,
+			Topic3:          bytes0,
+		}
+		encodedLogTriggerConfig, err := compatibleUtils.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+		if err != nil {
+			return nil, err
+		}
+
+		params := registrar23.AutomationRegistrar23RegistrationParams{
+			UpkeepContract: common.HexToAddress(upkeepAddr),
+			Amount:         amount,
+			AdminAddress:   common.HexToAddress(adminAddr),
+			GasLimit:       gasLimit,
+			TriggerType:    uint8(1),                           // trigger type
+			BillingToken:   common.HexToAddress(wethTokenAddr), // native
+			Name:           name,
+			EncryptedEmail: email,
+			CheckData:      checkData,
+			TriggerConfig:  encodedLogTriggerConfig, // log trigger upkeep
+			OffchainConfig: []byte{},
+		}
+
+		decodedTx, err := v.client.Decode(v.registrar23.RegisterUpkeep(txOpts,
+			params,
+		))
+		return decodedTx.Transaction, err
+	}
+
+	params := registrar23.AutomationRegistrar23RegistrationParams{
+		UpkeepContract: common.HexToAddress(upkeepAddr),
+		Amount:         amount,
+		AdminAddress:   common.HexToAddress(adminAddr),
+		GasLimit:       gasLimit,
+		TriggerType:    uint8(0),                           // trigger type
+		BillingToken:   common.HexToAddress(wethTokenAddr), // native
+		Name:           name,
+		EncryptedEmail: email,
+		CheckData:      checkData,
+		TriggerConfig:  []byte{}, // conditional upkeep
+		OffchainConfig: []byte{},
+	}
+
+	decodedTx, err := v.client.Decode(v.registrar23.RegisterUpkeep(txOpts,
+		params,
+	))
+	return decodedTx.Transaction, err
+}
+
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
 func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool, isMercury bool, linkTokenAddr string) ([]byte, error) {
 	if v.registrar20 != nil {
@@ -2056,8 +2137,10 @@ func DeployKeeperRegistrar(client *seth.Client, registryVersion eth_contracts.Ke
 
 		billingTokens := []common.Address{
 			common.HexToAddress(linkAddr),
+			common.HexToAddress(registrarSettings.WETHTokenAddr),
 		}
 		minRegistrationFees := []*big.Int{
+			big.NewInt(10),
 			big.NewInt(10),
 		}
 

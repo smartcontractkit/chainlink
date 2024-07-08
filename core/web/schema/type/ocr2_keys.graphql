@@ -3,6 +3,7 @@ enum OCR2ChainType {
     COSMOS
     SOLANA
     STARKNET
+    APTOS
 }
 
 type OCR2KeyBundle {

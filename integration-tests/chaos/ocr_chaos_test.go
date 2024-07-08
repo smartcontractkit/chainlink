@@ -54,7 +54,7 @@ var (
 func TestOCRChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig("Chaos", tc.OCR)
+	config, err := tc.GetConfig([]string{"Chaos"}, tc.OCR)
 	require.NoError(t, err, "Error getting config")
 
 	var overrideFn = func(_ interface{}, target interface{}) {

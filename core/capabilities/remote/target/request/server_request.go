@@ -27,7 +27,7 @@ type ServerRequest struct {
 
 	capabilityPeerId p2ptypes.PeerID
 	capabilityID     string
-	capabilityDonID  string
+	capabilityDonID  uint32
 
 	dispatcher types.Dispatcher
 
@@ -47,7 +47,7 @@ type ServerRequest struct {
 	lggr logger.Logger
 }
 
-func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID string, capabilityPeerId p2ptypes.PeerID,
+func NewServerRequest(capability capabilities.TargetCapability, capabilityID string, capabilityDonID uint32, capabilityPeerId p2ptypes.PeerID,
 	callingDon commoncap.DON, requestMessageID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *ServerRequest {
 	return &ServerRequest{
