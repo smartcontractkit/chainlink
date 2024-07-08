@@ -43,7 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider, srcChain legacyevm.Chain, dstChain legacyevm.Chain, chainSet legacyevm.LegacyChainContainer, jb job.Job, lggr logger.Logger, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, new bool, sourceChainID int64, destChainID int64, logError func(string)) ([]job.ServiceCtx, error) {
+func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider, chainSet legacyevm.LegacyChainContainer, jb job.Job, lggr logger.Logger, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, new bool, sourceChainID int64, destChainID int64, logError func(string)) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
 	var pluginConfig ccipconfig.CommitPluginJobSpecConfig
@@ -52,25 +52,19 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 		return nil, err
 	}
 
-	// TODO CCIP-2493 EVM family specific behavior leaked for CommitStore, which requires access to two relayers
-	versionFinder := factory.NewEvmVersionFinder()
 	commitStoreAddress := common.HexToAddress(spec.ContractID)
-	sourceMaxGasPrice := srcChain.Config().EVM().GasEstimator().PriceMax().ToInt()
-	commitStoreReader, err := ccip.NewCommitStoreReader(lggr, versionFinder, ccipcalc.EvmAddrToGeneric(commitStoreAddress), dstChain.Client(), dstChain.LogPoller())
+	srcCommitStore, err := srcProvider.NewCommitStoreReader(ctx, ccipcalc.EvmAddrToGeneric(commitStoreAddress))
 	if err != nil {
 		return nil, err
 	}
 
-	err = commitStoreReader.SetGasEstimator(ctx, srcChain.GasEstimator())
+	dstCommitStore, err := dstProvider.NewCommitStoreReader(ctx, ccipcalc.EvmAddrToGeneric(commitStoreAddress))
 	if err != nil {
 		return nil, err
 	}
 
-	err = commitStoreReader.SetSourceMaxGasPrice(ctx, sourceMaxGasPrice)
-	if err != nil {
-		return nil, err
-	}
-
+	var commitStoreReader ccipdata.CommitStoreReader
+	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainID, "destChain", destChainID)
 
 	var priceGetter pricegetter.PriceGetter
