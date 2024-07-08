@@ -362,9 +362,7 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 // makes sense anyway.
 func (u *UniversalEstimator) limitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bufferedFee *assets.Wei, maxPrice *assets.Wei) (*assets.Wei, error) {
 	bumpedFee := assets.WeiMax(currentFee, bufferedFee)
-	if bumpedFee.Cmp(maxPrice) > 0 {
-		bumpedFee = maxPrice
-	}
+	bumpedFee = assets.WeiMin(bumpedFee, maxPrice)
 
 	if bumpedFee.Cmp(originalFee.AddPercentage(minimumBumpPercentage)) < 0 {
 		return nil, fmt.Errorf("bumpedFee: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
