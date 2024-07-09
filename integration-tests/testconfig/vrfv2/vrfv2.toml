@@ -102,6 +102,12 @@ bhs_job_lookback_blocks = 250
 bhs_job_poll_period = "1s"
 bhs_job_run_timeout = "24h"
 
+# BHF Job config
+bhf_job_wait_blocks = 260
+bhf_job_lookback_blocks = 500
+bhf_job_poll_period = "30s"
+bhf_job_run_timeout = "1h"
+
 # PERFORMANCE test specific config
 
 [VRFv2.ExistingEnv]
