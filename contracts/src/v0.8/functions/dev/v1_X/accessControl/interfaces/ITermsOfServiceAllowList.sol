@@ -69,6 +69,11 @@ interface ITermsOfServiceAllowList {
     uint64 blockedSenderIdxStart,
     uint64 blockedSenderIdxEnd
   ) external view returns (address[] memory blockedSenders);
+
+  /// @notice Syncs the entire allowlist from the previous v1.0.0 ToS contract to the new v1.1.1 contract
+  /// @dev WARNING: this will not sync the blocklist since the v1.0.0 ToS contract does not expose a method to retrieve the blocklist.
+  /// However, if the user is already on the blocklist for the new contract, they will not be re-added to the allowlist
+  function updateFromPrevious() external;
 }
 
 // ================================================================
