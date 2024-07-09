@@ -1008,8 +1008,7 @@ func Head(val interface{}) *evmtypes.Head {
 }
 
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
-	var h evmtypes.Head
-	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), ubig.New(&FixtureChainID))
+	h := evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), ubig.New(&FixtureChainID))
 	return &h
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -184,7 +185,6 @@ func setupVRFLogPollerListenerTH(t *testing.T,
  */
 
 func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
@@ -212,7 +212,7 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	// Blocks till now: 2 (in SetupTH) + 2 (empty blocks) + 5 (EmitLog blocks) = 9
 
 	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
+	servicetest.Run(t, th.LogPoller)
 
 	// The poller starts on a new chain at latest-finality (finalityDepth + 5 in this case),
 	// Replaying from block 4 should guarantee we have block 4 immediately.  (We will also get

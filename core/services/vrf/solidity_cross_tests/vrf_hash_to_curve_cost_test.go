@@ -58,14 +58,14 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 // estimateGas returns the estimated gas cost of running the given method on the
 // contract at address to, on the given backend, with the given args, and given
 // that the transaction is sent from the from address.
-func estimateGas(t *testing.T, backend *simulated.Backend,
+func estimateGas(t *testing.T, client simulated.Client,
 	from, to common.Address, abi *abi.ABI, method string, args ...interface{},
 ) uint64 {
 	rawData, err := abi.Pack(method, args...)
 	require.NoError(t, err, "failed to construct raw %s transaction with args %s",
 		method, args)
 	callMsg := ethereum.CallMsg{From: from, To: &to, Data: rawData}
-	estimate, err := backend.Client().EstimateGas(testutils.Context(t), callMsg)
+	estimate, err := client.EstimateGas(testutils.Context(t), callMsg)
 	require.NoError(t, err, "failed to estimate gas from %s call with args %s",
 		method, args)
 	return estimate
@@ -73,7 +73,7 @@ func estimateGas(t *testing.T, backend *simulated.Backend,
 
 func measureHashToCurveGasCost(t *testing.T, contract contract,
 	owner common.Address, input int64) (gasCost, numOrdinates uint64) {
-	estimate := estimateGas(t, contract.backend, owner, contract.address,
+	estimate := estimateGas(t, contract.backend.Client(), owner, contract.address,
 		contract.abi, "hashToCurve_", pair(secp256k1.Coordinates(vrfkey.Generator)),
 		big.NewInt(input))
 

@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -183,6 +184,9 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 
 	configPoller.Start()
+	t.Cleanup(func() {
+		assert.NoError(t, configPoller.Close())
+	})
 
 	return TestHarness{
 		configPoller:     configPoller,

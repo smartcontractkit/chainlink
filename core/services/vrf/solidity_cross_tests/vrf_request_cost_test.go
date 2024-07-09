@@ -11,12 +11,11 @@ import (
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
-	t.Skip("TODO FIXME")
 	key := cltest.MustGenerateRandomKey(t)
 	coordinator := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
-	estimate := estimateGas(t, coordinator.Backend, common.Address{},
+	estimate := estimateGas(t, coordinator.Backend.Client(), common.Address{},
 		coordinator.ConsumerContractAddress, coordinator.ConsumerABI,
 		"testRequestRandomness", common.BytesToHash(keyHash_[:]), fee)
 
