@@ -16,7 +16,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -98,7 +97,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 			poll(commit())
 
-			waitLogPoller(ctx, t, backend, lp, ethClient)
+			waitLogPoller(ctx, t, commit, lp, ethClient)
 
 			waitLogProvider(ctx, t, logProvider, 3)
 
@@ -274,7 +273,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 				poll(commit())
 			}
 
-			waitLogPoller(ctx, t, backend, lp, ethClient)
+			waitLogPoller(ctx, t, commit, lp, ethClient)
 
 			// starting the log provider should backfill logs
 			go func() {
@@ -333,7 +332,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	}
 	poll(commit())
 
-	waitLogPoller(ctx, t, backend, lp, ethClient)
+	waitLogPoller(ctx, t, commit, lp, ethClient)
 
 	// create dummy blocks
 	var blockNumber int64
@@ -393,10 +392,10 @@ func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.
 }
 
 // waitLogPoller waits until the log poller is familiar with the given block
-func waitLogPoller(ctx context.Context, t *testing.T, backend *simulated.Backend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
+func waitLogPoller(ctx context.Context, t *testing.T, commit func() common.Hash, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
-	b, err := ethClient.BlockByHash(ctx, backend.Commit())
+	b, err := ethClient.BlockByHash(ctx, commit())
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
