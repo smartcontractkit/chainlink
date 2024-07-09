@@ -511,7 +511,16 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
     s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
   }
 
-  function test_MigratePreviousAllowlist() public {
+  function test_MigratePreviousAllowlist_RevertIfNotOwner() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert("Only callable by owner");
+    s_termsOfServiceAllowList.migratePreviousAllowlist();
+  }
+
+  function test_MigratePreviousAllowlist_Success() public {
     address previouslyAllowedSender1 = 0x1000000000000000000000000000000000000000;
     address previouslyAllowedSender2 = 0xB000000000000000000000000000000000000000;
     address currentlyBlockedSender = 0x2000000000000000000000000000000000000000;
