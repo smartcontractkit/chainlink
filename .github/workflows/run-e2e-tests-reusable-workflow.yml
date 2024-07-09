@@ -94,7 +94,7 @@ jobs:
             exit 1
           fi
           if [[ "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" != "" ]]; then
-            echo "TEST_SECRETS_OVERRIDE_BASE64 is not empty"
+            echo "Will run tests with custom test secrets"
           fi
       - name: Install jq
         run: sudo apt-get install jq          
