@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/smartcontractkit/libocr/commontypes"
 
@@ -17,6 +18,8 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -197,6 +200,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 				},
 			},
 		},
+		MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
 	}
 
 	it.client = it.Helper.Client(t)
@@ -303,6 +307,22 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainWriter(t T) clcommontypes.Ch
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
 	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
+}
+
+func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
+	fmt.Println(testStruct)
+	err := it.GetChainWriter(t).SubmitTransaction(
+		it.Helper.Context(t),
+		AnyContractName,
+		"addTestStruct",
+		testStruct,
+		uuid.New().String(),
+		it.address,
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+	// it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
 }
 
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
