@@ -139,6 +139,10 @@ flake.lock @smartcontractkit/prodsec-public
 # CCIP override
 /core/ @smartcontractkit/ccip
 /contracts/ @smartcontractkit/ccip-onchain @makramkd @elatoskinas @RayXpub
+go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public @smartcontractkit/releng @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/ccip @smartcontractkit/prodsec-public
+integration-tests/go.sum @smartcontractkit/ccip @smartcontractkit/prodsec-public
 
 # leave snapshots & changeset as ownerless
 /contracts/gas-snapshots/
