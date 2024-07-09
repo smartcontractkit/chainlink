@@ -182,6 +182,8 @@ type General struct {
 	BHFJobLookBackBlocks *int                    `toml:"bhf_job_lookback_blocks"`
 	BHFJobPollPeriod     *blockchain.StrDuration `toml:"bhf_job_poll_period"`
 	BHFJobRunTimeout     *blockchain.StrDuration `toml:"bhf_job_run_timeout"`
+
+	GenerateTXsOnChain *bool `toml:"generate_txs_on_chain"`
 }
 
 func (c *General) Validate() error {
@@ -297,6 +299,26 @@ func (c *General) Validate() error {
 
 	if c.BHSJobWaitBlocks == nil || *c.BHSJobWaitBlocks < 0 {
 		return errors.New("bhs_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.BHFJobLookBackBlocks == nil || *c.BHFJobLookBackBlocks < 0 {
+		return errors.New("bhf_job_lookback_blocks must be set to a non-negative value")
+	}
+
+	if c.BHFJobPollPeriod == nil || c.BHFJobPollPeriod.Duration == 0 {
+		return errors.New("bhf_job_poll_period must be set to a non-negative value")
+	}
+
+	if c.BHFJobRunTimeout == nil || c.BHFJobRunTimeout.Duration == 0 {
+		return errors.New("bhf_job_run_timeout must be set to a non-negative value")
+	}
+
+	if c.BHFJobWaitBlocks == nil || *c.BHFJobWaitBlocks < 0 {
+		return errors.New("bhf_job_wait_blocks must be set to a non-negative value")
+	}
+
+	if c.GenerateTXsOnChain == nil {
+		return errors.New("generate_txs_on_chain must not be nil")
 	}
 
 	return nil
