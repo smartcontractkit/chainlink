@@ -1,0 +1,20 @@
+name: Go Mod Validator
+run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+
+on:
+  push:
+    branches:
+      - RE-2785-test
+  workflow_dispatch:
+    inputs:
+      github_token:
+        description: "A unique identifier for this run, used when running from other repos"
+        required: false
+        type: string
+
+jobs:
+    go-mod-validation:
+        runs-on: ubuntu-latest
+        steps:
+          - name: go-mod-validation
+            uses: smartcontractkit/.github/apps/go-mod-validator@77d83d9ce3a0bfbb2276bb00deb3e1d4feacd5ec # 0.1.0
