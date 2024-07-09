@@ -12,42 +12,15 @@ inputs:
   selected_networks:
     required: false
     description: 'Selected networks for the tests (comma separated)'
-  pyroscope_server:
-    required: false
-    description: 'Pyroscope server for the tests'
-  pyroscope_environment:
-    required: false
-    description: 'Pyroscope environment for the tests'
-  pyroscope_key:
-    required: false
-    description: 'Pyroscope key for the tests'
   test_log_collect:
     required: false
     description: 'Whether to always collect test logs'
   logging_run_id:
     required: false
     description: 'Logging run ID for the tests'
-  loki_endpoint:
-    required: false
-    description: 'Loki endpoint for the tests'
-  loki_tenant_id:
-    required: false
-    description: 'Loki tenant ID for the tests'
-  loki_basic_auth:
-    required: false
-    description: 'Loki basic authentication for the tests'
   logstream_log_targets:
     required: false
     description: 'Logstream log targets for the tests (comma separated)'
-  grafana_url:
-    required: false
-    description: 'Grafana URL for the tests'
-  grafana_dashboard_url:
-    required: false
-    description: 'Grafana dashboard URL for the tests'
-  grafana_bearer_token:
-    required: false
-    description: 'Grafana bearer token for the tests'
   private_ethereum_network_execution_layer:
     required: false
     description: 'Private Ethereum network execution layer for the tests'    
@@ -79,24 +52,6 @@ runs:
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
           create_args+=(--chainlink-upgrade-version="${{ inputs.chainlink_upgrade_version }}")
         fi
-        if [ -n "${{ inputs.pyroscope_server }}" ]; then
-          create_args+=(--pyroscope-server-url="${{ inputs.pyroscope_server }}")
-        fi
-        if [ -n "${{ inputs.pyroscope_environment }}" ]; then
-          create_args+=(--pyroscope-environment="${{ inputs.pyroscope_environment }}")
-        fi
-        if [ -n "${{ inputs.pyroscope_key }}" ]; then
-          create_args+=(--pyroscope-key="${{ inputs.pyroscope_key }}")
-        fi
-        if [ -n "${{ inputs.loki_endpoint }}" ]; then
-          create_args+=(--logging-loki-endpoint="${{ inputs.loki_endpoint }}")
-        fi
-        if [ -n "${{ inputs.loki_tenant_id }}" ]; then
-          create_args+=(--logging-loki-tenant-id="${{ inputs.loki_tenant_id }}")
-        fi
-        if [ -n "${{ inputs.loki_basic_auth }}" ]; then
-          create_args+=(--logging-loki-basic-auth="${{ inputs.loki_basic_auth }}")
-        fi
         if [ -n "${{ inputs.logging_run_id }}" ]; then
           create_args+=(--logging-run-id="${{ inputs.logging_run_id }}")
         fi
@@ -124,8 +79,8 @@ runs:
 
         config_override=$(go run main.go test-config create "${create_args[@]}")
         # echo "go run main.go test-config create ${create_args[*]}"
-        # echo "Output:"
-        # echo "$config_override"
+        echo "Output:"
+        echo "$config_override"
 
         BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)
         echo ::add-mask::$BASE64_CONFIG_OVERRIDE
