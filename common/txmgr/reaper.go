@@ -7,8 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
@@ -58,7 +56,7 @@ func (r *Reaper[CHAIN_ID]) Stop() {
 
 func (r *Reaper[CHAIN_ID]) runLoop() {
 	defer close(r.chDone)
-	ticker := time.NewTicker(utils.WithJitter(r.txConfig.ReaperInterval()))
+	ticker := services.NewTicker(r.txConfig.ReaperInterval())
 	defer ticker.Stop()
 	for {
 		select {
@@ -66,10 +64,9 @@ func (r *Reaper[CHAIN_ID]) runLoop() {
 			return
 		case <-ticker.C:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.txConfig.ReaperInterval()))
 		case <-r.trigger:
 			r.work()
-			ticker.Reset(utils.WithJitter(r.txConfig.ReaperInterval()))
+			ticker.Reset()
 		}
 	}
 }

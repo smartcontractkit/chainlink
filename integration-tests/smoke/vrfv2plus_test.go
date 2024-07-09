@@ -49,8 +49,9 @@ func TestVRFv2Plus(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
+
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
 
@@ -746,7 +747,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -851,7 +852,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -1245,7 +1246,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -1474,7 +1475,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -1631,7 +1632,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -1800,7 +1801,7 @@ func TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays(t *testing.T) 
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	chainID := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0].ChainID
@@ -1894,7 +1895,7 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]
@@ -2071,7 +2072,7 @@ func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {
 	)
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.VRFv2Plus)
+	config, err := tc.GetChainAndTestTypeSpecificConfig("Smoke", tc.VRFv2Plus)
 	require.NoError(t, err, "Error getting config")
 	vrfv2PlusConfig := config.VRFv2Plus
 	network := networks.MustGetSelectedNetworkConfig(config.GetNetworkConfig())[0]

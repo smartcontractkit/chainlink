@@ -751,7 +751,7 @@ func newMockRpc(t *testing.T) *mocks.RPCClient {
 	mockRpc.On("Close").Return(nil).Once()
 	mockRpc.On("ChainID", mock.Anything).Return(testutils.FixtureChainID, nil).Once()
 	// node does not always manage to fully setup aliveLoop, so we have to make calls optional to avoid flakes
-	mockRpc.On("Subscribe", mock.Anything, mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
+	mockRpc.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(client.NewMockSubscription(), nil).Maybe()
 	mockRpc.On("SetAliveLoopSub", mock.Anything).Return().Maybe()
 	return mockRpc
 }
@@ -777,6 +777,7 @@ func TestChainClient_BatchCallContext(t *testing.T) {
 		}
 
 		mockRpc := newMockRpc(t)
+		mockRpc.On("GetInterceptedChainInfo").Return(commonclient.ChainInfo{}, commonclient.ChainInfo{}).Maybe()
 		mockRpc.On("BatchCallContext", mock.Anything, b).Run(func(args mock.Arguments) {
 			reqs := args.Get(1).([]rpc.BatchElem)
 			for i := 0; i < len(reqs); i++ {

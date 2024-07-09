@@ -21,7 +21,6 @@ import (
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/seth"
@@ -48,7 +47,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
@@ -66,6 +64,7 @@ type OCRSoakTest struct {
 	TestReporter          testreporters.OCRSoakTestReporter
 	OperatorForwarderFlow bool
 	seth                  *seth.Client
+	OCRVersion            string
 
 	t                *testing.T
 	startTime        time.Time
@@ -120,17 +119,25 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOpti
 	test := &OCRSoakTest{
 		Config: config,
 		TestReporter: testreporters.OCRSoakTestReporter{
-			OCRVersion: *config.OCR.Soak.OCRVersion,
-			StartTime:  time.Now(),
+			StartTime: time.Now(),
 		},
 		t:                t,
 		startTime:        time.Now(),
-		timeLeft:         config.OCR.Common.TestDuration.Duration,
+		timeLeft:         config.GetActiveOCRConfig().Common.TestDuration.Duration,
 		log:              logging.GetTestLogger(t),
 		ocrRoundStates:   make([]*testreporters.OCRRoundState, 0),
 		ocrV1InstanceMap: make(map[string]contracts.OffchainAggregator),
 		ocrV2InstanceMap: make(map[string]contracts.OffchainAggregatorV2),
 	}
+
+	ocrVersion := "1"
+	if config.OCR2 != nil {
+		ocrVersion = "2"
+	}
+
+	test.TestReporter.OCRVersion = ocrVersion
+	test.OCRVersion = ocrVersion
+
 	for _, opt := range opts {
 		opt(test)
 	}
@@ -141,25 +148,20 @@ func NewOCRSoakTest(t *testing.T, config *tc.TestConfig, opts ...OCRSoakTestOpti
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
-func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTestConfig tt.OcrTestConfig) {
+func (o *OCRSoakTest) DeployEnvironment(ocrTestConfig tt.OcrTestConfig) {
 	nodeNetwork := networks.MustGetSelectedNetworkConfig(ocrTestConfig.GetNetworkConfig())[0] // Environment currently being used to soak test on
 
-	// Define namespace if default not set
-	if o.namespace == "" {
-		nsPre := fmt.Sprintf("soak-ocr-v%s-", *ocrTestConfig.GetOCRConfig().Soak.OCRVersion)
-		if o.OperatorForwarderFlow {
-			nsPre = fmt.Sprintf("%sforwarder-", nsPre)
-		}
-
-		nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
-		nsPre = strings.ReplaceAll(nsPre, "_", "-")
-
-		o.namespace = fmt.Sprintf("%s-%s", nsPre, uuid.NewString()[0:5])
+	nsPre := fmt.Sprintf("soak-ocr-v%s-", o.OCRVersion)
+	if o.OperatorForwarderFlow {
+		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
 	}
+
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(nodeNetwork.Name), " ", "-"))
+	nsPre = strings.ReplaceAll(nsPre, "_", "-")
 
 	baseEnvironmentConfig := &environment.Config{
 		TTL:                time.Hour * 720, // 30 days,
-		Namespace:          o.namespace,
+		NamespacePrefix:    nsPre,
 		Test:               o.t,
 		PreventPodEviction: true,
 	}
@@ -207,21 +209,17 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 		}))
 	}
 
-	var conf string
-	if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
-		conf = config.BaseOCR1Config
-	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
-		conf = config.BaseOCR2Config
-	}
-
 	var overrideFn = func(_ interface{}, target interface{}) {
 		ctf_config.MustConfigOverrideChainlinkVersion(ocrTestConfig.GetChainlinkImageConfig(), target)
 		ctf_config.MightConfigOverridePyroscopeKey(ocrTestConfig.GetPyroscopeConfig(), target)
 	}
 
+	tomlConfig, err := actions.BuildTOMLNodeConfigForK8s(ocrTestConfig, nodeNetwork)
+	require.NoError(o.t, err, "Error building TOML config for Chainlink nodes")
+
 	cd := chainlink.NewWithOverride(0, map[string]any{
 		"replicas": 6,
-		"toml":     networks.AddNetworkDetailedConfig(conf, ocrTestConfig.GetPyroscopeConfig(), customChainlinkNetworkTOML, nodeNetwork),
+		"toml":     tomlConfig,
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
@@ -229,7 +227,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 	}, ocrTestConfig.GetChainlinkImageConfig(), overrideFn)
 	testEnv.AddHelm(cd)
 
-	err := testEnv.Run()
+	err = testEnv.Run()
 	require.NoError(o.t, err, "Error launching test environment")
 	o.testEnvironment = testEnv
 	o.namespace = testEnv.Cfg.Namespace
@@ -256,8 +254,8 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string, ocrTe
 			o.rpcNetwork.URLs = blockchain.SimulatedEVMNetwork.URLs
 		} else {
 			// Test is running locally, set forwarded URL of Geth blockchain node
-			wsURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal"]
-			httpURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_internal_http"]
+			wsURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name]
+			httpURLs := o.testEnvironment.URLs[blockchain.SimulatedEVMNetwork.Name+"_http"]
 			require.NotEmpty(o.t, wsURLs, "Forwarded Geth URLs should not be empty")
 			require.NotEmpty(o.t, httpURLs, "Forwarded Geth URLs should not be empty")
 			o.rpcNetwork.URLs = wsURLs
@@ -272,9 +270,9 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
-	seth, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
+	sethClient, err := seth_utils.GetChainClient(o.Config, o.rpcNetwork)
 	require.NoError(o.t, err, "Error creating seth client")
-	o.seth = seth
+	o.seth = sethClient
 
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -282,12 +280,12 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 	o.mockServer, err = ctf_client.ConnectMockServer(o.testEnvironment)
 	require.NoError(o.t, err, "Creating mockserver clients shouldn't fail")
 
-	linkContract, err := contracts.DeployLinkTokenContract(o.log, seth)
+	linkContract, err := contracts.DeployLinkTokenContract(o.log, sethClient)
 	require.NoError(o.t, err, "Error deploying LINK contract")
 
 	// Fund Chainlink nodes, excluding the bootstrap node
 	o.log.Info().Float64("ETH amount per node", *o.Config.Common.ChainlinkNodeFunding).Msg("Funding Chainlink nodes")
-	err = actions.FundChainlinkNodesFromRootAddress(o.log, seth, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
+	err = actions.FundChainlinkNodesFromRootAddress(o.log, sethClient, contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes), big.NewFloat(*o.Config.Common.ChainlinkNodeFunding))
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	var forwarders []common.Address
@@ -305,15 +303,14 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 			actions.AcceptAuthorizedReceiversOperator(
 				o.t, o.log, o.seth, operators[i], forwarders[i], []common.Address{forwarderNodesAddresses[i]})
 			require.NoError(o.t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-
 			actions.TrackForwarder(o.t, o.seth, forwarders[i], o.workerNodes[i])
 		}
-	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
+	} else if o.OCRVersion == "1" {
 		if o.OperatorForwarderFlow {
 			o.ocrV1Instances, err = actions.DeployOCRContractsForwarderFlow(
 				o.log,
 				o.seth,
-				*o.Config.OCR.Soak.NumberOfContracts,
+				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
 				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 				forwarders,
@@ -322,14 +319,14 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		} else {
 			o.ocrV1Instances, err = actions.DeployOCRv1Contracts(
 				o.log,
-				seth,
-				*o.Config.OCR.Soak.NumberOfContracts,
+				sethClient,
+				*o.Config.GetActiveOCRConfig().Soak.NumberOfContracts,
 				common.HexToAddress(linkContract.Address()),
 				contracts.ChainlinkK8sClientToChainlinkNodeWithKeysAndAddress(o.workerNodes),
 			)
 			require.NoError(o.t, err)
 		}
-	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		var transmitters []string
 
 		if o.OperatorForwarderFlow {
@@ -348,7 +345,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		o.ocrV2Instances, err = actions.DeployOCRv2Contracts(
 			o.log,
 			o.seth,
-			*ocrTestConfig.GetOCRConfig().Soak.NumberOfContracts,
+			*ocrTestConfig.GetActiveOCRConfig().Soak.NumberOfContracts,
 			common.HexToAddress(linkContract.Address()),
 			transmitters,
 			ocrOffchainOptions,
@@ -360,11 +357,11 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 		require.NoError(o.t, err, "Error configuring OCRv2 aggregator contracts")
 	}
 
-	if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "1" {
+	if o.OCRVersion == "1" {
 		for _, ocrInstance := range o.ocrV1Instances {
 			o.ocrV1InstanceMap[ocrInstance.Address()] = ocrInstance
 		}
-	} else if *ocrTestConfig.GetOCRConfig().Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		for _, ocrInstance := range o.ocrV2Instances {
 			o.ocrV2InstanceMap[ocrInstance.Address()] = ocrInstance
 		}
@@ -375,7 +372,7 @@ func (o *OCRSoakTest) Setup(ocrTestConfig tt.OcrTestConfig) {
 
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run() {
-	config, err := tc.GetConfig("soak", tc.OCR)
+	config, err := tc.GetConfig([]string{"soak"}, tc.OCR)
 	require.NoError(o.t, err, "Error getting config")
 
 	ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
@@ -387,25 +384,25 @@ func (o *OCRSoakTest) Run() {
 	startingValue := 5
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(o.t, o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.seth.ChainID)
-	} else if *config.OCR.Soak.OCRVersion == "1" {
+	} else if o.OCRVersion == "1" {
 		ctx, cancel := context.WithTimeout(testcontext.Get(o.t), time.Second*5)
 		chainId, err := o.seth.Client.ChainID(ctx)
 		cancel()
 		require.NoError(o.t, err, "Error getting chain ID")
 		err = actions.CreateOCRJobs(o.ocrV1Instances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, chainId.String())
 		require.NoError(o.t, err, "Error creating OCR jobs")
-	} else if *config.OCR.Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		err := actions.CreateOCRv2Jobs(o.ocrV2Instances, o.bootstrapNode, o.workerNodes, o.mockServer, startingValue, o.seth.ChainID, o.OperatorForwarderFlow)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
 	o.log.Info().
-		Str("Test Duration", o.Config.OCR.Common.TestDuration.Duration.Truncate(time.Second).String()).
-		Int("Number of OCR Contracts", *config.OCR.Soak.NumberOfContracts).
-		Str("OCR Version", *config.OCR.Soak.OCRVersion).
+		Str("Test Duration", o.Config.GetActiveOCRConfig().Common.TestDuration.Duration.Truncate(time.Second).String()).
+		Int("Number of OCR Contracts", *config.GetActiveOCRConfig().Soak.NumberOfContracts).
+		Str("OCR Version", o.OCRVersion).
 		Msg("Starting OCR Soak Test")
 
-	o.testLoop(o.Config.OCR.Common.TestDuration.Duration, startingValue)
+	o.testLoop(o.Config.GetActiveOCRConfig().Common.TestDuration.Duration, startingValue)
 	o.complete()
 }
 
@@ -459,9 +456,9 @@ func (o *OCRSoakTest) SaveState() error {
 		StartingBlockNum:     o.startingBlockNum,
 		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
-		TestDuration:         o.Config.OCR.Common.TestDuration.Duration,
+		TestDuration:         o.Config.GetActiveOCRConfig().Common.TestDuration.Duration,
 		OCRContractAddresses: ocrAddresses,
-		OCRVersion:           *o.Config.OCR.Soak.OCRVersion,
+		OCRVersion:           o.OCRVersion,
 
 		MockServerURL:    "http://mockserver:1080", // TODO: Make this dynamic
 		BootStrapNodeURL: o.bootstrapNode.URL(),
@@ -513,12 +510,12 @@ func (o *OCRSoakTest) LoadState() error {
 	duration := blockchain.StrDuration{Duration: testState.TestDuration}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.TestIssues
-	o.Config.OCR.Common.TestDuration = &duration
+	o.Config.GetActiveOCRConfig().Common.TestDuration = &duration
 	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
 	o.reorgHappened = testState.ReorgHappened
-	o.Config.OCR.Soak.OCRVersion = &testState.OCRVersion
+	o.OCRVersion = testState.OCRVersion
 
 	o.bootstrapNode, err = client.ConnectChainlinkNodeURL(testState.BootStrapNodeURL)
 	if err != nil {
@@ -563,13 +560,13 @@ func (o *OCRSoakTest) Resume() {
 		Message:   "Test Resumed",
 	})
 	o.log.Info().
-		Str("Total Duration", o.Config.OCR.Common.TestDuration.String()).
+		Str("Total Duration", o.Config.GetActiveOCRConfig().Common.TestDuration.String()).
 		Str("Time Left", o.timeLeft.String()).
 		Msg("Resuming OCR Soak Test")
 
-	ocrAddresses := make([]common.Address, *o.Config.OCR.Soak.NumberOfContracts)
+	ocrAddresses := make([]common.Address, *o.Config.GetActiveOCRConfig().Soak.NumberOfContracts)
 
-	if *o.Config.OCR.Soak.OCRVersion == "1" {
+	if o.OCRVersion == "1" {
 		for i, ocrInstance := range o.ocrV1Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -580,7 +577,7 @@ func (o *OCRSoakTest) Resume() {
 			Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 			FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 		}
-	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		for i, ocrInstance := range o.ocrV2Instances {
 			ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
 		}
@@ -716,7 +713,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			return
 		case <-newRoundTrigger.C:
 			err := o.triggerNewRound(newValue)
-			timerReset := o.Config.OCR.Soak.TimeBetweenRounds.Duration
+			timerReset := o.Config.GetActiveOCRConfig().Soak.TimeBetweenRounds.Duration
 			if err != nil {
 				timerReset = time.Second * 5
 				o.log.Error().Err(err).
@@ -843,7 +840,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		for {
 			select {
 			case event := <-eventLogs:
-				if *o.Config.OCR.Soak.OCRVersion == "1" {
+				if o.OCRVersion == "1" {
 					answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
 					if err != nil {
 						o.log.Warn().
@@ -859,7 +856,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
 						Int64("Answer", answerUpdated.Current.Int64()).
 						Msg("Answer Updated Event")
-				} else if *o.Config.OCR.Soak.OCRVersion == "2" {
+				} else if o.OCRVersion == "2" {
 					answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
 					if err != nil {
 						o.log.Warn().
@@ -906,9 +903,9 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 	}
 
 	var err error
-	if *o.Config.OCR.Soak.OCRVersion == "1" {
+	if o.OCRVersion == "1" {
 		err = actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrV1Instances, o.workerNodes, o.mockServer)
-	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		err = actions.SetOCR2AllAdapterResponsesToTheSameValue(newValue, o.ocrV2Instances, o.workerNodes, o.mockServer)
 	}
 	if err != nil {
@@ -920,11 +917,11 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 		Answer:      int64(newValue),
 		FoundEvents: make(map[string][]*testreporters.FoundEvent),
 	}
-	if *o.Config.OCR.Soak.OCRVersion == "1" {
+	if o.OCRVersion == "1" {
 		for _, ocrInstance := range o.ocrV1Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
-	} else if *o.Config.OCR.Soak.OCRVersion == "2" {
+	} else if o.OCRVersion == "2" {
 		for _, ocrInstance := range o.ocrV2Instances {
 			expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 		}
@@ -965,7 +962,7 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
-		if *o.Config.OCR.Soak.OCRVersion == "1" {
+		if o.OCRVersion == "1" {
 			answerUpdated, err := o.ocrV1Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -977,7 +974,7 @@ func (o *OCRSoakTest) collectEvents() error {
 				RoundID:     answerUpdated.RoundId.Uint64(),
 				BlockNumber: event.BlockNumber,
 			})
-		} else if *o.Config.OCR.Soak.OCRVersion == "2" {
+		} else if o.OCRVersion == "2" {
 			answerUpdated, err := o.ocrV2Instances[0].ParseEventAnswerUpdated(event)
 			if err != nil {
 				return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
@@ -1015,30 +1012,36 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	o.log.Info().
 		Str("Time", time.Since(start).String()).
+		Int("Events collected", len(contractEvents)).
 		Msg("Collected on-chain events")
+
+	if len(contractEvents) == 0 {
+		return fmt.Errorf("no events were collected")
+	}
+
 	return nil
 }
 
 // ensureValues ensures that all values needed to run the test are present
 func (o *OCRSoakTest) ensureInputValues() error {
-	ocrConfig := o.Config.OCR.Soak
-	if *ocrConfig.OCRVersion != "1" && *ocrConfig.OCRVersion != "2" {
-		return fmt.Errorf("OCR version must be 1 or 2, found %s", *ocrConfig.OCRVersion)
+	ocrConfig := o.Config.GetActiveOCRConfig().Soak
+	if o.OCRVersion != "1" && o.OCRVersion != "2" {
+		return fmt.Errorf("OCR version must be 1 or 2, found %s", o.OCRVersion)
 	}
 	if ocrConfig.NumberOfContracts != nil && *ocrConfig.NumberOfContracts <= 0 {
-		return fmt.Errorf("Number of OCR contracts must be set and greater than 0, found %d", ocrConfig.NumberOfContracts)
+		return fmt.Errorf("number of OCR contracts must be set and greater than 0, found %d", ocrConfig.NumberOfContracts)
 	}
 	if o.Config.Common.ChainlinkNodeFunding != nil && *o.Config.Common.ChainlinkNodeFunding <= 0 {
-		return fmt.Errorf("Chainlink node funding must be greater than 0, found %f", *o.Config.Common.ChainlinkNodeFunding)
+		return fmt.Errorf("chainlink node funding must be greater than 0, found %f", *o.Config.Common.ChainlinkNodeFunding)
 	}
-	if o.Config.OCR.Common.TestDuration != nil && o.Config.OCR.Common.TestDuration.Duration <= time.Minute {
-		return fmt.Errorf("Test duration must be greater than 1 minute, found %s", o.Config.OCR.Common.TestDuration)
+	if o.Config.GetActiveOCRConfig().Common.TestDuration != nil && o.Config.GetActiveOCRConfig().Common.TestDuration.Duration <= time.Minute {
+		return fmt.Errorf("test duration must be greater than 1 minute, found %s", o.Config.GetActiveOCRConfig().Common.TestDuration)
 	}
 	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration >= time.Hour {
-		return fmt.Errorf("Time between rounds must be less than 1 hour, found %s", ocrConfig.TimeBetweenRounds)
+		return fmt.Errorf("time between rounds must be less than 1 hour, found %s", ocrConfig.TimeBetweenRounds)
 	}
 	if ocrConfig.TimeBetweenRounds != nil && ocrConfig.TimeBetweenRounds.Duration < time.Second*30 {
-		return fmt.Errorf("Time between rounds must be greater or equal to 30 seconds, found %s", ocrConfig.TimeBetweenRounds)
+		return fmt.Errorf("time between rounds must be greater or equal to 30 seconds, found %s", ocrConfig.TimeBetweenRounds)
 	}
 
 	return nil
@@ -1064,7 +1067,7 @@ func (o *OCRSoakTest) getContractAddressesString() []string {
 
 // getContractAddresses returns the addresses of all OCR contracts deployed
 func (o *OCRSoakTest) getContractAddresses() []common.Address {
-	contractAddresses := []common.Address{}
+	var contractAddresses []common.Address
 	if len(o.ocrV1Instances) != 0 {
 		for _, ocrInstance := range o.ocrV1Instances {
 			contractAddresses = append(contractAddresses, common.HexToAddress(ocrInstance.Address()))

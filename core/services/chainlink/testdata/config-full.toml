@@ -232,6 +232,8 @@ env = 'dev'
 test = 'load'
 
 [Mercury]
+VerboseLogging = true
+
 [Mercury.Cache]
 LatestReportTTL = '1m40s'
 MaxStaleAge = '1m41s'
@@ -287,6 +289,7 @@ NoNewHeadsThreshold = '1m0s'
 OperatorFactoryAddress = '0xa5B85635Be42F21f94F28034B7DA440EeFF0F418'
 RPCDefaultBatchSize = 17
 RPCBlockQueryDelay = 10
+FinalizedBlockOffset = 16
 
 [EVM.Transactions]
 ForwardersEnabled = true
@@ -357,6 +360,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'

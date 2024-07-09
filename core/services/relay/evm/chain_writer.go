@@ -167,7 +167,7 @@ func (w *chainWriter) parseContracts() error {
 }
 
 func (w *chainWriter) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
-	return commontypes.Unknown, fmt.Errorf("not implemented")
+	return w.txm.GetTransactionStatus(ctx, transactionID)
 }
 
 // GetFeeComponents the execution and data availability (L1Oracle) fees for the chain.

@@ -374,6 +374,7 @@ func TestJob(t *testing.T) {
 					CronSchedule: cronSchedule,
 					CreatedAt:    timestamp,
 					UpdatedAt:    timestamp,
+					EVMChainID:   evmChainID,
 				},
 				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -404,7 +405,8 @@ func TestJob(t *testing.T) {
                         "cronSpec": {
                             "schedule": "%s",
                             "createdAt":"2000-01-01T00:00:00Z",
-                            "updatedAt":"2000-01-01T00:00:00Z"
+                            "updatedAt":"2000-01-01T00:00:00Z",
+                            "evmChainID":"42"
                         },
                         "fluxMonitorSpec": null,
 						"gasLimit": null,
