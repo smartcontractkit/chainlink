@@ -9,32 +9,21 @@ import (
 // MissingImageInfoAsError return a helfpul error message when the no Chainlink image info is found in TOML config.
 // If legacy env vars are found it prints ready to use TOML configuration
 func MissingImageInfoAsError(errStr string) error {
-	intro := `
-You might have used old configuration approach. If so, use TOML instead of env vars.
+	missingImage := `
+Chainlink image is a secret and must be set as env var in ~/.testsecrets file or passed as env var (either E2E_TEST_CHAINLINK_IMAGE or E2E_TEST_CHAINLINK_UPGRADE_IMAGE). You might have used old configuration approach.
 Please refer to integration-tests/testconfig/README.md for more information.
 `
-
-	var imgStr, versionStr string
-
-	if img := os.Getenv("CHAINLINK_IMAGE"); img != "" {
-		imgStr = fmt.Sprintf("image = \"%s\"\n", img)
-	}
-
-	if version := os.Getenv("CHAINLINK_VERSION"); version != "" {
-		versionStr = fmt.Sprintf("version = \"%s\"\n", version)
-	}
-
-	finalErrStr := fmt.Sprintf("%s\n%s", errStr, intro)
-
-	if imgStr != "" && versionStr != "" {
-		extraInfo := `
-Or if you want to run your tests right now add following content to integration-tests/testconfig/overrides.toml:
-[ChainlinkImage]
+	missingVersion := `
+Chainlink version must be set in toml config.
 `
-		finalErrStr = fmt.Sprintf("%s\n%s%s%s%s", errStr, intro, extraInfo, imgStr, versionStr)
-	}
 
-	return fmt.Errorf(finalErrStr)
+	if os.Getenv("E2E_TEST_CHAINLINK_IMAGE") == "" || os.Getenv("E2E_TEST_CHAINLINK_UPGRADE_IMAGE") == "" {
+		return fmt.Errorf(fmt.Sprintf("%s\n%s", errStr, missingImage))
+	}
+	if os.Getenv("CHAINLINK_VERSION") == "" || os.Getenv("CHAINLINK_UPGRADE_VERSION") == "" {
+		return fmt.Errorf(fmt.Sprintf("%s\n%s", errStr, missingVersion))
+	}
+	return fmt.Errorf(errStr)
 }
 
 // NoSelectedNetworkInfoAsError return a helfpul error message when the no selected network info is found in TOML config.
