@@ -17,6 +17,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
 
   /// @inheritdoc ITypeAndVersion
   string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.1.0";
+  address public s_previousToSContract;
 
   EnumerableSet.AddressSet private s_allowedSenders;
   EnumerableSet.AddressSet private s_blockedSenders;
@@ -41,7 +42,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   constructor(
     TermsOfServiceAllowListConfig memory config,
     address[] memory initialAllowedSenders,
-    address[] memory initialBlockedSenders
+    address[] memory initialBlockedSenders,
+    address previousToSContract
   ) ConfirmedOwner(msg.sender) {
     updateConfig(config);
 
@@ -56,6 +58,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
       }
       s_blockedSenders.add(initialBlockedSenders[j]);
     }
+
+    s_previousToSContract = previousToSContract;
   }
 
   // ================================================================
@@ -196,5 +200,17 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
 
     return blockedSenders;
+  }
+
+  function updateFromPrevious() external override {
+    address[] memory allowedSenders = ITermsOfServiceAllowList(s_previousToSContract).getAllAllowedSenders();
+    for (uint256 i = 0; i < allowedSenders.length; ++i) {
+      if (
+        !s_blockedSenders.contains(allowedSenders[i])
+        && !s_allowedSenders.contains(allowedSenders[i])
+      ) {
+        s_allowedSenders.add(allowedSenders[i]);
+      }
+    }
   }
 }
