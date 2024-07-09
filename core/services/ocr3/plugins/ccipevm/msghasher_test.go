@@ -43,11 +43,13 @@ func testHasher(ctx context.Context, t *testing.T, d *testSetupData) {
 	onRampAddress := testutils.NewAddress().Bytes()
 	ccipMsg := createCCIPMsg(t)
 
-	evmTokenAmounts := make([]message_hasher.ClientEVMTokenAmount, 0, len(ccipMsg.TokenAmounts))
-	for _, ta := range ccipMsg.TokenAmounts {
-		evmTokenAmounts = append(evmTokenAmounts, message_hasher.ClientEVMTokenAmount{
-			Token:  common.HexToAddress(string(ta.Token)),
-			Amount: ta.Amount,
+	tokenAmounts := make([]message_hasher.InternalRampTokenAmount, 0, len(ccipMsg.TokenAmounts))
+	for i := range ccipMsg.TokenAmounts {
+		tokenAmounts = append(tokenAmounts, message_hasher.InternalRampTokenAmount{
+			// SourcePoolAddress: , // TODO: fill this in future PRs.
+			// DestTokenAddress:  , // TODO: fill this in future PRs.
+			ExtraData: ccipMsg.SourceTokenData[i],
+			Amount:    ccipMsg.TokenAmounts[i].Amount,
 		})
 	}
 	evmMsg := message_hasher.InternalAny2EVMRampMessage{
@@ -58,12 +60,11 @@ func testHasher(ctx context.Context, t *testing.T, d *testSetupData) {
 			SequenceNumber:      uint64(ccipMsg.SeqNum),
 			Nonce:               ccipMsg.Nonce,
 		},
-		Sender:          common.HexToAddress(string(ccipMsg.Sender)).Bytes(),
-		Receiver:        common.HexToAddress(string(ccipMsg.Receiver)),
-		GasLimit:        ccipMsg.ChainFeeLimit.Int,
-		Data:            ccipMsg.Data,
-		TokenAmounts:    evmTokenAmounts,
-		SourceTokenData: ccipMsg.SourceTokenData,
+		Sender:       common.HexToAddress(string(ccipMsg.Sender)).Bytes(),
+		Receiver:     common.HexToAddress(string(ccipMsg.Receiver)),
+		GasLimit:     ccipMsg.ChainFeeLimit.Int,
+		Data:         ccipMsg.Data,
+		TokenAmounts: tokenAmounts,
 	}
 
 	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, onRampAddress)
@@ -94,19 +95,21 @@ func createCCIPMsg(t *testing.T) cciptypes.CCIPMsg {
 	_, err = cryptorand.Read(messageData)
 	require.NoError(t, err)
 
-	sourceTokenDatas := make([][]byte, rand.Intn(10))
-	for i := range sourceTokenDatas {
-		sourceTokenDatas[i] = sourceTokenData
+	numTokens := rand.Intn(10)
+	var sourceTokenDatas [][]byte
+	for i := 0; i < numTokens; i++ {
+		sourceTokenDatas = append(sourceTokenDatas, sourceTokenData)
 	}
 
-	numTokenAmounts := rand.Intn(50)
-	tokenAmounts := make([]cciptypes.TokenAmount, 0, numTokenAmounts)
-	for i := 0; i < numTokenAmounts; i++ {
+	var tokenAmounts []cciptypes.TokenAmount
+	for i := 0; i < len(sourceTokenDatas); i++ {
 		tokenAmounts = append(tokenAmounts, cciptypes.TokenAmount{
-			Token:  types.Account(utils.RandomAddress().String()),
+			// Ignored by the hasher, will be removed in future PR.
+			// Token:  types.Account(utils.RandomAddress().String()),
 			Amount: big.NewInt(0).SetUint64(rand.Uint64()),
 		})
 	}
+
 	return cciptypes.CCIPMsg{
 		CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
 			ID:          hex.EncodeToString(messageID[:]),

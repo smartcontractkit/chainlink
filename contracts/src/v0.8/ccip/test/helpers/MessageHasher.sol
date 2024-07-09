@@ -11,16 +11,12 @@ contract MessageHasher {
     return Internal._hash(message, onRamp);
   }
 
-  function encodeTokenAmountsHashPreimage(Client.EVMTokenAmount[] memory tokenAmounts)
+  function encodeTokenAmountsHashPreimage(Internal.RampTokenAmount[] memory rampTokenAmounts)
     public
     pure
     returns (bytes memory)
   {
-    return abi.encode(tokenAmounts);
-  }
-
-  function encodeSourceTokenDataHashPreimage(bytes[] memory sourceTokenData) public pure returns (bytes memory) {
-    return abi.encode(sourceTokenData);
+    return abi.encode(rampTokenAmounts);
   }
 
   function encodeMetadataHashPreimage(
@@ -48,11 +44,8 @@ contract MessageHasher {
     bytes32 implicitMetadataHash,
     bytes32 fixedSizeFieldsHash,
     bytes32 dataHash,
-    bytes32 tokenAmountsHash,
-    bytes32 sourceTokenDataHash
+    bytes32 tokenAmountsHash
   ) public pure returns (bytes memory) {
-    return abi.encode(
-      leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash, sourceTokenDataHash
-    );
+    return abi.encode(leafDomainSeparator, implicitMetadataHash, fixedSizeFieldsHash, dataHash, tokenAmountsHash);
   }
 }

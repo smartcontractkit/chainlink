@@ -58,7 +58,7 @@ library Internal {
     // The source pool address, abi encoded. This value is trusted as it was obtained through the onRamp. It can be
     // relied upon by the destination pool to validate the source pool.
     bytes sourcePoolAddress;
-    // The address of the destination token pool, abi encoded in the case of EVM chains
+    // The address of the destination token, abi encoded in the case of EVM chains
     // This value is UNTRUSTED as any pool owner can return whatever value they want.
     bytes destTokenAddress;
     // Optional pool data to be transferred to the destination chain. Be default this is capped at
@@ -106,7 +106,6 @@ library Internal {
     bytes32 messageId; //                       a hash of the message data
   }
 
-  // TODO: create new const for EVM2AnyMessage
   /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
   /// Each variable array takes 1 more slot to store its length.
   /// When abi encoded, excluding array contents,
@@ -114,10 +113,23 @@ library Internal {
   /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 17.
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
 
-  // TODO: create new const for EVM2AnyMessage
   /// @dev Each token transfer adds 1 EVMTokenAmount and 1 bytes.
   /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots, excl bytes contents
   uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 4;
+
+  /// @dev Any2EVMRampMessage struct has 10 fields, including 3 variable unnested arrays (data, receiver and tokenAmounts).
+  /// Each variable array takes 1 more slot to store its length.
+  /// When abi encoded, excluding array contents,
+  /// Any2EVMMessage takes up a fixed number of 13 slots, 32 bytes each.
+  /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 14.
+  /// The fixed bytes does not cover struct data (this is represented by ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN)
+  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES = 32 * 14;
+
+  /// @dev Each token transfer adds 1 RampTokenAmount
+  /// RampTokenAmount has 4 fields, including 3 bytes.
+  /// Each bytes takes 1 more slot to store its length.
+  /// When abi encoded, each token transfer takes up 7 slots, excl bytes contents.
+  uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 7;
 
   function _toAny2EVMMessage(
     EVM2EVMMessage memory original,
@@ -167,6 +179,7 @@ library Internal {
   }
 
   bytes32 internal constant ANY_2_EVM_MESSAGE_HASH = keccak256("Any2EVMMessageHashV1");
+  bytes32 internal constant EVM_2_ANY_MESSAGE_HASH = keccak256("EVM2AnyMessageHashV1");
 
   /// @dev Used to hash messages for multi-lane family-agnostic OffRamps.
   /// OnRamp hash(EVM2AnyMessage) != Any2EVMRampMessage.messageId
@@ -197,8 +210,31 @@ library Internal {
           )
         ),
         keccak256(original.data),
+        keccak256(abi.encode(original.tokenAmounts))
+      )
+    );
+  }
+
+  function _hash(EVM2AnyRampMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
+    // Fixed-size message fields are included in nested hash to reduce stack pressure.
+    // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
+    return keccak256(
+      abi.encode(
+        MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+        metadataHash,
+        keccak256(
+          abi.encode(
+            original.sender,
+            original.receiver,
+            original.header.sequenceNumber,
+            original.header.nonce,
+            original.feeToken,
+            original.feeTokenAmount
+          )
+        ),
+        keccak256(original.data),
         keccak256(abi.encode(original.tokenAmounts)),
-        keccak256(abi.encode(original.sourceTokenData))
+        keccak256(original.extraArgs)
       )
     );
   }
@@ -246,9 +282,23 @@ library Internal {
     Execution
   }
 
+  /// @notice Family-agnostic token amounts used for both OnRamp & OffRamp messages
+  struct RampTokenAmount {
+    // The source pool address, abi encoded. This value is trusted as it was obtained through the onRamp. It can be
+    // relied upon by the destination pool to validate the source pool.
+    bytes sourcePoolAddress;
+    // The address of the destination token, abi encoded in the case of EVM chains
+    // This value is UNTRUSTED as any pool owner can return whatever value they want.
+    bytes destTokenAddress;
+    // Optional pool data to be transferred to the destination chain. Be default this is capped at
+    // CCIP_LOCK_OR_BURN_V1_RET_BYTES bytes. If more data is required, the TokenTransferFeeConfig.destBytesOverhead
+    // has to be set for the specific token.
+    bytes extraData;
+    uint256 amount; // Amount of tokens.
+  }
+
   /// @notice Family-agnostic header for OnRamp & OffRamp messages.
   /// The messageId is not expected to match hash(message), since it may originate from another ramp family
-  // TODO: revisit if destChainSelector is required (likely sufficient to have it implicitly in the commit roots)
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded)
     uint64 sourceChainSelector; // ───────╮ the chain selector of the source chain, note: not chainId
@@ -266,8 +316,23 @@ library Internal {
     bytes data; // arbitrary data payload supplied by the message sender
     address receiver; // receiver address on the destination chain
     uint256 gasLimit; // user supplied maximum gas amount available for dest chain execution
-    // TODO: revisit collapsing tokenAmounts + sourceTokenData into one struct array
-    Client.EVMTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
-    bytes[] sourceTokenData; // array of token data, one per token
+    RampTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
   }
+
+  /// @notice Family-agnostic message emitted from the OnRamp
+  /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage) due to encoding & parameter differences
+  /// messageId = hash(EVM2AnyRampMessage) using the source EVM chain's encoding format
+  struct EVM2AnyRampMessage {
+    RampMessageHeader header; // Message header
+    address sender; // sender address on the source chain
+    bytes data; // arbitrary data payload supplied by the message sender
+    bytes receiver; // receiver address on the destination chain
+    bytes extraArgs; // destination-chain specific extra args, such as the gasLimit for EVM chains
+    address feeToken; // fee token
+    uint256 feeTokenAmount; // fee token amount
+    RampTokenAmount[] tokenAmounts; // array of tokens and amounts to transfer
+  }
+
+  // bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+  bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
 }

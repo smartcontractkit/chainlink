@@ -27,29 +27,24 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
   }
 
   function releaseOrMintSingleToken(
-    uint256 sourceTokenAmount,
+    Internal.RampTokenAmount memory sourceTokenAmount,
     bytes calldata originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    Internal.SourceTokenData calldata sourceTokenData,
     bytes calldata offchainTokenData
   ) external returns (Client.EVMTokenAmount memory) {
-    return _releaseOrMintSingleToken(
-      sourceTokenAmount, originalSender, receiver, sourceChainSelector, sourceTokenData, offchainTokenData
-    );
+    return
+      _releaseOrMintSingleToken(sourceTokenAmount, originalSender, receiver, sourceChainSelector, offchainTokenData);
   }
 
   function releaseOrMintTokens(
-    Client.EVMTokenAmount[] memory sourceTokenAmounts,
+    Internal.RampTokenAmount[] memory sourceTokenAmounts,
     bytes memory originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes[] calldata sourceTokenData,
     bytes[] calldata offchainTokenData
   ) external returns (Client.EVMTokenAmount[] memory) {
-    return _releaseOrMintTokens(
-      sourceTokenAmounts, originalSender, receiver, sourceChainSelector, sourceTokenData, offchainTokenData
-    );
+    return _releaseOrMintTokens(sourceTokenAmounts, originalSender, receiver, sourceChainSelector, offchainTokenData);
   }
 
   function trialExecute(

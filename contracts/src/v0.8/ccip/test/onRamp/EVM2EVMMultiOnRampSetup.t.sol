@@ -21,9 +21,6 @@ import {PriceRegistrySetup} from "../priceRegistry/PriceRegistry.t.sol";
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 
 contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
-  // Duplicate event of the CCIPSendRequested in the IOnRamp
-  event CCIPSendRequested(Internal.EVM2EVMMessage message);
-
   address internal constant CUSTOM_TOKEN = address(12345);
   uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
 
@@ -170,7 +167,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     uint64 nonce,
     uint256 feeTokenAmount,
     address originalSender
-  ) public view returns (Internal.EVM2EVMMessage memory) {
+  ) public view returns (Internal.EVM2AnyRampMessage memory) {
     return _messageToEvent(
       message,
       SOURCE_CHAIN_SELECTOR,
@@ -194,46 +191,46 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     address originalSender,
     bytes32 metadataHash,
     TokenAdminRegistry tokenAdminRegistry
-  ) internal view returns (Internal.EVM2EVMMessage memory) {
-    Client.EVMExtraArgsV2 memory extraArgs = s_onRamp.extraArgsFromBytes(message.extraArgs, destChainSelector);
+  ) internal view returns (Internal.EVM2AnyRampMessage memory) {
+    Client.EVMExtraArgsV2 memory extraArgs = s_onRamp.parseEVMExtraArgsFromBytes(message.extraArgs, destChainSelector);
 
-    Internal.EVM2EVMMessage memory messageEvent = Internal.EVM2EVMMessage({
-      sequenceNumber: seqNum,
-      feeTokenAmount: feeTokenAmount,
+    Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({
+      header: Internal.RampMessageHeader({
+        messageId: "",
+        sourceChainSelector: sourceChainSelector,
+        destChainSelector: destChainSelector,
+        sequenceNumber: seqNum,
+        nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce
+      }),
       sender: originalSender,
-      nonce: extraArgs.allowOutOfOrderExecution ? 0 : nonce,
-      gasLimit: extraArgs.gasLimit,
-      strict: false,
-      sourceChainSelector: sourceChainSelector,
-      receiver: abi.decode(message.receiver, (address)),
       data: message.data,
-      tokenAmounts: message.tokenAmounts,
-      sourceTokenData: new bytes[](message.tokenAmounts.length),
+      receiver: message.receiver,
+      extraArgs: abi.encode(extraArgs),
       feeToken: message.feeToken,
-      messageId: ""
+      feeTokenAmount: feeTokenAmount,
+      tokenAmounts: new Internal.RampTokenAmount[](message.tokenAmounts.length)
     });
 
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-      messageEvent.sourceTokenData[i] = _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry);
+      messageEvent.tokenAmounts[i] = _getSourceTokenData(message.tokenAmounts[i], tokenAdminRegistry);
     }
 
-    messageEvent.messageId = Internal._hash(messageEvent, metadataHash);
+    messageEvent.header.messageId = Internal._hash(messageEvent, metadataHash);
     return messageEvent;
   }
 
   function _getSourceTokenData(
     Client.EVMTokenAmount memory tokenAmount,
     TokenAdminRegistry tokenAdminRegistry
-  ) internal view returns (bytes memory) {
+  ) internal view returns (Internal.RampTokenAmount memory) {
     address destToken = s_destTokenBySourceToken[tokenAmount.token];
 
-    return abi.encode(
-      Internal.SourceTokenData({
-        sourcePoolAddress: abi.encode(tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool),
-        destTokenAddress: abi.encode(destToken),
-        extraData: ""
-      })
-    );
+    return Internal.RampTokenAmount({
+      sourcePoolAddress: abi.encode(tokenAdminRegistry.getTokenConfig(tokenAmount.token).tokenPool),
+      destTokenAddress: abi.encode(destToken),
+      extraData: "",
+      amount: tokenAmount.amount
+    });
   }
 
   function _generateDynamicMultiOnRampConfig(
@@ -277,7 +274,8 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
         defaultTxGasLimit: GAS_LIMIT,
         gasMultiplierWeiPerEth: 5e17,
         networkFeeUSDCents: 1_00,
-        enforceOutOfOrder: false
+        enforceOutOfOrder: false,
+        chainFamilySelector: Internal.CHAIN_FAMILY_SELECTOR_EVM
       }),
       prevOnRamp: address(0)
     });
@@ -327,7 +325,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
 
     return (
       onRamp,
-      keccak256(abi.encode(Internal.EVM_2_EVM_MESSAGE_HASH, sourceChainSelector, DEST_CHAIN_SELECTOR, address(onRamp)))
+      keccak256(abi.encode(Internal.EVM_2_ANY_MESSAGE_HASH, sourceChainSelector, DEST_CHAIN_SELECTOR, address(onRamp)))
     );
   }
 

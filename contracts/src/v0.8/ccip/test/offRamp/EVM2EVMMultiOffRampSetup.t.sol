@@ -250,13 +250,12 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](numberOfTokens);
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
-      Internal.SourceTokenData memory sourceTokenData =
-        abi.decode(original.sourceTokenData[i], (Internal.SourceTokenData));
+      Internal.RampTokenAmount memory tokenAmount = original.tokenAmounts[i];
 
-      address destPoolAddress = abi.decode(sourceTokenData.destTokenAddress, (address));
+      address destPoolAddress = abi.decode(tokenAmount.destTokenAddress, (address));
       TokenPool pool = TokenPool(destPoolAddress);
       destTokenAmounts[i].token = address(pool.getToken());
-      destTokenAmounts[i].amount = original.tokenAmounts[i].amount;
+      destTokenAmounts[i].amount = tokenAmount.amount;
     }
 
     return Client.Any2EVMMessage({
@@ -297,6 +296,19 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
     bool allowOutOfOrderExecution
   ) internal view returns (Internal.Any2EVMRampMessage memory) {
     bytes memory data = abi.encode(0);
+
+    Internal.RampTokenAmount[] memory rampTokenAmounts = new Internal.RampTokenAmount[](tokenAmounts.length);
+
+    // Correctly set the TokenDataPayload for each token. Tokens have to be set up in the TokenSetup.
+    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
+      rampTokenAmounts[i] = Internal.RampTokenAmount({
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
+        destTokenAddress: abi.encode(s_destTokenBySourceToken[tokenAmounts[i].token]),
+        extraData: "",
+        amount: tokenAmounts[i].amount
+      });
+    }
+
     Internal.Any2EVMRampMessage memory message = Internal.Any2EVMRampMessage({
       header: Internal.RampMessageHeader({
         messageId: "",
@@ -308,21 +320,9 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
       sender: abi.encode(OWNER),
       data: data,
       receiver: address(s_receiver),
-      tokenAmounts: tokenAmounts,
-      sourceTokenData: new bytes[](tokenAmounts.length),
+      tokenAmounts: rampTokenAmounts,
       gasLimit: GAS_LIMIT
     });
-
-    // Correctly set the TokenDataPayload for each token. Tokens have to be set up in the TokenSetup.
-    for (uint256 i = 0; i < tokenAmounts.length; ++i) {
-      message.sourceTokenData[i] = abi.encode(
-        Internal.SourceTokenData({
-          sourcePoolAddress: abi.encode(s_sourcePoolByToken[tokenAmounts[i].token]),
-          destTokenAddress: abi.encode(s_destTokenBySourceToken[tokenAmounts[i].token]),
-          extraData: ""
-        })
-      );
-    }
 
     message.header.messageId = Internal._hash(message, onRamp);
 
@@ -417,17 +417,16 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
   function _getDefaultSourceTokenData(Client.EVMTokenAmount[] memory srcTokenAmounts)
     internal
     view
-    returns (bytes[] memory)
+    returns (Internal.RampTokenAmount[] memory)
   {
-    bytes[] memory sourceTokenData = new bytes[](srcTokenAmounts.length);
+    Internal.RampTokenAmount[] memory sourceTokenData = new Internal.RampTokenAmount[](srcTokenAmounts.length);
     for (uint256 i = 0; i < srcTokenAmounts.length; ++i) {
-      sourceTokenData[i] = abi.encode(
-        Internal.SourceTokenData({
-          sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
-          destTokenAddress: abi.encode(s_destTokenBySourceToken[srcTokenAmounts[i].token]),
-          extraData: ""
-        })
-      );
+      sourceTokenData[i] = Internal.RampTokenAmount({
+        sourcePoolAddress: abi.encode(s_sourcePoolByToken[srcTokenAmounts[i].token]),
+        destTokenAddress: abi.encode(s_destTokenBySourceToken[srcTokenAmounts[i].token]),
+        extraData: "",
+        amount: srcTokenAmounts[i].amount
+      });
     }
     return sourceTokenData;
   }

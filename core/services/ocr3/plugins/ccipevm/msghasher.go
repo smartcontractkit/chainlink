@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_multi_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
 )
 
@@ -59,21 +58,24 @@ func NewMessageHasherV1(
 	)
 */
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.CCIPMsg) (cciptypes.Bytes32, error) {
-	tokenAmounts := make([]evm_2_evm_multi_onramp.ClientEVMTokenAmount, len(msg.TokenAmounts))
-	for i, ta := range msg.TokenAmounts {
-		tokenAmounts[i] = evm_2_evm_multi_onramp.ClientEVMTokenAmount{
-			Token:  common.HexToAddress(string(ta.Token)),
-			Amount: ta.Amount,
-		}
-	}
-	encodedTokens, err := h.abiEncode("encodeTokenAmountsHashPreimage", tokenAmounts)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
+	if len(msg.TokenAmounts) != len(msg.SourceTokenData) {
+		return [32]byte{}, fmt.Errorf("token amounts and source token data must have the same length")
 	}
 
-	encodedSourceTokenData, err := h.abiEncode("encodeSourceTokenDataHashPreimage", msg.SourceTokenData)
+	// TODO: this is not fully correct, but will be fixed in future PRs.
+	// CCIPMsg is missing the source pool address and the dest token address.
+	rampTokenAmounts := make([]message_hasher.InternalRampTokenAmount, len(msg.TokenAmounts))
+	for i, ta := range msg.TokenAmounts {
+		rampTokenAmounts[i] = message_hasher.InternalRampTokenAmount{
+			// SourcePoolAddress: , // TODO: fill this in future PRs.
+			// DestTokenAddress: , // TODO: fill this in future PRs.
+			ExtraData: msg.SourceTokenData[i],
+			Amount:    ta.Amount,
+		}
+	}
+	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("pack source token data: %w", err)
+		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
 
 	metaDataHashInput, err := h.abiEncode(
@@ -129,8 +131,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.CCIPMsg) (ccipty
 		utils.Keccak256Fixed(metaDataHashInput),
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
 		utils.Keccak256Fixed(msg.Data),
-		utils.Keccak256Fixed(encodedTokens),
-		utils.Keccak256Fixed(encodedSourceTokenData),
+		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode packed values: %w", err)

@@ -221,7 +221,7 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     IERC20(s_sourceTokens[1]).approve(address(router), i_tokenAmount1);
 
     message.receiver = abi.encode(address(s_receiver));
-    Internal.EVM2EVMMessage memory msgEvent = _messageToEvent(
+    Internal.EVM2AnyRampMessage memory msgEvent = _messageToEvent(
       message,
       sourceChainSelector,
       DEST_CHAIN_SELECTOR,
@@ -240,20 +240,21 @@ contract MultiRampsE2E is EVM2EVMMultiOnRampSetup, EVM2EVMMultiOffRampSetup {
     router.ccipSend(DEST_CHAIN_SELECTOR, message);
     vm.pauseGasMetering();
 
+    uint256 gasLimit = abi.decode(msgEvent.extraArgs, (Client.EVMExtraArgsV2)).gasLimit;
+
     return Internal.Any2EVMRampMessage({
       header: Internal.RampMessageHeader({
-        messageId: msgEvent.messageId,
+        messageId: msgEvent.header.messageId,
         sourceChainSelector: sourceChainSelector,
         destChainSelector: DEST_CHAIN_SELECTOR,
-        sequenceNumber: msgEvent.sequenceNumber,
-        nonce: msgEvent.nonce
+        sequenceNumber: msgEvent.header.sequenceNumber,
+        nonce: msgEvent.header.nonce
       }),
       sender: abi.encode(msgEvent.sender),
       data: msgEvent.data,
-      receiver: msgEvent.receiver,
-      gasLimit: msgEvent.gasLimit,
-      tokenAmounts: msgEvent.tokenAmounts,
-      sourceTokenData: msgEvent.sourceTokenData
+      receiver: abi.decode(msgEvent.receiver, (address)),
+      gasLimit: gasLimit,
+      tokenAmounts: msgEvent.tokenAmounts
     });
   }
 }

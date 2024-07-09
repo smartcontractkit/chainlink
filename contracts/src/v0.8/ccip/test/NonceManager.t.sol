@@ -402,9 +402,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
     uint64 startNonceChain3 =
       s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_3, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     // Nonce unchanged for chain 3
     assertEq(
@@ -436,9 +434,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
-      s_prevOffRamp.execute(
-        _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0)
-      );
+      s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
       // messages contains a single message - update for the next execution
       messages[0].nonce++;
@@ -457,9 +453,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_2, abi.encode(messages[0].sender));
 
     for (uint64 i = 1; i < 4; ++i) {
-      s_nestedPrevOffRamps[0].execute(
-        _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_2, messages), new uint256[](0)
-      );
+      s_nestedPrevOffRamps[0].execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
       // messages contains a single message - update for the next execution
       messages[0].nonce++;
@@ -478,9 +472,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
     uint64 startNonce = s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender));
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     assertEq(
       startNonce + 1, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messages[0].sender))
@@ -533,9 +525,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     Internal.EVM2EVMMessage[] memory messages =
       _generateSingleLaneSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, SINGLE_LANE_ON_RAMP_ADDRESS_1);
 
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messages), new uint256[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messages), new uint256[](0));
 
     Internal.Any2EVMRampMessage[] memory messagesMultiRamp =
       _generateSingleBasicMessage(SOURCE_CHAIN_SELECTOR_1, ON_RAMP_ADDRESS_1);
@@ -587,9 +577,7 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     messagesSingleLane[0].messageId = Internal._hash(messagesSingleLane[0], s_prevOffRamp.metadataHash());
 
     // previous offramp executes msg and increases nonce
-    s_prevOffRamp.execute(
-      _generateSingleLaneRampReportFromMessages(SOURCE_CHAIN_SELECTOR_1, messagesSingleLane), new uint256[](0)
-    );
+    s_prevOffRamp.execute(_generateSingleLaneRampReportFromMessages(messagesSingleLane), new uint256[](0));
     assertEq(
       startNonce + 1,
       s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, abi.encode(messagesSingleLane[0].sender))
@@ -612,10 +600,11 @@ contract NonceManager_OffRampUpgrade is EVM2EVMMultiOffRampSetup {
     assertEq(startNonce + 2, s_inboundNonceManager.getInboundNonce(SOURCE_CHAIN_SELECTOR_1, messages[0].sender));
   }
 
-  function _generateSingleLaneRampReportFromMessages(
-    uint64 sourceChainSelector,
-    Internal.EVM2EVMMessage[] memory messages
-  ) internal pure returns (Internal.ExecutionReport memory) {
+  function _generateSingleLaneRampReportFromMessages(Internal.EVM2EVMMessage[] memory messages)
+    internal
+    pure
+    returns (Internal.ExecutionReport memory)
+  {
     bytes[][] memory offchainTokenData = new bytes[][](messages.length);
 
     for (uint256 i = 0; i < messages.length; ++i) {

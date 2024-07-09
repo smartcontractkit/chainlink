@@ -497,12 +497,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);
     if (message.tokenAmounts.length > 0) {
       destTokenAmounts = _releaseOrMintTokens(
-        message.tokenAmounts,
-        message.sender,
-        message.receiver,
-        message.header.sourceChainSelector,
-        message.sourceTokenData,
-        offchainTokenData
+        message.tokenAmounts, message.sender, message.receiver, message.header.sourceChainSelector, offchainTokenData
       );
     }
 
@@ -787,25 +782,22 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev The local token address is validated through the TokenAdminRegistry. If, due to some misconfiguration, the
   /// token is unknown to the registry, the offRamp will revert. The tx, and the tokens, can be retrieved by
   /// registering the token on this chain, and re-trying the msg.
-  /// @param sourceAmount The amount of tokens to be released/minted.
+  /// @param sourceTokenAmount Amount and source data of the token to be released/minted.
   /// @param originalSender The message sender on the source chain.
   /// @param receiver The address that will receive the tokens.
   /// @param sourceChainSelector The remote source chain selector
-  /// @param sourceTokenData A struct containing the local token address, the source pool address and optional data
-  /// returned from the source pool.
   /// @param offchainTokenData Data fetched offchain by the DON.
   /// @return destTokenAmount local token address with amount
   function _releaseOrMintSingleToken(
-    uint256 sourceAmount,
+    Internal.RampTokenAmount memory sourceTokenAmount,
     bytes memory originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    Internal.SourceTokenData memory sourceTokenData,
     bytes memory offchainTokenData
   ) internal returns (Client.EVMTokenAmount memory destTokenAmount) {
     // We need to safely decode the token address from the sourceTokenData, as it could be wrong,
     // in which case it doesn't have to be a valid EVM address.
-    address localToken = Internal._validateEVMAddress(sourceTokenData.destTokenAddress);
+    address localToken = Internal._validateEVMAddress(sourceTokenAmount.destTokenAddress);
     // We check with the token admin registry if the token has a pool on this chain.
     address localPoolAddress = ITokenAdminRegistry(i_tokenAdminRegistry).getPool(localToken);
     // This will call the supportsInterface through the ERC165Checker, and not directly on the pool address.
@@ -827,11 +819,11 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
         Pool.ReleaseOrMintInV1({
           originalSender: originalSender,
           receiver: receiver,
-          amount: sourceAmount,
+          amount: sourceTokenAmount.amount,
           localToken: localToken,
           remoteChainSelector: sourceChainSelector,
-          sourcePoolAddress: sourceTokenData.sourcePoolAddress,
-          sourcePoolData: sourceTokenData.extraData,
+          sourcePoolAddress: sourceTokenAmount.sourcePoolAddress,
+          sourcePoolData: sourceTokenAmount.extraData,
           offchainTokenData: offchainTokenData
         })
       ),
@@ -866,34 +858,26 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
-  /// @param sourceTokenAmounts List of tokens and amount values to be released/minted.
+  /// @param sourceTokenAmounts List of token amounts with source data of the tokens to be released/minted.
   /// @param originalSender The message sender on the source chain.
   /// @param receiver The address that will receive the tokens.
   /// @param sourceChainSelector The remote source chain selector
-  /// @param encodedSourceTokenData Encoded source token data, decoding to Internal.SourceTokenData
   /// @param offchainTokenData Array of token data fetched offchain by the DON.
   /// @return destTokenAmounts local token addresses with amounts
   /// @dev This function wrappes the token pool call in a try catch block to gracefully handle
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
   function _releaseOrMintTokens(
-    Client.EVMTokenAmount[] memory sourceTokenAmounts,
+    Internal.RampTokenAmount[] memory sourceTokenAmounts,
     bytes memory originalSender,
     address receiver,
     uint64 sourceChainSelector,
-    bytes[] memory encodedSourceTokenData,
     bytes[] memory offchainTokenData
   ) internal returns (Client.EVMTokenAmount[] memory destTokenAmounts) {
-    // Creating a copy is more gas efficient than initializing a new array.
-    destTokenAmounts = sourceTokenAmounts;
+    destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
     for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
       destTokenAmounts[i] = _releaseOrMintSingleToken(
-        sourceTokenAmounts[i].amount,
-        originalSender,
-        receiver,
-        sourceChainSelector,
-        abi.decode(encodedSourceTokenData[i], (Internal.SourceTokenData)),
-        offchainTokenData[i]
+        sourceTokenAmounts[i], originalSender, receiver, sourceChainSelector, offchainTokenData[i]
       );
     }
 
