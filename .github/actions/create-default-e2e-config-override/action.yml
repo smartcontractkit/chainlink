@@ -1,17 +1,11 @@
 name: 'Create Default E2E Test Config Override From Inputs'
 inputs:
-  chainlink_image:
-    required: false
-    description: 'Chainlink image to use for the tests. Example: "chainlink/chainlink:develop"'
   chainlink_version:
     required: false
     description: 'Chainlink version to use for the tests. Example: "v2.10.0" or sha'
   chainlink_postgres_version:
     required: false
     description: 'Chainlink Postgres version to use for the tests'
-  chainlink_upgrade_image:
-    required: false
-    description: 'Chainlink upgrade image to use for the tests'
   chainlink_upgrade_version:
     required: false
     description: 'Chainlink upgrade version to use for the tests'
@@ -61,9 +55,6 @@ inputs:
     required: false
     description: 'Private Ethereum network custom Docker image for the tests'
 outputs:
-  chainlink_image:
-    value: ${{ steps.build-args.outputs.chainlink_image }}
-    description: 'Chainlink image resolved from the input'
   chainlink_version:
     value: ${{ steps.build-args.outputs.chainlink_version }}
     description: 'Chainlink version resolved from the input'
@@ -78,19 +69,12 @@ runs:
         cd integration-tests/e2e_tests_ci_tool/
 
         create_args=()
-        if [ -n "${{ inputs.chainlink_image }}" ]; then
-          create_args+=(--chainlink-image="${{ inputs.chainlink_image }}")
-          echo "chainlink_image=$(go run main.go envresolve "${{ inputs.chainlink_image }}")" >> $GITHUB_OUTPUT
-        fi
         if [ -n "${{ inputs.chainlink_version }}" ]; then
           create_args+=(--chainlink-version="${{ inputs.chainlink_version }}")
           echo "chainlink_version=$(go run main.go envresolve "${{ inputs.chainlink_version }}")" >> $GITHUB_OUTPUT
         fi
         if [ -n "${{ inputs.chainlink_postgres_version }}" ]; then
           create_args+=(--chainlink-postgres-version="${{ inputs.chainlink_postgres_version }}")
-        fi
-        if [ -n "${{ inputs.chainlink_upgrade_image }}" ]; then
-          create_args+=(--chainlink-upgrade-image="${{ inputs.chainlink_upgrade_image }}")
         fi
         if [ -n "${{ inputs.chainlink_upgrade_version }}" ]; then
           create_args+=(--chainlink-upgrade-version="${{ inputs.chainlink_upgrade_version }}")

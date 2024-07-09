@@ -37,13 +37,6 @@ var overrideTestConfigCmd = &cobra.Command{
 
 		cmd.Flags().Visit(func(flag *pflag.Flag) {
 			switch flag.Name {
-			case ChainlinkImageFlag:
-				if baseConfig.ChainlinkImage != nil && baseConfig.ChainlinkImage.Image != nil {
-					logIfDryRun(dryRun, "Found 'ChainlinkImage.Image' in config. Will override it with %s\n", ChainlinkImageFlag)
-					baseConfig.ChainlinkImage.Image = &oc.ChainlinkImage
-				} else {
-					logIfDryRun(dryRun, "No 'ChainlinkImage.Image' in config. Will NOT OVERRIDE with %s\n", ChainlinkImageFlag)
-				}
 			case ChainlinkVersionFlag:
 				if baseConfig.ChainlinkImage != nil && baseConfig.ChainlinkImage.Version != nil {
 					logIfDryRun(dryRun, "Found 'ChainlinkImage.Version' in config. Will override it with %s\n", ChainlinkVersionFlag)

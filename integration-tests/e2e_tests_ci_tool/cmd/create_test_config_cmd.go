@@ -16,34 +16,26 @@ var createTestConfigCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, _ []string) {
 		var tc ctf_config.TestConfig
 
-		var image, version, postgresVersion *string
-		if cmd.Flags().Changed(ChainlinkImageFlag) {
-			image = &oc.ChainlinkImage
-		}
+		var version, postgresVersion *string
 		if cmd.Flags().Changed(ChainlinkVersionFlag) {
 			version = &oc.ChainlinkVersion
 		}
 		if cmd.Flags().Changed(ChainlinkPostgresVersionFlag) {
 			version = &oc.ChainlinkPostgresVersion
 		}
-		if image != nil && version != nil {
+		if version != nil || postgresVersion != nil {
 			tc.ChainlinkImage = &ctf_config.ChainlinkImageConfig{
-				Image:           image,
 				Version:         version,
 				PostgresVersion: postgresVersion,
 			}
 		}
 
-		var upgradeImage, upgradeVersion *string
-		if cmd.Flags().Changed(ChainlinkUpgradeImageFlag) {
-			upgradeImage = &oc.ChainlinkUpgradeImage
-		}
+		var upgradeVersion *string
 		if cmd.Flags().Changed(ChainlinkUpgradeVersionFlag) {
 			upgradeVersion = &oc.ChainlinkUpgradeVersion
 		}
-		if upgradeImage != nil || upgradeVersion != nil {
+		if upgradeVersion != nil {
 			tc.ChainlinkUpgradeImage = &ctf_config.ChainlinkImageConfig{
-				Image:   upgradeImage,
 				Version: upgradeVersion,
 			}
 		}

@@ -437,7 +437,7 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
+          cl_repo: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false

@@ -41,9 +41,7 @@ type OverrideConfig struct {
 }
 
 const (
-	ChainlinkImageFlag                          = "chainlink-image"
 	ChainlinkVersionFlag                        = "chainlink-version"
-	ChainlinkUpgradeImageFlag                   = "chainlink-upgrade-image"
 	ChainlinkUpgradeVersionFlag                 = "chainlink-upgrade-version"
 	ChainlinkPostgresVersionFlag                = "chainlink-postgres-version"
 	SelectedNetworksFlag                        = "selected-networks"
@@ -72,9 +70,7 @@ func init() {
 	cmds := []*cobra.Command{createTestConfigCmd, overrideTestConfigCmd}
 	for _, c := range cmds {
 		c.Flags().StringArrayVar(&oc.SelectedNetworks, SelectedNetworksFlag, nil, "Selected networks")
-		c.Flags().StringVar(&oc.ChainlinkImage, ChainlinkImageFlag, "", "Chainlink image")
 		c.Flags().StringVar(&oc.ChainlinkVersion, ChainlinkVersionFlag, "", "Chainlink version")
-		c.Flags().StringVar(&oc.ChainlinkUpgradeImage, ChainlinkUpgradeImageFlag, "", "Chainlink upgrade image")
 		c.Flags().StringVar(&oc.ChainlinkUpgradeVersion, ChainlinkUpgradeVersionFlag, "", "Chainlink upgrade version")
 		c.Flags().StringVar(&oc.ChainlinkPostgresVersion, ChainlinkPostgresVersionFlag, "", "Chainlink Postgres version")
 		c.Flags().BoolVar(&oc.PyroscopeEnabled, PyroscopeEnabledFlag, false, "Pyroscope enabled")
