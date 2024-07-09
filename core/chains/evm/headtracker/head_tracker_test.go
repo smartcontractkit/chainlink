@@ -329,7 +329,6 @@ func TestHeadTracker_Start(t *testing.T) {
 }
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
