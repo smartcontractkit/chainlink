@@ -21,10 +21,10 @@ on:
         required: false
         type: string
       # Enable once Test Config does not have any secrets. Related ticket https://smartcontract-it.atlassian.net/browse/TT-1283
-      # test_config_base64_override:
-      #   description: 'This is an unsafe way to pass custom base64 test config. It cannot contain any secrets as this value is exposed in Github logs (Set up job -> Inputs) when the workflow is called! The caller workflow must make sure to remove secrets from this input.'
-      #   required: false
-      #   type: string        
+      test_config_override_base64:
+        required: false
+        description: The base64-encoded test config override
+        type: string
       enable_check_test_configurations:
         description: 'Set to "true" to enable check-test-configurations job'
         required: false
@@ -43,6 +43,8 @@ on:
         required: false
         type: string
     secrets:
+      TEST_SECRETS_OVERRIDE_BASE64:
+        required: false
       QA_AWS_REGION:
         required: true
       QA_AWS_ROLE_TO_ASSUME:
@@ -90,6 +92,9 @@ jobs:
           if [[ "${{ inputs.test_ids }}" != "" && "${{ inputs.test_workflow }}" != "" ]]; then
             echo "::error::Error: Both 'test_ids' and 'test_workflow' are provided. Please specify only one."
             exit 1
+          fi
+          if [[ "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" != "" ]]; then
+            echo "TEST_SECRETS_OVERRIDE_BASE64 is not empty"
           fi
       - name: Install jq
         run: sudo apt-get install jq          
@@ -297,7 +302,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@351858d53187513fd47f1d2fdce71f6a8c246828 # v2.3.24
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -318,7 +323,8 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
+          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
@@ -413,7 +419,7 @@ jobs:
           test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@351858d53187513fd47f1d2fdce71f6a8c246828 # v2.3.24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
