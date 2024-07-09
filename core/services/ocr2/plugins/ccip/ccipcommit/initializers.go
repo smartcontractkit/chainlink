@@ -56,6 +56,9 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 	}
 
 	commitStoreAddress := common.HexToAddress(spec.ContractID)
+
+	// commit store contract doesn't exist on the source chain, but we have an implementation of it
+	// to get access to a gas estimator on the source chain
 	srcCommitStore, err := srcProvider.NewCommitStoreReader(ctx, ccipcalc.EvmAddrToGeneric(commitStoreAddress))
 	if err != nil {
 		return nil, err
@@ -222,7 +225,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 // https://github.com/smartcontractkit/ccip/blob/68e2197472fb017dd4e5630d21e7878d58bc2a44/core/services/feeds/service.go#L716
 // TODO once that transaction is broken up, we should be able to simply rely on oracle.Close() to cleanup the filters.
 // Until then we have to deterministically reload the readers from the spec (and thus their filters) and close them.
-func UnregisterCommitPluginLpFilters(ctx context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer) error {
+func UnregisterCommitPluginLpFilters(_ context.Context, lggr logger.Logger, jb job.Job, chainSet legacyevm.LegacyChainContainer) error {
 	params, err := extractJobSpecParams(jb, chainSet)
 	if err != nil {
 		return err
