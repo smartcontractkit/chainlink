@@ -11,7 +11,7 @@ import "forge-std/Vm.sol";
 /// @notice #constructor
 contract FunctionsTermsOfServiceAllowList_Constructor is FunctionsRoutesSetup {
   function test_Constructor_Success() public {
-    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.1.0");
+    assertEq(s_termsOfServiceAllowList.typeAndVersion(), "Functions Terms of Service Allow List v1.1.1");
     assertEq(s_termsOfServiceAllowList.owner(), OWNER_ADDRESS);
   }
 }
@@ -511,7 +511,7 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
     s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
   }
 
-  function test_UpdateFromPrevious() public {
+  function test_MigratePreviousAllowlist() public {
     address previouslyAllowedSender1 = 0x1000000000000000000000000000000000000000;
     address previouslyAllowedSender2 = 0xB000000000000000000000000000000000000000;
     address currentlyBlockedSender = 0x2000000000000000000000000000000000000000;
@@ -527,7 +527,7 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
       abi.encodeWithSelector(TermsOfServiceAllowList.getAllAllowedSenders.selector),
       abi.encode(mockPreviousAllowlist)
     );
-    s_termsOfServiceAllowList.updateFromPrevious();
+    s_termsOfServiceAllowList.migratePreviousAllowlist();
 
     address[] memory currentlyAllowedSenders = s_termsOfServiceAllowList.getAllAllowedSenders();
 
