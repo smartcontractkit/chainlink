@@ -1,14 +1,15 @@
 package ccipevm
 
 import (
+	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
-	"strings"
+	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
@@ -23,25 +24,21 @@ var (
 	ANY_2_EVM_MESSAGE_HASH = utils.Keccak256Fixed([]byte("Any2EVMMessageHashV1"))
 
 	messageHasherABI = types.MustGetABI(message_hasher.MessageHasherABI)
+
+	// bytes4 public constant EVM_EXTRA_ARGS_V1_TAG = 0x97a657c9;
+	evmExtraArgsV1Tag = hexutil.MustDecode("0x97a657c9")
+
+	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
+	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
 // - "EVM2EVMMultiOnRamp 1.6.0-dev"
-type MessageHasherV1 struct {
-	// TODO: move these to CCIPMsg instead?
-	destChainSelector cciptypes.ChainSelector
-	onrampAddress     []byte
-}
+type MessageHasherV1 struct{}
 
-func NewMessageHasherV1(
-	onrampAddress []byte,
-	destChainSelector cciptypes.ChainSelector,
-) *MessageHasherV1 {
-	return &MessageHasherV1{
-		destChainSelector: destChainSelector,
-		onrampAddress:     onrampAddress,
-	}
+func NewMessageHasherV1() *MessageHasherV1 {
+	return &MessageHasherV1{}
 }
 
 // Hash implements the MessageHasher interface.
@@ -53,79 +50,58 @@ func NewMessageHasherV1(
 		keccak256(any_2_evm_message_hash, header.sourceChainSelector, header.destinationChainSelector, onRamp),
 		keccak256(fixedSizeMessageFields),
 		keccak256(messageData),
-		keccak256(encodedTokenAmounts),
-		keccak256(encodedSourceTokenData),
+		keccak256(encodedRampTokenAmounts),
 	)
 */
-func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.CCIPMsg) (cciptypes.Bytes32, error) {
-	if len(msg.TokenAmounts) != len(msg.SourceTokenData) {
-		return [32]byte{}, fmt.Errorf("token amounts and source token data must have the same length")
+func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
+	var rampTokenAmounts []message_hasher.InternalRampTokenAmount
+	for _, rta := range msg.TokenAmounts {
+		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalRampTokenAmount{
+			SourcePoolAddress: rta.SourcePoolAddress,
+			DestTokenAddress:  rta.DestTokenAddress,
+			ExtraData:         rta.ExtraData,
+			Amount:            rta.Amount.Int,
+		})
 	}
-
-	// TODO: this is not fully correct, but will be fixed in future PRs.
-	// CCIPMsg is missing the source pool address and the dest token address.
-	rampTokenAmounts := make([]message_hasher.InternalRampTokenAmount, len(msg.TokenAmounts))
-	for i, ta := range msg.TokenAmounts {
-		rampTokenAmounts[i] = message_hasher.InternalRampTokenAmount{
-			// SourcePoolAddress: , // TODO: fill this in future PRs.
-			// DestTokenAddress: , // TODO: fill this in future PRs.
-			ExtraData: msg.SourceTokenData[i],
-			Amount:    ta.Amount,
-		}
-	}
-	encodedRampTokenAmounts, err := h.abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
+	encodedRampTokenAmounts, err := abiEncode("encodeTokenAmountsHashPreimage", rampTokenAmounts)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
 	}
 
-	metaDataHashInput, err := h.abiEncode(
+	metaDataHashInput, err := abiEncode(
 		"encodeMetadataHashPreimage",
 		ANY_2_EVM_MESSAGE_HASH,
-		uint64(msg.SourceChain),
-		uint64(h.destChainSelector),
-		h.onrampAddress,
+		uint64(msg.Header.SourceChainSelector),
+		uint64(msg.Header.DestChainSelector),
+		[]byte(msg.Header.OnRamp),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
 	}
 
-	var msgID [32]byte
-	decoded, err := hex.DecodeString(msg.ID)
+	// Need to decode the extra args to get the gas limit.
+	// TODO: we assume that extra args is always abi-encoded for now, but we need
+	// to decode according to source chain selector family. We should add a family
+	// lookup API to the chain-selectors library.
+	gasLimit, err := decodeExtraArgs(msg.ExtraArgs)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("decode message ID: %w", err)
+		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
 	}
-	if len(decoded) != 32 {
-		return [32]byte{}, fmt.Errorf("message ID must be 32 bytes")
-	}
-	copy(msgID[:], decoded)
 
-	// NOTE: msg.Sender is not necessarily an EVM address since this is Any2EVM.
-	// Accordingly, sender is defined as "bytes" in the onchain message definition
-	// rather than "address".
-	// However, its not clear how best to translate from Sender being a string representation
-	// to bytes. For now, we assume that the string is hex encoded, but ideally Sender would
-	// just be a byte array in the CCIPMsg struct that represents a sender encoded in the
-	// source chain family encoding scheme.
-	decodedSender, err := hex.DecodeString(
-		strings.TrimPrefix(string(msg.Sender), "0x"),
-	)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("decode sender '%s': %w", msg.Sender, err)
-	}
-	fixedSizeFieldsEncoded, err := h.abiEncode(
+	fixedSizeFieldsEncoded, err := abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
-		msgID,
-		decodedSender,
-		common.HexToAddress(string(msg.Receiver)),
-		uint64(msg.SeqNum),
-		msg.ChainFeeLimit.Int,
-		msg.Nonce,
+		msg.Header.MessageID,
+		[]byte(msg.Sender),
+		common.BytesToAddress(msg.Receiver),
+		uint64(msg.Header.SequenceNumber),
+		gasLimit,
+		msg.Header.Nonce,
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode fixed size values: %w", err)
 	}
 
-	packedValues, err := h.abiEncode(
+	packedValues, err := abiEncode(
 		"encodeFinalHashPreimage",
 		leafDomainSeparator,
 		utils.Keccak256Fixed(metaDataHashInput),
@@ -140,13 +116,35 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.CCIPMsg) (ccipty
 	return utils.Keccak256Fixed(packedValues), nil
 }
 
-func (h *MessageHasherV1) abiEncode(method string, values ...interface{}) ([]byte, error) {
+func abiEncode(method string, values ...interface{}) ([]byte, error) {
 	res, err := messageHasherABI.Pack(method, values...)
 	if err != nil {
 		return nil, err
 	}
 	// trim the method selector.
 	return res[4:], nil
+}
+
+func decodeExtraArgs(extraArgs []byte) (gasLimit *big.Int, err error) {
+	var method string
+	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
+		method = "decodeEVMExtraArgsV1"
+	} else if bytes.Equal(extraArgs[:4], evmExtraArgsV2Tag) {
+		method = "decodeEVMExtraArgsV2"
+	} else {
+		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
+	}
+	ifaces, err := messageHasherABI.Methods[method].Inputs.UnpackValues(extraArgs[4:])
+	if err != nil {
+		return nil, fmt.Errorf("abi decode extra args v1: %w", err)
+	}
+	// gas limit is always the first argument, and allow OOO isn't set explicitly
+	// on the message.
+	_, ok := ifaces[0].(*big.Int)
+	if !ok {
+		return nil, fmt.Errorf("expected *big.Int, got %T", ifaces[0])
+	}
+	return ifaces[0].(*big.Int), nil
 }
 
 // Interface compliance check

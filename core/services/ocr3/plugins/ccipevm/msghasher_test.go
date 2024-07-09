@@ -3,7 +3,6 @@ package ccipevm
 import (
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -14,72 +13,77 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/stretchr/testify/require"
 )
 
-func TestMessageHasher_e2e(t *testing.T) {
+// NOTE: these test cases are only EVM <-> EVM.
+// Update these cases once we have non-EVM examples.
+func TestMessageHasher_EVM2EVM(t *testing.T) {
 	ctx := testutils.Context(t)
 	d := testSetup(t)
 
-	// low budget "fuzz" test.
-	// TODO: should actually write a real fuzz test.
-	for i := 0; i < 5; i++ {
-		testHasher(ctx, t, d)
+	testCases := []evmExtraArgs{
+		{version: "v1", gasLimit: big.NewInt(rand.Int63())},
+		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: false},
+		{version: "v2", gasLimit: big.NewInt(rand.Int63()), allowOOO: true},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("tc_%d", i), func(tt *testing.T) {
+			testHasherEVM2EVM(ctx, tt, d, tc)
+		})
 	}
 }
 
-func testHasher(ctx context.Context, t *testing.T, d *testSetupData) {
-	destChainSelector := rand.Uint64()
-	onRampAddress := testutils.NewAddress().Bytes()
-	ccipMsg := createCCIPMsg(t)
+func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmExtraArgs evmExtraArgs) {
+	ccipMsg := createEVM2EVMMessage(t, d.contract, evmExtraArgs)
 
-	tokenAmounts := make([]message_hasher.InternalRampTokenAmount, 0, len(ccipMsg.TokenAmounts))
-	for i := range ccipMsg.TokenAmounts {
+	var tokenAmounts []message_hasher.InternalRampTokenAmount
+	for _, rta := range ccipMsg.TokenAmounts {
 		tokenAmounts = append(tokenAmounts, message_hasher.InternalRampTokenAmount{
-			// SourcePoolAddress: , // TODO: fill this in future PRs.
-			// DestTokenAddress:  , // TODO: fill this in future PRs.
-			ExtraData: ccipMsg.SourceTokenData[i],
-			Amount:    ccipMsg.TokenAmounts[i].Amount,
+			SourcePoolAddress: rta.SourcePoolAddress,
+			DestTokenAddress:  rta.DestTokenAddress,
+			ExtraData:         rta.ExtraData[:],
+			Amount:            rta.Amount.Int,
 		})
 	}
 	evmMsg := message_hasher.InternalAny2EVMRampMessage{
 		Header: message_hasher.InternalRampMessageHeader{
-			MessageId:           mustMessageID(t, ccipMsg.ID),
-			SourceChainSelector: uint64(ccipMsg.SourceChain),
-			DestChainSelector:   destChainSelector,
-			SequenceNumber:      uint64(ccipMsg.SeqNum),
-			Nonce:               ccipMsg.Nonce,
+			MessageId:           ccipMsg.Header.MessageID,
+			SourceChainSelector: uint64(ccipMsg.Header.SourceChainSelector),
+			DestChainSelector:   uint64(ccipMsg.Header.DestChainSelector),
+			SequenceNumber:      uint64(ccipMsg.Header.SequenceNumber),
+			Nonce:               ccipMsg.Header.Nonce,
 		},
-		Sender:       common.HexToAddress(string(ccipMsg.Sender)).Bytes(),
-		Receiver:     common.HexToAddress(string(ccipMsg.Receiver)),
-		GasLimit:     ccipMsg.ChainFeeLimit.Int,
+		Sender:       ccipMsg.Sender,
+		Receiver:     common.BytesToAddress(ccipMsg.Receiver),
+		GasLimit:     evmExtraArgs.gasLimit,
 		Data:         ccipMsg.Data,
 		TokenAmounts: tokenAmounts,
 	}
 
-	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, onRampAddress)
+	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, ccipMsg.Header.OnRamp)
 	require.NoError(t, err)
 
-	evmMsgHasher := NewMessageHasherV1(onRampAddress, cciptypes.ChainSelector(destChainSelector))
+	evmMsgHasher := NewMessageHasherV1()
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 
 	require.Equal(t, fmt.Sprintf("%x", expectedHash), strings.TrimPrefix(actualHash.String(), "0x"))
 }
 
-// TODO: fix this once messageID is part of CCIPMsg
-func createCCIPMsg(t *testing.T) cciptypes.CCIPMsg {
-	// Setup random msg data
+type evmExtraArgs struct {
+	version  string
+	gasLimit *big.Int
+	allowOOO bool
+}
+
+func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHasher, evmExtraArgs evmExtraArgs) cciptypes.Message {
 	messageID := utils.RandomBytes32()
 
 	sourceTokenData := make([]byte, rand.Intn(2048))
@@ -88,8 +92,24 @@ func createCCIPMsg(t *testing.T) cciptypes.CCIPMsg {
 
 	sourceChain := rand.Uint64()
 	seqNum := rand.Uint64()
-	chainFeeLimit := rand.Uint64()
 	nonce := rand.Uint64()
+	destChain := rand.Uint64()
+
+	var extraArgsBytes []byte
+	if evmExtraArgs.version == "v1" {
+		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
+			GasLimit: evmExtraArgs.gasLimit,
+		})
+		require.NoError(t, err)
+	} else if evmExtraArgs.version == "v2" {
+		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
+			GasLimit:                 evmExtraArgs.gasLimit,
+			AllowOutOfOrderExecution: evmExtraArgs.allowOOO,
+		})
+		require.NoError(t, err)
+	} else {
+		require.FailNowf(t, "unknown extra args version", "version: %s", evmExtraArgs.version)
+	}
 
 	messageData := make([]byte, rand.Intn(2048))
 	_, err = cryptorand.Read(messageData)
@@ -101,43 +121,41 @@ func createCCIPMsg(t *testing.T) cciptypes.CCIPMsg {
 		sourceTokenDatas = append(sourceTokenDatas, sourceTokenData)
 	}
 
-	var tokenAmounts []cciptypes.TokenAmount
+	var tokenAmounts []cciptypes.RampTokenAmount
 	for i := 0; i < len(sourceTokenDatas); i++ {
-		tokenAmounts = append(tokenAmounts, cciptypes.TokenAmount{
-			// Ignored by the hasher, will be removed in future PR.
-			// Token:  types.Account(utils.RandomAddress().String()),
-			Amount: big.NewInt(0).SetUint64(rand.Uint64()),
+		extraData := utils.RandomBytes32()
+		tokenAmounts = append(tokenAmounts, cciptypes.RampTokenAmount{
+			SourcePoolAddress: abiEncodedAddress(t),
+			DestTokenAddress:  abiEncodedAddress(t),
+			ExtraData:         extraData[:],
+			Amount:            cciptypes.NewBigInt(big.NewInt(0).SetUint64(rand.Uint64())),
 		})
 	}
 
-	return cciptypes.CCIPMsg{
-		CCIPMsgBaseDetails: cciptypes.CCIPMsgBaseDetails{
-			ID:          hex.EncodeToString(messageID[:]),
-			SourceChain: cciptypes.ChainSelector(sourceChain),
-			SeqNum:      cciptypes.SeqNum(seqNum),
+	return cciptypes.Message{
+		Header: cciptypes.RampMessageHeader{
+			MessageID:           messageID,
+			SourceChainSelector: cciptypes.ChainSelector(sourceChain),
+			DestChainSelector:   cciptypes.ChainSelector(destChain),
+			SequenceNumber:      cciptypes.SeqNum(seqNum),
+			Nonce:               nonce,
+			OnRamp:              abiEncodedAddress(t),
 		},
-		ChainFeeLimit: cciptypes.NewBigInt(big.NewInt(0).SetUint64(chainFeeLimit)),
-		Nonce:         nonce,
-		Sender:        types.Account(utils.RandomAddress().String()),
-		Receiver:      types.Account(utils.RandomAddress().String()),
-		// TODO: remove this field if not needed, not used by the hasher
-		// Strict: strict,
-		// NOTE: not used by the hasher
-		// FeeToken:        types.Account(utils.RandomAddress().String()),
-		// FeeTokenAmount:  cciptypes.NewBigInt(big.NewInt(0).SetUint64(feeTokenAmount)),
-		Data:            messageData,
-		TokenAmounts:    tokenAmounts,
-		SourceTokenData: sourceTokenDatas,
+		Sender:         abiEncodedAddress(t),
+		Receiver:       abiEncodedAddress(t),
+		Data:           messageData,
+		TokenAmounts:   tokenAmounts,
+		FeeToken:       abiEncodedAddress(t),
+		FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(0).SetUint64(rand.Uint64())),
+		ExtraArgs:      extraArgsBytes,
 	}
 }
 
-func mustMessageID(t *testing.T, msgIDHex string) [32]byte {
-	msgID, err := hex.DecodeString(msgIDHex)
+func abiEncodedAddress(t *testing.T) []byte {
+	addr := utils.RandomAddress()
+	encoded, err := utils.ABIEncode(`[{"type": "address"}]`, addr)
 	require.NoError(t, err)
-	require.Len(t, msgID, 32)
-	var msgID32 [32]byte
-	copy(msgID32[:], msgID)
-	return msgID32
+	return encoded
 }
 
 type testSetupData struct {
@@ -168,4 +186,34 @@ func testSetup(t *testing.T) *testSetupData {
 		sb:           simulatedBackend,
 		auth:         transactor,
 	}
+}
+
+func Test_decodeExtraArgs(t *testing.T) {
+	d := testSetup(t)
+	gasLimit := big.NewInt(rand.Int63())
+
+	t.Run("v1", func(t *testing.T) {
+		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
+			GasLimit: gasLimit,
+		})
+		require.NoError(t, err)
+
+		decodedGasLimit, err := decodeExtraArgs(encoded)
+		require.NoError(t, err)
+
+		require.Equal(t, gasLimit, decodedGasLimit)
+	})
+
+	t.Run("v2", func(t *testing.T) {
+		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
+			GasLimit:                 gasLimit,
+			AllowOutOfOrderExecution: true,
+		})
+		require.NoError(t, err)
+
+		decodedGasLimit, err := decodeExtraArgs(encoded)
+		require.NoError(t, err)
+
+		require.Equal(t, gasLimit, decodedGasLimit)
+	})
 }
