@@ -1976,10 +1976,6 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
-	dstChain, err := d.legacyChains.Get(dstRid.ChainID)
-	if err != nil {
-		return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", dstRid.ChainID, err)
-	}
 
 	logError := func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(context.Background(), jb.ID, msg), "unable to record error")
@@ -2008,12 +2004,6 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		return nil, err
 	}
 
-	srcChainIDstr := strconv.FormatUint(srcChainID, 10)
-	srcChain, err := d.legacyChains.Get(srcChainIDstr)
-	if err != nil {
-		return nil, fmt.Errorf("open source chain: %w", err)
-	}
-
 	oracleArgsNoPlugin2 := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -2033,7 +2023,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
-	return ccipexec.NewExecServices(ctx, lggr, jb, srcProvider, dstProvider, srcChain, dstChain, int64(srcChainID), dstChainID, d.legacyChains, d.isNewlyCreatedJob, oracleArgsNoPlugin2, logError)
+	return ccipexec.NewExecServices(ctx, lggr, jb, srcProvider, dstProvider, int64(srcChainID), dstChainID, d.isNewlyCreatedJob, oracleArgsNoPlugin2, logError)
 }
 
 func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string) (types.CCIPExecProvider, error) {

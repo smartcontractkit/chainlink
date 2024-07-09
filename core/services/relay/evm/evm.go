@@ -478,6 +478,8 @@ func (r *Relayer) NewCCIPExecProvider(rargs commontypes.RelayArgs, pargs commont
 			r.lggr,
 			versionFinder,
 			r.chain.Client(),
+			r.chain.GasEstimator(),
+			r.chain.Config().EVM().GasEstimator().PriceMax().ToInt(),
 			r.chain.LogPoller(),
 			execPluginConfig.SourceStartBlock,
 			execPluginConfig.JobID,

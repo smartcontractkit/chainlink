@@ -28,6 +28,8 @@ type SrcExecProvider struct {
 	client                                 client.Client
 	lp                                     logpoller.LogPoller
 	startBlock                             uint64
+	estimator                              gas.EvmFeeEstimator
+	maxGasPrice                            *big.Int
 	usdcReader                             *ccip.USDCReaderImpl
 	usdcAttestationAPI                     string
 	usdcAttestationAPITimeoutSeconds       int
@@ -39,6 +41,8 @@ func NewSrcExecProvider(
 	lggr logger.Logger,
 	versionFinder ccip.VersionFinder,
 	client client.Client,
+	estimator gas.EvmFeeEstimator,
+	maxGasPrice *big.Int,
 	lp logpoller.LogPoller,
 	startBlock uint64,
 	jobID string,
@@ -60,6 +64,8 @@ func NewSrcExecProvider(
 		lggr:                                   lggr,
 		versionFinder:                          versionFinder,
 		client:                                 client,
+		estimator:                              estimator,
+		maxGasPrice:                            maxGasPrice,
 		lp:                                     lp,
 		startBlock:                             startBlock,
 		usdcReader:                             usdcReader,
@@ -120,9 +126,9 @@ func (s SrcExecProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func (s SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (cciptypes.CommitStoreReader, error) {
-	// TODO CCIP-2493
-	return nil, fmt.Errorf("invalid: NewCommitStoreReader not implemented")
+func (s SrcExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
+	commitStoreReader = NewIncompleteSourceCommitStoreReader(s.estimator, s.maxGasPrice)
+	return
 }
 
 func (s SrcExecProvider) NewOffRampReader(ctx context.Context, addr cciptypes.Address) (cciptypes.OffRampReader, error) {
@@ -262,9 +268,10 @@ func (d DstExecProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func (d DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (cciptypes.CommitStoreReader, error) {
-	// TODO CCIP-2493
-	return nil, fmt.Errorf("invalid: NewCommitStoreReader not yet implemented")
+func (d DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
+	versionFinder := ccip.NewEvmVersionFinder()
+	commitStoreReader, err = NewIncompleteDestCommitStoreReader(d.lggr, versionFinder, addr, d.client, d.lp)
+	return
 }
 
 func (d DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
