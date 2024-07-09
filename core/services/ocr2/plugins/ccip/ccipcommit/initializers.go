@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
@@ -42,6 +43,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
+
+var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{InitialDelay: time.Second, MaxDelay: 5 * time.Minute}
 
 func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider commontypes.CCIPCommitProvider, dstProvider commontypes.CCIPCommitProvider, chainSet legacyevm.LegacyChainContainer, jb job.Job, lggr logger.Logger, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, new bool, sourceChainID int64, destChainID int64, logError func(string)) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
@@ -171,17 +174,18 @@ func NewCommitServices(ctx context.Context, ds sqlutil.DataSource, srcProvider c
 	)
 
 	wrappedPluginFactory := NewCommitReportingPluginFactory(CommitPluginStaticConfig{
-		lggr:                  lggr,
-		onRampReader:          onRampReader,
-		sourceChainSelector:   staticConfig.SourceChainSelector,
-		sourceNative:          sourceNative,
-		offRamp:               offRampReader,
-		commitStore:           commitStoreReader,
-		destChainSelector:     staticConfig.ChainSelector,
-		priceRegistryProvider: ccip.NewChainAgnosticPriceRegistry(dstProvider),
-		metricsCollector:      metricsCollector,
-		chainHealthcheck:      chainHealthCheck,
-		priceService:          priceService,
+		lggr:                          lggr,
+		newReportingPluginRetryConfig: defaultNewReportingPluginRetryConfig,
+		onRampReader:                  onRampReader,
+		sourceChainSelector:           staticConfig.SourceChainSelector,
+		sourceNative:                  sourceNative,
+		offRamp:                       offRampReader,
+		commitStore:                   commitStoreReader,
+		destChainSelector:             staticConfig.ChainSelector,
+		priceRegistryProvider:         ccip.NewChainAgnosticPriceRegistry(dstProvider),
+		metricsCollector:              metricsCollector,
+		chainHealthcheck:              chainHealthCheck,
+		priceService:                  priceService,
 	})
 	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "CCIPCommit", jb.OCR2OracleSpec.Relay, big.NewInt(0).SetInt64(destChainID))
 	argsNoPlugin.Logger = commonlogger.NewOCRWrapper(commitLggr, true, logError)
