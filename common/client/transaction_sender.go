@@ -129,6 +129,9 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txSender.reportingWg.Add(1)
 	go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
+	primaryWg.Wait()
+	txSender.reportingWg.Wait()
+
 	return txSender.collectTxResults(ctx, tx, len(txSender.multiNode.primaryNodes), txResults)
 }
 
