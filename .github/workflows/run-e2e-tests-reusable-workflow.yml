@@ -289,7 +289,7 @@ jobs:
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
-          loki_run_id: ${{ github.run_id }}
+          logging_run_id: ${{ github.run_id }}
           loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -412,7 +412,7 @@ jobs:
           pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
           pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
           pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
-          loki_run_id: ${{ github.run_id }}
+          logging_run_id: ${{ github.run_id }}
           loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}

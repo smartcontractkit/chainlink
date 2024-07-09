@@ -30,9 +30,9 @@ inputs:
   test_log_collect:
     required: false
     description: 'Whether to always collect test logs'
-  loki_run_id:
+  logging_run_id:
     required: false
-    description: 'Loki run ID for the tests'
+    description: 'Logging run ID for the tests'
   loki_endpoint:
     required: false
     description: 'Loki endpoint for the tests'
@@ -113,8 +113,8 @@ runs:
         if [ -n "${{ inputs.loki_basic_auth }}" ]; then
           create_args+=(--logging-loki-basic-auth="${{ inputs.loki_basic_auth }}")
         fi
-        if [ -n "${{ inputs.loki_run_id }}" ]; then
-          create_args+=(--logging-run-id="${{ inputs.loki_run_id }}")
+        if [ -n "${{ inputs.logging_run_id }}" ]; then
+          create_args+=(--logging-run-id="${{ inputs.logging_run_id }}")
         fi
         if [ -n "${{ inputs.test_log_collect }}" ]; then
           create_args+=(--logging-test-log-collect="${{ inputs.test_log_collect }}")

@@ -14,6 +14,26 @@ type Master struct {
 	mock.Mock
 }
 
+// Aptos provides a mock function with given fields:
+func (_m *Master) Aptos() keystore.Aptos {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Aptos")
+	}
+
+	var r0 keystore.Aptos
+	if rf, ok := ret.Get(0).(func() keystore.Aptos); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(keystore.Aptos)
+		}
+	}
+
+	return r0
+}
+
 // CSA provides a mock function with given fields:
 func (_m *Master) CSA() keystore.CSA {
 	ret := _m.Called()
@@ -48,46 +68,6 @@ func (_m *Master) Cosmos() keystore.Cosmos {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(keystore.Cosmos)
-		}
-	}
-
-	return r0
-}
-
-// DKGEncrypt provides a mock function with given fields:
-func (_m *Master) DKGEncrypt() keystore.DKGEncrypt {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for DKGEncrypt")
-	}
-
-	var r0 keystore.DKGEncrypt
-	if rf, ok := ret.Get(0).(func() keystore.DKGEncrypt); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(keystore.DKGEncrypt)
-		}
-	}
-
-	return r0
-}
-
-// DKGSign provides a mock function with given fields:
-func (_m *Master) DKGSign() keystore.DKGSign {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for DKGSign")
-	}
-
-	var r0 keystore.DKGSign
-	if rf, ok := ret.Get(0).(func() keystore.DKGSign); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(keystore.DKGSign)
 		}
 	}
 

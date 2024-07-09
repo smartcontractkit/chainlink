@@ -159,6 +159,9 @@ APIKey = 'key'
 
 [[Starknet]]
 
+[[Aptos]]
+Enabled = 1
+
 [OCR2]
 Enabled = true
 

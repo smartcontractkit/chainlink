@@ -30,7 +30,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	}
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: capabilityPeers,
 		F:       1,
 	}
@@ -50,7 +50,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      2,
 	}
 
 	executeInputs, err := values.NewMap(
@@ -311,11 +311,11 @@ type clientRequestTestDispatcher struct {
 	msgs chan *types.MessageBody
 }
 
-func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId string, receiver types.Receiver) error {
+func (t *clientRequestTestDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *clientRequestTestDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs <- msgBody

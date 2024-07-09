@@ -317,6 +317,8 @@ func prepareEnvironment(l zerolog.Logger, t *testing.T, testConfig *tc.TestConfi
 		uint32(2500000),
 		true,
 		false,
+		false,
+		nil,
 	)
 
 	err = logpoller.AssertUpkeepIdsUniqueness(upkeepIDs)

@@ -345,6 +345,15 @@ func (g *generalConfig) StarkNetEnabled() bool {
 	return false
 }
 
+func (g *generalConfig) AptosEnabled() bool {
+	for _, c := range g.c.Aptos {
+		if c.IsEnabled() {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *generalConfig) WebServer() config.WebServer {
 	return &webServerConfig{c: g.c.WebServer, s: g.secrets.WebServer, rootDir: g.RootDir}
 }

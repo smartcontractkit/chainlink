@@ -157,7 +157,11 @@ jobs:
             fi
             IFS=','
             eth_implementations="${implementations_arr[*]}"
-            echo "Found new releases for: $eth_implementations"
+            if [ -n "$eth_implementations" ]; then
+              echo "Found new releases for: $eth_implementations"
+            else
+              echo "No new releases found"
+            fi
             echo "evm_implementations=$eth_implementations" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             if [ -n "${{ github.event.inputs.base64TestList }}" ]; then
@@ -229,7 +233,7 @@ jobs:
 
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       id-token: write
@@ -263,7 +267,7 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
 
   build-chainlink:
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       id-token: write
@@ -298,7 +302,7 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
@@ -371,7 +375,7 @@ jobs:
 
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
-    if: always() && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       checks: write
@@ -501,7 +505,7 @@ jobs:
 
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
-    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success'
+    if: always() && needs.should-run.outputs.should_run == 'true' && needs.build-chainlink.result == 'success' && needs.prepare-compatibility-matrix.outputs.matrix != ''
     environment: integration
     permissions:
       checks: write
@@ -537,23 +541,13 @@ jobs:
       - name: Prepare Base64 TOML override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_image: ${{ env.CHAINLINK_IMAGE }}
           chainlink_version: ${{ needs.select-versions.outputs.chainlink_version }}
           selected_networks: ${{ env.SELECTED_NETWORKS}}
-          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          pyroscope_environment: ci-client-compatability-${{ matrix.eth_client }}-testnet
-          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
-          loki_run_id: ${{ github.run_id }}
-          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
-          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
-          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}    
+          logging_run_id: ${{ github.run_id }}
           test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
-          private_ethereum_network_custom_docker_image: ${{ matrix.evm_node.docker_image }}
+          logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
           private_ethereum_network_execution_layer: ${{ matrix.evm_node.eth_implementation || 'geth' }}
+          private_ethereum_network_custom_docker_image: ${{ matrix.evm_node.docker_image }}
       - name: Prepare test log name
         run: |
           replace_special_chars() {
@@ -576,8 +570,9 @@ jobs:
             echo "$modified_string"
           }
           echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}-test-logs")" >> $GITHUB_ENV
+
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -599,13 +594,25 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+          DEFAULT_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ci-client-compatability-${{ matrix.eth_client }}-testnet
+          DEFAULT_PYROSCOPE_ENABLED: "true"
+
       - name: Print failed test summary
         if: always()
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
 
   start-slack-thread:
     name: Start Slack Thread
-    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -664,7 +671,7 @@ jobs:
 
   parse-test-results:
     name: Parse Test Results
-    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true'
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
     environment: integration
     permissions:
       checks: write
@@ -750,7 +757,7 @@ jobs:
 
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
-    if: ${{ always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' }}
+    if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
     environment: integration
     permissions:
       checks: write
