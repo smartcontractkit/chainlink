@@ -205,7 +205,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	jb.PipelineSpec.JobType = string(jb.Type)
 	jb.PipelineSpec.ForwardingAllowed = jb.ForwardingAllowed
 
-	//We add the relayC config to the pipeline spec, so it can be accessed in the runner
+	//We add the relay config to the pipeline spec, so it can be accessed in the runner
 	jb.PipelineSpec.RelayConfig = jb.RelayConfig
 	jb.PipelineSpec.Relay = jb.Relay
 
