@@ -31,6 +31,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
@@ -106,7 +107,7 @@ func SetOracleConfig(t *testing.T, b *simulated.Backend, owner *bind.TransactOpt
 		offchainConfig,
 	)
 	require.NoError(t, err)
-	CommitWithFinality(b)
+	client.FinalizeLatest(t, b)
 }
 
 func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
@@ -148,14 +149,6 @@ func CreateAndFundSubscriptions(t *testing.T, b *simulated.Backend, owner *bind.
 	b.Commit()
 
 	return subscriptionID
-}
-
-const finalityDepth int = 4
-
-func CommitWithFinality(b *simulated.Backend) {
-	for i := 0; i < finalityDepth; i++ {
-		b.Commit()
-	}
 }
 
 type deployedClientContract struct {
@@ -206,6 +199,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	}
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b.Client(), linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
+	b.Commit()
 
 	// Deploy Allow List contract
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
@@ -256,7 +250,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		}
 	}
 
-	CommitWithFinality(b)
+	client.FinalizeLatest(t, b)
 	commit, stop := cltest.Mine(b, time.Second)
 
 	active := Coordinator{
@@ -622,7 +616,7 @@ func ClientTestRequests(
 		)
 		require.NoError(t, err)
 	}
-	CommitWithFinality(b)
+	client.FinalizeLatest(t, b)
 
 	// validate that all client contracts got correct responses to their requests
 	var wg sync.WaitGroup

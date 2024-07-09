@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
@@ -948,6 +949,14 @@ func interfaceToHash(value interface{}) (*common.Hash, error) {
 
 type HeadReader interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+}
+
+// FinalizeLatest commits new blocks until the latest block is finalized.
+func FinalizeLatest(t *testing.T, backend evmtypes.Backend) {
+	cl := backend.Client()
+	h, err := cl.HeaderByNumber(tests.Context(t), nil)
+	require.NoError(t, err)
+	FinalizeThroughBlock(t, backend, cl, h.Number.Int64())
 }
 
 // FinalizeThroughBlock commits new blocks until blockNumber is finalized. This requires committing all of
