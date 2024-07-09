@@ -62,7 +62,8 @@ func CreateOCRv2JobsLocal(
 	for _, ocrInstance := range ocrInstances {
 		bootstrapSpec := &client.OCR2TaskJobSpec{
 			Name:    fmt.Sprintf("ocr2_bootstrap-%s", uuid.NewString()),
-			JobType: "bootstrap", Relay: "evm",
+			JobType: "bootstrap",
+			Relay:   "evm",
 			RelayConfig: map[string]interface{}{
 				"chainID": chainId,
 			},
@@ -111,7 +112,8 @@ func CreateOCRv2JobsLocal(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed: forwardingAllowed, Relay: "evm",
+				ForwardingAllowed: forwardingAllowed,
+				Relay:             "evm",
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},

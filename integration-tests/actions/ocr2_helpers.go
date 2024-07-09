@@ -266,7 +266,8 @@ func CreateOCRv2Jobs(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
-				ForwardingAllowed: forwardingAllowed, Relay: "evm",
+				ForwardingAllowed: forwardingAllowed,
+				Relay:             "evm",
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
