@@ -308,7 +308,7 @@ jobs:
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
-    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
+    if: always() && needs.should-run.outputs.should_run == 'true' && needs.select-versions.outputs.evm_implementations != '' && github.event.inputs.base64TestList == ''
     environment: integration
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
