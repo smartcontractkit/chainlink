@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -287,7 +289,37 @@ func (c *CCIPTestConfig) SetNetworkPairs(lggr zerolog.Logger) error {
 
 	// if the number of lanes is lesser than the number of network pairs, choose first c.TestGroupInput.MaxNoOfLanes pairs
 	if c.TestGroupInput.MaxNoOfLanes > 0 && c.TestGroupInput.MaxNoOfLanes < len(c.NetworkPairs) {
-		c.NetworkPairs = c.NetworkPairs[:c.TestGroupInput.MaxNoOfLanes]
+		var newNetworkPairs []NetworkPair
+		denselyConnectedNetworks := make(map[string]struct{})
+		// if densely connected networks are provided, choose all the network pairs containing the networks mentioned in the list for DenselyConnectedNetworkChainIds
+		if c.TestGroupInput.DenselyConnectedNetworkChainIds != nil && len(c.TestGroupInput.DenselyConnectedNetworkChainIds) > 0 {
+			for _, n := range c.TestGroupInput.DenselyConnectedNetworkChainIds {
+				denselyConnectedNetworks[n] = struct{}{}
+			}
+			for _, pair := range c.NetworkPairs {
+				if _, exists := denselyConnectedNetworks[strconv.FormatInt(pair.NetworkA.ChainID, 10)]; exists {
+					newNetworkPairs = append(newNetworkPairs, pair)
+				}
+			}
+		}
+		// shuffle the network pairs, we want to randomly distribute the network pairs among all available networks
+		rand.Shuffle(len(c.NetworkPairs), func(i, j int) {
+			c.NetworkPairs[i], c.NetworkPairs[j] = c.NetworkPairs[j], c.NetworkPairs[i]
+		})
+		// now add the remaining network pairs by skipping the already covered networks
+		// and adding the remaining pair from the shuffled list
+		i := len(newNetworkPairs)
+		j := 0
+		for i < c.TestGroupInput.MaxNoOfLanes {
+			pair := c.NetworkPairs[j]
+			// if the network is already covered, skip it
+			if _, exists := denselyConnectedNetworks[strconv.FormatInt(pair.NetworkA.ChainID, 10)]; !exists {
+				newNetworkPairs = append(newNetworkPairs, pair)
+				i++
+			}
+			j++
+		}
+		c.NetworkPairs = newNetworkPairs
 	}
 
 	for _, n := range c.NetworkPairs {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
@@ -32,11 +35,30 @@ type ChaosConfig struct {
 	WaitBetweenChaos time.Duration
 }
 
+// WaspSchedule calculates the load schedule based on the provided request per unit time and duration
+// if multiple step durations are provided, it will calculate the schedule based on the step duration and
+// corresponding request per unit time by matching the index of the request per unit time and step duration slice
+func WaspSchedule(rps []int64, duration *config.Duration, steps []*config.Duration) []*wasp.Segment {
+	var segments []*wasp.Segment
+	var segmentDuration time.Duration
+
+	if len(rps) > 1 {
+		for i, req := range rps {
+			duration := steps[i].Duration()
+			segmentDuration += duration
+			segments = append(segments, wasp.Plain(req, duration)...)
+		}
+		totalDuration := duration.Duration()
+		repeatTimes := totalDuration.Seconds() / segmentDuration.Seconds()
+		return wasp.CombineAndRepeat(int(math.Round(repeatTimes)), segments)
+	}
+	return wasp.Plain(rps[0], duration.Duration())
+}
+
 type LoadArgs struct {
 	t                *testing.T
 	Ctx              context.Context
 	lggr             *zerolog.Logger
-	schedules        []*wasp.Segment
 	RunnerWg         *errgroup.Group // to wait on individual load generators run
 	LoadStarterWg    *sync.WaitGroup // waits for all the runners to start
 	TestCfg          *testsetups.CCIPTestConfig
@@ -82,23 +104,27 @@ func (l *LoadArgs) Setup() {
 	l.SetReportParams()
 }
 
-func (l *LoadArgs) setSchedule() {
-	var segments []*wasp.Segment
-	var segmentDuration time.Duration
+func (l *LoadArgs) scheduleForDest(destNetworkName string) []*wasp.Segment {
 	require.Greater(l.t, len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime), 0, "RequestPerUnitTime must be set")
-
-	if len(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime) > 1 {
-		for i, req := range l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime {
-			duration := l.TestCfg.TestGroupInput.LoadProfile.StepDuration[i].Duration()
-			segmentDuration += duration
-			segments = append(segments, wasp.Plain(req, duration)...)
+	// try to locate if there is a frequency provided for the destination network
+	// to locate the frequency, we check if the destination network name contains the network name in the frequency map
+	// if found, use that frequency for the destination network
+	// otherwise, use the default frequency
+	if l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination != nil {
+		for networkName, freq := range l.TestCfg.TestGroupInput.LoadProfile.FrequencyByDestination {
+			if strings.Contains(destNetworkName, networkName) {
+				return WaspSchedule(
+					freq.RequestPerUnitTime,
+					l.TestCfg.TestGroupInput.LoadProfile.TestDuration,
+					freq.StepDuration)
+			}
 		}
-		totalDuration := l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration()
-		repeatTimes := totalDuration.Seconds() / segmentDuration.Seconds()
-		l.schedules = wasp.CombineAndRepeat(int(math.Round(repeatTimes)), segments)
-	} else {
-		l.schedules = wasp.Plain(l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime[0], l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration())
 	}
+
+	return WaspSchedule(
+		l.TestCfg.TestGroupInput.LoadProfile.RequestPerUnitTime,
+		l.TestCfg.TestGroupInput.LoadProfile.TestDuration,
+		l.TestCfg.TestGroupInput.LoadProfile.StepDuration)
 }
 
 func (l *LoadArgs) SanityCheck() {
@@ -233,7 +259,6 @@ func (l *LoadArgs) ValidateCurseFollowedByUncurse() {
 }
 
 func (l *LoadArgs) TriggerLoadByLane() {
-	l.setSchedule()
 	l.TestSetupArgs.Reporter.SetDuration(l.TestCfg.TestGroupInput.LoadProfile.TestDuration.Duration())
 
 	// start load for a lane
@@ -269,7 +294,7 @@ func (l *LoadArgs) TriggerLoadByLane() {
 		waspCfg := &wasp.Config{
 			T:                     l.TestCfg.Test,
 			GenName:               fmt.Sprintf("lane %s-> %s", lane.SourceNetworkName, lane.DestNetworkName),
-			Schedule:              l.schedules,
+			Schedule:              l.scheduleForDest(lane.DestNetworkName),
 			LoadType:              wasp.RPS,
 			RateLimitUnitDuration: l.TestCfg.TestGroupInput.LoadProfile.TimeUnit.Duration(),
 			CallResultBufLen:      10, // we keep the last 10 call results for each generator, as the detailed report is generated at the end of the test

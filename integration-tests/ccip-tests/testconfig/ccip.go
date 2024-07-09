@@ -204,19 +204,26 @@ func (m *MsgProfile) Validate() error {
 	return nil
 }
 
+type LoadFrequency struct {
+	RequestPerUnitTime []int64            `toml:",omitempty"`
+	TimeUnit           *config.Duration   `toml:",omitempty"`
+	StepDuration       []*config.Duration `toml:",omitempty"`
+}
+
 type LoadProfile struct {
-	MsgProfile                                 *MsgProfile        `toml:",omitempty"`
-	RequestPerUnitTime                         []int64            `toml:",omitempty"`
-	TimeUnit                                   *config.Duration   `toml:",omitempty"`
-	StepDuration                               []*config.Duration `toml:",omitempty"`
-	TestDuration                               *config.Duration   `toml:",omitempty"`
-	NetworkChaosDelay                          *config.Duration   `toml:",omitempty"`
-	WaitBetweenChaosDuringLoad                 *config.Duration   `toml:",omitempty"`
-	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration   `toml:",omitempty"`
-	OptimizeSpace                              *bool              `toml:",omitempty"`
-	FailOnFirstErrorInLoad                     *bool              `toml:",omitempty"`
-	SendMaxDataInEveryMsgCount                 *int64             `toml:",omitempty"`
-	TestRunName                                string             `toml:",omitempty"`
+	MsgProfile                                 *MsgProfile               `toml:",omitempty"`
+	FrequencyByDestination                     map[string]*LoadFrequency `toml:",omitempty"`
+	RequestPerUnitTime                         []int64                   `toml:",omitempty"`
+	TimeUnit                                   *config.Duration          `toml:",omitempty"`
+	StepDuration                               []*config.Duration        `toml:",omitempty"`
+	TestDuration                               *config.Duration          `toml:",omitempty"`
+	NetworkChaosDelay                          *config.Duration          `toml:",omitempty"`
+	WaitBetweenChaosDuringLoad                 *config.Duration          `toml:",omitempty"`
+	SkipRequestIfAnotherRequestTriggeredWithin *config.Duration          `toml:",omitempty"`
+	OptimizeSpace                              *bool                     `toml:",omitempty"`
+	FailOnFirstErrorInLoad                     *bool                     `toml:",omitempty"`
+	SendMaxDataInEveryMsgCount                 *int64                    `toml:",omitempty"`
+	TestRunName                                string                    `toml:",omitempty"`
 }
 
 func (l *LoadProfile) Validate() error {
@@ -246,32 +253,33 @@ func (l *LoadProfile) SetTestRunName(name string) {
 
 // CCIPTestGroupConfig defines configuration input to change how a particular CCIP test group should run
 type CCIPTestGroupConfig struct {
-	Type                      string                                `toml:",omitempty"`
-	KeepEnvAlive              *bool                                 `toml:",omitempty"`
-	BiDirectionalLane         *bool                                 `toml:",omitempty"`
-	CommitAndExecuteOnSameDON *bool                                 `toml:",omitempty"`
-	NoOfCommitNodes           int                                   `toml:",omitempty"`
-	MsgDetails                *MsgDetails                           `toml:",omitempty"`
-	TokenConfig               *TokenConfig                          `toml:",omitempty"`
-	MulticallInOneTx          *bool                                 `toml:",omitempty"`
-	NoOfSendsInMulticall      int                                   `toml:",omitempty"`
-	PhaseTimeout              *config.Duration                      `toml:",omitempty"`
-	LocalCluster              *bool                                 `toml:",omitempty"`
-	ExistingDeployment        *bool                                 `toml:",omitempty"`
-	ReuseContracts            *bool                                 `toml:",omitempty"`
-	NodeFunding               float64                               `toml:",omitempty"`
-	NetworkPairs              []string                              `toml:",omitempty"`
-	NoOfNetworks              int                                   `toml:",omitempty"`
-	NoOfRoutersPerPair        int                                   `toml:",omitempty"`
-	MaxNoOfLanes              int                                   `toml:",omitempty"`
-	ChaosDuration             *config.Duration                      `toml:",omitempty"`
-	USDCMockDeployment        *bool                                 `toml:",omitempty"`
-	CommitOCRParams           *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	ExecOCRParams             *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
-	OffRampConfig             *OffRampConfig                        `toml:",omitempty"`
-	CommitInflightExpiry      *config.Duration                      `toml:",omitempty"`
-	StoreLaneConfig           *bool                                 `toml:",omitempty"`
-	LoadProfile               *LoadProfile                          `toml:",omitempty"`
+	Type                            string                                `toml:",omitempty"`
+	KeepEnvAlive                    *bool                                 `toml:",omitempty"`
+	BiDirectionalLane               *bool                                 `toml:",omitempty"`
+	CommitAndExecuteOnSameDON       *bool                                 `toml:",omitempty"`
+	NoOfCommitNodes                 int                                   `toml:",omitempty"`
+	MsgDetails                      *MsgDetails                           `toml:",omitempty"`
+	TokenConfig                     *TokenConfig                          `toml:",omitempty"`
+	MulticallInOneTx                *bool                                 `toml:",omitempty"`
+	NoOfSendsInMulticall            int                                   `toml:",omitempty"`
+	PhaseTimeout                    *config.Duration                      `toml:",omitempty"`
+	LocalCluster                    *bool                                 `toml:",omitempty"`
+	ExistingDeployment              *bool                                 `toml:",omitempty"`
+	ReuseContracts                  *bool                                 `toml:",omitempty"`
+	NodeFunding                     float64                               `toml:",omitempty"`
+	NetworkPairs                    []string                              `toml:",omitempty"`
+	DenselyConnectedNetworkChainIds []string                              `toml:",omitempty"`
+	NoOfNetworks                    int                                   `toml:",omitempty"`
+	NoOfRoutersPerPair              int                                   `toml:",omitempty"`
+	MaxNoOfLanes                    int                                   `toml:",omitempty"`
+	ChaosDuration                   *config.Duration                      `toml:",omitempty"`
+	USDCMockDeployment              *bool                                 `toml:",omitempty"`
+	CommitOCRParams                 *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	ExecOCRParams                   *contracts.OffChainAggregatorV2Config `toml:",omitempty"`
+	OffRampConfig                   *OffRampConfig                        `toml:",omitempty"`
+	CommitInflightExpiry            *config.Duration                      `toml:",omitempty"`
+	StoreLaneConfig                 *bool                                 `toml:",omitempty"`
+	LoadProfile                     *LoadProfile                          `toml:",omitempty"`
 }
 
 func (c *CCIPTestGroupConfig) Validate() error {

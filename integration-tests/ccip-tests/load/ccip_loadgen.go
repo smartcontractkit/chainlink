@@ -248,10 +248,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	// if the token address is 0x0 it will use Native as fee token and the fee amount should be mentioned in bind.TransactOpts's value
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
-		res.Error = fmt.Sprintf("reqNo %d err %s - while getting fee from router - msg Data %x FeeToken %s TokenAmounts %+v ExtraArgs %x Receiver %x",
-			msgSerialNo, err.Error(),
-			msg.Data, msg.FeeToken, msg.TokenAmounts, msg.ExtraArgs, msg.Receiver)
-
+		res.Error = fmt.Sprintf("reqNo %d err %s - while getting fee from router", msgSerialNo, err.Error())
 		res.Failed = true
 		return res
 	}
@@ -271,7 +268,6 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	txConfirmationTime := time.Now().UTC()
-	// wait for the tx to be mined, timeout is set to 10 minutes
 	lggr.Info().Str("tx", sendTx.Hash().Hex()).Msg("waiting for tx to be mined")
 	lggr = lggr.With().Str("Msg Tx", sendTx.Hash().String()).Logger()
 

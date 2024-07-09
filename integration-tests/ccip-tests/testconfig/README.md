@@ -528,7 +528,12 @@ Specifies the number of routers to be set up for each network.
 
 ### CCIP.Groups.[testgroup].MaxNoOfLanes
 Specifies the maximum number of lanes to be set up between networks. If this values is not set, the test will set up lanes between all possible pairs of networks mentioned in `selected_networks` in [CCIP.Env.Networks](#ccipenvnetworksselectednetworks).
-For example, if `selected_networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3']`, and `MaxNoOfLanes` is set to 2, it denotes that the test will select the first 2 lanes between all possible pairs `SIMULATED_1`, `SIMULATED_2`, and `SIMULATED_3` for the test run.
+For example, if `selected_networks = ['SIMULATED_1', 'SIMULATED_2', 'SIMULATED_3']`, and `MaxNoOfLanes` is set to 2, it denotes that the test will randomly select the 2 lanes between all possible pairs `SIMULATED_1`, `SIMULATED_2`, and `SIMULATED_3` for the test run.
+
+### CCIP.Groups.[testgroup].DenselyConnectedNetworkChainIds
+This is applicable only if [MaxNoOfLanes](#ccipgroupstestgroupmaxnooflanes) is specified. 
+Specifies the chain ids for networks to be densely connected. If this is provided the test will include all possible pairs of networks mentioned in `DenselyConnectedNetworkChainIds`.
+The rest of the networks will be connected randomly based on the value of `MaxNoOfLanes`.
 
 ### CCIP.Groups.[testgroup].ChaosDuration
 Specifies the duration for which the chaos experiment is to be run. This is only valid if the test type is 'chaos'.
@@ -595,14 +600,16 @@ This is only valid if the tests are run on remote runners in k8s. If set to true
 ### CCIP.Groups.[testgroup].LoadProfile
 Specifies the load profile for the test. Only valid if the testgroup is 'load'. 
 
+### CCIP.Groups.[testgroup].LoadProfile.LoadFrequency.[DestNetworkName]
+
 #### CCIP.Groups.[testgroup].LoadProfile.RequestPerUnitTime
-Specifies the number of requests to be sent per unit time.
+Specifies the number of requests to be sent per unit time. This is applicable to all networks if [LoadFrequency](#ccipgroupstestgrouploadprofileloadfrequencydestnetworkname) is not specified for a destination network.
 
 #### CCIP.Groups.[testgroup].LoadProfile.TimeUnit
-Specifies the unit of time for the load profile.
+Specifies the unit of time for the load profile. This is applicable to all networks if [LoadFrequency](#ccipgroupstestgrouploadprofileloadfrequencydestnetworkname) is not specified for a destination network.
 
 #### CCIP.Groups.[testgroup].LoadProfile.StepDuration
-Specifies the duration for each step in the load profile.
+Specifies the duration for each step in the load profile. This is applicable to all networks if [LoadFrequency](#ccipgroupstestgrouploadprofileloadfrequencydestnetworkname) is not specified for a destination network.
 
 #### CCIP.Groups.[testgroup].LoadProfile.TestDuration
 Specifies the total duration for the load test.

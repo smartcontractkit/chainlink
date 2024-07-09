@@ -476,11 +476,22 @@ func DeployEnvironments(
 			// if anvilconfig is specified for a network addhelm for anvil
 			if anvilConfig, exists := testInputs.EnvInput.Network.AnvilConfigs[strings.ToUpper(network.Name)]; exists {
 				charts = append(charts, foundry.ChartName)
+				if anvilConfig.BaseFee == nil {
+					anvilConfig.BaseFee = pointer.ToInt64(1000000)
+				}
+				if anvilConfig.BlockGaslimit == nil {
+					anvilConfig.BlockGaslimit = pointer.ToInt64(100000000)
+				}
 				testEnvironment.
-					AddHelm(foundry.New(&foundry.Props{
+					AddHelm(foundry.NewVersioned("0.1.9", &foundry.Props{
 						NetworkName: network.Name,
 						Values: map[string]interface{}{
 							"fullnameOverride": actions.NetworkName(network.Name),
+							"image": map[string]interface{}{
+								"repository": "ghcr.io/foundry-rs/foundry",
+								"tag":        "nightly-5ac78a9cd4b94dc53d1fe5e0f42372b28b5a7559",
+								//	"tag":        "nightly-ea2eff95b5c17edd3ffbdfc6daab5ce5cc80afc0",
+							},
 							"anvil": map[string]interface{}{
 								"chainId":                   fmt.Sprintf("%d", network.ChainID),
 								"blockTime":                 anvilConfig.BlockTime,
@@ -491,8 +502,10 @@ func DeployEnvironments(
 								"forkComputeUnitsPerSecond": anvilConfig.ComputePerSecond,
 								"forkNoRateLimit":           anvilConfig.RateLimitDisabled,
 								"blocksToKeepInMemory":      anvilConfig.BlocksToKeepInMem,
+								"blockGasLimit":             fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BlockGaslimit)),
+								"baseFee":                   fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BaseFee)),
 							},
-							"resources": testInputs.GethResourceProfile,
+							"resources": GethResourceProfile,
 						},
 					}))
 				selectedNetworks[i].Simulated = true
