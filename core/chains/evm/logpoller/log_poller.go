@@ -1281,7 +1281,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 			BlockHash:      head.Hash,
 			BlockNumber:    head.Number,
 			BlockTimestamp: head.Timestamp,
-			CreatedAt:      head.Timestamp,
+			CreatedAt:      head.CreatedAt,
 		}
 	}
 	return logPollerBlocks, nil

@@ -992,16 +992,15 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 // Head given the value convert it into a Head
 func Head(val interface{}) *evmtypes.Head {
 	var h evmtypes.Head
-	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	case uint64:
-		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(int64(t)), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	case int64:
-		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(big.NewInt(t), evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	case *big.Int:
-		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+		h = evmtypes.NewHead(t, evmutils.NewHash(), evmutils.NewHash(), ubig.New(&FixtureChainID))
 	default:
 		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
@@ -1010,8 +1009,7 @@ func Head(val interface{}) *evmtypes.Head {
 
 func HeadWithHash(n int64, hash common.Hash) *evmtypes.Head {
 	var h evmtypes.Head
-	time := uint64(0)
-	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), time, ubig.New(&FixtureChainID))
+	h = evmtypes.NewHead(big.NewInt(n), hash, evmutils.NewHash(), ubig.New(&FixtureChainID))
 	return &h
 }
 
@@ -1392,11 +1390,12 @@ func (b *Blocks) slice(i, j int) (heads []*evmtypes.Head) {
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
+	now := time.Now()
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: now.Add(time.Duration(i) * time.Second), EVMChainID: ubig.New(&FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent

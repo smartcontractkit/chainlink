@@ -634,7 +634,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		c := ht.headSaver.Chain(h.Hash)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
-		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.UTC().Unix())
+		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.Unix())
 		assert.Equal(t, c.Number, h.Number)
 	}
 }
@@ -791,7 +791,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		c := ht.headSaver.Chain(h.Hash)
 		require.NotNil(t, c)
 		assert.Equal(t, c.ParentHash, h.ParentHash)
-		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.UTC().Unix())
+		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.Unix())
 		assert.Equal(t, c.Number, h.Number)
 	}
 }
@@ -816,7 +816,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: common.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, ubig.New(testutils.FixtureChainID))
+	head0 := evmtypes.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, ubig.New(testutils.FixtureChainID))
+	head0.Timestamp = time.Unix(int64(gethHead0.Time), 0)
 
 	h1 := *testutils.Head(1)
 	h1.ParentHash = head0.Hash
@@ -826,7 +827,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, ubig.New(testutils.FixtureChainID))
+	head8 := evmtypes.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, ubig.New(testutils.FixtureChainID))
+	head8.Timestamp = time.Unix(int64(gethHead8.Time), 0)
 
 	h9 := *testutils.Head(9)
 	h9.ParentHash = head8.Hash
@@ -836,7 +838,8 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, ubig.New(testutils.FixtureChainID))
+	head10 := evmtypes.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, ubig.New(testutils.FixtureChainID))
+	head10.Timestamp = time.Unix(int64(gethHead10.Time), 0)
 
 	h11 := *testutils.Head(11)
 	h11.ParentHash = head10.Hash
@@ -1418,7 +1421,7 @@ func (hb *headBuffer) Append(head *evmtypes.Head) {
 		Hash:       head.Hash,
 		ParentHash: head.ParentHash,
 		Parent:     head.Parent,
-		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
+		Timestamp:  head.Timestamp,
 		EVMChainID: head.EVMChainID,
 	}
 	hb.Heads = append(hb.Heads, cloned)
@@ -1438,11 +1441,12 @@ func (b *blocks) Head(number uint64) *evmtypes.Head {
 func NewBlocks(t *testing.T, numHashes int) *blocks {
 	hashes := make([]common.Hash, 0)
 	heads := make(map[int64]*evmtypes.Head)
+	now := time.Now()
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := testutils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0), EVMChainID: ubig.New(testutils.FixtureChainID)}
+		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: now.Add(time.Duration(i) * time.Second), EVMChainID: ubig.New(testutils.FixtureChainID)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1489,7 +1493,7 @@ func (b *blocks) NewHead(number uint64) *evmtypes.Head {
 		Hash:       testutils.NewHash(),
 		ParentHash: parent.Hash,
 		Parent:     parent,
-		Timestamp:  time.Unix(parent.Number+1, 0),
+		Timestamp:  parent.Timestamp.Add(1),
 		EVMChainID: ubig.New(testutils.FixtureChainID),
 	}
 	return head

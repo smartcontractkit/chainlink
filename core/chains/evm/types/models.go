@@ -51,12 +51,12 @@ var _ commontypes.Head[common.Hash] = &Head{}
 var _ htrktypes.Head[common.Hash, *big.Int] = &Head{}
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *ubig.Big) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, chainID *ubig.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
-		Timestamp:  time.Unix(int64(timestamp), 0),
+		Timestamp:  time.Now(),
 		EVMChainID: chainID,
 	}
 }

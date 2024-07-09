@@ -1470,7 +1470,6 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 }
 
 func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
-	t.Skip("TODO FIXME")
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 0)
 	testConsumerProxyHappyPath(
