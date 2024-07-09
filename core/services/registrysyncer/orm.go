@@ -3,7 +3,6 @@ package registrysyncer
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -24,7 +23,7 @@ func newORM(ds sqlutil.DataSource, lggr logger.Logger) syncerORM {
 }
 
 func (orm syncerORM) addState(ctx context.Context, state State) error {
-	stateJSON, err := json.Marshal(state)
+	stateJSON, err := state.MarshalJSON()
 	if err != nil {
 		return err
 	}
