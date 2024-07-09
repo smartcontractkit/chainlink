@@ -27,7 +27,7 @@ func TestFluxBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	config, err := tc.GetConfig("Smoke", tc.Flux)
+	config, err := tc.GetConfig([]string{"Smoke"}, tc.Flux)
 	require.NoError(t, err, "Error getting config")
 
 	privateNetwork, err := actions.EthereumNetworkConfigFromConfig(l, &config)

@@ -2,8 +2,6 @@ package bm
 
 import (
 	"context"
-	"crypto/ed25519"
-	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -37,10 +35,10 @@ type transmitter struct {
 	fromAccount string
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount ed25519.PublicKey) Transmitter {
+func NewTransmitter(lggr logger.Logger, fromAccount string) Transmitter {
 	return &transmitter{
 		lggr.Named("DummyTransmitter"),
-		fmt.Sprintf("%x", fromAccount),
+		fromAccount,
 	}
 }
 

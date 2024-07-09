@@ -73,6 +73,7 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr lo
 		p2p:        newP2PKeyStore(km),
 		solana:     newSolanaKeyStore(km),
 		starknet:   newStarkNetKeyStore(km),
+		aptos:      newAptosKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		dkgSign:    newDKGSignKeyStore(km),
 		dkgEncrypt: newDKGEncryptKeyStore(km),

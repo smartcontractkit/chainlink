@@ -141,6 +141,17 @@ func (r *CronSpecResolver) Schedule() string {
 	return r.spec.CronSchedule
 }
 
+// EVMChainID resolves the spec's evm chain id.
+func (r *CronSpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
+}
+
 // CreatedAt resolves the spec's created at timestamp.
 func (r *CronSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}

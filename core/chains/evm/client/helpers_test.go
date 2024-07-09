@@ -87,6 +87,8 @@ type TestNodePoolConfig struct {
 	NodeIsSyncingEnabledVal        bool
 	NodeFinalizedBlockPollInterval time.Duration
 	NodeErrors                     config.ClientErrors
+	EnforceRepeatableReadVal       bool
+	NodeDeathDeclarationDelay      time.Duration
 }
 
 func (tc TestNodePoolConfig) PollFailureThreshold() uint32 { return tc.NodePollFailureThreshold }
@@ -107,6 +109,14 @@ func (tc TestNodePoolConfig) FinalizedBlockPollInterval() time.Duration {
 
 func (tc TestNodePoolConfig) Errors() config.ClientErrors {
 	return tc.NodeErrors
+}
+
+func (tc TestNodePoolConfig) EnforceRepeatableRead() bool {
+	return tc.EnforceRepeatableReadVal
+}
+
+func (tc TestNodePoolConfig) DeathDeclarationDelay() time.Duration {
+	return tc.NodeDeathDeclarationDelay
 }
 
 func NewChainClientWithTestNode(
@@ -150,7 +160,7 @@ func NewChainClientWithTestNode(
 
 	var chainType chaintype.ChainType
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), leaseDuration, noNewHeadsThreshold, primaries, sendonlys, chainID, chainType, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c, nil
 }
@@ -165,7 +175,7 @@ func NewChainClientWithEmptyNode(
 	lggr := logger.Test(t)
 
 	var chainType chaintype.ChainType
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, nil, nil, chainID, chainType, nil, 0)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -191,7 +201,7 @@ func NewChainClientWithMockedRpc(
 		cfg, clientMocks.ChainConfig{NoNewHeadsThresholdVal: noNewHeadsThreshold}, lggr, *parsed, nil, "eth-primary-node-0", 1, chainID, 1, rpc, "EVM")
 	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 	clientErrors := NewTestClientErrors()
-	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors)
+	c := NewChainClient(lggr, selectionMode, leaseDuration, noNewHeadsThreshold, primaries, nil, chainID, chainType, &clientErrors, 0)
 	t.Cleanup(c.Close)
 	return c
 }

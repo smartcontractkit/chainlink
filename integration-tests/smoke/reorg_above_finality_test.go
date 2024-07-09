@@ -19,7 +19,7 @@ func TestReorgAboveFinality_FinalityTagDisabled(t *testing.T) {
 	t.Parallel()
 
 	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig(t.Name(), tc.LogPoller)
+	config, err := tc.GetConfig([]string{t.Name()}, tc.LogPoller)
 	require.NoError(t, err, "Error getting config")
 
 	privateNetworkConf, err := actions.EthereumNetworkConfigFromConfig(l, &config)

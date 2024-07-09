@@ -74,9 +74,9 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -106,9 +106,9 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -191,7 +191,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      2,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
@@ -212,13 +212,13 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      1,
 		F:       workflowDonF,
 	}
 
 	broker := newTestAsyncMessageBroker(t, 1000)
 
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
@@ -380,10 +380,10 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 type abstractTestCapability struct {
 }
@@ -409,8 +409,12 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 
 	value := request.Inputs.Underlying["executeValue1"]
 
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return nil, err
+	}
 	ch <- commoncap.CapabilityResponse{
-		Value: value,
+		Value: response,
 	}
 
 	return ch, nil

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocr2plustypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
@@ -78,5 +79,5 @@ func (d MultichainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.C
 }
 
 func (d MultichainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
-	return types.ConfigDigestPrefixEVM, nil
+	return ocr2plustypes.ConfigDigestPrefixEVMSimple, nil
 }

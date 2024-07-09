@@ -40,8 +40,11 @@ const HeadsBufferSize = 10
 type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
 	services.Service
 	// Backfill given a head will fill in any missing heads up to latestFinalized
-	Backfill(ctx context.Context, headWithChain, latestFinalized H) (err error)
+	Backfill(ctx context.Context, headWithChain H) (err error)
 	LatestChain() H
+	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
+	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
 }
 
 type headTracker[
@@ -114,16 +117,15 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Start(ctx context.Context) error 
 		// anyway when we connect (but we should not rely on this because it is
 		// not specced). If it happens this is fine, and the head will be
 		// ignored as a duplicate.
-		err := ht.handleInitialHead(ctx)
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
+		onSubscribe := func() {
+			err := ht.handleInitialHead(ctx)
+			if err != nil {
+				ht.log.Errorw("Error handling initial head", "err", err.Error())
 			}
-			ht.log.Errorw("Error handling initial head", "err", err.Error())
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.wgDone.Done)
+		go ht.headListener.ListenForNewHeads(onSubscribe, ht.handleNewHead, ht.wgDone.Done)
 		go ht.backfillLoop()
 		go ht.broadcastLoop()
 
@@ -145,7 +147,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Con
 	}
 	ht.log.Debugw("Got initial head", "head", initialHead, "blockNumber", initialHead.BlockNumber(), "blockHash", initialHead.BlockHash())
 
-	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead)
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, initialHead, ht.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate latest finalized head: %w", err)
 	}
@@ -195,7 +197,12 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 	return report
 }
 
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain, latestFinalized HTH) (err error) {
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH) (err error) {
+	latestFinalized, err := ht.calculateLatestFinalized(ctx, headWithChain, ht.htConfig.FinalityTagBypass())
+	if err != nil {
+		return fmt.Errorf("failed to calculate finalized block: %w", err)
+	}
+
 	if !latestFinalized.IsValid() {
 		return errors.New("can not perform backfill without a valid latestFinalized head")
 	}
@@ -206,6 +213,11 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, hea
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
 			Criticalf(errMsg)
 		return errors.New(errMsg)
+	}
+
+	if headWithChain.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
+		return fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
+			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
 	}
 
 	return ht.backfill(ctx, headWithChain, latestFinalized)
@@ -317,13 +329,7 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 					break
 				}
 				{
-					latestFinalized, err := ht.calculateLatestFinalized(ctx, head)
-					if err != nil {
-						ht.log.Warnw("Failed to calculate finalized block", "err", err)
-						continue
-					}
-
-					err = ht.Backfill(ctx, head, latestFinalized)
+					err := ht.Backfill(ctx, head)
 					if err != nil {
 						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -335,12 +341,58 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) backfillLoop() {
 	}
 }
 
+// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
+// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
+// TODO: BCI-3321 use cached values instead of making RPC requests
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HTH, err error) {
+	latest, err = ht.client.HeadByNumber(ctx, nil)
+	if err != nil {
+		err = fmt.Errorf("failed to get latest block: %w", err)
+		return
+	}
+
+	if !latest.IsValid() {
+		err = fmt.Errorf("expected latest block to be valid")
+		return
+	}
+
+	finalized, err = ht.calculateLatestFinalized(ctx, latest, false)
+	if err != nil {
+		err = fmt.Errorf("failed to calculate latest finalized block: %w", err)
+		return
+	}
+	if !finalized.IsValid() {
+		err = fmt.Errorf("expected finalized block to be valid")
+		return
+	}
+
+	return
+}
+
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Context, chainHeadHash BLOCK_HASH, blockHeight int64) (HTH, error) {
+	chainHead := ht.headSaver.Chain(chainHeadHash)
+	if chainHead.IsValid() {
+		// check if provided chain contains a block of specified height
+		headAtHeight, err := chainHead.HeadAtHeight(blockHeight)
+		if err == nil {
+			// we are forced to reload the block due to type mismatched caused by generics
+			hthAtHeight := ht.headSaver.Chain(headAtHeight.BlockHash())
+			// ensure that the block was not removed from the chain by another goroutine
+			if hthAtHeight.IsValid() {
+				return hthAtHeight, nil
+			}
+		}
+	}
+
+	return ht.client.HeadByNumber(ctx, big.NewInt(blockHeight))
+}
+
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH) (latestFinalized HTH, err error) {
-	if ht.config.FinalityTagEnabled() && !ht.htConfig.FinalityTagBypass() {
-		latestFinalized, err = ht.client.LatestFinalizedBlock(ctx)
+func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH, finalityTagBypass bool) (HTH, error) {
+	if ht.config.FinalityTagEnabled() && !finalityTagBypass {
+		latestFinalized, err := ht.client.LatestFinalizedBlock(ctx)
 		if err != nil {
 			return latestFinalized, fmt.Errorf("failed to get latest finalized block: %w", err)
 		}
@@ -349,22 +401,22 @@ func (ht *headTracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx cont
 			return latestFinalized, fmt.Errorf("failed to get valid latest finalized block")
 		}
 
-		if currentHead.BlockNumber()-latestFinalized.BlockNumber() > int64(ht.htConfig.MaxAllowedFinalityDepth()) {
-			return latestFinalized, fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
-				latestFinalized.BlockNumber(), currentHead.BlockNumber(), ht.htConfig.MaxAllowedFinalityDepth())
+		if ht.config.FinalizedBlockOffset() == 0 {
+			return latestFinalized, nil
 		}
 
-		return latestFinalized, nil
+		finalizedBlockNumber := max(latestFinalized.BlockNumber()-int64(ht.config.FinalizedBlockOffset()), 0)
+		return ht.getHeadAtHeight(ctx, latestFinalized.BlockHash(), finalizedBlockNumber)
 	}
 	// no need to make an additional RPC call on chains with instant finality
-	if ht.config.FinalityDepth() == 0 {
+	if ht.config.FinalityDepth() == 0 && ht.config.FinalizedBlockOffset() == 0 {
 		return currentHead, nil
 	}
-	finalizedBlockNumber := currentHead.BlockNumber() - int64(ht.config.FinalityDepth())
+	finalizedBlockNumber := currentHead.BlockNumber() - int64(ht.config.FinalityDepth()) - int64(ht.config.FinalizedBlockOffset())
 	if finalizedBlockNumber <= 0 {
 		finalizedBlockNumber = 0
 	}
-	return ht.client.HeadByNumber(ctx, big.NewInt(finalizedBlockNumber))
+	return ht.getHeadAtHeight(ctx, currentHead.BlockHash(), finalizedBlockNumber)
 }
 
 // backfill fetches all missing heads up until the latestFinalizedHead

@@ -32,7 +32,7 @@ import (
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	testConfig, err := tc.GetConfig("Chaos", tc.OCR2VRF)
+	testConfig, err := tc.GetConfig([]string{"Chaos"}, tc.OCR2VRF)
 	if err != nil {
 		t.Fatal(err)
 	}

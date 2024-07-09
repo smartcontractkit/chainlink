@@ -8,7 +8,10 @@ on:
         default: TestOCRSoak
         type: choice
         options:
-          - TestOCRSoak
+          - TestOCRv1Soak
+          - TestOCRv2Soak
+          - TestForwarderOCRv1Soak
+          - TestForwarderOCRv2Soak
           - TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled
           - TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled
           - TestOCRSoak_GasSpike
@@ -18,7 +21,7 @@ on:
       base64Config:
         description: base64-ed config
         required: true
-        type: string      
+        type: string
       slackMemberID:
         description: Slack Member ID (Not your @)
         required: true
@@ -78,7 +81,7 @@ jobs:
           echo "### chainlink-tests image tag for this test run :ship:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
           echo "### Networks on which test was run" >>$GITHUB_STEP_SUMMARY
-          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY          
+          echo "\`${{ env.NETWORKS }}\`" >>$GITHUB_STEP_SUMMARY
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
