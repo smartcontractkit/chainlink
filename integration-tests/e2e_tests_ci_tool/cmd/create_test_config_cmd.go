@@ -26,10 +26,6 @@ var createTestConfigCmd = &cobra.Command{
 		if cmd.Flags().Changed(ChainlinkPostgresVersionFlag) {
 			version = &oc.ChainlinkPostgresVersion
 		}
-		if image != nil && version == nil || image == nil && version != nil {
-			fmt.Fprintf(os.Stderr, "Error: both chainlink-image and chainlink-version must be set\n")
-			os.Exit(1)
-		}
 		if image != nil && version != nil {
 			tc.ChainlinkImage = &ctf_config.ChainlinkImageConfig{
 				Image:           image,
