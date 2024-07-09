@@ -494,27 +494,27 @@ func checkSecretsInToml(content []byte) error {
 	if data["ChainlinkImage"] != nil {
 		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
 		if chainlinkImage["image"] != nil {
-			logError("ChainlinkImage.image", "CHAINLINK_IMAGE")
+			logError("ChainlinkImage.image", "E2E_TEST_CHAINLINK_IMAGE")
 		}
 	}
 
 	if data["ChainlinkUpgradeImage"] != nil {
 		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
 		if chainlinkUpgradeImage["image"] != nil {
-			logError("ChainlinkUpgradeImage.image", "CHAINLINK_UPGRADE_IMAGE")
+			logError("ChainlinkUpgradeImage.image", "E2E_TEST_CHAINLINK_UPGRADE_IMAGE")
 		}
 	}
 
 	if data["Network"] != nil {
 		network := data["Network"].(map[string]interface{})
 		if network["RpcHttpUrls"] != nil {
-			logError("Network.RpcHttpUrls", "`(.+)_RPC_HTTP_URL$` like ARBITRUM_SEPOLIA_RPC_HTTP_URL")
+			logError("Network.RpcHttpUrls", "`E2E_TEST_(.+)_RPC_HTTP_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_HTTP_URL")
 		}
 		if network["RpcWsUrls"] != nil {
-			logError("Network.RpcWsUrls", "`(.+)_RPC_WS_URL$` like ARBITRUM_SEPOLIA_RPC_WS_URL")
+			logError("Network.RpcWsUrls", "`E2E_TEST_(.+)_RPC_WS_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_WS_URL")
 		}
 		if network["WalletKeys"] != nil {
-			logError("Network.wallet_keys", "`(.+)_WALLET_KEY$` ARBITRUM_SEPOLIA_WALLET_KEY")
+			logError("Network.wallet_keys", "`E2E_TEST_(.+)_WALLET_KEY$` E2E_TEST_ARBITRUM_SEPOLIA_WALLET_KEY")
 		}
 	}
 
