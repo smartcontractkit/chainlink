@@ -48,8 +48,6 @@ var (
 	readerThreads = 4
 
 	bufferSyncInterval = 10 * time.Minute
-	// logLimitMinimum is how low the log limit can go.
-	logLimitMinimum = 1
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -253,29 +251,6 @@ func (p *logEventProvider) createPayload(id *big.Int, log logpoller.Log) (ocr2ke
 	return payload, nil
 }
 
-// getBufferDequeueArgs returns the arguments for the buffer to dequeue logs.
-// It adjust the log limit low based on the number of upkeeps to ensure that more upkeeps get slots in the result set.
-func (p *logEventProvider) getBufferDequeueArgs() (blockRate, logLimitLow, maxResults, numOfUpkeeps int) {
-	blockRate, logLimitLow, maxResults, numOfUpkeeps = int(p.opts.BlockRate), int(p.opts.LogLimit), MaxPayloads, p.bufferV1.NumOfUpkeeps()
-	// in case we have more upkeeps than the max results, we reduce the log limit low
-	// so that more upkeeps will get slots in the result set.
-	for numOfUpkeeps > maxResults/logLimitLow {
-		if logLimitLow == logLimitMinimum {
-			// Log limit low can't go less than logLimitMinimum (1).
-			// If some upkeeps are not getting slots in the result set, they supposed to be picked up
-			// in the next iteration if the range is still applicable.
-			// TODO: alerts to notify the system is at full capacity.
-			// TODO: handle this case properly by distributing available slots across upkeeps to avoid
-			// starvation when log volume is high.
-			p.lggr.Warnw("The system is at full capacity", "maxResults", maxResults, "numOfUpkeeps", numOfUpkeeps, "logLimitLow", logLimitLow)
-			break
-		}
-		p.lggr.Debugw("Too many upkeeps, reducing the log limit low", "maxResults", maxResults, "numOfUpkeeps", numOfUpkeeps, "logLimitLow_before", logLimitLow)
-		logLimitLow--
-	}
-	return
-}
-
 func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.UpkeepPayload {
 	var payloads []ocr2keepers.UpkeepPayload
 
@@ -286,25 +261,11 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 
 	switch p.opts.BufferVersion {
 	case BufferVersionV1:
-		// in v1, we use a greedy approach - we keep dequeuing logs until we reach the max results or cover the entire range.
-		blockRate, logLimitLow, maxResults, _ := p.getBufferDequeueArgs()
-		for len(payloads) < maxResults && start <= latestBlock {
-			logs, remaining := p.bufferV1.Dequeue(start, blockRate, logLimitLow, maxResults-len(payloads), DefaultUpkeepSelector)
-			if len(logs) > 0 {
-				p.lggr.Debugw("Dequeued logs", "start", start, "latestBlock", latestBlock, "logs", len(logs))
-			}
-			for _, l := range logs {
-				payload, err := p.createPayload(l.ID, l.Log)
-				if err == nil {
-					payloads = append(payloads, payload)
-				}
-			}
-			if remaining > 0 {
-				p.lggr.Debugw("Remaining logs", "start", start, "latestBlock", latestBlock, "remaining", remaining)
-				// TODO: handle remaining logs in a better way than consuming the entire window, e.g. do not repeat more than x times
-				continue
-			}
-			start += int64(blockRate)
+		payloads = p.minimumCommitmentDequeue(latestBlock, start)
+
+		// if we have remaining capacity following minimum commitment dequeue, perform a best effort dequeue
+		if len(payloads) < MaxPayloads {
+			payloads = p.bestEffortDequeue(latestBlock, start, payloads)
 		}
 	default:
 		logs := p.buffer.dequeueRange(start, latestBlock, AllowedLogsPerUpkeep, MaxPayloads)
@@ -314,6 +275,59 @@ func (p *logEventProvider) getLogsFromBuffer(latestBlock int64) []ocr2keepers.Up
 				payloads = append(payloads, payload)
 			}
 		}
+	}
+
+	return payloads
+}
+
+// minimumCommitmentDequeue dequeues the minimum number of logs per upkeep per block window, when available.
+func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []ocr2keepers.UpkeepPayload {
+	var payloads []ocr2keepers.UpkeepPayload
+
+	blockRate := int(p.opts.BlockRate)
+
+	for len(payloads) < MaxPayloads && start <= latestBlock {
+		startWindow, _ := getBlockWindow(start, blockRate)
+
+		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
+		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), true)
+		if len(logs) > 0 {
+			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
+		}
+		for _, l := range logs {
+			payload, err := p.createPayload(l.ID, l.Log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
+		}
+
+		start += int64(blockRate)
+	}
+
+	return payloads
+}
+
+// bestEffortDequeue dequeues the remaining logs from the buffer, after the minimum number of logs
+// have been dequeued for every upkeep in every block window.
+func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads []ocr2keepers.UpkeepPayload) []ocr2keepers.UpkeepPayload {
+	blockRate := int(p.opts.BlockRate)
+
+	for len(payloads) < MaxPayloads && start <= latestBlock {
+		startWindow, _ := getBlockWindow(start, blockRate)
+
+		// dequeue as many logs as we can, based on remaining capacity, for this block window
+		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), false)
+		if len(logs) > 0 {
+			p.lggr.Debugw("best effort dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
+		}
+		for _, l := range logs {
+			payload, err := p.createPayload(l.ID, l.Log)
+			if err == nil {
+				payloads = append(payloads, payload)
+			}
+		}
+
+		start += int64(blockRate)
 	}
 
 	return payloads
