@@ -280,23 +280,12 @@ jobs:
         id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
           chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
-          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
+          # chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
           selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
-          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
-          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
           logging_run_id: ${{ github.run_id }}
-          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
-          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
-          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
 
       - name: Setup GAP for Grafana
         uses: smartcontractkit/.github/actions/setup-gap@d316f66b2990ea4daa479daa3de6fc92b00f863e # setup-gap@0.3.2
@@ -308,7 +297,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -329,6 +318,18 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
+
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
+          DEFAULT_PYROSCOPE_ENABLED: "true"
 
   # Run K8s tests using old remote runner
 
@@ -403,27 +404,16 @@ jobs:
         id: create-default-test-config-override
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_image: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
           chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
           chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
           selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
-          pyroscope_server: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          pyroscope_environment: ${{ matrix.tests.pyroscopeEnv }}
-          pyroscope_key: ${{ secrets.QA_PYROSCOPE_KEY }}
           logging_run_id: ${{ github.run_id }}
-          loki_endpoint: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
-          loki_tenant_id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          loki_basic_auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          grafana_url: http://localhost:8080/primary # This is Grafana GAP's address
-          grafana_dashboard_url: /d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs
-          grafana_bearer_token: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}          
           test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
@@ -450,6 +440,18 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
+          DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
+          DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
+          DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
+          DEFAULT_PYROSCOPE_ENABLED: "true"
+
 
   # Run K8s tests using new remote runner
   # remote-runner-k8s-tests:
