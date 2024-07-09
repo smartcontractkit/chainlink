@@ -510,4 +510,30 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
     vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
     s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
   }
+
+  function test_UpdateFromPrevious() public {
+    address previouslyAllowedSender1 = 0x1000000000000000000000000000000000000000;
+    address previouslyAllowedSender2 = 0xB000000000000000000000000000000000000000;
+    address currentlyBlockedSender = 0x2000000000000000000000000000000000000000;
+    address[] memory mockPreviousAllowlist = new address[](3);
+    mockPreviousAllowlist[0] = previouslyAllowedSender1;
+    mockPreviousAllowlist[1] = currentlyBlockedSender;
+    mockPreviousAllowlist[2] = previouslyAllowedSender2;
+
+    s_termsOfServiceAllowList.blockSender(currentlyBlockedSender);
+
+    vm.mockCall(
+      MOCK_PREVIOUS_TOS_ADDRESS,
+      abi.encodeWithSelector(TermsOfServiceAllowList.getAllAllowedSenders.selector),
+      abi.encode(mockPreviousAllowlist)
+    );
+    s_termsOfServiceAllowList.updateFromPrevious();
+
+    address[] memory currentlyAllowedSenders = s_termsOfServiceAllowList.getAllAllowedSenders();
+
+    address[] memory expectedAllowedSenders = new address[](2);
+    expectedAllowedSenders[0] = previouslyAllowedSender1;
+    expectedAllowedSenders[1] = previouslyAllowedSender2;
+    assertEq(currentlyAllowedSenders, expectedAllowedSenders);
+  }
 }
