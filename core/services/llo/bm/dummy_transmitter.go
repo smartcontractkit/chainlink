@@ -10,6 +10,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-data-streams/llo"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
@@ -57,8 +59,26 @@ func (t *transmitter) Transmit(
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
 	sigs []types.AttributedOnchainSignature,
 ) error {
+	lggr := t.lggr
+	switch report.Info.ReportFormat {
+	case llotypes.ReportFormatJSON:
+		r, err := (llo.JSONReportCodec{}).Decode(report.Report)
+		if err != nil {
+			lggr.Debugw("Failed to decode JSON report", "err", err)
+		}
+		lggr = lggr.With(
+			"report.Report.ConfigDigest", r.ConfigDigest,
+			"report.Report.ChainSelector", r.ChainSelector,
+			"report.Report.SeqNr", r.SeqNr,
+			"report.Report.ChannelID", r.ChannelID,
+			"report.Report.ValidAfterSeconds", r.ValidAfterSeconds,
+			"report.Report.ValidUntilSeconds", r.ValidUntilSeconds,
+			"report.Report.Values", r.Values,
+			"report.Report.Specimen", r.Specimen,
+		)
+	}
 	transmitSuccessCount.Inc()
-	t.lggr.Debugw("Transmit", "digest", digest, "seqNr", seqNr, "report.Report", report.Report, "report.Info", report.Info, "sigs", sigs)
+	lggr.Infow("Transmit (dummy)", "digest", digest, "seqNr", seqNr, "report.Report", report.Report, "report.Info", report.Info, "sigs", sigs)
 	return nil
 }
 
