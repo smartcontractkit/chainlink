@@ -205,10 +205,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   function updateFromPrevious() external override {
     address[] memory allowedSenders = ITermsOfServiceAllowList(s_previousToSContract).getAllAllowedSenders();
     for (uint256 i = 0; i < allowedSenders.length; ++i) {
-      if (
-        !s_blockedSenders.contains(allowedSenders[i])
-        && !s_allowedSenders.contains(allowedSenders[i])
-      ) {
+      if (!s_blockedSenders.contains(allowedSenders[i]) && !s_allowedSenders.contains(allowedSenders[i])) {
         s_allowedSenders.add(allowedSenders[i]);
       }
     }
