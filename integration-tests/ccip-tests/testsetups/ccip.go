@@ -1240,9 +1240,9 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 
 func createEnvironmentConfig(t *testing.T, envName string, testConfig *CCIPTestConfig, reportPath string) *environment.Config {
 	envConfig := &environment.Config{
-		NamespacePrefix:    envName,
-		Test:               t,
-		PreventPodEviction: true,
+		NamespacePrefix: envName,
+		Test:            t,
+		//	PreventPodEviction: true, //TODO: enable this once we have a way to handle pod eviction
 	}
 	if pointer.GetBool(testConfig.TestGroupInput.StoreLaneConfig) {
 		envConfig.ReportPath = reportPath

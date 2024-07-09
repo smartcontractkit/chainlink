@@ -1000,24 +1000,26 @@ func (ccipModule *CCIPCommon) DeployContracts(
 	}
 
 	// no need to have price registry for existing deployment, we consider that it's already deployed
-	if ccipModule.PriceRegistry == nil && !ccipModule.ExistingDeployment {
-		// we will update the price updates later based on source and dest PriceUpdates
-		ccipModule.PriceRegistry, err = cd.DeployPriceRegistry(
-			[]common.Address{
-				common.HexToAddress(ccipModule.FeeToken.Address()),
-				common.HexToAddress(ccipModule.WrappedNative.Hex()),
-			})
-		if err != nil {
-			return fmt.Errorf("deploying PriceRegistry shouldn't fail %w", err)
-		}
-		err = ccipModule.ChainClient.WaitForEvents()
-		if err != nil {
-			return fmt.Errorf("error in waiting for PriceRegistry deployment %w", err)
-		}
-	} else {
-		ccipModule.PriceRegistry, err = cd.NewPriceRegistry(ccipModule.PriceRegistry.EthAddress)
-		if err != nil {
-			return fmt.Errorf("getting new PriceRegistry contract shouldn't fail %w", err)
+	if !ccipModule.ExistingDeployment {
+		if ccipModule.PriceRegistry == nil {
+			// we will update the price updates later based on source and dest PriceUpdates
+			ccipModule.PriceRegistry, err = cd.DeployPriceRegistry(
+				[]common.Address{
+					common.HexToAddress(ccipModule.FeeToken.Address()),
+					common.HexToAddress(ccipModule.WrappedNative.Hex()),
+				})
+			if err != nil {
+				return fmt.Errorf("deploying PriceRegistry shouldn't fail %w", err)
+			}
+			err = ccipModule.ChainClient.WaitForEvents()
+			if err != nil {
+				return fmt.Errorf("error in waiting for PriceRegistry deployment %w", err)
+			}
+		} else {
+			ccipModule.PriceRegistry, err = cd.NewPriceRegistry(ccipModule.PriceRegistry.EthAddress)
+			if err != nil {
+				return fmt.Errorf("getting new PriceRegistry contract shouldn't fail %w", err)
+			}
 		}
 	}
 	if ccipModule.MulticallContract == (common.Address{}) && ccipModule.MulticallEnabled {
@@ -1210,9 +1212,11 @@ func NewCCIPCommonFromConfig(
 	if err != nil {
 		return nil, err
 	}
-	newCCIPModule.PriceRegistry, err = newCCIPModule.Deployer.NewPriceRegistry(common.HexToAddress(newCCIPModule.PriceRegistry.Address()))
-	if err != nil {
-		return nil, err
+	if newCCIPModule.PriceRegistry != nil {
+		newCCIPModule.PriceRegistry, err = newCCIPModule.Deployer.NewPriceRegistry(common.HexToAddress(newCCIPModule.PriceRegistry.Address()))
+		if err != nil {
+			return nil, err
+		}
 	}
 	newCCIPModule.Router, err = newCCIPModule.Deployer.NewRouter(common.HexToAddress(newCCIPModule.Router.Address()))
 	if err != nil {
