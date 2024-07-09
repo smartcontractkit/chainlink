@@ -27,7 +27,7 @@ func TestOCRLoad(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Load"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote(true)
+	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
 	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
@@ -60,7 +60,7 @@ func TestOCRVolume(t *testing.T) {
 	config, err := tc.GetConfig([]string{"Volume"}, tc.OCR)
 	require.NoError(t, err)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote(true)
+	sethClient, msClient, bootstrapNode, workerNodes, err := crib.ConnectRemote()
 	require.NoError(t, err)
 
 	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)

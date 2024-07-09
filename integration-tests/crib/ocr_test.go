@@ -1,22 +1,22 @@
 package crib
 
 import (
+	"context"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/havoc/k8schaos"
+	"github.com/stretchr/testify/require"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
 
 func TestCRIB(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
-	sethClient, msClient, bootstrapNode, workerNodes, err := ConnectRemote(true)
+	sethClient, msClient, bootstrapNode, workerNodes, err := ConnectRemote()
 	require.NoError(t, err)
 
 	lta, err := actions.SetupOCRv1Cluster(l, sethClient, workerNodes)
@@ -26,11 +26,29 @@ func TestCRIB(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValue(10, ocrInstances, workerNodes, msClient)
 	require.NoError(t, err)
+	actions.SimulateOCRv1EAActivity(l, 3*time.Second, ocrInstances, workerNodes, msClient)
 
-	err = actions.WatchNewOCRRound(l, sethClient, 2, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(3*time.Minute))
+	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
 	require.NoError(t, err, "Error watching for new OCR round")
 
-	answer, err := ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
-	require.NoError(t, err, "Error getting latest OCR answer")
-	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+	ch, err := rebootCLNodes(
+		1*time.Second,
+		os.Getenv("CRIB_NAMESPACE"),
+		map[string]string{
+			"app": "app",
+		})
+	ch.Create(context.Background())
+	ch.AddListener(k8schaos.NewChaosLogger(l))
+	t.Cleanup(func() {
+		err := ch.Delete(context.Background())
+		require.NoError(t, err)
+	})
+	require.Eventually(t, func() bool {
+		err = actions.WatchNewOCRRound(l, sethClient, 3, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
+		if err != nil {
+			l.Info().Err(err).Msg("OCR round is not there yet")
+			return false
+		}
+		return true
+	}, 3*time.Minute, 5*time.Second)
 }

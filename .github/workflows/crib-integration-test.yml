@@ -51,19 +51,22 @@ jobs:
           ref: 'main'
       - name: Generate Short UUID
         id: uuid
-        run: echo "NS_NAME=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
+        run: echo "CRIB_NAMESPACE=$(uuidgen | cut -c1-5)" >> $GITHUB_ENV
       - name: Create a new CRIB environment
         run: |-
-          devspace use namespace $NS_NAME
+          devspace use namespace $CRIB_NAMESPACE
           devspace deploy --profile local-dev-simulated-core-ocr1
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
       - name: Setup go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: "go.mod"
-      - name: Run tests
+      - name: Run CRIB integration test
         working-directory: integration-tests/crib
         env:
           K8S_STAGING_INGRESS_SUFFIX: ${{ secrets.K8S_STAGING_INGRESS_SUFFIX }}
+          CRIB_NAMESPACE: ${{ env.CRIB_NAMESPACE }}
+          CRIB_NETWORK: geth
+          CRIB_NODES: 5
         run: |-
           go test -v -run TestCRIB
