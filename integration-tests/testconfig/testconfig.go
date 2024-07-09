@@ -343,6 +343,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 				return TestConfig{}, errors.Wrapf(err, "error reading file %s", filePath)
 			}
 
+			_ = checkSecretsInToml(content)
+
 			for _, configurationName := range configurationNames {
 				err = ctf_config.BytesToAnyTomlStruct(logger, fileName, configurationName, &testConfig, content)
 				if err != nil {
@@ -350,6 +352,12 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 				}
 			}
 		}
+	}
+
+	// it needs some custom logic, so we do it separately
+	err := testConfig.readNetworkConfiguration()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading network config")
 	}
 
 	logger.Info().Msg("Reading configs from Base64 override env var")
@@ -361,6 +369,8 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			return TestConfig{}, err
 		}
 
+		_ = checkSecretsInToml(decoded)
+
 		for _, configurationName := range configurationNames {
 			err = ctf_config.BytesToAnyTomlStruct(logger, Base64OverrideEnvVarName, configurationName, &testConfig, decoded)
 			if err != nil {
@@ -371,10 +381,16 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	// it needs some custom logic, so we do it separately
-	err := testConfig.readNetworkConfiguration()
+	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
+	err = ctf_config.LoadSecretEnvsFromFile()
 	if err != nil {
-		return TestConfig{}, errors.Wrapf(err, "error reading network config")
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
+	}
+
+	logger.Info().Msg("Reading values from environment variables")
+	err = testConfig.ReadConfigValuesFromEnvVars()
+	if err != nil {
+		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
 
 	logger.Debug().Msg("Validating test config")
@@ -457,6 +473,52 @@ root_key_funds_buffer = 1_000
 		logger.Warn().Msg("***** You have provided your own default Chainlink Node configuration for all networks. Chainlink Node's default settings for selected networks won't be used *****")
 	}
 
+}
+
+// checkSecretsInToml checks if the TOML file contains secrets and shows error logs if it does
+// This is a temporary and will be removed after migration to test secrets from env vars
+func checkSecretsInToml(content []byte) error {
+	logger := logging.GetTestLogger(nil)
+	data := make(map[string]interface{})
+
+	// Decode the TOML data
+	err := toml.Unmarshal(content, &data)
+	if err != nil {
+		return errors.Wrapf(err, "error decoding TOML file")
+	}
+
+	logError := func(key, envVar string) {
+		logger.Error().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
+	}
+
+	if data["ChainlinkImage"] != nil {
+		chainlinkImage := data["ChainlinkImage"].(map[string]interface{})
+		if chainlinkImage["image"] != nil {
+			logError("ChainlinkImage.image", "E2E_TEST_CHAINLINK_IMAGE")
+		}
+	}
+
+	if data["ChainlinkUpgradeImage"] != nil {
+		chainlinkUpgradeImage := data["ChainlinkUpgradeImage"].(map[string]interface{})
+		if chainlinkUpgradeImage["image"] != nil {
+			logError("ChainlinkUpgradeImage.image", "E2E_TEST_CHAINLINK_UPGRADE_IMAGE")
+		}
+	}
+
+	if data["Network"] != nil {
+		network := data["Network"].(map[string]interface{})
+		if network["RpcHttpUrls"] != nil {
+			logError("Network.RpcHttpUrls", "`E2E_TEST_(.+)_RPC_HTTP_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_HTTP_URL")
+		}
+		if network["RpcWsUrls"] != nil {
+			logError("Network.RpcWsUrls", "`E2E_TEST_(.+)_RPC_WS_URL$` like E2E_TEST_ARBITRUM_SEPOLIA_RPC_WS_URL")
+		}
+		if network["WalletKeys"] != nil {
+			logError("Network.wallet_keys", "`E2E_TEST_(.+)_WALLET_KEY$` E2E_TEST_ARBITRUM_SEPOLIA_WALLET_KEY")
+		}
+	}
+
+	return nil
 }
 
 func (c *TestConfig) readNetworkConfiguration() error {
