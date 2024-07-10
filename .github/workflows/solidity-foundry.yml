@@ -141,6 +141,7 @@ jobs:
       - name: Find modified contracts
         shell: bash
         run: |
+          git fetch origin develop
           git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | grep -E '\.sol$' | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0) | {path: .})' > modified_contracts.json
           MATRIX=$(cat modified_contracts.json | jq -c .)
           echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
