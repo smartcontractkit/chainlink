@@ -79,7 +79,7 @@ runs:
 
         config_override=$(go run main.go test-config create "${create_args[@]}")
         # echo "go run main.go test-config create ${create_args[*]}"
-        echo "Output:"
+        echo "Test config override:"
         echo "$config_override"
 
         BASE64_CONFIG_OVERRIDE=$(echo "$config_override" | base64 -w 0)

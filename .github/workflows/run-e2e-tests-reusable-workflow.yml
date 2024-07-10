@@ -286,8 +286,8 @@ jobs:
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
           chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          # chainlink_upgrade_image: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
           selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
@@ -306,8 +306,6 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ steps.create-default-test-config-override.outputs.chainlink_image }}
-          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -411,12 +409,11 @@ jobs:
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
           chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion }}
           selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
-          test_log_collect: ${{ vars.TEST_LOG_COLLECT }}
 
       - name: Run tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@351858d53187513fd47f1d2fdce71f6a8c246828 # v2.3.24
@@ -437,8 +434,6 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
-          cl_repo: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ steps.create-default-test-config-override.outputs.chainlink_version }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           no_cache: true # Do not restore cache since go was already configured in the previous step
