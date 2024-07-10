@@ -175,11 +175,11 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
+      # run with ${{ matrix.contract.path }} argument once we have upgraded foundry to a more recent version
       - name: Run Forge build
         # if: needs.changes.outputs.changes == 'true'
         run: |
-          forge build ${{ matrix.contract.path }}
-        id: fmt
+          forge build
         working-directory: contracts
         # we could detect the product from the contract path and set profile dynamically
 #        env:
