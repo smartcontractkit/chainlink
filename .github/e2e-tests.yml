@@ -111,20 +111,14 @@ runner-test-matrix:
     test-type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
-    # workflows:
-    #   - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
-    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
- -  id: soak/ocr_test.go:^TestOCRv2Soak$
+  - id: soak/ocr_test.go:^TestOCRv2Soak$
     path: integration-tests/soak/ocr_test.go
     test-type: k8s-remote-runner
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
-    # workflows:
-    #   - Run Nightly E2E Tests
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
-    pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
