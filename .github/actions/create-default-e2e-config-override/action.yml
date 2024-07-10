@@ -35,11 +35,18 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Checkout chainlink-testing-framework to use citool
+      uses: actions/checkout@v3
+      with:
+        repository: 'smartcontractkit/chainlink-testing-framework'
+        ref: 818e45a055b7e9ebd5775f6b8eaabb38e400d1d4
+        path: 'chainlink-testing-framework'
+
     - name: Create default E2E test config override
       id: build-args
       shell: bash
       run: |
-        cd integration-tests/e2e_tests_ci_tool/
+        cd chainlink-testing-framework/tools/citool/
 
         create_args=()
         if [ -n "${{ inputs.chainlink_version }}" ]; then
