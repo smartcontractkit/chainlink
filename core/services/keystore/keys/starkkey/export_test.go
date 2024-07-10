@@ -1,14 +1,26 @@
 package starkkey
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestGetPlaintext(t *testing.T) {
+	// replace with the contents of encrypted-key.txt
+	keyJSON := []byte(`<ENCRYPTED_STRING>`)
+	// replace with your encryption password
+	key, _ := FromEncryptedJSON(keyJSON, "<PASSWORD>")
+	privateKey := fmt.Sprintf("0x0%x", key.ToPrivKey())
+	assert.Equal(t, privateKey, "^ your decrypted private key")
+}
 
 func TestStarkNetKeys_ExportImport(t *testing.T) {
 	keys.RunKeyExportImportTestcase(t, createKey, decryptKey)
+
 }
 
 func createKey() (keys.KeyType, error) {
