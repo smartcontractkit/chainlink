@@ -14,15 +14,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
@@ -39,6 +38,11 @@ func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegist
 		return nil, err
 	}
 	if err := capRegistry.Add(ctx, trigger); err != nil {
+		return nil, err
+	}
+
+	producer := NewMockDataProducer(trigger, lggr)
+	if err := producer.Start(ctx); err != nil {
 		return nil, err
 	}
 
@@ -112,9 +116,8 @@ type MockTriggerService struct {
 	lggr               logger.Logger
 
 	//
-	meta     datastreams.SignersMetadata
-	signers  []*ecdsa.PrivateKey
-	producer *mockDataProducer
+	meta    datastreams.SignersMetadata
+	signers []*ecdsa.PrivateKey
 	//
 }
 
@@ -210,13 +213,6 @@ func (o *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 			workflowID: wid,
 			config:     *config,
 		}
-
-	// Only start the producer once a workflow is registered
-	o.producer = NewMockDataProducer(o, o.lggr)
-	if err := o.producer.Start(ctx); err != nil {
-		return nil, err
-	}
-
 	return ch, nil
 }
 
@@ -238,12 +234,6 @@ func (o *MockTriggerService) UnregisterTrigger(ctx context.Context, req capabili
 	}
 	close(subscriber.ch)
 	delete(o.subscribers, triggerID)
-	if len(o.subscribers) == 0 {
-		if err := o.producer.Close(); err != nil {
-			return err
-		}
-		o.producer = nil
-	}
 	return nil
 }
 
@@ -424,7 +414,7 @@ func (m *mockDataProducer) loop() {
 		for i := range prices {
 			prices[i] = prices[i] + 1
 		}
-		j++
+		j += 1
 
 		// https://github.com/smartcontractkit/chainlink/blob/41f9428c3aa8231e8834a230fca4c2ccffd4e6c3/core/capabilities/streams/trigger_test.go#L117-L122
 
