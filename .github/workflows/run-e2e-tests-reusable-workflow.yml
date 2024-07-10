@@ -441,7 +441,7 @@ jobs:
         if: inputs.test_config_override_base64 != ''
         shell: bash
         run: |
-          echo "BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}"
+          BASE64_CONFIG_OVERRIDE=${{ inputs.test_config_override_base64 }}
           echo ::add-mask::$BASE64_CONFIG_OVERRIDE
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
