@@ -167,17 +167,17 @@ jobs:
             echo "Will test all EVM implementations"
             echo "evm_implementations=geth,besu,nethermind,erigon" >> $GITHUB_OUTPUT
           fi
-      - name: Select Chainlink version
+      - name: Select Chainlink CCIP version
         id: select-chainlink-version
         run: |
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH          
           
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
-            echo "Fetching latest Chainlink stable version"
+            echo "Fetching latest Chainlink CCIP stable version"
             implementations_arr=()
             # we use 100 days since we really want the latest one, and it's highly improbable there won't be a release in last 100 days
-            chainlink_version=$(ghlatestreleasechecker "smartcontractkit/chainlink" 100) 
+            chainlink_version=$(ghlatestreleasechecker "smartcontractkit/ccip" 100) 
             echo "chainlink_version=$chainlink_version" >> $GITHUB_OUTPUT
           elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             echo "Fetching Chainlink version from input"
