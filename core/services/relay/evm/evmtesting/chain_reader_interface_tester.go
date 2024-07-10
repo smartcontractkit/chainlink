@@ -196,6 +196,9 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 						FromAddress:       it.auth.From,
 						GasLimit:          200_000,
 						Checker:           "simulate",
+						InputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
+						},
 					},
 				},
 			},
@@ -310,7 +313,7 @@ func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestSt
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
-	fmt.Println(testStruct)
+	fmt.Printf("%+v\n", testStruct)
 	err := it.GetChainWriter(t).SubmitTransaction(
 		it.Helper.Context(t),
 		AnyContractName,
