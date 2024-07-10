@@ -20,6 +20,7 @@ func main() {
 		src.NewGenerateCribClusterOverridesCommand(),
 		src.NewDeleteJobsCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
+		src.NewDeployWorkflowsCommand(),
 	}
 
 	commandsList := func(commands []command) string {
