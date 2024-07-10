@@ -13,10 +13,13 @@ import (
 )
 
 type deployWorkflows struct {
+	NodeList string
 }
 
 func NewDeployWorkflowsCommand() *deployWorkflows {
-	return &deployWorkflows{}
+	return &deployWorkflows{
+		NodeList: ".cache/NodeList.local.txt",
+	}
 }
 
 func (g *deployWorkflows) Name() string {
@@ -26,15 +29,23 @@ func (g *deployWorkflows) Name() string {
 func (g *deployWorkflows) Run(args []string) {
 	fs := flag.NewFlagSet(g.Name(), flag.ContinueOnError)
 	workflowFile := fs.String("workflow", "workflow.yml", "path to workflow file")
+	customNodeList := fs.String("nodes", "", "Custom node list location")
+
 	err := fs.Parse(args)
 	if err != nil || workflowFile == nil || *workflowFile == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
+
+	if *customNodeList != "" {
+		fmt.Printf("Custom node file override flag detected, using custom node file path %s", *customNodeList)
+		g.NodeList = *customNodeList
+	}
+
 	fmt.Println("Deploying workflows")
 
 	// use a separate list
-	nodes := downloadNodeAPICredentialsDefault()
+	nodes := downloadNodeAPICredentials(g.NodeList)
 
 	if _, err = os.Stat(*workflowFile); err != nil {
 		PanicErr(errors.New("toml file does not exist"))
