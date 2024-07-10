@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -216,7 +215,7 @@ func (r *Relayer) NewPluginProvider(rargs commontypes.RelayArgs, pargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +531,25 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, transmitterID string, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, transmissionContractRetention time.Duration) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
+	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCRContractTransmitter(
+		ctx,
+		configWatcher.contractAddress,
+		configWatcher.chain.Client(),
+		transmissionContractABI,
+		transmitter,
+		configWatcher.chain.LogPoller(),
+		lggr,
+		ocrTransmitterOpts...,
+	)
+}
+
+func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -612,18 +629,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 	if err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
-
-	return NewOCRContractTransmitterWithRetention(
-		ctx,
-		configWatcher.contractAddress,
-		configWatcher.chain.Client(),
-		transmissionContractABI,
-		transmitter,
-		configWatcher.chain.LogPoller(),
-		lggr,
-		nil,
-		transmissionContractRetention,
-	)
+	return transmitter, nil
 }
 
 func (r *Relayer) NewChainWriter(_ context.Context, config []byte) (commontypes.ChainWriter, error) {
@@ -671,7 +677,7 @@ func (r *Relayer) NewMedianProvider(rargs commontypes.RelayArgs, pargs commontyp
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, pargs.TransmitterID, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, 0)
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}

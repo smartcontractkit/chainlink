@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets/mocks"
@@ -46,6 +47,13 @@ func TestWriteTarget(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+
+	cr.On("Bind", mock.Anything, []types.BoundContract{
+		{
+			Address: forwarderAddr,
+			Name:    "forwarder",
+		},
+	}).Return(nil)
 
 	cr.On("GetLatestValue", mock.Anything, "forwarder", "getTransmitter", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		transmitter := args.Get(4).(*common.Address)

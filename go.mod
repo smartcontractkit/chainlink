@@ -60,7 +60,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pelletier/go-toml/v2 v2.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/pressly/goose/v3 v3.16.0
+	github.com/pressly/goose/v3 v3.21.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
@@ -74,7 +74,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240703234618-dc1fbe45acc0
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141
-	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702144807-761f63e7b527
+	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702145022-37a2c3a742d1
 	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240708130426-294b81e4afe7
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba
@@ -99,7 +99,7 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.24.0
-	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a
+	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8
 	golang.org/x/mod v0.17.0
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.7.0
@@ -258,6 +258,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
@@ -349,5 +350,4 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
-
 )
