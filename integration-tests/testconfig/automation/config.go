@@ -42,13 +42,14 @@ func (c *Config) Validate() error {
 
 // General is a common configuration for all automation performance tests
 type General struct {
-	NumberOfNodes         *int    `toml:"number_of_nodes"`
-	Duration              *int    `toml:"duration"`
-	BlockTime             *int    `toml:"block_time"`
-	SpecType              *string `toml:"spec_type"`
-	ChainlinkNodeLogLevel *string `toml:"chainlink_node_log_level"`
-	UsePrometheus         *bool   `toml:"use_prometheus"`
-	RemoveNamespace       *bool   `toml:"remove_namespace"`
+	NumberOfNodes         *int     `toml:"number_of_nodes"`
+	Duration              *int     `toml:"duration"`
+	BlockTime             *int     `toml:"block_time"`
+	GethGasLimit          *big.Int `toml:"gethGasLimit"`
+	SpecType              *string  `toml:"spec_type"`
+	ChainlinkNodeLogLevel *string  `toml:"chainlink_node_log_level"`
+	UsePrometheus         *bool    `toml:"use_prometheus"`
+	RemoveNamespace       *bool    `toml:"remove_namespace"`
 }
 
 func (c *General) Validate() error {
@@ -72,6 +73,9 @@ func (c *General) Validate() error {
 	}
 	if c.RemoveNamespace == nil {
 		return errors.New("remove_namespace must be set")
+	}
+	if c.GethGasLimit == nil || c.GethGasLimit.Cmp(big.NewInt(0)) < 0 {
+		c.GethGasLimit = big.NewInt(20000000)
 	}
 
 	return nil

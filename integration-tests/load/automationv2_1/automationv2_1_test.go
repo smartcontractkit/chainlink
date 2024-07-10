@@ -174,13 +174,11 @@ func TestLogTrigger(t *testing.T) {
 		Str("Tag", version).
 		Msg("Test Config")
 
-	testConfigFormat := `Number of Nodes: %d
-Duration: %d
-Block Time: %d
-Spec Type: %s
-Log Level: %s
-Image: %s
+	testConfigFormat := `Image: %s
 Tag: %s
+
+General Config:
+%s
 
 Load Config:
 %s`
@@ -188,8 +186,10 @@ Load Config:
 	prettyLoadConfig, err := toml.Marshal(loadedTestConfig.Automation.Load)
 	require.NoError(t, err, "Error marshalling load config")
 
-	testConfig := fmt.Sprintf(testConfigFormat, *loadedTestConfig.Automation.General.NumberOfNodes, *loadedTestConfig.Automation.General.Duration,
-		*loadedTestConfig.Automation.General.BlockTime, *loadedTestConfig.Automation.General.SpecType, *loadedTestConfig.Automation.General.ChainlinkNodeLogLevel, image, version, string(prettyLoadConfig))
+	prettyGeneralConfig, err := toml.Marshal(loadedTestConfig.Automation.General)
+	require.NoError(t, err, "Error marshalling load config")
+
+	testConfig := fmt.Sprintf(testConfigFormat, image, version, string(prettyGeneralConfig), string(prettyLoadConfig))
 	l.Info().Str("testConfig", testConfig).Msg("Test Config")
 
 	testNetwork := networks.MustGetSelectedNetworkConfig(loadedTestConfig.Network)[0]
@@ -216,10 +216,9 @@ Load Config:
 			Values: map[string]interface{}{
 				"resources": gethNodeSpec,
 				"geth": map[string]interface{}{
-					"blocktime":      *loadedTestConfig.Automation.General.BlockTime,
-					"capacity":       "20Gi",
-					"startGaslimit":  "20000000",
-					"targetGasLimit": "30000000",
+					"blocktime":     *loadedTestConfig.Automation.General.BlockTime,
+					"capacity":      "20Gi",
+					"startGaslimit": loadedTestConfig.Automation.General.GethGasLimit.String(),
 				},
 			},
 		}))
