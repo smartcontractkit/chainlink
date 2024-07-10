@@ -1,0 +1,192 @@
+name: Solidity Foundry
+on:
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+    name: Foundry Tests ${{ matrix.product }}
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          # Has to match the `make foundry` version.
+          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build
+        id: build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run Forge tests
+        if: needs.changes.outputs.changes == 'true'
+        run: |
+          forge test -vvv
+        id: test
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run Forge snapshot
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+        id: snapshot
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Upload Gas Snapshots
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: ${{ matrix.product }}.gas-snapshot
+          path: gas-snapshots/${{ matrix.product }}.gas-snapshot
+          retention-days: 7
+
+      - name: Run coverage
+        working-directory: contracts
+        run: forge coverage --report lcov
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      # see what we should prune for other products
+#      - name: Prune report
+#        if: ${{ needs.changes.outputs.changes == 'true' }}
+#        run: |
+#          sudo apt-get install lcov
+#          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
+#        env:
+#          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      # We could gather coverage for all products
+
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
+        with:
+          update-comment: true
+          coverage-files: ./contracts/lcov.info.
+          minimum-coverage: 98.5
+          artifact-name: code-coverage-report-${{ matrix.product }}
+          working-directory: ./contracts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  docs:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+    name: Docs for ${{ matrix.product }}
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Run Forge doc
+        run: |
+          forge doc --build
+        id: doc
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Upload Foundry Book
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: foundry-book-${{ matrix.product }}
+          path: contracts/docs/${{ matrix.product }}
+          retention-days: 7
+
+  uml:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+    name: Docs for ${{ matrix.product }}
+    # See https://github.com/foundry-rs/foundry/issues/3827
+    runs-on: ubuntu-22.04
+
+    # The if statements for steps after checkout repo is workaround for
+    # passing required check for PRs that don't have filtered changes.
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      # Only needed because we use the NPM versions of packages
+      # and not native Foundry. This is to make sure the dependencies
+      # stay in sync.
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Install Sol2uml
+        run: |
+          npm link sol2uml --only=production
+
+      # extract src dir from foundry.toml
+      - name: Generate UML
+        run: |
+          cd contracts
+          FOLDER=$(FOUNDRY_PROFILE=${{ matrix.product }} forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '"')
+          ./scripts/generate_uml.sh "$FOLDER" "uml/${{ matrix.product }}"
+
+      - name: Upload UMLs
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: uml-diagrams-${{ matrix.product }}
+          path: contracts/uml/${{ matrix.product }}
+          retention-days: 7
