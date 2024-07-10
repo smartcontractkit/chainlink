@@ -306,6 +306,8 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -321,8 +323,6 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
-          test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
@@ -434,6 +434,8 @@ jobs:
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }}
           test_download_vendor_packages_command: make gomod
+          test_config_override_base64: ${{ inputs.test_config_override_base64 }}
+          test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           token: ${{ secrets.GH_TOKEN }}
           should_cleanup: false
           no_cache: true # Do not restore cache since go was already configured in the previous step
