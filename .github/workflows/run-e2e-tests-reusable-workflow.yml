@@ -302,7 +302,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@351858d53187513fd47f1d2fdce71f6a8c246828 # v2.3.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6b6b77e0c6beedd20b1ab42a4b82218ff570a043 # TODO: Create tag and use it here
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -416,7 +416,7 @@ jobs:
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@351858d53187513fd47f1d2fdce71f6a8c246828 # v2.3.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6b6b77e0c6beedd20b1ab42a4b82218ff570a043 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
