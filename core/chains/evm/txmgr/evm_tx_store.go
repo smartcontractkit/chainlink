@@ -1882,7 +1882,7 @@ AND evm.txes.created_at < $2
 AND evm.txes.state = 'finalized'
 AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old finalized evm.txes")
 		}
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
@@ -1891,7 +1891,7 @@ AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
 		return uint(rowsAffected), err
 	}, batchSize)
 	if err != nil {
-		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
+		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of finalized evm.txes failed")
 	}
 	// Delete old 'fatal_error' evm.txes
 	err = sqlutil.Batch(func(_, limit uint) (count uint, err error) {
@@ -1911,6 +1911,38 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 	}, batchSize)
 	if err != nil {
 		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of fatally errored evm.txes failed")
+	}
+	// Delete old 'confirmed' evm.txes that were never finalized
+	// This query should never result in changes but added just in case transactions slip through the cracks
+	// to avoid them building up in the DB
+	err = sqlutil.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := o.q.ExecContext(ctx, `
+WITH old_enough_receipts AS (
+	SELECT tx_hash FROM evm.receipts
+	ORDER BY block_number ASC, id ASC
+	LIMIT $1
+)
+DELETE FROM evm.txes
+USING old_enough_receipts, evm.tx_attempts
+WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
+AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
+AND evm.txes.created_at < $2
+AND evm.txes.state = 'confirmed'
+AND evm_chain_id = $3`, limit, timeThreshold, chainID.String())
+		if err != nil {
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
+		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
+		}
+		if rowsAffected > 0 {
+			o.logger.Criticalf("%d confirmed transactions were reaped before being marked as finalized. This should never happen unless the threshold is set too low or the transactions were lost track of", rowsAffected)
+		}
+		return uint(rowsAffected), err
+	}, batchSize)
+	if err != nil {
+		return pkgerrors.Wrap(err, "TxmReaper#reapEthTxes batch delete of confirmed evm.txes failed")
 	}
 
 	return nil
