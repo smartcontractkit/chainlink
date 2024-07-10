@@ -86,7 +86,7 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 func (o *LogTriggersOptions) defaultBlockRate() uint32 {
 	switch o.chainID.Int64() {
 	case 42161, 421613, 421614: // Arbitrum
-		return 4
+		return 2
 	default:
 		return 1
 	}
@@ -99,6 +99,6 @@ func (o *LogTriggersOptions) defaultLogLimit() uint32 {
 	case 10, 420, 56, 97, 137, 80001, 43113, 43114, 8453, 84531: // Optimism, BSC, Polygon, Avax, Base
 		return 5
 	default:
-		return 2
+		return 1
 	}
 }
