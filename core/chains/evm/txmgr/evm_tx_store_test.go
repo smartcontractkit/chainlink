@@ -1862,7 +1862,7 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	mustInsertInProgressEthTxWithAttempt(t, txStore, 0, fromAddress)
 	mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
 	mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 2, finalizedBlockNum, time.Now(), fromAddress)
-	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, finalizedBlockNum + 1)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, finalizedBlockNum+1)
 	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 4, finalizedBlockNum)
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
