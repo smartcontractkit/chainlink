@@ -581,11 +581,11 @@ jobs:
             echo "$modified_string"
           }
           echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}-test-logs")" >> $GITHUB_ENV
-      - name: Collect Workflow Telemetry
-        uses: catchpoint/workflow-telemetry-action@v2
-        with:
-          comment_on_pr: false
-          theme: 'dark'
+#      - name: Collect Workflow Telemetry
+#        uses: catchpoint/workflow-telemetry-action@v2
+#        with:
+#          comment_on_pr: false
+#          theme: 'dark'
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@af92c5fae8dcf1659201e907db82d221fc304b94 # v2.3.21
         with:
