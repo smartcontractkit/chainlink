@@ -348,7 +348,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
+	r.lggr.Debugw("recovering logs", "filters", filters, "numFilters", len(filters), "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	var wg sync.WaitGroup
 	for _, f := range filters {
