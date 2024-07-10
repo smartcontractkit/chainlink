@@ -116,6 +116,15 @@ func randomWord() [32]byte {
 	return [32]byte(word)
 }
 
+type launcher struct {
+	localRegistry State
+}
+
+func (l *launcher) Launch(ctx context.Context, localRegistry State) error {
+	l.localRegistry = localRegistry
+	return nil
+}
+
 func TestReader_Integration(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
@@ -193,10 +202,14 @@ func TestReader_Integration(t *testing.T) {
 	sim.Commit()
 
 	factory := newContractReaderFactory(t, sim)
-	reader, err := New(logger.TestLogger(t), factory, regAddress.Hex())
+	syncer, err := New(logger.TestLogger(t), factory, regAddress.Hex())
 	require.NoError(t, err)
 
-	s, err := reader.state(ctx)
+	l := &launcher{}
+	syncer.AddLauncher(l)
+
+	err = syncer.sync(ctx)
+	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
 
