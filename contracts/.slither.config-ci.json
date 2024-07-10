@@ -1,0 +1,5 @@
+{
+  "printers_to_run": "human-summary",
+  "filter_paths": "(mocks/|test/)",
+  "detectors_to_exclude": "pragma"
+}
