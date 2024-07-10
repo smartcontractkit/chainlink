@@ -3,6 +3,8 @@ on: [pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
+  # Has to match the `make foundry` version.
+  FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
 
 jobs:
   changes:
@@ -52,8 +54,7 @@ jobs:
         if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
-          # Has to match the `make foundry` version.
-          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+          version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
         if: needs.changes.outputs.changes == 'true'
@@ -147,7 +148,7 @@ jobs:
           MATRIX=$(cat modified_contracts.json | jq -c .)
           echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
           echo "Found modified contracts:"
-          cat modified_contracts.json | jq -c .
+          cat modified_contracts.json | jq .
 
   analyze:
     needs: [ find-modified-contracts ]
