@@ -21,11 +21,11 @@ type LogBuffer interface {
 	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
 	// Dequeue pulls logs from the buffer that are within the given block window,
-	// with a maximum number of logs to return.
+	// with a maximum number of logs per upkeep and a total maximum number of logs to return.
 	// It also accepts a boolean to identify if we are operating under minimum dequeue.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
-	Dequeue(startWindowBlock int64, maxResults int, minimumDequeue bool) ([]BufferedLog, int)
+	Dequeue(start, end int64, upkeepLimit, maxResults int, minimumDequeue bool) ([]BufferedLog, int)
 	// SetConfig sets the buffer size and the maximum number of logs to keep for each upkeep.
 	SetConfig(lookback, blockRate, logLimit uint32)
 	// NumOfUpkeeps returns the number of upkeeps that are being tracked by the buffer.
@@ -41,8 +41,6 @@ type logBufferOptions struct {
 	blockRate *atomic.Uint32
 	// max number of logs to keep in the buffer for each upkeep per window (LogLimit*10)
 	windowLimit *atomic.Uint32
-	// number of logs we need to dequeue per upkeep per block window at a minimum
-	logLimit *atomic.Uint32
 }
 
 func newLogBufferOptions(lookback, blockRate, logLimit uint32) *logBufferOptions {
@@ -50,7 +48,6 @@ func newLogBufferOptions(lookback, blockRate, logLimit uint32) *logBufferOptions
 		windowLimit: new(atomic.Uint32),
 		lookback:    new(atomic.Uint32),
 		blockRate:   new(atomic.Uint32),
-		logLimit:    new(atomic.Uint32),
 	}
 	opts.override(lookback, blockRate, logLimit)
 
@@ -61,7 +58,6 @@ func (o *logBufferOptions) override(lookback, blockRate, logLimit uint32) {
 	o.windowLimit.Store(logLimit * 10)
 	o.lookback.Store(lookback)
 	o.blockRate.Store(blockRate)
-	o.logLimit.Store(logLimit)
 }
 
 type logBuffer struct {
@@ -103,12 +99,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestLogBlock, reorgBlocks := b.blockStatistics(logs...)
-
-	if len(reorgBlocks) > 0 {
-		b.evictReorgdLogs(reorgBlocks)
-	}
-
+	latestLogBlock := b.blockStatistics(logs...)
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
@@ -116,7 +107,6 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 	}
 
 	blockThreshold := b.lastBlockSeen.Load() - int64(b.opts.lookback.Load())
-	blockThreshold, _ = getBlockWindow(blockThreshold, int(b.opts.blockRate.Load()))
 	if blockThreshold <= 0 {
 		blockThreshold = 1
 	}
@@ -125,7 +115,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 }
 
 // blockStatistics returns the latest block number from the given logs, and updates any blocks that have been reorgd
-func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) int64 {
 	var latest int64
 	reorgBlocks := map[int64]bool{}
 
@@ -142,7 +132,11 @@ func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]boo
 		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 	}
 
-	return latest, reorgBlocks
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
+	return latest
 }
 
 func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
@@ -159,11 +153,11 @@ func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
 
 // Dequeue greedly pulls logs from the buffers.
 // Returns logs and the number of remaining logs in the buffer.
-func (b *logBuffer) Dequeue(startWindowBlock int64, maxResults int, bestEffort bool) ([]BufferedLog, int) {
+func (b *logBuffer) Dequeue(start, end int64, upkeepLimit, maxResults int, bestEffort bool) ([]BufferedLog, int) {
 	b.lock.RLock()
 	defer b.lock.RUnlock()
 
-	return b.dequeue(startWindowBlock, maxResults, bestEffort)
+	return b.dequeue(start, end, upkeepLimit, maxResults, bestEffort)
 }
 
 // dequeue pulls logs from the buffers, in block range [start,end] with minimum number
@@ -172,18 +166,14 @@ func (b *logBuffer) Dequeue(startWindowBlock int64, maxResults int, bestEffort b
 // of logs have been dequeued for that upkeep.
 // Returns logs and the number of remaining logs in the buffer for the given range and selector.
 // NOTE: this method is not thread safe and should be called within a lock.
-func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]BufferedLog, int) {
+func (b *logBuffer) dequeue(start, end int64, upkeepLimit, capacity int, minimumDequeue bool) ([]BufferedLog, int) {
 	var result []BufferedLog
 	var remainingLogs int
 	minimumDequeueMet := 0
-
-	logLimit := int(b.opts.logLimit.Load())
-	end := start + int64(b.opts.blockRate.Load())
-
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
-		if minimumDequeue && q.dequeued[start] >= logLimit {
+		if minimumDequeue && q.dequeued[start] >= upkeepLimit {
 			// if we have already dequeued the minimum commitment for this window, skip it
 			minimumDequeueMet++
 			continue
@@ -199,16 +189,12 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 			remainingLogs += logsInRange
 			continue
 		}
-
-		var logs []logpoller.Log
-		remaining := 0
-
-		if minimumDequeue {
-			logs, remaining = q.dequeue(start, end, min(capacity, logLimit-q.dequeued[start]))
-		} else {
-			logs, remaining = q.dequeue(start, end, capacity)
+		if upkeepLimit > capacity {
+			// adjust limit if it is higher than the actual capacity
+			upkeepLimit = capacity
 		}
 
+		logs, remaining := q.dequeue(start, end, upkeepLimit)
 		for _, l := range logs {
 			result = append(result, BufferedLog{ID: q.id, Log: l})
 			capacity--
@@ -505,8 +491,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 
 	for _, blockNumber := range oldBlockNumbers {
 		delete(q.logs, blockNumber)
-		startWindow, _ := getBlockWindow(blockNumber, int(q.opts.blockRate.Load()))
-		delete(q.dequeued, startWindow)
+		delete(q.dequeued, blockNumber)
 	}
 	q.blockNumbers = blockNumbers
 
@@ -519,7 +504,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 // NOTE: this method is not thread safe and should be called within a lock.
 func (q *upkeepLogQueue) cleanStates(blockThreshold int64) {
 	for lid, s := range q.states {
-		if s.block < blockThreshold {
+		if s.block <= blockThreshold {
 			delete(q.states, lid)
 		}
 	}
