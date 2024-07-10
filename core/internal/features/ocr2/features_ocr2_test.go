@@ -198,7 +198,7 @@ func testIntegration_OCR2(t *testing.T) {
 		name                string
 		chainReaderAndCodec bool
 	}{
-		//{"legacy", false},
+		{"legacy", false},
 		{"chain-reader", true},
 	} {
 		test := test
