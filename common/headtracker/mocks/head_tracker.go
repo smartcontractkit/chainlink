@@ -15,17 +15,17 @@ type HeadTracker[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
 	mock.Mock
 }
 
-// Backfill provides a mock function with given fields: ctx, headWithChain, latestFinalized
-func (_m *HeadTracker[H, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain H, latestFinalized H) error {
-	ret := _m.Called(ctx, headWithChain, latestFinalized)
+// Backfill provides a mock function with given fields: ctx, headWithChain
+func (_m *HeadTracker[H, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain H) error {
+	ret := _m.Called(ctx, headWithChain)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Backfill")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, H, H) error); ok {
-		r0 = rf(ctx, headWithChain, latestFinalized)
+	if rf, ok := ret.Get(0).(func(context.Context, H) error); ok {
+		r0 = rf(ctx, headWithChain)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -69,6 +69,41 @@ func (_m *HeadTracker[H, BLOCK_HASH]) HealthReport() map[string]error {
 	}
 
 	return r0
+}
+
+// LatestAndFinalizedBlock provides a mock function with given fields: ctx
+func (_m *HeadTracker[H, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Context) (H, H, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LatestAndFinalizedBlock")
+	}
+
+	var r0 H
+	var r1 H
+	var r2 error
+	if rf, ok := ret.Get(0).(func(context.Context) (H, H, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) H); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(H)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) H); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Get(1).(H)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = rf(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // LatestChain provides a mock function with given fields:

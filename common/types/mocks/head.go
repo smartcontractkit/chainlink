@@ -184,6 +184,36 @@ func (_m *Head[BLOCK_HASH]) HashAtHeight(blockNum int64) BLOCK_HASH {
 	return r0
 }
 
+// HeadAtHeight provides a mock function with given fields: blockNum
+func (_m *Head[BLOCK_HASH]) HeadAtHeight(blockNum int64) (types.Head[BLOCK_HASH], error) {
+	ret := _m.Called(blockNum)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HeadAtHeight")
+	}
+
+	var r0 types.Head[BLOCK_HASH]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64) (types.Head[BLOCK_HASH], error)); ok {
+		return rf(blockNum)
+	}
+	if rf, ok := ret.Get(0).(func(int64) types.Head[BLOCK_HASH]); ok {
+		r0 = rf(blockNum)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.Head[BLOCK_HASH])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(blockNum)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IsValid provides a mock function with given fields:
 func (_m *Head[BLOCK_HASH]) IsValid() bool {
 	ret := _m.Called()

@@ -52,7 +52,7 @@ type feeEstimatorClient interface {
 }
 
 // NewEstimator returns the estimator for a given config
-func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) EvmFeeEstimator {
+func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, geCfg evmconfig.GasEstimator) (EvmFeeEstimator, error) {
 	bh := geCfg.BlockHistory()
 	s := geCfg.Mode()
 	lggr.Infow(fmt.Sprintf("Initializing EVM gas estimator in mode: %s", s),
@@ -79,13 +79,21 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
-		l1Oracle = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		var err error
+		l1Oracle, err = rollups.NewL1GasOracle(lggr, ethClient, cfg.ChainType())
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize L1 oracle: %w", err)
+		}
 	}
 	var newEstimator func(logger.Logger) EvmEstimator
 	switch s {
 	case "Arbitrum":
+		arbOracle, err := rollups.NewArbitrumL1GasOracle(lggr, ethClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Arbitrum L1 oracle: %w", err)
+		}
 		newEstimator = func(l logger.Logger) EvmEstimator {
-			return NewArbitrumEstimator(lggr, geCfg, ethClient, rollups.NewArbitrumL1GasOracle(lggr, ethClient))
+			return NewArbitrumEstimator(lggr, geCfg, ethClient, arbOracle)
 		}
 	case "BlockHistory":
 		newEstimator = func(l logger.Logger) EvmEstimator {
@@ -105,7 +113,7 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 			return NewFixedPriceEstimator(geCfg, ethClient, bh, lggr, l1Oracle)
 		}
 	}
-	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg)
+	return NewEvmFeeEstimator(lggr, newEstimator, df, geCfg), nil
 }
 
 // DynamicFee encompasses both FeeCap and TipCap for EIP1559 transactions

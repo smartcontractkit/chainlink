@@ -84,14 +84,6 @@ HTTPWriteTimeout = '1h'
 """
 
 CommonChainConfigTOML = """
-AutoCreateKey = true
-FinalityDepth = 1
-MinContractPayment = 0
-
-[GasEstimator]
-PriceMax = '200 gwei'
-LimitDefault = 6000000
-FeeCapDefault = '200 gwei'
 """
 
 [Benchmark.NodeConfig.ChainConfigTOMLByChainID]
