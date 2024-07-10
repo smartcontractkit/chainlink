@@ -21,7 +21,7 @@ type LogBuffer interface {
 	// given upkeep was exceeded. Returns the number of logs that were added and number of logs that were  dropped.
 	Enqueue(id *big.Int, logs ...logpoller.Log) (added int, dropped int)
 	// Dequeue pulls logs from the buffer that are within the given block window,
-	// with a maximum number of logs to return.
+	// with a maximum number of logs per upkeep and a total maximum number of logs to return.
 	// It also accepts a boolean to identify if we are operating under minimum dequeue.
 	// Returns logs (associated to upkeeps) and the number of remaining
 	// logs in that window for the involved upkeeps.
@@ -103,12 +103,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 		b.setUpkeepQueue(uid, buf)
 	}
 
-	latestLogBlock, reorgBlocks := b.blockStatistics(logs...)
-
-	if len(reorgBlocks) > 0 {
-		b.evictReorgdLogs(reorgBlocks)
-	}
-
+	latestLogBlock := b.blockStatistics(logs...)
 	if lastBlockSeen := b.lastBlockSeen.Load(); lastBlockSeen < latestLogBlock {
 		b.lastBlockSeen.Store(latestLogBlock)
 	} else if latestLogBlock < lastBlockSeen {
@@ -125,7 +120,7 @@ func (b *logBuffer) Enqueue(uid *big.Int, logs ...logpoller.Log) (int, int) {
 }
 
 // blockStatistics returns the latest block number from the given logs, and updates any blocks that have been reorgd
-func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]bool) {
+func (b *logBuffer) blockStatistics(logs ...logpoller.Log) int64 {
 	var latest int64
 	reorgBlocks := map[int64]bool{}
 
@@ -142,7 +137,11 @@ func (b *logBuffer) blockStatistics(logs ...logpoller.Log) (int64, map[int64]boo
 		b.blockHashes[l.BlockNumber] = l.BlockHash.String()
 	}
 
-	return latest, reorgBlocks
+	if len(reorgBlocks) > 0 {
+		b.evictReorgdLogs(reorgBlocks)
+	}
+
+	return latest
 }
 
 func (b *logBuffer) evictReorgdLogs(reorgBlocks map[int64]bool) {
@@ -180,6 +179,10 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 	logLimit := int(b.opts.logLimit.Load())
 	end := start + int64(b.opts.blockRate.Load())
 
+	if !minimumDequeue {
+		logLimit = capacity
+	}
+
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
@@ -199,14 +202,18 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 			remainingLogs += logsInRange
 			continue
 		}
+		if logLimit > capacity {
+			// adjust limit if it is higher than the actual capacity
+			logLimit = capacity
+		}
 
 		var logs []logpoller.Log
 		remaining := 0
 
 		if minimumDequeue {
-			logs, remaining = q.dequeue(start, end, min(capacity, logLimit-q.dequeued[start]))
+			logs, remaining = q.dequeue(start, end, logLimit-q.dequeued[start])
 		} else {
-			logs, remaining = q.dequeue(start, end, capacity)
+			logs, remaining = q.dequeue(start, end, logLimit)
 		}
 
 		for _, l := range logs {
@@ -505,8 +512,7 @@ func (q *upkeepLogQueue) clean(blockThreshold int64) int {
 
 	for _, blockNumber := range oldBlockNumbers {
 		delete(q.logs, blockNumber)
-		startWindow, _ := getBlockWindow(blockNumber, int(q.opts.blockRate.Load()))
-		delete(q.dequeued, startWindow)
+		delete(q.dequeued, blockNumber)
 	}
 	q.blockNumbers = blockNumbers
 
