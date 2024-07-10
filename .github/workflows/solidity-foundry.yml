@@ -146,13 +146,16 @@ jobs:
           git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | grep -E '\.sol$' | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0) | {path: .})' > modified_contracts.json
           MATRIX=$(cat modified_contracts.json | jq -c .)
           echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
+          echo "Found modified contracts:"
+          cat modified_contracts.json | jq -c .
 
   analyze:
     needs: [ find-modified-contracts ]
     name: Run static analysis
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
+      matrix:
+        contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
     steps:
@@ -172,9 +175,9 @@ jobs:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge build
-        if: needs.changes.outputs.changes == 'true'
+        # if: needs.changes.outputs.changes == 'true'
         run: |
-          forge build ${{ matrix.path }}
+          forge build ${{ matrix.contract.path }}
         id: fmt
         working-directory: contracts
         # we could detect the product from the contract path and set profile dynamically
@@ -183,7 +186,7 @@ jobs:
 
       - uses: crytic/slither-action@v0.4.0
         with:
-          target: ${{ matrix.path }}
+          target: ${{ matrix.contract.path }}
           slither-config: contracts/.slither.config-ci.json
           fail-on: none
           node-version: 20
@@ -194,7 +197,8 @@ jobs:
     name: Check formatting
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
+      matrix:
+        contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
     steps:
@@ -220,7 +224,7 @@ jobs:
       - name: Run Forge fmt
         # if: needs.changes.outputs.changes == 'true'
         run: |
-          forge fmt --check ${{ matrix.path }}
+          forge fmt --check ${{ matrix.contract.path }}
         id: fmt
         working-directory: contracts
         # we could detect the product from the contract path and set profile dynamically
