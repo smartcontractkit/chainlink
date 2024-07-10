@@ -31,7 +31,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240703234618-dc1fbe45acc0
-	github.com/smartcontractkit/chainlink-testing-framework v1.31.10
+	github.com/smartcontractkit/chainlink-testing-framework v1.31.11-0.20240710092756-d993dd7ff90d
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
@@ -469,7 +469,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/api v0.28.2 // indirect
 	k8s.io/apiextensions-apiserver v0.28.1 // indirect
-	k8s.io/cli-runtime v0.28.1 // indirect
+	k8s.io/cli-runtime v0.28.2 // indirect
 	k8s.io/client-go v0.28.2 // indirect
 	k8s.io/component-base v0.28.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
@@ -503,7 +503,38 @@ replace (
 
 	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
-	github.com/smartcontractkit/chainlink-testing-framework => /Users/fahrenheit/GolandProjects/chainlink-testing-framework
-	k8s.io/api => k8s.io/api v0.28.0
-//sigs.k8s.io/controller-runtime => 	sigs.k8s.io/controller-runtime v0.15.0
+)
+
+replace (
+	k8s.io/api => k8s.io/api v0.28.2
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.2
+	k8s.io/apimachinery => k8s.io/apimachinery v0.28.2
+	k8s.io/apiserver => k8s.io/apiserver v0.28.2
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.28.2
+	k8s.io/client-go => k8s.io/client-go v0.28.2
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.28.2
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.28.2
+	k8s.io/code-generator => k8s.io/code-generator v0.28.2
+	k8s.io/component-base => k8s.io/component-base v0.28.2
+	k8s.io/component-helpers => k8s.io/component-helpers v0.28.2
+	k8s.io/controller-manager => k8s.io/controller-manager v0.28.2
+	k8s.io/cri-api => k8s.io/cri-api v0.28.2
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.28.2
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.28.2
+	k8s.io/endpointslice => k8s.io/endpointslice v0.28.2
+	k8s.io/kms => k8s.io/kms v0.28.2
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.2
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.28.2
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.28.2
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.28.2
+	k8s.io/kubectl => k8s.io/kubectl v0.28.2
+	k8s.io/kubelet => k8s.io/kubelet v0.28.2
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.28.2
+	k8s.io/metrics => k8s.io/metrics v0.28.2
+	k8s.io/mount-utils => k8s.io/mount-utils v0.28.2
+	k8s.io/pod-security-admission => k8s.io/pod-security-admission v0.28.2
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.2
+	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.2
+	k8s.io/sample-controller => k8s.io/sample-controller v0.28.2
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.16.2
 )
