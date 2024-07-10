@@ -323,7 +323,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b89f6235c7f3899a4f38baccaf8994f132678f60 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6a36747035d91324cec30283dfba6e48ad20a660 # TODO: Create tag and use it here
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -446,7 +446,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b89f6235c7f3899a4f38baccaf8994f132678f60 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6a36747035d91324cec30283dfba6e48ad20a660 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
