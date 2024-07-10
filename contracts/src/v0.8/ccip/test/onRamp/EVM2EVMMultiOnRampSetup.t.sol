@@ -276,8 +276,7 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
         networkFeeUSDCents: 1_00,
         enforceOutOfOrder: false,
         chainFamilySelector: Internal.CHAIN_FAMILY_SELECTOR_EVM
-      }),
-      prevOnRamp: address(0)
+      })
     });
     return destChainConfigs;
   }
@@ -367,7 +366,6 @@ contract EVM2EVMMultiOnRampSetup is TokenSetup, PriceRegistrySetup {
     assertEq(a.dynamicConfig.defaultTokenDestGasOverhead, b.dynamicConfig.defaultTokenDestGasOverhead);
     assertEq(a.dynamicConfig.defaultTokenDestBytesOverhead, b.dynamicConfig.defaultTokenDestBytesOverhead);
     assertEq(a.dynamicConfig.defaultTxGasLimit, b.dynamicConfig.defaultTxGasLimit);
-    assertEq(a.prevOnRamp, b.prevOnRamp);
     assertEq(a.sequenceNumber, b.sequenceNumber);
     assertEq(a.metadataHash, b.metadataHash);
   }

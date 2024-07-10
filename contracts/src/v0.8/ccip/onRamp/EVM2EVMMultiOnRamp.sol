@@ -146,8 +146,7 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
 
   /// @dev Struct to hold the configs for a destination chain
   struct DestChainConfig {
-    DestChainDynamicConfig dynamicConfig; // ──╮ Dynamic configs for a destination chain
-    address prevOnRamp; // ────────────────────╯ Address of previous-version OnRamp
+    DestChainDynamicConfig dynamicConfig; // Dynamic configs for a destination chain
     uint64 sequenceNumber; // The last used sequence number. This is zero in the case where no messages has been sent yet.
     // 0 is not a valid sequence number for any real transaction.
     /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
@@ -157,14 +156,12 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
     bytes32 metadataHash;
   }
 
-  /// @dev Struct to hold the dynamic configs, its destination chain selector and previous onRamp.
-  /// Same as DestChainConfig but with the destChainSelector and the prevOnRamp so that an array of these
+  /// @dev Struct to hold the dynamic configs, its destination chain selector. Same as DestChainConfig but with the destChainSelector so that an array of these
   /// can be passed in the constructor and the applyDestChainConfigUpdates function
   //solhint-disable gas-struct-packing
   struct DestChainConfigArgs {
     uint64 destChainSelector; // Destination chain selector
     DestChainDynamicConfig dynamicConfig; // Struct to hold the configs for a destination chain
-    address prevOnRamp; // Address of previous-version OnRamp.
   }
 
   // STATIC CONFIG
@@ -761,11 +758,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
       }
 
       DestChainConfig storage destChainConfig = s_destChainConfig[destChainSelector];
-      address prevOnRamp = destChainConfigArg.prevOnRamp;
 
       DestChainConfig memory newDestChainConfig = DestChainConfig({
         dynamicConfig: destChainConfigArg.dynamicConfig,
-        prevOnRamp: prevOnRamp,
         sequenceNumber: destChainConfig.sequenceNumber,
         metadataHash: destChainConfig.metadataHash
       });
@@ -776,11 +771,9 @@ contract EVM2EVMMultiOnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, OwnerIsCre
         newDestChainConfig.metadataHash =
           keccak256(abi.encode(Internal.EVM_2_ANY_MESSAGE_HASH, i_chainSelector, destChainSelector, address(this)));
         destChainConfig.metadataHash = newDestChainConfig.metadataHash;
-        if (prevOnRamp != address(0)) destChainConfig.prevOnRamp = prevOnRamp;
 
         emit DestChainAdded(destChainSelector, destChainConfig);
       } else {
-        if (destChainConfig.prevOnRamp != prevOnRamp) revert InvalidDestChainConfig(destChainSelector);
         if (destChainConfigArg.dynamicConfig.defaultTokenDestBytesOverhead < Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES) {
           revert InvalidDestBytesOverhead(address(0), destChainConfigArg.dynamicConfig.defaultTokenDestBytesOverhead);
         }
