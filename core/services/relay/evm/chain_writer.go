@@ -116,7 +116,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 	}
 
 	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
-	if meta != nil && *meta.WorkflowExecutionID != "" {
+	if meta != nil && meta.WorkflowExecutionID != nil {
 		txMeta = &txmgrtypes.TxMeta[common.Address, common.Hash]{
 			WorkflowExecutionID: meta.WorkflowExecutionID,
 		}
