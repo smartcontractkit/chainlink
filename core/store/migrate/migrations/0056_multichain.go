@@ -12,10 +12,6 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-func init() {
-	goose.AddMigrationContext(Up56, Down56)
-}
-
 const up56 = `
 CREATE TABLE evm_chains (
 	id numeric(78,0) PRIMARY KEY,
@@ -83,3 +79,5 @@ func Down56(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
+
+var Migration56 = goose.NewGoMigration(56, &goose.GoFunc{RunTx: Up56}, &goose.GoFunc{RunTx: Down56})

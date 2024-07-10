@@ -35,9 +35,12 @@ type Syncer interface {
 }
 
 type registrySyncer struct {
-	stopCh    services.StopChan
-	launchers []Launcher
-	reader    types.ContractReader
+	stopCh          services.StopChan
+	launchers       []Launcher
+	reader          types.ContractReader
+	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
+	relayer         contractReaderFactory
+	registryAddress string
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -57,23 +60,22 @@ func New(
 	registryAddress string,
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
-	ctx, _ := stopCh.NewCtx()
-	reader, err := newReader(ctx, lggr, relayer, registryAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	return newSyncer(
-		stopCh,
-		lggr.Named("RegistrySyncer"),
-		reader,
-	), nil
+	return &registrySyncer{
+		stopCh:          stopCh,
+		lggr:            lggr,
+		relayer:         relayer,
+		registryAddress: registryAddress,
+		initReader:      newReader,
+	}, nil
 }
 
 type contractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
 }
 
+// NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
+// This is because Bind() makes an onchain call to verify that the contract address exists, and if
+// called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
@@ -112,18 +114,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 	})
 
 	return cr, err
-}
-
-func newSyncer(
-	stopCh services.StopChan,
-	lggr logger.Logger,
-	reader types.ContractReader,
-) *registrySyncer {
-	return &registrySyncer{
-		stopCh: stopCh,
-		lggr:   lggr,
-		reader: reader,
-	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
@@ -209,6 +199,15 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 	if len(s.launchers) == 0 {
 		s.lggr.Warn("sync called, but no launchers are registered; nooping")
 		return nil
+	}
+
+	if s.reader == nil {
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
+		if err != nil {
+			return err
+		}
+
+		s.reader = reader
 	}
 
 	state, err := s.state(ctx)
