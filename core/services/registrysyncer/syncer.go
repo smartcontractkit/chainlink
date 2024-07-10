@@ -62,7 +62,7 @@ func New(
 	stopCh := make(services.StopChan)
 	return &registrySyncer{
 		stopCh:          stopCh,
-		lggr:            lggr,
+		lggr:            lggr.Named("RegistrySyncer"),
 		relayer:         relayer,
 		registryAddress: registryAddress,
 		initReader:      newReader,

@@ -58,7 +58,7 @@ func NewLauncher(
 	registry core.CapabilitiesRegistry,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr,
+		lggr:        lggr.Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		registry:    registry,
