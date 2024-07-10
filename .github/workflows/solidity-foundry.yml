@@ -187,7 +187,7 @@ jobs:
 
       - uses: crytic/slither-action@v0.4.0
         with:
-          target: ${{ matrix.contract.path }}
+          target: "contracts/${{ matrix.contract.path }}"
           slither-config: contracts/.slither.config-ci.json
           fail-on: none
           node-version: 20
