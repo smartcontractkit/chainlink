@@ -73,6 +73,9 @@ type contractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
 }
 
+// NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
+// This is because Bind() makes an onchain call to verify that the contract address exists, and if
+// called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
