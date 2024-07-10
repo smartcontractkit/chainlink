@@ -344,6 +344,7 @@ jobs:
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
           DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -471,8 +472,8 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
-          DEFAULT_CHAINLINK_IMAGE: "{{ env.QA_CHAINLINK_IMAGE }}" # TODO: for test, remove
-          # DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
