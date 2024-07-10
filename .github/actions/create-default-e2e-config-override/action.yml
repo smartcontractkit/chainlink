@@ -39,7 +39,7 @@ runs:
       uses: actions/checkout@v3
       with:
         repository: 'smartcontractkit/chainlink-testing-framework'
-        ref: 1366f5bb277d9fa893bbd0e55ecfb89d0a0bb4b3
+        ref: 6d864aa3b8bafbd4d213d1a59714bb06752c8d00
         path: 'chainlink-testing-framework'
 
     - name: Create default E2E test config override

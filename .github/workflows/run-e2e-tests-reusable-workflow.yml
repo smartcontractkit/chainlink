@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 1366f5bb277d9fa893bbd0e55ecfb89d0a0bb4b3
+          ref: 6d864aa3b8bafbd4d213d1a59714bb06752c8d00
           path: 'chainlink-testing-framework'          
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -151,7 +151,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 1366f5bb277d9fa893bbd0e55ecfb89d0a0bb4b3
+          ref: 6d864aa3b8bafbd4d213d1a59714bb06752c8d00
           path: 'chainlink-testing-framework'        
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -298,10 +298,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
-          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.defaultTestInputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
+          chainlink_postgres_version: ${{ matrix.tests.defaultTestInputs.chainlinkPostgresVersion }}
+          selected_networks: ${{ matrix.tests.defaultTestInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
@@ -323,7 +323,7 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a4dac5384ae7e8af84f583b9a8c17b6bed5c38f4 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b89f6235c7f3899a4f38baccaf8994f132678f60 # TODO: Create tag and use it here
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -343,8 +343,8 @@ jobs:
           should_tidy: "false"
           go_coverage_src_dir: /var/tmp/go-coverage
           go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
@@ -430,10 +430,10 @@ jobs:
         if: inputs.test_config_override_base64 == ''
         uses: ./.github/actions/create-default-e2e-config-override
         with:
-          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.testInputs.chainlinkVersion || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.testInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
-          chainlink_postgres_version: ${{ matrix.tests.testInputs.chainlinkPostgresVersion }}
-          selected_networks: ${{ matrix.tests.testInputs.selectedNetworks || env.SELECTED_NETWORKS}}
+          chainlink_version: ${{ inputs.chainlink_version || matrix.tests.defaultTestInputs.chainlinkVersion || github.sha }}
+          chainlink_upgrade_version: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeVersion || 'develop' }} # Set default upgrade version
+          chainlink_postgres_version: ${{ matrix.tests.defaultTestInputs.chainlinkPostgresVersion }}
+          selected_networks: ${{ matrix.tests.defaultTestInputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
           logstream_log_targets: ${{ vars.LOGSTREAM_LOG_TARGETS }}
 
@@ -446,7 +446,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@a4dac5384ae7e8af84f583b9a8c17b6bed5c38f4 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@b89f6235c7f3899a4f38baccaf8994f132678f60 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
@@ -472,8 +472,8 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }} 
-          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.testInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
-          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.testInputs.chainlinkUpgradeImage }}
+          DEFAULT_CHAINLINK_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkImage || env.CHAINLINK_IMAGE }}
+          DEFAULT_CHAINLINK_UPGRADE_IMAGE: ${{ matrix.tests.defaultTestInputs.chainlinkUpgradeImage }}
           DEFAULT_LOKI_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           DEFAULT_LOKI_ENDPOINT: https://${{ secrets.GRAFANA_INTERNAL_HOST }}/loki/api/v1/push
           DEFAULT_LOKI_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
