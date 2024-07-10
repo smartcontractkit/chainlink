@@ -1,43 +1,61 @@
-#!/usr/bin/env bash
-set -ex
+#!/bin/sh
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
 base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
-# Allow for choosing between geth or parity
-if [ $GETH_MODE ]; then
-  base_files="$base_files -f docker-compose.gethnet.yaml"
-else
-  base_files="$base_files -f docker-compose.paritynet.yaml"
+
+# No RPC URL provided, default to Devnet
+if [ -z "$WSURL" ] && [ -z "$HTTPURL" ]; then
+  # Allow for choosing between geth or parity
+  if [ "$GETH_MODE" ]; then
+    export CHAIN_ID=1337
+    base_files="$base_files -f docker-compose.gethnet.yaml"
+  else
+    base_files="$base_files -f docker-compose.paritynet.yaml"
+  fi
 fi
 
-base="docker-compose $base_files"      # base config, used standalone for acceptance
-dev="$base -f docker-compose.dev.yaml" # config for cldev
+base="docker-compose $base_files"
+dev="$base -f docker-compose.dev.yaml"
+
+configure() {
+  if [ -z "$CHAIN_ID" ]; then
+    export CHAIN_ID=34055
+  fi
+
+  if [ -z "$WSURL" ]; then
+    export WSURL="ws://devnet:8546"
+  fi
+
+  if [ -z "$HTTPURL" ]; then
+    export HTTPURL="http://devnet:8545"
+  fi
+
+  sed -e "s/SET_CHAIN_ID/$CHAIN_ID/" \
+    -e "s,SET_WSURL,$WSURL," \
+    -e "s,SET_HTTPURL,$HTTPURL," \
+    config.toml.tmpl > config.toml
+}
 
 clean_docker() {
   $base down -v --remove-orphans
   $dev down -v --remove-orphans
+  rm -f config.toml
 }
 
-function usage() {
+usage() {
   echo "compose -- A helper script for running common docker-compose commands\
 
 Commands:
     help                  Displays this help menu
     clean                 Remove any containers and volumes related to compose files
     logs                  Display the logs of any service(s) by name
-
-    cld                   Runs the chainlink node container in dev mode
-
-    acceptance            Run the services required to perform an acceptance test
-
-    dev                   Run docker-compose with dev config for the core node 
-
-    eth:restart             Reset blockchain data to genesis state
-    cl:restart              Reset chainlink database
-
-    *                     Run docker-compose with base config"
+    dev                   Runs the chainlink node container in dev mode
+    connect               Connect to chainlink node container
+    up                    Run the chainlink cluster with base config
+    eth:restart           Reset blockchain data to genesis state
+    db:restart            Reset chainlink database"
 }
 
 case "$1" in
@@ -48,40 +66,35 @@ clean)
   clean_docker
   ;;
 logs)
-  $base logs -f ${@:2}
+  $base logs -f "${@:2}"
   ;;
-cld)
+dev)
+  configure
   $dev build
   $dev up -d node
-  docker exec -it chainlink-node bash
-  $dev down -v --remove-orphans
+  $dev watch --no-up node
   ;;
-
-acceptance)
+connect)
+  docker exec -it chainlink-node bash
+  ;;
+up)
+  configure
   $base up
   ;;
-
-dev)
-  $dev ${@:2}
-  ;;
-
 eth:restart)
   $base rm --force --stop devnet
-  if [ $GETH_MODE ]; then
+  if [ "$GETH_MODE" ]; then
     docker volume rm --force docker_geth-db-data
   else
     docker volume rm --force docker_parity-db-data
   fi
   $base up -d devnet
   ;;
-cl:restart)
+db:restart)
   $base stop node
   $base rm --force --stop node-db
   docker volume rm --force docker_node-db-data
   ./compose eth:restart
   $base start node
-  ;;
-*)
-  $base $@
   ;;
 esac

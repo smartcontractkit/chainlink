@@ -28,10 +28,6 @@ ALTER TABLE log_broadcasts RENAME COLUMN job_id_v2 TO job_id;
 ALTER TABLE job_spec_errors_v2 RENAME TO job_spec_errors;
 `
 
-func init() {
-	goose.AddMigrationContext(Up54, Down54)
-}
-
 type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
@@ -63,3 +59,5 @@ func CheckNoLegacyJobs(ctx context.Context, ds queryer) error {
 	}
 	return nil
 }
+
+var Migration54 = goose.NewGoMigration(54, &goose.GoFunc{RunTx: Up54}, &goose.GoFunc{RunTx: Down54})
