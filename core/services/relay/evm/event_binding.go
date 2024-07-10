@@ -139,7 +139,10 @@ func (e *eventBinding) GetLatestValue(ctx context.Context, confidenceLevel primi
 		return err
 	}
 
-	confirmations := e.confirmationsFrom(confidenceLevel)
+	confirmations, err := confidenceToConfirmations(e.confirmationsMapping, confidenceLevel)
+	if err != nil {
+		return err
+	}
 
 	if len(e.inputInfo.Args()) == 0 {
 		return e.getLatestValueWithoutFilters(ctx, confirmations, into)
@@ -229,6 +232,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 		return wrapInternalErr(err)
 	}
 
+	// TODO Use filtered logs here BCF-3316
 	// TODO: there should be a better way to ask log poller to filter these
 	// First, you should be able to ask for as many topics to match
 	// Second, you should be able to get the latest only
@@ -249,7 +253,7 @@ func (e *eventBinding) getLatestValueWithFilters(
 }
 
 func (e *eventBinding) convertToOffChainType(params any) (any, error) {
-	offChain, err := e.codec.CreateType(wrapItemType(e.contractName, e.eventName, true), true)
+	offChain, err := e.codec.CreateType(WrapItemType(e.contractName, e.eventName, true), true)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +341,7 @@ func (e *eventBinding) derefTopics(topics []any) error {
 }
 
 func (e *eventBinding) decodeLog(ctx context.Context, log *logpoller.Log, into any) error {
-	if err := e.codec.Decode(ctx, log.Data, into, wrapItemType(e.contractName, e.eventName, false)); err != nil {
+	if err := e.codec.Decode(ctx, log.Data, into, WrapItemType(e.contractName, e.eventName, false)); err != nil {
 		return err
 	}
 
@@ -436,25 +440,16 @@ func (e *eventBinding) remapPrimitive(key string, expression query.Expression) (
 		if val, ok := e.eventDataWords[primitive.Name]; ok {
 			return logpoller.NewEventByWordFilter(e.hash, val, primitive.ValueComparators), nil
 		}
-
 		return logpoller.NewEventByTopicFilter(e.topics[key].Index, primitive.ValueComparators), nil
 	case *primitives.Confidence:
-		return logpoller.NewConfirmationsFilter(e.confirmationsFrom(primitive.ConfidenceLevel)), nil
+		confirmations, err := confidenceToConfirmations(e.confirmationsMapping, primitive.ConfidenceLevel)
+		if err != nil {
+			return query.Expression{}, err
+		}
+		return logpoller.NewConfirmationsFilter(confirmations), nil
 	default:
 		return expression, nil
 	}
-}
-
-func (e *eventBinding) confirmationsFrom(confidence primitives.ConfidenceLevel) evmtypes.Confirmations {
-	value, ok := e.confirmationsMapping[confidence]
-	if ok {
-		return value
-	}
-
-	// TODO is this ok? Maybe some things have to always be faster than Finalized?
-
-	// if the mapping doesn't exist, default to finalized for safety
-	return evmtypes.Finalized
 }
 
 func wrapInternalErr(err error) error {

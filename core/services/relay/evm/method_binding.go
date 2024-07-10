@@ -76,7 +76,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, confidenceLevel prim
 		return fmt.Errorf("%w: method not bound", commontypes.ErrInvalidType)
 	}
 
-	data, err := m.codec.Encode(ctx, params, wrapItemType(m.contractName, m.method, true))
+	data, err := m.codec.Encode(ctx, params, WrapItemType(m.contractName, m.method, true))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (m *methodBinding) GetLatestValue(ctx context.Context, confidenceLevel prim
 		return fmt.Errorf("%w: %w", commontypes.ErrInternal, err)
 	}
 
-	return m.codec.Decode(ctx, bytes, returnVal, wrapItemType(m.contractName, m.method, false))
+	return m.codec.Decode(ctx, bytes, returnVal, WrapItemType(m.contractName, m.method, false))
 }
 
 func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.LimitAndSort, _ any) ([]commontypes.Sequence, error) {
@@ -105,16 +105,14 @@ func (m *methodBinding) QueryKey(_ context.Context, _ query.KeyFilter, _ query.L
 }
 
 func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenceLevel primitives.ConfidenceLevel) (*big.Int, error) {
-	value, ok := m.confirmationsMapping[confidenceLevel]
-	if !ok {
-		// caller needs safe data, so return an error if confidence is misconfigured
-		if confidenceLevel == primitives.Finalized {
-			return nil, fmt.Errorf("finalized confidence mapping missing for contract: %s, method: %s", m.contractName, m.method)
+	confirmations, err := confidenceToConfirmations(m.confirmationsMapping, confidenceLevel)
+	if err != nil {
+		err = fmt.Errorf("%w for contract: %s, method: %s", err, m.contractName, m.method)
+		if confidenceLevel == primitives.Unconfirmed {
+			m.lggr.Errorf("%v, now falling back to default contract call behaviour that calls latest state", err)
+			return nil, nil
 		}
-
-		m.lggr.Errorf("unknown confidence level: %s confidence confirmations are misconfigured for contract: %s, method: %s, now "+
-			"falling back to default contract call behaviour that calls latest state", confidenceLevel, m.contractName, m.method)
-		return nil, nil
+		return nil, err
 	}
 
 	latest, finalized, err := m.ht.LatestAndFinalizedBlock(ctx)
@@ -122,11 +120,11 @@ func (m *methodBinding) blockNumberFromConfidence(ctx context.Context, confidenc
 		return nil, err
 	}
 
-	if value == evmtypes.Finalized {
+	if confirmations == evmtypes.Finalized {
 		return big.NewInt(finalized.Number), nil
-	} else if value == evmtypes.Unconfirmed {
+	} else if confirmations == evmtypes.Unconfirmed {
 		return big.NewInt(latest.BlockNumber()), nil
 	}
 
-	return nil, fmt.Errorf("unknown confidence level: %v", confidenceLevel)
+	return nil, fmt.Errorf("unknown evm confirmations: %v for contract: %s, method: %s", confirmations, m.contractName, m.method)
 }

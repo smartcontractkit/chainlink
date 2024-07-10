@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
@@ -34,13 +34,13 @@ import (
 const (
 	triggerWithDynamicTopic = "TriggeredEventWithDynamicTopic"
 	triggerWithAllTopics    = "TriggeredWithFourTopics"
+	finalityDepth           = 4
 )
 
 type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	SetupAuth(t T) *bind.TransactOpts
 	Client(t T) client.Client
 	Commit()
-	MustGenerateRandomKey(t T) ethkey.KeyV2
 	Backend() bind.ContractBackend
 	ChainID() *big.Int
 	Context(t T) context.Context
@@ -98,15 +98,11 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							&codec.RenameModifierConfig{Fields: map[string]string{"NestedStruct.Inner.IntVal": "I"}},
 						},
 					},
-					// this is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-					//MethodReturningAlterableUint64: {
-					//	ChainSpecificName:       "getAlterablePrimitiveValue",
-					//},
+					MethodReturningAlterableUint64: {
+						ChainSpecificName: "getAlterablePrimitiveValue",
+					},
 					MethodReturningUint64: {
 						ChainSpecificName: "getPrimitiveValue",
-					},
-					DifferentMethodReturningUint64: {
-						ChainSpecificName: "getDifferentPrimitiveValue",
 					},
 					MethodReturningUint64Slice: {
 						ChainSpecificName: "getSliceValue",
@@ -128,14 +124,12 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 						ReadType:          types.Event,
 						EventDefinitions: &types.EventDefinitions{
 							InputFields: []string{"fieldHash"},
-							// no specific reason for filter being defined here insted on contract level,
-							// this is just for test case variety
+							// No specific reason for filter being defined here instead of on contract level, this is just for test case variety.
 							PollingFilter: &types.PollingFilter{},
 						},
 						InputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"FieldHash": "Field"}},
 						},
-						ConfidenceConfirmations: map[string]int{"0.0": 0, "1.0": -1},
 					},
 					triggerWithAllTopics: {
 						ChainSpecificName: triggerWithAllTopics,
@@ -144,6 +138,10 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 							InputFields:   []string{"Field1", "Field2", "Field3"},
 							PollingFilter: &types.PollingFilter{},
 						},
+						// This doesn't have to be here, since the defalt mapping would work, but is left as an example.
+						// Keys which are string float values(confidence levels) are chain agnostic and should be reused across chains.
+						// These float values can map to different finality concepts across chains.
+						ConfidenceConfirmations: map[string]int{"0.0": int(evmtypes.Unconfirmed), "1.0": int(evmtypes.Finalized)},
 					},
 					MethodReturningSeenStruct: {
 						ChainSpecificName: "returnSeen",
@@ -199,7 +197,7 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	db := it.Helper.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
-		FinalityDepth:            4,
+		FinalityDepth:            finalityDepth,
 		BackfillBatchSize:        1,
 		RpcBatchSize:             1,
 		KeepFinalizedBlocksDepth: 10000,
@@ -215,6 +213,11 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	conf, err := types.ChainReaderConfigFromBytes(confBytes)
 	require.NoError(t, err)
 
+	// wrap the client so that we can mock historical contract state
+	cwh := &ClientWithContractHistory{Client: it.Helper.Client(t), HT: ht}
+	require.NoError(t, cwh.Init(ctx, conf))
+	it.client = cwh
+
 	cr, err := evm.NewChainReaderService(ctx, lggr, lp, ht, it.client, conf)
 	require.NoError(t, err)
 	require.NoError(t, cr.Start(ctx))
@@ -227,8 +230,14 @@ func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testSt
 }
 
 // SetUintLatestValue is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64) {
+func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64, forCall ExpectedGetLatestValueArgs) {
+	cw, ok := it.client.(*ClientWithContractHistory)
+	if !ok {
+		require.True(t, ok, "SetUintLatestValue should always be used for tests involving finality")
+	}
+
 	it.sendTxWithUintVal(t, val, (*chain_reader_tester.ChainReaderTesterTransactor).SetAlterablePrimitiveValue)
+	require.NoError(t, cw.SetUintLatestValue(it.Helper.Context(t), val, forCall))
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
@@ -242,31 +251,17 @@ func (it *EVMChainReaderInterfaceTester[T]) GenerateBlocksTillConfidenceLevel(t 
 		t.Errorf("contract %s not found", contractName)
 		return
 	}
-
 	readCfg, ok := contractCfg.Configs[readName]
 	require.True(t, ok, fmt.Sprintf("readName: %s not found for contract: %s", readName, contractName))
-
 	toEvmConf, err := evm.ConfirmationsFromConfig(readCfg.ConfidenceConfirmations)
 	require.True(t, ok, fmt.Errorf("failed to parse confidence level mapping:%s not found for contract: %s readName: %s, err:%w", confidenceLevel, readName, contractName, err))
-
 	confirmations, ok := toEvmConf[confidenceLevel]
 	require.True(t, ok, fmt.Sprintf("confidence level mapping:%s not found for contract: %s readName: %s", confidenceLevel, readName, contractName))
 
-	key := it.Helper.MustGenerateRandomKey(t)
-	pk := key.ToEcdsaPrivKey()
-	toAddress := common.HexToAddress("0x0")
-
-	// confirmations are in form of negative values that signify how many blocks are needed for a specific confidence level
-	for i := confirmations; i == 0; i++ {
-		nonce, err := it.client.PendingNonceAt(it.Helper.Context(t), key.Address)
-		require.NoError(t, err)
-
-		tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{ChainID: it.client.ConfiguredChainID(), Nonce: nonce, Gas: 21000, To: &toAddress})
-		signedTx, err := gethtypes.SignTx(tx, gethtypes.NewEIP155Signer(it.client.ConfiguredChainID()), pk)
-		require.NoError(t, err)
-
-		require.NoError(t, it.client.SendTransaction(it.Helper.Context(t), signedTx))
-		it.AwaitTx(t, &gethtypes.Transaction{})
+	if confirmations == evmtypes.Finalized {
+		for i := 0; i < finalityDepth; i++ {
+			it.Helper.Commit()
+		}
 	}
 }
 

@@ -45,7 +45,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 
 		sendStrategy:    txmgr.NewSendEveryStrategy(),
 		contracts:       config.Contracts,
-		parsedContracts: &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		parsedContracts: &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	if config.SendStrategy != nil {
@@ -57,7 +57,7 @@ func NewChainWriterService(logger logger.Logger, client evmclient.Client, txm ev
 	}
 
 	var err error
-	if w.encoder, err = w.parsedContracts.toCodec(); err != nil {
+	if w.encoder, err = w.parsedContracts.ToCodec(); err != nil {
 		return nil, fmt.Errorf("%w: failed to create codec", err)
 	}
 
@@ -75,7 +75,7 @@ type chainWriter struct {
 
 	sendStrategy    txmgrtypes.TxStrategy
 	contracts       map[string]*types.ContractConfig
-	parsedContracts *parsedTypes
+	parsedContracts *ParsedTypes
 
 	encoder commontypes.Encoder
 }
@@ -100,7 +100,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		return fmt.Errorf("method config not found: %v", method)
 	}
 
-	calldata, err := w.encoder.Encode(ctx, args, wrapItemType(contract, method, true))
+	calldata, err := w.encoder.Encode(ctx, args, WrapItemType(contract, method, true))
 	if err != nil {
 		return fmt.Errorf("%w: failed to encode args", err)
 	}
@@ -148,7 +148,7 @@ func (w *chainWriter) parseContracts() error {
 			}
 
 			// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-			inputMod, err := methodConfig.InputModifications.ToModifier(evmDecoderHooks...)
+			inputMod, err := methodConfig.InputModifications.ToModifier(DecoderHooks...)
 			if err != nil {
 				return fmt.Errorf("%w: failed to create input mods", err)
 			}
@@ -159,7 +159,7 @@ func (w *chainWriter) parseContracts() error {
 				return fmt.Errorf("%w: failed to init codec entry for method %s", err, method)
 			}
 
-			w.parsedContracts.encoderDefs[wrapItemType(contract, method, true)] = input
+			w.parsedContracts.EncoderDefs[WrapItemType(contract, method, true)] = input
 		}
 	}
 
