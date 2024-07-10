@@ -110,8 +110,13 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	blockTime := time.UnixMilli(int64(h.Time))
-	err = backend.AdjustTime(time.Since(blockTime) - 24*time.Hour)
+	blockTime := time.Unix(int64(h.Time), 0)
+	// Move the clock closer to the current time. We set first block to be 24 hours ago.
+	adjust := -time.Since(blockTime) + 24*time.Hour
+	// hack to convert nanos durations to seconds until geth patches incorrect conversion
+	// remove after fix is merged: https://github.com/ethereum/go-ethereum/pull/30138
+	adjust = adjust / 1e9
+	err = backend.AdjustTime(adjust)
 	require.NoError(t, err)
 
 	// Deploy link

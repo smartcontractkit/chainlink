@@ -26,14 +26,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
+	"github.com/jmoiron/sqlx"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-
-	"github.com/jmoiron/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -48,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -1319,10 +1317,6 @@ func (b *Blocks) LogOnBlockNumWithTopics(i uint64, logIndex uint, addr common.Ad
 	return RawNewRoundLogWithTopics(b.t, addr, b.Hashes[i], i, logIndex, false, topics)
 }
 
-func (b *Blocks) HashesMap() map[int64]common.Hash {
-	return b.mHashes
-}
-
 func (b *Blocks) Head(number uint64) *evmtypes.Head {
 	return b.Heads[int64(number)]
 }
@@ -1340,23 +1334,6 @@ func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
 	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
 	forked.Heads[blockNum].Parent = b.Heads[blockNum].Parent
 	return forked
-}
-
-func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
-	parentNumber := number - 1
-	parent, ok := b.Heads[int64(parentNumber)]
-	if !ok {
-		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
-	}
-	head := &evmtypes.Head{
-		Number:     parent.Number + 1,
-		Hash:       evmutils.NewHash(),
-		ParentHash: parent.Hash,
-		Parent:     parent,
-		Timestamp:  time.Unix(parent.Number+1, 0),
-		EVMChainID: ubig.New(&FixtureChainID),
-	}
-	return head
 }
 
 // Slice returns a slice of heads from number i to j. Set j < 0 for all remaining.
@@ -1394,7 +1371,12 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 		hash := evmutils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &evmtypes.Head{Hash: hash, Number: i, Timestamp: now.Add(time.Duration(i) * time.Second), EVMChainID: ubig.New(&FixtureChainID)}
+		heads[i] = &evmtypes.Head{
+			Hash:       hash,
+			Number:     i,
+			Timestamp:  now.Add(time.Duration(i) * time.Second),
+			EVMChainID: ubig.New(&FixtureChainID),
+		}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1496,11 +1478,6 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	uri, err := url.Parse(s)
 	require.NoError(t, err)
 	return (*models.WebURL)(uri)
-}
-
-func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
-	cfg := configtest.NewGeneralConfig(t, nil)
-	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
 func NewTestTxStore(t *testing.T, ds sqlutil.DataSource) txmgr.TestEvmTxStore {

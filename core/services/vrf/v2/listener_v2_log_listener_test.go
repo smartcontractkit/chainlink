@@ -76,14 +76,17 @@ func setupVRFLogPollerListenerTH(t *testing.T,
 		},
 	}, simulated.WithBlockGasLimit(10e6))
 	ec := backend.Client()
-	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
-	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
-	// FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
-	const FirstBlockAge = 24 * time.Hour
+
 	h, err := ec.HeaderByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	blockTime := time.UnixMilli(int64(h.Time))
-	err = backend.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	blockTime := time.Unix(int64(h.Time), 0)
+	// VRF Listener relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
+	// This trick is used to move the clock closer to the current time. We set first block to be 24 hours ago.
+	adjust := -time.Since(blockTime) + 24*time.Hour
+	// hack to convert nanos durations to seconds until geth patches incorrect conversion
+	// remove after fix is merged: https://github.com/ethereum/go-ethereum/pull/30138
+	adjust = adjust / 1e9
+	err = backend.AdjustTime(adjust)
 	require.NoError(t, err)
 
 	esc := client.NewSimulatedBackendClient(t, backend, chainID)
@@ -259,7 +262,6 @@ func TestLogPollerFilterRegistered(t *testing.T) {
 }
 
 func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 
@@ -318,7 +320,6 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 }
 
 func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
-	t.Skip("TODO FIXME")
 	t.Parallel()
 	ctx := tests.Context(t)
 

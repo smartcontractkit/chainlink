@@ -256,13 +256,9 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 		}
 	}
 
-	return &evmtypes.Head{
-		EVMChainID: ubig.NewI(c.chainId.Int64()),
-		Hash:       header.Hash(),
-		Number:     header.Number.Int64(),
-		ParentHash: header.ParentHash,
-		Timestamp:  time.Unix(int64(header.Time), 0),
-	}, nil
+	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainId)}
+	head.SetFromHeader(header)
+	return head, nil
 }
 
 // HeadByHash returns our own header type.
@@ -273,13 +269,9 @@ func (c *SimulatedBackendClient) HeadByHash(ctx context.Context, h common.Hash) 
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	return &evmtypes.Head{
-		EVMChainID: ubig.NewI(c.chainId.Int64()),
-		Hash:       header.Hash(),
-		Number:     header.Number.Int64(),
-		ParentHash: header.ParentHash,
-		Timestamp:  time.Unix(int64(header.Time), 0),
-	}, nil
+	head := &evmtypes.Head{EVMChainID: ubig.NewI(c.chainId.Int64())}
+	head.SetFromHeader(header)
+	return head, nil
 }
 
 // BlockByNumber returns a geth block type.
@@ -362,7 +354,11 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			case h := <-ch:
 				var head *evmtypes.Head
 				if h != nil {
-					head = &evmtypes.Head{Difficulty: h.Difficulty, Timestamp: time.Unix(int64(h.Time), 0), Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: ubig.New(c.chainId)}
+					head = &evmtypes.Head{
+						EVMChainID: ubig.New(c.chainId),
+						Parent:     lastHead,
+					}
+					head.SetFromHeader(h)
 					lastHead = head
 				}
 				select {
@@ -632,10 +628,7 @@ func (c *SimulatedBackendClient) ethGetBlockByNumber(ctx context.Context, result
 
 	switch res := result.(type) {
 	case *evmtypes.Head:
-		res.Number = header.Number.Int64()
-		res.Hash = header.Hash()
-		res.ParentHash = header.ParentHash
-		res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
+		res.SetFromHeader(header)
 	case *evmtypes.Block:
 		res.Number = header.Number.Int64()
 		res.Hash = header.Hash()
@@ -744,13 +737,9 @@ func (c *SimulatedBackendClient) LatestFinalizedBlock(ctx context.Context) (*evm
 	if err != nil {
 		return nil, err
 	}
-	return &evmtypes.Head{
-		EVMChainID: ubig.NewI(c.chainId.Int64()),
-		Hash:       h.Hash(),
-		Number:     h.Number.Int64(),
-		ParentHash: h.ParentHash,
-		Timestamp:  time.Unix(int64(h.Time), 0),
-	}, nil
+	head := &evmtypes.Head{EVMChainID: ubig.New(c.chainId)}
+	head.SetFromHeader(h)
+	return head, nil
 }
 
 func (c *SimulatedBackendClient) ethGetLogs(ctx context.Context, result interface{}, args ...interface{}) error {

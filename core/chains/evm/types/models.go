@@ -61,6 +61,14 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, cha
 	}
 }
 
+func (h *Head) SetFromHeader(header *types.Header) {
+	h.Hash = header.Hash()
+	h.Number = header.Number.Int64()
+	h.ParentHash = header.ParentHash
+	h.Timestamp = time.Unix(int64(header.Time), 0)
+	h.Difficulty = header.Difficulty
+}
+
 func (h *Head) BlockNumber() int64 {
 	return h.Number
 }
@@ -402,7 +410,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		Hash:          bi.Hash,
 		ParentHash:    bi.ParentHash,
 		BaseFeePerGas: (*assets.Wei)(bi.BaseFeePerGas),
-		Timestamp:     time.Unix((int64((uint64)(bi.Timestamp))), 0),
+		Timestamp:     time.Unix(int64(bi.Timestamp), 0),
 		Transactions:  fromInternalTxnSlice(bi.Transactions),
 	}
 	return nil

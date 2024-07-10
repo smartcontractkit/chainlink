@@ -1797,7 +1797,7 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			header, err := th.Client.HeaderByNumber(ctx, nil)
 			require.NoError(t, err)
 
-			genesisBlockTime := time.UnixMilli(int64(header.Time))
+			genesisBlockTime := time.Unix(int64(header.Time), 0)
 
 			// Emit some logs in blocks
 			for i := 0; i < emittedLogs; i++ {

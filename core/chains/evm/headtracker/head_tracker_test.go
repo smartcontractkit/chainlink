@@ -1416,15 +1416,8 @@ func NewHeadBuffer(t *testing.T) *headBuffer {
 }
 
 func (hb *headBuffer) Append(head *evmtypes.Head) {
-	cloned := &evmtypes.Head{
-		Number:     head.Number,
-		Hash:       head.Hash,
-		ParentHash: head.ParentHash,
-		Parent:     head.Parent,
-		Timestamp:  head.Timestamp,
-		EVMChainID: head.EVMChainID,
-	}
-	hb.Heads = append(hb.Heads, cloned)
+	cloned := *head
+	hb.Heads = append(hb.Heads, &cloned)
 }
 
 type blocks struct {
@@ -1493,7 +1486,7 @@ func (b *blocks) NewHead(number uint64) *evmtypes.Head {
 		Hash:       testutils.NewHash(),
 		ParentHash: parent.Hash,
 		Parent:     parent,
-		Timestamp:  parent.Timestamp.Add(1),
+		Timestamp:  parent.Timestamp.Add(time.Second),
 		EVMChainID: ubig.New(testutils.FixtureChainID),
 	}
 	return head
