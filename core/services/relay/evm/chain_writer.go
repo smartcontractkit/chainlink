@@ -115,12 +115,19 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		v = value
 	}
 
+	var txMeta *txmgrtypes.TxMeta[common.Address, common.Hash]
+	if meta != nil && *meta.WorkflowExecutionID != "" {
+		txMeta = &txmgrtypes.TxMeta[common.Address, common.Hash]{
+			WorkflowExecutionID: meta.WorkflowExecutionID,
+		}
+	}
+
 	req := evmtxmgr.TxRequest{
 		FromAddress:    methodConfig.FromAddress,
 		ToAddress:      common.HexToAddress(toAddress),
 		EncodedPayload: calldata,
 		FeeLimit:       methodConfig.GasLimit,
-		Meta:           &txmgrtypes.TxMeta[common.Address, common.Hash]{WorkflowExecutionID: meta.WorkflowExecutionID},
+		Meta:           txMeta,
 		Strategy:       w.sendStrategy,
 		Checker:        checker,
 		Value:          *v,
