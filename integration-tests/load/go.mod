@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/load-tests
 
-go 1.22.0
-
-toolchain go1.22.3
+go 1.21.7
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -38,6 +36,7 @@ require (
 	cosmossdk.io/errors v1.0.0 // indirect
 	cosmossdk.io/math v1.0.1 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240621143432-85370a54b141 // indirect
 	k8s.io/apimachinery v0.30.2 // indirect
@@ -501,6 +500,11 @@ replace (
 
 	// type func(a Label, b Label) bool of func(a, b Label) bool {…} does not match inferred type func(a Label, b Label) int for func(a E, b E) int
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.47.2-0.20231010075449-4b9c19fe5510
+)
+
+replace (
+	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/common => github.com/prometheus/common v0.42.0
 )
 
 replace github.com/chaos-mesh/chaos-mesh/api => github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240709130330-9f4feec7553f
