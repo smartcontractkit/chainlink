@@ -323,6 +323,7 @@ func TestLogPoller_Replay(t *testing.T) {
 		return &headCopy, finalized, nil
 	})
 	lp := NewLogPoller(orm, ec, lggr, headTracker, lpOpts)
+	servicetest.Run(t, lp)
 
 	{
 		ctx := testutils.Context(t)
