@@ -31,8 +31,9 @@ on:
         description: 'Use the existing remote runner version for k8s tests. Example: "d3bf5044af33e08be788a2df31c4a745cf69d787"'
         required: false
         type: string         
-      workflow_run_name: 'Run E2E Tests'
+      workflow_run_name:
         description: 'Enter the name of the workflow run'
+        default: 'Run E2E Tests'
         required: false
         type: string
         
