@@ -351,10 +351,10 @@ jobs:
           DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
           DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
-          DEFAULT_PYROSCOPE_ENABLED: "true"
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscopeEnv != '' && 'true' || '' }}
 
   # Run K8s tests using old remote runner
 
@@ -480,10 +480,10 @@ jobs:
           DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
           DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-          DEFAULT_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
-          DEFAULT_PYROSCOPE_ENABLED: "true"
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscopeEnv != '' && 'true' || '' }}
 
 
   # Run K8s tests using new remote runner
