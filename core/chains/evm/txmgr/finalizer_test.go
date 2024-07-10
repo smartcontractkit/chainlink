@@ -2,10 +2,12 @@ package txmgr_test
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -171,14 +173,16 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 			rpcElements := args.Get(1).([]rpc.BatchElem)
 			require.Equal(t, 1, len(rpcElements))
 
-			require.Equal(t, "eth_getBlockByHash", rpcElements[0].Method)
+			require.Equal(t, "eth_getBlockByNumber", rpcElements[0].Method)
 			require.Equal(t, false, rpcElements[0].Args[1])
 
-			reqHash := rpcElements[0].Args[0].(common.Hash).String()
+			reqBlockNum := rpcElements[0].Args[0].(string)
+			req1BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Number - 2))
+			req2BlockNum := hexutil.EncodeBig(big.NewInt(head.Parent.Number - 1))
 			var headResult evmtypes.Head
-			if receiptHash1.String() == reqHash {
+			if req1BlockNum == reqBlockNum {
 				headResult = evmtypes.Head{Number: head.Parent.Number - 2, Hash: receiptHash1}
-			} else if receiptHash2.String() == reqHash {
+			} else if req2BlockNum == reqBlockNum {
 				headResult = evmtypes.Head{Number: head.Parent.Number - 1, Hash: receiptHash2}
 			} else {
 				require.Fail(t, "unrecognized block hash")

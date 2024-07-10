@@ -2041,15 +2041,18 @@ func (o *evmTxStore) UpdateTxAttemptBroadcastBeforeBlockNum(ctx context.Context,
 	return err
 }
 
-// Returns all confirmed transactions
-func (o *evmTxStore) FindConfirmedTxes(ctx context.Context, chainID *big.Int) (txes []*Tx, err error) {
+// Returns all confirmed transactions with receipt block nums older than or equal to the finalized block number
+func (o *evmTxStore) FindTxesToMarkFinalized(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) (txes []*Tx, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()
 	err = o.Transact(ctx, true, func(orm *evmTxStore) error {
-		sql := "SELECT * FROM evm.txes WHERE state = 'confirmed' AND evm_chain_id = $1"
+		sql := `SELECT evm.txes.* FROM evm.txes
+		INNER JOIN evm.tx_attempts ON evm.txes.id = evm.tx_attempts.eth_tx_id
+		INNER JOIN evm.receipts ON evm.tx_attempts.hash = evm.receipts.tx_hash
+		WHERE evm.txes.state = 'confirmed' AND evm.receipts.block_number <= $1 AND evm.txes.evm_chain_id = $2`
 		var dbEtxs []DbEthTx
-		err = o.q.SelectContext(ctx, &dbEtxs, sql, chainID.String())
+		err = o.q.SelectContext(ctx, &dbEtxs, sql, finalizedBlockNum, chainID.String())
 		if len(dbEtxs) == 0 {
 			return nil
 		}

@@ -1856,15 +1856,17 @@ func TestORM_FindTransactionsByState(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db)
 	kst := cltest.NewKeyStore(t, db)
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	finalizedBlockNum := int64(100)
 
 	mustInsertUnstartedTx(t, txStore, fromAddress)
 	mustInsertInProgressEthTxWithAttempt(t, txStore, 0, fromAddress)
 	mustInsertUnconfirmedEthTxWithAttemptState(t, txStore, 1, fromAddress, txmgrtypes.TxAttemptBroadcast)
-	mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 2, 100, time.Now(), fromAddress)
-	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, 100)
+	mustInsertConfirmedMissingReceiptEthTxWithLegacyAttempt(t, txStore, 2, finalizedBlockNum, time.Now(), fromAddress)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 3, finalizedBlockNum + 1)
+	mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 4, finalizedBlockNum)
 	mustInsertFatalErrorEthTx(t, txStore, fromAddress)
 
-	txs, err := txStore.FindConfirmedTxes(ctx, testutils.FixtureChainID)
+	txs, err := txStore.FindTxesToMarkFinalized(ctx, finalizedBlockNum, testutils.FixtureChainID)
 	require.NoError(t, err)
 	require.Len(t, txs, 1)
 }

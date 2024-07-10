@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -19,12 +19,11 @@ import (
 
 var _ Finalizer = (*evmFinalizer)(nil)
 
-// processHeadTimeout represents a sanity limit on how long ProcessHead
-// should take to complete
+// processHeadTimeout represents a sanity limit on how long ProcessHead should take to complete
 const processHeadTimeout = 10 * time.Minute
 
 type finalizerTxStore interface {
-	FindConfirmedTxes(ctx context.Context, chainID *big.Int) ([]*Tx, error)
+	FindTxesToMarkFinalized(ctx context.Context, finalizedBlockNum int64, chainID *big.Int) ([]*Tx, error)
 	UpdateTxesFinalized(ctx context.Context, txs []int64, chainId *big.Int) error
 }
 
@@ -151,34 +150,38 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	earliestBlockNumInChain := latestFinalizedHead.EarliestHeadInChain().BlockNumber()
 	f.lggr.Debugw("processing latest finalized head", "block num", latestFinalizedHead.BlockNumber(), "block hash", latestFinalizedHead.BlockHash(), "earliest block num in chain", earliestBlockNumInChain)
 
-	// Retrieve all confirmed transactions, loaded with attempts and receipts
-	unfinalizedTxs, err := f.txStore.FindConfirmedTxes(ctx, f.chainId)
+	// Retrieve all confirmed transactions with receipts older than or equal to the finalized block, loaded with attempts and receipts
+	unfinalizedTxs, err := f.txStore.FindTxesToMarkFinalized(ctx, latestFinalizedHead.BlockNumber(), f.chainId)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve confirmed transactions: %w", err)
 	}
 
 	var finalizedTxs []*Tx
 	// Group by block hash transactions whose receipts cannot be validated using the cached heads
-	receiptBlockHashToTx := make(map[common.Hash][]*Tx)
+	blockNumToTxesMap := make(map[int64][]*Tx)
 	// Find transactions with receipt block nums older than the latest finalized block num and block hashes still in chain
 	for _, tx := range unfinalizedTxs {
 		receipt := tx.GetReceipt()
+		// The tx store query ensures transactions have receipts but leaving this check here for a belts and braces approach
 		if receipt == nil || receipt.IsZero() || receipt.IsUnmined() {
 			f.lggr.AssumptionViolationw("invalid receipt found for confirmed transaction", "tx", tx, "receipt", receipt)
 			continue
 		}
-		// Receipt newer than latest finalized head block num
+		// The tx store query only returns transactions with receipts older than or equal to the finalized block but leaving this check here for a belts and braces approach
 		if receipt.GetBlockNumber().Cmp(big.NewInt(latestFinalizedHead.BlockNumber())) > 0 {
 			continue
 		}
 		// Receipt block num older than earliest head in chain. Validate hash using RPC call later
-		if receipt.GetBlockNumber().Int64() < earliestBlockNumInChain {
-			receiptBlockHashToTx[receipt.GetBlockHash()] = append(receiptBlockHashToTx[receipt.GetBlockHash()], tx)
+		if receipt.GetBlockNumber().Cmp(big.NewInt(earliestBlockNumInChain)) < 0 {
+			blockNumToTxesMap[receipt.GetBlockNumber().Int64()] = append(blockNumToTxesMap[receipt.GetBlockNumber().Int64()], tx)
 			continue
 		}
 		blockHashInChain := latestFinalizedHead.HashAtHeight(receipt.GetBlockNumber().Int64())
 		// Receipt block hash does not match the block hash in chain. Transaction has been re-org'd out but DB state has not been updated yet
 		if blockHashInChain.String() != receipt.GetBlockHash().String() {
+			// Log a critical error if a transaction is marked as confirmed with a receipt older than the finalized block
+			// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
+			f.lggr.Criticalw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", blockHashInChain.String())
 			continue
 		}
 		finalizedTxs = append(finalizedTxs, tx)
@@ -186,7 +189,7 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 
 	// Check if block hashes exist for receipts on-chain older than the earliest cached head
 	// Transactions are grouped by their receipt block hash to avoid repeat requests on the same hash in case transactions were confirmed in the same block
-	validatedReceiptTxs, err := f.batchCheckReceiptHashesOnchain(ctx, receiptBlockHashToTx, latestFinalizedHead.BlockNumber())
+	validatedReceiptTxs, err := f.batchCheckReceiptHashesOnchain(ctx, blockNumToTxesMap)
 	if err != nil {
 		// Do not error out to allow transactions that did not need RPC validation to still be marked as finalized
 		// The transactions failed to be validated will be checked again in the next round
@@ -203,18 +206,18 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 	return nil
 }
 
-func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, receiptMap map[common.Hash][]*Tx, latestFinalizedBlockNum int64) ([]*Tx, error) {
-	if len(receiptMap) == 0 {
+func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, blockNumToTxesMap map[int64][]*Tx) ([]*Tx, error) {
+	if len(blockNumToTxesMap) == 0 {
 		return nil, nil
 	}
 	// Group the RPC batch calls in groups of rpcBatchSize
 	var rpcBatchGroups [][]rpc.BatchElem
 	var rpcBatch []rpc.BatchElem
-	for hash := range receiptMap {
+	for blockNum := range blockNumToTxesMap {
 		elem := rpc.BatchElem{
-			Method: "eth_getBlockByHash",
+			Method: "eth_getBlockByNumber",
 			Args: []any{
-				hash,
+				hexutil.EncodeBig(big.NewInt(blockNum)),
 				false,
 			},
 			Result: new(evmtypes.Head),
@@ -224,6 +227,9 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, recei
 			rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
 			rpcBatch = []rpc.BatchElem{}
 		}
+	}
+	if len(rpcBatch) > 0 {
+		rpcBatchGroups = append(rpcBatchGroups, rpcBatch)
 	}
 
 	var finalizedTxs []*Tx
@@ -237,20 +243,28 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, recei
 		for _, req := range rpcBatch {
 			if req.Error != nil {
 				// Continue if particular RPC call failed so other txs can still be considered for finalization
-				f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+				f.lggr.Debugw("failed to find block by number", "blockNum", req.Args[0])
 				continue
 			}
 			head := req.Result.(*evmtypes.Head)
 			if head == nil {
-				// Continue if particular RPC call yielded a nil head so other txs can still be considered for finalization
-				f.lggr.Debugw("failed to find block by hash", "hash", req.Args[0])
+				// Continue if particular RPC call yielded a nil block so other txs can still be considered for finalization
+				f.lggr.Debugw("failed to find block by number", "blockNum", req.Args[0])
 				continue
 			}
-			// Confirmed receipt's block hash exists on-chain
-			// Add to finalized list if block num less than or equal to the latest finalized head block num
-			if head.BlockNumber() <= latestFinalizedBlockNum {
-				txs := receiptMap[head.BlockHash()]
-				finalizedTxs = append(finalizedTxs, txs...)
+			txs := blockNumToTxesMap[head.BlockNumber()]
+			// Check if transaction receipts match the block hash at the given block num
+			// If they do not, the transactions may have been re-org'd out
+			// The expectation is for the Confirmer to pick up on these re-orgs and get the transaction included
+			for _, tx := range txs {
+				receipt := tx.GetReceipt()
+				if receipt.GetBlockHash().String() == head.BlockHash().String() {
+					finalizedTxs = append(finalizedTxs, tx)
+				} else {
+					// Log a critical error if a transaction is marked as confirmed with a receipt older than the finalized block
+					// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
+					f.lggr.Criticalw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", head.BlockHash().String())
+				}
 			}
 		}
 	}
