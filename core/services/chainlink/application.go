@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -204,6 +205,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
+	// Use a recurring trigger with mock data for testing purposes
+	// TODO: proper component shutdown via srvcs()
+	_, err := capStreams.RegisterMockTrigger(globalLogger, opts.CapabilitiesRegistry)
+	if err != nil {
+		return nil, err
 	}
 
 	var externalPeerWrapper p2ptypes.PeerWrapper
