@@ -83,7 +83,8 @@ func (b bindings) BatchGetLatestValues(ctx context.Context, request commontypes.
 				})
 				// results here will have chain specific method names.
 			case *eventBinding:
-			// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
+				// TODO Use FilteredLogs to batch? This isn't a priority right now, but should get implemented at some point.
+				return nil, fmt.Errorf("%w: events are not yet supported in batch get latest values", commontypes.ErrInvalidType)
 			default:
 				return nil, fmt.Errorf("%w: missing read binding type for contract: %s read: %s", commontypes.ErrInvalidType, contractName, req.ReadName)
 			}
