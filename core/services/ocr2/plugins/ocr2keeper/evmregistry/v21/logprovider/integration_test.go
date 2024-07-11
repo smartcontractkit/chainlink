@@ -35,24 +35,16 @@ import (
 
 func TestIntegration_LogEventProvider(t *testing.T) {
 	tests := []struct {
-		name          string
-		bufferVersion logprovider.BufferVersion
-		logLimit      uint32
+		name     string
+		logLimit uint32
 	}{
 		{
-			name:          "default buffer",
-			bufferVersion: logprovider.BufferVersionDefault,
-			logLimit:      10,
-		},
-		{
-			name:          "buffer v1",
-			bufferVersion: logprovider.BufferVersionV1,
-			logLimit:      10,
+			name:     "buffer v1",
+			logLimit: 10,
 		},
 	}
 
 	for _, tc := range tests {
-		bufferVersion, logLimit := tc.bufferVersion, tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(testutils.Context(t))
 			defer cancel()
@@ -66,8 +58,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 			opts := logprovider.NewOptions(200, big.NewInt(1))
 			opts.ReadInterval = time.Second / 2
-			opts.BufferVersion = bufferVersion
-			opts.LogLimit = logLimit
+			opts.LogLimit = tc.logLimit
 
 			lp, ethClient := setupDependencies(t, db, backend)
 			filterStore := logprovider.NewUpkeepFilterStore()
@@ -220,24 +211,17 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	tests := []struct {
-		name          string
-		bufferVersion logprovider.BufferVersion
-		logLimit      uint32
+		name     string
+		logLimit uint32
 	}{
 		{
-			name:          "default buffer",
-			bufferVersion: logprovider.BufferVersionDefault,
-			logLimit:      10,
-		},
-		{
-			name:          "buffer v1",
-			bufferVersion: logprovider.BufferVersionV1,
-			logLimit:      10,
+			name:     "buffer v1",
+			logLimit: 10,
 		},
 	}
 
 	for _, tc := range tests {
-		bufferVersion, limitLow := tc.bufferVersion, tc.logLimit
+		limitLow := tc.logLimit
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 			defer cancel()
@@ -251,7 +235,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 			opts := logprovider.NewOptions(200, big.NewInt(1))
 			opts.ReadInterval = time.Second / 4
-			opts.BufferVersion = bufferVersion
 			opts.LogLimit = limitLow
 
 			lp, ethClient := setupDependencies(t, db, backend)
