@@ -128,7 +128,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     /// @param feeManager The address of the FeeManager contract
     constructor(address verifierProxy, address feeManager, address accessController) ConfirmedOwner(msg.sender) {
-        if(verifierProxy == address(0) || feeManager == address(0) || accessController == address(0)) {
+        if(verifierProxy == address(0)) {
             revert ZeroAddress();
         }
 
@@ -321,10 +321,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     /// @inheritdoc IDestinationVerifier
     function setFeeManager(address feeManager) external override onlyOwner {
-        if(feeManager == address(0)) {
-            revert ZeroAddress();
-        }
-
         //TODO Selector
 
         address oldFeeManager = address(s_feeManager);
@@ -334,10 +330,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     /// @inheritdoc IDestinationVerifier
     function setAccessController(address accessController) external override onlyOwner {
-        if(address(accessController) == address(0)) {
-            revert ZeroAddress();
-        }
-
         address oldAccessController = address(s_accessController);
         s_accessController = IAccessController(accessController);
         emit AccessControllerSet(oldAccessController, accessController);
