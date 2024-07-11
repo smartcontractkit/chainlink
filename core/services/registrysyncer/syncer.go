@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	_ "fmt"
 	"sync"
 	"time"
 
@@ -48,14 +49,18 @@ type Syncer interface {
 	AddLauncher(h ...Launcher)
 }
 
+type contractReaderFactory interface {
+	NewContractReader(context.Context, []byte) (types.ContractReader, error)
+}
+
 type registrySyncer struct {
-	stopCh    services.StopChan
-	launchers []Launcher
-	reader    types.ContractReader
-  initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
+	stopCh          services.StopChan
+	launchers       []Launcher
+	reader          types.ContractReader
+	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
 	relayer         contractReaderFactory
 	registryAddress string
-	orm       *syncerORM
+	orm             *syncerORM
 
 	updateChan chan *State
 	dbMu       sync.RWMutex
@@ -80,19 +85,14 @@ func New(
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
 	orm := newORM(ds, lggr)
-
-	return newSyncer(
-		stopCh,
-		lggr.Named("RegistrySyncer"),
+	return &registrySyncer{
+		stopCh:          stopCh,
+		lggr:            lggr.Named("RegistrySyncer"),
 		relayer:         relayer,
 		registryAddress: registryAddress,
 		initReader:      newReader,
-		&orm,
-	), nil
-}
-
-type contractReaderFactory interface {
-	NewContractReader(context.Context, []byte) (types.ContractReader, error)
+		orm:             &orm,
+	}, nil
 }
 
 // NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
@@ -265,7 +265,7 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 		return nil
 	}
 
-  if s.reader == nil {
+	if s.reader == nil {
 		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
 		if err != nil {
 			return err
