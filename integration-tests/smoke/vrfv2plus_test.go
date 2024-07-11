@@ -1365,12 +1365,15 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+		randomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
@@ -1606,12 +1609,16 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 			*configCopy.VRFv2Plus.General.SubscriptionBillingType,
 		)
 		require.NoError(t, err, "error funding subscriptions")
-		randomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+
+		randomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for randomness fulfilled event")
 		vrfcommon.LogRandomWordsFulfilledEvent(l, vrfContracts.CoordinatorV2Plus, randomWordsFulfilledEvent, isNativeBilling, 0)
@@ -1790,12 +1797,15 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		l.Info().Str("reqID", initialReqRandomWordsRequestedEvent.RequestId.String()).
 			Str("subID", subID.String()).
 			Msg("Waiting for initalReqRandomWordsFulfilledEvent")
-		initalReqRandomWordsFulfilledEvent, err := vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{initialReqRandomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
-			},
+		initalReqRandomWordsFulfilledEvent, err := vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			initialReqRandomWordsRequestedEvent.RequestId,
+			subID,
+			initialReqRandomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			configCopy.VRFv2Plus.General.RandomWordsFulfilledEventTimeout.Duration,
+			l,
+			0,
 		)
 		require.NoError(t, err, "error waiting for initial request RandomWordsFulfilledEvent")
 
@@ -2069,12 +2079,15 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		// For context - when performing debug_setHead on geth simulated chain and therefore rewinding chain to a previous block,
 		//then tx that was mined after reorg will not appear in canonical chain contrary to real world scenario
 		//Hence, we only verify that VRF node will not generate fulfillment for the reorged fork request
-		_, err = vrfContracts.CoordinatorV2Plus.WaitForRandomWordsFulfilledEvent(
-			contracts.RandomWordsFulfilledEventFilter{
-				RequestIds: []*big.Int{randomWordsRequestedEvent.RequestId},
-				SubIDs:     []*big.Int{subID},
-				Timeout:    time.Second * 10,
-			},
+		_, err = vrfv2plus.WaitRandomWordsFulfilledEvent(
+			vrfContracts.CoordinatorV2Plus,
+			randomWordsRequestedEvent.RequestId,
+			subID,
+			randomWordsRequestedEvent.Raw.BlockNumber,
+			isNativeBilling,
+			time.Second*10,
+			l,
+			0,
 		)
 		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
 	})

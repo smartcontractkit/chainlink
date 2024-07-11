@@ -268,6 +268,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		coordinator,
 		wrapperConsumerContractsAmount,
 		wrapperSubId,
+		vrfv2PlusConfig,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrWaitTXsComplete, err)

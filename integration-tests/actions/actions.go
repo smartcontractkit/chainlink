@@ -1205,6 +1205,13 @@ func BuildTOMLNodeConfigForK8s(testConfig ctfconfig.GlobalTestConfig, testNetwor
 	return string(asStr), nil
 }
 
+func IsOPStackChain(chainID int64) bool {
+	return chainID == 8453 || //BASE MAINNET
+		chainID == 84532 || //BASE SEPOLIA
+		chainID == 10 || //OPTIMISM MAINNET
+		chainID == 11155420 //OPTIMISM SEPOLIA
+}
+
 func RandBool() bool {
 	return rand.Intn(2) == 1
 }
