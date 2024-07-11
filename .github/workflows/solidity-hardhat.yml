@@ -94,7 +94,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -141,7 +141,7 @@ jobs:
           ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ env.TEST_CONTRACTS_LIST }}
 
       - name: Upload UMLs and Slither reports
-        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -203,7 +203,7 @@ jobs:
           path: review_artifacts/
 
       - name: Upload all artifacts as single package
-        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: review-artifacts
           path: review_artifacts/
