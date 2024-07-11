@@ -117,7 +117,7 @@ func (u *UniversalEstimator) Start(context.Context) error {
 			strconv.FormatUint(uint64(u.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
 	}
 	if u.config.BlockHistoryRange == 0 {
-		u.logger.Warnf("BlockHistoryRange is set to 0. Using dynamic transactions will result in an error!",
+		u.logger.Warn("BlockHistoryRange is set to 0. Using dynamic transactions will result in an error!",
 			strconv.FormatUint(uint64(u.config.RewardPercentile), 10), strconv.Itoa(ConnectivityPercentile))
 	}
 	return nil
@@ -258,13 +258,13 @@ func (u *UniversalEstimator) fetchDynamicPrice(parentCtx context.Context, forceR
 	return u.dynamicPrice, nil
 }
 
-func (o *UniversalEstimator) getDynamicPrice() (fee DynamicFee, err error) {
-	o.dynamicPriceMu.RLock()
-	defer o.dynamicPriceMu.RUnlock()
-	if o.dynamicPrice.FeeCap == nil || o.dynamicPrice.TipCap == nil {
+func (u *UniversalEstimator) getDynamicPrice() (fee DynamicFee, err error) {
+	u.dynamicPriceMu.RLock()
+	defer u.dynamicPriceMu.RUnlock()
+	if u.dynamicPrice.FeeCap == nil || u.dynamicPrice.TipCap == nil {
 		return fee, fmt.Errorf("dynamic price not set")
 	}
-	return o.dynamicPrice, nil
+	return u.dynamicPrice, nil
 }
 
 // checkIfStale enables caching
@@ -346,8 +346,8 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 		bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
 		return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
 			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
-
 	}
+
 	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
 	if err != nil {
 		return bumped, fmt.Errorf("maxFeePerGas error: %s", err.Error())

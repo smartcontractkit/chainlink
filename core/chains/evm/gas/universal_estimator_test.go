@@ -134,7 +134,6 @@ func TestUniversalEstimatorBumpLegacyGas(t *testing.T) {
 		originalPrice = assets.NewWeiI(100)
 		_, _, err = u.BumpLegacyGas(tests.Context(t), originalPrice, gasLimit, maxPrice, nil)
 		assert.Error(t, err)
-
 	})
 
 	t.Run("returns market gas price if bumped original fee is lower", func(t *testing.T) {
@@ -265,7 +264,6 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, maxFee, dynamicFee2.FeeCap)
 		assert.Equal(t, (*assets.Wei)(maxPriorityFeePerGas), dynamicFee2.TipCap)
-
 	})
 
 	t.Run("fetches a new dynamic fee when first called", func(t *testing.T) {
@@ -318,7 +316,7 @@ func TestUniversalEstimatorGetDynamicFee(t *testing.T) {
 func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 	t.Parallel()
 
-	maxPrice := assets.NewWeiI(100)
+	globalMaxPrice := assets.NewWeiI(100)
 	chainID := big.NewInt(0)
 
 	t.Run("bumps a previous attempt by BumpPercent", func(t *testing.T) {
@@ -346,7 +344,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		expectedTipCap := originalFee.TipCap.AddPercentage(cfg.BumpPercent)
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		dynamicFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
+		dynamicFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedFeeCap, dynamicFee.FeeCap)
 		assert.Equal(t, expectedTipCap, dynamicFee.TipCap)
@@ -406,7 +404,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
+		bumpedFee, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.NoError(t, err)
 		assert.Equal(t, (*assets.Wei)(maxPriorityFeePerGas), bumpedFee.TipCap)
 		assert.Equal(t, maxFee, bumpedFee.FeeCap)
@@ -436,7 +434,7 @@ func TestUniversalEstimatorBumpDynamicFee(t *testing.T) {
 		}
 
 		u := gas.NewUniversalEstimator(logger.Test(t), client, cfg, chainID, nil)
-		_, err := u.BumpDynamicFee(tests.Context(t), originalFee, maxPrice, nil)
+		_, err := u.BumpDynamicFee(tests.Context(t), originalFee, globalMaxPrice, nil)
 		assert.Error(t, err)
 	})
 
