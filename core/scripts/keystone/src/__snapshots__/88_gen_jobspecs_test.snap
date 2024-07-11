@@ -33,7 +33,7 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
@@ -63,7 +63,7 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
@@ -93,7 +93,7 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
@@ -123,7 +123,7 @@ chainID = "11155111"
 command = "chainlink-ocr3-capability"
 ocrVersion = 3
 pluginName = "ocr-capability"
-providerType = "plugin"
+providerType = "ocr3-capability"
 telemetryType = "plugin"
 
 [onchainSigningStrategy]
