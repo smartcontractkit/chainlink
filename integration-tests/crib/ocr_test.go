@@ -31,12 +31,10 @@ func TestCRIB(t *testing.T) {
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), 5*time.Minute)
 	require.NoError(t, err, "Error watching for new OCR round")
 
-	ch, err := rebootCLNodes(
+	ch, err := rebootCLNamespace(
 		1*time.Second,
 		os.Getenv("CRIB_NAMESPACE"),
-		map[string]string{
-			"app": "app",
-		})
+	)
 	ch.Create(context.Background())
 	ch.AddListener(k8schaos.NewChaosLogger(l))
 	t.Cleanup(func() {

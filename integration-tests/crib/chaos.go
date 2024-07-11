@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func rebootCLNodes(delay time.Duration, namespace string, labels map[string]string) (*k8schaos.Chaos, error) {
+func rebootCLNamespace(delay time.Duration, namespace string) (*k8schaos.Chaos, error) {
 	k8sClient, err := k8schaos.NewChaosMeshClient()
 	if err != nil {
 		return nil, err
@@ -30,8 +30,7 @@ func rebootCLNodes(delay time.Duration, namespace string, labels map[string]stri
 						Mode: v1alpha1.AllMode,
 						Selector: v1alpha1.PodSelectorSpec{
 							GenericSelectorSpec: v1alpha1.GenericSelectorSpec{
-								LabelSelectors: labels,
-								Namespaces:     []string{namespace},
+								Namespaces: []string{namespace},
 							},
 						},
 					},
