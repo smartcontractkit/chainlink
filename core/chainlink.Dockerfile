@@ -7,6 +7,7 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
+ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Env vars needed for chainlink build
