@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 
 	looptestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils" //nolint common practice to import test mods with .
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
