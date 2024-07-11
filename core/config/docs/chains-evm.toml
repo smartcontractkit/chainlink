@@ -180,9 +180,9 @@ PriceMax = '115792089237316195423570985008687907853269984665.6405640394575840079
 PriceMin = '1 gwei' # Default
 # LimitDefault sets default gas limit for outgoing transactions. This should not need to be changed in most cases.
 # Some job types, such as Keeper jobs, might set their own gas limit unrelated to this value.
-LimitDefault = 500_000 # Default
+LimitDefault = 8_000_000 # Default
 # LimitMax sets a maximum for _estimated_ gas limits. This currently only applies to `Arbitrum` `GasEstimatorMode`.
-LimitMax = 500_000 # Default
+LimitMax = 8_000_000 # Default
 # LimitMultiplier is the factor by which a transaction's GasLimit is multiplied before transmission. So if the value is 1.1, and the GasLimit for a transaction is 10, 10% will be added before transmission.
 #
 # This factor is always applied, so includes L2 transactions which uses a default gas limit of 1 and is also applied to `LimitDefault`.
