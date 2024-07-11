@@ -2,19 +2,19 @@
 pragma solidity 0.8.19;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
-import {IRewardManager} from "./interfaces/IRewardManager.sol";
+import {IDestinationRewardManager} from "./interfaces/IDestinationRewardManager.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {Common} from "../libraries/Common.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title RewardManager
+ * @title DestinationRewardManager
  * @author Michael Fletcher
  * @author Austin Born
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
-contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
 
   // @dev The mapping of total fees collected for a particular pot: s_totalRewardRecipientFees[poolId]
@@ -98,7 +98,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function onFeePaid(FeePayment[] calldata payments, address payer) external override onlyFeeManager {
     uint256 totalFeeAmount;
     for (uint256 i; i < payments.length; ++i) {
@@ -119,7 +119,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     emit FeePaid(payments, payer);
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function claimRewards(bytes32[] memory poolIds) external override {
     _claimRewards(msg.sender, poolIds);
   }
@@ -170,7 +170,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     return claimAmount;
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function setRewardRecipients(
     bytes32 poolId,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
@@ -225,7 +225,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     if (totalWeight != expectedWeight) revert InvalidWeights();
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function updateRewardRecipients(
     bytes32 poolId,
     Common.AddressAndWeight[] calldata newRewardRecipients
@@ -258,7 +258,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     emit RewardRecipientsUpdated(poolId, newRewardRecipients);
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function payRecipients(bytes32 poolId, address[] calldata recipients) external onlyOwnerOrRecipientInPool(poolId) {
     //convert poolIds to an array to match the interface of _claimRewards
     bytes32[] memory poolIdsArray = new bytes32[](1);
@@ -270,7 +270,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function setFeeManager(address newFeeManagerAddress) external onlyOwner {
     if (newFeeManagerAddress == address(0)) revert InvalidAddress();
 
@@ -279,7 +279,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     emit FeeManagerUpdated(newFeeManagerAddress);
   }
 
-  /// @inheritdoc IRewardManager
+  /// @inheritdoc IDestinationRewardManager
   function getAvailableRewardPoolIds(
     address recipient,
     uint256 startIndex,

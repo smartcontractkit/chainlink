@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
 
-interface IRewardManager is IERC165 {
+interface IDestinationRewardManager is IERC165 {
   /**
    * @notice Record the fee received for a particular pool
    * @param payments array of structs containing pool id and amount

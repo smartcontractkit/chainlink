@@ -9,7 +9,7 @@ import {IWERC20} from "../../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
 import {Math} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/Math.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IRewardManager} from "./interfaces/IRewardManager.sol";
+import {IDestinationRewardManager} from "./interfaces/IDestinationRewardManager.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
 
 /**
@@ -40,7 +40,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
   address public i_verifierAddress;
 
   /// @notice the reward manager address
-  IRewardManager public immutable i_rewardManager;
+  IDestinationRewardManager public immutable i_rewardManager;
 
   // @notice the mask to apply to get the report version
   bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
@@ -94,7 +94,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
   /// @param rewards Config digest and link fees which could not be subsidised
-  event InsufficientLink(IRewardManager.FeePayment[] rewards);
+  event InsufficientLink(IDestinationRewardManager.FeePayment[] rewards);
 
   /// @notice Emitted when funds are withdrawn
   /// @param adminAddress Address of the admin
@@ -145,7 +145,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     i_linkAddress = _linkAddress;
     i_nativeAddress = _nativeAddress;
     i_verifierAddress = _verifierAddress;
-    i_rewardManager = IRewardManager(_rewardManagerAddress);
+    i_rewardManager = IDestinationRewardManager(_rewardManagerAddress);
 
     IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
@@ -405,8 +405,8 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     uint256 numberOfLinkFees,
     uint256 numberOfNativeFees
   ) internal {
-    IRewardManager.FeePayment[] memory linkRewards = new IRewardManager.FeePayment[](numberOfLinkFees);
-    IRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IRewardManager.FeePayment[](numberOfNativeFees);
+    IDestinationRewardManager.FeePayment[] memory linkRewards = new IDestinationRewardManager.FeePayment[](numberOfLinkFees);
+    IDestinationRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IDestinationRewardManager.FeePayment[](numberOfNativeFees);
 
     uint256 totalNativeFee;
     uint256 totalNativeFeeLinkValue;
@@ -417,12 +417,12 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     uint256 totalNumberOfFees = numberOfLinkFees + numberOfNativeFees;
     for (uint256 i; i < totalNumberOfFees; ++i) {
       if (feesAndRewards[i].fee.assetAddress == i_linkAddress) {
-        linkRewards[linkRewardsIndex++] = IRewardManager.FeePayment(
+        linkRewards[linkRewardsIndex++] = IDestinationRewardManager.FeePayment(
           feesAndRewards[i].configDigest,
           uint192(feesAndRewards[i].reward.amount)
         );
       } else {
-        nativeFeeLinkRewards[nativeFeeLinkRewardsIndex++] = IRewardManager.FeePayment(
+        nativeFeeLinkRewards[nativeFeeLinkRewardsIndex++] = IDestinationRewardManager.FeePayment(
           feesAndRewards[i].configDigest,
           uint192(feesAndRewards[i].reward.amount)
         );
@@ -502,9 +502,9 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
     delete s_linkDeficit[configDigest];
 
-    IRewardManager.FeePayment[] memory deficitFeePayment = new IRewardManager.FeePayment[](1);
+    IDestinationRewardManager.FeePayment[] memory deficitFeePayment = new IDestinationRewardManager.FeePayment[](1);
 
-    deficitFeePayment[0] = IRewardManager.FeePayment(configDigest, uint192(deficit));
+    deficitFeePayment[0] = IDestinationRewardManager.FeePayment(configDigest, uint192(deficit));
 
     i_rewardManager.onFeePaid(deficitFeePayment, address(this));
 
