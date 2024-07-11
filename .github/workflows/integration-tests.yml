@@ -1272,7 +1272,8 @@ jobs:
 
       - name: Configure npm for private packages
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.GAUNTLET_READ_NPM_TOKEN }}" > ./gauntlet/.npmrc
+          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+          npm config set @chainlink:registry//registry.npmjs.org/
 
       - name: Install gauntlet
         run: |
