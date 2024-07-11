@@ -160,7 +160,6 @@ type AutomationConfig struct {
 	PluginConfig     *PluginConfig     `toml:"PluginConfig"`
 	PublicConfig     *PublicConfig     `toml:"PublicConfig"`
 	RegistrySettings *RegistrySettings `toml:"RegistrySettings"`
-	UseLogBufferV1   *bool             `toml:"use_log_buffer_v1"`
 }
 
 func (c *AutomationConfig) Validate() error {
@@ -172,9 +171,6 @@ func (c *AutomationConfig) Validate() error {
 	}
 	if err := c.RegistrySettings.Validate(); err != nil {
 		return err
-	}
-	if c.UseLogBufferV1 == nil {
-		return errors.New("use_log_buffer_v1 must be set")
 	}
 	return nil
 }
