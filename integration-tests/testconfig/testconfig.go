@@ -488,7 +488,7 @@ func checkSecretsInToml(content []byte) error {
 	}
 
 	logError := func(key, envVar string) {
-		logger.Error().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
+		logger.Warn().Msgf("Error in TOML test config!! TOML cannot have '%s' key. Remove it and set %s env in ~/.testsecrets instead", key, envVar)
 	}
 
 	if data["ChainlinkImage"] != nil {
