@@ -16,7 +16,9 @@ jobs:
     go-mod-validation:
         runs-on: ubuntu-latest
         steps:
+          - name: Check out the repository
+            uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+          - name: Setup go
+            uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
           - name: go-mod-validation
-            uses: smartcontractkit/.github/apps/go-mod-validator@798b8df97d93d03e0a56d7d23c99a4a0072df3da # 0.0.0
-            with:
-              github_action_ref: 798b8df97d93d03e0a56d7d23c99a4a0072df3da
+            uses: smartcontractkit/.github/apps/go-mod-validator@2fcb3400444c2c213e4e850822d29cd66b81742f # 0.0.0
