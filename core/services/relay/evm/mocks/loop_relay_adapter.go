@@ -166,6 +166,36 @@ func (_m *LoopRelayAdapter) Name() string {
 	return r0
 }
 
+// NewChainWriter provides a mock function with given fields: ctx, chainWriterConfig
+func (_m *LoopRelayAdapter) NewChainWriter(ctx context.Context, chainWriterConfig []byte) (types.ChainWriter, error) {
+	ret := _m.Called(ctx, chainWriterConfig)
+
+	if len(ret) == 0 {
+		panic("no return value specified for NewChainWriter")
+	}
+
+	var r0 types.ChainWriter
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) (types.ChainWriter, error)); ok {
+		return rf(ctx, chainWriterConfig)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []byte) types.ChainWriter); ok {
+		r0 = rf(ctx, chainWriterConfig)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.ChainWriter)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []byte) error); ok {
+		r1 = rf(ctx, chainWriterConfig)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewConfigProvider provides a mock function with given fields: _a0, _a1
 func (_m *LoopRelayAdapter) NewConfigProvider(_a0 context.Context, _a1 types.RelayArgs) (types.ConfigProvider, error) {
 	ret := _m.Called(_a0, _a1)

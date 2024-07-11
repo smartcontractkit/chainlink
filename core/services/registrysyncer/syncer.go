@@ -52,6 +52,9 @@ type registrySyncer struct {
 	stopCh    services.StopChan
 	launchers []Launcher
 	reader    types.ContractReader
+  initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
+	relayer         contractReaderFactory
+	registryAddress string
 	orm       *syncerORM
 
 	updateChan chan *State
@@ -76,17 +79,14 @@ func New(
 	ds sqlutil.DataSource,
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
-	ctx, _ := stopCh.NewCtx()
-	reader, err := newReader(ctx, lggr, relayer, registryAddress)
-	if err != nil {
-		return nil, err
-	}
 	orm := newORM(ds, lggr)
 
 	return newSyncer(
 		stopCh,
 		lggr.Named("RegistrySyncer"),
-		reader,
+		relayer:         relayer,
+		registryAddress: registryAddress,
+		initReader:      newReader,
 		&orm,
 	), nil
 }
@@ -95,6 +95,9 @@ type contractReaderFactory interface {
 	NewContractReader(context.Context, []byte) (types.ContractReader, error)
 }
 
+// NOTE: this can't be called while initializing the syncer and needs to be called in the sync loop.
+// This is because Bind() makes an onchain call to verify that the contract address exists, and if
+// called during initialization, this results in a "no live nodes" error.
 func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, remoteRegistryAddress string) (types.ContractReader, error) {
 	contractReaderConfig := evmrelaytypes.ChainReaderConfig{
 		Contracts: map[string]evmrelaytypes.ChainContractReader{
@@ -260,6 +263,15 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 	if len(s.launchers) == 0 {
 		s.lggr.Warn("sync called, but no launchers are registered; nooping")
 		return nil
+	}
+
+  if s.reader == nil {
+		reader, err := s.initReader(ctx, s.lggr, s.relayer, s.registryAddress)
+		if err != nil {
+			return err
+		}
+
+		s.reader = reader
 	}
 
 	var state *State
