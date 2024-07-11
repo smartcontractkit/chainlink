@@ -349,7 +349,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Xmx3072m" # increase memory
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
