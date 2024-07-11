@@ -3,6 +3,7 @@ package automationv2_1
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -501,7 +502,7 @@ Load Config:
 		Str("Duration", testSetupDuration.String()).
 		Msg("Test setup ended")
 
-	ts, err := sendSlackNotification("Started :white_check_mark:", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
+	ts, err := sendSlackNotification("Started :white_check_mark: :white_check_mark:", l, &loadedTestConfig, testEnvironment.Cfg.Namespace, strconv.Itoa(*loadedTestConfig.Automation.General.NumberOfNodes),
 		strconv.FormatInt(startTimeTestSetup.UnixMilli(), 10), "now",
 		[]slack.Block{extraBlockWithText("\bTest Config\b\n```" + testConfig + "```")}, slack.MsgOptionBlocks())
 	if err != nil {
@@ -569,12 +570,20 @@ Load Config:
 		batchSize = endBlock - startBlock
 	}
 
-	for _, consumerContract := range consumerContracts {
+	blockWindowCounts := map[int]map[uint64]int{}
+
+	for i, consumerContract := range consumerContracts {
 		var (
 			logs    []types.Log
 			address = common.HexToAddress(consumerContract.Address())
 			timeout = 5 * time.Second
 		)
+
+		upkeepMap, ok := blockWindowCounts[i]
+		if !ok {
+			upkeepMap = make(map[uint64]int)
+		}
+
 		for fromBlock := startBlock; fromBlock < endBlock; fromBlock += batchSize + 1 {
 			filterQuery := geth.FilterQuery{
 				Addresses: []common.Address{address},
@@ -613,6 +622,7 @@ Load Config:
 			delayFast := make([]int64, 0)
 			delayRecovery := make([]int64, 0)
 			for _, log := range logs {
+
 				eventDetails, err := consumerABI.EventByID(log.Topics[0])
 				require.NoError(t, err, "Error getting event details")
 				consumer, err := simple_log_upkeep_counter_wrapper.NewSimpleLogUpkeepCounter(
@@ -627,11 +637,19 @@ Load Config:
 					} else {
 						delayFast = append(delayFast, parsedLog.TimeToPerform.Int64())
 					}
+
+					if blockCount, ok := upkeepMap[log.BlockNumber]; !ok {
+						upkeepMap[log.BlockNumber] = 1
+					} else {
+						upkeepMap[log.BlockNumber] = blockCount + 1
+					}
 				}
 			}
 			upkeepDelaysFast = append(upkeepDelaysFast, delayFast)
 			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
+
+		blockWindowCounts[i] = upkeepMap
 	}
 
 	for _, triggerContract := range triggerContracts {
@@ -676,6 +694,38 @@ Load Config:
 		numberOfEventsEmitted = numberOfEventsEmitted + int64(len(logs))
 	}
 
+	numUpkeepsWithSomeLogsPerformed := len(blockWindowCounts)
+
+	blockWindowCountsJSON, _ := json.Marshal(blockWindowCounts)
+
+	minDequeue := map[int]int{}
+
+	logLimit := conf.PluginConfig.LogProviderConfig.LogLimit
+
+	blocks := 0
+
+	for upkeepID, blockCounts := range blockWindowCounts {
+
+		blocks += len(blockCounts)
+
+		for _, count := range blockCounts {
+			if uint32(count) >= *logLimit {
+				if count, ok := minDequeue[upkeepID]; !ok {
+					minDequeue[upkeepID] = 1
+				} else {
+					minDequeue[upkeepID] = count + 1
+				}
+			}
+		}
+	}
+
+	avgBlocks := float64(0)
+	if len(blockWindowCounts) > 0 {
+		avgBlocks = float64(blocks) / float64(len(blockWindowCounts))
+	}
+
+	numUpkeepsWithSomeMinDequeue := len(minDequeue)
+
 	l.Info().Int64("Number of Events Emitted", numberOfEventsEmitted).Msg("Number of Events Emitted")
 
 	l.Info().
@@ -716,6 +766,10 @@ Load Config:
 		Int64("Total Events Emitted", numberOfEventsEmitted).
 		Int64("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
+		Float64("Average Blocks", avgBlocks).
+		Int("Num upkeeps with one or more logs performed", numUpkeepsWithSomeLogsPerformed).
+		Int("Num upkeeps with one or more min dequeue blocks", numUpkeepsWithSomeMinDequeue).
+		Str("Block window counts per upkeep", string(blockWindowCountsJSON)).
 		Msg("Test completed")
 
 	testReportFormat := `Upkeep Delays in seconds - Fast Execution
