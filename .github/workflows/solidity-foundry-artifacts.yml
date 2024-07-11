@@ -54,7 +54,12 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
+      # required for code coverage report generation
+      - name: Setup LCOV
+        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
+
       - name: Run coverage
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: forge coverage --report lcov
         env:
@@ -72,12 +77,13 @@ jobs:
       # We could gather coverage for all products
 
       - name: Report code coverage
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.changes == 'true' }}
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
-          coverage-files: ./contracts/${{ matrix.product }}-lcov.info
-          minimum-coverage: 98.5
-          artifact-name: code-coverage-report-${{ matrix.product }}
+          coverage-files: ./contracts/lcov.info
+          minimum-coverage: ${{ matrix.product.min-coverage }}
+          artifact-name: code-coverage-report-${{ matrix.product.name }}
           working-directory: ./contracts
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
