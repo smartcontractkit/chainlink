@@ -54,7 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -119,7 +118,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	require.NoError(t, err)
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	setupNodes(t, nodeKeys, registry, backend, steve, false)
+	setupNodes(t, nodeKeys, registry, backend, steve)
 
 	<-time.After(time.Second * 5)
 
@@ -174,16 +173,10 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	tests := []struct {
-		name             string
-		logBufferVersion logprovider.BufferVersion
+		name string
 	}{
 		{
-			name:             "default buffer",
-			logBufferVersion: logprovider.BufferVersionDefault,
-		},
-		{
-			name:             "buffer v1",
-			logBufferVersion: logprovider.BufferVersionV1,
+			name: "buffer v1",
 		},
 	}
 
@@ -220,7 +213,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			require.NoError(t, err)
 
 			registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
-			setupNodes(t, nodeKeys, registry, backend, steve, tc.logBufferVersion == logprovider.BufferVersionV1)
+			setupNodes(t, nodeKeys, registry, backend, steve)
 			upkeeps := 1
 
 			_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
@@ -281,16 +274,10 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	tests := []struct {
-		name             string
-		logBufferVersion logprovider.BufferVersion
+		name string
 	}{
 		{
-			name:             "default buffer",
-			logBufferVersion: logprovider.BufferVersionDefault,
-		},
-		{
-			name:             "buffer v1",
-			logBufferVersion: logprovider.BufferVersionV1,
+			name: "buffer v1",
 		},
 	}
 
@@ -331,7 +318,7 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
+			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
 
 			const upkeepCount = 10
 			const mercuryFailCount = upkeepCount * 3 * 2
@@ -416,16 +403,10 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	tests := []struct {
-		name             string
-		logBufferVersion logprovider.BufferVersion
+		name string
 	}{
 		{
-			name:             "default buffer",
-			logBufferVersion: logprovider.BufferVersionDefault,
-		},
-		{
-			name:             "buffer v1",
-			logBufferVersion: logprovider.BufferVersionV1,
+			name: "buffer v1",
 		},
 	}
 
@@ -466,7 +447,7 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 
 			registry := deployKeeper21Registry(t, registryOwner, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner, tc.logBufferVersion == logprovider.BufferVersionV1)
+			_, mercuryServer := setupNodes(t, nodeKeys, registry, backend, registryOwner)
 
 			upkeepCount := 10
 
@@ -644,7 +625,7 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 	return listenPerformedN(t, backend, registry, ids, startBlock, 0)
 }
 
-func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts, useBufferV1 bool) ([]Node, *mercury.SimulatedMercuryServer) {
+func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) ([]Node, *mercury.SimulatedMercuryServer) {
 	lggr := logger.TestLogger(t)
 	mServer := mercury.NewSimulatedMercuryServer()
 	mServer.Start()
@@ -727,8 +708,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		cacheEvictionInterval = "1s"
 		mercuryCredentialName = "%s"
 		contractVersion = "v2.1"
-		useBufferV1 = %v 
-		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName, useBufferV1))
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
 
 	// Setup config on contract
