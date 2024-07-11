@@ -719,6 +719,8 @@ Load Config:
 		}
 	}
 
+	minDequeueJSON, _ := json.Marshal(minDequeue)
+
 	avgBlocks := float64(0)
 	if len(blockWindowCounts) > 0 {
 		avgBlocks = float64(blocks) / float64(len(blockWindowCounts))
@@ -767,9 +769,11 @@ Load Config:
 		Int64("Total Events Missed", eventsMissed).
 		Float64("Percent Missed", percentMissed).
 		Float64("Average Blocks", avgBlocks).
+		Int("Log Limit", int(*logLimit)).
 		Int("Num upkeeps with one or more logs performed", numUpkeepsWithSomeLogsPerformed).
 		Int("Num upkeeps with one or more min dequeue blocks", numUpkeepsWithSomeMinDequeue).
-		Str("Block window counts per upkeep", string(blockWindowCountsJSON)).
+		Str("Block window counts per upkeep JSON", string(blockWindowCountsJSON)).
+		Str("Min dequeue JSON", string(minDequeueJSON)).
 		Msg("Test completed")
 
 	testReportFormat := `Upkeep Delays in seconds - Fast Execution
