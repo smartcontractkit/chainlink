@@ -313,7 +313,7 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 			CapabilityId: ocrid,
 		},
 	}
-	_, err = reg.AddDON(env.Owner, ps, cfgs, false, true, 2)
+	_, err = reg.AddDON(env.Owner, ps, cfgs, true, true, 2)
 	if err != nil {
 		log.Printf("workflowDON: failed to AddDON: %s", err)
 	}
