@@ -59,6 +59,7 @@ cl_node_max_gas_price_gwei = 10
 link_native_feed_response = 1000000000000000000
 #todo - need to have separate minimum_confirmations config for Coordinator, CL Node and Consumer request
 minimum_confirmations = 3
+generate_txs_on_chain = false
 
 number_of_words = 3
 callback_gas_limit = 1000000
@@ -101,6 +102,12 @@ bhs_job_wait_blocks = 30
 bhs_job_lookback_blocks = 250
 bhs_job_poll_period = "1s"
 bhs_job_run_timeout = "24h"
+
+# BHF Job config
+bhf_job_wait_blocks = 260
+bhf_job_lookback_blocks = 500
+bhf_job_poll_period = "30s"
+bhf_job_run_timeout = "1h"
 
 # PERFORMANCE test specific config
 

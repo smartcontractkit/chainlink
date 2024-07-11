@@ -83,6 +83,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics/VRFV2LoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics/VRFV2LoadTestWithMetrics.bin VRFV2LoadTestWithMetrics vrf_load_test_with_metrics
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer/VRFV2OwnerTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer/VRFV2OwnerTestConsumer.bin VRFV2OwnerTestConsumer vrf_owner_test_consumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFv2Consumer/VRFv2Consumer.abi ../../contracts/solc/v0.8.6/VRFv2Consumer/VRFv2Consumer.bin VRFv2Consumer vrf_v2_consumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/Counter/Counter.abi ../../contracts/solc/v0.8.6/Counter/Counter.bin Counter counter
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
