@@ -25,11 +25,7 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   /// @notice This error is thrown when trying to set a verifier address that does not implement the expected interface
   error VerifierInvalid(address verifierAddress);
 
-  constructor(address verifier) ConfirmedOwner(msg.sender) {
-    if(verifier == address(0)) revert ZeroAddress();
-
-    s_verifier = IDestinationVerifier(verifier);
-  }
+  constructor() ConfirmedOwner(msg.sender) {}
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
