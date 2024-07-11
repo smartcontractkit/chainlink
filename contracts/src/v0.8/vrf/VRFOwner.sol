@@ -91,7 +91,7 @@ interface IVRFCoordinatorV2 {
   function hashOfKey(uint256[2] memory publicKey) external pure returns (bytes32);
 
   function fulfillRandomWords(
-    VRFTypes.Proof memory proof,
+    VRFTypes.Proof calldata proof,
     VRFTypes.RequestCommitment memory rc
   ) external returns (uint96);
 }
@@ -281,7 +281,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param rc request commitment pre-image, committed to at request time
    */
   function fulfillRandomWords(
-    VRFTypes.Proof memory proof,
+    VRFTypes.Proof calldata proof,
     VRFTypes.RequestCommitment memory rc
   ) external validateAuthorizedSender {
     uint256 requestId = _requestIdFromProof(proof.pk, proof.seed);

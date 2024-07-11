@@ -60,7 +60,7 @@ func NewTriggerPublisher(config *types.RemoteTriggerConfig, underlying commoncap
 		messageCache:  NewMessageCache[registrationKey, p2ptypes.PeerID](),
 		registrations: make(map[registrationKey]*pubRegState),
 		stopCh:        make(services.StopChan),
-		lggr:          lggr,
+		lggr:          lggr.Named("TriggerPublisher"),
 	}
 }
 
