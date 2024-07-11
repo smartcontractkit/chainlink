@@ -1003,8 +1003,8 @@ github.com/jmhodges/levigo v1.0.0/go.mod h1:Q6Qx+uH3RAqyK4rFQroq9RL7mdkABMcfhEI+
 github.com/jmoiron/sqlx v1.4.0 h1:1PLqN7S1UYp5t4SrVVnt4nUVNemrDAtxlulVe+Qgm3o=
 github.com/jmoiron/sqlx v1.4.0/go.mod h1:ZrZ7UsYB/weZdl2Bxg6jCRO9c3YHl8r3ahlKmRT4JLY=
 github.com/joho/godotenv v1.3.0/go.mod h1:7hK45KPybAkOC6peb+G5yklZfMxEjkZhHbwpqxOKXbg=
-github.com/joho/godotenv v1.4.0 h1:3l4+N6zfMWnkbPEXKng2o2/MR5mSwTrBih4ZEkkz1lg=
-github.com/joho/godotenv v1.4.0/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
+github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
+github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/jonboulle/clockwork v0.4.0 h1:p4Cf1aMWXnXAUh8lVfewRBx1zaTSYKrKMF2g3ST4RZ4=
 github.com/jonboulle/clockwork v0.4.0/go.mod h1:xgRqUGwRcjKCO1vbZUEtSLrqKoPSsUpK7fnezOII0kc=
@@ -1425,8 +1425,8 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240701154249-032706dcb7c
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240701154249-032706dcb7c8/go.mod h1:NbXXQaNFskVMYRut0MvBlcHu/vDgipGMwYjamvjVB9Y=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba h1:YNSlhK5mobyAaw02LPGgIEuS3lXyCTXcc6oaV2L6uUI=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240625074951-06ab5e670dba/go.mod h1:UVFRacRkP7O7TQAzFmR52v5mUlxf+G1ovMlCQAB/cHU=
-github.com/smartcontractkit/chainlink-testing-framework v1.31.7 h1:Vy4ah8VAfj+Y7vVmhjvwyAO6wG+Fp2vzdkSJwJPMQO4=
-github.com/smartcontractkit/chainlink-testing-framework v1.31.7/go.mod h1:E6uNEZhZZid9PHv6/Kq5Vn63GlO61ZcKB+/f0DKo3Q4=
+github.com/smartcontractkit/chainlink-testing-framework v1.31.10 h1:zFsXW04ceKMg37oR0EaxlTPH7vL9YnnNA4VntvsaOZ4=
+github.com/smartcontractkit/chainlink-testing-framework v1.31.10/go.mod h1:wSRZGoukZliwfTkghdF4cI1RLHz5k3aDnL+rXhJ6f7k=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239 h1:Kk5OVlx/5g9q3Z3lhxytZS4/f8ds1MiNM8yaHgK3Oe8=
 github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239/go.mod h1:DC8sQMyTlI/44UCTL8QWFwb0bYNoXCfjwCv2hMivYZU=
 github.com/smartcontractkit/chainlink-vrf v0.0.0-20231120191722-fef03814f868 h1:FFdvEzlYwcuVHkdZ8YnZR/XomeMGbz5E2F2HZI3I3w8=
