@@ -111,7 +111,7 @@ jobs:
         uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
         with:
           update-comment: true
-          coverage-files: ./contracts/lcov.info.
+          coverage-files: ./contracts/lcov.info
           minimum-coverage: 98.5
           artifact-name: code-coverage-report-${{ matrix.product }}
           working-directory: ./contracts
