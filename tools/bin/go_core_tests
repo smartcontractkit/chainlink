@@ -16,8 +16,6 @@ use_tee() {
     cat > "$@"
   fi
 }
-# disable coverage redesign due to massive coverage output files
-export GOEXPERIMENT=nocoverageredesign
 go test -json -ldflags "$GO_LDFLAGS" -tags integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
