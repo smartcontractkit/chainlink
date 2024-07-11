@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	_ "fmt"
 	"sync"
 	"time"
 
@@ -136,21 +135,6 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer contractReaderFa
 	})
 
 	return cr, err
-}
-
-func newSyncer(
-	stopCh services.StopChan,
-	lggr logger.Logger,
-	reader types.ContractReader,
-	orm *syncerORM,
-) *registrySyncer {
-	return &registrySyncer{
-		stopCh:     stopCh,
-		lggr:       lggr,
-		reader:     reader,
-		orm:        orm,
-		updateChan: make(chan *State),
-	}
 }
 
 func (s *registrySyncer) Start(ctx context.Context) error {
