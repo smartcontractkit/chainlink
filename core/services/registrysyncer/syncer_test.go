@@ -208,7 +208,7 @@ func TestReader_Integration(t *testing.T) {
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
-	err = syncer.sync(ctx)
+	err = syncer.sync(ctx, true)
 	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
