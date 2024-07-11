@@ -6,8 +6,8 @@ if [ "$#" -lt 2 ]; then
     exit 1
 fi
 
-SOURCE_DIR=$1
-TARGET_DIR=$2
+SOURCE_DIR="$1"
+TARGET_DIR="$2"
 FILES=${3// /}  # Remove any spaces from the list of files
 
 flatten_and_generate_uml() {
@@ -15,10 +15,12 @@ flatten_and_generate_uml() {
     local TARGET_DIR=$2
 
     FLATTENED_FILE="$TARGET_DIR/flattened_$(basename "$FILE")"
+    echo "Flattening $FILE to $FLATTENED_FILE"
     forge flatten "$FILE" -o "$FLATTENED_FILE" &> /dev/null
 
     OUTPUT_FILE=${FLATTENED_FILE//"flattened_"/""}
     OUTPUT_FILE="${OUTPUT_FILE%.sol}.svg"
+    echo "Generating UML for $FLATTENED_FILE to $OUTPUT_FILE"
     sol2uml "$FLATTENED_FILE" -o "$OUTPUT_FILE"
 
     rm "$FLATTENED_FILE"
@@ -30,7 +32,7 @@ flatten_contracts_in_directory() {
 
     mkdir -p "$TARGET_DIR"
 
-    for ITEM in $(find "$SOURCE_DIR" -type f -name '*.sol'); do
+    find "$SOURCE_DIR" -type f -name '*.sol' | while read -r ITEM; do
         flatten_and_generate_uml "$ITEM" "$TARGET_DIR"
     done
 }
@@ -43,9 +45,17 @@ process_files() {
     mkdir -p "$TARGET_DIR"
 
     for FILE in "${FILES[@]}"; do
-        MATCH=$(find "$SOURCE_DIR" -type f -name "$(basename "$FILE")")
-        if [ -n "$MATCH" ]; then
-            flatten_and_generate_uml "$MATCH" "$TARGET_DIR"
+        MATCHES=($(find "$SOURCE_DIR" -type f -path "*/$FILE"))
+
+        if [ ${#MATCHES[@]} -gt 1 ]; then
+            echo "Error: Multiple matches found for $FILE:"
+            for MATCH in "${MATCHES[@]}"; do
+                echo "  $MATCH"
+            done
+            exit 1
+        elif [ ${#MATCHES[@]} -eq 1 ]; then
+            echo "File found: ${MATCHES[0]}"
+            flatten_and_generate_uml "${MATCHES[0]}" "$TARGET_DIR"
         else
             echo "File $FILE does not exist within the source directory."
         fi

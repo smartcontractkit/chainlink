@@ -94,7 +94,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -141,7 +141,7 @@ jobs:
           ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ env.TEST_CONTRACTS_LIST }}
 
       - name: Upload UMLs and Slither reports
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -157,53 +157,53 @@ jobs:
     needs: [coverage-and-gas-and-book, uml-static-analysis]
     steps:
       - name: Download UMLs and Slither Reports artifact
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: contracts-artifacts
           path: review_artifacts/
       - name: Download automation artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: automation-artifacts
           path: review_artifacts/
       - name: Download functions artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: functions-artifacts
           path: review_artifacts/
       - name: Download keystone artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: keystone-artifacts
           path: review_artifacts/
       - name: Download l2ep artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: l2ep-artifacts
           path: review_artifacts/
       - name: Download llo-feeds artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: llo-feeds-artifacts
           path: review_artifacts/
       - name: Download operatorforwarder artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: operatorforwarder-artifacts
           path: review_artifacts/
       - name: Download shared artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: shared-artifacts
           path: review_artifacts/
       - name: Download vrf artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: vrf-artifacts
           path: review_artifacts/
 
       - name: Upload all artifacts as single package
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: review-artifacts
           path: review_artifacts/
