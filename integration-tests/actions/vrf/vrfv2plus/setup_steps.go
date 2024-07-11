@@ -309,6 +309,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		linkToken,
 		coordinator,
 		[]*big.Int{wrapperSubID},
+		*vrfv2PlusConfig.SubscriptionBillingType,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -529,4 +530,17 @@ func SetupSubsAndConsumersForExistingEnv(
 		}
 	}
 	return subIDs, consumers, nil
+}
+
+func SelectBillingTypeWithDistribution(billingType string, distributionFn func() bool) (bool, error) {
+	switch vrfv2plus_config.BillingType(billingType) {
+	case vrfv2plus_config.BillingType_Link:
+		return false, nil
+	case vrfv2plus_config.BillingType_Native:
+		return true, nil
+	case vrfv2plus_config.BillingType_Link_and_Native:
+		return distributionFn(), nil
+	default:
+		return false, fmt.Errorf("invalid billing type: %s", billingType)
+	}
 }
