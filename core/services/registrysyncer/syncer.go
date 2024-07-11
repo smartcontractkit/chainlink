@@ -292,7 +292,16 @@ func (s *registrySyncer) sync(ctx context.Context, isInitialSync bool) error {
 			return fmt.Errorf("failed to sync with remote registry: %w", err)
 		}
 		state = &st
-		s.updateChan <- state
+		// Attempt to send state to the update channel without blocking
+		// This is to prevent the tests from hanging if they are not calling `Start()` on the syncer
+		select {
+		case s.updateChan <- state:
+			// Successfully sent state
+			s.lggr.Debug("state update triggered successfully")
+		default:
+			// No one is ready to receive the state, handle accordingly
+			s.lggr.Debug("no listeners on update channel, state update skipped")
+		}
 	}
 
 	for _, h := range s.launchers {
