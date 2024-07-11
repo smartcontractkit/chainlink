@@ -1,16 +1,17 @@
 name: Solidity-Hardhat
-
 on:
-  workflow_dispatch:
-    inputs:
-      contracts_list:
-        description: 'Comma-separated list of .sol files to generate artifacts for'
-        required: true
+  push:
+#  workflow_dispatch:
+#    inputs:
+#      contracts_list:
+#        description: 'Comma-separated list of .sol files to generate artifacts for'
+#        required: true
 
 env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+  TEST_CONTRACTS_LIST: "KeeperRegistrar1_2.sol,v1_3_0/FunctionsBilling.sol"
 
 jobs:
   # some of the artifacts can only be generated on product level and we cannot scope them to single contracts
@@ -104,7 +105,7 @@ jobs:
 
   # Generates UML diagrams and Slither reports for user-provided contracts
   uml-static-analysis:
-    name: Docs for ${{ inputs.contracts_list }}
+    name: Docs for ${{ env.TEST_CONTRACTS_LIST }}
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -135,7 +136,7 @@ jobs:
         run: |
           cd contracts
           SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ inputs.contracts_list }}
+          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ env.TEST_CONTRACTS_LIST }}
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
