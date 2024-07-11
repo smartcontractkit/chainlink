@@ -83,9 +83,11 @@ func New(
 	ds sqlutil.DataSource,
 ) (*registrySyncer, error) {
 	stopCh := make(services.StopChan)
+	updateChan := make(chan *State)
 	orm := newORM(ds, lggr)
 	return &registrySyncer{
 		stopCh:          stopCh,
+		updateChan:      updateChan,
 		lggr:            lggr.Named("RegistrySyncer"),
 		relayer:         relayer,
 		registryAddress: registryAddress,
