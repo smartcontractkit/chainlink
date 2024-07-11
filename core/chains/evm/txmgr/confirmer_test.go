@@ -152,13 +152,19 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 			Hash:   testutils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number:      8,
-				Hash:        testutils.NewHash(),
-				IsFinalized: true,
-				Parent:      nil,
+				Number: 8,
+				Hash:   testutils.NewHash(),
+				Parent: nil,
 			},
 		},
 	}
+
+	// If there's no finalized head yet, returns error.
+	err = ec.ProcessHead(ctx, &head)
+	require.Error(t, err)
+
+	// Successful after having a head finalized in the chain
+	head.Parent.Parent.IsFinalized = true
 	err = ec.ProcessHead(ctx, &head)
 	require.NoError(t, err)
 	// Can successfully close once
@@ -2685,13 +2691,19 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 			Hash:   testutils.NewHash(),
 			Number: 9,
 			Parent: &evmtypes.Head{
-				Number:      8,
-				Hash:        testutils.NewHash(),
-				IsFinalized: true,
-				Parent:      nil,
+				Number: 8,
+				Hash:   testutils.NewHash(),
+				Parent: nil,
 			},
 		},
 	}
+
+	t.Run("error if there's no LatestFinalizedHead", func(t *testing.T) {
+		require.Error(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))
+	})
+
+	// Finalized a head
+	head.Parent.Parent.IsFinalized = true
 
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(tests.Context(t), &head))

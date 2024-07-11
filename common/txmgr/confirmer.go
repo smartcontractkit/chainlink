@@ -297,6 +297,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return fmt.Errorf("CheckConfirmedMissingReceipt failed: %w", err)
 	}
 
+	if head.LatestFinalizedHead() == nil {
+		return errors.New("There is no LatestFinalizedHead")
+	}
+
 	if err := ec.CheckForReceipts(ctx, head.BlockNumber(), head.LatestFinalizedHead().BlockNumber()); err != nil {
 		return fmt.Errorf("CheckForReceipts failed: %w", err)
 	}
@@ -1007,6 +1011,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
+	if head.LatestFinalizedHead() == nil {
+		return errors.New("There is no LatestFinalizedHead")
+	}
+
 	if head.ChainLength() < uint32(head.LatestFinalizedHead().BlockNumber()) {
 		logArgs := []interface{}{
 			"chainLength", head.ChainLength(), "latestFinalizedHead", head.LatestFinalizedHead().BlockNumber(),
