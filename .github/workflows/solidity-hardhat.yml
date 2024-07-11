@@ -105,7 +105,7 @@ jobs:
 
   # Generates UML diagrams and Slither reports for user-provided contracts
   uml-static-analysis:
-    name: Docs for ${{ env.TEST_CONTRACTS_LIST }}
+    name: Docs for something
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
