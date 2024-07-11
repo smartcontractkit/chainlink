@@ -5,6 +5,8 @@ env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+  # See https://github.com/foundry-rs/foundry/issues/3827
+  RUNS_ON: ubuntu-22.04
 
 jobs:
   changes:
@@ -50,8 +52,7 @@ jobs:
           min-coverage: 98.5
     needs: [changes]
     name: Foundry Tests ${{ matrix.product.name }}
-    # See https://github.com/foundry-rs/foundry/issues/3827
-    runs-on: ubuntu-22.04
+    runs-on: ${{ env.RUNS_ON }}
 
     # The if statements for steps after checkout repo is workaround for
     # passing required check for PRs that don't have filtered changes.
@@ -102,6 +103,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
+      # required for code coverage report generation
       - name: Setup LCOV
         uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
 
@@ -112,16 +114,14 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product.name }}
 
-      # see what we should prune for other products
-#      - name: Prune report
-#        if: ${{ needs.changes.outputs.changes == 'true' }}
-#        run: |
-#          sudo apt-get install lcov
-#          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
-#        env:
-#          FOUNDRY_PROFILE: ${{ matrix.product }}
-
-      # We could gather coverage for all products
+      # uncomment and adjust/create a script if we want to prune the report
+      #      - name: Prune report
+      #        if: ${{ needs.changes.outputs.changes == 'true' }}
+      #        run: |
+      #          sudo apt-get install lcov
+      #          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
+      #        env:
+      #          FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Report code coverage
         if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.changes == 'true' }}
@@ -146,11 +146,11 @@ jobs:
           this-job-name: Foundry Tests ${{ matrix.product }}
         continue-on-error: true
 
+  # we want to run formatting and static analysis only on modified contracts
   find-modified-contracts:
     needs: [ changes ]
     name: Find modified contracts
-    # See https://github.com/foundry-rs/foundry/issues/3827
-    runs-on: ubuntu-22.04
+    runs-on: ${{ env.RUNS_ON }}
     outputs:
       contracts: ${{ env.CONTRACT_MATRIX }}
     steps:
@@ -164,7 +164,12 @@ jobs:
         shell: bash
         run: |
           git fetch origin ${{ github.base_ref }}
-          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | grep -E '\.sol$' | sed 's|^contracts/||' | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0) | {path: .})' > modified_contracts.json
+          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | \
+          grep -E '\.sol$' | \
+          sed 's|^contracts/||' | \
+          sort -u | \
+          awk -F'/' '{printf("{\"path\":\"%s\",\"product\":\"%s\"}\n", $0, $3)}' | \
+          jq -s '.' > modified_contracts.json
           MATRIX=$(cat modified_contracts.json | jq -c .)
           echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
           echo "Found modified contracts:"
@@ -177,35 +182,15 @@ jobs:
       fail-fast: false
       matrix:
         contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
-    # See https://github.com/foundry-rs/foundry/issues/3827
-    runs-on: ubuntu-22.04
+    runs-on: ${{ env.RUNS_ON }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
 
-#      - name: Setup NodeJS
-#        # if: needs.changes.outputs.changes == 'true'
-#        uses: ./.github/actions/setup-nodejs
-#
-#      - name: Install Foundry
-#        # if: needs.changes.outputs.changes == 'true'
-#        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
-#        with:
-#          version: ${{ env.FOUNDRY_VERSION }}
-
-      # run with ${{ matrix.contract.path }} argument once we have upgraded foundry to a more recent version
-#      - name: Run Forge build
-#        # if: needs.changes.outputs.changes == 'true'
-#        run: |
-#          forge build
-#        working-directory: contracts
-        # we could detect the product from the contract path and set profile dynamically
-#        env:
-#          FOUNDRY_PROFILE: ${{ matrix.product }}
-
       - uses: crytic/slither-action@v0.4.0
+        if: needs.changes.outputs.changes == 'true'
         with:
           target: "contracts/${{ matrix.contract.path }}"
           slither-config: contracts/.slither.config-ci.json
@@ -214,6 +199,7 @@ jobs:
           slither-args: --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ --json slither-report.json
 
       - name: Print Slither summary
+        if: needs.changes.outputs.changes == 'true'
         shell: bash
         run: |
           cat slither-report.json | jq -r '.results.printers[].additional_fields.detectors[] | "# \(.elements[0].source_mapping.filename_short)\n## \(.markdown)"' > output.txt
@@ -230,8 +216,9 @@ jobs:
       fail-fast: false
       matrix:
         contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
-    # See https://github.com/foundry-rs/foundry/issues/3827
-    runs-on: ubuntu-22.04
+    runs-on: ${{ env.RUNS_ON }}
+    env:
+      FOUNDRY_PROFILE: ${{ matrix.contract.product }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -239,38 +226,31 @@ jobs:
           submodules: recursive
 
       - name: Setup NodeJS
-        # if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        # if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-        # we could detect the product from the contract path and set profile dynamically
-      #        env:
-      #          FOUNDRY_PROFILE: ${{ matrix.product }}
-
       - name: Run Forge fmt
-        # if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.changes == 'true'
         run: |
           forge fmt --check ${{ matrix.contract.path }}
         id: fmt
         working-directory: contracts
-        # we could detect the product from the contract path and set profile dynamically
-      #        env:
-      #          FOUNDRY_PROFILE: ${{ matrix.product }}
 
-#      - name: Collect Metrics
-#        if: needs.changes.outputs.changes == 'true'
-#        id: collect-gha-metrics
-#        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
-#        with:
-#          id: ${{ matrix.product }}-solidity-foundry-fmt
-#          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-#          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-#          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-#          this-job-name: Foundry Format ${{ matrix.product }}
-#        continue-on-error: true
+      - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: ${{ matrix.contract.product }}-solidity-foundry-fmt
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Foundry Format ${{ matrix.contracts.product }}
+        continue-on-error: true
 
