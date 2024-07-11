@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
@@ -53,7 +54,7 @@ var (
 
 const (
 	queryTimeout          = 10 * time.Second
-	minimumBumpPercentage = 10 // based on geth's spec
+	MinimumBumpPercentage = 10 // based on geth's spec
 
 	ConnectivityPercentile  = 80
 	BaseFeeBufferPercentage = 40
@@ -107,9 +108,9 @@ func NewUniversalEstimator(lggr logger.Logger, client universalEstimatorClient, 
 
 func (u *UniversalEstimator) Start(context.Context) error {
 	// This is not an actual start since it's not a service, just a sanity check for configs
-	if u.config.BumpPercent < minimumBumpPercentage {
+	if u.config.BumpPercent < MinimumBumpPercentage {
 		u.logger.Warnf("BumpPercent: %s is less than minimum allowed percentage: %s. Bumping attempts might result in rejections due to replacement transaction underpriced error!",
-			strconv.FormatUint(uint64(u.config.BumpPercent), 10), strconv.Itoa(minimumBumpPercentage))
+			strconv.FormatUint(uint64(u.config.BumpPercent), 10), strconv.Itoa(MinimumBumpPercentage))
 	}
 	if u.config.RewardPercentile > ConnectivityPercentile {
 		u.logger.Warnf("RewardPercentile: %s is greater than maximum allowed connectivity percentage: %s. Lower reward percentile percentage otherwise connectivity checks will fail!",
@@ -126,7 +127,7 @@ func (u *UniversalEstimator) Start(context.Context) error {
 // It returns a cached value if the price was recently changed. Caching can be skipped.
 func (u *UniversalEstimator) GetLegacyGas(ctx context.Context, _ []byte, gasLimit uint64, maxPrice *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint64, err error) {
 	chainSpecificGasLimit = gasLimit
-	// TODO: fix this
+	// TODO: fix this when the interface requirements change.
 	refresh := false
 	if slices.Contains(opts, feetypes.OptForceRefetch) {
 		refresh = true
@@ -284,7 +285,8 @@ func (u *UniversalEstimator) checkIfStale(dynamic bool) bool {
 func (u *UniversalEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice *assets.Wei, gasLimit uint64, maxPrice *assets.Wei, _ []EvmPriorAttempt) (*assets.Wei, uint64, error) {
 	// Sanitize original fee input
 	if originalGasPrice == nil || originalGasPrice.Cmp(maxPrice) >= 0 {
-		return nil, 0, fmt.Errorf("error while retrieving original gas price: originalGasPrice: %s. Maximum price configured: %s", originalGasPrice, maxPrice)
+		return nil, 0, fmt.Errorf("%w: error while retrieving original gas price: originalGasPrice: %s. Maximum price configured: %s",
+			commonfee.ErrBump, originalGasPrice, maxPrice)
 	}
 
 	// Always refresh prices when bumping
@@ -294,7 +296,7 @@ func (u *UniversalEstimator) BumpLegacyGas(ctx context.Context, originalGasPrice
 	}
 
 	bumpedGasPrice := originalGasPrice.AddPercentage(u.config.BumpPercent)
-	bumpedGasPrice, err = u.limitBumpedFee(originalGasPrice, currentGasPrice, bumpedGasPrice, maxPrice)
+	bumpedGasPrice, err = LimitBumpedFee(originalGasPrice, currentGasPrice, bumpedGasPrice, maxPrice)
 	if err != nil {
 		return nil, 0, fmt.Errorf("gas price error: %s", err.Error())
 	}
@@ -316,8 +318,8 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 		originalFee.TipCap == nil ||
 		((originalFee.TipCap.Cmp(originalFee.FeeCap)) > 0) ||
 		(originalFee.FeeCap.Cmp(maxPrice) >= 0) {
-		return bumped, fmt.Errorf("error while retrieving original dynamic fees: (originalFeePerGas: %s - originalPriorityFeePerGas: %s). Maximum price configured: %s",
-			originalFee.FeeCap, originalFee.TipCap, maxPrice)
+		return bumped, fmt.Errorf("%w: error while retrieving original dynamic fees: (originalFeePerGas: %s - originalPriorityFeePerGas: %s). Maximum price configured: %s",
+			commonfee.ErrBump, originalFee.FeeCap, originalFee.TipCap, maxPrice)
 	}
 
 	// Always refresh prices when bumping
@@ -329,7 +331,7 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 	bumpedMaxPriorityFeePerGas := originalFee.TipCap.AddPercentage(u.config.BumpPercent)
 	bumpedMaxFeePerGas := originalFee.FeeCap.AddPercentage(u.config.BumpPercent)
 
-	bumpedMaxPriorityFeePerGas, err = u.limitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
+	bumpedMaxPriorityFeePerGas, err = LimitBumpedFee(originalFee.TipCap, currentDynamicPrice.TipCap, bumpedMaxPriorityFeePerGas, maxPrice)
 	if err != nil {
 		return bumped, fmt.Errorf("maxPriorityFeePerGas error: %s", err.Error())
 	}
@@ -337,12 +339,16 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 	if err != nil {
 		return
 	}
-	if bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
+	// If either of these two values are 0 it could be that the network has extremely low priority fees or most likely it doesn't have
+	// a mempool and priority fees are not taken into account. Either way, we should skip the connectivity check because we're only
+	// going to be charged for the base fee, which is mandatory.
+	if (priorityFeeThreshold.Cmp(assets.NewWeiI(0)) > 0) && (bumpedMaxPriorityFeePerGas.Cmp(assets.NewWeiI(0)) > 0) &&
+		bumpedMaxPriorityFeePerGas.Cmp(priorityFeeThreshold) > 0 {
 		return bumped, fmt.Errorf("bumpedMaxPriorityFeePergas: %s is above market's %sth percentile: %s, bumping is halted",
 			bumpedMaxPriorityFeePerGas, strconv.Itoa(ConnectivityPercentile), priorityFeeThreshold)
 
 	}
-	bumpedMaxFeePerGas, err = u.limitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
+	bumpedMaxFeePerGas, err = LimitBumpedFee(originalFee.FeeCap, currentDynamicPrice.FeeCap, bumpedMaxFeePerGas, maxPrice)
 	if err != nil {
 		return bumped, fmt.Errorf("maxFeePerGas error: %s", err.Error())
 	}
@@ -360,13 +366,15 @@ func (u *UniversalEstimator) BumpDynamicFee(ctx context.Context, originalFee Dyn
 // Note: for chains that support EIP-1559 but we still choose to send Legacy transactions to them, the limit is still enforcable due to the fact that Legacy transactions
 // are treated the same way as Dynamic transactions under the hood. For chains that don't support EIP-1559 at all, the limit isn't enforcable but a 10% minimum bump percentage
 // makes sense anyway.
-func (u *UniversalEstimator) limitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bufferedFee *assets.Wei, maxPrice *assets.Wei) (*assets.Wei, error) {
-	bumpedFee := assets.WeiMax(currentFee, bufferedFee)
+func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *assets.Wei, maxPrice *assets.Wei) (*assets.Wei, error) {
+	if currentFee != nil {
+		bumpedFee = assets.WeiMax(currentFee, bumpedFee)
+	}
 	bumpedFee = assets.WeiMin(bumpedFee, maxPrice)
 
-	if bumpedFee.Cmp(originalFee.AddPercentage(minimumBumpPercentage)) < 0 {
-		return nil, fmt.Errorf("bumpedFee: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
-			bumpedFee, strconv.Itoa(minimumBumpPercentage), originalFee, maxPrice)
+	if bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
+		return nil, fmt.Errorf("%s: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
+			commonfee.ErrBump, bumpedFee, strconv.Itoa(MinimumBumpPercentage), originalFee, maxPrice)
 	}
 	return bumpedFee, nil
 }
