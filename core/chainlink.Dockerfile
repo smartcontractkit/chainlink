@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.21-bullseye as buildgo
+FROM golang:1.22-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -7,7 +7,6 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-ENV GOTOOLCHAIN=auto
 RUN go mod download
 
 # Env vars needed for chainlink build
@@ -32,7 +31,7 @@ RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-feeds | xargs
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana | xargs -I % ln -s % /chainlink-solana
 
 # Build image: Plugins
-FROM golang:1.21-bullseye as buildplugins
+FROM golang:1.22-bullseye as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds
