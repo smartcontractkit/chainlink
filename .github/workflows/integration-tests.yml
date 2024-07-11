@@ -1269,6 +1269,11 @@ jobs:
           docker rm "$CONTAINER_ID"
       - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
         run: ./scripts/install-solana-ci.sh
+
+      - name: Configure npm for private packages
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.GAUNTLET_READ_NPM_TOKEN }}" > ./gauntlet/.npmrc
+
       - name: Install gauntlet
         run: |
           yarn --cwd ./gauntlet install --frozen-lockfile
