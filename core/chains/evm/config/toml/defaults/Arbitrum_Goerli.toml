@@ -1,4 +1,5 @@
 ChainID = '421613'
+FinalityDepth = 4350
 ChainType = 'arbitrum'
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1

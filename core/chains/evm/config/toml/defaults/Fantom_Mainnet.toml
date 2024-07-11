@@ -1,4 +1,5 @@
 ChainID = '250'
+FinalityDepth = 50
 LinkContractAddress = '0x6F43FF82CCA38001B6699a8AC47A2d0E66939407'
 LogPollInterval = '1s'
 NoNewHeadsThreshold = '30s'
