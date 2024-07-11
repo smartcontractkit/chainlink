@@ -169,10 +169,7 @@ func (c *AutomationConfig) Validate() error {
 	if err := c.PublicConfig.Validate(); err != nil {
 		return err
 	}
-	if err := c.RegistrySettings.Validate(); err != nil {
-		return err
-	}
-	return nil
+	return c.RegistrySettings.Validate()
 }
 
 type PluginConfig struct {
