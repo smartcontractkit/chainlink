@@ -179,9 +179,9 @@ func (f *evmFinalizer) processFinalizedHead(ctx context.Context, latestFinalized
 		blockHashInChain := latestFinalizedHead.HashAtHeight(receipt.GetBlockNumber().Int64())
 		// Receipt block hash does not match the block hash in chain. Transaction has been re-org'd out but DB state has not been updated yet
 		if blockHashInChain.String() != receipt.GetBlockHash().String() {
-			// Log a critical error if a transaction is marked as confirmed with a receipt older than the finalized block
+			// Log error if a transaction is marked as confirmed with a receipt older than the finalized block
 			// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
-			f.lggr.Criticalw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", blockHashInChain.String())
+			f.lggr.Errorw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", blockHashInChain.String())
 			continue
 		}
 		finalizedTxs = append(finalizedTxs, tx)
@@ -261,9 +261,9 @@ func (f *evmFinalizer) batchCheckReceiptHashesOnchain(ctx context.Context, block
 				if receipt.GetBlockHash().String() == head.BlockHash().String() {
 					finalizedTxs = append(finalizedTxs, tx)
 				} else {
-					// Log a critical error if a transaction is marked as confirmed with a receipt older than the finalized block
+					// Log error if a transaction is marked as confirmed with a receipt older than the finalized block
 					// This scenario could potentially point to a re-org'd transaction the Confirmer has lost track of
-					f.lggr.Criticalw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", head.BlockHash().String())
+					f.lggr.Errorw("found confirmed transaction with re-org'd receipt older than finalized block", "tx", tx, "receipt", receipt, "onchainBlockHash", head.BlockHash().String())
 				}
 			}
 		}
