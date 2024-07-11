@@ -503,7 +503,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 
 func (p *logEventProvider) syncBufferFilters() error {
 	p.lock.RLock()
-	p.lock.RUnlock()
+	defer p.lock.RUnlock()
 
 	return p.bufferV1.SyncFilters(p.filterStore)
 }

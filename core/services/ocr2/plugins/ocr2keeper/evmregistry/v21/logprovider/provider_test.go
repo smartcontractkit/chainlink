@@ -258,10 +258,8 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	filterStore := NewUpkeepFilterStore()
 	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))
 
-	var ids []*big.Int
 	for i := 0; i < 10; i++ {
 		cfg, f := newEntry(p, i+1)
-		ids = append(ids, f.upkeepID)
 		require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 			UpkeepID:      f.upkeepID,
 			TriggerConfig: cfg,
