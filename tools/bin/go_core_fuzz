@@ -7,7 +7,9 @@ OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 USE_TEE="${USE_TEE:-true}"
 
 # To allow reuse in CI from other repositories
-FUZZ_TOOL_PATH=${:-"./fuzz"}
+FUZZ_TOOL_PATH=${FUZZ_TOOL_PATH:-"./fuzz"}
+ROOT_TO_FUZZ=${ROOT_TO_FUZZ:-"./"}
+FUZZ_TIMEOUT=${FUZZ_TIMEOUT:-10m}
 
 echo "Failed fuzz tests and panics: ---------------------"
 echo ""
@@ -22,7 +24,7 @@ use_tee() {
 # the amount of --seconds here is subject to change based on how long the CI job takes in the future
 # as we add more fuzz tests, we should take into consideration increasing this timelapse, so we can have enough coverage.
 # We are timing out after ~10mins in case the tests hang. (Current CI duration is ~8m, modify if needed)
-cd ${FUZZ_TOOL_PATH} && timeout 10m ./fuzz_all_native.py --ci --seconds 420 | use_tee $OUTPUT_FILE
+timeout "${FUZZ_TIMEOUT}" "${FUZZ_TOOL_PATH}"/fuzz_all_native.py --ci --seconds 420 --libroot "${ROOT_TO_FUZZ}" | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output
