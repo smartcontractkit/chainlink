@@ -1270,6 +1270,10 @@ jobs:
       - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
         run: ./scripts/install-solana-ci.sh
 
+      - name: Configure npm for private packages
+        run: |
+          npm config set //registry.npmjs.org/:_authToken ${{ secrets.NPM_TOKEN }}
+
       - name: Install gauntlet
         run: |
           yarn --cwd ./gauntlet install --frozen-lockfile
