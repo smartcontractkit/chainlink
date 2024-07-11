@@ -365,6 +365,15 @@ func (v *EthereumBlockhashStore) GetBlockHash(ctx context.Context, blockNumber *
 	return blockHash, nil
 }
 
+func (v *EthereumBlockhashStore) StoreVerifyHeader(blockNumber *big.Int, blockHeader []byte) error {
+	_, err := v.client.Decode(v.blockHashStore.StoreVerifyHeader(
+		v.client.NewTXOpts(),
+		blockNumber,
+		blockHeader,
+	))
+	return err
+}
+
 func (v *EthereumVRFCoordinator) Address() string {
 	return v.address.Hex()
 }
