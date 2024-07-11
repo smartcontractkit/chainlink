@@ -52,6 +52,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	NewSqlxDB(t T) *sqlx.DB
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
+	FromAddress() common.Address
 	TXM(T, client.Client, *sqlx.DB) evmtxmgr.TxManager
 }
 
@@ -186,6 +187,9 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		},
 	}
 
+	it.client = it.Helper.Client(t)
+	it.txm = it.Helper.TXM(t, it.client, it.Helper.NewSqlxDB(t))
+
 	it.chainWriterConfig = types.ChainWriterConfig{
 		Contracts: map[string]*types.ContractConfig{
 			AnyContractName: {
@@ -193,7 +197,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 				Configs: map[string]*types.ChainWriterDefinition{
 					"addTestStruct": {
 						ChainSpecificName: "addTestStruct",
-						FromAddress:       it.auth.From,
+						FromAddress:       it.Helper.FromAddress(),
 						GasLimit:          200_000,
 						Checker:           "simulate",
 						InputModifications: codec.ModifiersConfig{
@@ -205,9 +209,6 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 		},
 		MaxGasPrice: assets.NewWei(big.NewInt(1000000000000000000)),
 	}
-
-	it.client = it.Helper.Client(t)
-	it.txm = it.Helper.TXM(t, it.client, it.Helper.NewSqlxDB(t))
 
 	it.deployNewContracts(t)
 }
@@ -314,18 +315,53 @@ func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestSt
 
 func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
 	fmt.Printf("%+v\n", testStruct)
+	txID := uuid.New().String()
 	err := it.GetChainWriter(t).SubmitTransaction(
 		it.Helper.Context(t),
 		AnyContractName,
 		"addTestStruct",
 		testStruct,
-		uuid.New().String(),
+		txID,
 		it.address,
 		nil,
 		nil,
 	)
+
 	require.NoError(t, err)
-	// it.sendTxWithTestStruct(t, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
+
+	err = it.waitForTransactionFinalization(t, txID)
+	require.NoError(t, err)
+}
+
+func (it *EVMChainReaderInterfaceTester[T]) waitForTransactionFinalization(t T, txID string) error {
+	ctx, cancel := context.WithTimeout(it.Helper.Context(t), 5*time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("transaction %s not finalized within timeout period", txID)
+		case <-ticker.C:
+			status, err := it.GetChainWriter(t).GetTransactionStatus(ctx, txID)
+			if err != nil {
+				return fmt.Errorf("failed to get transaction status: %w", err)
+			}
+
+			switch status {
+			case clcommontypes.Finalized:
+				fmt.Println("Found successful Transaction")
+				return nil
+			case clcommontypes.Failed, clcommontypes.Fatal:
+				return fmt.Errorf("transaction %s has failed or is fatal", txID)
+			case clcommontypes.Unconfirmed, clcommontypes.Unknown:
+				fmt.Printf("Transaction %s is still %s\n", txID, status)
+				// Continue polling for these statuses
+			}
+		}
+	}
 }
 
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state

@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -157,8 +159,9 @@ func TestChainReader(t *testing.T) {
 }
 
 type helper struct {
-	sim  *backends.SimulatedBackend
-	auth *bind.TransactOpts
+	sim         *backends.SimulatedBackend
+	auth        *bind.TransactOpts
+	fromAddress common.Address
 }
 
 func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
@@ -210,6 +213,10 @@ func (h *helper) Context(t *testing.T) context.Context {
 	return testutils.Context(t)
 }
 
+func (h *helper) FromAddress() common.Address {
+	return h.fromAddress
+}
+
 func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	// From trial and error, when running on CI, sometimes the boxes get slow
 	maxWaitTime := time.Second * 30
@@ -240,6 +247,9 @@ func (h *helper) TXM(t *testing.T, client client.Client, db *sqlx.DB) evmtxmgr.T
 
 	config, dbConfig, evmConfig := evmtxmgr.MakeTestConfigs(t)
 	keyStore := cltest.NewKeyStore(t, db).Eth()
+	_, addr := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(testutils.SimulatedChainID.Int64()))
+	h.fromAddress = addr
+
 	estimator, err := gas.NewEstimator(logger.TestLogger(t), client, config, evmConfig.GasEstimator())
 	require.NoError(t, err)
 
