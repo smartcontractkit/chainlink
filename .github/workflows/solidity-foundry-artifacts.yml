@@ -1,0 +1,242 @@
+name: Solidity Foundry Artifact Generation
+on:
+  workflow_dispatch:
+    inputs:
+      contracts_list:
+        description: 'Comma-separated list of .sol files to generate artifacts for'
+        required: true
+
+env:
+  FOUNDRY_PROFILE: ci
+  # Has to match the `make foundry` version.
+  FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+
+jobs:
+  # some of the artifacts can only be generated on product level and we cannot scope them to single contracts
+  coverage-and-gas-and-book:
+    strategy:
+      fail-fast: false
+      matrix:
+        product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
+    name: Foundry Tests ${{ matrix.product }}
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          # Has to match the `make foundry` version.
+          version: nightly-de33b6af53005037b463318d2628b5cfcaf39916
+
+      - name: Run Forge build
+        run: |
+          forge --version
+          forge build
+        id: build
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run Forge snapshot
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) && !contains(fromJson('["keystone"]'), matrix.product) && needs.changes.outputs.changes == 'true' }}
+        run: |
+          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+        id: snapshot
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Run coverage
+        working-directory: contracts
+        run: forge coverage --report lcov
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      # see what we should prune for other products
+#      - name: Prune report
+#        if: ${{ needs.changes.outputs.changes == 'true' }}
+#        run: |
+#          sudo apt-get install lcov
+#          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
+#        env:
+#          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      # We could gather coverage for all products
+
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@a546f89a65a0cdcd82a92ae8d65e74d450ff3fbc # v4.1.4
+        with:
+          update-comment: true
+          coverage-files: ./contracts/${{ matrix.product }}-lcov.info
+          minimum-coverage: 98.5
+          artifact-name: code-coverage-report-${{ matrix.product }}
+          working-directory: ./contracts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Forge doc
+        run: |
+          forge doc --build
+        id: doc
+        working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 2
+        continue-on-error: true
+        with:
+          name: ${{ matrix.product }}-artifacts
+          path: |
+            contracts/gas-snapshots/${{ matrix.product }}.gas-snapshot
+            contracts/docs/${{ matrix.product }}
+            contracts/${{ matrix.product }}-lcov.info
+          retention-days: 7
+
+  # Generates UML diagrams and Slither reports for user-provided contracts
+  uml-static-analysis:
+    name: Docs for ${{ inputs.contracts_list }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
+        with:
+          version: ${{ env.FOUNDRY_VERSION }}
+
+      - name: Install Sol2uml
+        run: |
+          npm link sol2uml --only=production
+
+      # extract src dir from foundry.toml
+      - name: Generate UML
+        run: |
+          cd contracts
+          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          ./scripts/selected_uml.sh "$SRC_FOLDER" "uml"
+
+      - name: Generate Slither MD reports
+        run: |
+          cd contracts
+          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ inputs.contracts_list }}
+
+      - name: Upload UMLs and Slither reports
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        timeout-minutes: 10
+        continue-on-error: true
+        with:
+          name: contracts-artifacts
+          path: |
+            contracts/uml
+            contracts/slither-reports
+          retention-days: 7
+
+  gather-all-artifacts:
+    name: Gather all artifacts
+    runs-on: ubuntu-latest
+    needs: [coverage-and-gas-and-book, uml-static-analysis]
+    steps:
+      - name: Download UMLs and Slither Reports artifact
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: contracts-artifacts
+          path: review_artifacts/
+      - name: Download automation artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: automation-artifacts
+          path: review_artifacts/
+      - name: Download functions artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: functions-artifacts
+          path: review_artifacts/
+      - name: Download keystone artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: keystone-artifacts
+          path: review_artifacts/
+      - name: Download l2ep artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: l2ep-artifacts
+          path: review_artifacts/
+      - name: Download llo-feeds artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: llo-feeds-artifacts
+          path: review_artifacts/
+      - name: Download operatorforwarder artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: operatorforwarder-artifacts
+          path: review_artifacts/
+      - name: Download shared artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: shared-artifacts
+          path: review_artifacts/
+      - name: Download vrf artifacts
+        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: vrf-artifacts
+          path: review_artifacts/
+
+      - name: Upload all artifacts as single package
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: review-artifacts
+          path: review_artifacts/
+
+      - name: Remove UML artifact
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: uml-diagrams
+      - name: Remove automation artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: automation-artifacts
+      - name: Remove functions artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: functions-artifacts
+      - name: Remove keystone artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: keystone-artifacts
+      - name: Remove l2ep artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: l2ep-artifacts
+      - name: Remove llo-feeds artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: llo-feeds-artifacts
+      - name: Remove operatorforwarder artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: operatorforwarder-artifacts
+      - name: Remove shared artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: shared-artifacts
+      - name: Remove vrf artifacts
+        uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
+        with:
+          name: vrf-artifacts
