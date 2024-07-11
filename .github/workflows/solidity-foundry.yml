@@ -217,8 +217,6 @@ jobs:
       matrix:
         contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
     runs-on: ${{ env.RUNS_ON }}
-    env:
-      FOUNDRY_PROFILE: ${{ matrix.contract.product }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
@@ -241,6 +239,8 @@ jobs:
           forge fmt --check ${{ matrix.contract.path }}
         id: fmt
         working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.contract.product }}
 
       - name: Collect Metrics
         if: needs.changes.outputs.changes == 'true'
