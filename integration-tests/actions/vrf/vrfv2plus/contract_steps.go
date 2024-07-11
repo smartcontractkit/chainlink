@@ -24,6 +24,7 @@ import (
 
 func DeployVRFV2_5Contracts(
 	chainClient *seth.Client,
+	configGeneral *vrfv2plusconfig.General,
 ) (*vrfcommon.VRFContracts, error) {
 	bhs, err := contracts.DeployBlockhashStore(chainClient)
 	if err != nil {
@@ -33,9 +34,25 @@ func DeployVRFV2_5Contracts(
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrDeployBatchBlockHashStore, err)
 	}
-	coordinator, err := contracts.DeployVRFCoordinatorV2_5(chainClient, bhs.Address())
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+	var coordinator contracts.VRFCoordinatorV2_5
+	if actions.IsOPStackChain(chainClient.ChainID) {
+		opStackCoordinator, err := contracts.DeployVRFCoordinatorV2_5_Optimism(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
+		err = opStackCoordinator.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
+		}
+		coordinator, err = contracts.LoadVRFCoordinatorV2_5(chainClient, opStackCoordinator.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else {
+		coordinator, err = contracts.DeployVRFCoordinatorV2_5(chainClient, bhs.Address())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployCoordinatorV2Plus, err)
+		}
 	}
 	batchCoordinator, err := contracts.DeployBatchVRFCoordinatorV2Plus(chainClient, coordinator.Address())
 	if err != nil {
@@ -392,10 +409,28 @@ func DeployVRFV2PlusDirectFundingContracts(
 	coordinator contracts.VRFCoordinatorV2_5,
 	consumerContractsAmount int,
 	wrapperSubId *big.Int,
+	configGeneral *vrfv2plusconfig.General,
 ) (*VRFV2PlusWrapperContracts, error) {
-	vrfv2PlusWrapper, err := contracts.DeployVRFV2PlusWrapper(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
-	if err != nil {
-		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+	var vrfv2PlusWrapper contracts.VRFV2PlusWrapper
+	var err error
+	if actions.IsOPStackChain(sethClient.ChainID) {
+		opStackWrapper, err := contracts.DeployVRFV2PlusWrapperOptimism(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
+		err = opStackWrapper.SetL1FeeCalculation(configGeneral.L1FeeCalculationMode, configGeneral.L1FeeCoefficient)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrSetL1FeeCalculation, err)
+		}
+		vrfv2PlusWrapper, err = contracts.LoadVRFV2PlusWrapper(sethClient, opStackWrapper.Address.String())
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrLoadingCoordinator, err)
+		}
+	} else {
+		vrfv2PlusWrapper, err = contracts.DeployVRFV2PlusWrapper(sethClient, linkTokenAddress, linkEthFeedAddress, coordinator.Address(), wrapperSubId)
+		if err != nil {
+			return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployWrapper, err)
+		}
 	}
 	consumers, err := DeployVRFV2PlusWrapperConsumers(sethClient, vrfv2PlusWrapper, consumerContractsAmount)
 	if err != nil {
@@ -530,7 +565,7 @@ func SetupVRFV2PlusContracts(
 	l zerolog.Logger,
 ) (*vrfcommon.VRFContracts, error) {
 	l.Info().Msg("Deploying VRFV2 Plus contracts")
-	vrfContracts, err := DeployVRFV2_5Contracts(sethClient)
+	vrfContracts, err := DeployVRFV2_5Contracts(sethClient, configGeneral)
 	if err != nil {
 		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployVRFV2_5Contracts, err)
 	}
