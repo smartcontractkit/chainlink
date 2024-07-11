@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
@@ -1375,12 +1376,12 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Second with gas bump was still underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(25000000000)) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(24000000000)) == 0
 		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
 
 		// Third succeeded
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(30000000000)) == 0
+			return tx.Nonce() == localNextNonce && tx.GasPrice().Cmp(big.NewInt(28800000000)) == 0
 		}), fromAddress).Return(commonclient.Successful, nil).Once()
 
 		// Do the thing
@@ -1398,7 +1399,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, etx.Error.Valid)
 		assert.Len(t, etx.TxAttempts, 1)
 		attempt := etx.TxAttempts[0]
-		assert.Equal(t, "30 gwei", attempt.TxFee.Legacy.String())
+		assert.Equal(t, "28.8 gwei", attempt.TxFee.Legacy.String())
 	})
 
 	etxUnfinished := txmgr.Tx{
@@ -1468,7 +1469,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, "20 gwei", attempt.TxFee.Legacy.String())
 	})
 
-	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it", func(t *testing.T) {
+	t.Run("eth node returns underpriced transaction and bumping with 0 returns error", func(t *testing.T) {
 		// This happens if a transaction's gas price is below the minimum
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
@@ -1492,7 +1493,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped fee price of 20 gwei is equal to original fee price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either FeeEstimator.BumpPercent or FeeEstimator.BumpMin")
+		assert.True(t, commonfee.IsBumpErr(err))
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
@@ -1558,17 +1559,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 	})
 
-	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
-		// This happens if a transaction's gas price is below the minimum
-		// configured for the transaction pool.
-		// This is a configuration error by the node operator, since it means they set the base gas level too low.
-
-		// In this scenario the node operator REALLY fucked up and set the bump
-		// to zero (even though that should not be possible due to config
-		// validation)
+	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode, resulting in error", func(t *testing.T) {
 		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-			c.EVM[0].GasEstimator.BumpMin = assets.NewWeiI(0)
 			c.EVM[0].GasEstimator.BumpPercent = ptr[uint16](0)
 		}))
 		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
@@ -1584,62 +1577,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check gas tip cap verification
 		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
+		assert.True(t, commonfee.IsBumpErr(err))
 		assert.True(t, retryable)
 
 		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
-	})
-
-	t.Run("eth node returns underpriced transaction in EIP-1559 mode, bumps until inclusion", func(t *testing.T) {
-		// This happens if a transaction's gas price is below the minimum
-		// configured for the transaction pool.
-		// This is a configuration error by the node operator, since it means they set the base gas level too low.
-		underpricedError := "transaction underpriced"
-		localNextNonce := getLocalNextNonce(t, nonceTracker, fromAddress)
-		mustCreateUnstartedTx(t, txStore, fromAddress, toAddress, encodedPayload, gasLimit, value, testutils.FixtureChainID)
-
-		// Check gas tip cap verification
-		evmcfg2 := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-			c.EVM[0].GasEstimator.TipCapDefault = assets.NewWeiI(0)
-		}))
-		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-		eb2 := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
-
-		retryable, err := eb2.ProcessUnstartedTxs(ctx, fromAddress)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 wei for key")
-		assert.True(t, retryable)
-
-		gasTipCapDefault := assets.NewWeiI(42)
-
-		evmcfg2 = evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-			c.EVM[0].GasEstimator.TipCapDefault = gasTipCapDefault
-		}))
-		localNextNonce = getLocalNextNonce(t, nonceTracker, fromAddress)
-		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(localNextNonce, nil).Once()
-		eb2 = NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, cfg, evmcfg2, &testCheckerFactory{}, false, nonceTracker)
-
-		// Second was underpriced but above minimum
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(gasTipCapDefault.ToInt()) == 0
-		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
-		// Resend at the bumped price
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), evmcfg2.EVM().GasEstimator().BumpMin().ToInt())) == 0
-		}), fromAddress).Return(commonclient.Underpriced, errors.New(underpricedError)).Once()
-		// Final bump succeeds
-		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == localNextNonce && tx.GasTipCap().Cmp(big.NewInt(0).Add(gasTipCapDefault.ToInt(), big.NewInt(0).Mul(evmcfg2.EVM().GasEstimator().BumpMin().ToInt(), big.NewInt(2)))) == 0
-		}), fromAddress).Return(commonclient.Successful, nil).Once()
-
-		retryable, err = eb2.ProcessUnstartedTxs(ctx, fromAddress)
-		require.NoError(t, err)
-		assert.False(t, retryable)
-
-		// TEARDOWN: Clear out the unsent tx before the next test
-		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 }
 

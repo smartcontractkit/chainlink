@@ -81,11 +81,25 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		f := gas.NewFixedPriceEstimator(logger.Test(t), config, l1Oracle)
 
 		// original gas price is nil
-		maxPrice := assets.NewWeiI(41)
+		maxPrice := assets.NewWeiI(47)
 		originalGasPrice := assets.NewWeiI(40)
 		bumpedGas, _, err := f.BumpLegacyGas(tests.Context(t), originalGasPrice, 100000, maxPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, maxPrice, bumpedGas)
+
+	})
+
+	t.Run("BumpLegacyGas bumps original gas price by BumpPercent, caps on max price and errors due to minimum bump percentage", func(t *testing.T) {
+		config := gasmocks.NewFixedPriceEstimatorConfig(t)
+		config.On("BumpPercent").Return(uint16(20))
+		l1Oracle := rollupMocks.NewL1Oracle(t)
+		f := gas.NewFixedPriceEstimator(logger.Test(t), config, l1Oracle)
+
+		// original gas price is nil
+		maxPrice := assets.NewWeiI(41)
+		originalGasPrice := assets.NewWeiI(40)
+		_, _, err := f.BumpLegacyGas(tests.Context(t), originalGasPrice, 100000, maxPrice, nil)
+		require.Error(t, err)
 
 	})
 
@@ -172,5 +186,19 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, maxPrice, bumpedFee.FeeCap)
 		assert.Equal(t, maxPrice, bumpedFee.TipCap)
+	})
+
+	t.Run("BumpDynamicFee bumps original fee by BumpPercent, caps on max price and errors due to minimum bump percentage", func(t *testing.T) {
+		config := gasmocks.NewFixedPriceEstimatorConfig(t)
+		config.On("BumpPercent").Return(uint16(20))
+		l1Oracle := rollupMocks.NewL1Oracle(t)
+		f := gas.NewFixedPriceEstimator(logger.Test(t), config, l1Oracle)
+
+		maxPrice := assets.NewWeiI(21)
+		feeCap := assets.NewWeiI(20)
+		tipCap := assets.NewWeiI(19)
+		dynamicFee := gas.DynamicFee{FeeCap: feeCap, TipCap: tipCap}
+		_, err := f.BumpDynamicFee(tests.Context(t), dynamicFee, maxPrice, nil)
+		require.Error(t, err)
 	})
 }

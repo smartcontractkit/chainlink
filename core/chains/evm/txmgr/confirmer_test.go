@@ -1756,7 +1756,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`,
+		oldEnough, evmcfg.EVM().GasEstimator().PriceDefault(), attempt1_1.ID))
 
 	t.Run("treats an exceeds max fee attempt as a success", func(t *testing.T) {
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1775,7 +1776,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_MaxFeeScenario(t *testing.T) {
 
 		// Once for the bumped attempt which exceeds limit
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(20000000000)
+			return tx.Nonce() == uint64(*etx.Sequence) && tx.GasPrice().Int64() == int64(24000000000)
 		}), fromAddress).Return(commonclient.ExceedsMaxFee, errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
 
 		// Do the thing
@@ -1829,7 +1830,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	nonce++
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`,
+		oldEnough, evmcfg.EVM().GasEstimator().PriceDefault(), attempt1_1.ID))
 
 	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
 		// simulate bumped transaction that is somehow impossible to sign
@@ -1883,7 +1885,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient, nil))
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(24000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1931,7 +1933,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	var attempt1_3 txmgr.TxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(28800000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1969,7 +1971,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	var attempt1_4 txmgr.TxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(30000000000)
+		expectedBumpedGasPrice := big.NewInt(34560000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -2018,11 +2020,12 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
-	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`,
+		oldEnough, evmcfg.EVM().GasEstimator().PriceDefault(), attempt2_1.ID))
 	var attempt2_2 txmgr.TxAttempt
 
 	t.Run("saves in-progress attempt on temporary error and returns error", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(24000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.TxFee.Legacy.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -2089,7 +2092,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_2.ID))
 
 	t.Run("assumes that 'nonce too low' error means confirmed_missing_receipt", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(28800000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.TxFee.Legacy.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -2240,18 +2243,18 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
 
-	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped transactions would exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
+	t.Run("resubmits at the max price and creates a new attempt if one of the bumped transactions would exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
 		// Set price such that the next bump will exceed EVM.GasEstimator.PriceMax
 		// Existing gas price is: 60480000000
-		gasPrice := attempt3_4.TxFee.Legacy.ToInt()
+		priceMax := big.NewInt(66530000000)
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60500000000)
+			c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(priceMax)
 		})
 		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
 		ec2 := newEthConfirmer(t, txStore, ethClient, gcfg, newCfg, ethKeyStore, nil)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
+			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && priceMax.Cmp(tx.GasPrice()) == 0
 		}), fromAddress).Return(commonclient.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
@@ -2262,10 +2265,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
-		// No new tx attempts
-		require.Len(t, etx3.TxAttempts, 4)
+		// New tx attempts
+		require.Len(t, etx3.TxAttempts, 5)
 		attempt3_4 = etx3.TxAttempts[0]
-		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
+		assert.Equal(t, (*assets.Wei)(priceMax), attempt3_4.TxFee.Legacy)
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_4.ID))
@@ -2275,7 +2278,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Existing gas price is: 60480000000
 		gasPrice := attempt3_4.TxFee.Legacy.ToInt()
 		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60480000000)
+			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(66530000000)
 		})
 		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
 		ec2 := newEthConfirmer(t, txStore, ethClient, gcfg, newCfg, ethKeyStore, nil)
@@ -2293,7 +2296,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, txmgrcommon.TxUnconfirmed, etx3.State)
 
 		// No new tx attempts
-		require.Len(t, etx3.TxAttempts, 4)
+		require.Len(t, etx3.TxAttempts, 5)
 		attempt3_4 = etx3.TxAttempts[0]
 		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
@@ -2411,7 +2414,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.PriceMax = assets.GWei(500)
+		c.EVM[0].GasEstimator.PriceMax = assets.GWei(5000)
+		c.EVM[0].GasEstimator.PriceMin = assets.NewWeiI(0)
 	})
 	txStore := cltest.NewTestTxStore(t, db)
 
@@ -2463,7 +2467,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		legacyAttempt := etx.TxAttempts[0]
 		var dbAttempt txmgr.DbEthTxAttempt
 		dbAttempt.FromTxAttempt(&legacyAttempt)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`,
+			oldEnough, evmcfg.EVM().GasEstimator().PriceDefault(), legacyAttempt.ID))
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
@@ -2495,7 +2500,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		dxFeeAttempt := etx.TxAttempts[0]
 		var dbAttempt txmgr.DbEthTxAttempt
 		dbAttempt.FromTxAttempt(&dxFeeAttempt)
-		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
+		tipCapDefault := assets.NewWeiI(100)
+		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_fee_cap=$2, gas_tip_cap=$3 WHERE id=$4 RETURNING *`,
+			oldEnough, evmcfg.EVM().GasEstimator().FeeCapDefault(), tipCapDefault, dxFeeAttempt.ID))
 
 		// Fail a few times with terminally underpriced
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(
@@ -2536,7 +2543,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	// keyStates, err := ethKeyStore.GetStatesForKeys(keys)
 	// require.NoError(t, err)
 
-	gconfig, config := newTestChainScopedConfig(t)
+	gconfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.PriceMin = assets.NewWeiI(0)
+	})
+	config := evmtest.NewChainScopedConfig(t, gconfig)
 	currentHead := int64(30)
 	oldEnough := int64(19)
 	nonce := int64(0)
@@ -2546,6 +2556,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	attempt1_1 := etx.TxAttempts[0]
 	var dbAttempt txmgr.DbEthTxAttempt
 	dbAttempt.FromTxAttempt(&attempt1_1)
+	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`,
+		oldEnough, config.EVM().GasEstimator().PriceDefault(), attempt1_1.ID))
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
 	var attempt1_2 txmgr.TxAttempt
 
@@ -2554,7 +2566,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(24000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -2580,7 +2592,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(24000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -2605,7 +2617,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
 		ec := newEthConfirmer(t, txStore, ethClient, gconfig, config, ethKeyStore, nil)
 
-		expectedBumpedGasPrice := big.NewInt(20000000000)
+		expectedBumpedGasPrice := big.NewInt(24000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.TxFee.Legacy.ToInt().Int64())
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
