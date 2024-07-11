@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -146,6 +147,16 @@ func P2pIDsFromInts(ints []int64) [][32]byte {
 		p2pID := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(i)).PeerID()
 		p2pIDs = append(p2pIDs, p2pID)
 	}
+	sort.Slice(p2pIDs, func(i, j int) bool {
+		for k := 0; k < 32; k++ {
+			if p2pIDs[i][k] < p2pIDs[j][k] {
+				return true
+			} else if p2pIDs[i][k] > p2pIDs[j][k] {
+				return false
+			}
+		}
+		return false
+	})
 	return p2pIDs
 }
 

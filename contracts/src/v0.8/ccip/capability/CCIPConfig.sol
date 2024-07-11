@@ -7,6 +7,7 @@ import {ICapabilitiesRegistry} from "./interfaces/ICapabilitiesRegistry.sol";
 
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
+import {SortedSetValidationUtil} from "../../shared/util/SortedSetValidationUtil.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {CCIPConfigTypes} from "./libraries/CCIPConfigTypes.sol";
 
@@ -370,9 +371,11 @@ contract CCIPConfig is ITypeAndVersion, ICapabilityConfiguration, OwnerIsCreator
     }
     if (cfg.bootstrapP2PIds.length > cfg.p2pIds.length) revert TooManyBootstrapP2PIds();
 
+    // check for duplicate p2p ids and bootstrapP2PIds.
+    // check that p2p ids in cfg.bootstrapP2PIds are included in cfg.p2pIds.
+    SortedSetValidationUtil._checkIsValidUniqueSubset(cfg.bootstrapP2PIds, cfg.p2pIds);
+
     // Check that the readers are in the capabilities registry.
-    // TODO: check for duplicate signers, duplicate p2p ids, etc.
-    // TODO: check that p2p ids in cfg.bootstrapP2PIds are included in cfg.p2pIds.
     for (uint256 i = 0; i < cfg.signers.length; ++i) {
       _ensureInRegistry(cfg.p2pIds[i]);
     }

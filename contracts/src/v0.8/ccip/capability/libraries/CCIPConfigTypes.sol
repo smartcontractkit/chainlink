@@ -37,6 +37,7 @@ library CCIPConfigTypes {
     uint8 F; //                                   | The "big F" parameter for the role DON.
     uint64 offchainConfigVersion; // ─────────────╯ The version of the offchain configuration.
     bytes offrampAddress; // The remote chain offramp address.
+    // NOTE: bootstrapP2PIds and p2pIds should be sent as sorted sets
     bytes32[] bootstrapP2PIds; // The bootstrap P2P IDs of the oracles that are part of the role DON.
     // len(p2pIds) == len(signers) == len(transmitters) == 3 * F + 1
     // NOTE: indexes matter here! The p2p ID at index i corresponds to the signer at index i and the transmitter at index i.
