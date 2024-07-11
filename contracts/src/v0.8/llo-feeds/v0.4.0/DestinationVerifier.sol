@@ -126,8 +126,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         uint32 activationTime;
     }
 
-    /// @param feeManager The address of the FeeManager contract
-    constructor(address verifierProxy, address feeManager, address accessController) ConfirmedOwner(msg.sender) {
+    constructor(address verifierProxy) ConfirmedOwner(msg.sender) {
         if(verifierProxy == address(0)) {
             revert ZeroAddress();
         }
@@ -135,8 +134,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         //TODO SELECTOR
 
         i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
-        s_feeManager = IDestinationFeeManager(feeManager);
-        s_accessController = IAccessController(accessController);
     }
 
     /// @inheritdoc IDestinationVerifier
