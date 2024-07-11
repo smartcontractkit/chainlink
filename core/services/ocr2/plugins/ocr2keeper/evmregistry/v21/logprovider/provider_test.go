@@ -348,7 +348,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1
+		buffer := provider.buffer
 
 		buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 
@@ -370,7 +370,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1
+		buffer := provider.buffer
 
 		buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0})
 		buffer.Enqueue(big.NewInt(2), logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0})
@@ -395,7 +395,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x%d", i+1)), LogIndex: 0})
@@ -423,7 +423,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -474,7 +474,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 102; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -533,7 +533,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		for i := 0; i < 100; i++ {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x1%d", i+1)), LogIndex: 0})
@@ -587,7 +587,7 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 
 		ctx := context.Background()
 
-		buffer := provider.bufferV1.(*logBuffer)
+		buffer := provider.buffer.(*logBuffer)
 
 		upkeepOmittedOnBlocks := map[int64][]int{
 			1: {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100},                                                                                                                      // upkeep 1 won't have logs on 20 blocks

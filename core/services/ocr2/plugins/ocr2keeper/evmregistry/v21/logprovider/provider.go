@@ -99,7 +99,7 @@ type logEventProvider struct {
 	registerLock sync.Mutex
 
 	filterStore UpkeepFilterStore
-	bufferV1    LogBuffer
+	buffer      LogBuffer
 
 	opts LogTriggersOptions
 
@@ -113,7 +113,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, chainID *big
 		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
-		bufferV1:    NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
+		buffer:      NewLogBuffer(lggr, uint32(opts.LookbackBlocks), opts.BlockRate, opts.LogLimit),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -140,7 +140,7 @@ func (p *logEventProvider) SetConfig(cfg ocr2keepers.LogEventProviderConfig) {
 	atomic.StoreUint32(&p.opts.BlockRate, blockRate)
 	atomic.StoreUint32(&p.opts.LogLimit, logLimit)
 
-	p.bufferV1.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
+	p.buffer.SetConfig(uint32(p.opts.LookbackBlocks), blockRate, logLimit)
 }
 
 func (p *logEventProvider) Start(context.Context) error {
@@ -259,7 +259,7 @@ func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []
 		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), true)
+		logs, remaining := p.buffer.Dequeue(startWindow, MaxPayloads-len(payloads), true)
 		if len(logs) > 0 {
 			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -285,7 +285,7 @@ func (p *logEventProvider) bestEffortDequeue(latestBlock, start int64, payloads 
 		startWindow, _ := getBlockWindow(start, blockRate)
 
 		// dequeue as many logs as we can, based on remaining capacity, for this block window
-		logs, remaining := p.bufferV1.Dequeue(startWindow, MaxPayloads-len(payloads), false)
+		logs, remaining := p.buffer.Dequeue(startWindow, MaxPayloads-len(payloads), false)
 		if len(logs) > 0 {
 			p.lggr.Debugw("best effort dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
 		}
@@ -491,7 +491,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 		filteredLogs := filter.Select(logs...)
 
-		p.bufferV1.Enqueue(filter.upkeepID, filteredLogs...)
+		p.buffer.Enqueue(filter.upkeepID, filteredLogs...)
 
 		// Update the lastPollBlock for filter in slice this is then
 		// updated into filter store in updateFiltersLastPoll
@@ -505,5 +505,5 @@ func (p *logEventProvider) syncBufferFilters() error {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	return p.bufferV1.SyncFilters(p.filterStore)
+	return p.buffer.SyncFilters(p.filterStore)
 }
