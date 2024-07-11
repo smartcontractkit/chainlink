@@ -352,8 +352,8 @@ func (c *chainClient) LatestFinalizedBlock(ctx context.Context) (*evmtypes.Head,
 	return c.multiNode.LatestFinalizedBlock(ctx)
 }
 
-func (r *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
-	rpc, err := r.multiNode.SelectNodeRPC()
+func (c *chainClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error) {
+	rpc, err := c.multiNode.SelectNodeRPC()
 	if err != nil {
 		return feeHistory, err
 	}
