@@ -70,6 +70,7 @@ do
   mkdir -p "$pr_dir"
 
   # Fetch all files from src directory
+  echo "Command: git ls-tree -r \"$merge_commit_sha\" --name-only | grep \"^contracts/${source_dir}\""
   src_files=$(git ls-tree -r "$merge_commit_sha" --name-only | grep "^contracts/${source_dir}")
   echo $src_files
 
