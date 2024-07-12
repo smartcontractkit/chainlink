@@ -17,7 +17,7 @@ import (
 
 func Test_FixedPriceEstimator(t *testing.T) {
 	t.Parallel()
-	maxPrice := assets.NewWeiI(1000000)
+	globalMaxPrice := assets.NewWeiI(1000000)
 
 	t.Run("GetLegacyGas returns PriceDefault from config", func(t *testing.T) {
 		config := gasmocks.NewFixedPriceEstimatorConfig(t)
@@ -25,7 +25,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 		f := gas.NewFixedPriceEstimator(logger.Test(t), config, l1Oracle)
 
-		gasPrice, _, err := f.GetLegacyGas(tests.Context(t), nil, 100000, maxPrice)
+		gasPrice, _, err := f.GetLegacyGas(tests.Context(t), nil, 100000, globalMaxPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(42), gasPrice)
 	})
@@ -71,7 +71,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		bumpedGas, _, err := f.BumpLegacyGas(tests.Context(t), originalGasPrice, 100000, maxPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, originalGasPrice.AddPercentage(20), bumpedGas)
-
 	})
 
 	t.Run("BumpLegacyGas bumps original gas price by BumpPercent but caps on max price", func(t *testing.T) {
@@ -86,7 +85,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		bumpedGas, _, err := f.BumpLegacyGas(tests.Context(t), originalGasPrice, 100000, maxPrice, nil)
 		require.NoError(t, err)
 		assert.Equal(t, maxPrice, bumpedGas)
-
 	})
 
 	t.Run("BumpLegacyGas bumps original gas price by BumpPercent, caps on max price and errors due to minimum bump percentage", func(t *testing.T) {
@@ -100,7 +98,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		originalGasPrice := assets.NewWeiI(40)
 		_, _, err := f.BumpLegacyGas(tests.Context(t), originalGasPrice, 100000, maxPrice, nil)
 		require.Error(t, err)
-
 	})
 
 	t.Run("GetDynamicFee returns TipCapDefault and FeeCapDefault from config", func(t *testing.T) {
@@ -110,7 +107,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		l1Oracle := rollupMocks.NewL1Oracle(t)
 		f := gas.NewFixedPriceEstimator(logger.Test(t), config, l1Oracle)
 
-		dynamicFee, err := f.GetDynamicFee(tests.Context(t), maxPrice)
+		dynamicFee, err := f.GetDynamicFee(tests.Context(t), globalMaxPrice)
 		require.NoError(t, err)
 		assert.Equal(t, assets.NewWeiI(10), dynamicFee.TipCap)
 		assert.Equal(t, assets.NewWeiI(20), dynamicFee.FeeCap)
