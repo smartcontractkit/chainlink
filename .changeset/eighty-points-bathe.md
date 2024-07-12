@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-add an empty BAL spec in migrations
+#db_update add an empty BAL spec in migrations
