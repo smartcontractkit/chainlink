@@ -221,8 +221,8 @@ jobs:
           
           # file pipeline if there are no Solidity files found
           no_contracts=false
-          if [ -f "$file_path" ]; then
-            non_empty_lines=$(grep -cve '^\s*$' "$file_path")        
+          if [ -f "$contract_list" ]; then
+            non_empty_lines=$(grep -cve '^\s*$' "$contract_list")        
             if [ "$non_empty_lines" -lt 1 ]; then
               no_contracts=true
             fi
