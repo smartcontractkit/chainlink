@@ -60,6 +60,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.
 
 type crFactory struct {
 	lggr      logger.Logger
+	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
 }
@@ -69,7 +70,8 @@ func (c *crFactory) NewContractReader(ctx context.Context, cfg []byte) (types.Co
 	if err := json.Unmarshal(cfg, crCfg); err != nil {
 		return nil, err
 	}
-	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.client, *crCfg)
+
+	svc, err := evm.NewChainReaderService(ctx, c.lggr, c.logPoller, c.ht, c.client, *crCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +105,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *backends.Simulated
 	return &crFactory{
 		lggr:      lggr,
 		client:    client,
+		ht:        ht,
 		logPoller: lp,
 	}
 }
