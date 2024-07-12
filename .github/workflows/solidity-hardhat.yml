@@ -134,11 +134,19 @@ jobs:
   uml-static-analysis:
     name: Generate UML and Slither reports for modified contracts
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+
+      - name: Gather Solidity files from PRs
+        run: |
+          # extract src dir from foundry.toml
+          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -150,13 +158,7 @@ jobs:
 
       - name: Install Sol2uml
         run: |
-          npm link sol2uml --only=production
-
-      - name: Gather Solidity files from PRs
-        run: |
-          # extract src dir from foundry.toml
-          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"
+          npm link sol2uml --only=production          
 
       - name: Generate UML
         shell: bash
