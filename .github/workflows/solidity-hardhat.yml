@@ -224,9 +224,11 @@ jobs:
           if [ -f "$contract_list" ]; then
             non_empty_lines=$(grep -cve '^\s*$' "$contract_list")        
             if [ "$non_empty_lines" -lt 1 ]; then
+              echo "file $contract_list had $non_empty_lines non-empty lines"
               no_contracts=true
             fi
           else
+            echo "no file $contract_list"
             no_contracts=true
           fi
           
