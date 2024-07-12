@@ -213,9 +213,8 @@ jobs:
             contract_dir="from_prs/contracts"
           else
             cd contracts
-            SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
             contract_list="modified_contracts.txt"
-            contract_dir="$SRC_FOLDER"
+            contract_dir="./"
             cd ..
           fi
           
@@ -262,9 +261,8 @@ jobs:
             contract_dir="from_prs/contracts"
           else
             cd contracts
-            SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
             contract_list="modified_contracts.txt"
-            contract_dir="$SRC_FOLDER"
+            contract_dir="./"
             cd ..
           fi          
           
