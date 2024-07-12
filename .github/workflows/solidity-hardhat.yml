@@ -3,18 +3,40 @@ on:
   push:
 #  workflow_dispatch:
 #    inputs:
-#      contracts_list:
-#        description: 'Comma-separated list of .sol files to generate artifacts for'
+#      pr_urls:
+#        description: 'Comma-separated links to PRs to generate artifacts for'
 #        required: true
 
 env:
   FOUNDRY_PROFILE: ci
   # Has to match the `make foundry` version.
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
-  TEST_CONTRACTS_LIST: "KeeperRegistrar1_2.sol,v1_3_0/FunctionsBilling.sol"
+  TEST_PRS_LIST: "https://github.com/smartcontractkit/chainlink/pull/13625/checks,https://github.com/smartcontractkit/chainlink/pull/13487"
 
 jobs:
-  # some of the artifacts can only be generated on product level and we cannot scope them to single contracts
+  # we want to find the newest sha for the PRs we are testing and then generate gas snapshots and coverage for them
+  find-newest-sha:
+    name: Find newest SHA
+    runs-on: ubuntu-22.04
+    outputs:
+        newest_sha: ${{ steps.get-newest-sha.outputs.newest_sha }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get the newest SHA
+        shell: bash
+        id: get-newest-sha
+        run: |
+          cd contracts/scripts
+          newest_sha=$(./newest_sha.sh ${{ github.repository }} ${{ env.TEST_PRS_LIST }})
+          echo "Newest SHA: $newest_sha"
+          echo "newest_sha=$newest_sha" >> $GITHUB_OUTPUT
+
+  # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   coverage-and-gas-and-book:
     strategy:
       fail-fast: false
@@ -22,12 +44,13 @@ jobs:
         product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
     name: Foundry Tests ${{ matrix.product }}
     runs-on: ubuntu-22.04
-
+    needs: [find-newest-sha]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+          sha: ${{ needs.find-newest-sha.outputs.newest_sha }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -127,18 +150,56 @@ jobs:
         run: |
           npm link sol2uml --only=production
 
-      # extract src dir from foundry.toml
-      - name: Generate UML
+      - name: Gather Solidity files from PRs
         run: |
-          cd contracts
+          # extract src dir from foundry.toml
           SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./scripts/selected_uml.sh "$SRC_FOLDER" "uml" ${{ env.TEST_CONTRACTS_LIST }}
+          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "contracts/from_prs"
 
-      - name: Generate Slither MD reports
+      - name: Generate UML
+        shell: bash
         run: |
           cd contracts
-          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ env.TEST_CONTRACTS_LIST }}
+          base_dir="from_prs"
+
+          for pr_dir in "$base_dir"/*/; do
+            pr_number=$(basename "$pr_dir")
+            pr_file="$base_dir/$pr_number.txt"
+          
+            echo "Processing PR $pr_number | $pr_file"
+          
+            if [[ -f "$pr_file" ]]; then
+              comma_separated_list=$(tr '\n' ',' < "$pr_file" | sed 's/,$//')
+            
+              echo "Selected files: $comma_separated_list"
+            
+              ./scripts/selected_uml.sh "$base_dir/$pr_number" "uml" "$comma_separated_list"
+            else
+              echo "File $pr_file does not exist"
+            fi
+          done
+
+      - name: Generate Slither Markdown reports
+        run: |
+          cd contracts
+          base_dir="from_prs"
+
+          for pr_dir in "$base_dir"/*/; do
+            pr_number=$(basename "$pr_dir")
+            pr_file="$base_dir/$pr_number.txt"
+          
+            echo "Processing PR $pr_number | $pr_file"
+          
+            if [[ -f "$pr_file" ]]; then
+              comma_separated_list=$(tr '\n' ',' < "$pr_file" | sed 's/,$//')
+          
+              echo "Selected files: $comma_separated_list"
+          
+              ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir/$pr_number" "$comma_separated_list" "slither-reports"
+            else
+              echo "File $pr_file does not exist"
+            fi
+          done          
 
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
