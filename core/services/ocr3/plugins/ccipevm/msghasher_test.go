@@ -187,33 +187,3 @@ func testSetup(t *testing.T) *testSetupData {
 		auth:         transactor,
 	}
 }
-
-func Test_decodeExtraArgs(t *testing.T) {
-	d := testSetup(t)
-	gasLimit := big.NewInt(rand.Int63())
-
-	t.Run("v1", func(t *testing.T) {
-		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
-			GasLimit: gasLimit,
-		})
-		require.NoError(t, err)
-
-		decodedGasLimit, err := decodeExtraArgs(encoded)
-		require.NoError(t, err)
-
-		require.Equal(t, gasLimit, decodedGasLimit)
-	})
-
-	t.Run("v2", func(t *testing.T) {
-		encoded, err := d.contract.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
-			GasLimit:                 gasLimit,
-			AllowOutOfOrderExecution: true,
-		})
-		require.NoError(t, err)
-
-		decodedGasLimit, err := decodeExtraArgs(encoded)
-		require.NoError(t, err)
-
-		require.Equal(t, gasLimit, decodedGasLimit)
-	})
-}

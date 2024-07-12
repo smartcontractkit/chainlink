@@ -1,10 +1,8 @@
 package ccipevm
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"math/big"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
@@ -83,7 +81,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	// TODO: we assume that extra args is always abi-encoded for now, but we need
 	// to decode according to source chain selector family. We should add a family
 	// lookup API to the chain-selectors library.
-	gasLimit, err := decodeExtraArgs(msg.ExtraArgs)
+	gasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
 	}
@@ -123,28 +121,6 @@ func abiEncode(method string, values ...interface{}) ([]byte, error) {
 	}
 	// trim the method selector.
 	return res[4:], nil
-}
-
-func decodeExtraArgs(extraArgs []byte) (gasLimit *big.Int, err error) {
-	var method string
-	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
-		method = "decodeEVMExtraArgsV1"
-	} else if bytes.Equal(extraArgs[:4], evmExtraArgsV2Tag) {
-		method = "decodeEVMExtraArgsV2"
-	} else {
-		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
-	}
-	ifaces, err := messageHasherABI.Methods[method].Inputs.UnpackValues(extraArgs[4:])
-	if err != nil {
-		return nil, fmt.Errorf("abi decode extra args v1: %w", err)
-	}
-	// gas limit is always the first argument, and allow OOO isn't set explicitly
-	// on the message.
-	_, ok := ifaces[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int, got %T", ifaces[0])
-	}
-	return ifaces[0].(*big.Int), nil
 }
 
 // Interface compliance check

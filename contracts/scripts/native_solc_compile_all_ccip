@@ -83,6 +83,7 @@ compileContract ccip/NonceManager.sol
 compileContract ccip/test/helpers/BurnMintERC677Helper.sol
 compileContract ccip/test/helpers/CommitStoreHelper.sol
 compileContract ccip/test/helpers/MessageHasher.sol
+compileContract ccip/test/helpers/ReportCodec.sol
 compileContract ccip/test/helpers/receivers/MaybeRevertMessageReceiver.sol
 compileContract ccip/test/mocks/MockRMN1_0.sol
 compileContract ccip/test/mocks/MockE2EUSDCTokenMessenger.sol
