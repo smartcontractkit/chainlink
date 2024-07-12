@@ -76,7 +76,7 @@ func NewTriggerSubscriber(config *types.RemoteTriggerConfig, capInfo commoncap.C
 		messageCache:        NewMessageCache[triggerEventKey, p2ptypes.PeerID](),
 		registeredWorkflows: make(map[string]*subRegState),
 		stopCh:              make(services.StopChan),
-		lggr:                lggr,
+		lggr:                lggr.Named("TriggerSubscriber"),
 	}
 }
 

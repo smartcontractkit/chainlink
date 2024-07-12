@@ -8,13 +8,8 @@ on:
         type: string          
       performanceTestType:
         description: Performance Test Type of test to run
-        type: choice
-        options:
-          - "Smoke"
-          - "Soak"
-          - "Load"
-          - "Stress"
-          - "Spike"
+        type: string
+        required: true
       test_list_regex:
         description: "Regex for tests to run"
         required: false
