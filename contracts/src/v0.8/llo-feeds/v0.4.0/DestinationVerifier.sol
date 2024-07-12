@@ -144,12 +144,14 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     ) external override checkValidProxy checkAccess(sender) payable returns (bytes memory) {
         (bytes memory verifierResponse, bytes32 DONConfigId) = _verify(signedReport, sender);
 
-        //process the fee and catch the error
-        try s_feeManager.processFee(DONConfigId, signedReport, parameterPayload, sender) {
-            //do nothing
-        } catch {
-            // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
-            revert BadVerification();
+        if(address(s_feeManager) != address(0)){
+            //process the fee and catch the error
+            try s_feeManager.processFee(DONConfigId, signedReport, parameterPayload, sender) {
+                //do nothing
+            } catch {
+                // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
+                revert BadVerification();
+            }
         }
 
         return verifierResponse;
@@ -170,12 +172,14 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             DONConfigs[i] = config;
         }
 
-        //process the fee and catch the error
-        try s_feeManager.processFeeBulk(DONConfigs, signedReports, parameterPayload, sender) {
-            //do nothing
-        } catch {
-            // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
-            revert BadVerification();
+        if(address(s_feeManager) != address(0)){
+            //process the fee and catch the error
+            try s_feeManager.processFeeBulk(DONConfigs, signedReports, parameterPayload, sender) {
+                //do nothing
+            } catch {
+                // we purposefully obfuscate the error here to prevent information leaking leading to free verifications
+                revert BadVerification();
+            }
         }
 
         return verifierResponses;
