@@ -282,10 +282,10 @@ jobs:
           name: review-artifacts
           path: review_artifacts/
 
-      - name: Remove UML artifact
+      - name: Remove UML & Slither artifact
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
-          name: uml-diagrams
+          name: contracts-artifacts
       - name: Remove automation artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
