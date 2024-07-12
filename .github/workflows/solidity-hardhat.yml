@@ -157,8 +157,10 @@ jobs:
       - name: Gather Solidity files from PRs
         run: |
           # extract src dir from foundry.toml
+          cd contracts
           SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
           echo "SRC_FOLDER: $SRC_FOLDER"
+          cd ..
           ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"    
 
       - name: Generate UML
