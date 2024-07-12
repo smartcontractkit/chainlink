@@ -151,9 +151,9 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-#      - name: Install Sol2uml
-#        run: |
-#          npm link sol2uml --only=production
+      - name: Install Sol2uml
+        run: |
+          npm link sol2uml --only=production
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -171,11 +171,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install slither-analyzer
-
-      - name: Run custom bash command
-        run: |
-          slither .         
-          exit 1
 
       - name: Gather Solidity files from PRs
         run: |
