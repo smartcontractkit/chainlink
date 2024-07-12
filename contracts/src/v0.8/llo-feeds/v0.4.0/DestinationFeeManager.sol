@@ -205,7 +205,7 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
     address subscriber
   ) external payable override onlyVerifier {
     //poolIDs are mapped to payloads, so they should be the same length
-    if (poolIds.length != payloads.length) revert InvalidAddress();
+    if (poolIds.length != payloads.length) revert PoolIdMismatch();
 
     IDestinationFeeManager.FeeAndReward[] memory feesAndRewards = new IDestinationFeeManager.FeeAndReward[](payloads.length);
 
