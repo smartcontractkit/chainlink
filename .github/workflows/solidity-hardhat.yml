@@ -393,6 +393,14 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_RUN_ID: ${{ github.run_id }}
 
+      - name: Retrieve artifact ID
+        id: get_artifact_id
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT            
+
       - name: Print Artifact URL in job summary
         run: |
           echo "# Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
@@ -401,7 +409,7 @@ jobs:
           else
             echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)" >> $GITHUB_STEP_SUMMARY
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
 
       - name: Print Artifact URL in PR comment
         uses: actions/github-script@v7
@@ -416,7 +424,7 @@ jobs:
             ## Commit SHA
             ${{ github.sha }}
             ## Artifact URL
-            https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)`
+            https://github.com/${{ github.repository }}/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }}`
             });
 
 #on:
