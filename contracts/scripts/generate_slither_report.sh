@@ -45,6 +45,8 @@ run_slither() {
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
     PRODUCT=$(extract_product "$FILE")
 
+    echo "Using $PRODUCT Foundry profile"
+
     FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL"  > "$SLITHER_OUTPUT_FILE"
     if [ $? -ne 0 ]; then
         echo "Slither failed for $FILE"
