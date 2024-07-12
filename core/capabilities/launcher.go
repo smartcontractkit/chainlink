@@ -58,7 +58,7 @@ func NewLauncher(
 	registry core.CapabilitiesRegistry,
 ) *launcher {
 	return &launcher{
-		lggr:        lggr,
+		lggr:        lggr.Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		registry:    registry,
@@ -134,6 +134,7 @@ func (w *launcher) updateLocalNode(state registrysyncer.State) {
 }
 
 func (w *launcher) Launch(ctx context.Context, state registrysyncer.State) error {
+	w.lggr.Debugw("running capabilities launcher", "state", state)
 	w.updateLocalNode(state)
 
 	// Let's start by updating the list of Peers
