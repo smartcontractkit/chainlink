@@ -251,23 +251,6 @@ func (r *RpcClient) Dial(callerCtx context.Context) error {
 		}
 	}
 
-	/*
-		if r.http == nil {
-			wsrpc, err := rpc.DialWebsocket(ctx, r.ws.uri.String(), "")
-			if err != nil {
-				promEVMPoolRPCNodeDialsFailed.WithLabelValues(r.chainID.String(), r.name).Inc()
-				return r.wrapRPCClientError(pkgerrors.Wrapf(err, "error while dialing websocket: %v", r.ws.uri.Redacted()))
-			}
-
-			r.ws.rpc = wsrpc
-			r.ws.geth = ethclient.NewClient(wsrpc)
-		} else {
-			if err := r.DialHTTP(); err != nil {
-				return err
-			}
-		}
-	*/
-
 	promEVMPoolRPCNodeDialsSuccess.WithLabelValues(r.chainID.String(), r.name).Inc()
 
 	return nil
