@@ -141,6 +141,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -150,9 +151,9 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-      - name: Install Sol2uml
-        run: |
-          npm link sol2uml --only=production                
+#      - name: Install Sol2uml
+#        run: |
+#          npm link sol2uml --only=production
 
       - name: Gather Solidity files from PRs
         run: |
@@ -161,7 +162,11 @@ jobs:
           SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
           echo "SRC_FOLDER: $SRC_FOLDER"
           cd ..
-          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"    
+          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"
+          
+          ls -al contracts/from_prs
+          
+          exit 1
 
       - name: Generate UML
         shell: bash
