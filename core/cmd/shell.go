@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -143,7 +144,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		appLggr.Errorf("Failed to initialize globals: %v", err)
 	}
 
-	err = migrate.SetMigrationENVVars(cfg)
+	err = setMigrationENVVars(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1026,4 +1027,15 @@ func confirmAction(c *cli.Context) bool {
 		}
 		fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 	}
+}
+
+// setMigrationENVVars is used to inject values from config to goose migrations via env.
+func setMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
+	if generalConfig.EVMEnabled() {
+		err := os.Setenv(env.EVMChainIDNotNullMigration0195, generalConfig.EVMConfigs()[0].ChainID.String())
+		if err != nil {
+			panic(fmt.Sprintf("failed to set migrations env variables: %v", err))
+		}
+	}
+	return nil
 }

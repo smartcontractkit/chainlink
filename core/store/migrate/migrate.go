@@ -10,15 +10,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jmoiron/sqlx"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
 	"github.com/pressly/goose/v3/database"
+	"github.com/scylladb/go-reflectx"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 )
 
@@ -73,7 +72,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 	if !todo && err == nil {
 		return nil
 	}
-	sqlxDB := pg.WrapDbWithSqlx(db)
+	sqlxDB := wrapDbWithSqlx(db)
 	var names []string
 	err = sqlxDB.SelectContext(ctx, &names, `SELECT id FROM migrations`)
 	if err != nil {
@@ -186,13 +185,8 @@ func Create(db *sql.DB, name, migrationType string) error {
 	return goose.Create(db, "core/store/migrate/migrations", name, migrationType)
 }
 
-// SetMigrationENVVars is used to inject values from config to goose migrations via env.
-func SetMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
-	if generalConfig.EVMEnabled() {
-		err := os.Setenv(env.EVMChainIDNotNullMigration0195, generalConfig.EVMConfigs()[0].ChainID.String())
-		if err != nil {
-			panic(pkgerrors.Wrap(err, "failed to set migrations env variables"))
-		}
-	}
-	return nil
+func wrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
+	db := sqlx.NewDb(rdb, "postgres")
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return db
 }

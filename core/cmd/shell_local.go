@@ -925,7 +925,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
-	err := migrate.SetMigrationENVVars(s.Config)
+	err := setMigrationENVVars(s.Config)
 	if err != nil {
 		return err
 	}

@@ -1,10 +1,9 @@
-package pgtest
+package txdb
 
 import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"flag"
 	"fmt"
 	"io"
 	"net/url"
@@ -12,10 +11,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/scylladb/go-reflectx"
+	"github.com/test-go/testify/assert"
+	"github.com/test-go/testify/require"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
@@ -35,48 +39,15 @@ import (
 // store to use the raw DialectPostgres dialect and setup a one-use database.
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
-func init() {
-	testing.Init()
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-	if testing.Short() {
-		// -short tests don't need a DB
-		return
-	}
-	dbURL := string(env.DatabaseURL.Get())
-	if dbURL == "" {
-		panic("you must provide a CL_DATABASE_URL environment variable")
-	}
-
-	parsed, err := url.Parse(dbURL)
-	if err != nil {
-		panic(err)
-	}
-	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, parsed.String())
-		panic(msg)
-	}
-	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], env.DatabaseURL)
-		panic(msg)
-	}
-	name := string(dialects.TransactionWrappedPostgres)
-	sql.Register(name, &txDriver{
-		dbURL: dbURL,
-		conns: make(map[string]*conn),
-	})
-	sqlx.BindDriver(name, sqlx.DOLLAR)
-}
 
 var _ driver.Conn = &conn{}
 
 var _ driver.Validator = &conn{}
 var _ driver.SessionResetter = &conn{}
 
-// txDriver is an sql driver which runs on a single transaction.
+// TxDriver is an sql driver which runs on a single transaction.
 // When `Close` is called, transaction is rolled back.
-type txDriver struct {
+type TxDriver struct {
 	sync.Mutex
 	db    *sql.DB
 	conns map[string]*conn
@@ -84,7 +55,38 @@ type txDriver struct {
 	dbURL string
 }
 
-func (d *txDriver) Open(dsn string) (driver.Conn, error) {
+func RegisterTestDB(driverName string, dbURL *url.URL) error {
+	if dbURL.Path == "" {
+		return fmt.Errorf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, dbURL.String())
+	}
+	if !strings.HasSuffix(dbURL.Path, "_test") {
+		return fmt.Errorf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", dbURL.Path[1:], env.DatabaseURL)
+	}
+	sql.Register(driverName, &TxDriver{
+		dbURL: dbURL.String(),
+		conns: make(map[string]*conn),
+	})
+	sqlx.BindDriver(driverName, sqlx.DOLLAR)
+	return nil
+}
+
+func New(t testing.TB, driver string) *sqlx.DB {
+	testutils.SkipShortDB(t)
+	db, err := sqlx.Open(driver, uuid.New().String())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return db
+}
+
+func NewTxDriver(dbURL string) *TxDriver {
+	return &TxDriver{
+		dbURL: dbURL,
+		conns: make(map[string]*conn),
+	}
+}
+
+func (d *TxDriver) Open(dsn string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()
 	// Open real db connection if its the first call
@@ -95,11 +97,15 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 		}
 		d.db = db
 	}
+
 	c, exists := d.conns[dsn]
 	if !exists || !c.tryOpen() {
 		tx, err := d.db.Begin()
 		if err != nil {
 			return nil, err
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to handle conn: %w", err)
 		}
 		c = &conn{tx: tx, opened: 1, dsn: dsn}
 		c.removeSelf = func() error {
@@ -112,7 +118,7 @@ func (d *txDriver) Open(dsn string) (driver.Conn, error) {
 
 // deleteConn is called by a connection when it is closed via the `close` method.
 // It also auto-closes the DB when the last checked out connection is closed.
-func (d *txDriver) deleteConn(c *conn) error {
+func (d *TxDriver) deleteConn(c *conn) error {
 	// must lock here to avoid racing with Open
 	d.Lock()
 	defer d.Unlock()

@@ -20,6 +20,11 @@ var (
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
 	// Migrations env vars
 	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
+	// Test features
+	// if set then the external database specified in DatabaseURL is used directly for unit tests.
+	// rather a single database is created, migrated and shared amongst tests that would otherwise run using the external database.
+	// the primary advantage is complete encapsulation of the test database, such that there are no manual steps required to setup the database.
+	UseUnitTestDB = Var("CL_USE_UNIT_TEST_DB")
 )
 
 // LOOPP commands and vars

@@ -13,9 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink/v2/common/client"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -566,5 +569,33 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		c := cli.NewContext(nil, set, nil)
 		err := shell.RemoveBlocks(c)
 		require.NoError(t, err)
+	})
+}
+
+func TestSetMigrationENVVars(t *testing.T) {
+	t.Run("ValidEVMConfig", func(t *testing.T) {
+		chainID := ubig.New(big.NewInt(1337))
+		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			evmEnabled := true
+			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
+				ChainID: chainID,
+				Enabled: &evmEnabled,
+			}}
+		})
+
+		require.NoError(t, cmd.SetMigrationENVVars(testConfig))
+
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
+		require.Equal(t, actualChainID, chainID.String())
+	})
+
+	t.Run("EVMConfigMissing", func(t *testing.T) {
+		chainID := ubig.New(big.NewInt(1337))
+		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
+
+		require.NoError(t, cmd.SetMigrationENVVars(testConfig))
+
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
+		require.Equal(t, actualChainID, chainID.String())
 	})
 }

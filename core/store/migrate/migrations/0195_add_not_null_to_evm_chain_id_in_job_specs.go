@@ -35,6 +35,7 @@ const (
 
 // nolint
 func Up195(ctx context.Context, tx *sql.Tx) error {
+	// TODO this could be passed in the ctx
 	chainID, set := os.LookupEnv(env.EVMChainIDNotNullMigration0195)
 	if set {
 		updateQueries := []string{

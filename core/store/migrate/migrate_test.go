@@ -2,7 +2,6 @@ package migrate_test
 
 import (
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -15,15 +14,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -419,34 +414,6 @@ func TestMigrate(t *testing.T) {
 	ver, err = migrate.Current(ctx, db.DB)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
-}
-
-func TestSetMigrationENVVars(t *testing.T) {
-	t.Run("ValidEVMConfig", func(t *testing.T) {
-		chainID := ubig.New(big.NewInt(1337))
-		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			evmEnabled := true
-			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
-				ChainID: chainID,
-				Enabled: &evmEnabled,
-			}}
-		})
-
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
-
-		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
-		require.Equal(t, actualChainID, chainID.String())
-	})
-
-	t.Run("EVMConfigMissing", func(t *testing.T) {
-		chainID := ubig.New(big.NewInt(1337))
-		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
-
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
-
-		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
-		require.Equal(t, actualChainID, chainID.String())
-	})
 }
 
 func TestDatabaseBackFillWithMigration202(t *testing.T) {

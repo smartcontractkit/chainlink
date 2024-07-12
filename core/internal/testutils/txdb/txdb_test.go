@@ -1,25 +1,43 @@
-package pgtest
+package txdb_test
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/txdb"
+	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/txdb"
+	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
 func TestTxDBDriver(t *testing.T) {
-	db := NewSqlxDB(t)
+	testutils.SkipShortDB(t)
+	dbURL := string(env.DatabaseURL.Get())
+	require.NotEmpty(t, dbURL, "you must provide a CL_DATABASE_URL environment variable")
+
+	parsed, err := url.Parse(dbURL)
+	require.NoError(t, err)
+	driver := string(dialects.TransactionWrappedPostgres)
+	err = txdb.RegisterTestDB(driver, parsed)
+	require.NoError(t, err)
+
+	db, err := sqlx.Open(driver, uuid.New().String())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 	dropTable := func() error {
 		_, err := db.Exec(`DROP TABLE IF EXISTS txdb_test`)
 		return err
 	}
 	// clean up, if previous tests failed
-	err := dropTable()
+	err = dropTable()
 	assert.NoError(t, err)
 	_, err = db.Exec(`CREATE TABLE txdb_test (id TEXT NOT NULL)`)
 	assert.NoError(t, err)
