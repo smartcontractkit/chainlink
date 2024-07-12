@@ -646,18 +646,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                bal_spec_id, legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:bal_spec_id, :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  bal_spec_id, legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, workflow_spec_id, standard_capabilities_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:bal_spec_id, :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :workflow_spec_id, :standard_capabilities_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
 		query, args, err := tx.ds.BindNamed(query, job)
