@@ -46,6 +46,10 @@ run_slither() {
     PRODUCT=$(extract_product "$FILE")
 
     FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL"  > "$SLITHER_OUTPUT_FILE"
+    if [ $? -ne 0 ]; then
+        echo "Slither failed for $FILE"
+        exit 1
+    fi
 }
 
 process_files() {
