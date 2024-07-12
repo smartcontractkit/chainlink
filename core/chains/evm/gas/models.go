@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -49,6 +50,8 @@ type feeEstimatorClient interface {
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	ConfiguredChainID() *big.Int
 	HeadByNumber(ctx context.Context, n *big.Int) (*evmtypes.Head, error)
+	FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (feeHistory *ethereum.FeeHistory, err error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 }
 
 // NewEstimator returns the estimator for a given config
@@ -106,6 +109,16 @@ func NewEstimator(lggr logger.Logger, ethClient feeEstimatorClient, cfg Config, 
 	case "L2Suggested", "SuggestedPrice":
 		newEstimator = func(l logger.Logger) EvmEstimator {
 			return NewSuggestedPriceEstimator(lggr, ethClient, geCfg, l1Oracle)
+		}
+	case "Universal":
+		newEstimator = func(l logger.Logger) EvmEstimator {
+			cfg := UniversalEstimatorConfig{
+				CacheTimeout:      4 * time.Second,
+				BumpPercent:       geCfg.BumpPercent(),
+				BlockHistoryRange: 24,
+				RewardPercentile:  60,
+			}
+			return NewUniversalEstimator(lggr, ethClient, cfg, ethClient.ConfiguredChainID(), l1Oracle)
 		}
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)

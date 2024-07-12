@@ -109,6 +109,36 @@ func (_m *FeeEstimatorClient) ConfiguredChainID() *big.Int {
 	return r0
 }
 
+// FeeHistory provides a mock function with given fields: ctx, blockCount, rewardPercentiles
+func (_m *FeeEstimatorClient) FeeHistory(ctx context.Context, blockCount uint64, rewardPercentiles []float64) (*ethereum.FeeHistory, error) {
+	ret := _m.Called(ctx, blockCount, rewardPercentiles)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FeeHistory")
+	}
+
+	var r0 *ethereum.FeeHistory
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) (*ethereum.FeeHistory, error)); ok {
+		return rf(ctx, blockCount, rewardPercentiles)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, []float64) *ethereum.FeeHistory); ok {
+		r0 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*ethereum.FeeHistory)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, []float64) error); ok {
+		r1 = rf(ctx, blockCount, rewardPercentiles)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HeadByNumber provides a mock function with given fields: ctx, n
 func (_m *FeeEstimatorClient) HeadByNumber(ctx context.Context, n *big.Int) (*types.Head, error) {
 	ret := _m.Called(ctx, n)
@@ -132,6 +162,36 @@ func (_m *FeeEstimatorClient) HeadByNumber(ctx context.Context, n *big.Int) (*ty
 
 	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
 		r1 = rf(ctx, n)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SuggestGasPrice provides a mock function with given fields: ctx
+func (_m *FeeEstimatorClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SuggestGasPrice")
+	}
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (*big.Int, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
