@@ -1,6 +1,7 @@
 name: Solidity-Hardhat
 on:
-  push:
+  pull_request:
+    types: [labeled]
 #  workflow_dispatch:
 #    inputs:
 #      pr_urls:
@@ -16,6 +17,7 @@ env:
 jobs:
   # we want to find the newest sha for the PRs we are testing and then generate gas snapshots and coverage for them
   find-newest-sha:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     name: Find newest SHA
     runs-on: ubuntu-22.04
     outputs:
@@ -33,13 +35,19 @@ jobs:
         shell: bash
         id: get-newest-sha
         run: |
-          cd contracts/scripts
-          newest_sha=$(./newest_sha.sh ${{ github.repository }} ${{ env.TEST_PRS_LIST }})
-          echo "Newest SHA: $newest_sha"
-          echo "newest_sha=$newest_sha" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.label.name }}" = "generate_review_artifacts" ]; then
+            echo "Newest SHA: ${{ github.sha }}"
+            echo "newest_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            cd contracts/scripts
+            newest_sha=$(./newest_sha.sh ${{ github.repository }} ${{ env.TEST_PRS_LIST }})
+            echo "Newest SHA: $newest_sha"
+            echo "newest_sha=$newest_sha" >> $GITHUB_OUTPUT
+          fi
 
   # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   coverage-and-gas-and-book:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -132,6 +140,7 @@ jobs:
 
   # Generates UML diagrams and Slither reports for modified contracts
   uml-static-analysis:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     name: Generate UML and Slither reports for modified contracts
     runs-on: ubuntu-22.04
     env:
@@ -174,7 +183,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install slither-analyzer
 
+      - name:  Gather Solidity files from current PR
+        if: github.event_name != 'workflow_dispatch' # means it was triggered by a label
+        run: |
+          # extract src dir from foundry.toml
+          cd contracts
+          SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | \
+          grep -E '\.sol$' | \
+          sed 's|^contracts/||' | \
+          sort -u > modified_contracts.txt
+          
+          echo "Found contracts: $(cat modified_contracts.txt)"
+
       - name: Gather Solidity files from PRs
+        if: github.event_name == 'workflow_dispatch'
         run: |
           # extract src dir from foundry.toml
           cd contracts
@@ -185,34 +208,50 @@ jobs:
       - name: Generate UML
         shell: bash
         run: |
-          base_dir="from_prs"
-          modified="$base_dir/modified_contracts.txt"
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            contract_list="from_prs/modified_contracts.txt"
+            contract_dir="from_prs/contracts"
+          else
+            cd contracts
+            SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+            contract_list="modified_contracts.txt"
+            contract_dir="$SRC_FOLDER"
+            cd ..
+          fi          
                 
           cd contracts
-          if [[ -f "$modified" ]]; then
-            comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
+          if [[ -f "$contract_list" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
           
             echo "Found contracts: $comma_separated_list"
           
-            ./scripts/selected_uml.sh "$base_dir/contracts" "uml" "$comma_separated_list"
+            ./scripts/selected_uml.sh "$contract_dir" "uml" "$comma_separated_list"
           else
-            echo "File $modified does not exist"
+            echo "File $contract_list with contract list does not exist"
           fi
 
       - name: Generate Slither Markdown reports
         run: |
-          base_dir="from_prs"
-          modified="$base_dir/modified_contracts.txt"
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            contract_list="from_prs/modified_contracts.txt"
+            contract_dir="from_prs/contracts"
+          else
+            cd contracts
+            SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+            contract_list="modified_contracts.txt"
+            contract_dir="$SRC_FOLDER"
+            cd ..
+          fi          
           
           cd contracts
-          if [[ -f "$modified" ]]; then
-            comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
+          if [[ -f "$contract_list" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
           
             echo "Found contracts: $comma_separated_list"
             
-            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir" "$comma_separated_list" "slither-reports"
+            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$contract_dir" "$comma_separated_list" "slither-reports"
           else
-            echo "File $modified does not exist"
+            echo "File $contract_list with contract list does not exist"
           fi
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
@@ -226,6 +265,7 @@ jobs:
           retention-days: 7
 
   gather-all-artifacts:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     name: Gather all artifacts
     runs-on: ubuntu-latest
     needs: [coverage-and-gas-and-book, uml-static-analysis]
@@ -318,6 +358,25 @@ jobs:
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
           name: vrf-artifacts
+
+      - name: Print Artifact URL
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY}"
+          RUN_ID="${GITHUB_RUN_ID}"
+          ARTIFACT_NAME="review-artifacts"
+          ARTIFACT_URL="https://github.com/${REPO_NAME}/suites/${RUN_ID}/artifacts/${ARTIFACT_NAME}"
+          echo "Artifact URL: ${ARTIFACT_URL}"
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Print Artifact URL in job summary
+        run: |
+          echo "# Review Artifact Generated " >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)" >> $GITHUB_STEP_SUMMARY          
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
 
 #on:
 #  merge_group:
