@@ -11,41 +11,19 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
-type deleteJobs struct {
+type deleteWorkflows struct {
 }
 
-type OCRSpec struct {
-	ContractID string
+func NewDeleteWorkflowsCommand() *deleteWorkflows {
+	return &deleteWorkflows{}
 }
 
-type BootSpec struct {
-	ContractID string
+func (g *deleteWorkflows) Name() string {
+	return "delete-workflows"
 }
 
-type WorkflowSpec struct {
-	WorkflowID string
-}
-
-type JobSpec struct {
-	Id                           string
-	Name                         string
-	BootstrapSpec                BootSpec
-	OffChainReporting2OracleSpec OCRSpec
-	WorkflowSpec                 WorkflowSpec
-}
-
-func NewDeleteJobsCommand() *deleteJobs {
-	return &deleteJobs{}
-}
-
-func (g *deleteJobs) Name() string {
-	return "delete-ocr3-jobs"
-}
-
-func (g *deleteJobs) Run(args []string) {
-	deployedContracts, err := LoadDeployedContracts()
-	helpers.PanicErr(err)
-	nodes := downloadNodeAPICredentialsDefault()
+func (g *deleteWorkflows) Run(args []string) {
+	nodes := downloadNodeAPICredentials(".cache/NodeList.txt")
 
 	for _, node := range nodes {
 		output := &bytes.Buffer{}
@@ -68,9 +46,8 @@ func (g *deleteJobs) Run(args []string) {
 		helpers.PanicErr(err)
 
 		for _, jobSpec := range parsed {
-			if jobSpec.BootstrapSpec.ContractID == deployedContracts.OCRContract.String() ||
-				jobSpec.OffChainReporting2OracleSpec.ContractID == deployedContracts.OCRContract.String() {
-				fmt.Println("Deleting OCR3 job ID:", jobSpec.Id, "name:", jobSpec.Name)
+			if jobSpec.WorkflowSpec.WorkflowID != "" {
+				fmt.Println("Deleting workflow job ID:", jobSpec.Id, "name:", jobSpec.Name)
 				set := flag.NewFlagSet("test", flag.ExitOnError)
 				err = set.Parse([]string{jobSpec.Id})
 				helpers.PanicErr(err)
