@@ -151,9 +151,9 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-#      - name: Install Sol2uml
-#        run: |
-#          npm link sol2uml --only=production
+      - name: Install Sol2uml
+        run: |
+          npm link sol2uml --only=production
 
       - name: Gather Solidity files from PRs
         run: |
@@ -163,10 +163,6 @@ jobs:
           echo "SRC_FOLDER: $SRC_FOLDER"
           cd ..
           ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"
-          
-          ls -al contracts/from_prs
-          
-          exit 1
 
       - name: Generate UML
         shell: bash
