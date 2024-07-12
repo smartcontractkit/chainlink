@@ -210,7 +210,7 @@ jobs:
           
             echo "Found contracts: $comma_separated_list"
             
-            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir/contracts" "$comma_separated_list" "slither-reports"
+            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir" "$comma_separated_list" "slither-reports"
           else
             echo "File $modified does not exist"
           fi
