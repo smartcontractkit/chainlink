@@ -128,6 +128,7 @@ func (w *chainWriter) SubmitTransaction(ctx context.Context, contract, method st
 		EncodedPayload: calldata,
 		FeeLimit:       methodConfig.GasLimit,
 		Meta:           txMeta,
+		IdempotencyKey: &transactionID,
 		Strategy:       w.sendStrategy,
 		Checker:        checker,
 		Value:          *v,
