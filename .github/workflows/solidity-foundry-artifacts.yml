@@ -1,9 +1,11 @@
 name: Solidity Foundry Artifact Generation
 on:
+  pull_request:
+    types: [labeled]
   workflow_dispatch:
     inputs:
-      contracts_list:
-        description: 'Comma-separated list of .sol files to generate artifacts for'
+      pr_urls:
+        description: 'Comma-separated links to PRs to generate artifacts for'
         required: true
 
 env:
@@ -12,20 +14,52 @@ env:
   FOUNDRY_VERSION: nightly-de33b6af53005037b463318d2628b5cfcaf39916
 
 jobs:
-  # some of the artifacts can only be generated on product level and we cannot scope them to single contracts
+  # we want to find the newest sha for the PRs we are testing and then generate gas snapshots and coverage for them
+  find-newest-sha:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
+    name: Find newest SHA
+    runs-on: ubuntu-22.04
+    outputs:
+      newest_sha: ${{ steps.get-newest-sha.outputs.newest_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Get the newest SHA
+        shell: bash
+        id: get-newest-sha
+        run: |
+          if [ "${{ github.event.label.name }}" = "generate_review_artifact" ]; then
+            echo "Will use current SHA: ${{ github.sha }}"
+            echo "newest_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            cd contracts/scripts
+            newest_sha=$(./newest_sha.sh ${{ github.repository }} ${{ inputs.pr_urls }})
+            echo "Newest SHA from among all PRs: $newest_sha"
+            echo "newest_sha=$newest_sha" >> $GITHUB_OUTPUT
+          fi
+
+  # some of the artifacts can only be generated on product level, and we cannot scope them to single contracts
   coverage-and-gas-and-book:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
         product: [automation, functions, keystone, l2ep, llo-feeds, operatorforwarder, shared, vrf]
     name: Foundry Tests ${{ matrix.product }}
     runs-on: ubuntu-22.04
-
+    needs: [find-newest-sha]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+          ref: ${{ needs.find-newest-sha.outputs.newest_sha }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -54,10 +88,6 @@ jobs:
         env:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
-      # required for code coverage report generation
-      - name: Setup LCOV
-        uses: hrishikesh-kadam/setup-lcov@f5da1b26b0dcf5d893077a3c4f29cf78079c841d # v1.0.0
-
       - name: Run coverage
         if: ${{ !contains(fromJson('["vrf"]'), matrix.product.name) && !contains(fromJson('["automation"]'), matrix.product.name) && !contains(fromJson('["functions"]'), matrix.product.name) && needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
@@ -66,13 +96,13 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       # see what we should prune for other products
-#      - name: Prune report
-#        if: ${{ needs.changes.outputs.changes == 'true' }}
-#        run: |
-#          sudo apt-get install lcov
-#          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
-#        env:
-#          FOUNDRY_PROFILE: ${{ matrix.product }}
+      #      - name: Prune report
+      #        if: ${{ needs.changes.outputs.changes == 'true' }}
+      #        run: |
+      #          sudo apt-get install lcov
+      #          ./tools/ci/ccip_lcov_prune ./contracts/lcov.info ./lcov.info.pruned
+      #        env:
+      #          FOUNDRY_PROFILE: ${{ matrix.product }}
 
       # We could gather coverage for all products
 
@@ -89,14 +119,14 @@ jobs:
 
       - name: Run Forge doc
         run: |
-          forge doc --build
+          forge doc --build -o docs/${{ matrix.product }}
         id: doc
         working-directory: contracts
         env:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -107,15 +137,19 @@ jobs:
             contracts/${{ matrix.product }}-lcov.info
           retention-days: 7
 
-  # Generates UML diagrams and Slither reports for user-provided contracts
+  # Generates UML diagrams and Slither reports for modified contracts
   uml-static-analysis:
-    name: Docs for ${{ inputs.contracts_list }}
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
+    name: Generate UML and Slither reports for modified contracts
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
+          fetch-depth: 0
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
@@ -129,21 +163,120 @@ jobs:
         run: |
           npm link sol2uml --only=production
 
-      # extract src dir from foundry.toml
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install solc-select
+          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+          solc-select install 0.8.19
+          solc-select use 0.8.19
+
+      - name: Install Slither
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer
+
+      - name:  Gather Solidity files from current PR
+        if: github.event_name != 'workflow_dispatch' # means it was triggered by a label
+        run: |
+          # extract src dir from foundry.toml
+          cd contracts
+          SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | \
+          grep -E '\.sol$' | \
+          sed 's|^contracts/||' | \
+          sort -u > modified_contracts.txt
+          
+          echo "Found contracts: $(cat modified_contracts.txt)"
+
+      - name: Gather Solidity files from PRs
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # extract src dir from foundry.toml
+          cd contracts
+          SRC_FOLDER=$(echo "$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
+          cd ..
+          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ inputs.pr_urls }}" "$SRC_FOLDER" "contracts/from_prs"
+
       - name: Generate UML
+        shell: bash
         run: |
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            contract_list="from_prs/modified_contracts.txt"
+            contract_dir="from_prs/contracts"
+          else
+            cd contracts
+            contract_list="modified_contracts.txt"
+            contract_dir="./"
+            cd ..
+          fi
+          
           cd contracts
-          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./scripts/selected_uml.sh "$SRC_FOLDER" "uml"
+          
+          # file pipeline if there are no Solidity files found
+          no_contracts=false          
+          if [ -f "$contract_list" ]; then
+            non_empty_lines=$(grep -cve '^\s*$' "$contract_list")        
+            if [ "$non_empty_lines" -lt 1 ]; then
+              echo "file $contract_list had $non_empty_lines non-empty lines"
+              no_contracts=true
+            fi
+          else
+            echo "no file $contract_list"
+            no_contracts=true
+          fi
+          
+          if [ "$no_contracts" = true ]; then
+              echo "#Solidity Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+              if [ -z "${{ github.event.label.name }}" ]; then
+                echo "PRs used: ${{ inputs.pr_urls }}" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "## Reason: No Solidity files found." >> $GITHUB_STEP_SUMMARY
+              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files or they are located in completely unexpected directories."
+          fi
+          
+          if [[ -f "$contract_list" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
+          
+            echo "Found contracts: $comma_separated_list"
+          
+            ./scripts/selected_uml.sh "$contract_dir" "uml" "$comma_separated_list"
+          else
+            echo "File $contract_list with contract list does not exist"
+          fi
 
-      - name: Generate Slither MD reports
+      - name: Generate Slither Markdown reports
         run: |
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            contract_list="from_prs/modified_contracts.txt"
+            contract_dir="from_prs/contracts"
+          else
+            cd contracts
+            contract_list="modified_contracts.txt"
+            contract_dir="./"
+            cd ..
+          fi          
+          
           cd contracts
-          SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$SRC_FOLDER" slither-reports ${{ inputs.contracts_list }}
-
+          if [[ -f "$contract_list" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
+          
+            echo "Found contracts: $comma_separated_list"
+          
+            ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$contract_dir" "$comma_separated_list" "slither-reports"
+          else
+            echo "File $contract_list with contract list does not exist"
+          fi
       - name: Upload UMLs and Slither reports
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
         continue-on-error: true
         with:
@@ -154,66 +287,67 @@ jobs:
           retention-days: 7
 
   gather-all-artifacts:
+    if: github.event.label.name == 'generate_review_artifact' || github.event_name == 'workflow_dispatch'
     name: Gather all artifacts
     runs-on: ubuntu-latest
     needs: [coverage-and-gas-and-book, uml-static-analysis]
     steps:
       - name: Download UMLs and Slither Reports artifact
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: contracts-artifacts
           path: review_artifacts/
       - name: Download automation artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: automation-artifacts
           path: review_artifacts/
       - name: Download functions artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: functions-artifacts
           path: review_artifacts/
       - name: Download keystone artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: keystone-artifacts
           path: review_artifacts/
       - name: Download l2ep artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: l2ep-artifacts
           path: review_artifacts/
       - name: Download llo-feeds artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: llo-feeds-artifacts
           path: review_artifacts/
       - name: Download operatorforwarder artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: operatorforwarder-artifacts
           path: review_artifacts/
       - name: Download shared artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: shared-artifacts
           path: review_artifacts/
       - name: Download vrf artifacts
-        uses: actions/download-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: vrf-artifacts
           path: review_artifacts/
 
       - name: Upload all artifacts as single package
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         with:
           name: review-artifacts
           path: review_artifacts/
 
-      - name: Remove UML artifact
+      - name: Remove UML & Slither artifact
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
-          name: uml-diagrams
+          name: contracts-artifacts
       - name: Remove automation artifacts
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
@@ -246,3 +380,50 @@ jobs:
         uses: geekyeggo/delete-artifact@24928e75e6e6590170563b8ddae9fac674508aa1 # v5.0
         with:
           name: vrf-artifacts
+
+      - name: Print Artifact URL
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY}"
+          RUN_ID="${GITHUB_RUN_ID}"
+          ARTIFACT_NAME="review-artifacts"
+          ARTIFACT_URL="https://github.com/${REPO_NAME}/suites/${RUN_ID}/artifacts/${ARTIFACT_NAME}"
+          echo "Artifact URL: ${ARTIFACT_URL}"
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Retrieve artifact ID
+        id: get_artifact_id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARTIFACTS=$(gh api -X GET repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)
+          ARTIFACT_ID=$(echo "$ARTIFACTS" | jq '.artifacts[] | select(.name=="review-artifacts") | .id')
+          echo "Artifact ID: $ARTIFACT_ID"
+          echo "artifact_id=$ARTIFACT_ID" >> $GITHUB_OUTPUT            
+
+      - name: Print Artifact URL in job summary
+        run: |
+          echo "#Solidity Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          if [ -z "${{ github.event.label.name }}" ]; then
+            echo "PRs used: ${{ inputs.pr_urls }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }})" >> $GITHUB_STEP_SUMMARY        
+
+      - name: Print Artifact URL in PR comment
+        uses: actions/github-script@v7
+        if: github.event.label.name == 'generate_review_artifact'
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `# Solidity Review Artifact Generated
+            ## Commit SHA
+            ${{ github.sha }}
+            ## Artifact URL
+            https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.get_artifact_id.outputs.artifact_id }}`
+            });
