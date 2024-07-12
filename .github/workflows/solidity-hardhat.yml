@@ -130,9 +130,9 @@ jobs:
             contracts/${{ matrix.product }}-lcov.info
           retention-days: 7
 
-  # Generates UML diagrams and Slither reports for user-provided contracts
+  # Generates UML diagrams and Slither reports for modified contracts
   uml-static-analysis:
-    name: Docs for something
+    name: Generate UML and Slither reports for modified contracts
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -156,7 +156,7 @@ jobs:
         run: |
           # extract src dir from foundry.toml
           SRC_FOLDER=$(echo "./$(forge config | grep -Eo 'src\s*=\s*[^ ]+' | awk -F '=' '{print $2}' | tr -d '\"' | tr -d '[:space:]')")
-          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "contracts/from_prs"
+          ./contracts/scripts/gather_all_solidity_files_from_prs.sh "${{ github.repository }}" "${{ env.TEST_PRS_LIST }}" "$SRC_FOLDER" "contracts/from_prs"
 
       - name: Generate UML
         shell: bash
