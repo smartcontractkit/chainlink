@@ -112,7 +112,7 @@ jobs:
 
       - name: Run Forge doc
         run: |
-          forge doc --build
+          forge doc --build -o docs/${{ matrix.product }}
         id: doc
         working-directory: contracts
         env:
@@ -166,6 +166,8 @@ jobs:
           sudo apt-get install -y python3-pip
           pip3 install solc-select
           sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+          solc-select install 0.8.19
+          solc-select use 0.8.19
 
       - name: Install Slither
         run: |

@@ -16,6 +16,26 @@ run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
 
+    echo "Detecting Solc version for $FILE"
+
+    if [[ -f "$FILE" ]]; then
+        SOLCVER="$(grep --no-filename '^pragma solidity' "$FILE" | cut -d' ' -f3)"
+    else
+        echo "Target is not a file"
+        exit 1
+    fi
+    SOLCVER="$(echo "$SOLCVER" | sed 's/[^0-9\.]//g')"
+
+    if [[ -z "$SOLCVER" ]]; then
+        # Fallback to latest version if the above fails.
+        SOLCVER="$(solc-select install | tail -1)"
+    fi
+
+    echo "Guessed $SOLCVER."
+
+    solc-select install "$SOLCVER"
+    solc-select use "$SOLCVER"
+
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
     slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL"  > "$SLITHER_OUTPUT_FILE"
 }
