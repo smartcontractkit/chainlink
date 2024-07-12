@@ -258,7 +258,7 @@ func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64, 
 		require.True(t, ok, "SetUintLatestValue should always be used for tests involving finality")
 	}
 
-	it.sendTxWithUintVal(t, val, (*chain_reader_tester.ChainReaderTesterTransactor).SetAlterablePrimitiveValue)
+	it.sendTxWithUintVal(t, it.address, val, (*chain_reader_tester.ChainReaderTesterTransactor).SetAlterablePrimitiveValue)
 	require.NoError(t, cw.SetUintLatestValue(it.Helper.Context(t), val, forCall))
 }
 
@@ -297,9 +297,9 @@ func (it *EVMChainReaderInterfaceTester[T]) GetBindings(_ T) []clcommontypes.Bou
 type uintFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, uint64) (*gethtypes.Transaction, error)
 
 // sendTxWithUintVal is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
-func (it *EVMChainReaderInterfaceTester[T]) sendTxWithUintVal(t T, val uint64, fn uintFn) {
+func (it *EVMChainReaderInterfaceTester[T]) sendTxWithUintVal(t T, contractAddress string, val uint64, fn uintFn) {
 	tx, err := fn(
-		&it.evmTest.ChainReaderTesterTransactor,
+		&it.contractTesters[contractAddress].ChainReaderTesterTransactor,
 		it.GetAuthWithGasSet(t),
 		val,
 	)

@@ -133,7 +133,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 	packedOutputs := make([]string, len(batchCall))
 	rpcBatchCalls := make([]rpc.BatchElem, len(batchCall))
 	for i, call := range batchCall {
-		data, err := c.codec.Encode(ctx, call.Params, wrapItemType(call.ContractName, call.MethodName, true))
+		data, err := c.codec.Encode(ctx, call.Params, WrapItemType(call.ContractName, call.MethodName, true))
 		if err != nil {
 			return nil, err
 		}
@@ -185,7 +185,7 @@ func (c *defaultEvmBatchCaller) batchCall(ctx context.Context, blockNumber uint6
 			return nil, fmt.Errorf("decode result %s: packedOutputs %s: %w", call, packedOutputs[i], err)
 		}
 
-		if err = c.codec.Decode(ctx, b, call.ReturnVal, wrapItemType(call.ContractName, call.MethodName, false)); err != nil {
+		if err = c.codec.Decode(ctx, b, call.ReturnVal, WrapItemType(call.ContractName, call.MethodName, false)); err != nil {
 			if len(b) == 0 {
 				results[i].err = fmt.Errorf("unpack result %s: %s: %w", call, err.Error(), errEmptyOutput)
 			} else {

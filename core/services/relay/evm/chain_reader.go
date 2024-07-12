@@ -32,13 +32,13 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr             logger.Logger
-	ht               logpoller.HeadTracker
-	lp               logpoller.LogPoller
-	client           evmclient.Client
+	lggr   logger.Logger
+	ht     logpoller.HeadTracker
+	lp     logpoller.LogPoller
+	client evmclient.Client
+	parsed *ParsedTypes
 	bindings
-	parsed           *ParsedTypes
-	codec            commontypes.RemoteCodec
+	codec commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -49,12 +49,12 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 // Note that the ChainReaderService returned does not support anonymous events.
 func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:             lggr.Named("ChainReader"),
-		ht:               ht,
-		lp:               lp,
-		client:           client,
-		bindings:		  bindings{contractBindings: make(map[string]*contractBinding)},
-		parsed:           &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
+		lggr:     lggr.Named("ChainReader"),
+		ht:       ht,
+		lp:       lp,
+		client:   client,
+		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
+		parsed:   &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
