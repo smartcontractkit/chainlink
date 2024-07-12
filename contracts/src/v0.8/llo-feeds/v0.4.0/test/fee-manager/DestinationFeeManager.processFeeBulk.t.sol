@@ -227,4 +227,30 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY);
   }
+
+
+  function test_processPoolIdsPassedMismatched() public {
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
+
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
+
+    bytes[] memory payloads = new bytes[](NUMBER_OF_REPORTS);
+    for (uint256 i; i < NUMBER_OF_REPORTS; ++i) {
+      payloads[i] = payload;
+    }
+
+    // poolIds passed are different that number of reports in payload
+    bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS - 1);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS - 1; ++i) {
+      poolIds[i] = DEFAULT_CONFIG_DIGEST;
+    }
+
+
+    vm.expectRevert(POOLID_MISMATCH_ERROR);
+    processFee(poolIds, payloads, USER, address(native), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
+
+  }
+
+
+ 
 }
