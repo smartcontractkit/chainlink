@@ -13,14 +13,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commonmocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	chainmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+//go:generate mockery --quiet --name Codec --srcpkg=github.com/smartcontractkit/chainlink-common/pkg/types --output ./mocks/ --case=underscore
 func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 	testCases := []struct {
 		name                          string
@@ -80,13 +81,13 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 		},
 	}
 
-	mockCodec := commonmocks.NewCodec(t)
+	mockCodec := mocks.NewCodec(t)
 	mockCodec.On("Encode", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			batchSizes := make([]int, 0)
-			ec := mocks.NewClient(t)
+			ec := chainmocks.NewClient(t)
 			ec.On("BatchCallContext", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 				evmCalls := args.Get(1).([]rpc.BatchElem)
 				batchSizes = append(batchSizes, len(evmCalls))
@@ -130,7 +131,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			ec := mocks.NewClient(t)
+			ec := chainmocks.NewClient(t)
 			calls := make(evm.BatchCall, tc.numCalls)
 			for j := range calls {
 				contractName := fmt.Sprintf("testCase_%d", i)
