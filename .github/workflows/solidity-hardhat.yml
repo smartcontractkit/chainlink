@@ -20,6 +20,8 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
         newest_sha: ${{ steps.get-newest-sha.outputs.newest_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
