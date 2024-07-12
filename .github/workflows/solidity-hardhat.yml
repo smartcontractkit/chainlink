@@ -151,12 +151,31 @@ jobs:
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
-      - name: Install Sol2uml
+#      - name: Install Sol2uml
+#        run: |
+#          npm link sol2uml --only=production
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+
+      - name: Install solc-select and solc
         run: |
-          npm link sol2uml --only=production
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install solc-select
+          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
 
       - name: Install Slither
-        uses: crytic/slither-action@v0.4.0
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer
+
+      - name: Run custom bash command
+        run: |
+          slither .         
+          exit 1
 
       - name: Gather Solidity files from PRs
         run: |
