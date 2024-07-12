@@ -155,6 +155,9 @@ jobs:
         run: |
           npm link sol2uml --only=production
 
+      - name: Install Slither
+        uses: crytic/slither-action@v0.4.0
+
       - name: Gather Solidity files from PRs
         run: |
           # extract src dir from foundry.toml
