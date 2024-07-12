@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           submodules: recursive
-          sha: ${{ needs.find-newest-sha.outputs.newest_sha }}
+          ref: ${{ needs.find-newest-sha.outputs.newest_sha }}
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
