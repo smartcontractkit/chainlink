@@ -14,6 +14,7 @@ import (
 
 type TransactionSender[TX any] interface {
 	SendTransaction(ctx context.Context, tx TX) (SendTxReturnCode, error)
+	Close() error
 }
 
 // TxErrorClassifier - defines interface of a function that transforms raw RPC error into the SendTxReturnCode enum
@@ -129,9 +130,6 @@ func (txSender *transactionSender[TX, CHAIN_ID, RPC]) SendTransaction(ctx contex
 	txSender.reportingWg.Add(1)
 	go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
-	primaryWg.Wait()
-	txSender.reportingWg.Wait()
-
 	return txSender.collectTxResults(ctx, tx, len(txSender.multiNode.primaryNodes), txResults)
 }
 
@@ -227,6 +225,11 @@ loop:
 	// ignore critical error as it's reported in reportSendTxAnomalies
 	returnCode, result, _ := aggregateTxResults(errorsByCode)
 	return returnCode, result
+}
+
+func (txSender *transactionSender[TX, CHAIN_ID, RPC]) Close() error {
+	txSender.reportingWg.Wait()
+	return nil
 }
 
 // findFirstIn - returns the first existing key and value for the slice of keys
