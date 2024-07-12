@@ -22,6 +22,8 @@ ADD
       eal_spec_id,
       workflow_spec_id,
       standard_capabilities_spec_id,
+      ccip_spec_id,
+      ccip_bootstrap_spec_id,
       bal_spec_id,
       CASE "type" WHEN 'stream' THEN 1 ELSE NULL END -- 'stream' type lacks a spec but should not cause validation to fail
     ) = 1
@@ -46,6 +48,8 @@ ADD
       eal_spec_id,
       workflow_spec_id,
       standard_capabilities_spec_id,
+      ccip_spec_id,
+      ccip_bootstrap_spec_id,
       CASE "type" WHEN 'stream' THEN 1 ELSE NULL END -- 'stream' type lacks a spec but should not cause validation to fail
     ) = 1
   );
