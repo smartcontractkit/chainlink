@@ -169,7 +169,11 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   /// @dev The sequence number of the last price update
   uint64 private s_latestPriceSequenceNumber;
 
-  constructor(StaticConfig memory staticConfig, SourceChainConfigArgs[] memory sourceChainConfigs) MultiOCR3Base() {
+  constructor(
+    StaticConfig memory staticConfig,
+    DynamicConfig memory dynamicConfig,
+    SourceChainConfigArgs[] memory sourceChainConfigs
+  ) MultiOCR3Base() {
     if (
       staticConfig.rmnProxy == address(0) || staticConfig.tokenAdminRegistry == address(0)
         || staticConfig.nonceManager == address(0)
@@ -187,6 +191,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     i_nonceManager = staticConfig.nonceManager;
     emit StaticConfigSet(staticConfig);
 
+    _setDynamicConfig(dynamicConfig);
     _applySourceChainConfigUpdates(sourceChainConfigs);
   }
 
@@ -750,7 +755,14 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   }
 
   /// @notice Sets the dynamic config.
+  /// @param dynamicConfig The new dynamic config.
   function setDynamicConfig(DynamicConfig memory dynamicConfig) external onlyOwner {
+    _setDynamicConfig(dynamicConfig);
+  }
+
+  /// @notice Sets the dynamic config.
+  /// @param dynamicConfig The dynamic config.
+  function _setDynamicConfig(DynamicConfig memory dynamicConfig) internal {
     if (dynamicConfig.priceRegistry == address(0) || dynamicConfig.router == address(0)) {
       revert ZeroAddressNotAllowed();
     }

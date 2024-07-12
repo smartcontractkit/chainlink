@@ -11,8 +11,9 @@ contract EVM2EVMMultiOffRampHelper is EVM2EVMMultiOffRamp, IgnoreContractSize {
 
   constructor(
     StaticConfig memory staticConfig,
+    DynamicConfig memory dynamicConfig,
     SourceChainConfigArgs[] memory sourceChainConfigs
-  ) EVM2EVMMultiOffRamp(staticConfig, sourceChainConfigs) {}
+  ) EVM2EVMMultiOffRamp(staticConfig, dynamicConfig, sourceChainConfigs) {}
 
   function setExecutionStateHelper(
     uint64 sourceChainSelector,

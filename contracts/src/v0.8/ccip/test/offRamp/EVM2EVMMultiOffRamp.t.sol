@@ -68,6 +68,9 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
     emit EVM2EVMMultiOffRamp.StaticConfigSet(staticConfig);
 
     vm.expectEmit();
+    emit EVM2EVMMultiOffRamp.DynamicConfigSet(dynamicConfig);
+
+    vm.expectEmit();
     emit EVM2EVMMultiOffRamp.SourceChainSelectorAdded(SOURCE_CHAIN_SELECTOR_1);
 
     vm.expectEmit();
@@ -79,7 +82,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
     vm.expectEmit();
     emit EVM2EVMMultiOffRamp.SourceChainConfigSet(SOURCE_CHAIN_SELECTOR_1 + 1, expectedSourceChainConfig2);
 
-    s_offRamp = new EVM2EVMMultiOffRampHelper(staticConfig, sourceChainConfigs);
+    s_offRamp = new EVM2EVMMultiOffRampHelper(staticConfig, dynamicConfig, sourceChainConfigs);
 
     MultiOCR3Base.OCRConfigArgs[] memory ocrConfigs = new MultiOCR3Base.OCRConfigArgs[](1);
     ocrConfigs[0] = MultiOCR3Base.OCRConfigArgs({
@@ -91,7 +94,6 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
       transmitters: s_validTransmitters
     });
 
-    s_offRamp.setDynamicConfig(dynamicConfig);
     s_offRamp.setOCR3Configs(ocrConfigs);
 
     // Static config
@@ -153,6 +155,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }
@@ -175,6 +178,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }
@@ -195,6 +199,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }
@@ -215,6 +220,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }
@@ -235,6 +241,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: ZERO_ADDRESS,
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }
@@ -255,6 +262,7 @@ contract EVM2EVMMultiOffRamp_constructor is EVM2EVMMultiOffRampSetup {
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: ZERO_ADDRESS
       }),
+      _generateDynamicMultiOffRampConfig(USER_3, address(s_priceRegistry)),
       sourceChainConfigs
     );
   }

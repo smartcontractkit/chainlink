@@ -87,6 +87,7 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(nonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(address(router), address(s_priceRegistry)),
       sourceChainConfigs
     );
 
@@ -445,10 +446,10 @@ contract EVM2EVMMultiOffRampSetup is TokenSetup, PriceRegistrySetup, MultiOCR3Ba
         tokenAdminRegistry: address(s_tokenAdminRegistry),
         nonceManager: address(s_inboundNonceManager)
       }),
+      _generateDynamicMultiOffRampConfig(address(s_destRouter), address(s_priceRegistry)),
       new EVM2EVMMultiOffRamp.SourceChainConfigArgs[](0)
     );
 
-    s_offRamp.setDynamicConfig(_generateDynamicMultiOffRampConfig(address(s_destRouter), address(s_priceRegistry)));
     address[] memory authorizedCallers = new address[](1);
     authorizedCallers[0] = address(s_offRamp);
     s_inboundNonceManager.applyAuthorizedCallerUpdates(

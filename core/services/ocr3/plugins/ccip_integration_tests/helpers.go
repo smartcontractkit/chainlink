@@ -163,6 +163,10 @@ func createUniverses(
 				TokenAdminRegistry: tokenAdminRegistry.Address(),
 				NonceManager:       nonceManager.Address(),
 			},
+			evm_2_evm_multi_offramp.EVM2EVMMultiOffRampDynamicConfig{
+				Router:        rout.Address(),
+				PriceRegistry: priceRegistry.Address(),
+			},
 			// Source chain configs will be set up later once we have all chains
 			[]evm_2_evm_multi_offramp.EVM2EVMMultiOffRampSourceChainConfigArgs{},
 		)
