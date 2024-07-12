@@ -185,48 +185,33 @@ jobs:
       - name: Generate UML
         shell: bash
         run: |
-          cd contracts
-          base_dir="from_prs"
-
-          for pr_dir in "$base_dir"/*/; do
-            pr_number=$(basename "$pr_dir")
-            pr_file="$base_dir/$pr_number.txt"
+          base_dir="contracts/from_prs"
+          modified="$base_dir/modified_contracts.txt"
+                
+          if [[ -f "$modified" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
           
-            echo "Processing PR $pr_number | $pr_file"
+            echo "Found contracts: $comma_separated_list"
           
-            if [[ -f "$pr_file" ]]; then
-              comma_separated_list=$(tr '\n' ',' < "$pr_file" | sed 's/,$//')
-            
-              echo "Selected files: $comma_separated_list"
-            
-              ./scripts/selected_uml.sh "$base_dir/$pr_number" "uml" "$comma_separated_list"
-            else
-              echo "File $pr_file does not exist"
-            fi
-          done
+            ./contracts/scripts/selected_uml.sh "$base_dir/contracts" "uml" "$comma_separated_list"
+          else
+            echo "File $modified does not exist"
+          fi
 
       - name: Generate Slither Markdown reports
         run: |
-          cd contracts          
-          base_dir="from_prs"
-
-          for pr_dir in "$base_dir"/*/; do
-            pr_number=$(basename "$pr_dir")
-            pr_file="$base_dir/$pr_number.txt"
+          base_dir="contracts/from_prs"
+          modified="$base_dir/modified_contracts.txt"
           
-            echo "Processing PR $pr_number | $pr_file"
+          if [[ -f "$modified" ]]; then
+            comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
           
-            if [[ -f "$pr_file" ]]; then
-              comma_separated_list=$(tr '\n' ',' < "$pr_file" | sed 's/,$//')
+            echo "Found contracts: $comma_separated_list"
           
-              echo "Selected files: $comma_separated_list"
-          
-              ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir/$pr_number" "$comma_separated_list" "slither-reports"
-            else
-              echo "File $pr_file does not exist"
-            fi
-          done          
-
+            ./contracts/scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir/$pr_number" "$comma_separated_list" "slither-reports"
+          else
+            echo "File $modified does not exist"
+          fi
       - name: Upload UMLs and Slither reports
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
         timeout-minutes: 10
