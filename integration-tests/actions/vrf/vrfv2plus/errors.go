@@ -16,4 +16,5 @@ const (
 	ErrLinkTotalBalance                            = "error waiting for RandomWordsFulfilled event"
 	ErrNativeTokenBalance                          = "error waiting for RandomWordsFulfilled event"
 	ErrDeployWrapper                               = "error deploying VRFV2PlusWrapper"
+	ErrSetL1FeeCalculation                         = "error setting L1 fee calculation"
 )

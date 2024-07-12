@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/integration-tests
 
-go 1.21.7
+go 1.22.5
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -29,7 +29,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-automation v1.0.4
 	github.com/smartcontractkit/chainlink-common v0.1.7-0.20240710135841-5349a9acfa46
-	github.com/smartcontractkit/chainlink-testing-framework v1.31.10
+	github.com/smartcontractkit/chainlink-testing-framework v1.32.2
 	github.com/smartcontractkit/chainlink-testing-framework/grafana v0.0.0-20240405215812-5a72bc9af239
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/havoc/k8schaos v0.0.0-20240409145249-e78d20847e37
@@ -378,8 +378,8 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.10 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20240710121324-3ed288aa9b45 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.0.0-20240702145022-37a2c3a742d1 // indirect
-	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240522213638-159fb2d99917 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240708150922-0546185ead68 // indirect
+	github.com/smartcontractkit/chainlink-feeds v0.0.0-20240710170203-5b41615da827 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20240710170818-eccca28888e5 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20240709043547-03612098f799 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1 // indirect

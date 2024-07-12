@@ -13,11 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -33,12 +32,13 @@ type ChainReaderService interface {
 }
 
 type chainReader struct {
-	lggr   logger.Logger
-	lp     logpoller.LogPoller
-	client evmclient.Client
+	lggr             logger.Logger
+	ht               logpoller.HeadTracker
+	lp               logpoller.LogPoller
+	client           evmclient.Client
 	bindings
-	parsed *parsedTypes
-	codec  commontypes.RemoteCodec
+	parsed           *ParsedTypes
+	codec            commontypes.RemoteCodec
 	commonservices.StateMachine
 }
 
@@ -47,13 +47,14 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
-func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
-		lggr:     lggr.Named("ChainReader"),
-		lp:       lp,
-		client:   client,
-		bindings: bindings{contractBindings: make(map[string]*contractBinding)},
-		parsed:   &parsedTypes{encoderDefs: map[string]types.CodecEntry{}, decoderDefs: map[string]types.CodecEntry{}},
+		lggr:             lggr.Named("ChainReader"),
+		ht:               ht,
+		lp:               lp,
+		client:           client,
+		bindings:		  bindings{contractBindings: make(map[string]*contractBinding)},
+		parsed:           &ParsedTypes{EncoderDefs: map[string]types.CodecEntry{}, DecoderDefs: map[string]types.CodecEntry{}},
 	}
 
 	var err error
@@ -61,7 +62,7 @@ func NewChainReaderService(ctx context.Context, lggr logger.Logger, lp logpoller
 		return nil, err
 	}
 
-	if cr.codec, err = cr.parsed.toCodec(); err != nil {
+	if cr.codec, err = cr.parsed.ToCodec(); err != nil {
 		return nil, err
 	}
 
@@ -170,13 +171,13 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, readName string, params any, returnVal any) error {
-	b, err := cr.bindings.GetReadBinding(contractName, readName)
+func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
+	b, err := cr.bindings.GetReadBinding(contractName, method)
 	if err != nil {
 		return err
 	}
 
-	return b.GetLatestValue(ctx, params, returnVal)
+	return b.GetLatestValue(ctx, confidenceLevel, params, returnVal)
 }
 
 func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commontypes.BatchGetLatestValuesRequest) (commontypes.BatchGetLatestValuesResult, error) {
@@ -197,10 +198,10 @@ func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter
 }
 
 func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
-	return cr.codec.CreateType(wrapItemType(contractName, itemType, forEncoding), forEncoding)
+	return cr.codec.CreateType(WrapItemType(contractName, itemType, forEncoding), forEncoding)
 }
 
-func wrapItemType(contractName, itemType string, isParams bool) string {
+func WrapItemType(contractName, itemType string, isParams bool) string {
 	if isParams {
 		return fmt.Sprintf("params.%s.%s", contractName, itemType)
 	}
@@ -217,10 +218,18 @@ func (cr *chainReader) addMethod(
 		return fmt.Errorf("%w: method %s doesn't exist", commontypes.ErrInvalidConfig, chainReaderDefinition.ChainSpecificName)
 	}
 
+	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	if err != nil {
+		return err
+	}
+
 	cr.bindings.AddReadBinding(contractName, methodName, &methodBinding{
-		contractName: contractName,
-		method:       methodName,
-		client:       cr.client,
+		lggr:                 cr.lggr,
+		contractName:         contractName,
+		method:               methodName,
+		ht:                   cr.ht,
+		client:               cr.client,
+		confirmationsMapping: confirmations,
 	})
 
 	if err := cr.addEncoderDef(contractName, methodName, method.Inputs, method.ID, chainReaderDefinition.InputModifications); err != nil {
@@ -260,7 +269,7 @@ func (cr *chainReader) addEvent(contractName, eventName string, a abi.ABI, chain
 		return err
 	}
 
-	confirmations, err := confirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
+	confirmations, err := ConfirmationsFromConfig(chainReaderDefinition.ConfidenceConfirmations)
 	if err != nil {
 		return err
 	}
@@ -320,8 +329,8 @@ func (cr *chainReader) addQueryingReadBindings(contractName string, genericTopic
 
 func (cr *chainReader) getEventInput(def types.ChainReaderDefinition, contractName, eventName string) (
 	types.CodecEntry, codec.Modifier, error) {
-	inputInfo := cr.parsed.encoderDefs[wrapItemType(contractName, eventName, true)]
-	inMod, err := def.InputModifications.ToModifier(evmDecoderHooks...)
+	inputInfo := cr.parsed.EncoderDefs[WrapItemType(contractName, eventName, true)]
+	inMod, err := def.InputModifications.ToModifier(DecoderHooks...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -345,7 +354,7 @@ func verifyEventIndexedInputsUsed(eventName string, inputFields []string, indexA
 
 func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arguments, prefix []byte, inputModifications codec.ModifiersConfig) error {
 	// ABI.Pack prepends the method.ID to the encodings, we'll need the encoder to do the same.
-	inputMod, err := inputModifications.ToModifier(evmDecoderHooks...)
+	inputMod, err := inputModifications.ToModifier(DecoderHooks...)
 	if err != nil {
 		return err
 	}
@@ -355,17 +364,17 @@ func (cr *chainReader) addEncoderDef(contractName, itemType string, args abi.Arg
 		return err
 	}
 
-	cr.parsed.encoderDefs[wrapItemType(contractName, itemType, true)] = input
+	cr.parsed.EncoderDefs[WrapItemType(contractName, itemType, true)] = input
 	return nil
 }
 
 func (cr *chainReader) addDecoderDef(contractName, itemType string, outputs abi.Arguments, outputModifications codec.ModifiersConfig) error {
-	mod, err := outputModifications.ToModifier(evmDecoderHooks...)
+	mod, err := outputModifications.ToModifier(DecoderHooks...)
 	if err != nil {
 		return err
 	}
 	output := types.NewCodecEntry(outputs, nil, mod)
-	cr.parsed.decoderDefs[wrapItemType(contractName, itemType, false)] = output
+	cr.parsed.DecoderDefs[WrapItemType(contractName, itemType, false)] = output
 	return output.Init()
 }
 
@@ -402,7 +411,8 @@ func setupEventInput(event abi.Event, inputFields []string) ([]abi.Argument, typ
 	return filterArgs, types.NewCodecEntry(inputArgs, nil, nil), indexArgNames
 }
 
-func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
+// ConfirmationsFromConfig maps chain agnostic confidence levels defined in config to predefined EVM finality.
+func ConfirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLevel]evmtypes.Confirmations, error) {
 	mappings := map[primitives.ConfidenceLevel]evmtypes.Confirmations{
 		primitives.Unconfirmed: evmtypes.Unconfirmed,
 		primitives.Finalized:   evmtypes.Finalized,
@@ -422,4 +432,13 @@ func confirmationsFromConfig(values map[string]int) (map[primitives.ConfidenceLe
 	}
 
 	return mappings, nil
+}
+
+// confidenceToConfirmations matches predefined chain agnostic confidence levels to predefined EVM finality.
+func confidenceToConfirmations(confirmationsMapping map[primitives.ConfidenceLevel]evmtypes.Confirmations, confidenceLevel primitives.ConfidenceLevel) (evmtypes.Confirmations, error) {
+	confirmations, exists := confirmationsMapping[confidenceLevel]
+	if !exists {
+		return 0, fmt.Errorf("missing mapping for confidence level: %s", confidenceLevel)
+	}
+	return confirmations, nil
 }
