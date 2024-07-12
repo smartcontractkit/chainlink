@@ -212,10 +212,8 @@ contract DestinationFeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    IDestinationRewardManager.FeePayment[] memory contractFees = new IDestinationRewardManager.FeePayment[](1);
-    contractFees[0] = IDestinationRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
-    processFee(contractFees[0].poolId, payload, USER, address(native), 0);
-    processFee(contractFees[0].poolId, payload, USER, address(native), 0);
+    processFee(DEFAULT_CONFIG_DIGEST, payload, USER, address(native), 0);
+    processFee(DEFAULT_CONFIG_DIGEST, payload, USER, address(native), 0);
 
     //check the deficit has been increased twice
     assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);

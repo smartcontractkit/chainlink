@@ -105,11 +105,8 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
     //get the default payload
     bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
 
-    IDestinationRewardManager.FeePayment[] memory contractFees = new IDestinationRewardManager.FeePayment[](1);
-    contractFees[0] = IDestinationRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
-
     //processing the fee will not withdraw anything as there is no fee to collect
-    processFee(contractFees[0].poolId, payload, USER, address(link), 0);
+    processFee(DEFAULT_CONFIG_DIGEST, payload, USER, address(link), 0);
   }
 
   function test_processFeeNative() public {

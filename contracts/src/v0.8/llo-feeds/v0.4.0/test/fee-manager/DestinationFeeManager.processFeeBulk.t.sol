@@ -216,7 +216,7 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
 
    bytes32[] memory poolIds = new bytes32[](5);
     for (uint256 i = 0; i < 5; ++i) {
-      poolIds[i] = DEFAULT_CONFIG_DIGEST;
+      poolIds[i] = payments[i].poolId;
     }
 
     emit InsufficientLink(payments);
