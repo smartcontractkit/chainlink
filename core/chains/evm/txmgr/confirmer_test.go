@@ -2443,6 +2443,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.Equal(t, originalBroadcastAt, *etx.BroadcastAt)
 		nonce++
 		attempt := etx.TxAttempts[0]
+		_, err := db.Exec(`UPDATE evm.tx_attempts SET gas_price=$1 WHERE id=$2`, evmcfg.EVM().GasEstimator().PriceDefault(), attempt.ID)
+		require.NoError(t, err)
 		signedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 		require.NoError(t, err)
 

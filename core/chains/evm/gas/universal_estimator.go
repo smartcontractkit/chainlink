@@ -372,7 +372,12 @@ func LimitBumpedFee(originalFee *assets.Wei, currentFee *assets.Wei, bumpedFee *
 	}
 	bumpedFee = assets.WeiMin(bumpedFee, maxPrice)
 
-	if bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
+	// The first check is added for the following edge case:
+	// If originalFee is below 10 wei, then adding the minimum bump percentage won't have any effect on the final value because of rounding down.
+	// Similarly for bumpedFee, it can have the exact same value as the originalFee, even if we bumped, given an originalFee of less than 10 wei
+	// and a small BumpPercent.
+	if bumpedFee.Cmp(originalFee) == 0 ||
+		bumpedFee.Cmp(originalFee.AddPercentage(MinimumBumpPercentage)) < 0 {
 		return nil, fmt.Errorf("%w: %s is bumped less than minimum allowed percentage(%s) from originalFee: %s - maxPrice: %s",
 			commonfee.ErrBump, bumpedFee, strconv.Itoa(MinimumBumpPercentage), originalFee, maxPrice)
 	}
