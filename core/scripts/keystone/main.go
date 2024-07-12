@@ -21,6 +21,7 @@ func main() {
 		src.NewDeleteJobsCommand(),
 		src.NewDeployAndInitializeCapabilitiesRegistryCommand(),
 		src.NewDeployWorkflowsCommand(),
+		src.NewDeleteWorkflowsCommand(),
 	}
 
 	commandsList := func(commands []command) string {
