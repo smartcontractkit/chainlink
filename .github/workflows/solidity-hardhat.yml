@@ -185,15 +185,16 @@ jobs:
       - name: Generate UML
         shell: bash
         run: |
-          base_dir="contracts/from_prs"
+          base_dir="from_prs"
           modified="$base_dir/modified_contracts.txt"
                 
+          cd contracts
           if [[ -f "$modified" ]]; then
             comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
           
             echo "Found contracts: $comma_separated_list"
           
-            ./contracts/scripts/selected_uml.sh "$base_dir/contracts" "uml" "$comma_separated_list"
+            ./scripts/selected_uml.sh "$base_dir/contracts" "uml" "$comma_separated_list"
           else
             echo "File $modified does not exist"
           fi
@@ -203,12 +204,12 @@ jobs:
           base_dir="from_prs"
           modified="$base_dir/modified_contracts.txt"
           
+          cd contracts
           if [[ -f "$modified" ]]; then
             comma_separated_list=$(tr '\n' ',' < "$modified" | sed 's/,$//')
           
             echo "Found contracts: $comma_separated_list"
             
-            cd contracts
             ./scripts/generate_slither_report.sh "${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/" .slither.config-artifacts.json "$base_dir/contracts" "$comma_separated_list" "slither-reports"
           else
             echo "File $modified does not exist"
