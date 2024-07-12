@@ -54,3 +54,31 @@ func CreateOrReplace(parsed url.URL, suffix string, withTemplate bool) (string, 
 	parsed.Path = fmt.Sprintf("/%s", dbname)
 	return parsed.String(), nil
 }
+
+// Drop drops the database with the given name.
+func Drop(parsed url.URL) error {
+	if parsed.Path == "" {
+		return errors.New("path missing from database URL")
+	}
+
+	// Match the naming schema that our dangling DB cleanup methods expect
+	dbname := parsed.Path[1:]
+	if l := len(dbname); l > 63 {
+		return fmt.Errorf("dbname %v too long (%d), max is 63 bytes. Try a shorter suffix", dbname, l)
+	}
+	// Cannot drop test database if we are connected to it, so we must connect
+	// to a different one. 'postgres' should be present on all postgres installations
+	parsed.Path = "/postgres"
+	db, err := sql.Open(string(dialects.Postgres), parsed.String())
+	if err != nil {
+		return fmt.Errorf("in order to drop the test database, we need to connect to a separate database"+
+			" called 'postgres'. But we are unable to open 'postgres' database: %+v\n", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	if err != nil {
+		return fmt.Errorf("unable to drop postgres migrations test database: %v", err)
+	}
+	return nil
+}

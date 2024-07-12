@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"flag"
 	"fmt"
 	"io"
 	"net/url"
@@ -39,6 +40,30 @@ import (
 // store to use the raw DialectPostgres dialect and setup a one-use database.
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
+func init() {
+	testing.Init()
+	if !flag.Parsed() {
+		flag.Parse()
+	}
+	if testing.Short() {
+		// -short tests don't need a DB
+		return
+	}
+	dbURL := string(env.DatabaseURL.Get())
+	if dbURL == "" {
+		panic("you must provide a CL_DATABASE_URL environment variable")
+	}
+
+	testDBURL, err := url.Parse(dbURL)
+	if err != nil {
+		panic(err)
+	}
+	// many of our internal/cltest rely on this global driver. consider refactoring it to there
+	err = RegisterTestDB(string(dialects.TransactionWrappedPostgres), testDBURL)
+	if err != nil {
+		panic(err)
+	}
+}
 
 var _ driver.Conn = &conn{}
 

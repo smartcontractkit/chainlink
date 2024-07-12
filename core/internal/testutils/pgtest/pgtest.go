@@ -3,7 +3,6 @@ package pgtest
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"net/url"
 	"os"
@@ -25,17 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
-var testDB *sqlx.DB
-
 func initUnitTestDB(ctx context.Context) (string, error) {
-	testing.Init()
-	if !flag.Parsed() {
-		flag.Parse()
-	}
-	if testing.Short() {
-		// -short tests don't need a DB
-		return "", nil
-	}
 	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
 		return "", fmt.Errorf("you must provide a CL_DATABASE_URL environment variable")
@@ -49,7 +38,7 @@ func initUnitTestDB(ctx context.Context) (string, error) {
 	// If the CL_USE_UNIT_TEST_DB env var is set, create a new test database and migrate it
 	if os.Getenv("CL_USE_UNIT_TEST_DB") != "" {
 		uuid := strings.ReplaceAll(uuid.New().String(), "-", "")
-		testURL, err := testdb.CreateOrReplace(*testDBURL, "unit_test_base"+uuid[:16], false)
+		testURL, err := testdb.CreateOrReplace(*testDBURL, uuid[:16]+"_unit_test", false)
 		if err != nil {
 			return "", err
 		}
@@ -67,8 +56,11 @@ func initUnitTestDB(ctx context.Context) (string, error) {
 			return "", err
 		}
 	}
-	driver := string(dialects.TransactionWrappedPostgres)
-	txdb.RegisterTestDB(driver, testDBURL)
+	driver := string(dialects.TransactionWrappedPostgres) + "unit_test"
+	err = txdb.RegisterTestDB(driver, testDBURL)
+	if err != nil {
+		return "", err
+	}
 	fmt.Println("Test database URL:", testDBURL.String())
 
 	return driver, nil
@@ -79,11 +71,11 @@ var driver string
 var err error
 
 func NewSqlxDB(t testing.TB) *sqlx.DB {
-
+	testutils.SkipShortDB(t)
 	initOnce.Do(func() {
 		driver, err = initUnitTestDB(testutils.Context(t))
 	})
-
+	fmt.Println("driver:", driver)
 	require.NoError(t, err)
 	require.NotEmpty(t, driver)
 	return txdb.New(t, driver)

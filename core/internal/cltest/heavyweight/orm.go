@@ -69,6 +69,7 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
+		require.NoError(t, testdb.Drop(*testutils.MustParseURL(t, migrationTestDBURL)))
 		os.RemoveAll(gcfg.RootDir())
 	})
 
