@@ -202,11 +202,14 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return blockedSenders;
   }
 
-  function migratePreviousAllowlist() external override onlyOwner {
-    address[] memory allowedSenders = ITermsOfServiceAllowList(s_previousToSContract).getAllAllowedSenders();
-    for (uint256 i = 0; i < allowedSenders.length; ++i) {
-      if (!s_blockedSenders.contains(allowedSenders[i])) {
-        s_allowedSenders.add(allowedSenders[i]);
+  function migratePreviouslyAllowedSenders(address[] memory previousSendersToAdd) external override onlyOwner {
+    IAccessController previousToSContract = IAccessController(s_previousToSContract);
+    for (uint256 i = 0; i < previousSendersToAdd.length; ++i) {
+      if (
+        previousToSContract.hasAccess(previousSendersToAdd[i], "")
+        && !s_blockedSenders.contains(previousSendersToAdd[i])
+      ) {
+        s_allowedSenders.add(previousSendersToAdd[i]);
       }
     }
   }

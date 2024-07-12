@@ -510,20 +510,29 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
     vm.expectRevert(TermsOfServiceAllowList.InvalidCalldata.selector);
     s_termsOfServiceAllowList.getBlockedSendersInRange(1, BlockedSendersCount + 1);
   }
+}
 
-  function test_MigratePreviousAllowlist_RevertIfNotOwner() public {
+/// @notice #migratePreviouslyAllowedSenders
+contract FunctionsTermsOfServiceAllowList_MigratePreviouslyAllowedSenders is FunctionsRoutesSetup {
+  function setUp() public virtual override {
+    FunctionsRoutesSetup.setUp();
+  }
+
+  function test_MigratePreviouslyAllowedSenders_RevertIfNotOwner() public {
     // Send as stranger
     vm.stopPrank();
     vm.startPrank(STRANGER_ADDRESS);
 
     vm.expectRevert("Only callable by owner");
-    s_termsOfServiceAllowList.migratePreviousAllowlist();
+    address[] memory empty = new address[](0);
+    s_termsOfServiceAllowList.migratePreviouslyAllowedSenders(empty);
   }
 
-  function test_MigratePreviousAllowlist_Success() public {
+  function test_MigratePreviouslyAllowedSenders_Success() public {
     address previouslyAllowedSender1 = 0x1000000000000000000000000000000000000000;
-    address previouslyAllowedSender2 = 0xB000000000000000000000000000000000000000;
-    address currentlyBlockedSender = 0x2000000000000000000000000000000000000000;
+    address previouslyAllowedSender2 = 0x2000000000000000000000000000000000000000;
+    address currentlyBlockedSender = 0xB000000000000000000000000000000000000000;
+
     address[] memory mockPreviousAllowlist = new address[](3);
     mockPreviousAllowlist[0] = previouslyAllowedSender1;
     mockPreviousAllowlist[1] = currentlyBlockedSender;
@@ -533,10 +542,10 @@ contract FunctionsTermsOfServiceAllowList_GetBlockedSendersInRange is FunctionsR
 
     vm.mockCall(
       MOCK_PREVIOUS_TOS_ADDRESS,
-      abi.encodeWithSelector(TermsOfServiceAllowList.getAllAllowedSenders.selector),
-      abi.encode(mockPreviousAllowlist)
+      abi.encodeWithSelector(TermsOfServiceAllowList.hasAccess.selector),
+      abi.encode(true)
     );
-    s_termsOfServiceAllowList.migratePreviousAllowlist();
+    s_termsOfServiceAllowList.migratePreviouslyAllowedSenders(mockPreviousAllowlist);
 
     address[] memory currentlyAllowedSenders = s_termsOfServiceAllowList.getAllAllowedSenders();
 
