@@ -12,6 +12,12 @@ SOURCE_DIR=$3
 FILES=${4// /}  # Remove any spaces from the list of files
 TARGET_DIR=$5
 
+extract_product() {
+    local path=$1
+    local product=$(echo "$path" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
+    echo "$product"
+}
+
 run_slither() {
     local FILE=$1
     local TARGET_DIR=$2
@@ -37,7 +43,9 @@ run_slither() {
     solc-select use "$SOLCVER"
 
     SLITHER_OUTPUT_FILE="$TARGET_DIR/$(basename "${FILE%.sol}")-slither-report.md"
-    slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL"  > "$SLITHER_OUTPUT_FILE"
+    PRODUCT=$(extract_product "$FILE")
+
+    FOUNDRY_PROFILE=$PRODUCT slither --config-file "$CONFIG_FILE" "$FILE" --checklist --markdown-root "$REPO_URL"  > "$SLITHER_OUTPUT_FILE"
 }
 
 process_files() {
