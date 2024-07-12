@@ -66,6 +66,7 @@ contract BaseDestinationFeeManagerTest is Test {
   bytes4 internal immutable INVALID_DEPOSIT_ERROR = DestinationFeeManager.InvalidDeposit.selector;
   bytes4 internal immutable INVALID_QUOTE_ERROR = DestinationFeeManager.InvalidQuote.selector;
   bytes4 internal immutable UNAUTHORIZED_ERROR = DestinationFeeManager.Unauthorized.selector;
+  bytes4 internal immutable POOLID_MISMATCH_ERROR = DestinationFeeManager.PoolIdMismatch.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
   bytes4 internal immutable ZERO_DEFICIT = DestinationFeeManager.ZeroDeficit.selector;
