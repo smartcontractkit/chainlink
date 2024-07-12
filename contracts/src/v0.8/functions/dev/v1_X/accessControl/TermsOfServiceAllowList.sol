@@ -203,6 +203,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   }
 
   function migratePreviouslyAllowedSenders(address[] memory previousSendersToAdd) external override onlyOwner {
+    require(s_previousToSContract != address(0), "No previous ToS contract");
     IAccessController previousToSContract = IAccessController(s_previousToSContract);
     for (uint256 i = 0; i < previousSendersToAdd.length; ++i) {
       if (
