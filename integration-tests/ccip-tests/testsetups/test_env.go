@@ -483,7 +483,7 @@ func DeployEnvironments(
 					anvilConfig.BlockGaslimit = pointer.ToInt64(100000000)
 				}
 				testEnvironment.
-					AddHelm(foundry.NewVersioned("0.1.9", &foundry.Props{
+					AddHelm(foundry.NewVersioned("0.2.1", &foundry.Props{
 						NetworkName: network.Name,
 						Values: map[string]interface{}{
 							"fullnameOverride": actions.NetworkName(network.Name),
@@ -506,6 +506,9 @@ func DeployEnvironments(
 								"baseFee":                   fmt.Sprintf("%d", pointer.GetInt64(anvilConfig.BaseFee)),
 							},
 							"resources": GethResourceProfile,
+							"cache": map[string]interface{}{
+								"capacity": "150Gi",
+							},
 						},
 					}))
 				selectedNetworks[i].Simulated = true
