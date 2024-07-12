@@ -35,13 +35,13 @@ jobs:
         shell: bash
         id: get-newest-sha
         run: |
-          if [ "${{ github.event.label.name }}" = "generate_review_artifacts" ]; then
-            echo "Newest SHA: ${{ github.sha }}"
+          if [ "${{ github.event.label.name }}" = "generate_review_artifact" ]; then
+            echo "Will use current SHA: ${{ github.sha }}"
             echo "newest_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
           else
             cd contracts/scripts
             newest_sha=$(./newest_sha.sh ${{ github.repository }} ${{ env.TEST_PRS_LIST }})
-            echo "Newest SHA: $newest_sha"
+            echo "Newest SHA from among all PRs: $newest_sha"
             echo "newest_sha=$newest_sha" >> $GITHUB_OUTPUT
           fi
 
@@ -217,7 +217,23 @@ jobs:
             contract_list="modified_contracts.txt"
             contract_dir="$SRC_FOLDER"
             cd ..
-          fi          
+          fi
+          
+          # file pipeline if there are no Solidity files found
+          if [ -f "$file_path" ]; then
+            non_empty_lines=$(grep -cve '^\s*$' "$file_path")        
+            if [ "$non_empty_lines" -lt 1 ]; then
+              echo "No Solidity files found."
+              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files"
+              echo "or they are located in completely unexpected directories."
+              exit 1
+            fi
+          else
+              echo "No Solidity files found."
+              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files"
+              echo "or they are located in completely unexpected directories."
+              exit 1
+          fi
                 
           cd contracts
           if [[ -f "$contract_list" ]]; then
