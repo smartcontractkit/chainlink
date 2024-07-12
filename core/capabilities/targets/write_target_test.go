@@ -171,16 +171,16 @@ func TestResolveLocalNodeInfo(t *testing.T) {
 	configVersionLogs := observedLogs.FilterFieldKey("workflowDONConfigVersion")
 	require.Equal(t, configVersionLogs.Len(), 0, "we should not have any configVersion sugared logs before the registry returns anything")
 
-	var pid p2ptypes.PeerID 
+	var pid p2ptypes.PeerID
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
 	require.NoError(t, err)
 	registry.On("GetLocalNode", mock.Anything).Return(capabilities.Node{
 		PeerID: &pid,
 		WorkflowDON: capabilities.DON{
-			ID: 				 1,
+			ID:            1,
 			ConfigVersion: 2,
 		},
-	}, nil)		
+	}, nil)
 
 	time.Sleep(50 * time.Millisecond)
 	peerIDLogs = observedLogs.FilterFieldKey("peerID")

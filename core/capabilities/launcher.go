@@ -40,7 +40,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 // a launcher acts as a sink for the registrysyncer's state
 //
 // each time the registrysyncer updates its state, the launcher
-// will update the local node and expose capabilities as necessary 
+// will update the local node and expose capabilities as necessary
 type launcher struct {
 	services.StateMachine
 	lggr        logger.Logger
