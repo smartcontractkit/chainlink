@@ -14,8 +14,8 @@ TARGET_DIR=$5
 
 extract_product() {
     local path=$1
-    local product=$(echo "$path" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1)
-    echo "$product"
+
+    echo "$path" | awk -F'src/[^/]*/' '{print $2}' | cut -d'/' -f1
 }
 
 run_slither() {

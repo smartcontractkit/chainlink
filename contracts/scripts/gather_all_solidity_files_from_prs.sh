@@ -81,7 +81,7 @@ do
   done
 
   # Get list of modified Solidity files and save to PR_number.txt
-  modified_files=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r "$merge_commit_sha" | grep '\.sol$')
+  modified_files=$(git diff-tree --no-commit-id --name-only --diff-filter=AM -r "$merge_commit_sha" | grep '\.sol$' | grep -v -E '/test/|/tests/')
   for file in $modified_files
   do
     echo "$file" >> "$target_dir/$pr_number.txt"
