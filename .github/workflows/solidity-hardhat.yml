@@ -235,7 +235,7 @@ jobs:
               if [ -z "${{ github.event.label.name }}" ]; then
                 echo "PRs used: ${{ env.TEST_PRS_LIST }}" >> $GITHUB_STEP_SUMMARY
               else
-                echo "Commit SHA used: ${{ github.token }}" >> $GITHUB_STEP_SUMMARY
+                echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
               fi
               echo "## Reason: No Solidity files found." >> $GITHUB_STEP_SUMMARY
               echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files or they are located in completely unexpected directories."
@@ -400,9 +400,27 @@ jobs:
           if [ -z "${{ github.event.label.name }}" ]; then
             echo "PRs used: ${{ env.TEST_PRS_LIST }}" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Commit SHA used: ${{ github.token }}" >> $GITHUB_STEP_SUMMARY
+            echo "Commit SHA used: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           fi
           echo "[Artifact URL](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Print Artifact URL in PR comment
+        uses: actions/github-script@v6
+        if: github.event.label.name == 'generate_review_artifact'
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const commentBody = `# Review Artifact Generated
+            ## Commit SHA
+            ${{ github.sha }}
+            ## Artifact URL
+            https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)`;
+            const { data: comment } = await github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: commentBody
+            });          
           
 
 #on:
