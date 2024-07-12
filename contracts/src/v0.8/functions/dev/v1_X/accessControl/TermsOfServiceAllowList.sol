@@ -207,8 +207,8 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     IAccessController previousToSContract = IAccessController(s_previousToSContract);
     for (uint256 i = 0; i < previousSendersToAdd.length; ++i) {
       if (
-        previousToSContract.hasAccess(previousSendersToAdd[i], "")
-        && !s_blockedSenders.contains(previousSendersToAdd[i])
+        previousToSContract.hasAccess(previousSendersToAdd[i], "") &&
+        !s_blockedSenders.contains(previousSendersToAdd[i])
       ) {
         s_allowedSenders.add(previousSendersToAdd[i]);
       }
