@@ -219,8 +219,10 @@ jobs:
             cd ..
           fi
           
+          cd contracts
+          
           # file pipeline if there are no Solidity files found
-          no_contracts=false
+          no_contracts=false          
           if [ -f "$contract_list" ]; then
             non_empty_lines=$(grep -cve '^\s*$' "$contract_list")        
             if [ "$non_empty_lines" -lt 1 ]; then
@@ -243,9 +245,6 @@ jobs:
               echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files or they are located in completely unexpected directories."
           fi
           
-          exit 1
-                
-          cd contracts
           if [[ -f "$contract_list" ]]; then
             comma_separated_list=$(tr '\n' ',' < "$contract_list" | sed 's/,$//')
           
