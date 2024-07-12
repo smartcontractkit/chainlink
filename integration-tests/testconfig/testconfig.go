@@ -381,14 +381,14 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 		logger.Debug().Msg("Base64 config override from environment variable not found")
 	}
 
-	logger.Info().Msg("Loading config values from default ~/.testsecrets env file")
+	logger.Info().Msg("Loading .testsecrets env files")
 	err = ctf_config.LoadSecretEnvsFromFiles()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from ~/.testsecrets file")
 	}
 
 	logger.Info().Msg("Reading values from environment variables")
-	err = testConfig.ReadConfigValuesFromEnvVars()
+	err = testConfig.ReadFromEnvVar()
 	if err != nil {
 		return TestConfig{}, errors.Wrapf(err, "error reading test config values from env vars")
 	}
