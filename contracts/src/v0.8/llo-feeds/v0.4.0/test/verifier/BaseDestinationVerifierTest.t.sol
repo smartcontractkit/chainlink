@@ -98,7 +98,8 @@ contract BaseTest is Test {
       abi.encodeWithSelector(IERC165.supportsInterface.selector, IDestinationVerifier.verify.selector),
       abi.encode(true)
     );
-    s_verifierProxy = new DestinationVerifierProxy(AccessControllerInterface(address(0)));
+ s_verifierProxy = new DestinationVerifierProxy();
+//    s_verifierProxy = new DestinationVerifierProxy(AccessControllerInterface(address(0)));
 
     s_verifier = new DestinationVerifier(address(s_verifierProxy));
     s_verifier_2 = new DestinationVerifier(address(s_verifierProxy));
@@ -285,17 +286,19 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
-    s_verifierProxy.initializeVerifier(address(s_verifier));
+//    s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(
-      FEED_ID,
+//      FEED_ID,
       _getSignerAddresses(signers),
-      s_offchaintransmitters,
+//      s_offchaintransmitters,
       FAULT_TOLERANCE,
-      bytes(""),
-      VERIFIER_VERSION,
-      bytes(""),
+  //    bytes(""),
+   //   VERIFIER_VERSION,
+    //  bytes(""),
       new Common.AddressAndWeight[](0)
     );
+
+/* not needed anymore 
     (, , v1ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
 
     s_verifier.setConfig(
@@ -308,7 +311,8 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
-    (, , v3ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID_V3);
+    (, , v3ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID_V3); 
+*/
 
     link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
     native = new WERC20Mock();
@@ -316,7 +320,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     rewardManager = new DestinationRewardManager(address(link));
     feeManager = new DestinationFeeManager(address(link), address(native), address(s_verifierProxy), address(rewardManager));
 
-    s_verifierProxy.setFeeManager(feeManager);
+    //s_verifierProxy.setFeeManager(feeManager);
     rewardManager.setFeeManager(address(feeManager));
   }
 
@@ -442,23 +446,24 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
-    (, , s_configDigestOne) = s_verifier.latestConfigDetails(FEED_ID);
+//    (, , s_configDigestOne) = s_verifier.latestConfigDetails(FEED_ID);
 
     // Verifier 1, Feed 1, Config 2
     Signer[] memory secondSetOfSigners = _getSigners(8);
     s_verifier.setConfig(
-      FEED_ID,
+//      FEED_ID,
       _getSignerAddresses(secondSetOfSigners),
-      s_offchaintransmitters,
+  //    s_offchaintransmitters,
       FAULT_TOLERANCE_TWO,
-      bytes(""),
-      2,
-      bytes(""),
+    //  bytes(""),
+     // 2,
+     // bytes(""),
       new Common.AddressAndWeight[](0)
     );
-    (, , s_configDigestTwo) = s_verifier.latestConfigDetails(FEED_ID);
+//    (, , s_configDigestTwo) = s_verifier.latestConfigDetails(FEED_ID);
 
     // Verifier 1, Feed 1, Config 3
+  /*
     Signer[] memory thirdSetOfSigners = _getSigners(5);
     s_verifier.setConfig(
       FEED_ID,
@@ -469,10 +474,11 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       3,
       bytes(""),
       new Common.AddressAndWeight[](0)
-    );
-    (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
+    );*/
+//    (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
 
     // Verifier 1, Feed 2, Config 1
+ /*
     s_verifier.setConfig(
       FEED_ID_2,
       _getSignerAddresses(signers),
@@ -483,10 +489,12 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
-    (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
+  */
+//    (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
 
     // Verifier 2, Feed 3, Config 1
-    s_verifierProxy.initializeVerifier(address(s_verifier_2));
+    //s_verifierProxy.initializeVerifier(address(s_verifier_2));
+/*
     s_verifier_2.setConfig(
       FEED_ID_3,
       _getSignerAddresses(signers),
@@ -496,7 +504,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       VERIFIER_VERSION,
       bytes(""),
       new Common.AddressAndWeight[](0)
-    );
-    (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
+    );*/
+//    (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
   }
 }
