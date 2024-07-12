@@ -7,6 +7,7 @@ import (
 	"context"
 	_ "embed"
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +25,7 @@ import (
 	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 	query2 "github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -55,7 +57,13 @@ func TestChainReader(t *testing.T) {
 		KeepFinalizedBlocksDepth: 100000,
 	}
 	cl := client.NewSimulatedBackendClient(t, d.sb, big.NewInt(chainID))
-	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(chainID), db, lggr), cl, lggr, lpOpts)
+	headTracker := headtracker.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(chainID), db, lggr),
+		cl,
+		lggr,
+		headTracker,
+		lpOpts,
+	)
 	assert.NoError(t, lp.Start(ctx))
 
 	const (
@@ -178,6 +186,9 @@ func TestChainReader(t *testing.T) {
 		assert.Equal(t, 10, len(seq), "expected 10 events from chain reader")
 		for _, v := range seq {
 			// TODO: for some reason log poller does not populate event data
+			blockNum, err := strconv.ParseUint(v.Identifier, 10, 64)
+			assert.NoError(t, err)
+			assert.Positive(t, blockNum)
 			t.Logf("(chain reader) got event: (data=%v) (hash=%x)", v.Data, v.Hash)
 		}
 	})
