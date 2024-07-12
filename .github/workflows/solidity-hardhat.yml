@@ -220,20 +220,28 @@ jobs:
           fi
           
           # file pipeline if there are no Solidity files found
+          no_contracts=false
           if [ -f "$file_path" ]; then
             non_empty_lines=$(grep -cve '^\s*$' "$file_path")        
             if [ "$non_empty_lines" -lt 1 ]; then
-              echo "No Solidity files found."
-              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files"
-              echo "or they are located in completely unexpected directories."
-              exit 1
+              no_contracts=true
             fi
           else
-              echo "No Solidity files found."
-              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files"
-              echo "or they are located in completely unexpected directories."
-              exit 1
+            no_contracts=true
           fi
+          
+          if [ "$no_contracts" = true ]; then
+              echo "# Review Artifact NOT Generated" >> $GITHUB_STEP_SUMMARY
+              if [ -z "${{ github.event.label.name }}" ]; then
+                echo "PRs used: ${{ env.TEST_PRS_LIST }}" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "Commit SHA used: ${{ github.token }}" >> $GITHUB_STEP_SUMMARY
+              fi
+              echo "## Reason: No Solidity files found." >> $GITHUB_STEP_SUMMARY
+              echo "Either your PR doesn't change any Solidity files or the PRs you provided don't change any Solidity files or they are located in completely unexpected directories."
+          fi
+          
+          exit 1
                 
           cd contracts
           if [[ -f "$contract_list" ]]; then
@@ -388,10 +396,13 @@ jobs:
 
       - name: Print Artifact URL in job summary
         run: |
-          echo "# Review Artifact Generated " >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "[Artifact URL](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)" >> $GITHUB_STEP_SUMMARY          
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "# Review Artifact Generated" >> $GITHUB_STEP_SUMMARY
+          if [ -z "${{ github.event.label.name }}" ]; then
+            echo "PRs used: ${{ env.TEST_PRS_LIST }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Commit SHA used: ${{ github.token }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "[Artifact URL](https://github.com/${{ github.repository }}/suites/${{ github.run_id }}/artifacts/review-artifacts)" >> $GITHUB_STEP_SUMMARY
           
 
 #on:
