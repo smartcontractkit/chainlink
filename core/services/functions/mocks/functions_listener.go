@@ -14,6 +14,14 @@ type FunctionsListener struct {
 	mock.Mock
 }
 
+type FunctionsListener_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *FunctionsListener) EXPECT() *FunctionsListener_Expecter {
+	return &FunctionsListener_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *FunctionsListener) Close() error {
 	ret := _m.Called()
@@ -30,6 +38,33 @@ func (_m *FunctionsListener) Close() error {
 	}
 
 	return r0
+}
+
+// FunctionsListener_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type FunctionsListener_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *FunctionsListener_Expecter) Close() *FunctionsListener_Close_Call {
+	return &FunctionsListener_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *FunctionsListener_Close_Call) Run(run func()) *FunctionsListener_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *FunctionsListener_Close_Call) Return(_a0 error) *FunctionsListener_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *FunctionsListener_Close_Call) RunAndReturn(run func() error) *FunctionsListener_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // HandleOffchainRequest provides a mock function with given fields: ctx, request
@@ -50,6 +85,35 @@ func (_m *FunctionsListener) HandleOffchainRequest(ctx context.Context, request 
 	return r0
 }
 
+// FunctionsListener_HandleOffchainRequest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HandleOffchainRequest'
+type FunctionsListener_HandleOffchainRequest_Call struct {
+	*mock.Call
+}
+
+// HandleOffchainRequest is a helper method to define mock.On call
+//   - ctx context.Context
+//   - request *functions.OffchainRequest
+func (_e *FunctionsListener_Expecter) HandleOffchainRequest(ctx interface{}, request interface{}) *FunctionsListener_HandleOffchainRequest_Call {
+	return &FunctionsListener_HandleOffchainRequest_Call{Call: _e.mock.On("HandleOffchainRequest", ctx, request)}
+}
+
+func (_c *FunctionsListener_HandleOffchainRequest_Call) Run(run func(ctx context.Context, request *functions.OffchainRequest)) *FunctionsListener_HandleOffchainRequest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*functions.OffchainRequest))
+	})
+	return _c
+}
+
+func (_c *FunctionsListener_HandleOffchainRequest_Call) Return(_a0 error) *FunctionsListener_HandleOffchainRequest_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *FunctionsListener_HandleOffchainRequest_Call) RunAndReturn(run func(context.Context, *functions.OffchainRequest) error) *FunctionsListener_HandleOffchainRequest_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *FunctionsListener) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -66,6 +130,34 @@ func (_m *FunctionsListener) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// FunctionsListener_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type FunctionsListener_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *FunctionsListener_Expecter) Start(_a0 interface{}) *FunctionsListener_Start_Call {
+	return &FunctionsListener_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *FunctionsListener_Start_Call) Run(run func(_a0 context.Context)) *FunctionsListener_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *FunctionsListener_Start_Call) Return(_a0 error) *FunctionsListener_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *FunctionsListener_Start_Call) RunAndReturn(run func(context.Context) error) *FunctionsListener_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewFunctionsListener creates a new instance of FunctionsListener. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

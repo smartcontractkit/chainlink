@@ -14,6 +14,14 @@ type BatchCaller struct {
 	mock.Mock
 }
 
+type BatchCaller_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *BatchCaller) EXPECT() *BatchCaller_Expecter {
+	return &BatchCaller_Expecter{mock: &_m.Mock}
+}
+
 // BatchCall provides a mock function with given fields: ctx, blockNumber, batchRequests
 func (_m *BatchCaller) BatchCall(ctx context.Context, blockNumber uint64, batchRequests evm.BatchCall) (evm.BatchResult, error) {
 	ret := _m.Called(ctx, blockNumber, batchRequests)
@@ -42,6 +50,36 @@ func (_m *BatchCaller) BatchCall(ctx context.Context, blockNumber uint64, batchR
 	}
 
 	return r0, r1
+}
+
+// BatchCaller_BatchCall_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'BatchCall'
+type BatchCaller_BatchCall_Call struct {
+	*mock.Call
+}
+
+// BatchCall is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockNumber uint64
+//   - batchRequests evm.BatchCall
+func (_e *BatchCaller_Expecter) BatchCall(ctx interface{}, blockNumber interface{}, batchRequests interface{}) *BatchCaller_BatchCall_Call {
+	return &BatchCaller_BatchCall_Call{Call: _e.mock.On("BatchCall", ctx, blockNumber, batchRequests)}
+}
+
+func (_c *BatchCaller_BatchCall_Call) Run(run func(ctx context.Context, blockNumber uint64, batchRequests evm.BatchCall)) *BatchCaller_BatchCall_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uint64), args[2].(evm.BatchCall))
+	})
+	return _c
+}
+
+func (_c *BatchCaller_BatchCall_Call) Return(_a0 evm.BatchResult, _a1 error) *BatchCaller_BatchCall_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *BatchCaller_BatchCall_Call) RunAndReturn(run func(context.Context, uint64, evm.BatchCall) (evm.BatchResult, error)) *BatchCaller_BatchCall_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewBatchCaller creates a new instance of BatchCaller. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
