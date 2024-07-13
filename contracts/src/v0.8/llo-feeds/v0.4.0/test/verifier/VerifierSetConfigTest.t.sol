@@ -193,11 +193,13 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
       FAULT_TOLERANCE,
       new Common.AddressAndWeight[](0)
     );
+     uint256 t1 = block.timestamp;
 
    bytes24 expectedDonConfigID1 = _DONConfigIdFromConfigData(signerAddrs,FAULT_TOLERANCE );
 
     //bytes24 expectedDonConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
 
+ // check internal state of  s_DONConfigByID
     DestinationVerifier.DONConfig memory donConfig1 = s_verifier.getDONConfig(expectedDonConfigID1);
     assertEq(donConfig1.f, FAULT_TOLERANCE);
     assertEq(donConfig1.isActive, true);
@@ -205,16 +207,80 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
 
 
 
- // check state of  s_SignerByAddressAndDONConfigId 
-  
-    bytes32 signerToDonConfigKey = _signerAddressAndDonConfigKey(signers[0].signerAddress, expectedDonConfigID1);
+ // check state of s_SignerByAddressAndDONConfigId 
+
+
+for(uint i; i < signers.length; ++i) {
+    bytes32 signerToDonConfigKey = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
 
   DestinationVerifier.SignerConfig memory c = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey);
   assertEq(c.DONConfigID, expectedDonConfigID1 );
-  assertEq(c.activationTime, block.timestamp );
+  assertEq(c.activationTime, t1 );
+}
+
+  
 
 
-   
+ 
+  // setConfig again but only for a subset of signers
+   BaseTest.Signer[] memory signers2 = new  BaseTest.Signer[](4);
+   signers2[0]= signers[0];
+   signers2[1]=signers[1];
+   signers2[2]=signers[2];
+   signers2[3]=signers[3];
+   uint8 MINIMAL_FAULT_TOLERANCE = 1;
+
+   address[] memory signerAddrs2 = _getSignerAddresses(signers2);
+   s_verifier.setConfig(
+      signerAddrs2,
+      MINIMAL_FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0)
+    );
+uint256 t2 = block.timestamp;
+
+  bytes24 expectedDonConfigID2 = _DONConfigIdFromConfigData(signerAddrs2,1 );
+  
+
+ // check internal state of  s_DONConfigByID
+    assertEq(donConfig1.f, FAULT_TOLERANCE);
+    assertEq(donConfig1.isActive, true);
+    assertEq(donConfig1.DONConfigID, expectedDonConfigID1);
+
+    DestinationVerifier.DONConfig memory donConfig2 = s_verifier.getDONConfig(expectedDonConfigID2);
+    assertEq(donConfig2.f, MINIMAL_FAULT_TOLERANCE);
+    assertEq(donConfig2.isActive, true);
+    assertEq(donConfig2.DONConfigID, expectedDonConfigID2);
+
+
+ // check state of s_SignerByAddressAndDONConfigId 
+
+for(uint i; i < signers.length; ++i) {
+
+
+    bytes32 signerToDonConfigKey1 = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
+
+  
+  DestinationVerifier.SignerConfig memory c1 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey1);
+  assertEq(c1.DONConfigID, expectedDonConfigID1 );
+  assertEq(c1.activationTime, t1 );
+ //}
+}
+
+for(uint i; i < signers2.length; ++i) {
+
+  
+
+    bytes32 signerToDonConfigKey2 = _signerAddressAndDonConfigKey(signers2[i].signerAddress, expectedDonConfigID2);
+
+  
+  DestinationVerifier.SignerConfig memory c2 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey2);
+  assertEq(c2.DONConfigID, expectedDonConfigID2 );
+  assertEq(c2.activationTime, t2 );
+} 
+
+ 
+
+
 
   
 }
