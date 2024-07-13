@@ -81,8 +81,6 @@ contract VerifierSetConfigTest is BaseTest {
   }
 
   function test_DONConfigIDIsSameForSignersInDifferentOrder() public {
-
-
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     address[] memory signerAddrs = _getSignerAddresses(signers);
 
@@ -106,8 +104,80 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       new Common.AddressAndWeight[](0)
     );
-
   }
+
+  function test_NoDonConfigAlreadyExists() public {
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0)
+    );
+
+   // Testing adding same set of Signers but different FAULT_TOLERENCE does not result in DONConfigAlreadyExists revert
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE - 1,
+      new Common.AddressAndWeight[](0)
+    );
+
+    // Testing adding a different set of Signers with same FAULT_TOLERENCE does not result in DONConfigAlreadyExists revert
+    address[] memory signerAddrsMinusOne = new address[](signerAddrs.length-1);
+    for (uint i = 0; i < signerAddrs.length - 1; i++) {
+            signerAddrsMinusOne[i] = signerAddrs[i];
+        }
+    s_verifier.setConfig(
+      signerAddrsMinusOne,
+      FAULT_TOLERANCE - 1,
+      new Common.AddressAndWeight[](0)
+    );
+  }
+
+function test_addressesAndWeightsDoNotProduceSideEffectsInDonConfigIds() public {
+
+   Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0)
+    );
+
+
+  bytes24 expectedDonConfig = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+
+ vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfig));
+
+    // Same call to setConfig with different addressAndWeights do not entail a new DONConfigId 
+    // Resulting in a DONConfigAlreadyExists error
+    Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
+    weights[0] = Common.AddressAndWeight(signers[0].signerAddress, 1);
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      weights
+    );
+}
+
+/*
+function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
+    weights[0] = Common.AddressAndWeight(signers[0].signerAddress, 1);
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      weights
+    );
+
+   // check internal state of feeManager
+   // we nest a BaseTestWithConfiguredVerifierAndFeeManager for this to work
+}
+*/
 
 // mine
  function test_correctlyUpdatesTheConfig() public {
