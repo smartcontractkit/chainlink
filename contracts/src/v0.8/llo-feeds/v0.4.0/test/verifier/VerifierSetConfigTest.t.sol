@@ -252,31 +252,28 @@ uint256 t2 = block.timestamp;
     assertEq(donConfig2.DONConfigID, expectedDonConfigID2);
 
 
- // check state of s_SignerByAddressAndDONConfigId 
-
+// check state of s_SignerByAddressAndDONConfigId 
 for(uint i; i < signers.length; ++i) {
-
-
     bytes32 signerToDonConfigKey1 = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
-
-  
   DestinationVerifier.SignerConfig memory c1 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey1);
   assertEq(c1.DONConfigID, expectedDonConfigID1 );
   assertEq(c1.activationTime, t1 );
- //}
 }
 
-for(uint i; i < signers2.length; ++i) {
-
-  
-
-    bytes32 signerToDonConfigKey2 = _signerAddressAndDonConfigKey(signers2[i].signerAddress, expectedDonConfigID2);
-
-  
+for(uint i; i < signers.length; ++i) {
+    bytes32 signerToDonConfigKey2 = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID2);
   DestinationVerifier.SignerConfig memory c2 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey2);
-  assertEq(c2.DONConfigID, expectedDonConfigID2 );
-  assertEq(c2.activationTime, t2 );
+  if (i<4){
+   // first 4 signers should also have an entry for the DonConfigId2
+   assertEq(c2.DONConfigID, expectedDonConfigID2 );
+   assertEq(c2.activationTime, t2 );
+ } else{
+   // all other signers are not part of DonConfigId2
+   assertEq(c2.DONConfigID, 0x00 );
+   assertEq(c2.activationTime, 0 );
+ }
 } 
+
 
  
 
