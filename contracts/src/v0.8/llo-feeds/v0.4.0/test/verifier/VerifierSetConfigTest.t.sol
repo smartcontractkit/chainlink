@@ -300,10 +300,14 @@ DestinationVerifier.DONConfig memory donConfig2AtT5 = s_verifier.getDONConfig(ex
 assertEq(donConfig2AtT5.f, MINIMAL_FAULT_TOLERANCE);
 assertEq(donConfig2AtT5.isActive, true);
 assertEq(donConfig2AtT5.DONConfigID, expectedDonConfigID2);
+}
 
-
-
+function test_setConfigActiveUnknownDONConfigID() public {
   
+  bytes24 dummyDONConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+ 
+  s_verifier.setConfigActive(dummyDONConfigID, true)
+
 }
   
 
