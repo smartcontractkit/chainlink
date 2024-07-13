@@ -267,7 +267,14 @@ jobs:
           page_size: ${{matrix.mirror.page_size}}
 
   build-chainlink:
-    if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
+    if: |
+      always() &&
+      needs.should-run.outputs.should_run == 'true' &&
+      github.ref_type != 'tag' &&
+      (
+        needs.select-versions.outputs.evm_implementations != '' ||
+        github.event.inputs.base64TestList != ''
+      )
     environment: integration
     permissions:
       id-token: write
@@ -276,16 +283,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [should-run, select-versions]
     steps:
-      - name: Collect Metrics
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
-        with:
-          id: client-compatablility-build-chainlink
-          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Build Chainlink Image
-        continue-on-error: true
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
@@ -299,6 +296,16 @@ jobs:
           check_image_exists: "true"
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
+        with:
+          id: client-compatablility-build-chainlink
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
 
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
@@ -513,12 +520,10 @@ jobs:
       id-token: write
       contents: read
     needs:
-      [
-        build-chainlink,
-        prepare-compatibility-matrix,
-        should-run,
-        select-versions,
-      ]
+      - build-chainlink
+      - prepare-compatibility-matrix
+      - should-run
+      - select-versions
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ needs.select-versions.outputs.chainlink_version }}
@@ -781,19 +786,17 @@ jobs:
       fail-fast: false
       matrix:
         product:
-          [
-            automation,
-            keeper,
-            log_poller,
-            ocr,
-            ocr2,
-            vrf,
-            vrfv2,
-            vrfv2plus,
-            cron,
-            flux,
-            runlog,
-          ]
+          - automation
+          - keeper
+          - log_poller
+          - ocr
+          - ocr2
+          - vrf
+          - vrfv2
+          - vrfv2plus
+          - cron
+          - flux
+          - runlog
     steps:
       - name: Checkout the repo
         uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
