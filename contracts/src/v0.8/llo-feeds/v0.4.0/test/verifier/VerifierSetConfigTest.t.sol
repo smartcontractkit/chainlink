@@ -199,7 +199,7 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
 
     //bytes24 expectedDonConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
 
- // check internal state of  s_DONConfigByID
+ // 1. check internal state of  s_DONConfigByID
     DestinationVerifier.DONConfig memory donConfig1 = s_verifier.getDONConfig(expectedDonConfigID1);
     assertEq(donConfig1.f, FAULT_TOLERANCE);
     assertEq(donConfig1.isActive, true);
@@ -207,7 +207,7 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
 
 
 
- // check state of s_SignerByAddressAndDONConfigId 
+ // 2. check state of s_SignerByAddressAndDONConfigId 
 
 
 for(uint i; i < signers.length; ++i) {
@@ -217,6 +217,14 @@ for(uint i; i < signers.length; ++i) {
   assertEq(c.DONConfigID, expectedDonConfigID1 );
   assertEq(c.activationTime, t1 );
 }
+
+//3. check state of s_SignerByAddress
+
+for(uint i; i < signers.length; ++i) {
+   DestinationVerifier.SignerConfig  memory latestSignerConfig = s_verifier.getSignerMostRecentConfig(signers[i].signerAddress);
+  assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID1 );
+  assertEq(latestSignerConfig.activationTime, t1 );
+} 
 
   
 
@@ -241,7 +249,7 @@ uint256 t2 = block.timestamp;
   bytes24 expectedDonConfigID2 = _DONConfigIdFromConfigData(signerAddrs2,1 );
   
 
- // check internal state of  s_DONConfigByID
+ // 1. check internal state of  s_DONConfigByID
     assertEq(donConfig1.f, FAULT_TOLERANCE);
     assertEq(donConfig1.isActive, true);
     assertEq(donConfig1.DONConfigID, expectedDonConfigID1);
@@ -252,7 +260,7 @@ uint256 t2 = block.timestamp;
     assertEq(donConfig2.DONConfigID, expectedDonConfigID2);
 
 
-// check state of s_SignerByAddressAndDONConfigId 
+// 2. check state of s_SignerByAddressAndDONConfigId 
 for(uint i; i < signers.length; ++i) {
     bytes32 signerToDonConfigKey1 = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
   DestinationVerifier.SignerConfig memory c1 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey1);
@@ -273,6 +281,27 @@ for(uint i; i < signers.length; ++i) {
    assertEq(c2.activationTime, 0 );
  }
 } 
+
+// 3. check state of s_SignerByAddress
+
+
+
+for(uint i; i < signers.length; ++i) {
+   DestinationVerifier.SignerConfig  memory latestSignerConfig = s_verifier.getSignerMostRecentConfig(signers[i].signerAddress);
+  if (i<4){
+  assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID2 );
+  assertEq(latestSignerConfig.activationTime, t2 );
+} else {
+
+  assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID1 );
+  assertEq(latestSignerConfig.activationTime, t1 );
+} 
+} 
+
+
+
+
+// s_SignerByAddress
 
 //  setting DONConfig2 as activated false
 s_verifier.setConfigActive(expectedDonConfigID2, false);
