@@ -84,7 +84,9 @@ contract VerifierSetConfigTest is BaseTest {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
     address[] memory signerAddrs = _getSignerAddresses(signers);
 
-    bytes24 expectedDonConfig = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+//    bytes24 expectedDonConfig = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+
+    bytes24 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs ,FAULT_TOLERANCE );
 
     s_verifier.setConfig(
       signerAddrs,
@@ -97,7 +99,7 @@ contract VerifierSetConfigTest is BaseTest {
    signerAddrs[0] = signerAddrs[1];
    signerAddrs[1] = temp;
 
- vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfig));
+ vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfigID));
  
     s_verifier.setConfig(
       signerAddrs,
@@ -147,9 +149,11 @@ function test_addressesAndWeightsDoNotProduceSideEffectsInDonConfigIds() public 
     );
 
 
-  bytes24 expectedDonConfig = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+  bytes24 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs ,FAULT_TOLERANCE );
 
- vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfig));
+  //bytes24 expectedDonConfig = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+
+ vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigAlreadyExists.selector, expectedDonConfigID));
 
     // Same call to setConfig with different addressAndWeights do not entail a new DONConfigId 
     // Resulting in a DONConfigAlreadyExists error
@@ -181,7 +185,23 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
 
 // mine
  function test_correctlyUpdatesTheConfig() public {
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+     address[] memory signerAddrs = _getSignerAddresses(signers);
+    
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      new Common.AddressAndWeight[](0)
+    );
 
+bytes24 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs,FAULT_TOLERANCE );
+
+    //bytes24 expectedDonConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
+
+    DestinationVerifier.DONConfig memory generatedDonConfig = s_verifier.getDONConfig(expectedDonConfigID);
+    assertEq(generatedDonConfig.f, FAULT_TOLERANCE);
+    assertEq(generatedDonConfig.isActive, true);
+    assertEq(generatedDonConfig.DONConfigID, expectedDonConfigID);
 }
 
 /*

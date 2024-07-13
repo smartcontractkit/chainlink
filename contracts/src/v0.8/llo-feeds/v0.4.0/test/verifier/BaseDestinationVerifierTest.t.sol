@@ -15,6 +15,8 @@ import {ERC20Mock} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contrac
 import {WERC20Mock} from "../../../../shared/mocks/WERC20Mock.sol";
 import {DestinationRewardManager} from "../../DestinationRewardManager.sol";
 
+
+
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
   address internal constant ADMIN = address(1);
@@ -99,6 +101,7 @@ contract BaseTest is Test {
       abi.encode(true)
     );
  s_verifierProxy = new DestinationVerifierProxy();
+// s_verifierProxy.setVerifier(address(s_verifier));
 //    s_verifierProxy = new DestinationVerifierProxy(AccessControllerInterface(address(0)));
 
     s_verifier = new DestinationVerifier(address(s_verifierProxy));
@@ -175,6 +178,15 @@ contract BaseTest is Test {
       signers
     );
     return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
+  }
+  function _DONConfigIdFromConfigData(
+        address[] memory signers,
+        uint8 f
+  ) internal pure returns (bytes24) {
+   Common._quickSort(signers, 0, int256(signers.length - 1));
+   bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
+   return DONConfigID;
+
   }
 
   function _configDigestFromConfigData(
