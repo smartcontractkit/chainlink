@@ -389,5 +389,11 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
      function getDONConfig(bytes24 _id) public view returns (DONConfig memory) {
         return s_DONConfigByID[_id];
     }
+
+     function getSignerConfigByAddressAndDONConfigId(bytes32 _id) public view returns (SignerConfig memory) {
+        return s_SignerByAddressAndDONConfigId[_id];
+    }
+   
+  
 }
 

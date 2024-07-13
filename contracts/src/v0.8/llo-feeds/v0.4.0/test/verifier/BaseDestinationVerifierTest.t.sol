@@ -179,6 +179,11 @@ contract BaseTest is Test {
     );
     return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
   }
+
+  function _signerAddressAndDonConfigKey(address signer,bytes24 DONConfigID  )  internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked(signer, DONConfigID));
+ }
+
   function _DONConfigIdFromConfigData(
         address[] memory signers,
         uint8 f

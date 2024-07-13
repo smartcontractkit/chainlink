@@ -194,15 +194,31 @@ function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
       new Common.AddressAndWeight[](0)
     );
 
-bytes24 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs,FAULT_TOLERANCE );
+   bytes24 expectedDonConfigID1 = _DONConfigIdFromConfigData(signerAddrs,FAULT_TOLERANCE );
 
     //bytes24 expectedDonConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
 
-    DestinationVerifier.DONConfig memory generatedDonConfig = s_verifier.getDONConfig(expectedDonConfigID);
-    assertEq(generatedDonConfig.f, FAULT_TOLERANCE);
-    assertEq(generatedDonConfig.isActive, true);
-    assertEq(generatedDonConfig.DONConfigID, expectedDonConfigID);
+    DestinationVerifier.DONConfig memory donConfig1 = s_verifier.getDONConfig(expectedDonConfigID1);
+    assertEq(donConfig1.f, FAULT_TOLERANCE);
+    assertEq(donConfig1.isActive, true);
+    assertEq(donConfig1.DONConfigID, expectedDonConfigID1);
+
+
+
+ // check state of  s_SignerByAddressAndDONConfigId 
+  
+    bytes32 signerToDonConfigKey = _signerAddressAndDonConfigKey(signers[0].signerAddress, expectedDonConfigID1);
+
+  DestinationVerifier.SignerConfig memory c = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey);
+  assertEq(c.DONConfigID, expectedDonConfigID1 );
+  assertEq(c.activationTime, block.timestamp );
+
+
+   
+
+  
 }
+  
 
 /*
 
