@@ -274,8 +274,32 @@ for(uint i; i < signers.length; ++i) {
  }
 } 
 
+//  setting DONConfig2 as activated false
+s_verifier.setConfigActive(expectedDonConfigID2, false);
+DestinationVerifier.DONConfig memory donConfig2AtT3 = s_verifier.getDONConfig(expectedDonConfigID2);
+assertEq(donConfig2AtT3.f, MINIMAL_FAULT_TOLERANCE);
+assertEq(donConfig2AtT3.isActive, false);
+assertEq(donConfig2AtT3.DONConfigID, expectedDonConfigID2);
 
- 
+//  setting DONConfig2 as activated false (again)
+s_verifier.setConfigActive(expectedDonConfigID2, false);
+DestinationVerifier.DONConfig memory donConfig2AtT4 = s_verifier.getDONConfig(expectedDonConfigID2);
+assertEq(donConfig2AtT4.f, MINIMAL_FAULT_TOLERANCE);
+assertEq(donConfig2AtT4.isActive, false);
+assertEq(donConfig2AtT4.DONConfigID, expectedDonConfigID2);
+
+// checking other DONConfigs were not affected
+DestinationVerifier.DONConfig memory donConfig1AtT5 = s_verifier.getDONConfig(expectedDonConfigID1);
+assertEq(donConfig1AtT5.f, FAULT_TOLERANCE);
+assertEq(donConfig1AtT5.isActive, true);
+assertEq(donConfig1AtT5.DONConfigID, expectedDonConfigID1);
+
+// setting DONConfig2 as activated true
+s_verifier.setConfigActive(expectedDonConfigID2, true);
+DestinationVerifier.DONConfig memory donConfig2AtT5 = s_verifier.getDONConfig(expectedDonConfigID2);
+assertEq(donConfig2AtT5.f, MINIMAL_FAULT_TOLERANCE);
+assertEq(donConfig2AtT5.isActive, true);
+assertEq(donConfig2AtT5.DONConfigID, expectedDonConfigID2);
 
 
 
