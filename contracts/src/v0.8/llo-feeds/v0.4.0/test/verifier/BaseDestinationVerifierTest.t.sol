@@ -18,6 +18,8 @@ import {DestinationRewardManager} from "../../DestinationRewardManager.sol";
 
 
 contract BaseTest is Test {
+  uint64 internal constant POOL_SCALAR = 1e18;
+  uint64 internal constant ONE_PERCENT = POOL_SCALAR / 100;
   uint256 internal constant MAX_ORACLES = 31;
   address internal constant ADMIN = address(1);
   address internal constant USER = address(2);
@@ -194,38 +196,6 @@ contract BaseTest is Test {
 
   }
 
-  function _configDigestFromConfigData(
-    bytes32 feedId,
-    uint256 chainId,
-    address verifierAddr,
-    uint64 configCount,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal pure returns (bytes32) {
-    uint256 h = uint256(
-      keccak256(
-        abi.encode(
-          feedId,
-          chainId,
-          verifierAddr,
-          configCount,
-          signers,
-          offchainTransmitters,
-          f,
-          onchainConfig,
-          offchainConfigVersion,
-          offchainConfig
-        )
-      )
-    );
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0006 << (256 - 16); // 0x000600..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
-  }
 
   function _createV1Report(
     bytes32 feedId,
@@ -303,6 +273,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
+/*
 //    s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(
 //      FEED_ID,
@@ -314,6 +285,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     //  bytes(""),
       new Common.AddressAndWeight[](0)
     );
+*/
 
 /* not needed anymore 
     (, , v1ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
@@ -335,9 +307,9 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     native = new WERC20Mock();
 
     rewardManager = new DestinationRewardManager(address(link));
-    feeManager = new DestinationFeeManager(address(link), address(native), address(s_verifierProxy), address(rewardManager));
+    feeManager = new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
 
-    //s_verifierProxy.setFeeManager(feeManager);
+    s_verifier.setFeeManager(address(feeManager));
     rewardManager.setFeeManager(address(feeManager));
   }
 

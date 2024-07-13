@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import {BaseTest, BaseTestWithMultipleConfiguredDigests} from "./BaseDestinationVerifierTest.t.sol";
+import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseDestinationVerifierTest.t.sol";
 import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
 import {Common} from "../../../libraries/Common.sol";
 
@@ -166,24 +166,8 @@ function test_addressesAndWeightsDoNotProduceSideEffectsInDonConfigIds() public 
     );
 }
 
-/*
-function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
-    Signer[] memory signers = _getSigners(MAX_ORACLES);
-    address[] memory signerAddrs = _getSignerAddresses(signers);
-    Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
-    weights[0] = Common.AddressAndWeight(signers[0].signerAddress, 1);
-    s_verifier.setConfig(
-      signerAddrs,
-      FAULT_TOLERANCE,
-      weights
-    );
 
-   // check internal state of feeManager
-   // we nest a BaseTestWithConfiguredVerifierAndFeeManager for this to work
-}
-*/
 
-// mine
  function test_correctlyUpdatesTheConfig() public {
     Signer[] memory signers = _getSigners(MAX_ORACLES);
      address[] memory signerAddrs = _getSignerAddresses(signers);
@@ -325,6 +309,7 @@ assertEq(donConfig1AtT5.DONConfigID, expectedDonConfigID1);
 
 // setting DONConfig2 as activated true
 s_verifier.setConfigActive(expectedDonConfigID2, true);
+
 DestinationVerifier.DONConfig memory donConfig2AtT5 = s_verifier.getDONConfig(expectedDonConfigID2);
 assertEq(donConfig2AtT5.f, MINIMAL_FAULT_TOLERANCE);
 assertEq(donConfig2AtT5.isActive, true);
@@ -336,6 +321,7 @@ function test_setConfigActiveUnknownDONConfigID() public {
   vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
   s_verifier.setConfigActive(dummyDONConfigID, true);
 }
+
   
 
 /*
@@ -469,5 +455,24 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
     assertEq(configDigest, expectedConfigDigest);
   }
 */
+
+}
+
+
+contract VerifierSetConfigTestWithProxyAndFeeManager is BaseTestWithConfiguredVerifierAndFeeManager {
+
+
+function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
+    Signer[] memory signers = _getSigners(MAX_ORACLES);
+    address[] memory signerAddrs = _getSignerAddresses(signers);
+    Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
+    weights[0] = Common.AddressAndWeight(signers[0].signerAddress, ONE_PERCENT*100);
+    s_verifier.setConfig(
+      signerAddrs,
+      FAULT_TOLERANCE,
+      weights
+    );
+}
+
 
 }
