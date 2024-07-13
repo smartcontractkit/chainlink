@@ -269,7 +269,7 @@ for(uint i; i < signers.length; ++i) {
    assertEq(c2.activationTime, t2 );
  } else{
    // all other signers are not part of DonConfigId2
-   assertEq(c2.DONConfigID, 0x00 );
+   assertEq(c2.DONConfigID, bytes24(0) );
    assertEq(c2.activationTime, 0 );
  }
 } 
