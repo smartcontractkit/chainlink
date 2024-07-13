@@ -252,5 +252,32 @@ contract FeeManagerProcessFeeTest is BaseDestinationFeeManagerTest {
   }
 
 
+function test_poolIdsCannotBeZeroAddress()public {
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS + 1);
+
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
+
+    bytes[] memory payloads = new bytes[](NUMBER_OF_REPORTS);
+    for (uint256 i; i < NUMBER_OF_REPORTS; ++i) {
+      payloads[i] = payload;
+    }
+
+
+    bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
+      poolIds[i] = DEFAULT_CONFIG_DIGEST;
+    }
+
+    poolIds[2] = 0x000;
+    vm.expectRevert(INVALID_ADDRESS_ERROR);
+    processFee(poolIds, payloads, USER, address(native), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
+}
+
+function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() public {
+// sugested in PR
+}
+
+
+
  
 }
