@@ -58,5 +58,8 @@ func BestEffortExtractEAError(responseBytes []byte) error {
 	if err != nil {
 		return nil
 	}
-	return errorResponse.Error
+	if errorResponse.Error != nil {
+		return errorResponse.Error
+	}
+	return nil
 }
