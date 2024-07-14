@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -200,7 +201,7 @@ func (s *registrySyncer) updateStateLoop() {
 
 func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	dons := []kcr.CapabilitiesRegistryDONInfo{}
-	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", nil, &dons)
+	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return State{}, err
 	}
@@ -211,7 +212,7 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	}
 
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", nil, &caps)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return State{}, err
 	}
@@ -222,7 +223,7 @@ func (s *registrySyncer) state(ctx context.Context) (State, error) {
 	}
 
 	nodes := []kcr.CapabilitiesRegistryNodeInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", nil, &nodes)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getNodes", primitives.Unconfirmed, nil, &nodes)
 	if err != nil {
 		return State{}, err
 	}
