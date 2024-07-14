@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -144,22 +145,22 @@ func (t *State) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("failed to parse DON ID: %w", err)
 		}
 		nodeP2PIds := make([][32]byte, len(v.NodeP2PIds))
-		for i, id := range v.NodeP2PIds {
-			b, err := hex.DecodeString(id)
-			if err != nil {
-				return fmt.Errorf("failed to decode nodeP2PId: %w", err)
+		for i, p2pid := range v.NodeP2PIds {
+			b, err2 := hex.DecodeString(p2pid)
+			if err2 != nil {
+				return fmt.Errorf("failed to decode nodeP2PId: %w", err2)
 			}
 			copy(nodeP2PIds[i][:], b[:32])
 		}
 		configs := make([]kcr.CapabilitiesRegistryCapabilityConfiguration, len(v.CapabilityConfigurations))
 		for i, c := range v.CapabilityConfigurations {
-			capabilityId, err := hex.DecodeString(c.CapabilityId)
-			if err != nil {
-				return fmt.Errorf("failed to decode capabilityId: %w", err)
+			capabilityId, err2 := hex.DecodeString(c.CapabilityId)
+			if err2 != nil {
+				return fmt.Errorf("failed to decode capabilityId: %w", err2)
 			}
-			config, err := hex.DecodeString(c.Config)
-			if err != nil {
-				return fmt.Errorf("failed to decode capability config: %w", err)
+			config, err2 := hex.DecodeString(c.Config)
+			if err2 != nil {
+				return fmt.Errorf("failed to decode capability config: %w", err2)
 			}
 			configs[i] = kcr.CapabilitiesRegistryCapabilityConfiguration{
 				CapabilityId: to32Byte(capabilityId),
@@ -188,9 +189,9 @@ func (t *State) UnmarshalJSON(data []byte) error {
 
 		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
 		for i, id := range v.HashedCapabilityIds {
-			b, err := hex.DecodeString(id)
-			if err != nil {
-				return fmt.Errorf("failed to decode hashedCapabilityId: %w", err)
+			b, err2 := hex.DecodeString(id)
+			if err2 != nil {
+				return fmt.Errorf("failed to decode hashedCapabilityId: %w", err2)
 			}
 			copy(hashedCapabilityIds[i][:], b[:32])
 		}

@@ -357,21 +357,29 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	factory := newContractReaderFactory(t, sim)
 	syncer, err := New(logger.TestLogger(t), factory, regAddress.Hex(), db)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		syncer.Close()
+	})
 
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
 	go func() {
-		defer close(syncer.updateChan)
+		// updateChan will be closed on cleanup
 		syncer.updateStateLoop()
 	}()
 
 	err = syncer.sync(ctx, false) // should store the data into the DB
 	require.NoError(t, err)
 	s := l.localRegistry
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // TODO: figure out another alternative to wait for the state to be stored in the DB
 	st, err := syncer.orm.latestState(ctx)
 	require.NoError(t, err)
 
 	assert.Equal(t, s, *st, "expected the state to be the same as the one stored in the DB")
+
+	err = syncer.sync(ctx, true) // should load the data from the DB
+	require.NoError(t, err)
+	s2 := l.localRegistry
+	assert.Equal(t, s, s2, "expected the state to be the same as the one retrieved initially")
 }
