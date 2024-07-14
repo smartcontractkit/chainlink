@@ -208,7 +208,7 @@ func TestReader_Integration(t *testing.T) {
 	l := &launcher{}
 	syncer.AddLauncher(l)
 
-	err = syncer.sync(ctx, true)
+	err = syncer.sync(ctx, false) // not looking to load from the DB in this specific test.
 	s := l.localRegistry
 	require.NoError(t, err)
 	assert.Len(t, s.IDsToCapabilities, 1)
@@ -273,4 +273,102 @@ func TestReader_Integration(t *testing.T) {
 		nodeSet[1]: nodesInfo[1],
 		nodeSet[2]: nodesInfo[2],
 	}, s.IDsToNodes)
+}
+
+func TestSyncer_DBIntegration(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
+
+	_, err := reg.AddCapabilities(owner, []kcr.CapabilitiesRegistryCapability{writeChainCapability})
+	require.NoError(t, err, "AddCapability failed for %s", writeChainCapability.LabelledName)
+	sim.Commit()
+
+	cid, err := reg.GetHashedCapabilityId(&bind.CallOpts{}, writeChainCapability.LabelledName, writeChainCapability.Version)
+	require.NoError(t, err)
+
+	_, err = reg.AddNodeOperators(owner, []kcr.CapabilitiesRegistryNodeOperator{
+		{
+			Admin: owner.From,
+			Name:  "TEST_NOP",
+		},
+	})
+	require.NoError(t, err)
+
+	nodeSet := [][32]byte{
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	signersSet := [][32]byte{
+		randomWord(),
+		randomWord(),
+		randomWord(),
+	}
+
+	nodes := []kcr.CapabilitiesRegistryNodeParams{
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			Signer:              signersSet[0],
+			P2pId:               nodeSet[0],
+			HashedCapabilityIds: [][32]byte{cid},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			Signer:              signersSet[1],
+			P2pId:               nodeSet[1],
+			HashedCapabilityIds: [][32]byte{cid},
+		},
+		{
+			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
+			NodeOperatorId:      uint32(1),
+			Signer:              signersSet[2],
+			P2pId:               nodeSet[2],
+			HashedCapabilityIds: [][32]byte{cid},
+		},
+	}
+	_, err = reg.AddNodes(owner, nodes)
+	require.NoError(t, err)
+
+	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
+		{
+			CapabilityId: cid,
+			Config:       []byte(`{"hello": "world"}`),
+		},
+	}
+	_, err = reg.AddDON(
+		owner,
+		nodeSet,
+		cfgs,
+		true,
+		true,
+		1,
+	)
+	sim.Commit()
+
+	require.NoError(t, err)
+
+	db := pgtest.NewSqlxDB(t)
+	factory := newContractReaderFactory(t, sim)
+	syncer, err := New(logger.TestLogger(t), factory, regAddress.Hex(), db)
+	require.NoError(t, err)
+
+	l := &launcher{}
+	syncer.AddLauncher(l)
+
+	go func() {
+		defer close(syncer.updateChan)
+		syncer.updateStateLoop()
+	}()
+
+	err = syncer.sync(ctx, false) // should store the data into the DB
+	require.NoError(t, err)
+	s := l.localRegistry
+	time.Sleep(1 * time.Second)
+	st, err := syncer.orm.latestState(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, s, *st, "expected the state to be the same as the one stored in the DB")
 }

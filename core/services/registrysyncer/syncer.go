@@ -26,17 +26,10 @@ type State struct {
 	IDsToCapabilities map[HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo `json:"IDsToCapabilities"`
 }
 
-func (t *State) UnmarshalJSON(input []byte) error {
-	var st State
-	if err := json.Unmarshal(input, &st); err != nil {
-		return err
-	}
-	*t = st
-	return nil
-}
-
-func (t *State) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t)
+func to32Byte(slice []byte) [32]byte {
+	var b [32]byte
+	copy(b[:], slice[:32])
+	return b
 }
 
 type Launcher interface {
