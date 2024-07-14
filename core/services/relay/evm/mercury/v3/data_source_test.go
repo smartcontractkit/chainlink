@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

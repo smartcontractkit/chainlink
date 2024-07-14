@@ -7,14 +7,14 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"

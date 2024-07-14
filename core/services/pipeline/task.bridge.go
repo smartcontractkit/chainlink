@@ -178,7 +178,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if err != nil || statusCode != http.StatusOK {
-		if adapterErr, ok := eautils.BestEffortExtractEAError(responseBytes); ok {
+		if adapterErr := eautils.BestEffortExtractEAError(responseBytes); adapterErr != nil {
 			err = adapterErr
 		}
 

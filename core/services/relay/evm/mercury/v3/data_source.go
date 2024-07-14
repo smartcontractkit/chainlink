@@ -8,11 +8,11 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"

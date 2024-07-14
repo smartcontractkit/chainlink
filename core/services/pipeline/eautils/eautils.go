@@ -52,11 +52,11 @@ func (err *AdapterError) Error() string {
 	return fmt.Sprintf("%s: %s", err.Name, err.Message)
 }
 
-func BestEffortExtractEAError(responseBytes []byte) (error, bool) {
+func BestEffortExtractEAError(responseBytes []byte) error {
 	var errorResponse adapterErrorResponse
 	err := json.Unmarshal(responseBytes, &errorResponse)
 	if err != nil {
-		return nil, false
+		return nil
 	}
-	return errorResponse.Error, errorResponse.Error != nil
+	return errorResponse.Error
 }
