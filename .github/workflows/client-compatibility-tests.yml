@@ -520,6 +520,7 @@ jobs:
       TEST_LOG_LEVEL: debug
     strategy:
       fail-fast: false
+      max-parallel: 10
       matrix:
         evm_node: ${{fromJson(needs.prepare-compatibility-matrix.outputs.matrix)}}
     runs-on: ubuntu-latest
@@ -570,9 +571,13 @@ jobs:
             echo "$modified_string"
           }
           echo "TEST_LOG_NAME=$(replace_special_chars "${{ matrix.evm_node.product }}-${{ matrix.evm_node.docker_image }}-test-logs")" >> $GITHUB_ENV
-
+#      - name: Collect Workflow Telemetry
+#        uses: catchpoint/workflow-telemetry-action@v2
+#        with:
+#          comment_on_pr: false
+#          theme: 'dark'
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
         with:
           test_command_to_run: cd ./integration-tests && touch .root_dir && go test -timeout 30m -count=1 -json ${{ matrix.evm_node.run }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -608,7 +613,7 @@ jobs:
 
       - name: Print failed test summary
         if: always()
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@fc3e0df622521019f50d772726d6bf8dc919dd38 # v2.3.19
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/show-test-summary@75a9005952a9e905649cfb5a6971fd9429436acd # v2.3.25
 
   start-slack-thread:
     name: Start Slack Thread
@@ -649,7 +654,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@U060CGGPY8H>' || 'All Good!' }}"
+                        "text": "${{ contains(join(needs.*.result, ','), 'failure') && 'Some tests failed, notifying <@S0536FX9ZDZ>' || 'All Good!' }}"
                       }
                     },
                     {
