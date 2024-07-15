@@ -49,6 +49,7 @@ type NodeConfig interface {
 
 type ChainConfig interface {
 	NodeNoNewHeadsThreshold() time.Duration
+	NoNewFinalizedHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
@@ -112,8 +113,7 @@ type node[
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	aliveLoopSub      types.Subscription
-	finalizedBlockSub types.Subscription
+	healthCheckSubs []types.Subscription
 }
 
 func NewNode[
@@ -182,9 +182,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) RPC() RPC {
 // unsubscribeAllExceptAliveLoop is not thread-safe; it should only be called
 // while holding the stateMu lock.
 func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeAllExceptAliveLoop() {
-	aliveLoopSub := n.aliveLoopSub
-	finalizedBlockSub := n.finalizedBlockSub
-	n.rpc.UnsubscribeAllExcept(aliveLoopSub, finalizedBlockSub)
+	n.rpc.UnsubscribeAllExcept(n.healthCheckSubs...)
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) UnsubscribeAllExceptAliveLoop() {
