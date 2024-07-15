@@ -21,6 +21,7 @@ jobs:
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
+          list-files: 'shell'
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
@@ -212,8 +213,8 @@ jobs:
         shell: bash
         run: |
           echo "changes: ${{ needs.changes.outputs.sol_files }}"
-          IFS=',' read -r -a files <<< "${{ needs.changes.outputs.sol_files }}"
-          for file in "${files[@]}"; do
+          CHANGED = ${{ needs.changes.outputs.sol_files }}
+          for file in "${CHANGED[@]}"; do
               slither --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ >> slither-results.md
           done
 
@@ -246,8 +247,7 @@ jobs:
 
       - name: Run Forge fmt
         run: |
-          IFS=',' read -r -a files <<< "${{ needs.changes.outputs.sol_files }}"
-          forge fmt --check "${files[@]}"
+          forge fmt --check "${{ needs.changes.outputs.sol_files }}"
         id: fmt
         working-directory: contracts
 
