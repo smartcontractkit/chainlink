@@ -216,7 +216,6 @@ jobs:
           CHANGED=${{ needs.changes.outputs.sol_files }}
           for file in "${CHANGED[@]}"; do
             ./contracts/scripts/run-slither.sh "$file"
-#              slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
           done
 
       - name: Print Slither summary
