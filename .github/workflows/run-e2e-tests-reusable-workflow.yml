@@ -125,7 +125,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 6d864aa3b8bafbd4d213d1a59714bb06752c8d00
+          ref: 5595b2d234343f028e048e07131e98effab3fa41
           path: 'chainlink-testing-framework'          
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -151,7 +151,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: 6d864aa3b8bafbd4d213d1a59714bb06752c8d00
+          ref: 5595b2d234343f028e048e07131e98effab3fa41
           path: 'chainlink-testing-framework'        
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -201,7 +201,65 @@ jobs:
             echo "No tests found for inputs: '${{ toJson(inputs) }}'. Both Docker and Kubernetes tests matrices are empty"
             exit 1
           fi
-        shell: bash   
+        shell: bash
+
+      - name: Check if test config override is required for any test
+        shell: bash
+        run: |
+          # Check if the test config override is provided and skip the checks if it is non-empty
+          if [ -n "${{ inputs.test_config_override_base64 }}" ]; then
+            echo "Test config override provided. Skipping checks for tests requiring config override."
+            exit 0
+          fi
+
+          # Parse the JSON to check for testConfigOverrideRequired in Docker matrix
+          DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testConfigOverrideRequired") and .testConfigOverrideRequired) | .id else empty end' -r)
+          # Parse the JSON to check for testConfigOverrideRequired in Kubernetes matrix
+          K8S_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testConfigOverrideRequired") and .testConfigOverrideRequired) | .id else empty end' -r)
+
+          # Determine if any tests require a configuration override
+          if [ ! -z "$DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE" ] || [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
+            echo "Tests in .github/e2e-tests.yml requiring test config override:"
+            if [ ! -z "$DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
+              echo $DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE
+            fi
+            if [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
+              echo $K8S_TESTS_REQUIRING_CONFIG_OVERRIDE
+            fi
+            echo "::error::Error: Some of the tests require a test config override. Please see workflow logs and set 'test_config_override_base64' to run these tests."
+            exit 1
+          else
+            echo "No tests require a configuration override. Proceeding without overrides."
+          fi
+
+      - name: Check if test secrets are required for any test
+        shell: bash
+        run: |
+          # Check if the test secret key is provided and skip the checks if it is non-empty
+          if [ -n "${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}" ]; then
+            echo "Test secret key provided. Skipping checks for tests requiring secrets."
+            exit 0
+          fi
+
+          # Parse the JSON to check for testSecretsRequired in Docker matrix
+          DOCKER_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testSecretsRequired") and .testSecretsRequired) | .id else empty end' -r)
+          # Parse the JSON to check for testSecretsRequired in Kubernetes matrix
+          K8S_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testSecretsRequired") and .testSecretsRequired) | .id else empty end' -r)
+
+          # Determine if any tests require secrets
+          if [ ! -z "$DOCKER_TESTS_REQUIRING_SECRETS" ] || [ ! -z "$K8S_TESTS_REQUIRING_SECRETS" ]; then
+            echo "Tests in .github/e2e-tests.yml requiring custom test secrets:"
+            if [ ! -z "$DOCKER_TESTS_REQUIRING_SECRETS" ]; then
+              echo $DOCKER_TESTS_REQUIRING_SECRETS
+            fi
+            if [ ! -z "$K8S_TESTS_REQUIRING_SECRETS" ]; then
+              echo $K8S_TESTS_REQUIRING_SECRETS
+            fi
+            echo "::error::Error: Some of the tests require custom test secrets to run. Please see workflow logs and set 'test_secrets_override_key' to run these tests."
+            exit 1
+          else
+            echo "No tests require secrets. Proceeding without additional secret setup."          
+          fi
 
   # Build Chainlink images required for the tests
   require-chainlink-image-versions-in-qa-ecr:

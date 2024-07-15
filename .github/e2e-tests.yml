@@ -119,6 +119,8 @@ runner-test-matrix:
     remote-runner-test-suite: soak
     runs-on: ubuntu-latest
     test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
 
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
