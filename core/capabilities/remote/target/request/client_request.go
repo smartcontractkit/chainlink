@@ -27,6 +27,7 @@ type ClientRequest struct {
 	responseIDCount  map[[32]byte]int
 	errorCount       map[string]int
 	responseReceived map[p2ptypes.PeerID]bool
+	lggr             logger.Logger
 
 	requiredIdenticalResponses int
 
@@ -99,6 +100,7 @@ func NewClientRequest(ctx context.Context, lggr logger.Logger, req commoncap.Cap
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan commoncap.CapabilityResponse, 1),
 		wg:                         wg,
+		lggr:                       lggr,
 	}, nil
 }
 
@@ -128,6 +130,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	if msg.Sender == nil {
 		return fmt.Errorf("sender missing from message")
 	}
+
+	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
 
 	sender := remote.ToPeerID(msg.Sender)
 
