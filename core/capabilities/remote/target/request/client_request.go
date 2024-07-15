@@ -127,6 +127,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
+	if c.respSent {
+		return nil
+	}
+
 	if msg.Sender == nil {
 		return fmt.Errorf("sender missing from message")
 	}
@@ -150,6 +154,10 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		responseID := sha256.Sum256(msg.Payload)
 		c.responseIDCount[responseID]++
 
+		if len(c.responseIDCount) > 1 {
+			c.lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
+		}
+
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 			capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
 			if err != nil {
@@ -159,6 +167,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			}
 		}
 	} else {
+		c.lggr.Warnw("received error response", "error", msg.ErrorMsg)
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(commoncap.CapabilityResponse{Err: errors.New(msg.ErrorMsg)})
