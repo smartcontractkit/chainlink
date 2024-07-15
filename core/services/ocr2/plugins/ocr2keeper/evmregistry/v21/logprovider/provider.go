@@ -219,12 +219,14 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	totalDequeue := map[string]map[int64]int{}
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
-		totalDequeue[qid] = q.dequeued
+		if len(q.dequeued) > 0 {
+			totalDequeue[qid] = q.dequeued
+		}
 	}
 
 	by, _ := json.Marshal(totalDequeue)
 
-	b.lggr.Debugw("Dequeue completed", "totalDequeues", string(by))
+	b.lggr.Debugw("Dequeue completed", "numTotalDequeue", len(totalDequeue), "totalDequeues", string(by))
 
 	return payloads, nil
 }
