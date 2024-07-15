@@ -660,7 +660,6 @@ func (r registrationResult) GetResult() common.Hash {
 }
 
 func (a *AutomationTest) RegisterUpkeeps(upkeepConfigs []UpkeepConfig, maxConcurrency int) ([]common.Hash, error) {
-	a.Logger.Info().Msg("=======do you ever come to this RegisterUpkeeps in actions.go, no")
 	concurrency, err := actions.GetAndAssertCorrectConcurrency(a.ChainClient, 1)
 	if err != nil {
 		return nil, err

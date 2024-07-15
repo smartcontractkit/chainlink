@@ -115,13 +115,13 @@ func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		//"registry_2_0":             ethereum.RegistryVersion_2_0,
-		//"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		//"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_0":             ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 		"registry_2_2_conditional": ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
-		//"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
+		"registry_2_2_logtrigger":  ethereum.RegistryVersion_2_2, // Works only on Chainlink Node v2.10.0 or greater
 		"registry_2_3_conditional": ethereum.RegistryVersion_2_3,
-		//"registry_2_3_logtrigger":  ethereum.RegistryVersion_2_3,
+		"registry_2_3_logtrigger":  ethereum.RegistryVersion_2_3,
 	}
 
 	for n, rv := range registryVersions {
@@ -198,6 +198,10 @@ func TestAutomationReorg(t *testing.T) {
 			wethToken, err := contracts.DeployWETHTokenContract(l, chainClient)
 			require.NoError(t, err, "Error deploying weth token contract")
 
+			// This feed is used for both eth/usd and link/usd
+			ethUSDFeed, err := contracts.DeployMockETHUSDFeed(chainClient, defaultOCRRegistryConfig.FallbackLinkPrice)
+			require.NoError(t, err, "Error deploying eth usd feed contract")
+
 			defaultOCRRegistryConfig.RegistryVersion = registryVersion
 			registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
 				t,
@@ -206,6 +210,7 @@ func TestAutomationReorg(t *testing.T) {
 				defaultOCRRegistryConfig,
 				linkToken,
 				wethToken,
+				ethUSDFeed,
 			)
 
 			// Fund the registry with LINK
@@ -215,7 +220,7 @@ func TestAutomationReorg(t *testing.T) {
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
 
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), linkToken, wethToken, ethUSDFeed)
 			require.NoError(t, err, "OCR2 config should be built successfully")
 			if registryVersion == ethereum.RegistryVersion_2_0 {
 				err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
