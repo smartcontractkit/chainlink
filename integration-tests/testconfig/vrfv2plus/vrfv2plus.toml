@@ -57,7 +57,7 @@ BatchSize = 100
 """
 
 [Common]
-chainlink_node_funding = 0.5
+chainlink_node_funding = 0.7
 
 [VRFv2Plus]
 [VRFv2Plus.General]

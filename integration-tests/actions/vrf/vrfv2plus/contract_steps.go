@@ -56,7 +56,7 @@ func DeployVRFV2_5Contracts(
 	}
 	batchCoordinator, err := contracts.DeployBatchVRFCoordinatorV2Plus(chainClient, coordinator.Address())
 	if err != nil {
-		return nil, fmt.Errorf("%s, err %w", ErrDeployBatchCoordinatorV2Plus, err)
+		return nil, fmt.Errorf(vrfcommon.ErrGenericFormat, ErrDeployBatchCoordinatorV2Plus, err)
 	}
 	return &vrfcommon.VRFContracts{
 		CoordinatorV2Plus:      coordinator,
@@ -652,3 +652,99 @@ func CancelSubsAndReturnFunds(ctx context.Context, vrfContracts *vrfcommon.VRFCo
 		}
 	}
 }
+
+func FundWrapperConsumer(
+	sethClient *seth.Client,
+	subFundingType string,
+	linkToken contracts.LinkToken,
+	wrapperConsumer contracts.VRFv2PlusWrapperLoadTestConsumer,
+	vrfv2PlusConfig *vrfv2plusconfig.General,
+	l zerolog.Logger,
+) error {
+	switch vrfv2plusconfig.BillingType(subFundingType) {
+	case vrfv2plusconfig.BillingType_Link:
+		//fund consumer with Link
+		linkAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2PlusConfig.WrapperConsumerFundingAmountLink))
+		l.Info().
+			Str("Link Amount", linkAmount.String()).
+			Str("WrapperConsumerAddress", wrapperConsumer.Address()).Msg("Funding WrapperConsumer with Link")
+		err := linkToken.Transfer(
+			wrapperConsumer.Address(),
+			linkAmount,
+		)
+		if err != nil {
+			return err
+		}
+	case vrfv2plusconfig.BillingType_Native:
+		//fund consumer with Eth (native token)
+		_, err := actions.SendFunds(l, sethClient, actions.FundsToSendPayload{
+			ToAddress:  common.HexToAddress(wrapperConsumer.Address()),
+			Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
+			PrivateKey: sethClient.PrivateKeys[0],
+		})
+		if err != nil {
+			return err
+		}
+	case vrfv2plusconfig.BillingType_Link_and_Native:
+		//fund consumer with Link
+		linkAmount := big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(*vrfv2PlusConfig.WrapperConsumerFundingAmountLink))
+		l.Info().
+			Str("Link Amount", linkAmount.String()).
+			Str("WrapperConsumerAddress", wrapperConsumer.Address()).Msg("Funding WrapperConsumer with Link")
+		err := linkToken.Transfer(
+			wrapperConsumer.Address(),
+			linkAmount,
+		)
+		if err != nil {
+			return err
+		}
+		//fund consumer with Eth (native token)
+		_, err = actions.SendFunds(l, sethClient, actions.FundsToSendPayload{
+			ToAddress:  common.HexToAddress(wrapperConsumer.Address()),
+			Amount:     conversions.EtherToWei(big.NewFloat(*vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken)),
+			PrivateKey: sethClient.PrivateKeys[0],
+		})
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid billing type: %s", subFundingType)
+	}
+	return nil
+}
+
+//switch vrfv2plusconfig.BillingType(subFundingType) {
+//		case vrfv2plusconfig.BillingType_Link:
+//			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+//			err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
+//			if err != nil {
+//				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
+//			}
+//		case vrfv2plusconfig.BillingType_Native:
+//			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+//			err := coordinator.FundSubscriptionWithNative(
+//				subID,
+//				amountWei,
+//			)
+//			if err != nil {
+//				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
+//			}
+//		case vrfv2plusconfig.BillingType_Link_and_Native:
+//			//Native Billing
+//			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
+//			err := coordinator.FundSubscriptionWithNative(
+//				subID,
+//				amountWei,
+//			)
+//			if err != nil {
+//				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
+//			}
+//			//Link Billing
+//			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
+//			err = FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
+//			if err != nil {
+//				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
+//			}
+//		default:
+//			return fmt.Errorf("invalid billing type: %s", subFundingType)
+//		}

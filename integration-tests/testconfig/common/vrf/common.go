@@ -71,6 +71,7 @@ func (c *PerformanceConfig) Validate() error {
 
 type ExistingEnvConfig struct {
 	CoordinatorAddress            *string  `toml:"coordinator_address"`
+	WrapperAddress                *string  `toml:"wrapper_address"`
 	ConsumerAddress               *string  `toml:"consumer_address"`
 	LinkAddress                   *string  `toml:"link_address"`
 	KeyHash                       *string  `toml:"key_hash"`
@@ -88,6 +89,9 @@ func (c *ExistingEnvConfig) Validate() error {
 	}
 	if !common.IsHexAddress(*c.CoordinatorAddress) {
 		return errors.New("coordinator_address must be a valid hex address")
+	}
+	if !common.IsHexAddress(*c.WrapperAddress) {
+		return errors.New("wrapper_address must be a valid hex address")
 	}
 	if c.KeyHash == nil {
 		return errors.New("key_hash must be set when using existing environment")
@@ -120,7 +124,9 @@ func (c *ExistingEnvConfig) Validate() error {
 }
 
 type Funding struct {
-	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
+	NodeSendingKeyFundingMin  *float64 `toml:"node_sending_key_funding_min"`
+	SubFundingAmountLinkMin   *float64 `toml:"sub_funding_amount_link_min"`
+	SubFundingAmountNativeMin *float64 `toml:"sub_funding_amount_native_min"`
 }
 
 func (c *Funding) Validate() error {
