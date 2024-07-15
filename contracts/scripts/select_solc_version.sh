@@ -69,6 +69,7 @@ fi
 
 echo "Will use $SOLC_TO_USE"
 SOLC_TO_USE=$(echo "$SOLC_TO_USE" | tr -d "'\"")
+SOLC_TO_USE="$(echo "$SOLC_TO_USE" | sed 's/[^0-9\.]//g')"
 
 INSTALLED_VERSIONS=$(solc-select versions)
 

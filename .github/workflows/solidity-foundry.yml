@@ -229,17 +229,21 @@ jobs:
           CHANGED="${{ needs.changes.outputs.sol_files }}"
           IFS=' ' read -r -a CHANGED_ARRAY <<< "$CHANGED"
           slither_errors=0
+          
+          cd contracts          
           for file in "${CHANGED_ARRAY[@]}"; do
+            sanitized_file="${file/contracts\//}"
+          
             # Select the correct solc version for the file as it might differ between contracts leading to compilation errors                                
-            source ./contracts/scripts/select_solc_version.sh "$file"
+            source ./scripts/select_solc_version.sh "$sanitized_file"
             exit_code=$?
             if [ $exit_code -ne 0 ]; then
-              echo "Error: Failed to select the correct solc version for $file."
+              echo "Error: Failed to select the correct solc version for $sanitized_file."
               slither_errors=$((slither_errors+1))
               continue
             fi
-            
-            slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md   
+                                
+            slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" >> slither-results.md   
           done
           
           if [ $slither_errors -ne 0 ]; then
