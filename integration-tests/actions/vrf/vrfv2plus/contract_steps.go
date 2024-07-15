@@ -712,39 +712,3 @@ func FundWrapperConsumer(
 	}
 	return nil
 }
-
-//switch vrfv2plusconfig.BillingType(subFundingType) {
-//		case vrfv2plusconfig.BillingType_Link:
-//			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-//			err := FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
-//			if err != nil {
-//				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
-//			}
-//		case vrfv2plusconfig.BillingType_Native:
-//			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-//			err := coordinator.FundSubscriptionWithNative(
-//				subID,
-//				amountWei,
-//			)
-//			if err != nil {
-//				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
-//			}
-//		case vrfv2plusconfig.BillingType_Link_and_Native:
-//			//Native Billing
-//			amountWei := conversions.EtherToWei(subscriptionFundingAmountNative)
-//			err := coordinator.FundSubscriptionWithNative(
-//				subID,
-//				amountWei,
-//			)
-//			if err != nil {
-//				return fmt.Errorf(vrfcommon.ErrGenericFormat, ErrFundSubWithNativeToken, err)
-//			}
-//			//Link Billing
-//			amountJuels := conversions.EtherToWei(subscriptionFundingAmountLink)
-//			err = FundSubscriptionWithLink(linkAddress, coordinator, subID, amountJuels)
-//			if err != nil {
-//				return fmt.Errorf(vrfcommon.ErrGenericFormat, vrfcommon.ErrFundSubWithLinkToken, err)
-//			}
-//		default:
-//			return fmt.Errorf("invalid billing type: %s", subFundingType)
-//		}
