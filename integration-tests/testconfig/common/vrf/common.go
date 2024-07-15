@@ -124,9 +124,7 @@ func (c *ExistingEnvConfig) Validate() error {
 }
 
 type Funding struct {
-	NodeSendingKeyFundingMin  *float64 `toml:"node_sending_key_funding_min"`
-	SubFundingAmountLinkMin   *float64 `toml:"sub_funding_amount_link_min"`
-	SubFundingAmountNativeMin *float64 `toml:"sub_funding_amount_native_min"`
+	NodeSendingKeyFundingMin *float64 `toml:"node_sending_key_funding_min"`
 }
 
 func (c *Funding) Validate() error {
