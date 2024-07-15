@@ -262,8 +262,12 @@ func (it *EVMChainReaderInterfaceTester[T]) SetUintLatestValue(t T, val uint64, 
 	require.NoError(t, cw.SetUintLatestValue(it.Helper.Context(t), val, forCall))
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
+// TriggerEvent triggers an event and returns the block that it was mined in.
+func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestStruct) (blockNumber string) {
+	txHash := it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
+	txReceipt, err := it.client.TransactionReceipt(it.Helper.Context(t), txHash)
+	require.NoError(t, err)
+	return txReceipt.BlockNumber.String()
 }
 
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state
@@ -313,7 +317,7 @@ func (it *EVMChainReaderInterfaceTester[T]) sendTxWithUintVal(t T, contractAddre
 
 type testStructFn = func(*chain_reader_tester.ChainReaderTesterTransactor, *bind.TransactOpts, int32, string, uint8, [32]uint8, common.Address, []common.Address, *big.Int, chain_reader_tester.MidLevelTestStruct) (*gethtypes.Transaction, error)
 
-func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAddress string, testStruct *TestStruct, fn testStructFn) {
+func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAddress string, testStruct *TestStruct, fn testStructFn) common.Hash {
 	tx, err := fn(
 		&it.contractTesters[contractAddress].ChainReaderTesterTransactor,
 		it.GetAuthWithGasSet(t),
@@ -331,6 +335,7 @@ func (it *EVMChainReaderInterfaceTester[T]) sendTxWithTestStruct(t T, contractAd
 	it.IncNonce()
 	it.AwaitTx(t, tx)
 	it.dirtyContracts = true
+	return tx.Hash()
 }
 
 func (it *EVMChainReaderInterfaceTester[T]) GetAuthWithGasSet(t T) *bind.TransactOpts {

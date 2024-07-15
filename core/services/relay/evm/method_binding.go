@@ -40,10 +40,6 @@ type methodBinding struct {
 
 var _ readBinding = &methodBinding{}
 
-func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
-	m.codec = codec
-}
-
 func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContract) error {
 	addr := common.HexToAddress(binding.Address)
 
@@ -61,6 +57,10 @@ func (m *methodBinding) Bind(ctx context.Context, binding commontypes.BoundContr
 	m.bound = true
 
 	return nil
+}
+
+func (m *methodBinding) SetCodec(codec commontypes.RemoteCodec) {
+	m.codec = codec
 }
 
 func (m *methodBinding) Register(_ context.Context) error {

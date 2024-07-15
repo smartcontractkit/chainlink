@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -171,6 +172,10 @@ func (cr *chainReader) HealthReport() map[string]error {
 	return map[string]error{cr.Name(): nil}
 }
 
+func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
+	return cr.bindings.Bind(ctx, cr.lp, bindings)
+}
+
 func (cr *chainReader) GetLatestValue(ctx context.Context, contractName, method string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	b, err := cr.bindings.GetReadBinding(contractName, method)
 	if err != nil {
@@ -184,10 +189,6 @@ func (cr *chainReader) BatchGetLatestValues(ctx context.Context, request commont
 	return cr.bindings.BatchGetLatestValues(ctx, request)
 }
 
-func (cr *chainReader) Bind(ctx context.Context, bindings []commontypes.BoundContract) error {
-	return cr.bindings.Bind(ctx, cr.lp, bindings)
-}
-
 func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter query.KeyFilter, limitAndSort query.LimitAndSort, sequenceDataType any) ([]commontypes.Sequence, error) {
 	b, err := cr.bindings.GetReadBinding(contractName, filter.Key)
 	if err != nil {
@@ -195,6 +196,26 @@ func (cr *chainReader) QueryKey(ctx context.Context, contractName string, filter
 	}
 
 	return b.QueryKey(ctx, filter, limitAndSort, sequenceDataType)
+}
+
+func (cr *chainReader) ReplaySequence(ctx context.Context, contractName, key, blockID string) error {
+	binding, err := cr.bindings.GetReadBinding(contractName, key)
+	if err != nil {
+		return err
+	}
+
+	_, isEventBinding := binding.(*eventBinding)
+	if !isEventBinding {
+		return fmt.Errorf("key: %s does not belong to a replayable event", key)
+	}
+
+	blockNumber, err := strconv.ParseInt(blockID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("%w: EVM blockID should be a number but is %s", err, blockID)
+	}
+
+	// TODO use an event specific replay when LP implements it
+	return cr.lp.Replay(ctx, blockNumber)
 }
 
 func (cr *chainReader) CreateContractType(contractName, itemType string, forEncoding bool) (any, error) {
