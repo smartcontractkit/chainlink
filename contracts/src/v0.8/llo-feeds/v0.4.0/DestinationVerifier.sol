@@ -22,14 +22,11 @@ uint256 constant MAX_NUM_ORACLES = 31;
  **/
 contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
-    /// @notice The list of DON configurations
-    mapping(address => SignerConfig) private s_SignerByAddress;
+    /// @notice The list of DON configurations by hash(address|DONConfigID) - set to true if the signer is part of the config
+    mapping(bytes32 => bool) private s_SignerByAddressAndDONConfigId;
 
-    /// @notice The list of DON configurations by hash(address|DONConfigID) - used to check if a NOP is part of a configuration
-    mapping(bytes32 => SignerConfig) private s_SignerByAddressAndDONConfigId;
-
-    /// @notice The list of DON Configurations
-    mapping(bytes24 => DONConfig) private s_DONConfigByID;
+    /// array of DON configs
+    DONConfig[] private s_DONConfigs;
 
     /// @notice The address of the verifierProxy
     IDestinationFeeManager private s_feeManager;
@@ -115,14 +112,9 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         bytes24 DONConfigID;
         // Fault tolerance of the DON
         uint8 f;
-        // If the DON has been disabled
+        // Whether the config is active
         bool isActive;
-    }
-
-    struct SignerConfig {
-        // Reference to the signer
-        bytes24 DONConfigID;
-        // Time the configuration was set
+        // The time the config was set
         uint32 activationTime;
     }
 
@@ -185,7 +177,10 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         return verifierResponses;
     }
 
-    function _verifySignatures(bytes calldata signedReport) internal view returns (bytes memory, address[] memory, bytes24) {
+    function _verify(
+        bytes calldata signedReport,
+        address sender
+    ) internal returns (bytes memory, bytes32)  {
         (
             bytes32[3] memory reportContext,
             bytes memory reportData,
@@ -200,52 +195,28 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         //Must always be at least 1 signer
         if(rs.length == 0) revert NoSigners();
 
-        // Signed payload
+        // The payload is hashed and signed by the oracles - we need to recover the addresses
         bytes32 signedPayload = keccak256(abi.encodePacked(keccak256(reportData), reportContext));
-
-        address signerAddress;
-        SignerConfig memory signerConfig;
-        SignerConfig memory activeSignerConfig;
         address[] memory signers = new address[](rs.length);
         for(uint i; i < rs.length; ++i) {
-            signerAddress = ecrecover(signedPayload, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-
-            signerConfig = s_SignerByAddress[signerAddress];
-
-            // The signer must have a valid config
-            if(signerConfig.DONConfigID == bytes24(0)) {
-                revert BadVerification();
-            }
-
-            // Find the earliest config
-            if(activeSignerConfig.DONConfigID == bytes24(0) ||
-                signerConfig.activationTime < activeSignerConfig.activationTime) {
-                activeSignerConfig = signerConfig;
-            }
-
-            // Keep track of the signers to verify there's duplicates
-            signers[i] = signerAddress;
+            signers[i] = ecrecover(signedPayload, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         }
-
 
         // Duplicate signatures are not allowed
         if(Common._hasDuplicateAddresses(signers)) {
             revert BadVerification();
         }
 
-        return (reportData, signers, activeSignerConfig.DONConfigID);
-    }
+        //We need to know the timestamp the report was generated to lookup the active activeDONConfig
+        uint256 reportTimestamp = decodeReportTimestamp(reportData);
 
+        // Find the latest config for this report
+        DONConfig memory activeDONConfig = findActiveConfig(reportTimestamp);
 
-    function _verify(
-        bytes calldata signedReport,
-        address sender
-    ) internal returns (bytes memory, bytes32)  {
-        // Verify the signatures
-        (bytes memory reportData, address[] memory signers, bytes24 activeDONConfigID) = _verifySignatures(signedReport);
-
-        // The active config is the earliest common config amongst signers
-        DONConfig memory activeDONConfig = s_DONConfigByID[activeDONConfigID];
+        // Check a config has been set
+        if(activeDONConfig.DONConfigID == bytes24(0)) {
+            revert BadVerification();
+        }
 
         //check the config is active
         if(!activeDONConfig.isActive) {
@@ -261,7 +232,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         bytes32 signerDONConfigKey;
         for(uint i; i < signers.length; ++i) {
             signerDONConfigKey = keccak256(abi.encodePacked(signers[i], activeDONConfig.DONConfigID));
-            if(s_SignerByAddressAndDONConfigId[signerDONConfigKey].DONConfigID == bytes24(0)) {
+            if(!s_SignerByAddressAndDONConfigId[signerDONConfigKey]) {
                 revert BadVerification();
             }
         }
@@ -287,26 +258,20 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
         //DONConfig is made up of hash(signers|f)
         bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
-        if(s_DONConfigByID[DONConfigID].DONConfigID != bytes24(0)) {
-            revert DONConfigAlreadyExists(DONConfigID);
-        }
 
         // Register the signers for this DON
-        SignerConfig memory signerConfig;
         for(uint i; i < signers.length; ++i) {
             if(signers[i] == address(0))
                 revert ZeroAddress();
-
-            signerConfig = SignerConfig(DONConfigID, uint32(block.timestamp));
-
-            // This index will always contain the most recent config for a signer
-            s_SignerByAddress[signers[i]] = signerConfig;
-
-
             /** This index is registered so we can efficiently lookup whether a NOP is part of a config without having to
-                loop through the entire config each verification. It's efficiently a DONConfig <-> Signer
+                loop through the entire config each verification. It's effectively a DONConfig <-> Signer
                 composite key which keys track of all historic configs for a signer */
-            s_SignerByAddressAndDONConfigId[keccak256(abi.encodePacked(signers[i], DONConfigID))] = signerConfig;
+            s_SignerByAddressAndDONConfigId[keccak256(abi.encodePacked(signers[i], DONConfigID))] = true;
+        }
+
+        // Check the config we're setting isn't already set as the current active config as this will increase search costs unnecessarily when verifying historic reports
+        if(s_DONConfigs.length > 0 && s_DONConfigs[s_DONConfigs.length - 1].DONConfigID == DONConfigID) {
+            revert DONConfigAlreadyExists(DONConfigID);
         }
 
         // We may want to register these later or skip this step in the unlikely scenario they've previously been registered in the RewardsManager
@@ -314,8 +279,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
           s_feeManager.setFeeRecipients(DONConfigID, recipientAddressesAndWeights);
         }
 
-        // Insert the config
-        s_DONConfigByID[DONConfigID] = DONConfig(DONConfigID, f, true);
+        // push the DONConfig
+        s_DONConfigs.push(DONConfig(DONConfigID, f, true, uint32(block.timestamp)));
 
         emit ConfigSet(DONConfigID, signers, f, recipientAddressesAndWeights);
     }
@@ -337,17 +302,37 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     }
 
     /// @inheritdoc IDestinationVerifier
-    function setConfigActive(bytes24 DONConfigID, bool isActive) external onlyOwner {
+    function setConfigActive(uint256 DONConfigIndex, bool isActive) external onlyOwner {
         // Config must exist
-        DONConfig memory config = s_DONConfigByID[DONConfigID];
-        if(config.DONConfigID == bytes24(0)) {
+        if(DONConfigIndex >= s_DONConfigs.length) {
             revert DONConfigDoesNotExist();
         }
 
         // Update the config
-        s_DONConfigByID[DONConfigID].isActive = isActive;
+        DONConfig storage config = s_DONConfigs[DONConfigIndex];
+        config.isActive = isActive;
 
-        emit ConfigActivated(DONConfigID, isActive);
+        emit ConfigActivated(config.DONConfigID, isActive);
+    }
+
+
+    function decodeReportTimestamp(bytes memory reportPayload) internal pure returns (uint256) {
+        (,,uint256 timestamp) = abi.decode(reportPayload, (bytes32, uint32, uint32));
+
+        return timestamp;
+    }
+
+    function findActiveConfig(uint256 timestamp) internal view returns (DONConfig memory){
+        DONConfig memory activeDONConfig;
+
+        // 99% of the time the signer config will be the last index, however for historic reports generated by a previous configuration we'll need to cycle back
+        for(uint256 i = s_DONConfigs.length - 1; i >= 0; --i) {
+            activeDONConfig = s_DONConfigs[i];
+            if(activeDONConfig.activationTime <= timestamp) {
+                break;
+            }
+        }
+        return activeDONConfig;
     }
 
     modifier checkConfigValid(uint256 numSigners, uint256 f){

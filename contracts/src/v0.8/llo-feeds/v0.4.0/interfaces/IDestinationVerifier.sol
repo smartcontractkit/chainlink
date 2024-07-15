@@ -51,10 +51,10 @@ interface IDestinationVerifier is IERC165 {
 
   /**
     * @notice Updates the config active status
-    * @param DONConfigID The new config active status
+    * @param DONConfigID The ID of the config to update
     * @param isActive The new config active status
     */
-  function setConfigActive(bytes24 DONConfigID, bool isActive) external;
+  function setConfigActive(uint256 DONConfigID, bool isActive) external;
 
 
   /**
