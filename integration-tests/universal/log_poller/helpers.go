@@ -1092,6 +1092,7 @@ func SetupLogPollerTestDocker(
 		registryConfig,
 		linkToken,
 		wethToken,
+		nil,
 	)
 
 	// Fund the registry with LINK

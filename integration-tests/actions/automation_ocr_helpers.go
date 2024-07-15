@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/seth"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -41,8 +42,12 @@ func BuildAutoOCR2ConfigVars(
 	deltaStage time.Duration,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
+
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled, linkToken, wethToken, ethUSDFeed)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -55,6 +60,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	registryOwnerAddress common.Address,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.OCRv2Config, error) {
 	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -172,6 +180,29 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
 		l.Info().Msg("=====================Done building OCR v23 config")
 		ocrConfig.TypedOnchainConfig23 = registryConfig.Create23OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+		ocrConfig.BillingTokens = []common.Address{
+			common.HexToAddress(linkToken.Address()),
+			common.HexToAddress(wethToken.Address()),
+		}
+
+		ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+		}
 	}
 
 	l.Info().Msg("Done building OCR config")
@@ -261,6 +292,7 @@ func CreateOCRKeeperJobs(
 	l.Info().Msg("Done creating OCR automation jobs")
 }
 
+// TODO check other usages
 // DeployAutoOCRRegistryAndRegistrar registry and registrar
 func DeployAutoOCRRegistryAndRegistrar(
 	t *testing.T,
@@ -269,8 +301,9 @@ func DeployAutoOCRRegistryAndRegistrar(
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
 	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken)
+	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken, ethUSDFeed)
 	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken, wethToken)
 
 	return registry, registrar
@@ -442,16 +475,12 @@ func deployRegistry(
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
 	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) contracts.KeeperRegistry {
 	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-
-	//l := logging.GetTestLogger(t)
-	// This feed is used for both eth/usd and link/usd
-	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(client, registrySettings.FallbackLinkPrice)
-	require.NoError(t, err, "Error deploying eth usd feed contract")
 
 	// Deploy the transcoder here, and then set it to the registry
 	transcoder, err := contracts.DeployUpkeepTranscoder(client)

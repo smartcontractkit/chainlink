@@ -272,6 +272,7 @@ func TestAutomationChaos(t *testing.T) {
 						defaultOCRRegistryConfig,
 						linkToken,
 						wethToken,
+						nil,
 					)
 
 					// Fund the registry with LINK
@@ -281,7 +282,7 @@ func TestAutomationChaos(t *testing.T) {
 					actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, rv)
 					nodesWithoutBootstrap := chainlinkNodes[1:]
 					defaultOCRRegistryConfig.RegistryVersion = rv
-					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled())
+					ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second, registry.ChainModuleAddress(), registry.ReorgProtectionEnabled(), nil, nil, nil)
 					require.NoError(t, err, "Error building OCR config vars")
 
 					if rv == eth_contracts.RegistryVersion_2_0 {
