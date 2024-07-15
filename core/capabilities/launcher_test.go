@@ -612,14 +612,14 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	))
 	require.NoError(t, registry.Add(ctx, mt))
 
-	workflowDonNodes := [][32]byte{
+	workflowDonNodes := []p2ptypes.PeerID{
 		randomWord(),
 		randomWord(),
 		randomWord(),
 		randomWord(),
 	}
 
-	capabilityDonNodes := [][32]byte{
+	capabilityDonNodes := []p2ptypes.PeerID{
 		pid,
 		randomWord(),
 		randomWord(),
@@ -632,36 +632,36 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	// The below state describes a Capability DON (AcceptsWorkflows = true),
 	// which exposes the streams-trigger and write_chain capabilities.
 	// We expect receivers to be wired up.
-	state := registrysyncer.State{
-		IDsToDONs: map[registrysyncer.DonID]kcr.CapabilitiesRegistryDONInfo{
+	state := &registrysyncer.LocalRegistry{
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 			registrysyncer.DonID(dID): {
-				Id:               dID,
-				ConfigCount:      uint32(0),
-				F:                uint8(1),
-				IsPublic:         true,
-				AcceptsWorkflows: true,
-				NodeP2PIds:       workflowDonNodes,
+				DON: capabilities.DON{
+					ID:               dID,
+					ConfigVersion:    uint32(0),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: true,
+					Members:          workflowDonNodes,
+				},
 			},
 			registrysyncer.DonID(capDonID): {
-				Id:               capDonID,
-				ConfigCount:      uint32(0),
-				F:                uint8(1),
-				IsPublic:         true,
-				AcceptsWorkflows: false,
-				NodeP2PIds:       capabilityDonNodes,
-				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{
-						CapabilityId: triggerCapID,
-						Config:       []byte(""),
-					},
+				DON: capabilities.DON{
+					ID:               capDonID,
+					ConfigVersion:    uint32(0),
+					F:                uint8(1),
+					IsPublic:         true,
+					AcceptsWorkflows: false,
+					Members:          capabilityDonNodes,
+				},
+				CapabilityConfigurations: map[registrysyncer.CapabilityID]capabilities.CapabilityConfiguration{
+					registrysyncer.CapabilityID(fullTriggerCapID): {},
 				},
 			},
 		},
-		IDsToCapabilities: map[registrysyncer.HashedCapabilityID]kcr.CapabilitiesRegistryCapabilityInfo{
-			triggerCapID: {
-				LabelledName:   "streams-trigger",
-				Version:        "1.0.0",
-				CapabilityType: 0,
+		IDsToCapabilities: map[registrysyncer.CapabilityID]registrysyncer.Capability{
+			registrysyncer.CapabilityID(fullTriggerCapID): {
+				ID:             registrysyncer.CapabilityID(fullTriggerCapID),
+				CapabilityType: capabilities.CapabilityTypeTrigger,
 			},
 		},
 		IDsToNodes: map[p2ptypes.PeerID]kcr.CapabilitiesRegistryNodeInfo{

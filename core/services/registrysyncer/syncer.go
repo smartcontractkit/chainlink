@@ -38,6 +38,7 @@ type registrySyncer struct {
 	initReader      func(ctx context.Context, lggr logger.Logger, relayer contractReaderFactory, registryAddress string) (types.ContractReader, error)
 	relayer         contractReaderFactory
 	registryAddress string
+	peerWrapper     p2ptypes.PeerWrapper
 
 	wg   sync.WaitGroup
 	lggr logger.Logger
@@ -64,6 +65,7 @@ func New(
 		relayer:         relayer,
 		registryAddress: registryAddress,
 		initReader:      newReader,
+		peerWrapper:     peerWrapper,
 	}, nil
 }
 
@@ -162,10 +164,10 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 
 	var rtc capabilities.RemoteTriggerConfig
 	if prtc := cconf.GetRemoteTriggerConfig(); prtc != nil {
-		rtc.RegistrationRefreshMs = prtc.RegistrationRefreshMs
-		rtc.RegistrationExpiryMs = prtc.RegistrationExpiryMs
+		rtc.RegistrationRefresh = prtc.RegistrationRefresh.AsDuration()
+		rtc.RegistrationExpiry = prtc.RegistrationExpiry.AsDuration()
 		rtc.MinResponsesToAggregate = prtc.MinResponsesToAggregate
-		rtc.MessageExpiryMs = prtc.MessageExpiryMs
+		rtc.MessageExpiry = prtc.MessageExpiry.AsDuration()
 	}
 
 	return capabilities.CapabilityConfiguration{
@@ -174,9 +176,9 @@ func unmarshalCapabilityConfig(data []byte) (capabilities.CapabilityConfiguratio
 	}, nil
 }
 
-func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
+func (s *registrySyncer) localRegistry(ctx context.Context) (*LocalRegistry, error) {
 	caps := []kcr.CapabilitiesRegistryCapabilityInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
+	err := s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getCapabilities", primitives.Unconfirmed, nil, &caps)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +196,7 @@ func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
 	}
 
 	dons := []kcr.CapabilitiesRegistryDONInfo{}
-	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", nil, &dons)
+	err = s.reader.GetLatestValue(ctx, "CapabilitiesRegistry", "getDONs", primitives.Unconfirmed, nil, &dons)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +211,7 @@ func (s *registrySyncer) state(ctx context.Context) (*LocalRegistry, error) {
 			}
 
 			cconf, innerErr := unmarshalCapabilityConfig(dc.Config)
-			if err != nil {
+			if innerErr != nil {
 				return nil, innerErr
 			}
 
@@ -262,13 +264,13 @@ func (s *registrySyncer) sync(ctx context.Context) error {
 		s.reader = reader
 	}
 
-	state, err := s.state(ctx)
+	lr, err := s.localRegistry(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to sync with remote registry: %w", err)
 	}
 
 	for _, h := range s.launchers {
-		if err := h.Launch(ctx, state); err != nil {
+		if err := h.Launch(ctx, lr); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 		}
 	}

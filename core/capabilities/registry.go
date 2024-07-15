@@ -14,7 +14,7 @@ var (
 	ErrCapabilityAlreadyExists = errors.New("capability already exists")
 )
 
-type localRegistry interface {
+type metadataRegistry interface {
 	GetLocalNode(ctx context.Context) (capabilities.Node, error)
 	ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error)
 }
@@ -22,32 +22,32 @@ type localRegistry interface {
 // Registry is a struct for the registry of capabilities.
 // Registry is safe for concurrent use.
 type Registry struct {
-	localRegistry localRegistry
-	lggr          logger.Logger
-	m             map[string]capabilities.BaseCapability
-	mu            sync.RWMutex
+	metadataRegistry metadataRegistry
+	lggr             logger.Logger
+	m                map[string]capabilities.BaseCapability
+	mu               sync.RWMutex
 }
 
 func (r *Registry) GetLocalNode(ctx context.Context) (capabilities.Node, error) {
-	if r.localRegistry == nil {
-		return capabilities.Node{}, errors.New("localRegistry information not available")
+	if r.metadataRegistry == nil {
+		return capabilities.Node{}, errors.New("metadataRegistry information not available")
 	}
 
-	return r.localRegistry.GetLocalNode(ctx)
+	return r.metadataRegistry.GetLocalNode(ctx)
 }
 
 func (r *Registry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
-	if r.localRegistry == nil {
-		return capabilities.CapabilityConfiguration{}, errors.New("localRegistry information not available")
+	if r.metadataRegistry == nil {
+		return capabilities.CapabilityConfiguration{}, errors.New("metadataRegistry information not available")
 	}
 
-	return r.localRegistry.ConfigForCapability(ctx, capabilityID, donID)
+	return r.metadataRegistry.ConfigForCapability(ctx, capabilityID, donID)
 }
 
-func (r *Registry) SetLocalRegistry(lr localRegistry) {
+func (r *Registry) SetLocalRegistry(lr metadataRegistry) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.localRegistry = lr
+	r.metadataRegistry = lr
 }
 
 // Get gets a capability from the registry.

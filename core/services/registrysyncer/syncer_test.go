@@ -16,11 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -123,10 +127,10 @@ func randomWord() [32]byte {
 }
 
 type launcher struct {
-	localRegistry State
+	localRegistry *LocalRegistry
 }
 
-func (l *launcher) Launch(ctx context.Context, localRegistry State) error {
+func (l *launcher) Launch(ctx context.Context, localRegistry *LocalRegistry) error {
 	l.localRegistry = localRegistry
 	return nil
 }
@@ -198,10 +202,26 @@ func TestReader_Integration(t *testing.T) {
 	_, err = reg.AddNodes(owner, nodes)
 	require.NoError(t, err)
 
+	config := &capabilitiespb.CapabilityConfig{
+		ExecuteConfig: values.Proto(values.EmptyMap()).GetMapValue(),
+		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
+			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
+				// F + 1
+				MinResponsesToAggregate: uint32(1) + 1,
+			},
+		},
+	}
+	configb, err := proto.Marshal(config)
+	if err != nil {
+		panic(err)
+	}
+
 	cfgs := []kcr.CapabilitiesRegistryCapabilityConfiguration{
 		{
 			CapabilityId: hid,
-			Config:       []byte(`{"hello": "world"}`),
+			Config:       configb,
 		},
 	}
 	_, err = reg.AddDON(
@@ -218,7 +238,7 @@ func TestReader_Integration(t *testing.T) {
 
 	wrapper := mocks.NewPeerWrapper(t)
 	factory := newContractReaderFactory(t, sim)
-	syncer, err := New(logger.TestLogger(t), factory, regAddress.Hex())
+	syncer, err := New(logger.TestLogger(t), wrapper, factory, regAddress.Hex())
 	require.NoError(t, err)
 
 	l := &launcher{}
@@ -236,8 +256,12 @@ func TestReader_Integration(t *testing.T) {
 	}, gotCap)
 
 	assert.Len(t, s.IDsToDONs, 1)
-	var rtc capabilities.RemoteTriggerConfig
-	rtc.ApplyDefaults()
+	rtc := capabilities.RemoteTriggerConfig{
+		RegistrationRefresh:     20 * time.Second,
+		MinResponsesToAggregate: 2,
+		RegistrationExpiry:      60 * time.Second,
+		MessageExpiry:           120 * time.Second,
+	}
 	expectedDON := DON{
 		DON: capabilities.DON{
 			ID:               1,
@@ -249,7 +273,7 @@ func TestReader_Integration(t *testing.T) {
 		},
 		CapabilityConfigurations: map[CapabilityID]capabilities.CapabilityConfiguration{
 			cid: {
-				ExecuteConfig:       nil,
+				ExecuteConfig:       values.EmptyMap(),
 				RemoteTriggerConfig: rtc,
 			},
 		},

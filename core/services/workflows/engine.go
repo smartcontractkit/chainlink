@@ -700,9 +700,11 @@ func configForStep(ctx context.Context, reg core.CapabilitiesRegistry, localNode
 
 	// If the capability info is missing a DON, then
 	// the capability is local, and we should use the localNode's DON ID.
-	donID := localNode.WorkflowDON.ID
-	if step.info.DON != nil {
+	var donID uint32
+	if step.info.DON != nil && step.info.DON.ID > 0 {
 		donID = step.info.DON.ID
+	} else {
+		donID = localNode.WorkflowDON.ID
 	}
 
 	capConfig, err := reg.ConfigForCapability(ctx, ID, donID)

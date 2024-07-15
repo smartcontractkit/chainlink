@@ -8,10 +8,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -330,8 +332,8 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 		ExecuteConfig: values.Proto(values.EmptyMap()).GetMapValue(),
 		RemoteConfig: &capabilitiespb.CapabilityConfig_RemoteTriggerConfig{
 			RemoteTriggerConfig: &capabilitiespb.RemoteTriggerConfig{
-				RegistrationRefreshMs: 20000,
-				RegistrationExpiryMs:  60000,
+				RegistrationRefresh: durationpb.New(20 * time.Second),
+				RegistrationExpiry:  durationpb.New(60 * time.Second),
 				// F + 1
 				MinResponsesToAggregate: uint32(1) + 1,
 			},
