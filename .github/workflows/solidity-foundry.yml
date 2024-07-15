@@ -214,7 +214,8 @@ jobs:
         shell: bash
         run: |
           CHANGED="${{ needs.changes.outputs.sol_files }}"
-          for file in "${CHANGED[@]}"; do
+          IFS=' ' read -r -a CHANGED_ARRAY <<< "$CHANGED"
+          for file in "${CHANGED_ARRAY[@]}"; do          
             slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
           done
 
