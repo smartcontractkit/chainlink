@@ -359,4 +359,7 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// Until common PR is merged
+	github.com/smartcontractkit/chainlink-common => ../chainlink-common/
 )

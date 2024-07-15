@@ -53,7 +53,7 @@ type EVMChainReaderInterfaceTesterHelper[T TestingT[T]] interface {
 	MaxWaitTimeForEvents() time.Duration
 	GasPriceBufferPercent() int64
 	FromAddress() common.Address
-	TXM(T, client.Client, *sqlx.DB) evmtxmgr.TxManager
+	TXM(T) evmtxmgr.TxManager
 }
 
 type EVMChainReaderInterfaceTester[T TestingT[T]] struct {
@@ -188,7 +188,7 @@ func (it *EVMChainReaderInterfaceTester[T]) Setup(t T) {
 	}
 
 	it.client = it.Helper.Client(t)
-	it.txm = it.Helper.TXM(t, it.client, it.Helper.NewSqlxDB(t))
+	it.txm = it.Helper.TXM(t)
 
 	it.chainWriterConfig = types.ChainWriterConfig{
 		Contracts: map[string]*types.ContractConfig{
@@ -262,10 +262,6 @@ func (it *EVMChainReaderInterfaceTester[T]) GetChainReader(t T) clcommontypes.Co
 	return cr
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
-	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).AddTestStruct)
-}
-
 func (it *EVMChainReaderInterfaceTester[T]) SetBatchLatestValues(t T, batchCallEntry BatchCallEntry) {
 	nameToAddress := make(map[string]string)
 	boundContracts := it.GetBindings(t)
@@ -313,7 +309,7 @@ func (it *EVMChainReaderInterfaceTester[T]) TriggerEvent(t T, testStruct *TestSt
 	it.sendTxWithTestStruct(t, it.address, testStruct, (*chain_reader_tester.ChainReaderTesterTransactor).TriggerEvent)
 }
 
-func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *TestStruct) {
+func (it *EVMChainReaderInterfaceTester[T]) SetTestStructLatestValue(t T, testStruct *TestStruct) {
 	fmt.Printf("%+v\n", testStruct)
 	txID := uuid.New().String()
 	err := it.GetChainWriter(t).SubmitTransaction(
@@ -328,72 +324,12 @@ func (it *EVMChainReaderInterfaceTester[T]) SetLatestValue(t T, testStruct *Test
 	)
 
 	require.NoError(t, err)
-	// toAddress := common.HexToAddress(it.address)
-
-	// calldata, err := cw.Encoder().Encode(it.Helper.Context(t), testStruct, wrapItemType(AnyContractName, "addTestStruct", true))
-	// require.NoError(t, err)
-
-	// tx := evmtypes.DynamicFeeTx{
-	// 	ChainID:   big.NewInt(1337),
-	// 	Nonce:     it.auth.Nonce.Uint64(),
-	// 	GasTipCap: big.NewInt(100000000000),
-	// 	GasFeeCap: big.NewInt(1),
-	// 	Gas:       2000000,
-	// 	To:        &toAddress,
-	// 	Value:     big.NewInt(0),
-	// 	Data:      calldata,
-	// }
-	// tx := evmtypes.LegacyTx{
-	// 	Nonce:    it.auth.Nonce.Uint64(),
-	// 	GasPrice: big.NewInt(20000000000),
-	// 	Gas:      2000000,
-	// 	To:       &toAddress,
-	// 	Value:    big.NewInt(0),
-	// 	Data:     calldata,
-	// }
-	// fmt.Printf("Tx details: %+v\n", tx)
-	// transaction := evmtypes.NewTx(&tx)
 
 	it.Helper.Commit()
 	it.IncNonce()
-	// fmt.Println("test1")
-	// it.AwaitTx(t, transaction)
-	// fmt.Println("test2")
 	it.dirtyContracts = true
 
-	err = it.waitForTransactionFinalization(t, txID)
 	require.NoError(t, err)
-}
-
-func (it *EVMChainReaderInterfaceTester[T]) waitForTransactionFinalization(t T, txID string) error {
-	ctx, cancel := context.WithTimeout(it.Helper.Context(t), 5*time.Minute)
-	defer cancel()
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("transaction %s not finalized within timeout period", txID)
-		case <-ticker.C:
-			status, err := it.GetChainWriter(t).GetTransactionStatus(ctx, txID)
-			if err != nil {
-				return fmt.Errorf("failed to get transaction status: %w", err)
-			}
-
-			switch status {
-			case clcommontypes.Finalized, clcommontypes.Unconfirmed:
-				fmt.Println("Found successful Transaction")
-				return nil
-			case clcommontypes.Failed, clcommontypes.Fatal:
-				return fmt.Errorf("transaction %s has failed or is fatal", txID)
-			case clcommontypes.Unknown:
-				fmt.Printf("Transaction %s is still %s\n", txID, status)
-				// Continue polling for these statuses
-			}
-		}
-	}
 }
 
 // GenerateBlocksTillConfidenceLevel is supposed to be used for testing confidence levels, but geth simulated backend doesn't support calling past state

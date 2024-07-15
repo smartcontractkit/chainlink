@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math"
 	"math/big"
@@ -22,7 +23,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	keytypes "github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
 )
 
@@ -158,9 +159,10 @@ func TestChainReader(t *testing.T) {
 }
 
 type helper struct {
-	sim         *backends.SimulatedBackend
-	auth        *bind.TransactOpts
-	fromAddress common.Address
+	sim  *backends.SimulatedBackend
+	auth *bind.TransactOpts
+	pKey *ecdsa.PrivateKey
+	txm  evmtxmgr.TxManager
 }
 
 func (h *helper) MustGenerateRandomKey(t *testing.T) ethkey.KeyV2 {
@@ -174,6 +176,7 @@ func (h *helper) GasPriceBufferPercent() int64 {
 func (h *helper) SetupAuth(t *testing.T) *bind.TransactOpts {
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
+	h.pKey = privateKey
 
 	h.auth, err = bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(1337))
 	require.NoError(t, err)
@@ -187,6 +190,7 @@ func (h *helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
 		h.sim = backends.NewSimulatedBackend(
 			core.GenesisAlloc{h.auth.From: {Balance: big.NewInt(math.MaxInt64)}}, commonGasLimitOnEvms*5000)
+		cltest.Mine(h.sim, 1*time.Second)
 	}
 
 	return h.sim
@@ -213,7 +217,7 @@ func (h *helper) Context(t *testing.T) context.Context {
 }
 
 func (h *helper) FromAddress() common.Address {
-	return h.fromAddress
+	return h.auth.From
 }
 
 func (h *helper) MaxWaitTimeForEvents() time.Duration {
@@ -231,21 +235,12 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 	return maxWaitTime
 }
 
-func (h *helper) TXM(t *testing.T, client client.Client, db *sqlx.DB) evmtxmgr.TxManager {
-	// lggr := logger.TestLogger(t)
-	// lpOpts := logpoller.Opts{
-	// 	PollPeriod:               100 * time.Millisecond,
-	// 	FinalityDepth:            2,
-	// 	BackfillBatchSize:        3,
-	// 	RpcBatchSize:             2,
-	// 	KeepFinalizedBlocksDepth: 1000,
-	// }
-
-	// ht := headtracker.NewSimulatedHeadTracker(client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	// lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), client, lggr, ht, lpOpts)
-
-	// config, dbConfig, evmConfig := evmtxmgr.MakeTestConfigs(t)
-	// keyStore := cltest.NewKeyStore(t, db).Eth()
+func (h *helper) TXM(t *testing.T) evmtxmgr.TxManager {
+	client := h.Client(t)
+	db := h.NewSqlxDB(t)
+	if h.txm != nil {
+		return h.txm
+	}
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
@@ -263,36 +258,8 @@ func (h *helper) TXM(t *testing.T, client client.Client, db *sqlx.DB) evmtxmgr.T
 	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(h.ChainID()).String())
 	require.NoError(t, err)
 
-	return chain.TxManager()
-
-	// gcfg := configtest.NewTestGeneralConfig(t)
-	// cfg := evmtest.NewChainScopedConfig(t, gcfg)
-	// geCfg := cfg.EVM().GasEstimator()
-
-	// estimator, err := gas.NewEstimator(logger.TestLogger(t), client, config, geCfg)
-	// require.NoError(t, err)
-
-	// fmt.Printf("Gas Estimator Config: %+v\n", geCfg)
-
-	// txm, err := evmtxmgr.NewTxm(
-	// 	db,
-	// 	evmConfig,
-	// 	geCfg,
-	// 	evmConfig.Transactions(),
-	// 	nil,
-	// 	dbConfig,
-	// 	dbConfig.Listener(),
-	// 	client,
-	// 	lggr,
-	// 	lp,
-	// 	keyStore,
-	// 	estimator,
-	// )
-
-	// require.NoError(t, err)
-	// err = txm.Start(h.Context(t))
-	// require.NoError(t, err)
-	// return txm
+	h.txm = chain.TxManager()
+	return h.txm
 }
 
 func ptr[T any](v T) *T { return &v }
