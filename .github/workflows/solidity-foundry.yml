@@ -29,7 +29,7 @@ jobs:
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
             sol:
-              - 'contracts/src/v0.8/**/*'
+              - 'contracts/src/v0.8/**/*.sol'
 
   tests:
     strategy:
@@ -213,7 +213,7 @@ jobs:
         shell: bash
         run: |
           echo "changes: ${{ needs.changes.outputs.sol_files }}"
-          CHANGED = ${{ needs.changes.outputs.sol_files }}
+          CHANGED=${{ needs.changes.outputs.sol_files }}
           for file in "${CHANGED[@]}"; do
               slither --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ >> slither-results.md
           done
@@ -247,7 +247,20 @@ jobs:
 
       - name: Run Forge fmt
         run: |
-          forge fmt --check "${{ needs.changes.outputs.sol_files }}"
+          SOL_FILES="${{ steps.changes.outputs.sol_files }}"
+          # Converting space-separated files into a newline-separated string to handle it properly
+          FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
+          format_errors=0
+          for file in $FILE_LIST; do
+            echo "Running forge fmt --check on $file"
+            forge fmt --check "$file" || format_errors=$((format_errors+1))
+          done
+          if [ $format_errors -ne 0 ]; then
+            echo "There were $format_errors formatting errors."
+            exit 1
+          else
+            echo "All files are properly formatted."
+          fi
         id: fmt
         working-directory: contracts
 
