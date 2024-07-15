@@ -25,6 +25,8 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
+            sol:
+              - 'contracts/src/v0.8/**/*'
 
   tests:
     strategy:
@@ -146,41 +148,38 @@ jobs:
         continue-on-error: true
 
   # we want to run formatting and static analysis only on modified contracts
-  find-modified-contracts:
-    needs: [ changes ]
-    name: Find modified contracts
-    runs-on: ubuntu-22.04
-    outputs:
-      contracts: ${{ env.CONTRACT_MATRIX }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
-        with:
-          submodules: recursive
-          fetch-depth: 0
-
-      - name: Find modified contracts
-        shell: bash
-        run: |
-          git fetch origin ${{ github.base_ref }}
-          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | \
-          grep -E '\.sol$' | \
-          sed 's|^contracts/||' | \
-          sort -u | \
-          awk -F'/' '{printf("{\"path\":\"%s\",\"product\":\"%s\"}\n", $0, $3)}' | \
-          jq -s '.' > modified_contracts.json
-          MATRIX=$(cat modified_contracts.json | jq -c .)
-          echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
-          echo "Found modified contracts:"
-          cat modified_contracts.json | jq .
+#  find-modified-contracts:
+#    needs: [ changes ]
+#    name: Find modified contracts
+#    runs-on: ubuntu-22.04
+#    outputs:
+#      contracts: ${{ env.CONTRACT_MATRIX }}
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+#        with:
+#          submodules: recursive
+#          fetch-depth: 0
+#
+#      - name: Find modified contracts
+#        shell: bash
+#        run: |
+#          git fetch origin ${{ github.base_ref }}
+#          git diff --name-only --diff-filter=AMR origin/${{ github.base_ref }}...HEAD | \
+#          grep -E '\.sol$' | \
+#          sed 's|^contracts/||' | \
+#          sort -u | \
+#          awk -F'/' '{printf("{\"path\":\"%s\",\"product\":\"%s\"}\n", $0, $3)}' | \
+#          jq -s '.' > modified_contracts.json
+#          MATRIX=$(cat modified_contracts.json | jq -c .)
+#          echo "CONTRACT_MATRIX=${MATRIX}" >> $GITHUB_ENV
+#          echo "Found modified contracts:"
+#          cat modified_contracts.json | jq .
 
   analyze:
-    needs: [ find-modified-contracts ]
+    needs: [ changes ]
     name: Run static analysis
-    strategy:
-      fail-fast: false
-      matrix:
-        contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
+    if: needs.changes.outputs.sol_files != ''
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -188,33 +187,45 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: crytic/slither-action@v0.4.0
-        if: needs.changes.outputs.changes == 'true'
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          target: "contracts/${{ matrix.contract.path }}"
-          slither-config: contracts/.slither.config-pr.json
-          fail-on: none
-          node-version: 20
-          slither-args: --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ --json slither-report.json
+          python-version: '3.8'
 
-      - name: Print Slither summary
-        if: needs.changes.outputs.changes == 'true'
+      - name: Install solc-select and solc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          pip3 install solc-select
+          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+          solc-select install 0.8.19
+          solc-select use 0.8.19
+
+      - name: Install Slither
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer
+
+      - name: Run Slither
         shell: bash
         run: |
-          cat slither-report.json | jq -r '.results.printers[].additional_fields.detectors[] | "# \(.elements[0].source_mapping.filename_short)\n## \(.markdown)"' > output.txt
-          cat output.txt
+          IFS=',' read -r -a files <<< "${{ needs.changes.outputs.sol_files }}"
+          for file in "${files[@]}"; do
+              slither --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ >> slither-results.md
+          done
+
+      - name: Print Slither summary
+        shell: bash
+        run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat output.txt >> $GITHUB_STEP_SUMMARY
+          cat slither-results.md >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   fmt:
     needs: [ find-modified-contracts ]
     name: Check formatting
-    strategy:
-      fail-fast: false
-      matrix:
-        contract: ${{fromJson(needs.find-modified-contracts.outputs.contracts)}}
+    if: needs.changes.outputs.sol_files != ''
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -223,30 +234,25 @@ jobs:
           submodules: recursive
 
       - name: Setup NodeJS
-        if: needs.changes.outputs.changes == 'true'
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: needs.changes.outputs.changes == 'true'
         uses: foundry-rs/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773 # v1.2.0
         with:
           version: ${{ env.FOUNDRY_VERSION }}
 
       - name: Run Forge fmt
-        if: needs.changes.outputs.changes == 'true'
         run: |
-          forge fmt --check ${{ matrix.contract.path }}
+          IFS=',' read -r -a files <<< "${{ needs.changes.outputs.sol_files }}"
+          forge fmt --check "${files[@]}"
         id: fmt
         working-directory: contracts
-        env:
-          FOUNDRY_PROFILE: ${{ matrix.contract.product }}
 
       - name: Collect Metrics
-        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
         with:
-          id: ${{ matrix.contract.product }}-solidity-foundry-fmt
+          id: solidity-foundry-fmt
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
