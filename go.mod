@@ -352,4 +352,8 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// TODO(ML): dev
+	github.com/smartcontractkit/chainlink-common => ../chainlink-common
+	github.com/smartcontractkit/chainlink-data-streams => ../chainlink-data-streams
 )

@@ -15,6 +15,7 @@ import (
 	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -41,6 +42,7 @@ type EnhancedTelemetryMercuryData struct {
 	V1Observation                *v1types.Observation
 	V2Observation                *v2types.Observation
 	V3Observation                *v3types.Observation
+	V4Observation                *v4types.Observation
 	TaskRunResults               pipeline.TaskRunResults
 	RepTimestamp                 ocrtypes.ReportTimestamp
 	FeedVersion                  mercuryutils.FeedVersion
