@@ -561,10 +561,14 @@ func (c *CCIPIntegrationTestHarness) CreatePricesPipeline(t *testing.T) (string,
 		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
 		require.NoError(t, err)
 	}))
+	t.Cleanup(linkUSD.Close)
+
 	ethUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerETH": "1700000000000000000000"}`))
 		require.NoError(t, err)
 	}))
+	t.Cleanup(ethUSD.Close)
+
 	sourceWrappedNative, err := c.Source.Router.GetWrappedNative(nil)
 	require.NoError(t, err)
 	destWrappedNative, err := c.Dest.Router.GetWrappedNative(nil)
