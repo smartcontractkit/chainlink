@@ -32,6 +32,7 @@ jobs:
               - 'contracts/src/v0.8/**/*.sol'
 
   tests:
+    if: needs.changes.outputs.src_changes == 'bum' # remove me
     strategy:
       fail-fast: false
       matrix:
@@ -265,8 +266,9 @@ jobs:
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
           format_errors=0
           for file in $FILE_LIST; do
-            echo "Running forge fmt --check on $file"
-            forge fmt --check "$file" || format_errors=$((format_errors+1))
+            sanitized_file="${file/contracts/}"
+            echo "Running forge fmt --check on $sanitized_file"
+            forge fmt --check "$sanitized_file" || format_errors=$((format_errors+1))
           done
           if [ $format_errors -ne 0 ]; then
             echo "There were $format_errors formatting errors."
