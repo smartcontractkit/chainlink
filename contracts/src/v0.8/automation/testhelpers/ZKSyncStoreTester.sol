@@ -28,6 +28,7 @@ contract ZKSyncStoreTester {
   bytes public data5;
   bytes public full = hex"ffffffff0f0ff0fffff0fffffff0fffffffffff0fffff0ffffff0ffffffffffff00000fffffffffffff000fffffffffffffffffffffffff0ffffffffff0fffffffffffffffffff00fffffffffff00ffffffffffffffffffffffff000000fffffffffffffffffffffffffffffffffff0ffffffffffffffff0fffff0ffffffff";
   bytes public constant empty = hex"00";
+  bool public trickSimulation = false;
 
   constructor() {
     testRange = 10000;
@@ -36,7 +37,6 @@ contract ZKSyncStoreTester {
     lastTimestamp = block.timestamp;
     initialTimestamp = 0;
     counter = 0;
-
     iterations = 1;
   }
 
@@ -69,11 +69,19 @@ contract ZKSyncStoreTester {
     iterations = _i;
   }
 
+  function setTrickSimulation(bool _trickSimulation) external {
+    trickSimulation = _trickSimulation;
+  }
+
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
     return (eligible(), data);
   }
 
   function performUpkeep(bytes calldata) external {
+    if (trickSimulation && tx.origin == address(0)) {
+      return;
+    }
+
     if (initialTimestamp == 0) {
       initialTimestamp = block.timestamp;
     }

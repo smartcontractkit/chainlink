@@ -402,7 +402,7 @@ abstract contract ZKSyncAutomationRegistryBase2_2 is ConfirmedOwner {
   event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
-//  event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 gasprice);
+  event GasDetails(uint256 indexed pubdataUsed, uint256 indexed gasPerPubdataByte, uint256 indexed executionGasUsed, uint256 gasprice);
 
   /**
    * @param link address of the LINK Token

@@ -4,14 +4,14 @@ pragma solidity 0.8.19;
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import {ZKSyncAutomationRegistryBase2_2} from "./../v2_2_zksync/ZKSyncAutomationRegistryBase2_2.sol";
-import {AutomationRegistryLogicB2_2} from "./../v2_2/AutomationRegistryLogicB2_2.sol";
+import {ZKSyncAutomationRegistryLogicB2_2} from "./../v2_2_zksync/ZKSyncAutomationRegistryLogicB2_2.sol";
 import {Chainable} from "../Chainable.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 interface ISystemContext {
   function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
-  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
+//  function getCurrentPubdataSpent() external view returns (uint256 currentPubdataSpent);
 }
 
 ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b));
@@ -52,7 +52,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
    * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
    */
   constructor(
-    AutomationRegistryLogicB2_2 logicA
+    ZKSyncAutomationRegistryLogicB2_2 logicA
   )
     ZKSyncAutomationRegistryBase2_2(
       logicA.getLinkAddress(),
@@ -141,7 +141,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
       }
 
       // Actually perform the target upkeep
-      uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
+//      uint256 p1 = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
       (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed, upkeepTransmitInfo[i].l1GasUsed) = _performUpkeep(
         upkeepTransmitInfo[i].upkeep.forwarder,
         report.gasLimits[i],
@@ -152,13 +152,13 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
 //      if (p2 > p1) {
 //        pubdataUsed = p2 - p1;
 //      }
-//      uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
+      uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
 //      l1GasUsed[i] = gasPerPubdataByte * pubdataUsed;
 //      if (report.gasLimits[i] < upkeepTransmitInfo[i].l1GasUsed + upkeepTransmitInfo[i].gasUsed) {
 //        // revert or ?
 //        revert InsufficientGas(upkeepTransmitInfo[i].gasUsed, upkeepTransmitInfo[i].l1GasUsed);
 //      }
-//      emit GasDetails(pubdataUsed, gasPerPubdataByte, upkeepTransmitInfo[i].gasUsed, p1, p2, tx.gasprice);
+      emit GasDetails(upkeepTransmitInfo[i].l1GasUsed, gasPerPubdataByte, upkeepTransmitInfo[i].gasUsed, tx.gasprice);
 
       // Deduct that gasUsed by upkeep from our running counter
       // for zksync, the L1 gas is deducted at the end of a transaction
@@ -180,6 +180,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
     // for zksync, this place will underflow if we don't add back l1GasUsed
     gasOverhead = (16 * msg.data.length) + ACCOUNTING_FIXED_GAS_OVERHEAD + gasOverhead - gasleft();
     gasOverhead = gasOverhead / transmitVars.numUpkeepsPassedChecks + ACCOUNTING_PER_UPKEEP_GAS_OVERHEAD;
+//    uint256 gasPerPubdataByte = SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte();
 
     {
       uint96 reimbursement;
@@ -193,7 +194,7 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.fastGasWei,
             report.linkNative,
             gasOverhead,
-            upkeepTransmitInfo[i].l1GasUsed
+            upkeepTransmitInfo[i].l1GasUsed * tx.gasprice
           );
           transmitVars.totalPremium += premium;
           transmitVars.totalReimbursement += reimbursement;
@@ -207,12 +208,12 @@ contract ZKSyncAutomationRegistry2_2 is ZKSyncAutomationRegistryBase2_2, OCR2Abs
             report.triggers[i]
           );
 
-//          emit UpkeepPerformedDetails(
-//            reimbursement + premium,
-//            upkeepTransmitInfo[i].gasUsed,
-//            gasOverhead,
-//            upkeepTransmitInfo[i].l1GasUsed
-//          );
+          emit UpkeepPerformedDetails(
+            reimbursement + premium,
+            upkeepTransmitInfo[i].gasUsed,
+            gasOverhead,
+            upkeepTransmitInfo[i].l1GasUsed
+          );
         }
       }
     }

@@ -7,13 +7,14 @@ ISystemContext constant SYSTEM_CONTEXT_CONTRACT = ISystemContext(address(0x800b)
 
 interface ISystemContext {
   function gasPrice() external view returns (uint256);
+  function gasPerPubdataByte() external view returns (uint256 gasPerPubdataByte);
 }
 
 contract ZKSyncModule is ChainModuleBase {
   uint256 private constant FIXED_GAS_OVERHEAD = 5_000;
 
   function getMaxL1Fee(uint256 maxCalldataSize) external view override returns (uint256) {
-    return maxCalldataSize * SYSTEM_CONTEXT_CONTRACT.gasPrice();
+    return maxCalldataSize * SYSTEM_CONTEXT_CONTRACT.gasPerPubdataByte() * SYSTEM_CONTEXT_CONTRACT.gasPrice();
   }
 
   function getGasOverhead()
