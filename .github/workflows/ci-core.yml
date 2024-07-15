@@ -287,7 +287,14 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
+          name: go_core_tests_logs
           path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
       - name: Build flakey test runner
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build ./tools/flakeytests/cmd/runner
