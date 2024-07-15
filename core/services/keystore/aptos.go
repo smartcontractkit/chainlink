@@ -10,8 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/aptoskey"
 )
 
-//go:generate mockery --quiet --name Aptos --output ./mocks/ --case=underscore --filename aptos.go
-
 type Aptos interface {
 	Get(id string) (aptoskey.Key, error)
 	GetAll() ([]aptoskey.Key, error)

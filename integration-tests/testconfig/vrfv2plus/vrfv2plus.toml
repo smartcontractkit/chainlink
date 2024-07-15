@@ -97,6 +97,10 @@ fulfillment_flat_fee_link_discount_ppm=0
 native_premium_percentage=24
 link_premium_percentage=20
 
+#  0 = L1_GAS_FEES_MODE; 1 = L1_CALLDATA_GAS_COST_MODE; 2 = L1_GAS_FEES_UPPER_BOUND_MODE
+l1_fee_calculation_mode = 2
+l1_fee_coefficient = 80
+
 # Wrapper config
 wrapped_gas_overhead = 50000
 coordinator_gas_overhead_native = 52000

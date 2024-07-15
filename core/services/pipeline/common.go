@@ -43,8 +43,6 @@ const (
 	StandardCapabilitiesJobType    string = "standardcapabilities"
 )
 
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-
 type (
 	Task interface {
 		Type() TaskType
