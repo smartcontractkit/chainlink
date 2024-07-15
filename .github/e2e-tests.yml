@@ -132,3 +132,18 @@ runner-test-matrix:
     #   - Run Nightly E2E Tests
     test-cmd: cd integration-tests/benchmark && go test -v -test.run ^TestAutomationBenchmark$ -test.parallel=1 -timeout 30m -count=1
     pyroscope-env: ci-benchmark-automation-nightly
+
+  # START: VRF tests
+
+  - id: integration-tests/load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$
+    path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
+    test-type: k8s-remote-runner
+    test-type: docker
+    runs-on: ubuntu22.04-8cores-32GB
+    test-cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    default-test-inputs:
+      testType: Smoke
+
+  # END: VRF tests

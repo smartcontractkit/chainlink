@@ -381,11 +381,17 @@ jobs:
           duplicate-authorization-header: "true"
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6a36747035d91324cec30283dfba6e48ad20a660 # TODO: Create tag and use it here
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d8911f582ad7e337355baa3b23d4ef589e2f9031 # TODO: Create tag and use it here
+        env:
+          DETACH_RUNNER: true
+          TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
+          TEST_TEST_TYPE: ${{ matrix.tests.remoteRunnerTestSuite }}
         with:
           test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
+          test_type: ${{ matrix.tests.defaultTestInputs.testType }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
           artifacts_location: |
@@ -504,7 +510,7 @@ jobs:
           echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV              
 
       - name: Run tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6a36747035d91324cec30283dfba6e48ad20a660 # TODO: Create tag and use it here24
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d8911f582ad7e337355baa3b23d4ef589e2f9031 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
           TEST_SUITE: ${{ matrix.tests.remoteRunnerTestSuite }}
