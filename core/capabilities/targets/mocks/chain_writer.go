@@ -16,6 +16,14 @@ type ChainWriter struct {
 	mock.Mock
 }
 
+type ChainWriter_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *ChainWriter) EXPECT() *ChainWriter_Expecter {
+	return &ChainWriter_Expecter{mock: &_m.Mock}
+}
+
 // Close provides a mock function with given fields:
 func (_m *ChainWriter) Close() error {
 	ret := _m.Called()
@@ -32,6 +40,33 @@ func (_m *ChainWriter) Close() error {
 	}
 
 	return r0
+}
+
+// ChainWriter_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type ChainWriter_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *ChainWriter_Expecter) Close() *ChainWriter_Close_Call {
+	return &ChainWriter_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *ChainWriter_Close_Call) Run(run func()) *ChainWriter_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ChainWriter_Close_Call) Return(_a0 error) *ChainWriter_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_Close_Call) RunAndReturn(run func() error) *ChainWriter_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetFeeComponents provides a mock function with given fields: ctx
@@ -64,6 +99,34 @@ func (_m *ChainWriter) GetFeeComponents(ctx context.Context) (*types.ChainFeeCom
 	return r0, r1
 }
 
+// ChainWriter_GetFeeComponents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFeeComponents'
+type ChainWriter_GetFeeComponents_Call struct {
+	*mock.Call
+}
+
+// GetFeeComponents is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *ChainWriter_Expecter) GetFeeComponents(ctx interface{}) *ChainWriter_GetFeeComponents_Call {
+	return &ChainWriter_GetFeeComponents_Call{Call: _e.mock.On("GetFeeComponents", ctx)}
+}
+
+func (_c *ChainWriter_GetFeeComponents_Call) Run(run func(ctx context.Context)) *ChainWriter_GetFeeComponents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *ChainWriter_GetFeeComponents_Call) Return(_a0 *types.ChainFeeComponents, _a1 error) *ChainWriter_GetFeeComponents_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ChainWriter_GetFeeComponents_Call) RunAndReturn(run func(context.Context) (*types.ChainFeeComponents, error)) *ChainWriter_GetFeeComponents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetTransactionStatus provides a mock function with given fields: ctx, transactionID
 func (_m *ChainWriter) GetTransactionStatus(ctx context.Context, transactionID string) (types.TransactionStatus, error) {
 	ret := _m.Called(ctx, transactionID)
@@ -92,6 +155,35 @@ func (_m *ChainWriter) GetTransactionStatus(ctx context.Context, transactionID s
 	return r0, r1
 }
 
+// ChainWriter_GetTransactionStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTransactionStatus'
+type ChainWriter_GetTransactionStatus_Call struct {
+	*mock.Call
+}
+
+// GetTransactionStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - transactionID string
+func (_e *ChainWriter_Expecter) GetTransactionStatus(ctx interface{}, transactionID interface{}) *ChainWriter_GetTransactionStatus_Call {
+	return &ChainWriter_GetTransactionStatus_Call{Call: _e.mock.On("GetTransactionStatus", ctx, transactionID)}
+}
+
+func (_c *ChainWriter_GetTransactionStatus_Call) Run(run func(ctx context.Context, transactionID string)) *ChainWriter_GetTransactionStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ChainWriter_GetTransactionStatus_Call) Return(_a0 types.TransactionStatus, _a1 error) *ChainWriter_GetTransactionStatus_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ChainWriter_GetTransactionStatus_Call) RunAndReturn(run func(context.Context, string) (types.TransactionStatus, error)) *ChainWriter_GetTransactionStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *ChainWriter) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -112,6 +204,33 @@ func (_m *ChainWriter) HealthReport() map[string]error {
 	return r0
 }
 
+// ChainWriter_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type ChainWriter_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *ChainWriter_Expecter) HealthReport() *ChainWriter_HealthReport_Call {
+	return &ChainWriter_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *ChainWriter_HealthReport_Call) Run(run func()) *ChainWriter_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ChainWriter_HealthReport_Call) Return(_a0 map[string]error) *ChainWriter_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_HealthReport_Call) RunAndReturn(run func() map[string]error) *ChainWriter_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with given fields:
 func (_m *ChainWriter) Name() string {
 	ret := _m.Called()
@@ -128,6 +247,33 @@ func (_m *ChainWriter) Name() string {
 	}
 
 	return r0
+}
+
+// ChainWriter_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type ChainWriter_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *ChainWriter_Expecter) Name() *ChainWriter_Name_Call {
+	return &ChainWriter_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *ChainWriter_Name_Call) Run(run func()) *ChainWriter_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ChainWriter_Name_Call) Return(_a0 string) *ChainWriter_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_Name_Call) RunAndReturn(run func() string) *ChainWriter_Name_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with given fields:
@@ -148,6 +294,33 @@ func (_m *ChainWriter) Ready() error {
 	return r0
 }
 
+// ChainWriter_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type ChainWriter_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *ChainWriter_Expecter) Ready() *ChainWriter_Ready_Call {
+	return &ChainWriter_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *ChainWriter_Ready_Call) Run(run func()) *ChainWriter_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *ChainWriter_Ready_Call) Return(_a0 error) *ChainWriter_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_Ready_Call) RunAndReturn(run func() error) *ChainWriter_Ready_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *ChainWriter) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -166,6 +339,34 @@ func (_m *ChainWriter) Start(_a0 context.Context) error {
 	return r0
 }
 
+// ChainWriter_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type ChainWriter_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *ChainWriter_Expecter) Start(_a0 interface{}) *ChainWriter_Start_Call {
+	return &ChainWriter_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *ChainWriter_Start_Call) Run(run func(_a0 context.Context)) *ChainWriter_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *ChainWriter_Start_Call) Return(_a0 error) *ChainWriter_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_Start_Call) RunAndReturn(run func(context.Context) error) *ChainWriter_Start_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SubmitTransaction provides a mock function with given fields: ctx, contractName, method, args, transactionID, toAddress, meta, value
 func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int) error {
 	ret := _m.Called(ctx, contractName, method, args, transactionID, toAddress, meta, value)
@@ -182,6 +383,41 @@ func (_m *ChainWriter) SubmitTransaction(ctx context.Context, contractName strin
 	}
 
 	return r0
+}
+
+// ChainWriter_SubmitTransaction_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SubmitTransaction'
+type ChainWriter_SubmitTransaction_Call struct {
+	*mock.Call
+}
+
+// SubmitTransaction is a helper method to define mock.On call
+//   - ctx context.Context
+//   - contractName string
+//   - method string
+//   - args interface{}
+//   - transactionID string
+//   - toAddress string
+//   - meta *types.TxMeta
+//   - value *big.Int
+func (_e *ChainWriter_Expecter) SubmitTransaction(ctx interface{}, contractName interface{}, method interface{}, args interface{}, transactionID interface{}, toAddress interface{}, meta interface{}, value interface{}) *ChainWriter_SubmitTransaction_Call {
+	return &ChainWriter_SubmitTransaction_Call{Call: _e.mock.On("SubmitTransaction", ctx, contractName, method, args, transactionID, toAddress, meta, value)}
+}
+
+func (_c *ChainWriter_SubmitTransaction_Call) Run(run func(ctx context.Context, contractName string, method string, args interface{}, transactionID string, toAddress string, meta *types.TxMeta, value *big.Int)) *ChainWriter_SubmitTransaction_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(interface{}), args[4].(string), args[5].(string), args[6].(*types.TxMeta), args[7].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *ChainWriter_SubmitTransaction_Call) Return(_a0 error) *ChainWriter_SubmitTransaction_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *ChainWriter_SubmitTransaction_Call) RunAndReturn(run func(context.Context, string, string, interface{}, string, string, *types.TxMeta, *big.Int) error) *ChainWriter_SubmitTransaction_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewChainWriter creates a new instance of ChainWriter. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
