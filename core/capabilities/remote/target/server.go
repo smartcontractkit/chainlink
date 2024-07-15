@@ -56,7 +56,7 @@ func NewServer(peerID p2ptypes.PeerID, underlying commoncap.TargetCapability, ca
 		requestIDToRequest: map[string]*request.ServerRequest{},
 		requestTimeout:     requestTimeout,
 
-		lggr:   lggr,
+		lggr:   lggr.Named("TargetServer"),
 		stopCh: make(services.StopChan),
 	}
 }
@@ -110,6 +110,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
+	r.lggr.Debugw("received request for msg", "msgId", msg.MessageId)
 	if msg.Method != types.MethodExecute {
 		r.lggr.Errorw("received request for unsupported method type", "method", msg.Method)
 		return
