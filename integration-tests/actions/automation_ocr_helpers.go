@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
@@ -41,8 +43,12 @@ func BuildAutoOCR2ConfigVars(
 	deltaStage time.Duration,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
+
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled)
+	return BuildAutoOCR2ConfigVarsWithKeyIndex(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0, common.Address{}, chainModuleAddress, reorgProtectionEnabled, linkToken, wethToken, ethUSDFeed)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
@@ -55,6 +61,9 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	registryOwnerAddress common.Address,
 	chainModuleAddress common.Address,
 	reorgProtectionEnabled bool,
+	linkToken contracts.LinkToken,
+	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.OCRv2Config, error) {
 	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
@@ -170,8 +179,30 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_2 {
 		ocrConfig.TypedOnchainConfig22 = registryConfig.Create22OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
 	} else if registryConfig.RegistryVersion == ethereum.RegistryVersion_2_3 {
-		l.Info().Msg("=====================Done building OCR v23 config")
 		ocrConfig.TypedOnchainConfig23 = registryConfig.Create23OnchainConfig(registrar, registryOwnerAddress, chainModuleAddress, reorgProtectionEnabled)
+		ocrConfig.BillingTokens = []common.Address{
+			common.HexToAddress(linkToken.Address()),
+			common.HexToAddress(wethToken.Address()),
+		}
+
+		ocrConfig.BillingConfigs = []i_automation_registry_master_wrapper_2_3.AutomationRegistryBase23BillingConfig{
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+			{
+				GasFeePPB:         100,
+				FlatFeeMilliCents: big.NewInt(500),
+				PriceFeed:         common.HexToAddress(ethUSDFeed.Address()), // ETH/USD feed and LINK/USD feed are the same
+				Decimals:          18,
+				FallbackPrice:     big.NewInt(1000),
+				MinSpend:          big.NewInt(200),
+			},
+		}
 	}
 
 	l.Info().Msg("Done building OCR config")
@@ -269,8 +300,9 @@ func DeployAutoOCRRegistryAndRegistrar(
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
 	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
-	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken)
+	registry := deployRegistry(t, client, registryVersion, registrySettings, linkToken, wethToken, ethUSDFeed)
 	registrar := deployRegistrar(t, client, registryVersion, registry, linkToken, wethToken)
 
 	return registry, registrar
@@ -377,7 +409,6 @@ func DeployMultiCallAndFundDeploymentAddresses(
 	return SendLinkFundsToDeploymentAddresses(chainClient, concurrency, numberOfUpkeeps, operationsPerAddress, multicallAddress, linkFundsForEachUpkeep, linkToken)
 }
 
-// TODO reorg
 func deployRegistrar(
 	t *testing.T,
 	client *seth.Client,
@@ -398,43 +429,6 @@ func deployRegistrar(
 	return registrar
 }
 
-//func (a *AutomationTest) DeployRegistrar() error {
-//	if a.Registry == nil {
-//		return fmt.Errorf("registry must be deployed or loaded before registrar")
-//	}
-//	a.RegistrarSettings.RegistryAddr = a.Registry.Address()
-//	a.RegistrarSettings.WETHTokenAddr = a.WETHToken.Address()
-//	registrar, err := contracts.DeployKeeperRegistrar(a.ChainClient, a.RegistrySettings.RegistryVersion, a.LinkToken.Address(), a.RegistrarSettings)
-//	if err != nil {
-//		return err
-//	}
-//	a.Registrar = registrar
-//	return nil
-//}
-
-// TODO remove
-//func (a *AutomationTest) DeployRegistry() error {
-//	registryOpts := &contracts.KeeperRegistryOpts{
-//		RegistryVersion:   a.RegistrySettings.RegistryVersion,
-//		LinkAddr:          a.LinkToken.Address(),
-//		ETHFeedAddr:       a.EthLinkFeed.Address(),
-//		GasFeedAddr:       a.GasFeed.Address(),
-//		TranscoderAddr:    a.Transcoder.Address(),
-//		RegistrarAddr:     utils.ZeroAddress.Hex(),
-//		Settings:          a.RegistrySettings,
-//		LinkUSDFeedAddr:   a.EthUSDFeed.Address(),
-//		NativeUSDFeedAddr: a.EthUSDFeed.Address(),
-//		WrappedNativeAddr: a.WETHToken.Address(),
-//	}
-//	registry, err := contracts.DeployKeeperRegistry(a.ChainClient, registryOpts)
-//	if err != nil {
-//		return err
-//	}
-//	a.Registry = registry
-//	return nil
-//}
-
-// TODO
 func deployRegistry(
 	t *testing.T,
 	client *seth.Client,
@@ -442,16 +436,12 @@ func deployRegistry(
 	registrySettings contracts.KeeperRegistrySettings,
 	linkToken contracts.LinkToken,
 	wethToken contracts.WETHToken,
+	ethUSDFeed contracts.MockETHUSDFeed,
 ) contracts.KeeperRegistry {
 	ef, err := contracts.DeployMockETHLINKFeed(client, big.NewInt(2e18))
 	require.NoError(t, err, "Deploying mock ETH-Link feed shouldn't fail")
 	gf, err := contracts.DeployMockGASFeed(client, big.NewInt(2e11))
 	require.NoError(t, err, "Deploying mock gas feed shouldn't fail")
-
-	//l := logging.GetTestLogger(t)
-	// This feed is used for both eth/usd and link/usd
-	ethUSDFeed, err := contracts.DeployMockETHUSDFeed(client, registrySettings.FallbackLinkPrice)
-	require.NoError(t, err, "Error deploying eth usd feed contract")
 
 	// Deploy the transcoder here, and then set it to the registry
 	transcoder, err := contracts.DeployUpkeepTranscoder(client)
