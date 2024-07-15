@@ -191,6 +191,14 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+
+      - name: Install semver
+        shell: bash
+        run: |
+          npm install -g semver
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -215,12 +223,27 @@ jobs:
         run: |
           CHANGED="${{ needs.changes.outputs.sol_files }}"
           IFS=' ' read -r -a CHANGED_ARRAY <<< "$CHANGED"
+          slither_errors=0
           for file in "${CHANGED_ARRAY[@]}"; do
-            # Select the correct solc version for the file as it might differ between contracts leading to compilation errors
-            ./contracts/scripts/select_solc_version.sh "$file"          
-            slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
+            # Select the correct solc version for the file as it might differ between contracts leading to compilation errors                                
+            source ./contracts/scripts/select_solc_version.sh "$file"
+            exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              echo "Error: Failed to select the correct solc version for $file."
+              slither_errors=$((slither_errors+1))
+              continue
+            fi
+            
+            slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md   
           done
-
+          
+          if [ $slither_errors -ne 0 ]; then
+            echo
+            echo "There were $slither_errors Slither execution errors NOT related to formatting. Some files weren't analyzed."
+            exit 1
+          else
+            echo "All files passed static analysis check."
+          fi
       - name: Print Slither summary
         shell: bash
         run: |
@@ -261,9 +284,6 @@ jobs:
 
       - name: Run Forge fmt
         run: |
-          pwd
-          SOL_FILES="${{ needs.changes.outputs.sol_files }}"
-          # Converting space-separated files into a newline-separated string to handle it properly
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
           format_errors=0
           for file in $FILE_LIST; do
