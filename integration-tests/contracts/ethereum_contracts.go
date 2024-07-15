@@ -20,6 +20,7 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/seth"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/counter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
@@ -1670,4 +1671,61 @@ func LoadMockETHUSDFeed(client *seth.Client, address common.Address) (MockETHUSD
 		client:  client,
 		feed:    instance,
 	}, nil
+}
+
+type Counter struct {
+	client   *seth.Client
+	instance *counter.Counter
+	address  common.Address
+}
+
+func DeployCounterContract(client *seth.Client) (*Counter, error) {
+	abi, err := counter.CounterMetaData.GetAbi()
+	if err != nil {
+		return &Counter{}, fmt.Errorf("failed to get Counter ABI: %w", err)
+	}
+	linkDeploymentData, err := client.DeployContract(client.NewTXOpts(), "Counter", *abi, common.FromHex(counter.CounterMetaData.Bin))
+	if err != nil {
+		return &Counter{}, fmt.Errorf("Counter instance deployment have failed: %w", err)
+	}
+
+	instance, err := counter.NewCounter(linkDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return &Counter{}, fmt.Errorf("failed to instantiate Counter instance: %w", err)
+	}
+
+	return &Counter{
+		client:   client,
+		instance: instance,
+		address:  linkDeploymentData.Address,
+	}, nil
+}
+
+func (c *Counter) Address() string {
+	return c.address.Hex()
+}
+
+func (c *Counter) Increment() error {
+	_, err := c.client.Decode(c.instance.Increment(
+		c.client.NewTXOpts(),
+	))
+	return err
+}
+
+func (c *Counter) Reset() error {
+	_, err := c.client.Decode(c.instance.Reset(
+		c.client.NewTXOpts(),
+	))
+	return err
+}
+
+func (c *Counter) Count() (*big.Int, error) {
+	data, err := c.instance.Count(&bind.CallOpts{
+		From:    c.client.Addresses[0],
+		Context: context.Background(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

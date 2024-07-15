@@ -16,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name Spawner --output ./mocks/ --case=underscore
-
 type (
 	// Spawner manages the spinning up and down of the long-running
 	// services that perform the work described by job specs.  Each active job spec

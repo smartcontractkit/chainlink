@@ -93,7 +93,7 @@ func setElements(length int, rDecode reflect.Value, iInto reflect.Value) error {
 
 func mapstructureDecode(src, dest any) error {
 	mDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(evmDecoderHooks...),
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(DecoderHooks...),
 		Result:     dest,
 		Squash:     true,
 	})

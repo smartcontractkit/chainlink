@@ -287,7 +287,14 @@ jobs:
         if: ${{ needs.filter.outputs.changes == 'true' }}
         uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
         with:
+          name: go_core_tests_logs
           path: ./artifacts
+      - name: Delete go_core_tests_logs/coverage.txt
+        if: ${{ needs.filter.outputs.changes == 'true' }}
+        shell: bash
+        run: |
+          # Need to delete coverage.txt so the disk doesn't fill up
+          rm -f ./artifacts/go_core_tests_logs/coverage.txt
       - name: Build flakey test runner
         if: ${{ needs.filter.outputs.changes == 'true' }}
         run: go build ./tools/flakeytests/cmd/runner
@@ -340,7 +347,7 @@ jobs:
           echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
           echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@69c1a75940dec6249b86dace6b630d3a2ae9d2a7 # v2.0.1
+        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
         with:
           args: >
             -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
@@ -349,6 +356,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

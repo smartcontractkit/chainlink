@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-//go:generate mockery --quiet --name RequestRoundDB --output ./mocks/ --case=underscore
-
 // RequestRoundDB stores requested rounds for querying by the median plugin.
 type RequestRoundDB interface {
 	SaveLatestRoundRequested(ctx context.Context, rr ocr2aggregator.OCR2AggregatorRoundRequested) error

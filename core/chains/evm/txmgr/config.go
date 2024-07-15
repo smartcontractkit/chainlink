@@ -12,8 +12,6 @@ import (
 
 // ChainConfig encompasses config used by txmgr package
 // Unless otherwise specified, these should support changing at runtime
-//
-//go:generate mockery --quiet --recursive --name ChainConfig --output ./mocks/ --case=underscore --structname Config --filename config.go
 type ChainConfig interface {
 	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
