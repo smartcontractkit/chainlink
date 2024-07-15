@@ -75,8 +75,6 @@ type ResenderTransactionsConfig interface {
 }
 
 // ReaperConfig is the config subset used by the reaper
-//
-//go:generate mockery --quiet --name ReaperChainConfig --structname ReaperConfig --output ./mocks/ --case=underscore
 type ReaperChainConfig interface {
 	FinalityDepth() uint32
 }

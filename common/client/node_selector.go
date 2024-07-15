@@ -13,7 +13,6 @@ const (
 	NodeSelectionModePriorityLevel   = "PriorityLevel"
 )
 
-//go:generate mockery --quiet --name NodeSelector --structname mockNodeSelector --filename "mock_node_selector_test.go" --inpackage --case=underscore
 type NodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
