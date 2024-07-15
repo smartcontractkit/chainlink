@@ -266,7 +266,7 @@ jobs:
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
           format_errors=0
           for file in $FILE_LIST; do
-            sanitized_file="${file/contracts/}"
+            sanitized_file="${file/contracts\//}"
             echo "Running forge fmt --check on $sanitized_file"
             forge fmt --check "$sanitized_file" || format_errors=$((format_errors+1))
           done
