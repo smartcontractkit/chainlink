@@ -19,25 +19,24 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint common practice to import test mods with .
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	ubig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint common practice to import test mods with .
 )
@@ -233,40 +232,67 @@ func (h *helper) MaxWaitTimeForEvents() time.Duration {
 }
 
 func (h *helper) TXM(t *testing.T, client client.Client, db *sqlx.DB) evmtxmgr.TxManager {
-	lggr := logger.TestLogger(t)
-	lpOpts := logpoller.Opts{
-		PollPeriod:               100 * time.Millisecond,
-		FinalityDepth:            2,
-		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
-		KeepFinalizedBlocksDepth: 1000,
-	}
+	// lggr := logger.TestLogger(t)
+	// lpOpts := logpoller.Opts{
+	// 	PollPeriod:               100 * time.Millisecond,
+	// 	FinalityDepth:            2,
+	// 	BackfillBatchSize:        3,
+	// 	RpcBatchSize:             2,
+	// 	KeepFinalizedBlocksDepth: 1000,
+	// }
 
-	ht := headtracker.NewSimulatedHeadTracker(client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), client, lggr, ht, lpOpts)
+	// ht := headtracker.NewSimulatedHeadTracker(client, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	// lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), client, lggr, ht, lpOpts)
 
-	config, dbConfig, evmConfig := evmtxmgr.MakeTestConfigs(t)
-	keyStore := cltest.NewKeyStore(t, db).Eth()
-	_, addr := cltest.MustInsertRandomKey(t, keyStore, *ubig.NewI(testutils.SimulatedChainID.Int64()))
-	h.fromAddress = addr
+	// config, dbConfig, evmConfig := evmtxmgr.MakeTestConfigs(t)
+	// keyStore := cltest.NewKeyStore(t, db).Eth()
 
-	estimator, err := gas.NewEstimator(logger.TestLogger(t), client, config, evmConfig.GasEstimator())
+	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+	})
+
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, clconfig, h.sim, db, client)
+	app.Start(h.Context(t))
+	keyStore := app.KeyStore.Eth()
+
+	keyStore.XXXTestingOnlyAdd(h.Context(t), keytypes.FromPrivateKey(h.pKey))
+	require.NoError(t, keyStore.Add(h.Context(t), h.FromAddress(), h.ChainID()))
+	require.NoError(t, keyStore.Enable(h.Context(t), h.FromAddress(), h.ChainID()))
+
+	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(h.ChainID()).String())
 	require.NoError(t, err)
 
-	txm, err := evmtxmgr.NewTxm(
-		db,
-		evmConfig,
-		evmConfig.GasEstimator(),
-		evmConfig.Transactions(),
-		nil,
-		dbConfig,
-		dbConfig.Listener(),
-		client,
-		lggr,
-		lp,
-		keyStore,
-		estimator,
-	)
-	require.NoError(t, err)
-	return txm
+	return chain.TxManager()
+
+	// gcfg := configtest.NewTestGeneralConfig(t)
+	// cfg := evmtest.NewChainScopedConfig(t, gcfg)
+	// geCfg := cfg.EVM().GasEstimator()
+
+	// estimator, err := gas.NewEstimator(logger.TestLogger(t), client, config, geCfg)
+	// require.NoError(t, err)
+
+	// fmt.Printf("Gas Estimator Config: %+v\n", geCfg)
+
+	// txm, err := evmtxmgr.NewTxm(
+	// 	db,
+	// 	evmConfig,
+	// 	geCfg,
+	// 	evmConfig.Transactions(),
+	// 	nil,
+	// 	dbConfig,
+	// 	dbConfig.Listener(),
+	// 	client,
+	// 	lggr,
+	// 	lp,
+	// 	keyStore,
+	// 	estimator,
+	// )
+
+	// require.NoError(t, err)
+	// err = txm.Start(h.Context(t))
+	// require.NoError(t, err)
+	// return txm
 }
+
+func ptr[T any](v T) *T { return &v }

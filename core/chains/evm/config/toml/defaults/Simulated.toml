@@ -12,8 +12,8 @@ ResendAfterThreshold = '0s'
 Mode = 'FixedPrice'
 PriceMin = '0'
 BumpThreshold = 0
-FeeCapDefault = '100 micro'
-PriceMax = '100 micro'
+FeeCapDefault = '100 gwei'
+PriceMax = '100 gwei'
 
 [HeadTracker]
 HistoryDepth = 10
