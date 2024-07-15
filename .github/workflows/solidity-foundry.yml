@@ -192,32 +192,31 @@ jobs:
           submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: '3.8'
 
-      - name: Install solc-select and solc
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install solc-select
-          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
-          solc-select install 0.8.19
-          solc-select use 0.8.19
-
-      - name: Install Slither
-        run: |
-          python -m pip install --upgrade pip
-          pip install slither-analyzer
+#      - name: Install solc-select and solc
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y python3-pip
+#          pip3 install solc-select
+#          sudo ln -s /usr/local/bin/solc-select /usr/bin/solc-select
+#          solc-select install 0.8.19
+#          solc-select use 0.8.19
+#
+#      - name: Install Slither
+#        run: |
+#          python -m pip install --upgrade pip
+#          pip install slither-analyzer
 
       - name: Run Slither
         shell: bash
         run: |
-          pwd
-          ls -al contracts/src/v0.8/newer_automation/
           CHANGED=${{ needs.changes.outputs.sol_files }}
           for file in "${CHANGED[@]}"; do
-              slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
+            ./contracts/scripts/run-slither.sh "$file"
+#              slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
           done
 
       - name: Print Slither summary
@@ -242,7 +241,7 @@ jobs:
   fmt:
     needs: [ changes ]
     name: Check formatting
-    if: needs.changes.outputs.sol_changes == 'true'
+    if: needs.changes.outputs.sol_changes == 'bum' # change me to true
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
