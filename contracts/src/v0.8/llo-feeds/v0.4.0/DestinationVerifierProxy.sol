@@ -8,6 +8,7 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.3/contracts/inter
 import {Common} from "../libraries/Common.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
 import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
+import {IDestinationVerifierProxyInterface} from "./interfaces/IDestinationVerifierProxyInterface.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
@@ -17,7 +18,7 @@ import {IDestinationVerifier} from "./interfaces/IDestinationVerifier.sol";
 contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice The active verifier for this proxy
-  IDestinationVerifier private s_verifier;
+  IDestinationVerifierProxyInterface private s_verifier;
 
   /// @notice This error is thrown whenever a zero address is passed
   error ZeroAddress();
@@ -53,9 +54,11 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
   function setVerifier(address verifierAddress) external onlyOwner {
     if(verifierAddress == address(0)) revert ZeroAddress();
 
-    //TODO Selector
+    if(!IERC165(verifierAddress).supportsInterface(type(IDestinationVerifierProxyInterface).interfaceId)) {
+      revert VerifierInvalid(verifierAddress);
+    }
 
-    s_verifier = IDestinationVerifier(verifierAddress);
+    s_verifier = IDestinationVerifierProxyInterface(verifierAddress);
   }
 
    /// @inheritdoc IDestinationVerifierProxy

@@ -9,6 +9,7 @@ import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
+import {IDestinationVerifierProxyInterface} from "./interfaces/IDestinationVerifierProxyInterface.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
@@ -20,7 +21,7 @@ uint256 constant MAX_NUM_ORACLES = 31;
  * a feed. The verifier contract is used to verify that such reports have
  * been signed by the correct signers.
  **/
-contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface {
+contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
 
     /// @notice The list of DON configurations by hash(address|DONConfigID) - set to true if the signer is part of the config
     mapping(bytes32 => bool) private s_SignerByAddressAndDONConfigId;
@@ -128,7 +129,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
     }
 
-    /// @inheritdoc IDestinationVerifier
+    /// @inheritdoc IDestinationVerifierProxyInterface
     function verify(
         bytes calldata signedReport,
         bytes calldata parameterPayload,
@@ -149,7 +150,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         return verifierResponse;
     }
 
-    /// @inheritdoc IDestinationVerifier
+    /// @inheritdoc IDestinationVerifierProxyInterface
     function verifyBulk(
         bytes[] calldata signedReports,
         bytes calldata parameterPayload,
@@ -315,7 +316,6 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         emit ConfigActivated(config.DONConfigID, isActive);
     }
 
-
     function decodeReportTimestamp(bytes memory reportPayload) internal pure returns (uint256) {
         (,,uint256 timestamp) = abi.decode(reportPayload, (bytes32, uint32, uint32));
 
@@ -356,8 +356,8 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     }
 
     /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) external pure override returns (bool isVerifier) {
-        return interfaceId == this.verify.selector;
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(IDestinationVerifier).interfaceId || interfaceId == type(IDestinationVerifierProxyInterface).interfaceId;
     }
 
     /// @inheritdoc TypeAndVersionInterface
@@ -365,12 +365,12 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         return "DestinationVerifier 1.0.0";
     }
 
-    /// @inheritdoc IDestinationVerifier
+    /// @inheritdoc IDestinationVerifierProxyInterface
     function getAccessController() external view override returns (address) {
         return address(s_accessController);
     }
 
-    /// @inheritdoc IDestinationVerifier
+    /// @inheritdoc IDestinationVerifierProxyInterface
     function getFeeManager() external view override returns (address) {
         return address(s_feeManager);
     }
