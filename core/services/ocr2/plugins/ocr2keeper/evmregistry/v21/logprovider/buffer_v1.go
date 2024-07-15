@@ -218,7 +218,7 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 		// update the buffer with how many logs we have dequeued for this window
 		q.dequeued[start] += len(logs)
 	}
-	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "minimumDequeueMet", minimumDequeueMet)
+	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "numUpkeepIDs", len(b.queueIDs), "minimumDequeueMet", minimumDequeueMet, "logLimit", logLimit)
 	return result, remainingLogs
 }
 

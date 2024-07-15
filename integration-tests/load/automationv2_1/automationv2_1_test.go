@@ -649,7 +649,9 @@ Load Config:
 			upkeepDelaysRecovery = append(upkeepDelaysRecovery, delayRecovery)
 		}
 
-		blockWindowCounts[i] = upkeepMap
+		if len(upkeepMap) > 0 {
+			blockWindowCounts[i] = upkeepMap
+		}
 	}
 
 	for _, triggerContract := range triggerContracts {

@@ -254,6 +254,7 @@ func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []
 	var payloads []ocr2keepers.UpkeepPayload
 
 	blockRate := int(p.opts.BlockRate)
+	logLimit := int(p.opts.LogLimit)
 
 	for len(payloads) < MaxPayloads && start <= latestBlock {
 		startWindow, _ := getBlockWindow(start, blockRate)
@@ -261,7 +262,7 @@ func (p *logEventProvider) minimumCommitmentDequeue(latestBlock, start int64) []
 		// dequeue the minimum number logs (log limit, varies by chain) per upkeep for this block window
 		logs, remaining := p.buffer.Dequeue(startWindow, MaxPayloads-len(payloads), true)
 		if len(logs) > 0 {
-			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining)
+			p.lggr.Debugw("minimum commitment dequeue", "start", start, "latestBlock", latestBlock, "logs", len(logs), "remaining", remaining, "blockRate", blockRate, "logLimit", logLimit)
 		}
 		for _, l := range logs {
 			payload, err := p.createPayload(l.ID, l.Log)
