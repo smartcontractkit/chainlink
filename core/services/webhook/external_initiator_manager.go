@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-//go:generate mockery --quiet --name ExternalInitiatorManager --output ./mocks/ --case=underscore
-
 // ExternalInitiatorManager manages HTTP requests to remote external initiators
 type ExternalInitiatorManager interface {
 	Notify(ctx context.Context, webhookSpecID int32) error
@@ -27,7 +25,6 @@ type ExternalInitiatorManager interface {
 	FindExternalInitiatorByName(ctx context.Context, name string) (bridges.ExternalInitiator, error)
 }
 
-//go:generate mockery --quiet --name HTTPClient --output ./mocks/ --case=underscore
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }

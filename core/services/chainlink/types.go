@@ -9,8 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
-//go:generate mockery --quiet --name GeneralConfig --output ./mocks/ --case=underscore
-
 type GeneralConfig interface {
 	config.AppConfig
 	toml.HasEVMConfigs

@@ -40,8 +40,6 @@ var (
 )
 
 // EvmTxStore combines the txmgr tx store interface and the interface needed for the API to read from the tx DB
-//
-//go:generate mockery --quiet --name EvmTxStore --output ./mocks/ --case=underscore
 type EvmTxStore interface {
 	// redeclare TxStore for mockery
 	txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]

@@ -17,6 +17,14 @@ type GatewayConnector struct {
 	mock.Mock
 }
 
+type GatewayConnector_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *GatewayConnector) EXPECT() *GatewayConnector_Expecter {
+	return &GatewayConnector_Expecter{mock: &_m.Mock}
+}
+
 // ChallengeResponse provides a mock function with given fields: _a0, challenge
 func (_m *GatewayConnector) ChallengeResponse(_a0 *url.URL, challenge []byte) ([]byte, error) {
 	ret := _m.Called(_a0, challenge)
@@ -47,6 +55,35 @@ func (_m *GatewayConnector) ChallengeResponse(_a0 *url.URL, challenge []byte) ([
 	return r0, r1
 }
 
+// GatewayConnector_ChallengeResponse_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChallengeResponse'
+type GatewayConnector_ChallengeResponse_Call struct {
+	*mock.Call
+}
+
+// ChallengeResponse is a helper method to define mock.On call
+//   - _a0 *url.URL
+//   - challenge []byte
+func (_e *GatewayConnector_Expecter) ChallengeResponse(_a0 interface{}, challenge interface{}) *GatewayConnector_ChallengeResponse_Call {
+	return &GatewayConnector_ChallengeResponse_Call{Call: _e.mock.On("ChallengeResponse", _a0, challenge)}
+}
+
+func (_c *GatewayConnector_ChallengeResponse_Call) Run(run func(_a0 *url.URL, challenge []byte)) *GatewayConnector_ChallengeResponse_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*url.URL), args[1].([]byte))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_ChallengeResponse_Call) Return(_a0 []byte, _a1 error) *GatewayConnector_ChallengeResponse_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayConnector_ChallengeResponse_Call) RunAndReturn(run func(*url.URL, []byte) ([]byte, error)) *GatewayConnector_ChallengeResponse_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with given fields:
 func (_m *GatewayConnector) Close() error {
 	ret := _m.Called()
@@ -63,6 +100,33 @@ func (_m *GatewayConnector) Close() error {
 	}
 
 	return r0
+}
+
+// GatewayConnector_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type GatewayConnector_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *GatewayConnector_Expecter) Close() *GatewayConnector_Close_Call {
+	return &GatewayConnector_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *GatewayConnector_Close_Call) Run(run func()) *GatewayConnector_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Close_Call) Return(_a0 error) *GatewayConnector_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Close_Call) RunAndReturn(run func() error) *GatewayConnector_Close_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewAuthHeader provides a mock function with given fields: _a0
@@ -95,6 +159,34 @@ func (_m *GatewayConnector) NewAuthHeader(_a0 *url.URL) ([]byte, error) {
 	return r0, r1
 }
 
+// GatewayConnector_NewAuthHeader_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewAuthHeader'
+type GatewayConnector_NewAuthHeader_Call struct {
+	*mock.Call
+}
+
+// NewAuthHeader is a helper method to define mock.On call
+//   - _a0 *url.URL
+func (_e *GatewayConnector_Expecter) NewAuthHeader(_a0 interface{}) *GatewayConnector_NewAuthHeader_Call {
+	return &GatewayConnector_NewAuthHeader_Call{Call: _e.mock.On("NewAuthHeader", _a0)}
+}
+
+func (_c *GatewayConnector_NewAuthHeader_Call) Run(run func(_a0 *url.URL)) *GatewayConnector_NewAuthHeader_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*url.URL))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_NewAuthHeader_Call) Return(_a0 []byte, _a1 error) *GatewayConnector_NewAuthHeader_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *GatewayConnector_NewAuthHeader_Call) RunAndReturn(run func(*url.URL) ([]byte, error)) *GatewayConnector_NewAuthHeader_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendToGateway provides a mock function with given fields: ctx, gatewayId, msg
 func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayId string, msg *api.Message) error {
 	ret := _m.Called(ctx, gatewayId, msg)
@@ -113,6 +205,36 @@ func (_m *GatewayConnector) SendToGateway(ctx context.Context, gatewayId string,
 	return r0
 }
 
+// GatewayConnector_SendToGateway_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendToGateway'
+type GatewayConnector_SendToGateway_Call struct {
+	*mock.Call
+}
+
+// SendToGateway is a helper method to define mock.On call
+//   - ctx context.Context
+//   - gatewayId string
+//   - msg *api.Message
+func (_e *GatewayConnector_Expecter) SendToGateway(ctx interface{}, gatewayId interface{}, msg interface{}) *GatewayConnector_SendToGateway_Call {
+	return &GatewayConnector_SendToGateway_Call{Call: _e.mock.On("SendToGateway", ctx, gatewayId, msg)}
+}
+
+func (_c *GatewayConnector_SendToGateway_Call) Run(run func(ctx context.Context, gatewayId string, msg *api.Message)) *GatewayConnector_SendToGateway_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(*api.Message))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_SendToGateway_Call) Return(_a0 error) *GatewayConnector_SendToGateway_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_SendToGateway_Call) RunAndReturn(run func(context.Context, string, *api.Message) error) *GatewayConnector_SendToGateway_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *GatewayConnector) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -129,6 +251,34 @@ func (_m *GatewayConnector) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// GatewayConnector_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type GatewayConnector_Start_Call struct {
+	*mock.Call
+}
+
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *GatewayConnector_Expecter) Start(_a0 interface{}) *GatewayConnector_Start_Call {
+	return &GatewayConnector_Start_Call{Call: _e.mock.On("Start", _a0)}
+}
+
+func (_c *GatewayConnector_Start_Call) Run(run func(_a0 context.Context)) *GatewayConnector_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *GatewayConnector_Start_Call) Return(_a0 error) *GatewayConnector_Start_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GatewayConnector_Start_Call) RunAndReturn(run func(context.Context) error) *GatewayConnector_Start_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // NewGatewayConnector creates a new instance of GatewayConnector. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
