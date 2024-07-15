@@ -212,7 +212,8 @@ jobs:
       - name: Run Slither
         shell: bash
         run: |
-          echo "changes: ${{ needs.changes.outputs.sol_files }}"
+          pwd
+          ls -al contracts/src/v0.8/newer_automation/
           CHANGED=${{ needs.changes.outputs.sol_files }}
           for file in "${CHANGED[@]}"; do
               slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
@@ -225,6 +226,17 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat slither-results.md >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@dea9b546553cb4ca936607c2267a09c004e4ab3f # v3.0.0
+        with:
+          id: solidity-foundry-slither
+          org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
+          basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
+          this-job-name: Run static analysis
+        continue-on-error: true
 
   fmt:
     needs: [ changes ]
@@ -247,6 +259,7 @@ jobs:
 
       - name: Run Forge fmt
         run: |
+          pwd
           SOL_FILES="${{ needs.changes.outputs.sol_files }}"
           # Converting space-separated files into a newline-separated string to handle it properly
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
@@ -272,5 +285,5 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Format ${{ matrix.contracts.product }}
+          this-job-name: Check formatting
         continue-on-error: true
