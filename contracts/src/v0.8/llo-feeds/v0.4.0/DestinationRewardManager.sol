@@ -75,12 +75,19 @@ contract DestinationRewardManager is IDestinationRewardManager, ConfirmedOwner, 
 
   // @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "RewardManager 1.1.0";
+    return "RewardManager 1.0.0";
   }
 
   // @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return interfaceId == this.onFeePaid.selector;
+    return
+      interfaceId == this.claimRewards.selector ||
+      interfaceId == this.setRewardRecipients.selector ||
+      interfaceId == this.updateRewardRecipients.selector ||
+      interfaceId == this.payRecipients.selector ||
+      interfaceId == this.setFeeManager.selector ||
+      interfaceId == this.getAvailableRewardPoolIds.selector ||
+      interfaceId == this.onFeePaid.selector;
   }
 
   modifier onlyOwnerOrFeeManager() {

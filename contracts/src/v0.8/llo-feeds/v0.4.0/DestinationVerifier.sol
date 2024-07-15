@@ -9,18 +9,15 @@ import {Common} from "../libraries/Common.sol";
 import {IAccessController} from "../../shared/interfaces/IAccessController.sol";
 import {IDestinationVerifierProxy} from "./interfaces/IDestinationVerifierProxy.sol";
 import {IDestinationFeeManager} from "./interfaces/IDestinationFeeManager.sol";
-import {IDestinationVerifierProxyInterface} from "./interfaces/IDestinationVerifierProxyInterface.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
 
-/*
- * The verifier contract is used to verify offchain reports signed
- * by DONs. A report consists of a price, block number and feed Id. It
- * represents the observed price of an asset at a specified block number for
- * a feed. The verifier contract is used to verify that such reports have
- * been signed by the correct signers.
- **/
+/**
+ * @title DestinationVerifier
+ * @author Michael Fletcher
+ * @notice This contract will be used to verify reports based on the oracle signatures
+ */
 contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVersionInterface, IERC165 {
 
     /// @notice The list of DON configurations by hash(address|DONConfigID) - set to true if the signer is part of the config
@@ -88,6 +85,9 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
     /// @notice This error is thrown whenever a config does not exist
     error DONConfigDoesNotExist();
 
+    /// @notice this error is thrown when the verifierProxy is incorrect when initialising
+    error VerifierProxyInvalid();
+
     /// @notice This event is emitted when a new report is verified.
     /// It is used to keep a historical record of verified reports.
     event ReportVerified(bytes32 indexed feedId, address requester);
@@ -124,12 +124,15 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
             revert ZeroAddress();
         }
 
-        //TODO SELECTOR
+        //check it supports the interface
+        if(!IERC165(verifierProxy).supportsInterface(type(IDestinationVerifierProxy).interfaceId)) {
+            revert VerifierProxyInvalid();
+        }
 
         i_verifierProxy = IDestinationVerifierProxy(verifierProxy);
     }
 
-    /// @inheritdoc IDestinationVerifierProxyInterface
+    /// @inheritdoc IDestinationVerifier
     function verify(
         bytes calldata signedReport,
         bytes calldata parameterPayload,
@@ -150,7 +153,7 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         return verifierResponse;
     }
 
-    /// @inheritdoc IDestinationVerifierProxyInterface
+    /// @inheritdoc IDestinationVerifier
     function verifyBulk(
         bytes[] calldata signedReports,
         bytes calldata parameterPayload,
@@ -288,10 +291,13 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     /// @inheritdoc IDestinationVerifier
     function setFeeManager(address feeManager) external override onlyOwner {
-        //TODO Selector
+        if (!IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFee.selector) ||
+            !IERC165(feeManager).supportsInterface(IDestinationFeeManager.processFeeBulk.selector) ||
+            !IERC165(feeManager).supportsInterface(IDestinationFeeManager.setFeeRecipients.selector)) revert FeeManagerInvalid();
 
         address oldFeeManager = address(s_feeManager);
         s_feeManager = IDestinationFeeManager(feeManager);
+
         emit FeeManagerSet(oldFeeManager, feeManager);
     }
 
@@ -357,7 +363,14 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-        return interfaceId == type(IDestinationVerifier).interfaceId || interfaceId == type(IDestinationVerifierProxyInterface).interfaceId;
+       return interfaceId == this.verify.selector ||
+              interfaceId == this.verifyBulk.selector ||
+              interfaceId == this.getAccessController.selector ||
+              interfaceId == this.getFeeManager.selector ||
+              interfaceId == this.setConfig.selector ||
+              interfaceId == this.setFeeManager.selector ||
+              interfaceId == this.setAccessController.selector ||
+              interfaceId == this.setConfigActive.selector;
     }
 
     /// @inheritdoc TypeAndVersionInterface
@@ -365,12 +378,12 @@ contract DestinationVerifier is IDestinationVerifier, ConfirmedOwner, TypeAndVer
         return "DestinationVerifier 1.0.0";
     }
 
-    /// @inheritdoc IDestinationVerifierProxyInterface
+    /// @inheritdoc IDestinationVerifier
     function getAccessController() external view override returns (address) {
         return address(s_accessController);
     }
 
-    /// @inheritdoc IDestinationVerifierProxyInterface
+    /// @inheritdoc IDestinationVerifier
     function getFeeManager() external view override returns (address) {
         return address(s_feeManager);
     }

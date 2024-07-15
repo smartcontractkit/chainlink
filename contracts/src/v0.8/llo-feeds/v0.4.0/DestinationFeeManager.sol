@@ -167,7 +167,18 @@ contract DestinationFeeManager is IDestinationFeeManager, ConfirmedOwner, TypeAn
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return interfaceId == this.processFee.selector || interfaceId == this.processFeeBulk.selector || interfaceId == this.processFeeBulk.selector;
+    //for each function in IDestinationFeeManager we need to check if it matches the selector
+    return
+      interfaceId == this.getFeeAndReward.selector ||
+      interfaceId == this.setNativeSurcharge.selector ||
+      interfaceId == this.updateSubscriberDiscount.selector ||
+      interfaceId == this.withdraw.selector ||
+      interfaceId == this.linkAvailableForPayment.selector ||
+      interfaceId == this.payLinkDeficit.selector ||
+      interfaceId == this.setVerifier.selector ||
+      interfaceId == this.processFee.selector ||
+      interfaceId == this.processFeeBulk.selector ||
+      interfaceId == this.setFeeRecipients.selector;
   }
 
   function processFee(
