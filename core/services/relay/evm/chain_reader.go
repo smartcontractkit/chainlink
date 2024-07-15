@@ -211,7 +211,7 @@ func (cr *chainReader) ReplaySequence(ctx context.Context, contractName, key, bl
 
 	blockNumber, err := strconv.ParseInt(blockID, 10, 64)
 	if err != nil {
-		return fmt.Errorf("%w: EVM blockID should be a number but is %s", err, blockID)
+		return fmt.Errorf("failed to parse EVM blockID as number %q: %w", blockID, err)
 	}
 
 	// TODO use an event specific replay when LP implements it
