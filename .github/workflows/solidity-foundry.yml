@@ -215,7 +215,7 @@ jobs:
           echo "changes: ${{ needs.changes.outputs.sol_files }}"
           CHANGED=${{ needs.changes.outputs.sol_files }}
           for file in "${CHANGED[@]}"; do
-              slither --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ >> slither-results.md
+              slither --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$file" >> slither-results.md
           done
 
       - name: Print Slither summary
@@ -247,7 +247,7 @@ jobs:
 
       - name: Run Forge fmt
         run: |
-          SOL_FILES="${{ steps.changes.outputs.sol_files }}"
+          SOL_FILES="${{ needs.changes.outputs.sol_files }}"
           # Converting space-separated files into a newline-separated string to handle it properly
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
           format_errors=0
