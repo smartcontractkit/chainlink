@@ -3631,14 +3631,14 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 10
+FinalityDepth = 200
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 10000
 BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
@@ -3662,10 +3662,10 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '18.446744073709551615 ether'
-PriceMin = '0'
-LimitDefault = 100000000
+PriceDefault = '25 mwei'
+PriceMax = '500 mwei'
+PriceMin = '25 mwei'
+LimitDefault = 2500000000
 LimitMax = 8000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3673,19 +3673,19 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '500 mwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 8
+BlockHistorySize = 200
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 50
+HistoryDepth = 250
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
@@ -3724,14 +3724,14 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 ChainType = 'zksync'
-FinalityDepth = 10
+FinalityDepth = 1200
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
 LogPollInterval = '5s'
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 10000
 BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 3
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '1m0s'
@@ -3755,10 +3755,10 @@ Enabled = true
 
 [GasEstimator]
 Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '18.446744073709551615 ether'
-PriceMin = '0'
-LimitDefault = 100000000
+PriceDefault = '25 mwei'
+PriceMax = '500 mwei'
+PriceMin = '25 mwei'
+LimitDefault = 2500000000
 LimitMax = 8000000
 LimitMultiplier = '1'
 LimitTransfer = 21000
@@ -3766,19 +3766,19 @@ BumpMin = '5 gwei'
 BumpPercent = 20
 BumpThreshold = 3
 EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
+FeeCapDefault = '500 mwei'
 TipCapDefault = '1 wei'
 TipCapMin = '1 wei'
 
 [GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 8
+BlockHistorySize = 200
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
 TransactionPercentile = 60
 
 [HeadTracker]
-HistoryDepth = 50
+HistoryDepth = 1500
 MaxBufferSize = 3
 SamplingInterval = '1s'
 MaxAllowedFinalityDepth = 10000
