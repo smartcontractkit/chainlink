@@ -242,6 +242,8 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 
 	var newQueueIDs []string
 
+	b.lggr.Debugw("before SyncFilters", "numQueueIDs", len(b.queueIDs))
+
 	for _, upkeepID := range b.queueIDs {
 		uid := new(big.Int)
 		_, ok := uid.SetString(upkeepID, 10)
@@ -254,6 +256,8 @@ func (b *logBuffer) SyncFilters(filterStore UpkeepFilterStore) error {
 	}
 
 	b.queueIDs = newQueueIDs
+
+	b.lggr.Debugw("after SyncFilters", "numQueueIDs", len(b.queueIDs))
 
 	return nil
 }
