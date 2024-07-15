@@ -3,6 +3,7 @@ package logprovider
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
@@ -212,6 +213,18 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if len(payloads) > 0 {
 		p.lggr.Debugw("Fetched payloads from buffer", "latestBlock", latest.BlockNumber, "payloads", len(payloads))
 	}
+
+	b := p.buffer.(*logBuffer)
+
+	totalDequeue := map[string]map[int64]int{}
+	for _, qid := range b.queueIDs {
+		q := b.queues[qid]
+		totalDequeue[qid] = q.dequeued
+	}
+
+	by, _ := json.Marshal(totalDequeue)
+
+	b.lggr.Debugw("Dequeue completed", "totalDequeues", string(by))
 
 	return payloads, nil
 }
