@@ -223,7 +223,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   fmt:
-    needs: [ find-modified-contracts ]
+    needs: [ changes ]
     name: Check formatting
     if: needs.changes.outputs.sol_files != ''
     runs-on: ubuntu-22.04
