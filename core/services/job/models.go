@@ -156,6 +156,7 @@ type Job struct {
 	BlockhashStoreSpec            *BlockhashStoreSpec
 	BlockHeaderFeederSpecID       *int32
 	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
+	BALSpecID                     *int32
 	LegacyGasStationServerSpecID  *int32
 	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
 	LegacyGasStationSidecarSpecID *int32
