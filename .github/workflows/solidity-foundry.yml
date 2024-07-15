@@ -179,7 +179,7 @@ jobs:
   analyze:
     needs: [ changes ]
     name: Run static analysis
-    if: needs.changes.outputs.sol_files != ''
+    if: needs.changes.outputs.sol == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
@@ -209,6 +209,7 @@ jobs:
       - name: Run Slither
         shell: bash
         run: |
+          echo "changes: ${{ needs.changes.outputs.sol_files }}"
           IFS=',' read -r -a files <<< "${{ needs.changes.outputs.sol_files }}"
           for file in "${files[@]}"; do
               slither --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ >> slither-results.md
@@ -225,7 +226,7 @@ jobs:
   fmt:
     needs: [ changes ]
     name: Check formatting
-    if: needs.changes.outputs.sol_files != ''
+    if: needs.changes.outputs.sol == 'true'
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout the repo
