@@ -9,6 +9,8 @@ RPCBlockQueryDelay = 2
 
 [GasEstimator]
 PriceDefault = '5 gwei'
+# Can change edit BSC node config's GasPrice under Eth.Miner from 3000000000 to 1000000000 and change PriceMin to 1 gwei to enable cheaper transactions
+PriceMin = '3 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
 
