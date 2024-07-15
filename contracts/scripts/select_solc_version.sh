@@ -25,8 +25,8 @@ extract_pragma() {
   if [[ -f "$FILE" ]]; then
     SOLCVER="$(grep --no-filename '^pragma solidity' "$FILE" | cut -d' ' -f3)"
   else
-    >&2 echo "$FILE is not a file or it could not be found. Exiting."
-    exit 1
+    echo "$FILE is not a file or it could not be found. Exiting."
+    return 1
   fi
   SOLCVER="$(echo "$SOLCVER" | sed 's/[^0-9\.^]//g')"
   echo "$SOLCVER"
@@ -41,8 +41,8 @@ SOLCVER=$(extract_pragma "$FILE")
 
 exit_code=$?
 if [ $exit_code -ne 0 ]; then
-  >&2 echo "Error: Failed to extract the Solidity version from $FILE."
-  exit 1
+  echo "Error: Failed to extract the Solidity version from $FILE."
+  return 1
 fi
 
 SOLCVER=$(echo "$SOLCVER" | tr -d "'\"")
@@ -57,14 +57,14 @@ if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
     SOLC_TO_USE="$SOLCVER"
   fi
  elif [[ "$SOLC_IN_PROFILE" != "null" && -z "$SOLCVER" ]]; then
-    >&2 echo "No version found in file. Exiting"
+    echo "No version found in the Solidity file. Exiting"
     exit 1
   elif [[ "$SOLC_IN_PROFILE" == "null" && -n "$SOLCVER" ]]; then
     echo "Using the version from the file: $SOLCVER"
     SOLC_TO_USE="$SOLCVER"
   else
-    echo "No version found in the profile or the file."
-    exit 1
+    echo "No version found in the profile or the Solidity file."
+    return 1
 fi
 
 echo "Will use $SOLC_TO_USE"
