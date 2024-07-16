@@ -52,6 +52,8 @@ SOLCVER=$(echo "$SOLCVER" | tr -d "'\"")
 echo "SOLCVER after cleanup: $SOLCVER"
 
 if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
+  echo "Running npx semver with SOLC_IN_PROFILE='$SOLC_IN_PROFILE' and SOLCVER='$SOLCVER'..."
+  npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER"
   COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER")
   echo "Compatibility result: $COMPAT_SOLC_VERSION"
   if [ -n "$COMPAT_SOLC_VERSION" ]; then
