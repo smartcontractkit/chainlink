@@ -13,6 +13,7 @@ import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../../shared/mocks/WERC20Mock.sol";
 import {DestinationRewardManager} from "../../DestinationRewardManager.sol";
+import {IDestinationRewardManager} from "../../interfaces/IDestinationRewardManager.sol";
 
 contract BaseTest is Test {
     uint64 internal constant POOL_SCALAR = 1e18;
@@ -21,8 +22,12 @@ contract BaseTest is Test {
     address internal constant ADMIN = address(1);
     address internal constant USER = address(2);
     address internal constant MOCK_VERIFIER_ADDRESS = address(100);
+    ERC20Mock  internal  asset;
 
     uint8 internal constant FAULT_TOLERANCE = 10;
+    
+    //erc20 config
+    uint256 internal constant DEFAULT_MINT_QUANTITY = 100 ether;
 
     DestinationVerifierProxy internal s_verifierProxy;
     DestinationVerifier internal s_verifier;
@@ -38,6 +43,14 @@ contract BaseTest is Test {
 
     Signer[MAX_ORACLES] internal s_signers;
     bool private s_baseTestInitialized;
+
+    function rewardsSetup() public virtual {
+         asset = new ERC20Mock("ASSET", "AST", ADMIN, 0);      
+        //mint some tokens to the admin
+        asset.mint(ADMIN, DEFAULT_MINT_QUANTITY);
+        //mint some tokens to the user
+        asset.mint(address(feeManager), DEFAULT_MINT_QUANTITY);
+    }
 
     function setUp() public virtual {
         // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -60,9 +73,10 @@ contract BaseTest is Test {
             new DestinationFeeManager(address(link), address(native), address(s_verifier), address(rewardManager));
         s_verifier.setFeeManager(address(feeManager));
         rewardManager.setFeeManager(address(feeManager));
+         rewardsSetup();
 
         for (uint256 i; i < MAX_ORACLES; i++) {
-            uint256 mockPK = i + 1;
+            uint256 mockPK = i  + 1;
             s_signers[i].mockPrivateKey = mockPK;
             s_signers[i].signerAddress = vm.addr(mockPK);
         }
@@ -93,4 +107,44 @@ contract BaseTest is Test {
         bytes24 DONConfigID = bytes24(keccak256(abi.encodePacked(signers, f)));
         return DONConfigID;
     }
+
+ function addFundsToPool(bytes32 poolId, Common.Asset memory amount, address sender) public {
+    IDestinationRewardManager.FeePayment[] memory payments = new IDestinationRewardManager.FeePayment[](1);
+    payments[0] = IDestinationRewardManager.FeePayment(poolId, uint192(amount.amount));
+
+    addFundsToPool(payments, sender);
+  }
+
+ function addFundsToPool(IDestinationRewardManager.FeePayment[] memory payments, address sender) public {
+
+    //record the current address and switch to the sender
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    uint256 totalPayment;
+    for (uint256 i; i < payments.length; ++i) {
+      totalPayment += payments[i].amount;
+    }
+
+    //approve the amount being paid into the pool
+    ERC20Mock(address(asset)).approve(address(rewardManager), totalPayment);
+
+    //this represents the verifier adding some funds to the pool
+    rewardManager.onFeePaid(payments, sender);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function payRecipients(bytes32 poolId, address[] memory recipients, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //pay the recipients
+    rewardManager.payRecipients(poolId, recipients);
+
+    //change back to the original address
+    changePrank(originalAddr);
+}
 }
