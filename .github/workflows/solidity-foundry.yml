@@ -148,7 +148,7 @@ jobs:
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Tests ${{ matrix.product }}
+          this-job-name: Foundry Tests ${{ matrix.product.na }}
         continue-on-error: true
 
   analyze:
@@ -214,7 +214,7 @@ jobs:
               continue
             fi
                                 
-            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" >> slither-results.md   
+            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" >> slither-results.md
           done
           
           if [ $slither_errors -ne 0 ]; then
@@ -222,8 +222,13 @@ jobs:
             echo "There were $slither_errors Slither execution errors NOT related to static analysis. Please check the logs."
             exit 1
           else
-            echo "All files passed static analysis check."
+            echo
+            echo "It was possible to execute Slither on all files."
           fi
+          
+          echo
+          cat slither-results.md
+
       - name: Print Slither summary
         shell: bash
         run: |
@@ -239,7 +244,7 @@ jobs:
         with:
           name: slither-report
           path: |
-            contracts/slither-report.md
+            contracts/slither-results.md
           retention-days: 7
 
       - name: Collect Metrics
@@ -274,6 +279,7 @@ jobs:
 
       - name: Run Forge fmt
         run: |
+          SOL_FILES="${{ needs.changes.outputs.sol_files }}"
           FILE_LIST=$(echo "$SOL_FILES" | tr ' ' '\n')
           format_errors=0
           for file in $FILE_LIST; do
