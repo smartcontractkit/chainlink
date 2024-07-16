@@ -187,13 +187,20 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2E
 		return []byte{}, errors.Wrap(err, "failed getting the USDC message body")
 	}
 
-	s.lggr.Infow("Calling attestation API", "messageBodyHash", hexutil.Encode(messageBody[:]), "messageID", hexutil.Encode(msg.MessageID[:]))
+	msgID := hexutil.Encode(msg.MessageID[:])
+	msgBody := hexutil.Encode(messageBody)
+	s.lggr.Infow("Calling attestation API", "messageBodyHash", msgBody, "messageID", msgID)
 
 	// The attestation API expects the hash of the message body
 	attestationResp, err := s.callAttestationApi(ctx, utils.Keccak256Fixed(messageBody))
 	if err != nil {
 		return []byte{}, errors.Wrap(err, "failed calling usdc attestation API ")
 	}
+
+	s.lggr.Infow("Got response from attestation API", "messageID", msgID,
+		"attestationStatus", attestationResp.Status, "attestation", attestationResp.Attestation,
+		"attestationError", attestationResp.Error)
+
 	switch attestationResp.Status {
 	case attestationStatusSuccess:
 		// The USDC pool needs a combination of the message body and the attestation
