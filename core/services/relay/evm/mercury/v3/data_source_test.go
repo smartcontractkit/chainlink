@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
@@ -72,7 +73,13 @@ func (ms *mockSaver) Save(r *pipeline.Run) {
 
 func Test_Datasource(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
+	jb := job.Job{
+		Type: job.Type(pipeline.OffchainReporting2JobType),
+		OCR2OracleSpec: &job.OCR2OracleSpec{
+			CaptureEATelemetry: true,
+		},
+	}
+	ds := &datasource{orm: orm, lggr: logger.TestLogger(t), jb: jb}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -254,8 +261,59 @@ func Test_Datasource(t *testing.T) {
 				Err:  nil,
 			}
 
+			chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 1)
+			ds.chEnhancedTelem = chEnhancedTelem
+
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while parsing run results: some error with ask")
+
+			select {
+			case <-chEnhancedTelem:
+				assert.Fail(t, "did not expect to receive telemetry")
+			default:
+			}
+		})
+
+		t.Run("when run results fails with a bid ask violation", func(t *testing.T) {
+			t.Cleanup(func() {
+				runner := &mercurymocks.MockRunner{
+					Trrs: goodTrrs,
+					Err:  nil,
+				}
+				ds.pipelineRunner = runner
+			})
+
+			badTrrs := []pipeline.TaskRunResult{
+				{
+					// benchmark price
+					Result: pipeline.Result{Value: "122.345"},
+					Task:   &mercurymocks.MockTask{},
+				},
+				{
+					// bid
+					Result: pipeline.Result{Value: "121.993"},
+					Task:   &mercurymocks.MockTask{},
+				},
+				{
+					// ask
+					Result: pipeline.Result{Error: &eautils.AdapterError{Name: adapterLWBAErrorName, Message: "bid ask violation"}},
+					Task:   &mercurymocks.MockTask{},
+				},
+			}
+
+			ds.pipelineRunner = &mercurymocks.MockRunner{
+				Trrs: badTrrs,
+				Err:  nil,
+			}
+
+			chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 1)
+			ds.chEnhancedTelem = chEnhancedTelem
+
+			_, err := ds.Observe(ctx, repts, false)
+			assert.EqualError(t, err, "Observe failed while parsing run results: AdapterLWBAError: bid ask violation")
+
+			telem := <-chEnhancedTelem
+			assert.True(t, telem.DpInvariantViolationDetected)
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
