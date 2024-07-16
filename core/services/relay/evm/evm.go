@@ -274,7 +274,7 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 		clients[server.URL] = client
 	}
 
-	// initialize trigger capability service lazily
+	// initialize the trigger capability service lazily
 	if relayConfig.EnableTriggerCapability && r.triggerCapability == nil {
 		if r.capabilitiesRegistry == nil {
 			lggr.Errorw("trigger capability is enabled but capabilities registry is not set")
