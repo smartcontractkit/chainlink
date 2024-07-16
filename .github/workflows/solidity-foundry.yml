@@ -213,8 +213,9 @@ jobs:
               slither_errors=$((slither_errors+1))
               continue
             fi
-                                
-            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" 2>&1 | tee -a slither-results.md
+          
+            echo "# Slither for: $sanitized_file" | tee -a slither-results.md                                
+            slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" | tee -a slither-results.md
           done
           
           if [ $slither_errors -ne 0 ]; then
