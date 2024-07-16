@@ -116,7 +116,6 @@ const (
 	FlagSecretsMaxSize uint32 = 2
 )
 
-//go:generate mockery --quiet --name FunctionsListener --output ./mocks/ --case=underscore
 type FunctionsListener interface {
 	job.ServiceCtx
 
