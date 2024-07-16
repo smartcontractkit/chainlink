@@ -8,6 +8,7 @@ import {ITokenAdminRegistry} from "../interfaces/ITokenAdminRegistry.sol";
 
 contract RegistryModuleOwnerCustom is ITypeAndVersion {
   error CanOnlySelfRegister(address admin, address token);
+  error AddressZero();
 
   event AdministratorRegistered(address indexed token, address indexed administrator);
 
@@ -17,6 +18,9 @@ contract RegistryModuleOwnerCustom is ITypeAndVersion {
   ITokenAdminRegistry internal immutable i_tokenAdminRegistry;
 
   constructor(address tokenAdminRegistry) {
+    if (tokenAdminRegistry == address(0)) {
+      revert AddressZero();
+    }
     i_tokenAdminRegistry = ITokenAdminRegistry(tokenAdminRegistry);
   }
 

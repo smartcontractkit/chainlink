@@ -25,8 +25,7 @@ contract AggregateRateLimiter is OwnerIsCreator {
   // The token bucket object that contains the bucket state.
   RateLimiter.TokenBucket private s_rateLimiter;
 
-  /// @param config The RateLimiter.Config containing the capacity and refill rate
-  /// of the bucket, plus the admin address.
+  /// @param config The RateLimiter.Config
   constructor(RateLimiter.Config memory config) {
     s_rateLimiter = RateLimiter.TokenBucket({
       rate: config.rate,

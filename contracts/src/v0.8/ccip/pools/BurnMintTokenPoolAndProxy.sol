@@ -18,8 +18,7 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
   ) LegacyPoolWrapper(token, allowlist, rmnProxy, router) {}
 
   /// @notice Burn the token in the pool
-  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via RMN.
+  /// @dev The _validateLockOrBurn check is an essential security check
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
     external
     virtual
@@ -40,8 +39,7 @@ contract BurnMintTokenPoolAndProxy is ITypeAndVersion, LegacyPoolWrapper {
   }
 
   /// @notice Mint tokens from the pool to the recipient
-  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via RMN.
+  /// @dev The _validateReleaseOrMint check is an essential security check
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     virtual

@@ -27,6 +27,14 @@ contract RegistryModuleOwnerCustomSetup is Test {
   }
 }
 
+contract RegistryModuleOwnerCustom_constructor is RegistryModuleOwnerCustomSetup {
+  function test_constructor_Revert() public {
+    vm.expectRevert(abi.encodeWithSelector(RegistryModuleOwnerCustom.AddressZero.selector));
+
+    new RegistryModuleOwnerCustom(address(0));
+  }
+}
+
 contract RegistryModuleOwnerCustom_registerAdminViaGetCCIPAdmin is RegistryModuleOwnerCustomSetup {
   function test_registerAdminViaGetCCIPAdmin_Success() public {
     assertEq(s_tokenAdminRegistry.getTokenConfig(s_token).administrator, address(0));

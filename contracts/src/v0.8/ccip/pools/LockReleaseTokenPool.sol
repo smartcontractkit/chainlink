@@ -46,8 +46,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   }
 
   /// @notice Locks the token in the pool
-  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via RMN.
+  /// @dev The _validateLockOrBurn check is an essential security check
   function lockOrBurn(Pool.LockOrBurnInV1 calldata lockOrBurnIn)
     external
     virtual
@@ -62,8 +61,7 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
   }
 
   /// @notice Release tokens from the pool to the recipient
-  /// @dev The whenNotCursed check is important to ensure that even if a ramp is compromised
-  /// we're able to stop token movement via RMN.
+  /// @dev The _validateReleaseOrMint check is an essential security check
   function releaseOrMint(Pool.ReleaseOrMintInV1 calldata releaseOrMintIn)
     external
     virtual

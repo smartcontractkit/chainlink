@@ -38,7 +38,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   error AlreadyExecuted(uint64 sequenceNumber);
   error ZeroAddressNotAllowed();
   error CommitStoreAlreadyInUse();
-  error ExecutionError(bytes error);
+  error ExecutionError(bytes err);
   error InvalidSourceChain(uint64 sourceChainSelector);
   error MessageTooLarge(uint256 maxSize, uint256 actualSize);
   error TokenDataMismatch(uint64 sequenceNumber);
@@ -49,8 +49,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   error InvalidManualExecutionGasLimit(uint256 index, uint256 newLimit);
   error RootNotCommitted();
   error CanOnlySelfCall();
-  error ReceiverError(bytes error);
-  error TokenHandlingError(bytes error);
+  error ReceiverError(bytes err);
+  error TokenHandlingError(bytes err);
   error EmptyReport();
   error CursedByRMN();
   error InvalidMessageId();
@@ -205,9 +205,11 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   function getSenderNonce(address sender) external view returns (uint64 nonce) {
     uint256 senderNonce = s_senderNonce[sender];
 
-    if (senderNonce == 0 && i_prevOffRamp != address(0)) {
-      // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
-      return IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(sender);
+    if (senderNonce == 0) {
+      if (i_prevOffRamp != address(0)) {
+        // If OffRamp was upgraded, check if sender has a nonce from the previous OffRamp.
+        return IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(sender);
+      }
     }
     return uint64(senderNonce);
   }
@@ -226,7 +228,11 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     for (uint256 i = 0; i < numMsgs; ++i) {
       uint256 newLimit = gasLimitOverrides[i];
       // Checks to ensure message cannot be executed with less gas than specified.
-      if (newLimit != 0 && newLimit < report.messages[i].gasLimit) revert InvalidManualExecutionGasLimit(i, newLimit);
+      if (newLimit != 0) {
+        if (newLimit < report.messages[i].gasLimit) {
+          revert InvalidManualExecutionGasLimit(i, newLimit);
+        }
+      }
     }
 
     _execute(report, gasLimitOverrides);
@@ -308,26 +314,28 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
         if (originalState != Internal.MessageExecutionState.UNTOUCHED) revert AlreadyAttempted(message.sequenceNumber);
       }
 
-      if (message.nonce > 0) {
+      if (message.nonce != 0) {
         // In the scenario where we upgrade offRamps, we still want to have sequential nonces.
         // Referencing the old offRamp to check the expected nonce if none is set for a
         // given sender allows us to skip the current message if it would not be the next according
         // to the old offRamp. This preserves sequencing between updates.
         uint64 prevNonce = s_senderNonce[message.sender];
-        if (prevNonce == 0 && i_prevOffRamp != address(0)) {
-          prevNonce = IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(message.sender);
-          if (prevNonce + 1 != message.nonce) {
-            // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
-            // is guaranteed to equal (largest v1 onramp nonce + 1).
-            // if this message's nonce isn't (v1 offramp nonce + 1), then v1 offramp nonce != largest v1 onramp nonce,
-            // it tells us there are still messages inflight for v1 offramp
-            emit SkippedSenderWithPreviousRampMessageInflight(message.nonce, message.sender);
-            continue;
+        if (prevNonce == 0) {
+          if (i_prevOffRamp != address(0)) {
+            prevNonce = IAny2EVMOffRamp(i_prevOffRamp).getSenderNonce(message.sender);
+            if (prevNonce + 1 != message.nonce) {
+              // the starting v2 onramp nonce, i.e. the 1st message nonce v2 offramp is expected to receive,
+              // is guaranteed to equal (largest v1 onramp nonce + 1).
+              // if this message's nonce isn't (v1 offramp nonce + 1), then v1 offramp nonce != largest v1 onramp nonce,
+              // it tells us there are still messages inflight for v1 offramp
+              emit SkippedSenderWithPreviousRampMessageInflight(message.nonce, message.sender);
+              continue;
+            }
+            // Otherwise this nonce is indeed the "transitional nonce", that is
+            // all messages sent to v1 ramp have been executed by the DON and the sequence can resume in V2.
+            // Note if first time user in V2, then prevNonce will be 0, and message.nonce = 1, so this will be a no-op.
+            s_senderNonce[message.sender] = prevNonce;
           }
-          // Otherwise this nonce is indeed the "transitional nonce", that is
-          // all messages sent to v1 ramp have been executed by the DON and the sequence can resume in V2.
-          // Note if first time user in V2, then prevNonce will be 0, and message.nonce = 1, so this will be a no-op.
-          s_senderNonce[message.sender] = prevNonce;
         }
 
         // UNTOUCHED messages MUST be executed in order always IF message.nonce > 0.
@@ -358,19 +366,22 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // Since it's hard to estimate whether manual execution will succeed, we
       // revert the entire transaction if it fails. This will show the user if
       // their manual exec will fail before they submit it.
-      if (
-        manualExecution && newState == Internal.MessageExecutionState.FAILURE
-          && originalState != Internal.MessageExecutionState.UNTOUCHED
-      ) {
-        // If manual execution fails, we revert the entire transaction, unless the originalState is UNTOUCHED as we
-        // would still be making progress by changing the state from UNTOUCHED to FAILURE.
-        revert ExecutionError(returnData);
+      if (manualExecution) {
+        if (newState == Internal.MessageExecutionState.FAILURE) {
+          if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
+            // If manual execution fails, we revert the entire transaction, unless the originalState is UNTOUCHED as we
+            // would still be making progress by changing the state from UNTOUCHED to FAILURE.
+            revert ExecutionError(returnData);
+          }
+        }
       }
 
       // The only valid prior states are UNTOUCHED and FAILURE (checked above)
-      // The only valid post states are FAILURE and SUCCESS (checked below)
-      if (newState != Internal.MessageExecutionState.FAILURE && newState != Internal.MessageExecutionState.SUCCESS) {
-        revert InvalidNewState(message.sequenceNumber, newState);
+      // The only valid post states are SUCCESS and FAILURE (checked below)
+      if (newState != Internal.MessageExecutionState.SUCCESS) {
+        if (newState != Internal.MessageExecutionState.FAILURE) {
+          revert InvalidNewState(message.sequenceNumber, newState);
+        }
       }
 
       // Nonce changes per state transition.
@@ -379,8 +390,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // UNTOUCHED -> SUCCESS  nonce bump
       // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
-      if (message.nonce > 0 && originalState == Internal.MessageExecutionState.UNTOUCHED) {
-        s_senderNonce[message.sender]++;
+      if (message.nonce != 0) {
+        if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
+          s_senderNonce[message.sender]++;
+        }
       }
 
       emit ExecutionStateChanged(message.sequenceNumber, message.messageId, newState, returnData);
@@ -469,7 +482,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     ) return;
 
     (bool success, bytes memory returnData,) = IRouter(s_dynamicConfig.router).routeMessage(
-      Internal._toAny2EVMMessage(message, destTokenAmounts),
+      Client.Any2EVMMessage({
+        messageId: message.messageId,
+        sourceChainSelector: message.sourceChainSelector,
+        sender: abi.encode(message.sender),
+        data: message.data,
+        destTokenAmounts: destTokenAmounts
+      }),
       Internal.GAS_FOR_CALL_EXACT_CHECK,
       message.gasLimit,
       message.receiver
@@ -607,8 +626,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
     // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
     (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeWithSelector(
-        IPoolV1.releaseOrMint.selector,
+      abi.encodeCall(
+        IPoolV1.releaseOrMint,
         Pool.ReleaseOrMintInV1({
           originalSender: originalSender,
           receiver: receiver,
@@ -638,7 +657,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     // transfer them to the final receiver. We use the _callWithExactGasSafeReturnData function because
     // the token contracts are not considered trusted.
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeWithSelector(IERC20.transfer.selector, receiver, localAmount),
+      abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
       localToken,
       s_dynamicConfig.maxTokenTransferGas,
       Internal.GAS_FOR_CALL_EXACT_CHECK,

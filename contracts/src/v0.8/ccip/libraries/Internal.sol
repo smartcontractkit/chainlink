@@ -131,19 +131,6 @@ library Internal {
   /// When abi encoded, each token transfer takes up 7 slots, excl bytes contents.
   uint256 public constant ANY_2_EVM_MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 7;
 
-  function _toAny2EVMMessage(
-    EVM2EVMMessage memory original,
-    Client.EVMTokenAmount[] memory destTokenAmounts
-  ) internal pure returns (Client.Any2EVMMessage memory message) {
-    return Client.Any2EVMMessage({
-      messageId: original.messageId,
-      sourceChainSelector: original.sourceChainSelector,
-      sender: abi.encode(original.sender),
-      data: original.data,
-      destTokenAmounts: destTokenAmounts
-    });
-  }
-
   bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
 
   /// @dev Used to hash messages for single-lane ramps.
@@ -239,27 +226,21 @@ library Internal {
     );
   }
 
+  /// @dev We disallow the first 1024 addresses to never allow calling precompiles. It is extremely unlikely that
+  /// anyone would ever be able to generate an address in this range.
+  uint256 public constant PRECOMPILE_SPACE = 1024;
+
   /// @notice This methods provides validation for parsing abi encoded addresses by ensuring the
   /// address is within the EVM address space. If it isn't it will revert with an InvalidEVMAddress error, which
   /// we can catch and handle more gracefully than a revert from abi.decode.
   /// @return The address if it is valid, the function will revert otherwise.
   function _validateEVMAddress(bytes memory encodedAddress) internal pure returns (address) {
     if (encodedAddress.length != 32) revert InvalidEVMAddress(encodedAddress);
-    return _validateEVMAddressFromUint256(abi.decode(encodedAddress, (uint256)));
-  }
-
-  /// @dev We disallow the first 1024 addresses to never allow calling precompiles. It is extremely unlikely that
-  /// anyone would ever be able to generate an address in this range.
-  uint256 public constant PRECOMPILE_SPACE = 1024;
-
-  /// @notice This method provides a safe way to convert a uint256 to an address.
-  /// It will revert if the uint256 is not a valid EVM address, or a precompile address.
-  /// @return The address if it is valid, the function will revert otherwise.
-  function _validateEVMAddressFromUint256(uint256 encodedAddress) internal pure returns (address) {
-    if (encodedAddress > type(uint160).max || encodedAddress < PRECOMPILE_SPACE) {
-      revert InvalidEVMAddress(abi.encode(encodedAddress));
+    uint256 encodedAddressUint = abi.decode(encodedAddress, (uint256));
+    if (encodedAddressUint > type(uint160).max || encodedAddressUint < PRECOMPILE_SPACE) {
+      revert InvalidEVMAddress(encodedAddress);
     }
-    return address(uint160(encodedAddress));
+    return address(uint160(encodedAddressUint));
   }
 
   /// @notice Enum listing the possible message execution states within

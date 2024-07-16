@@ -36,7 +36,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   error AlreadyAttempted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error AlreadyExecuted(uint64 sourceChainSelector, uint64 sequenceNumber);
   error ZeroChainSelectorNotAllowed();
-  error ExecutionError(bytes32 messageId, bytes error);
+  error ExecutionError(bytes32 messageId, bytes err);
   error SourceChainNotEnabled(uint64 sourceChainSelector);
   error TokenDataMismatch(uint64 sourceChainSelector, uint64 sequenceNumber);
   error UnexpectedTokenData();
@@ -47,8 +47,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
   error RootAlreadyCommitted(uint64 sourceChainSelector, bytes32 merkleRoot);
   error InvalidRoot();
   error CanOnlySelfCall();
-  error ReceiverError(bytes error);
-  error TokenHandlingError(bytes error);
+  error ReceiverError(bytes err);
+  error TokenHandlingError(bytes err);
   error EmptyReport();
   error CursedByRMN(uint64 sourceChainSelector);
   error NotACompatiblePool(address notPool);
@@ -284,8 +284,10 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
       for (uint256 msgIndex = 0; msgIndex < numMsgs; ++msgIndex) {
         uint256 newLimit = msgGasLimitOverrides[msgIndex];
         // Checks to ensure message cannot be executed with less gas than specified.
-        if (newLimit != 0 && newLimit < report.messages[msgIndex].gasLimit) {
-          revert InvalidManualExecutionGasLimit(report.sourceChainSelector, msgIndex, newLimit);
+        if (newLimit != 0) {
+          if (newLimit < report.messages[msgIndex].gasLimit) {
+            revert InvalidManualExecutionGasLimit(report.sourceChainSelector, msgIndex, newLimit);
+          }
         }
       }
     }
@@ -417,11 +419,15 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
       // FAILURE   -> FAILURE  no nonce bump
       // FAILURE   -> SUCCESS  no nonce bump
       // UNTOUCHED messages MUST be executed in order always
-      if (message.header.nonce > 0 && originalState == Internal.MessageExecutionState.UNTOUCHED) {
-        // If a nonce is not incremented, that means it was skipped, and we can ignore the message
-        if (
-          !INonceManager(i_nonceManager).incrementInboundNonce(sourceChainSelector, message.header.nonce, message.sender)
-        ) continue;
+      if (message.header.nonce != 0) {
+        if (originalState == Internal.MessageExecutionState.UNTOUCHED) {
+          // If a nonce is not incremented, that means it was skipped, and we can ignore the message
+          if (
+            !INonceManager(i_nonceManager).incrementInboundNonce(
+              sourceChainSelector, message.header.nonce, message.sender
+            )
+          ) continue;
+        }
       }
 
       // Although we expect only valid messages will be committed, we check again
@@ -438,19 +444,22 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
       // Since it's hard to estimate whether manual execution will succeed, we
       // revert the entire transaction if it fails. This will show the user if
       // their manual exec will fail before they submit it.
-      if (
-        manualExecution && newState == Internal.MessageExecutionState.FAILURE
-          && originalState != Internal.MessageExecutionState.UNTOUCHED
-      ) {
-        // If manual execution fails, we revert the entire transaction, unless the originalState is UNTOUCHED as we
-        // would still be making progress by changing the state from UNTOUCHED to FAILURE.
-        revert ExecutionError(message.header.messageId, returnData);
+      if (manualExecution) {
+        if (newState == Internal.MessageExecutionState.FAILURE) {
+          if (originalState != Internal.MessageExecutionState.UNTOUCHED) {
+            // If manual execution fails, we revert the entire transaction, unless the originalState is UNTOUCHED as we
+            // would still be making progress by changing the state from UNTOUCHED to FAILURE.
+            revert ExecutionError(message.header.messageId, returnData);
+          }
+        }
       }
 
       // The only valid prior states are UNTOUCHED and FAILURE (checked above)
       // The only valid post states are FAILURE and SUCCESS (checked below)
-      if (newState != Internal.MessageExecutionState.FAILURE && newState != Internal.MessageExecutionState.SUCCESS) {
-        revert InvalidNewState(sourceChainSelector, message.header.sequenceNumber, newState);
+      if (newState != Internal.MessageExecutionState.SUCCESS) {
+        if (newState != Internal.MessageExecutionState.FAILURE) {
+          revert InvalidNewState(sourceChainSelector, message.header.sequenceNumber, newState);
+        }
       }
 
       emit ExecutionStateChanged(
@@ -826,8 +835,8 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     // We call the pool with exact gas to increase resistance against malicious tokens or token pools.
     // We protects against return data bombs by capping the return data size at MAX_RET_BYTES.
     (bool success, bytes memory returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeWithSelector(
-        IPoolV1.releaseOrMint.selector,
+      abi.encodeCall(
+        IPoolV1.releaseOrMint,
         Pool.ReleaseOrMintInV1({
           originalSender: originalSender,
           receiver: receiver,
@@ -857,7 +866,7 @@ contract EVM2EVMMultiOffRamp is ITypeAndVersion, MultiOCR3Base {
     // transfer them to the final receiver. We use the _callWithExactGasSafeReturnData function because
     // the token contracts are not considered trusted.
     (success, returnData,) = CallWithExactGas._callWithExactGasSafeReturnData(
-      abi.encodeWithSelector(IERC20.transfer.selector, receiver, localAmount),
+      abi.encodeCall(IERC20.transfer, (receiver, localAmount)),
       localToken,
       s_dynamicConfig.maxTokenTransferGas,
       Internal.GAS_FOR_CALL_EXACT_CHECK,

@@ -375,7 +375,11 @@ abstract contract TokenPool is IPoolV1, OwnerIsCreator {
   // ================================================================
 
   function _checkAllowList(address sender) internal view {
-    if (i_allowlistEnabled && !s_allowList.contains(sender)) revert SenderNotAllowed(sender);
+    if (i_allowlistEnabled) {
+      if (!s_allowList.contains(sender)) {
+        revert SenderNotAllowed(sender);
+      }
+    }
   }
 
   /// @notice Gets whether the allowList functionality is enabled.
