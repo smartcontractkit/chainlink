@@ -130,7 +130,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: e7d83b97f9c1aa6c94c133f0b21d578fd0075560
+          ref: 4800d2033f951af46f8829367d6f565f45baaff8
           path: 'chainlink-testing-framework'          
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -176,7 +176,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: 'smartcontractkit/chainlink-testing-framework'
-          ref: e7d83b97f9c1aa6c94c133f0b21d578fd0075560
+          ref: 4800d2033f951af46f8829367d6f565f45baaff8
           path: 'chainlink-testing-framework'        
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -237,10 +237,10 @@ jobs:
             exit 0
           fi
 
-          # Parse the JSON to check for testConfigOverrideRequired in Docker matrix
-          DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testConfigOverrideRequired") and .testConfigOverrideRequired) | .id else empty end' -r)
-          # Parse the JSON to check for testConfigOverrideRequired in Kubernetes matrix
-          K8S_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testConfigOverrideRequired") and .testConfigOverrideRequired) | .id else empty end' -r)
+          # Parse the JSON to check for test_config_override_required in Docker matrix
+          DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
+          # Parse the JSON to check for test_config_override_required in Kubernetes matrix
+          K8S_TESTS_REQUIRING_CONFIG_OVERRIDE=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_config_override_required") and .test_config_override_required) | .id else empty end' -r)
 
           # Determine if any tests require a configuration override
           if [ ! -z "$DOCKER_TESTS_REQUIRING_CONFIG_OVERRIDE" ] || [ ! -z "$K8S_TESTS_REQUIRING_CONFIG_OVERRIDE" ]; then
@@ -266,10 +266,10 @@ jobs:
             exit 0
           fi
 
-          # Parse the JSON to check for testSecretsRequired in Docker matrix
-          DOCKER_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testSecretsRequired") and .testSecretsRequired) | .id else empty end' -r)
-          # Parse the JSON to check for testSecretsRequired in Kubernetes matrix
-          K8S_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("testSecretsRequired") and .testSecretsRequired) | .id else empty end' -r)
+          # Parse the JSON to check for test_secrets_required in Docker matrix
+          DOCKER_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-docker-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_secrets_required") and .test_secrets_required) | .id else empty end' -r)
+          # Parse the JSON to check for test_secrets_required in Kubernetes matrix
+          K8S_TESTS_REQUIRING_SECRETS=$(echo '${{ steps.set-k8s-runner-matrix.outputs.matrix }}' | jq 'if .tests then .tests[] | select(has("test_secrets_required") and .test_secrets_required) | .id else empty end' -r)
 
           # Determine if any tests require secrets
           if [ ! -z "$DOCKER_TESTS_REQUIRING_SECRETS" ] || [ ! -z "$K8S_TESTS_REQUIRING_SECRETS" ]; then
@@ -350,7 +350,7 @@ jobs:
     needs: [load-test-configurations, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     # Run when none of the needed jobs fail or are cancelled (skipped or successful jobs are ok) 
     if: ${{ needs.load-test-configurations.outputs.run-docker-tests == 'true' && always() && !failure() && !cancelled() }} 
-    runs-on: ${{ matrix.tests.runsOn }}
+    runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.load-test-configurations.outputs.docker-matrix)}}
@@ -407,17 +407,17 @@ jobs:
         env:
           DETACH_RUNNER: true
         with:
-          test_command_to_run: ${{ matrix.tests.testCmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
+          test_command_to_run: ${{ matrix.tests.test_cmd }} 2>&1 | tee /tmp/gotest.log | gotestloghelper -ci -singlepackage -hidepassingtests=false -hidepassinglogs
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
           test_suite: ${{ matrix.tests.test_inputs.test_suite }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: ${{ matrix.tests.idSanitized }}-test-logs
+          artifacts_name: ${{ matrix.tests.id_sanitized }}-test-logs
           artifacts_location: |
             ./integration-tests/smoke/logs/
             /tmp/gotest.log
-          publish_check_name: ${{ matrix.tests.idSanitized }}
+          publish_check_name: ${{ matrix.tests.id_sanitized }}
           token: ${{ secrets.GH_TOKEN }}
           no_cache: true # Do not restore cache since go was already configured in the previous step
           go_mod_path: ./integration-tests/go.mod
@@ -435,10 +435,10 @@ jobs:
           DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
           DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
-          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscopeEnv != '' && 'true' || '' }}
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
   # Run K8s tests using old remote runner
 
@@ -481,7 +481,7 @@ jobs:
     needs: [load-test-configurations, prepare-remote-runner-test-image, require-chainlink-image-versions-in-qa-ecr, require-chainlink-plugin-versions-in-qa-ecr, get_latest_chainlink_release_version]
     if: ${{ needs.load-test-configurations.outputs.run-k8s-tests == 'true' && always() && !failure() && !cancelled() }} 
     name: Run k8s tests (${{ matrix.tests.id }})
-    runs-on: ${{ matrix.tests.runsOn }}
+    runs-on: ${{ matrix.tests.runs_on }}
     strategy:
       fail-fast: false
       matrix: ${{fromJson(needs.load-test-configurations.outputs.k8s-runner-matrix)}}
@@ -529,7 +529,7 @@ jobs:
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@6079d91c48cb08c686ea6dd53a047a36af9151f5 # TODO: Create tag and use it here24
         env:
           DETACH_RUNNER: true
-          RR_MEM: ${{ matrix.tests.remoteRunnerMemory }}
+          RR_MEM: ${{ matrix.tests.remote_runner_memory }}
           TEST_ARGS: -test.timeout 900h -test.memprofile memprofile.out -test.cpuprofile profile.out
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ needs.prepare-remote-runner-test-image.outputs.remote-runner-version }}
           INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
@@ -539,7 +539,7 @@ jobs:
           TEST_LOG_LEVEL: debug
           REF_NAME: ${{ github.head_ref || github.ref_name }}
         with:
-          test_command_to_run: ${{ matrix.tests.testCmd }}
+          test_command_to_run: ${{ matrix.tests.test_cmd }}
           test_download_vendor_packages_command: make gomod
           test_secrets_override_base64: ${{ secrets.TEST_SECRETS_OVERRIDE_BASE64 }}
           test_type: ${{ matrix.tests.test_inputs.test_type }}
@@ -559,11 +559,10 @@ jobs:
           DEFAULT_GRAFANA_BASE_URL: "http://localhost:8080/primary"
           DEFAULT_GRAFANA_DASHBOARD_URL: "/d/ddf75041-1e39-42af-aa46-361fe4c36e9e/ci-e2e-tests-logs"
           DEFAULT_GRAFANA_BEARER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscopeEnv }}
-          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
-          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscopeEnv != '' && secrets.QA_PYROSCOPE_KEY || '' }}
-          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscopeEnv != '' && 'true' || '' }}
-
+          DEFAULT_PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}
+          DEFAULT_PYROSCOPE_SERVER_URL: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_INSTANCE || '' }}
+          DEFAULT_PYROSCOPE_KEY: ${{ matrix.tests.pyroscope_env != '' && secrets.QA_PYROSCOPE_KEY || '' }}
+          DEFAULT_PYROSCOPE_ENABLED: ${{ matrix.tests.pyroscope_env != '' && 'true' || '' }}
 
   # Run K8s tests using new remote runner
   # remote-runner-k8s-tests:
