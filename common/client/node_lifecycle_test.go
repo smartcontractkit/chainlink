@@ -1584,10 +1584,6 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil).Once()
-		sub := mocks.NewSubscription(t)
-		sub.On("Err").Return(nil)
-		sub.On("Unsubscribe").Once()
-		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 
 		setupRPCForAliveLoop(t, rpc)
 
