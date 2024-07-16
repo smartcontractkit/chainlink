@@ -16,7 +16,7 @@ function parseIssueNumberFrom(
     return str?.toUpperCase().match(jiraIssueRegex)?.[0];
   }
 
-  const parsed = inputs.map(parse).filter((x): x is string => !!x);
+  const parsed: string[] = inputs.map(parse).filter((x) => x !== undefined);
 
   return parsed[0];
 }
