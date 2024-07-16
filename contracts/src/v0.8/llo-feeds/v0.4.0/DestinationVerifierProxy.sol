@@ -37,7 +37,6 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
     bytes calldata payload,
     bytes calldata parameterPayload
   ) external payable returns (bytes memory) {
-    if(address(s_verifier) == address(0)) revert ZeroAddress();
     return s_verifier.verify(payload, parameterPayload, msg.sender);
   }
 
@@ -46,7 +45,6 @@ contract DestinationVerifierProxy is IDestinationVerifierProxy, ConfirmedOwner, 
     bytes[] calldata payloads, 
     bytes calldata parameterPayload
   ) external payable returns (bytes[] memory verifiedReports) {
-    if(address(s_verifier) == address(0)) revert ZeroAddress();
     return s_verifier.verifyBulk(payloads, parameterPayload, msg.sender);
   }
 

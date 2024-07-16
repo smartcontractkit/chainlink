@@ -8,19 +8,6 @@ import {DestinationFeeManager} from "../../../v0.4.0/DestinationFeeManager.sol";
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTest {
-    function test_verifyCallWithNoVerifierSet() public {
-        bytes memory somebytes = "something";
-        vm.expectRevert(abi.encodeWithSelector(DestinationVerifierProxy.ZeroAddress.selector));
-        s_verifierProxy.verify(somebytes, somebytes);
-    }
-
-    function test_verifyBulkCallWithNoVerifierSet() public {
-        bytes memory somebytes = "something";
-        bytes[] memory arrayData = new bytes[](1);
-        arrayData[0] = somebytes;
-        vm.expectRevert(abi.encodeWithSelector(DestinationVerifierProxy.ZeroAddress.selector));
-        s_verifierProxy.verifyBulk(arrayData, somebytes);
-    }
 
     function test_setVerifierCalledByNoOwner() public {
         address STRANGER = address(999);
