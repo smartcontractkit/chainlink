@@ -190,7 +190,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		require.NoError(t, mn.Close())
 		_, err := txSender.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, err, "context canceled")
+		require.EqualError(t, err, "MultiNode is stopped")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
 		chainID := types.RandomID()

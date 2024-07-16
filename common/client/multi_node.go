@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -91,35 +92,45 @@ func (c *MultiNode[CHAIN_ID, RPC]) ChainID() CHAIN_ID {
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx context.Context, rpc RPC, isSendOnly bool)) error {
-	ctx, cancel := c.chStop.Ctx(ctx)
+	var err error
+	ok := c.IfNotStopped(func() {
+		ctx, _ = c.chStop.Ctx(ctx)
 
-	callsCompleted := 0
-	for _, n := range c.primaryNodes {
-		if ctx.Done() != nil {
-			cancel()
-			return ctx.Err()
+		callsCompleted := 0
+		for _, n := range c.primaryNodes {
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
+			default:
+				if n.State() != NodeStateAlive {
+					continue
+				}
+				do(ctx, n.RPC(), false)
+				callsCompleted++
+			}
 		}
-		if n.State() != NodeStateAlive {
-			continue
+		if callsCompleted == 0 {
+			err = ErroringNodeError
 		}
-		do(ctx, n.RPC(), false)
-		callsCompleted++
-	}
-	if callsCompleted == 0 {
-		return ErroringNodeError
-	}
 
-	for _, n := range c.sendOnlyNodes {
-		if ctx.Done() != nil {
-			cancel()
-			return ctx.Err()
+		for _, n := range c.sendOnlyNodes {
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
+			default:
+				if n.State() != NodeStateAlive {
+					continue
+				}
+				do(ctx, n.RPC(), true)
+			}
 		}
-		if n.State() != NodeStateAlive {
-			continue
-		}
-		do(ctx, n.RPC(), true)
+	})
+	if !ok {
+		return errors.New("MultiNode is stopped")
 	}
-	return nil
+	return err
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) NodeStates() map[string]NodeState {
