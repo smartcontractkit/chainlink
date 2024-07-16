@@ -4,6 +4,8 @@ FILE="$1"
 
 if [ "$#" -lt 1 ]; then
   echo "Detects the Solidity version of a file and selects the appropriate Solc version."
+  echo "If the version is not installed, it will be installed and selected."
+  echo "Will prefer to use the version from Foundry profile if it satisfies the version in the file."
   echo "Usage: $0 <file>"
   exit 1
 fi
@@ -36,10 +38,8 @@ extract_pragma() {
 echo "Detecting Solc version for $FILE"
 
 PRODUCT=$(extract_product "$FILE")
-echo "PRODUCT: $PRODUCT"
 SOLC_IN_PROFILE=$(FOUNDRY_PROFILE=$PRODUCT forge config --json | jq ".solc")
 SOLC_IN_PROFILE=$(echo "$SOLC_IN_PROFILE" | tr -d "'\"")
-echo "SOLC_IN_PROFILE: $SOLC_IN_PROFILE"
 SOLCVER=$(extract_pragma "$FILE")
 
 exit_code=$?
@@ -49,15 +49,12 @@ if [ $exit_code -ne 0 ]; then
 fi
 
 SOLCVER=$(echo "$SOLCVER" | tr -d "'\"")
-echo "SOLCVER after cleanup: $SOLCVER"
 
 if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
-  echo "Running npx semver with SOLC_IN_PROFILE='$SOLC_IN_PROFILE' and SOLCVER='$SOLCVER'..."
   set +e
   COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER")
   exit_code=$?
   set -e
-  echo "Compatibility result: $COMPAT_SOLC_VERSION"
   if [[ $exit_code -eq 0 && -n "$COMPAT_SOLC_VERSION" ]]; then
     echo "Version $SOLC_IN_PROFILE satisfies the constraint $SOLCVER"
     SOLC_TO_USE="$SOLC_IN_PROFILE"
