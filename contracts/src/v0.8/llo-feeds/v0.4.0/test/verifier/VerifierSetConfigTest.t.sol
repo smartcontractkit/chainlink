@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {BaseTest} from "./BaseDestinationVerifierTest.t.sol";
 import {DestinationVerifier} from "../../../v0.4.0/DestinationVerifier.sol";
+import {DestinationRewardManager} from "../../../v0.4.0/DestinationRewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierSetConfigTest is BaseTest {
@@ -125,28 +126,21 @@ contract VerifierSetConfigTest is BaseTest {
         // Checking expected internal state is updated accordingly
 
         // 1. check internal state of: s_DONConfigByID
-        DestinationVerifier.DONConfig memory donConfigT1 = s_verifier.getDONConfig(expectedDonConfigID1);
+        DestinationVerifier.DONConfig[] memory donConfigs = s_verifier.getDONConfigs();
+
+        assertEq(donConfigs.length, 1);
+        DestinationVerifier.DONConfig memory donConfigT1 = donConfigs[0];
         assertEq(donConfigT1.f, FAULT_TOLERANCE);
         assertEq(donConfigT1.isActive, true);
         assertEq(donConfigT1.DONConfigID, expectedDonConfigID1);
+        assertEq(donConfigT1.activationTime, t1);
 
         // 2. check internal state of: s_SignerByAddressAndDONConfigId
 
         for (uint256 i; i < signers.length; ++i) {
             bytes32 signerToDonConfigKey = _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
-
-            DestinationVerifier.SignerConfig memory c =
-                s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey);
-            assertEq(c.DONConfigID, expectedDonConfigID1);
-            assertEq(c.activationTime, t1);
-        }
-
-        // 3. check internal state of s_SignerByAddress
-        for (uint256 i; i < signers.length; ++i) {
-            DestinationVerifier.SignerConfig memory latestSignerConfig =
-                s_verifier.getSignerMostRecentConfig(signers[i].signerAddress);
-            assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID1);
-            assertEq(latestSignerConfig.activationTime, t1);
+            bool c = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey);
+            assertEq(c, true);
         }
 
         // setConfig again but  this config contains a subset of the signers
@@ -162,140 +156,97 @@ contract VerifierSetConfigTest is BaseTest {
         uint256 t2 = block.timestamp;
 
         bytes24 expectedDonConfigID2 = _DONConfigIdFromConfigData(signerAddrs2, 1);
+        donConfigs = s_verifier.getDONConfigs();
 
         // 1. check internal state of s_DONConfigByID
+        donConfigT1 = donConfigs[0];
         assertEq(donConfigT1.f, FAULT_TOLERANCE);
         assertEq(donConfigT1.isActive, true);
         assertEq(donConfigT1.DONConfigID, expectedDonConfigID1);
+        assertEq(donConfigT1.activationTime, t1);
 
-        DestinationVerifier.DONConfig memory donConfigT2 = s_verifier.getDONConfig(expectedDonConfigID2);
+        assertEq(donConfigs.length, 2);
+        DestinationVerifier.DONConfig memory donConfigT2 = donConfigs[1];
         assertEq(donConfigT2.f, MINIMAL_FAULT_TOLERANCE);
         assertEq(donConfigT2.isActive, true);
         assertEq(donConfigT2.DONConfigID, expectedDonConfigID2);
+        assertEq(donConfigT2.activationTime, t2);
 
         // 2. check state of s_SignerByAddressAndDONConfigId
         // checking first DONConfig
         for (uint256 i; i < signers.length; ++i) {
             bytes32 signerToDonConfigKey1 =
                 _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID1);
-            DestinationVerifier.SignerConfig memory c1 =
-                s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey1);
-            assertEq(c1.DONConfigID, expectedDonConfigID1);
-            assertEq(c1.activationTime, t1);
+            bool c1 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey1);
+            assertEq(c1, true);
         }
 
         // checking second DONConfig
         for (uint256 i; i < signers.length; ++i) {
             bytes32 signerToDonConfigKey2 =
                 _signerAddressAndDonConfigKey(signers[i].signerAddress, expectedDonConfigID2);
-            DestinationVerifier.SignerConfig memory c2 =
-                s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey2);
+            bool c2 = s_verifier.getSignerConfigByAddressAndDONConfigId(signerToDonConfigKey2);
             if (i < 4) {
-                // first 4 signers should also have an entry for the DonConfigId2
-                assertEq(c2.DONConfigID, expectedDonConfigID2);
-                assertEq(c2.activationTime, t2);
+                assertEq(c2, true);
             } else {
-                // all other signers are not part of DonConfigId2
-                assertEq(c2.DONConfigID, bytes24(0));
-                assertEq(c2.activationTime, 0);
-            }
-        }
-
-        // 3. check state of s_SignerByAddress
-        for (uint256 i; i < signers.length; ++i) {
-            DestinationVerifier.SignerConfig memory latestSignerConfig =
-                s_verifier.getSignerMostRecentConfig(signers[i].signerAddress);
-            if (i < 4) {
-                assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID2);
-                assertEq(latestSignerConfig.activationTime, t2);
-            } else {
-                assertEq(latestSignerConfig.DONConfigID, expectedDonConfigID1);
-                assertEq(latestSignerConfig.activationTime, t1);
+                assertEq(c2, false);
             }
         }
 
         //  setting DONConfig2 as activated false
-        s_verifier.setConfigActive(expectedDonConfigID2, false);
-        DestinationVerifier.DONConfig memory donConfig2AtT3 = s_verifier.getDONConfig(expectedDonConfigID2);
+        s_verifier.setConfigActive(1, false);
+
+        donConfigs = s_verifier.getDONConfigs();
+        assertEq(donConfigs.length, 2);
+
+        DestinationVerifier.DONConfig memory donConfig2AtT3 = donConfigs[1];
         assertEq(donConfig2AtT3.f, MINIMAL_FAULT_TOLERANCE);
         assertEq(donConfig2AtT3.isActive, false);
         assertEq(donConfig2AtT3.DONConfigID, expectedDonConfigID2);
 
         //  setting DONConfig2 as activated false (again)
-        s_verifier.setConfigActive(expectedDonConfigID2, false);
-        DestinationVerifier.DONConfig memory donConfig2AtT4 = s_verifier.getDONConfig(expectedDonConfigID2);
+        s_verifier.setConfigActive(1, false);
+
+        donConfigs = s_verifier.getDONConfigs();
+        assertEq(donConfigs.length, 2);
+        DestinationVerifier.DONConfig memory donConfig2AtT4 = donConfigs[1];
         assertEq(donConfig2AtT4.f, MINIMAL_FAULT_TOLERANCE);
         assertEq(donConfig2AtT4.isActive, false);
         assertEq(donConfig2AtT4.DONConfigID, expectedDonConfigID2);
 
         // checking other DONConfigs were not affected
-        DestinationVerifier.DONConfig memory donConfig1AtT5 = s_verifier.getDONConfig(expectedDonConfigID1);
+        donConfigs = s_verifier.getDONConfigs();
+        assertEq(donConfigs.length, 2);
+        DestinationVerifier.DONConfig memory donConfig1AtT5 = donConfigs[0];
         assertEq(donConfig1AtT5.f, FAULT_TOLERANCE);
         assertEq(donConfig1AtT5.isActive, true);
         assertEq(donConfig1AtT5.DONConfigID, expectedDonConfigID1);
 
         // setting DONConfig2 as activated true
-        s_verifier.setConfigActive(expectedDonConfigID2, true);
+        s_verifier.setConfigActive(1, true);
 
-        DestinationVerifier.DONConfig memory donConfig2AtT5 = s_verifier.getDONConfig(expectedDonConfigID2);
+        donConfigs = s_verifier.getDONConfigs();
+        assertEq(donConfigs.length, 2);
+        DestinationVerifier.DONConfig memory donConfig2AtT5 = donConfigs[1];
         assertEq(donConfig2AtT5.f, MINIMAL_FAULT_TOLERANCE);
         assertEq(donConfig2AtT5.isActive, true);
         assertEq(donConfig2AtT5.DONConfigID, expectedDonConfigID2);
     }
 
     function test_setConfigActiveUnknownDONConfigID() public {
-        // Just a random hex
-        bytes24 dummyDONConfigID = 0x63eab508c9125e9cf2b0937afa833ae0c6f371729aa671bd;
         vm.expectRevert(abi.encodeWithSelector(DestinationVerifier.DONConfigDoesNotExist.selector));
-        s_verifier.setConfigActive(dummyDONConfigID, true);
+        s_verifier.setConfigActive(3, true);
     }
 
-/*
     function test_setConfigWithAddressesAndWeightsAreSetCorrectly() public {
-
-     
         Signer[] memory signers = _getSigners(MAX_ORACLES);
         address[] memory signerAddrs = _getSignerAddresses(signers);
         address recipient = signers[0].signerAddress;
         Common.AddressAndWeight[] memory weights = new Common.AddressAndWeight[](1);
         weights[0] = Common.AddressAndWeight(recipient, ONE_PERCENT * 100);
         bytes32 expectedDonConfigID = _DONConfigIdFromConfigData(signerAddrs, FAULT_TOLERANCE);
-
+        vm.expectEmit();
+        emit RewardRecipientsUpdated(expectedDonConfigID, weights);
         s_verifier.setConfig(signerAddrs, FAULT_TOLERANCE, weights);
-
-     uint256 POOL_DEPOSIT_AMOUNT = 10e18;
- 
-  Common.Asset memory a = Common.Asset(address(asset), 1);
-  addFundsToPool(expectedDonConfigID, a, address(feeManager));
-
-//        bool foundDONConfigID = false;
-//        uint256 registeredPoolsSize = rewardManager.s_registeredPoolIds.length;
-
-
-        //pay a single recipient
-       address[] memory recipients = new address[](1);
-        recipients[0] = recipient;
-    
-
-        //the recipient should have received 1/4 of the deposit amount
-//        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-    //assertEq(getAssetBalance(recipient), expectedRecipientAmount);
-
-    //    for (uint256 i = 0; i < registeredPoolsSize; ++i) {
-      //      if (rewardManager.s_registeredPoolIds()[i] == expectedDonConfigID) {
-        //      foundDONConfigID = true;
-         //   }
-        //}
-        
-//         bool areWeightsSet = rewardManager.s_rewardRecipientWeightsSet[expectedDonConfigID];
-  //       rewardManager.s_rewardRecipientWeights[expectedDonConfigID][recipient];
-      // z = tyyadf
-         //expect areWeightsSet=true
-        // expect foundDONConfigID=true
-
-    //payRecipients(expectedDonConfigID, recipients, ADMIN);
-
     }
-*/
 }
