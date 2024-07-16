@@ -230,7 +230,6 @@ jobs:
           
           echo
           cat slither-results.md
-
       - name: Print Slither summary
         shell: bash
         run: |
