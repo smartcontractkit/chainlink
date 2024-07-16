@@ -42,7 +42,7 @@ AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
-		"replicas": 6,
+		"replicas": 10,
 		"toml":     "",
 		"db": map[string]interface{}{
 			"stateful": true,
@@ -124,9 +124,9 @@ func TestAutomationChaos(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	registryVersions := map[string]eth_contracts.KeeperRegistryVersion{
-		"registry_2_0": eth_contracts.RegistryVersion_2_0,
 		"registry_2_1": eth_contracts.RegistryVersion_2_1,
 		"registry_2_2": eth_contracts.RegistryVersion_2_2,
+		"registry_2_3": eth_contracts.RegistryVersion_2_3,
 	}
 
 	for name, registryVersion := range registryVersions {
@@ -310,7 +310,7 @@ func TestAutomationChaos(t *testing.T) {
 
 					gom := gomega.NewGomegaWithT(t)
 					gom.Eventually(func(g gomega.Gomega) {
-						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 						for i := 0; i < len(upkeepIDs); i++ {
 							counter, err := consumers[i].Counter(testcontext.Get(t))
 							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -334,7 +334,7 @@ func TestAutomationChaos(t *testing.T) {
 							g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 								"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 						}
-					}, "3m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+					}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 				})
 			}
 
