@@ -7,7 +7,7 @@ import jira from "jira.js";
  * @example parseIssueNumberFrom("CORE-123", "CORE-456", "CORE-789") => "CORE-123"
  * @example  parseIssueNumberFrom("2f3df5gf", "chore/test-RE-78-branch", "RE-78 Create new test branches") => "RE-78"
  */
-function parseIssueNumberFrom(
+export function parseIssueNumberFrom(
   ...inputs: (string | undefined)[]
 ): string | undefined {
   function parse(str?: string) {
@@ -28,7 +28,7 @@ function parseIssueNumberFrom(
  *
  * @example tagsToLabels(["v1.0.0", "v1.1.0"]) => [{ add: "core-release/1.0.0" }, { add: "core-release/1.1.0" }]
  */
-function tagsToLabels(tags: string[]) {
+export function tagsToLabels(tags: string[]) {
   const labelPrefix = "core-release";
 
   return tags.map((t) => ({
