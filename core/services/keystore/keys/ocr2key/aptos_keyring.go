@@ -7,7 +7,7 @@ import (
 
 	"github.com/hdevalence/ed25519consensus"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/blake2s"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -37,7 +37,7 @@ func (akr *aptosKeyring) PublicKey() ocrtypes.OnchainPublicKey {
 
 func (akr *aptosKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	rawReportContext := evmutil.RawReportContext(reportCtx)
-	h, err := blake2s.New256(nil)
+	h, err := blake2b.New256(nil)
 	if err != nil {
 		return nil, err
 	}
