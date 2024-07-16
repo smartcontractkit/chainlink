@@ -7,6 +7,8 @@
 #
 runner-test-matrix:
 
+  # START: OCR tests
+
   # Example of 1 runner for all tests in integration-tests/smoke/ocr_test.go
   - id: smoke/ocr_test.go:* 
     path: integration-tests/smoke/ocr_test.go
@@ -39,7 +41,28 @@ runner-test-matrix:
     test-cmd: cd integration-tests/ && go test smoke/ocr2_test.go -test.run ^TestOCRv2Basic$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope-env: ci-smoke-ocr2-evm-simulated-nightly
 
-  # Automation upgrade tests
+  # Example of a configuration for running a single soak test in Kubernetes Remote Runner
+  - id: soak/ocr_test.go:^TestOCRv1Soak$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
+    test_inputs:
+      test_suite: soak
+
+  - id: soak/ocr_test.go:^TestOCRv2Soak$
+    path: integration-tests/soak/ocr_test.go
+    test_env_type: k8s-remote-runner
+    runs-on: ubuntu-latest
+    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: soak
+      
+  # END: OCR tests
+
+  # START: Automation upgrade tests
   
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
     path: integration-tests/smoke/automation_upgrade_test.go
@@ -83,8 +106,6 @@ runner-test-matrix:
       chainlinkUpgradeVersion: develop
     pyroscope-env: ci-smoke-automation-upgrade-tests
 
-  # END Automation upgrade tests
-
   - id: integration-tests/reorg/automation_reorg_test.go
     path: integration-tests/reorg/automation_reorg_test.go
     test_env_type: k8s-remote-runner
@@ -107,25 +128,6 @@ runner-test-matrix:
     test_inputs:
       test_suite: chaos
 
-  # Example of a configuration for running a single soak test in Kubernetes Remote Runner
-  - id: soak/ocr_test.go:^TestOCRv1Soak$
-    path: integration-tests/soak/ocr_test.go
-    test_env_type: k8s-remote-runner
-    runs-on: ubuntu-latest
-    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv1Soak$ -test.parallel=1 -timeout 30m -count=1
-    test_inputs:
-      test_suite: soak
-
-  - id: soak/ocr_test.go:^TestOCRv2Soak$
-    path: integration-tests/soak/ocr_test.go
-    test_env_type: k8s-remote-runner
-    runs-on: ubuntu-latest
-    test-cmd: cd integration-tests/ && go test soak/ocr_test.go -v -test.run ^TestOCRv2Soak$ -test.parallel=1 -timeout 30m -count=1
-    test-config-override-required: true
-    test-secrets-required: true
-    test_inputs:
-      test_suite: soak
-
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
     test_env_type: k8s-remote-runner
@@ -138,6 +140,8 @@ runner-test-matrix:
     pyroscope-env: ci-benchmark-automation-nightly
     test_inputs:
       test_suite: benchmark
+
+  # END: Automation tests
 
   # START: VRF tests
 
