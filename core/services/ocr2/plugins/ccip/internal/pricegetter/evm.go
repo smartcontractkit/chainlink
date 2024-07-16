@@ -156,7 +156,7 @@ func (d *DynamicPriceGetter) performBatchCall(ctx context.Context, chainID uint6
 		v, err1 := rpclib.ParseOutput[uint8](res, 0)
 		if err1 != nil {
 			callSignature := batchCalls.decimalCalls[i].String()
-			return fmt.Errorf("parse contract output while calling %v on chain %d: %w", callSignature, chainID, err)
+			return fmt.Errorf("parse contract output while calling %v on chain %d: %w", callSignature, chainID, err1)
 		}
 		decimals = append(decimals, v)
 	}
@@ -167,7 +167,7 @@ func (d *DynamicPriceGetter) performBatchCall(ctx context.Context, chainID uint6
 		v, err1 := rpclib.ParseOutput[*big.Int](res, 1)
 		if err1 != nil {
 			callSignature := batchCalls.latestRoundDataCalls[i].String()
-			return fmt.Errorf("parse contract output while calling %v on chain %d: %w", callSignature, chainID, err)
+			return fmt.Errorf("parse contract output while calling %v on chain %d: %w", callSignature, chainID, err1)
 		}
 		latestRounds = append(latestRounds, v)
 	}
