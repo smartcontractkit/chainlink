@@ -40,7 +40,8 @@ function updateJiraIssue(
   client: jira.Version3Client,
   issueNumber: string,
   tags: string[],
-  fixVersionName: string
+  fixVersionName: string,
+  dryRun: boolean
 ) {
   return client.issues.editIssue({
     issueIdOrKey: issueNumber,
@@ -48,7 +49,10 @@ function updateJiraIssue(
       labels: tagsToLabels(tags),
       fixVersions: [{ set: [{ name: fixVersionName }] }],
     },
-  });
+  if (dryRun) {
+    core.info("Dry run enabled, skipping JIRA issue update");
+    return;
+  }
 }
 
 function createJiraClient() {
@@ -80,6 +84,7 @@ async function main() {
   const branchName = process.env.BRANCH_NAME;
 
   const chainlinkVersion = process.env.CHAINLINK_VERSION;
+  const dryRun = !!process.env.DRY_RUN;
   // tags are not getting used at the current moment so will always default to []
   const tags = process.env.FOUND_TAGS ? process.env.FOUND_TAGS.split(",") : [];
 
@@ -99,7 +104,7 @@ async function main() {
   }
 
   const fixVersionName = `chainlink-v${chainlinkVersion}`;
-  await updateJiraIssue(client, issueNumber, tags, fixVersionName);
+  await updateJiraIssue(client, issueNumber, tags, fixVersionName, dryRun);
 
   core.setOutput("jiraComment", "");
 }
