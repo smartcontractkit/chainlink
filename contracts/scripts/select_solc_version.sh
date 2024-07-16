@@ -52,7 +52,8 @@ SOLCVER=$(echo "$SOLCVER" | tr -d "'\"")
 echo "SOLCVER after cleanup: $SOLCVER"
 
 if [[ "$SOLC_IN_PROFILE" != "null" && -n "$SOLCVER" ]]; then
-  COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER" 2>&1)
+  COMPAT_SOLC_VERSION=$(npx semver "$SOLC_IN_PROFILE" -r "$SOLCVER")
+  echo "Compatibility result: $COMPAT_SOLC_VERSION"
   if [ -n "$COMPAT_SOLC_VERSION" ]; then
     echo "Version $SOLC_IN_PROFILE satisfies the constraint $SOLCVER"
     SOLC_TO_USE="$SOLC_IN_PROFILE"
