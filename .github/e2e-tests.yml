@@ -59,11 +59,25 @@ runner-test-matrix:
     test-secrets-required: true
     test_inputs:
       test_suite: soak
-      
+
   # END: OCR tests
 
-  # START: Automation upgrade tests
+  # START: Automation tests
   
+  - id: integration-tests/load/automationv2_1/automationv2_1_test.go:TestLogTrigger
+    path: integration-tests/load/automationv2_1/automationv2_1_test.go
+    runs-on: ubuntu-latest
+    test_env_type: k8s-remote-runner
+    test-cmd: cd integration-tests/load/automationv2_1 && go test -test.run TestLogTrigger -test.parallel=1 -timeout 60m -count=1 -json
+    remote-runner-memory: 4Gi
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_suite: automationv2_1
+    workflows:
+      - Automation Load Test
+    pyroscope-env: automation-load-test
+
   - id: smoke/automation_upgrade_test.go:^TestAutomationNodeUpgrade/registry_2_0
     path: integration-tests/smoke/automation_upgrade_test.go
     test_env_type: docker
@@ -108,14 +122,14 @@ runner-test-matrix:
 
   - id: integration-tests/reorg/automation_reorg_test.go
     path: integration-tests/reorg/automation_reorg_test.go
-    test_env_type: k8s-remote-runner
     runs-on: ubuntu-latest
+    test_env_type: k8s-remote-runner
+    test_inputs:
+      test_suite: reorg
     workflows:
       # - Run Automation Product Nightly E2E Tests
     test-cmd: cd integration-tests/reorg && go test -v -test.run ^TestAutomationReorg$ -test.parallel=5 -timeout 60m -count=1
     pyroscope-env: ci-automation-on-demand-reorg
-    test_inputs:
-      test_suite: reorg
 
   - id: integration-tests/chaos/automation_chaos_test.go
     path: integration-tests/chaos/automation_chaos_test.go
@@ -131,7 +145,6 @@ runner-test-matrix:
   - id: integration-tests/benchmark/keeper_test.go:^TestAutomationBenchmark$
     path: integration-tests/benchmark/keeper_test.go
     test_env_type: k8s-remote-runner
-    remote-runner-test-suite: benchmark
     remote-runner-memory: 4Gi
     runs-on: ubuntu-latest
     # workflows:
