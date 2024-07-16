@@ -379,7 +379,7 @@ jobs:
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlink_version || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version || 'develop' }} # Set default upgrade version
+          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
           chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
           selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
@@ -511,7 +511,7 @@ jobs:
         uses: ./.github/actions/create-default-e2e-config-override
         with:
           chainlink_version: ${{ inputs.chainlink_version || matrix.tests.test_inputs.chainlink_version || github.sha }}
-          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version || 'develop' }} # Set default upgrade version
+          chainlink_upgrade_version: ${{ matrix.tests.test_inputs.chainlink_upgrade_version }}
           chainlink_postgres_version: ${{ matrix.tests.test_inputs.chainlinkPostgresVersion }}
           selected_networks: ${{ matrix.tests.test_inputs.selectedNetworks || env.SELECTED_NETWORKS}}
           logging_run_id: ${{ github.run_id }}
