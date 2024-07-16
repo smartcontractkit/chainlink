@@ -144,11 +144,11 @@ jobs:
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d9da21a2747016b3e13de58c7d4115a3d5c97935 # v3.0.1
         with:
-          id: ${{ matrix.product }}-solidity-foundry
+          id: ${{ matrix.product.name }}-solidity-foundry
           org-id: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
           basic-auth: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-          this-job-name: Foundry Tests ${{ matrix.product.na }}
+          this-job-name: Foundry Tests ${{ matrix.product.name }}
         continue-on-error: true
 
   analyze:
