@@ -48,6 +48,7 @@ contract BaseDestinationFeeManagerTest is Test {
 
   bytes32 internal constant DEFAULT_FEED_2_V3 = (keccak256("LINK-USD") & V_MASK) | V3_BITMASK;
   bytes32 internal constant DEFAULT_CONFIG_DIGEST = keccak256("DEFAULT_CONFIG_DIGEST");
+  bytes32 internal constant DEFAULT_CONFIG_DIGEST2 = keccak256("DEFAULT_CONFIG_DIGEST2");
 
   //report
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;

@@ -274,9 +274,47 @@ function test_poolIdsCannotBeZeroAddress()public {
 }
 
 function test_rewardsAreCorrectlySentToEachAssociatedPoolWhenVerifyingInBulk() public {
-// sugested in PR
-}
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
+    bytes[] memory payloads = new bytes[](NUMBER_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
+      payloads[i] = payload;
+    }
+
+    bytes32[] memory poolIds = new bytes32[](NUMBER_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS -1 ; ++i) {
+      poolIds[i] = DEFAULT_CONFIG_DIGEST;
+    }
+    poolIds[NUMBER_OF_REPORTS-1] = DEFAULT_CONFIG_DIGEST2;
+
+    approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS, USER);
+
+    // Checking no rewards yet for each pool
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS; ++i) {
+      bytes32 p_id = poolIds[i];
+      uint256 poolDeficit = rewardManager.s_totalRewardRecipientFees(p_id);
+      assertEq(poolDeficit, 0);
+    }
+
+    processFee(poolIds, payloads, USER, address(link), DEFAULT_NATIVE_MINT_QUANTITY);
+
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
+    assertEq(getLinkBalance(address(feeManager)), 0);
+    assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
+
+     // Checking each pool got the correct rewards
+      uint256 expectedRewards = DEFAULT_REPORT_LINK_FEE * (NUMBER_OF_REPORTS - 1);
+      uint256 poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST);
+      assertEq(poolRewards, expectedRewards);
+
+      expectedRewards = DEFAULT_REPORT_LINK_FEE;
+      poolRewards = rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST2);
+      assertEq(poolRewards, expectedRewards);
+    
+}
 
 
  
