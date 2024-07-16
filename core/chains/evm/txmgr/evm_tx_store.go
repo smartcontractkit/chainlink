@@ -1686,9 +1686,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 				pqErr.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
 				return txmgr.ErrTxRemoved
 			}
-			if err != nil {
-				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
-			}
+			return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
 		}
 		dbAttempt.ToTxAttempt(attempt)
 		var dbEtx DbEthTx
