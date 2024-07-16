@@ -214,8 +214,7 @@ jobs:
               continue
             fi
           
-            echo "# Slither for: $sanitized_file" | tee -a slither-results.md             
-            
+            echo "# Slither for: $sanitized_file" | tee -a slither-results.md        
             slither --config .slither.config-pr.json --fail-none --checklist --markdown-root ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/ "$sanitized_file" 2>&1 | tee -a slither-results.md
           done
           
@@ -231,9 +230,7 @@ jobs:
         shell: bash
         run: |
           echo "# Static analysis results " >> $GITHUB_STEP_SUMMARY
-#          echo '```' >> $GITHUB_STEP_SUMMARY
           cat contracts/slither-results.md >> $GITHUB_STEP_SUMMARY
-#          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Slither report
         uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4.3.4
