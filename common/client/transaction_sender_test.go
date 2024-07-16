@@ -184,14 +184,13 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
-		mn, _ := newTestTransactionSender(t, chainID, lggr,
+		mn, txSender := newTestTransactionSender(t, chainID, lggr,
 			[]Node[types.ID, SendTxRPCClient[any]]{fastNode, slowNode},
 			[]SendOnlyNode[types.ID, SendTxRPCClient[any]]{slowSendOnly})
 
-		// TODO: Testing if mn is not closing
 		require.NoError(t, mn.Close())
-		//_, err := txSender.SendTransaction(tests.Context(t), nil)
-		//require.EqualError(t, err, "context canceled")
+		_, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, "context canceled")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
 		chainID := types.RandomID()
