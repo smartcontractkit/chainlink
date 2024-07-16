@@ -141,7 +141,17 @@ runner-test-matrix:
 
   # START: VRF tests
 
-  - id: integration-tests/load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$
+  - id: integration-tests/smoke/vrfv2_test.go:TestVRFv2Basic
+    path: integration-tests/smoke/vrfv2_test.go
+    runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
+    test-cmd: cd integration-tests/smoke && go test -v -test.run TestVRFv2Basic -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    workflows:
+      - On Demand VRFV2 Smoke Test (Ethereum clients)
+
+  - id: integration-tests/load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$Smoke
     path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
     runs-on: ubuntu22.04-8cores-32GB
     test_env_type: docker
@@ -150,6 +160,53 @@ runner-test-matrix:
     test-secrets-required: true
     test_inputs:
       test_type: Smoke
+    workflows:
+      - On Demand VRFV2 Plus Performance Test          
 
+  - id: integration-tests/load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusBHSPerformance$Smoke
+    path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
+    runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
+    test-cmd: cd integration-tests/load/vrfv2plus && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_type: Smoke
+    workflows:
+      - On Demand VRFV2 Plus Performance Test  
+
+  - id: integration-tests/load/vrfv2/vrfv2_test.go:^TestVRFV2Performance$Smoke
+    path: integration-tests/load/vrfv2/vrfv2_test.go
+    runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
+    test-cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_type: Smoke      
+    workflows:
+      - On Demand VRFV2 Performance Test      
+
+  - id: integration-tests/load/vrfv2/vrfv2_test.go:^TestVRFV2PlusBHSPerformance$Smoke
+    path: integration-tests/load/vrfv2/vrfv2_test.go
+    runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
+    test-cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    test_inputs:
+      test_type: Smoke
+    workflows:
+      - On Demand VRFV2 Performance Test
+
+  - id: integration-tests/smoke/vrfv2plus_test.go:^TestVRFv2Plus$/^Link_Billing$
+    path: integration-tests/smoke/vrfv2plus_test.go
+    runs-on: ubuntu22.04-8cores-32GB
+    test_env_type: docker
+    test-cmd: cd integration-tests && go test -v -test.run ^TestVRFv2Plus$/^Link_Billing$ smoke/vrfv2plus_test.go -test.parallel=1 -timeout 30m -count=1
+    test-config-override-required: true
+    test-secrets-required: true
+    workflows:
+      - On Demand VRFV2Plus Smoke Test (Ethereum clients)
 
   # END: VRF tests
