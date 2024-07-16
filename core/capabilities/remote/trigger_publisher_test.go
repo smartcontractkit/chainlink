@@ -20,34 +20,33 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1",
 		CapabilityType: commoncap.CapabilityTypeTrigger,
 		Description:    "Remote Trigger",
-		Version:        "0.0.1",
 	}
 	p1 := p2ptypes.PeerID{}
 	require.NoError(t, p1.UnmarshalText([]byte(peerID1)))
 	p2 := p2ptypes.PeerID{}
 	require.NoError(t, p2.UnmarshalText([]byte(peerID2)))
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      1,
 		Members: []p2ptypes.PeerID{p1},
 		F:       0,
 	}
 	workflowDonInfo := commoncap.DON{
-		ID:      "workflow-don",
+		ID:      2,
 		Members: []p2ptypes.PeerID{p2},
 		F:       0,
 	}
 
 	dispatcher := remoteMocks.NewDispatcher(t)
-	config := remotetypes.RemoteTriggerConfig{
+	config := &remotetypes.RemoteTriggerConfig{
 		RegistrationRefreshMs:   100,
 		RegistrationExpiryMs:    100_000,
 		MinResponsesToAggregate: 1,
 		MessageExpiryMs:         100_000,
 	}
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 	underlying := &testTrigger{
@@ -71,7 +70,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 		CallerDonId: workflowDonInfo.ID,
 		Payload:     marshaled,
 	}
-	publisher.Receive(regEvent)
+	publisher.Receive(ctx, regEvent)
 	forwarded := <-underlying.registrationsCh
 	require.Equal(t, capRequest.Metadata.WorkflowID, forwarded.Metadata.WorkflowID)
 

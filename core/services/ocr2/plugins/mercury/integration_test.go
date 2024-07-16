@@ -184,15 +184,17 @@ func integration_MercuryV1(t *testing.T) {
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
-	// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
-	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
-	require.NoError(t, err)
-	finalityDepth := ch.Config().EVM().FinalityDepth()
-	for i := 0; i < int(finalityDepth); i++ {
-		backend.Commit()
-	}
-
-	fromBlock := int(finalityDepth) // cannot use zero, start from finality depth
+	// cannot use zero, start from finality depth
+	fromBlock := func() int {
+		// Commit blocks to finality depth to ensure LogPoller has finalized blocks to read from
+		ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
+		require.NoError(t, err)
+		finalityDepth := ch.Config().EVM().FinalityDepth()
+		for i := 0; i < int(finalityDepth); i++ {
+			backend.Commit()
+		}
+		return int(finalityDepth)
+	}()
 
 	// Set up n oracles
 	var (
@@ -225,9 +227,8 @@ func integration_MercuryV1(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			var b []byte
-			b, err = io.ReadAll(req.Body)
-			require.NoError(t, err)
+			b, herr := io.ReadAll(req.Body)
+			require.NoError(t, herr)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 			r := rand.Int63n(101)
@@ -235,13 +236,13 @@ func integration_MercuryV1(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			}
 		}))
 		t.Cleanup(bridge.Close)
@@ -328,7 +329,7 @@ func integration_MercuryV1(t *testing.T) {
 			"offchainConfig", offchainConfig,
 		)
 
-		_, err = verifier.SetConfig(
+		_, ferr := verifier.SetConfig(
 			steve,
 			feed.id,
 			signerAddresses,
@@ -339,7 +340,7 @@ func integration_MercuryV1(t *testing.T) {
 			offchainConfig,
 			nil,
 		)
-		require.NoError(t, err)
+		require.NoError(t, ferr)
 		backend.Commit()
 	}
 
@@ -580,9 +581,8 @@ func integration_MercuryV2(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			var b []byte
-			b, err = io.ReadAll(req.Body)
-			require.NoError(t, err)
+			b, herr := io.ReadAll(req.Body)
+			require.NoError(t, herr)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 			r := rand.Int63n(101)
@@ -590,13 +590,13 @@ func integration_MercuryV2(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			}
 		}))
 		t.Cleanup(bridge.Close)
@@ -668,7 +668,7 @@ func integration_MercuryV2(t *testing.T) {
 	}
 
 	for _, feed := range feeds {
-		_, err = verifier.SetConfig(
+		_, ferr := verifier.SetConfig(
 			steve,
 			feed.id,
 			signerAddresses,
@@ -679,7 +679,7 @@ func integration_MercuryV2(t *testing.T) {
 			offchainConfig,
 			nil,
 		)
-		require.NoError(t, err)
+		require.NoError(t, ferr)
 		backend.Commit()
 	}
 
@@ -870,9 +870,8 @@ func integration_MercuryV3(t *testing.T) {
 
 	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
 		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			var b []byte
-			b, err = io.ReadAll(req.Body)
-			require.NoError(t, err)
+			b, herr := io.ReadAll(req.Body)
+			require.NoError(t, herr)
 			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 			r := rand.Int63n(101)
@@ -880,13 +879,13 @@ func integration_MercuryV3(t *testing.T) {
 				res.WriteHeader(http.StatusOK)
 				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
 				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
 				resp := `{"error": "pError test error"}`
-				_, err = res.Write([]byte(resp))
-				require.NoError(t, err)
+				_, herr = res.Write([]byte(resp))
+				require.NoError(t, herr)
 			}
 		}))
 		t.Cleanup(bridge.Close)
@@ -961,7 +960,7 @@ func integration_MercuryV3(t *testing.T) {
 	}
 
 	for _, feed := range feeds {
-		_, err = verifier.SetConfig(
+		_, ferr := verifier.SetConfig(
 			steve,
 			feed.id,
 			signerAddresses,
@@ -972,7 +971,7 @@ func integration_MercuryV3(t *testing.T) {
 			offchainConfig,
 			nil,
 		)
-		require.NoError(t, err)
+		require.NoError(t, ferr)
 		backend.Commit()
 	}
 

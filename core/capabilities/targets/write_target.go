@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -29,14 +30,15 @@ type WriteTarget struct {
 	forwarderAddress string
 	capabilities.CapabilityInfo
 	lggr logger.Logger
+
+	bound bool
 }
 
-func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
+func NewWriteTarget(lggr logger.Logger, id string, cr commontypes.ContractReader, cw commontypes.ChainWriter, forwarderAddress string) *WriteTarget {
 	info := capabilities.MustNewCapabilityInfo(
-		name,
+		id,
 		capabilities.CapabilityTypeTarget,
 		"Write target.",
-		"v1.0.0",
 	)
 
 	logger := lggr.Named("WriteTarget")
@@ -47,6 +49,7 @@ func NewWriteTarget(lggr logger.Logger, name string, cr commontypes.ContractRead
 		forwarderAddress,
 		info,
 		logger,
+		false,
 	}
 }
 
@@ -74,6 +77,21 @@ func success() <-chan capabilities.CapabilityResponse {
 }
 
 func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.CapabilityRequest) (<-chan capabilities.CapabilityResponse, error) {
+	// Bind to the contract address on the write path.
+	// Bind() requires a connection to the node's RPCs and
+	// cannot be run during initialization.
+	if !cap.bound {
+		cap.lggr.Debugw("Binding to forwarder address")
+		err := cap.cr.Bind(ctx, []commontypes.BoundContract{{
+			Address: cap.forwarderAddress,
+			Name:    "forwarder",
+		}})
+		if err != nil {
+			return nil, err
+		}
+		cap.bound = true
+	}
+
 	cap.lggr.Debugw("Execute", "request", request)
 
 	reqConfig, err := parseConfig(request.Config)
@@ -96,8 +114,6 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		cap.lggr.Debugw("Skipping empty report", "request", request)
 		return success(), nil
 	}
-	cap.lggr.Debugw("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures))
-
 	// TODO: validate encoded report is prefixed with workflowID and executionID that match the request meta
 
 	rawExecutionID, err := hex.DecodeString(request.Metadata.WorkflowExecutionID)
@@ -115,15 +131,16 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 		ReportId:            inputs.ID,
 	}
 	var transmitter common.Address
-	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", queryInputs, &transmitter); err != nil {
+	if err = cap.cr.GetLatestValue(ctx, "forwarder", "getTransmitter", primitives.Unconfirmed, queryInputs, &transmitter); err != nil {
 		return nil, err
 	}
 	if transmitter != common.HexToAddress("0x0") {
-		// report already transmitted, early return
+		cap.lggr.Infow("WriteTarget report already onchain - returning without a tranmission attempt", "executionID", request.Metadata.WorkflowExecutionID)
 		return success(), nil
 	}
 
-	txID, err := uuid.NewUUID() // TODO(archseer): it seems odd that CW expects us to generate an ID, rather than return one
+	cap.lggr.Infow("WriteTarget non-empty report - attempting to push to txmgr", "request", request, "reportLen", len(inputs.Report), "reportContextLen", len(inputs.Context), "nSignatures", len(inputs.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+	txID, err := uuid.NewUUID() // NOTE: CW expects us to generate an ID, rather than return one
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +149,10 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 	// `nil` values, including for slices. Until the bug is fixed we need to ensure that there are no
 	// `nil` values passed in the request.
 	req := struct {
-		ReceiverAddress string
-		RawReport       []byte
-		ReportContext   []byte
-		Signatures      [][]byte
+		Receiver      string
+		RawReport     []byte
+		ReportContext []byte
+		Signatures    [][]byte
 	}{reqConfig.Address, inputs.Report, inputs.Context, inputs.Signatures}
 
 	if req.RawReport == nil {
@@ -153,7 +170,7 @@ func (cap *WriteTarget) Execute(ctx context.Context, request capabilities.Capabi
 
 	meta := commontypes.TxMeta{WorkflowExecutionID: &request.Metadata.WorkflowExecutionID}
 	value := big.NewInt(0)
-	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID, cap.forwarderAddress, &meta, *value); err != nil {
+	if err := cap.cw.SubmitTransaction(ctx, "forwarder", "report", req, txID.String(), cap.forwarderAddress, &meta, value); err != nil {
 		return nil, err
 	}
 	cap.lggr.Debugw("Transaction submitted", "request", request, "transaction", txID)

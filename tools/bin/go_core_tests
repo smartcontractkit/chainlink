@@ -6,9 +6,12 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 USE_TEE="${USE_TEE:-true}"
 
+# To allow reuse in CI from other repositories
+TOOLS_PATH=${TOOLS_PATH:-"./tools"}
+
 echo "Failed tests and panics: ---------------------"
 echo ""
-GO_LDFLAGS=$(bash tools/bin/ldflags)
+GO_LDFLAGS=$(bash ${TOOLS_PATH}/bin/ldflags)
 use_tee() {
   if [ "$USE_TEE" = "true" ]; then
     tee "$@"

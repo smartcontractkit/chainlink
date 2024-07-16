@@ -147,11 +147,11 @@ func (bs *BlockSubscriber) initialize(ctx context.Context) {
 	// initialize the blocks map with the recent blockSize blocks
 	blocks, err := bs.getBlockRange(ctx)
 	if err != nil {
-		bs.lggr.Errorf("failed to get block range", err)
+		bs.lggr.Errorf("failed to get block range; error %v", err)
 	}
 	err = bs.initializeBlocks(ctx, blocks)
 	if err != nil {
-		bs.lggr.Errorf("failed to get log poller blocks", err)
+		bs.lggr.Errorf("failed to get log poller blocks; error %v", err)
 	}
 	_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
 }

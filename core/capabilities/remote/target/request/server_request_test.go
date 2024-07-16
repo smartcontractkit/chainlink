@@ -16,10 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target/request"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 func Test_ServerRequest_MessageValidation(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	capability := TestCapability{}
 	capabilityPeerID := NewP2PPeerID(t)
 
@@ -31,7 +33,7 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	callingDon := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      1,
 		F:       1,
 	}
 
@@ -56,8 +58,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Send duplicate message", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+		req := request.NewServerRequest(capability, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -66,8 +68,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message with non calling don peer", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+		req := request.NewServerRequest(capability, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -79,8 +81,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -89,8 +91,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send message invalid payload", func(t *testing.T) {
-		req := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+		req := request.NewServerRequest(capability, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -101,8 +103,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         append(rawRequest, []byte("asdf")...),
 		})
@@ -114,8 +116,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send second valid request when capability errors", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+		req := request.NewServerRequest(TestErrorCapability{}, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(req, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -126,8 +128,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -141,8 +143,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 
 	t.Run("Send second valid request", func(t *testing.T) {
 		dispatcher := &testDispatcher{}
-		request := request.NewServerRequest(capability, "capabilityID", "capabilityDonID",
-			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute)
+		request := request.NewServerRequest(capability, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, lggr)
 
 		err := sendValidRequest(request, workflowPeers, capabilityPeerID, rawRequest)
 		require.NoError(t, err)
@@ -153,8 +155,8 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 			Receiver:        capabilityPeerID[:],
 			MessageId:       []byte("workflowID" + "workflowExecutionID"),
 			CapabilityId:    "capabilityID",
-			CapabilityDonId: "capabilityDonID",
-			CallerDonId:     "workflow-don",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
 			Method:          types.MethodExecute,
 			Payload:         rawRequest,
 		})
@@ -177,8 +179,8 @@ func sendValidRequest(request serverRequest, workflowPeers []p2ptypes.PeerID, ca
 		Receiver:        capabilityPeerID[:],
 		MessageId:       []byte("workflowID" + "workflowExecutionID"),
 		CapabilityId:    "capabilityID",
-		CapabilityDonId: "capabilityDonID",
-		CallerDonId:     "workflow-don",
+		CapabilityDonId: 2,
+		CallerDonId:     1,
 		Method:          types.MethodExecute,
 		Payload:         rawRequest,
 	})
@@ -188,11 +190,11 @@ type testDispatcher struct {
 	msgs []*types.MessageBody
 }
 
-func (t *testDispatcher) SetReceiver(capabilityId string, donId string, receiver types.Receiver) error {
+func (t *testDispatcher) SetReceiver(capabilityId string, donId uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *testDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *testDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 func (t *testDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs = append(t.msgs, msgBody)
@@ -223,8 +225,12 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 
 	value := request.Inputs.Underlying["executeValue1"]
 
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return nil, err
+	}
 	ch <- commoncap.CapabilityResponse{
-		Value: value,
+		Value: response,
 	}
 
 	return ch, nil

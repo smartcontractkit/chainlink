@@ -20,11 +20,14 @@ contract BaseTest is Test {
 
   Signer[MAX_ORACLES] internal s_signers;
   KeystoneForwarder internal s_forwarder;
+  KeystoneForwarder internal s_router;
   Receiver internal s_receiver;
 
   function setUp() public virtual {
     vm.startPrank(ADMIN);
+    s_router = new KeystoneForwarder();
     s_forwarder = new KeystoneForwarder();
+    s_router.addForwarder(address(s_forwarder));
     s_receiver = new Receiver();
 
     uint256 seed = 0;
@@ -50,5 +53,21 @@ contract BaseTest is Test {
       signerAddrs[i] = s_signers[i].signerAddress;
     }
     return signerAddrs;
+  }
+
+  function _signReport(
+    bytes memory report,
+    bytes memory reportContext,
+    uint256 requiredSignatures
+  ) internal view returns (bytes[] memory signatures) {
+    signatures = new bytes[](requiredSignatures);
+    for (uint256 i = 0; i < requiredSignatures; i++) {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+        s_signers[i].mockPrivateKey,
+        keccak256(abi.encodePacked(keccak256(report), reportContext))
+      );
+      signatures[i] = bytes.concat(r, s, bytes1(v - 27));
+    }
+    return signatures;
   }
 }

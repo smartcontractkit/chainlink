@@ -12,7 +12,12 @@ This package is responsible for rendering the UI of the chainlink node, which al
 
 ### Requirements
 
-The `install.sh` script handles installing the specified tag of operator UI within the [tag file](./TAG). When executed, it downloads then moves the static assets of operator UI into the `core/web/assets` path. Then, when the chainlink binary is built, these assets are included into the build that gets served.
+The `install.go` script handles installing the specified tag of operator UI within the [tag file](./TAG). When executed, it downloads then moves the static assets of operator UI into the `core/web/assets` path. Then, when the chainlink binary is built, these assets are included into the build that gets served.
+
+```sh
+# The argument is the path from the this directory to the root of the repository 
+go run ./install.go .. 
+```
 
 ## Updates
 

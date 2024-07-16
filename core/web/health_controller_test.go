@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -127,7 +128,7 @@ func TestHealthController_Health_body(t *testing.T) {
 				require.NoError(t, json.Indent(&b, body, "", "  "))
 				body = b.Bytes()
 			}
-			assert.Equal(t, tc.expBody, string(body))
+			assert.Equal(t, strings.TrimSpace(tc.expBody), strings.TrimSpace(string(body)))
 		})
 	}
 }

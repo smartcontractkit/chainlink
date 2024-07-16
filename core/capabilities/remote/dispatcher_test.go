@@ -1,13 +1,14 @@
 package remote_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/mocks"
+	commonMocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,7 +27,7 @@ func newReceiver() *testReceiver {
 	}
 }
 
-func (r *testReceiver) Receive(msg *remotetypes.MessageBody) {
+func (r *testReceiver) Receive(_ context.Context, msg *remotetypes.MessageBody) {
 	r.ch <- msg
 }
 

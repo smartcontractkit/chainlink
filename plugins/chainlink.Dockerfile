@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.21-bullseye as buildgo
+FROM golang:1.22-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -33,7 +33,7 @@ RUN mkdir /chainlink-starknet
 RUN go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-starknet/relayer | xargs -I % ln -s % /chainlink-starknet/relayer
 
 # Build image: Plugins
-FROM golang:1.21-bullseye as buildplugins
+FROM golang:1.22-bullseye as buildplugins
 RUN go version
 
 WORKDIR /chainlink-feeds

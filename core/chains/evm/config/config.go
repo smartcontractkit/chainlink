@@ -9,8 +9,8 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 
-	commonconfig "github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -29,7 +29,7 @@ type EVM interface {
 	BlockBackfillSkip() bool
 	BlockEmissionIdleWarningThreshold() time.Duration
 	ChainID() *big.Int
-	ChainType() commonconfig.ChainType
+	ChainType() chaintype.ChainType
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FlagsContractAddress() string
@@ -45,6 +45,7 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+	FinalizedBlockOffset() uint32
 
 	IsEnabled() bool
 	TOMLString() (string, error)
@@ -113,7 +114,6 @@ type AutoPurgeConfig interface {
 	DetectionApiUrl() *url.URL
 }
 
-//go:generate mockery --quiet --name GasEstimator --output ./mocks/ --case=underscore
 type GasEstimator interface {
 	BlockHistory() BlockHistory
 	LimitJobType() LimitJobType
@@ -170,11 +170,11 @@ type NodePool interface {
 	NodeIsSyncingEnabled() bool
 	FinalizedBlockPollInterval() time.Duration
 	Errors() ClientErrors
+	EnforceRepeatableRead() bool
+	DeathDeclarationDelay() time.Duration
 }
 
 // TODO BCF-2509 does the chainscopedconfig really need the entire app config?
-//
-//go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	EVM() EVM
 }

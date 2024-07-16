@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -68,10 +69,11 @@ func SetupTH(t testing.TB, opts logpoller.Opts) TestHarness {
 	head := esc.Backend().Blockchain().CurrentHeader()
 	esc.Backend().Blockchain().SetFinalized(head)
 
+	headTracker := headtracker.NewSimulatedHeadTracker(esc, opts.UseFinalityTag, opts.FinalityDepth)
 	if opts.PollPeriod == 0 {
 		opts.PollPeriod = 1 * time.Hour
 	}
-	lp := logpoller.NewLogPoller(o, esc, lggr, opts)
+	lp := logpoller.NewLogPoller(o, esc, lggr, headTracker, opts)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

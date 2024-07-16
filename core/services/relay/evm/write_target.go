@@ -7,7 +7,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
@@ -17,10 +16,10 @@ import (
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
-	name := fmt.Sprintf("write_%v", chain.ID())
+	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
 	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
 	if err == nil {
-		name = fmt.Sprintf("write_%v", chainName)
+		id = fmt.Sprintf("write_%v@1.0.0", chainName)
 	}
 
 	// EVM-specific init
@@ -46,13 +45,6 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	if err != nil {
 		return nil, err
 	}
-	err = cr.Bind(ctx, []commontypes.BoundContract{{
-		Address: config.ForwarderAddress().String(),
-		Name:    "forwarder",
-	}})
-	if err != nil {
-		return nil, err
-	}
 
 	chainWriterConfig := relayevmtypes.ChainWriterConfig{
 		Contracts: map[string]*relayevmtypes.ContractConfig{
@@ -69,10 +61,17 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 			},
 		},
 	}
-	cw, err := NewChainWriterService(lggr.Named("ChainWriter"), chain.Client(), chain.TxManager(), chainWriterConfig)
+	chainWriterConfig.MaxGasPrice = chain.Config().EVM().GasEstimator().PriceMax()
+
+	encodedWriterConfig, err := json.Marshal(chainWriterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal chainwriter config: %w", err)
+	}
+
+	cw, err := relayer.NewChainWriter(ctx, encodedWriterConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return targets.NewWriteTarget(lggr, name, cr, cw, config.ForwarderAddress().String()), nil
+	return targets.NewWriteTarget(lggr, id, cr, cw, config.ForwarderAddress().String()), nil
 }

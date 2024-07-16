@@ -81,6 +81,16 @@ type LinkToken interface {
 	TransferAndCall(to string, amount *big.Int, data []byte) (*types.Transaction, error)
 	TransferAndCallFromKey(to string, amount *big.Int, data []byte, keyNum int) (*types.Transaction, error)
 	Name(context.Context) (string, error)
+	Decimals() uint
+}
+
+type WETHToken interface {
+	Address() string
+	Approve(to string, amount *big.Int) error
+	Transfer(to string, amount *big.Int) error
+	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
+	Name(context.Context) (string, error)
+	Decimals() uint
 }
 
 type OffchainOptions struct {
@@ -220,6 +230,13 @@ type MockETHLINKFeed interface {
 	LatestRoundDataUpdatedAt() (*big.Int, error)
 }
 
+type MockETHUSDFeed interface {
+	Address() string
+	LatestRoundData() (*big.Int, error)
+	LatestRoundDataUpdatedAt() (*big.Int, error)
+	Decimals() uint
+}
+
 type MockGasFeed interface {
 	Address() string
 }
@@ -227,6 +244,7 @@ type MockGasFeed interface {
 type BlockHashStore interface {
 	Address() string
 	GetBlockHash(ctx context.Context, blockNumber *big.Int) ([32]byte, error)
+	StoreVerifyHeader(blockNumber *big.Int, blockHeader []byte) error
 }
 
 type Staking interface {

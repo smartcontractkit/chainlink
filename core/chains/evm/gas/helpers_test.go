@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
@@ -16,8 +16,8 @@ func init() {
 	MaxStartTime = 1 * time.Second
 }
 
-func (b *BlockHistoryEstimator) CheckConnectivity(attempts []EvmPriorAttempt) error {
-	return b.checkConnectivity(attempts)
+func (b *BlockHistoryEstimator) HaltBumping(attempts []EvmPriorAttempt) error {
+	return b.haltBumping(attempts)
 }
 
 func BlockHistoryEstimatorFromInterface(bhe EvmEstimator) *BlockHistoryEstimator {
@@ -52,10 +52,22 @@ func GetGasPrice(b *BlockHistoryEstimator) *assets.Wei {
 	return b.gasPrice
 }
 
+func GetMaxPercentileGasPrice(b *BlockHistoryEstimator) *assets.Wei {
+	b.maxPriceMu.RLock()
+	defer b.maxPriceMu.RUnlock()
+	return b.maxPercentileGasPrice
+}
+
 func GetTipCap(b *BlockHistoryEstimator) *assets.Wei {
 	b.priceMu.RLock()
 	defer b.priceMu.RUnlock()
 	return b.tipCap
+}
+
+func GetMaxPercentileTipCap(b *BlockHistoryEstimator) *assets.Wei {
+	b.maxPriceMu.RLock()
+	defer b.maxPriceMu.RUnlock()
+	return b.maxPercentileTipCap
 }
 
 func GetLatestBaseFee(b *BlockHistoryEstimator) *assets.Wei {
@@ -119,8 +131,8 @@ func NewMockConfig() *MockConfig {
 	return &MockConfig{}
 }
 
-func (m *MockConfig) ChainType() config.ChainType {
-	return config.ChainType(m.ChainTypeF)
+func (m *MockConfig) ChainType() chaintype.ChainType {
+	return chaintype.ChainType(m.ChainTypeF)
 }
 
 func (m *MockConfig) FinalityDepth() uint32 {

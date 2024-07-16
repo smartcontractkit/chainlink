@@ -37,6 +37,7 @@ ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok PipelineORM
 ok PipelineRunner
+ok PipelineRunner.BridgeCache
 ok PromReporter
 ok TelemetryManager
 
@@ -93,6 +94,15 @@ ok TelemetryManager
       "id": "PipelineRunner",
       "attributes": {
         "name": "PipelineRunner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "PipelineRunner.BridgeCache",
+      "attributes": {
+        "name": "PipelineRunner.BridgeCache",
         "status": "passing",
         "output": ""
       }

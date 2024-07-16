@@ -5,6 +5,6 @@ import {BaseTest} from "./KeystoneForwarderBaseTest.t.sol";
 
 contract KeystoneForwarder_TypeAndVersionTest is BaseTest {
   function test_TypeAndVersion() public view {
-    assertEq(s_forwarder.typeAndVersion(), "KeystoneForwarder 1.0.0");
+    assertEq(s_forwarder.typeAndVersion(), "Forwarder and Router 1.0.0");
   }
 }

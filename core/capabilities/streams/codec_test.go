@@ -66,21 +66,25 @@ func TestCodec_WrapUnwrap(t *testing.T) {
 	require.NoError(t, err)
 
 	// wrong type
-	_, err = codec.UnwrapValid(values.NewBool(true), nil, 0)
+	_, err = codec.Unwrap(values.NewBool(true))
 	require.Error(t, err)
 
-	// wrong signatures
-	_, err = codec.UnwrapValid(wrapped, nil, 1)
-	require.Error(t, err)
-
-	// success
-	reports, err := codec.UnwrapValid(wrapped, allowedSigners, 2)
+	// correct reports byt wrong signatures
+	unwrapped, err := codec.Unwrap(wrapped)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(reports))
-	require.Equal(t, price1.Bytes(), reports[0].BenchmarkPrice)
-	require.Equal(t, price2.Bytes(), reports[1].BenchmarkPrice)
-	require.Equal(t, timestamp1, reports[0].ObservationTimestamp)
-	require.Equal(t, timestamp2, reports[1].ObservationTimestamp)
+	require.Equal(t, 2, len(unwrapped))
+	require.Equal(t, price1.Bytes(), unwrapped[0].BenchmarkPrice)
+	require.Equal(t, price2.Bytes(), unwrapped[1].BenchmarkPrice)
+	require.Equal(t, timestamp1, unwrapped[0].ObservationTimestamp)
+	require.Equal(t, timestamp2, unwrapped[1].ObservationTimestamp)
+	for _, report := range unwrapped {
+		require.Error(t, codec.Validate(report, nil, 1))
+	}
+
+	// valid signatures
+	for _, report := range unwrapped {
+		require.NoError(t, codec.Validate(report, allowedSigners, 2))
+	}
 }
 
 func newFeedID(t *testing.T) ([32]byte, string) {
@@ -93,12 +97,14 @@ func newFeedID(t *testing.T) ([32]byte, string) {
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
 	raw, err := v3Codec.BuildReport(v3.ReportFields{
-		BenchmarkPrice: price,
-		Timestamp:      uint32(timestamp),
-		Bid:            big.NewInt(0),
-		Ask:            big.NewInt(0),
-		LinkFee:        big.NewInt(0),
-		NativeFee:      big.NewInt(0),
+		BenchmarkPrice:     price,
+		Timestamp:          uint32(timestamp),
+		ValidFromTimestamp: uint32(timestamp),
+		Bid:                price,
+		Ask:                price,
+		LinkFee:            price,
+		NativeFee:          price,
+		ExpiresAt:          uint32(timestamp + 1000000),
 	})
 	require.NoError(t, err)
 	return raw

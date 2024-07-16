@@ -64,15 +64,9 @@ cat << EOF > config.toml
 selected_networks=["$SELECTED_NETWORKS"]
 
 [ChainlinkImage]
-image="$CHAINLINK_IMAGE"
+image="<SET USING E2E_TEST_CHAINLINK_IMAGE TEST SECRET ENV VAR>"
 version="$CHAINLINK_VERSION"
 postgres_version="$CHAINLINK_POSTGRES_VERSION"
-
-[Pyroscope]
-enabled=$pyroscope_enabled
-server_url="$PYROSCOPE_SERVER"
-environment="$PYROSCOPE_ENVIRONMENT"
-key_secret="$PYROSCOPE_KEY"
 
 [Logging]
 test_log_collect=false
@@ -80,15 +74,6 @@ run_id="$RUN_ID"
 
 [Logging.LogStream]
 log_targets=["$LOG_TARGETS"]
-
-[Logging.Loki]
-tenant_id="$LOKI_TENANT_ID"
-endpoint="$LOKI_ENDPOINT"
-basic_auth_secret="$LOKI_BASIC_AUTH"
-
-[Logging.Grafana]
-base_url="$GRAFANA_URL"
-dashboard_url="$GRAFANA_DASHBOARD_URL"
 EOF
 
 BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
@@ -98,6 +83,11 @@ echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
 **It is highly recommended to use reusable GHA actions present in [.actions](../../../.github/.actions) to generate and apply the base64-encoded configuration.** Own implementation of `BASE64_CONFIG_OVERRIDE` generation is discouraged and should be used only if existing actions do not cover the use case. But even in that case it might be a better idea to extend existing actions.
 This variable is automatically relayed to Kubernetes-based tests, eliminating the need for manual intervention in test scripts.
 
+## Test Secrets
+
+Test secrets are not stored directly within the `TestConfig` TOML for security reasons. Instead, they are passed into `TestConfig` via environment variables. This ensures sensitive data is handled securely throughout our testing processes.
+
+For detailed instructions on how to set test secrets both locally and within CI environments, please visit: [Test Secrets Guide in CTF](https://github.com/smartcontractkit/chainlink-testing-framework/blob/main/config/README.md#test-secrets)
 
 ## Named Configurations
 

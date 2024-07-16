@@ -17,8 +17,8 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/common/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/utils/big"
 )
@@ -341,7 +341,7 @@ type Chain struct {
 	AutoCreateKey             *bool
 	BlockBackfillDepth        *uint32
 	BlockBackfillSkip         *bool
-	ChainType                 *config.ChainTypeConfig
+	ChainType                 *chaintype.ChainTypeConfig
 	FinalityDepth             *uint32
 	FinalityTagEnabled        *bool
 	FlagsContractAddress      *types.EIP55Address
@@ -358,6 +358,7 @@ type Chain struct {
 	OperatorFactoryAddress    *types.EIP55Address
 	RPCDefaultBatchSize       *uint32
 	RPCBlockQueryDelay        *uint16
+	FinalizedBlockOffset      *uint32
 
 	Transactions   Transactions      `toml:",omitempty"`
 	BalanceMonitor BalanceMonitor    `toml:",omitempty"`
@@ -373,16 +374,12 @@ type Chain struct {
 func (c *Chain) ValidateConfig() (err error) {
 	if !c.ChainType.ChainType().IsValid() {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "ChainType", Value: c.ChainType.ChainType(),
-			Msg: config.ErrInvalidChainType.Error()})
+			Msg: chaintype.ErrInvalidChainType.Error()})
 	}
 
 	if c.GasEstimator.BumpTxDepth != nil && *c.GasEstimator.BumpTxDepth > *c.Transactions.MaxInFlight {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "GasEstimator.BumpTxDepth", Value: *c.GasEstimator.BumpTxDepth,
 			Msg: "must be less than or equal to Transactions.MaxInFlight"})
-	}
-	if *c.HeadTracker.HistoryDepth < *c.FinalityDepth {
-		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
-			Msg: "must be equal to or greater than FinalityDepth"})
 	}
 	if *c.FinalityDepth < 1 {
 		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "FinalityDepth", Value: *c.FinalityDepth,
@@ -393,11 +390,16 @@ func (c *Chain) ValidateConfig() (err error) {
 			Msg: "must be greater than or equal to 1"})
 	}
 
+	if *c.FinalizedBlockOffset > *c.HeadTracker.HistoryDepth {
+		err = multierr.Append(err, commonconfig.ErrInvalid{Name: "HeadTracker.HistoryDepth", Value: *c.HeadTracker.HistoryDepth,
+			Msg: "must be greater than or equal to FinalizedBlockOffset"})
+	}
+
 	// AutoPurge configs depend on ChainType so handling validation on per chain basis
 	if c.Transactions.AutoPurge.Enabled != nil && *c.Transactions.AutoPurge.Enabled {
 		chainType := c.ChainType.ChainType()
 		switch chainType {
-		case config.ChainScroll:
+		case chaintype.ChainScroll:
 			if c.Transactions.AutoPurge.DetectionApiUrl == nil {
 				err = multierr.Append(err, commonconfig.ErrMissing{Name: "Transactions.AutoPurge.DetectionApiUrl", Msg: fmt.Sprintf("must be set for %s", chainType)})
 			} else if c.Transactions.AutoPurge.DetectionApiUrl.IsZero() {
@@ -409,7 +411,7 @@ func (c *Chain) ValidateConfig() (err error) {
 					err = multierr.Append(err, commonconfig.ErrInvalid{Name: "Transactions.AutoPurge.DetectionApiUrl", Value: c.Transactions.AutoPurge.DetectionApiUrl.Scheme, Msg: "must be http or https"})
 				}
 			}
-		case config.ChainZkEvm:
+		case chaintype.ChainZkEvm:
 			// No other configs are needed
 		default:
 			// Bump Threshold is required because the stuck tx heuristic relies on a minimum number of bump attempts to exist
@@ -846,6 +848,8 @@ type NodePool struct {
 	NodeIsSyncingEnabled       *bool
 	FinalizedBlockPollInterval *commonconfig.Duration
 	Errors                     ClientErrors `toml:",omitempty"`
+	EnforceRepeatableRead      *bool
+	DeathDeclarationDelay      *commonconfig.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -869,6 +873,14 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.FinalizedBlockPollInterval; v != nil {
 		p.FinalizedBlockPollInterval = v
+	}
+
+	if v := f.EnforceRepeatableRead; v != nil {
+		p.EnforceRepeatableRead = v
+	}
+
+	if v := f.DeathDeclarationDelay; v != nil {
+		p.DeathDeclarationDelay = v
 	}
 	p.Errors.setFrom(&f.Errors)
 }

@@ -7,23 +7,20 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"google.golang.org/protobuf/proto"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
+	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
+	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	v1types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v1"
-	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
-	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 )
 
 type eaTelemetry struct {
@@ -41,15 +38,16 @@ type EnhancedTelemetryData struct {
 }
 
 type EnhancedTelemetryMercuryData struct {
-	V1Observation              *v1types.Observation
-	V2Observation              *v2types.Observation
-	V3Observation              *v3types.Observation
-	TaskRunResults             pipeline.TaskRunResults
-	RepTimestamp               ocrtypes.ReportTimestamp
-	FeedVersion                mercuryutils.FeedVersion
-	FetchMaxFinalizedTimestamp bool
-	IsLinkFeed                 bool
-	IsNativeFeed               bool
+	V1Observation                *v1types.Observation
+	V2Observation                *v2types.Observation
+	V3Observation                *v3types.Observation
+	TaskRunResults               pipeline.TaskRunResults
+	RepTimestamp                 ocrtypes.ReportTimestamp
+	FeedVersion                  mercuryutils.FeedVersion
+	FetchMaxFinalizedTimestamp   bool
+	IsLinkFeed                   bool
+	IsNativeFeed                 bool
+	DpInvariantViolationDetected bool
 }
 
 type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData] struct {
@@ -295,7 +293,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 	var bt uint64
 	// v1+v2+v3 fields
 	bp := big.NewInt(0)
-	//v1+v3 fields
+	// v1+v3 fields
 	bid := big.NewInt(0)
 	ask := big.NewInt(0)
 	// v2+v3 fields
@@ -384,6 +382,7 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			DpBenchmarkPrice:                benchmarkPrice,
 			DpBid:                           bidPrice,
 			DpAsk:                           askPrice,
+			DpInvariantViolationDetected:    d.DpInvariantViolationDetected,
 			CurrentBlockNumber:              bn,
 			CurrentBlockHash:                bh,
 			CurrentBlockTimestamp:           bt,
@@ -458,7 +457,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", e.job.ID)
+		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d", e.job.ID)
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
@@ -479,7 +478,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 
 	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
 	if bidTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, job %d, id %s", e.job.ID)
+		e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, 0, 0
 	}
 
@@ -496,7 +495,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
 	if askTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", e.job.ID)
+		e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
 		return benchmarkPrice, bidPrice, 0
 	}
 	if askTask != nil && askTask.Task.Type() == pipeline.TaskTypeJSONParse {

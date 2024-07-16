@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/target"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -24,8 +27,7 @@ import (
 )
 
 func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -45,8 +47,7 @@ func Test_RemoteTargetCapability_InsufficientCapabilityResponses(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -68,15 +69,14 @@ func Test_RemoteTargetCapability_InsufficientWorkflowRequests(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -101,15 +101,14 @@ func Test_RemoteTargetCapability_TransmissionSchedules(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
 		response := <-responseCh
-		responseValue, err := response.Value.Unwrap()
+		mp, err := response.Value.Unwrap()
 		require.NoError(t, err)
-		assert.Equal(t, "aValue1", responseValue.(string))
+		assert.Equal(t, "aValue1", mp.(map[string]any)["response"].(string))
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
@@ -137,8 +136,7 @@ func Test_RemoteTargetCapability_DonTopologies(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -158,8 +156,7 @@ func Test_RemoteTargetCapability_CapabilityError(t *testing.T) {
 }
 
 func Test_RemoteTargetCapability_RandomCapabilityError(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
+	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, responseCh <-chan commoncap.CapabilityResponse, responseError error) {
 		require.NoError(t, responseError)
@@ -194,16 +191,15 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	require.NoError(t, capabilityPeerID.UnmarshalText([]byte(NewPeerID())))
 
 	capDonInfo := commoncap.DON{
-		ID:      "capability-don",
+		ID:      2,
 		Members: capabilityPeers,
 		F:       capabilityDonF,
 	}
 
 	capInfo := commoncap.CapabilityInfo{
-		ID:             "cap_id",
+		ID:             "cap_id@1.0.0",
 		CapabilityType: commoncap.CapabilityTypeTarget,
 		Description:    "Remote Target",
-		Version:        "0.0.1",
 		DON:            &capDonInfo,
 	}
 
@@ -216,13 +212,13 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 	workflowDonInfo := commoncap.DON{
 		Members: workflowPeers,
-		ID:      "workflow-don",
+		ID:      1,
 		F:       workflowDonF,
 	}
 
-	broker := newTestMessageBroker()
+	broker := newTestAsyncMessageBroker(t, 1000)
 
-	workflowDONs := map[string]commoncap.DON{
+	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
 	}
 
@@ -230,8 +226,9 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	for i := 0; i < numCapabilityPeers; i++ {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := target.NewReceiver(ctx, lggr, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout)
+		capabilityNode := target.NewServer(capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
+			capabilityNodeResponseTimeout, lggr)
+		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
 	}
@@ -239,10 +236,13 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 	workflowNodes := make([]commoncap.TargetCapability, numWorkflowPeers)
 	for i := 0; i < numWorkflowPeers; i++ {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
-		workflowNode := target.NewClient(ctx, lggr, capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout)
+		workflowNode := target.NewClient(capInfo, workflowDonInfo, workflowPeerDispatcher, workflowNodeTimeout, lggr)
+		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
 		workflowNodes[i] = workflowNode
 	}
+
+	servicetest.Run(t, broker)
 
 	executeInputs, err := values.NewMap(
 		map[string]any{
@@ -257,6 +257,7 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 
 	for _, caller := range workflowNodes {
 		go func(caller commoncap.TargetCapability) {
+			defer wg.Done()
 			responseCh, err := caller.Execute(ctx,
 				commoncap.CapabilityRequest{
 					Metadata: commoncap.RequestMetadata{
@@ -268,56 +269,106 @@ func testRemoteTarget(ctx context.Context, t *testing.T, underlying commoncap.Ta
 				})
 
 			responseTest(t, responseCh, err)
-			wg.Done()
 		}(caller)
 	}
 
 	wg.Wait()
 }
 
-type testMessageBroker struct {
+type testAsyncMessageBroker struct {
+	services.StateMachine
+	t *testing.T
+
 	nodes map[p2ptypes.PeerID]remotetypes.Receiver
+
+	sendCh chan *remotetypes.MessageBody
+
+	stopCh services.StopChan
+	wg     sync.WaitGroup
 }
 
-func newTestMessageBroker() *testMessageBroker {
-	return &testMessageBroker{
-		nodes: make(map[p2ptypes.PeerID]remotetypes.Receiver),
+func (a *testAsyncMessageBroker) HealthReport() map[string]error {
+	return nil
+}
+
+func (a *testAsyncMessageBroker) Name() string {
+	return "testAsyncMessageBroker"
+}
+
+func newTestAsyncMessageBroker(t *testing.T, sendChBufferSize int) *testAsyncMessageBroker {
+	return &testAsyncMessageBroker{
+		t:      t,
+		nodes:  make(map[p2ptypes.PeerID]remotetypes.Receiver),
+		stopCh: make(services.StopChan),
+		sendCh: make(chan *remotetypes.MessageBody, sendChBufferSize),
 	}
 }
 
-func (r *testMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
+func (a *testAsyncMessageBroker) Start(ctx context.Context) error {
+	return a.StartOnce("testAsyncMessageBroker", func() error {
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+
+			for {
+				select {
+				case <-a.stopCh:
+					return
+				case msg := <-a.sendCh:
+					receiverId := toPeerID(msg.Receiver)
+
+					receiver, ok := a.nodes[receiverId]
+					if !ok {
+						panic("server not found for peer id")
+					}
+
+					receiver.Receive(tests.Context(a.t), msg)
+				}
+			}
+		}()
+		return nil
+	})
+}
+
+func (a *testAsyncMessageBroker) Close() error {
+	return a.StopOnce("testAsyncMessageBroker", func() error {
+		close(a.stopCh)
+
+		a.wg.Wait()
+		return nil
+	})
+}
+
+func (a *testAsyncMessageBroker) NewDispatcherForNode(nodePeerID p2ptypes.PeerID) remotetypes.Dispatcher {
 	return &nodeDispatcher{
 		callerPeerID: nodePeerID,
-		broker:       r,
+		broker:       a,
 	}
 }
 
-func (r *testMessageBroker) RegisterReceiverNode(nodePeerID p2ptypes.PeerID, node remotetypes.Receiver) {
-	if _, ok := r.nodes[nodePeerID]; ok {
+func (a *testAsyncMessageBroker) RegisterReceiverNode(nodePeerID p2ptypes.PeerID, node remotetypes.Receiver) {
+	if _, ok := a.nodes[nodePeerID]; ok {
 		panic("node already registered")
 	}
 
-	r.nodes[nodePeerID] = node
+	a.nodes[nodePeerID] = node
 }
 
-func (r *testMessageBroker) Send(msg *remotetypes.MessageBody) {
-	receiverId := toPeerID(msg.Receiver)
-
-	receiver, ok := r.nodes[receiverId]
-	if !ok {
-		panic("server not found for peer id")
-	}
-
-	receiver.Receive(msg)
+func (a *testAsyncMessageBroker) Send(msg *remotetypes.MessageBody) {
+	a.sendCh <- msg
 }
 
 func toPeerID(id []byte) p2ptypes.PeerID {
 	return [32]byte(id)
 }
 
+type broker interface {
+	Send(msg *remotetypes.MessageBody)
+}
+
 type nodeDispatcher struct {
 	callerPeerID p2ptypes.PeerID
-	broker       *testMessageBroker
+	broker       broker
 }
 
 func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -329,10 +380,10 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityId string, donId string, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId string) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
 
 type abstractTestCapability struct {
 }
@@ -358,8 +409,12 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 
 	value := request.Inputs.Underlying["executeValue1"]
 
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return nil, err
+	}
 	ch <- commoncap.CapabilityResponse{
-		Value: value,
+		Value: response,
 	}
 
 	return ch, nil

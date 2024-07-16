@@ -274,13 +274,13 @@ func (o *orm) UpdateRole(ctx context.Context, email, newRole string) (sessions.U
 
 		_, err = tx.ExecContext(ctx, "DELETE FROM sessions WHERE email = lower($1)", email)
 		if err != nil {
-			o.lggr.Errorf("Failed to purge user sessions for UpdateRole", "err", err)
+			o.lggr.Errorw("Failed to purge user sessions for UpdateRole", "err", err)
 			return pkgerrors.New("error updating API user")
 		}
 
 		sql := "UPDATE users SET role = $1, updated_at = now() WHERE lower(email) = lower($2) RETURNING *"
 		if err := tx.GetContext(ctx, &userToEdit, sql, userToEdit.Role, email); err != nil {
-			o.lggr.Errorf("Error updating API user", "err", err)
+			o.lggr.Errorw("Error updating API user", "err", err)
 			return pkgerrors.New("error updating API user")
 		}
 

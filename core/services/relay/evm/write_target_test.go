@@ -5,7 +5,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -13,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	gasmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -43,10 +47,16 @@ func TestEvmWrite(t *testing.T) {
 		mockCall = append(mockCall, byte(0))
 	}
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(mockCall, nil).Maybe()
+	evmClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return([]byte("test"), nil)
 
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(nil)
+
+	ht := mocks.NewHeadTracker[*types.Head, common.Hash](t)
+	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&types.Head{}, &types.Head{}, nil)
+	chain.On("HeadTracker").Return(ht)
+
 	chain.On("Client").Return(evmClient)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -61,8 +71,10 @@ func TestEvmWrite(t *testing.T) {
 		c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ge := gasmocks.NewEvmFeeEstimator(t)
 
 	chain.On("Config").Return(evmCfg)
+	chain.On("GasEstimator").Return(ge)
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
